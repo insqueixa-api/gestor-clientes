@@ -9,7 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.1.1",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "dayjs": "^1.11.19",
+    "next": "16.0.10",
+    "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -19,7 +23,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.1",
+    "eslint-config-next": "16.0.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
