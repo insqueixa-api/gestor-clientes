@@ -1,0 +1,1681 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { createPortal } from "react-dom";
+import { getCurrentTenantId } from "@/lib/tenant";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+import NovoCliente, { ClientData } from "./novo_cliente";
+import RecargaCliente from "./recarga_cliente";
+
+import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import Link from "next/link";
+
+// --- TIPOS ---
+type ClientStatus = "Ativo" | "Vencido" | "Teste" | "Arquivado";
+
+type SortKey =
+  | "name"
+  | "due"
+  | "status"
+  | "server"
+  | "technology"
+  | "screens"
+  | "plan"
+  | "value"
+  | "alerts"
+  | "apps"; // ✅ Adicionado
+type SortDir = "asc" | "desc";
+
+/**
+ * Linha REAL da view vw_clients_list_*
+ * Baseado na "Verdade Absoluta" do banco valiada anteriormente.
+ */
+type VwClientRow = {
+  id: string;
+  tenant_id: string;
+
+  client_name: string | null;
+  username: string | null;
+  server_password?: string | null; // CORRIGIDO: Nome real da coluna na View
+
+  vencimento: string | null; // Timestamptz ou Date
+  computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
+  client_is_archived: boolean | null;
+
+  screens: number | null;
+
+  plan_name: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+
+  server_id: string | null;
+  server_name: string | null;
+  
+  technology: string | null; // ✅ NOVO CAMPO
+
+  whatsapp_e164: string | null;
+  whatsapp_username: string | null;
+  whatsapp_extra: string[] | null;
+  whatsapp_opt_in: boolean | null;
+  dont_message_until: string | null; // whatsapp_snooze_until mapeado na view
+
+  apps_names: string[] | null; // View retorna array de texto
+  alerts_open: number | null;
+
+  notes: string | null;
+
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type ScheduledMsg = {
+  id: string;
+  client_id: string;
+  send_at: string;      // timestamptz
+  message: string;
+  status?: string | null;
+};
+
+
+// Dados processados para a Tabela
+type ClientRow = {
+  id: string;
+  name: string;
+  username: string;
+
+  // Datas
+  dueISODate: string;
+  dueLabelDate: string;
+  dueTime: string;
+
+  // Plano e Valor
+  planPeriod: string;
+  rawPlanName: string;
+  valueCents: number;
+  valueLabel: string;
+
+  status: ClientStatus;
+  server: string;
+  technology: string; // ✅ NOVO CAMPO
+  screens: number;
+
+  archived: boolean;
+  alertsCount: number;
+  apps: string[]; // ✅ Novo campo para a lista de apps
+
+  // --- DADOS PARA O MODAL DE EDIÇÃO ---
+  server_id: string;
+  technology_edit: string; // ✅ Para passar pro modal
+  whatsapp: string;
+  whatsapp_username?: string;
+  server_password?: string; // CORRIGIDO
+  price_amount?: number;
+  whatsapp_extra?: string[];
+  expires_at?: string; // Data YYYY-MM-DD para o input
+  rawVencimento?: string | null; // ✅ NOVO: Timestamp original completo
+  whatsapp_opt_in?: boolean;
+  notes?: string;
+  price_currency?: string;
+  dont_message_until?: string;
+};
+
+// --- HELPERS ---
+
+function localDateTimeToIso(local: string): string {
+  const d = new Date(local); // interpreta como local
+  if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
+  return d.toISOString(); // timestamptz-friendly
+}
+
+
+function compareText(a: string, b: string) {
+  return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
+}
+function compareNumber(a: number, b: number) {
+  return a - b;
+}
+function statusRank(s: ClientStatus) {
+  if (s === "Vencido") return 3;
+  if (s === "Teste") return 2;
+  return 1;
+}
+
+function extractPeriod(planName: string) {
+  const p = (planName || "").trim();
+  if (!p || p === "—") return "—";
+  if (p.toLowerCase().includes("personalizado")) return "Mensal";
+  if (p.includes("-")) {
+    const parts = p.split("-");
+    return parts[parts.length - 1].trim();
+  }
+  return p;
+}
+
+function mapStatus(computed: string): ClientStatus {
+  const statusMap: Record<string, ClientStatus> = {
+    ACTIVE: "Ativo",
+    OVERDUE: "Vencido",
+    TRIAL: "Teste",
+    ARCHIVED: "Arquivado",
+  };
+  return statusMap[computed] || "Ativo";
+}
+
+function formatDue(rawDue: string | null) {
+  if (!rawDue) {
+    return { dueISODate: "9999-12-31", dueLabelDate: "—", dueTime: "—" };
+  }
+  // A view retorna timestamptz, cortamos para pegar a data YYYY-MM-DD
+  const isoDate = rawDue.split("T")[0];
+  const dt = new Date(rawDue); // O browser converte UTC para local
+  
+  if (Number.isNaN(dt.getTime())) {
+    return { dueISODate: "9999-12-31", dueLabelDate: "—", dueTime: "—" };
+  }
+  
+  return { 
+    dueISODate: isoDate, 
+    dueLabelDate: dt.toLocaleDateString("pt-BR"), 
+    dueTime: dt.toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }) 
+  };
+}
+
+function formatMoney(amount: number | null, currency: string | null) {
+  if (!amount || amount <= 0) return { value: 0, label: "—" };
+  const cur = currency || "BRL";
+  return {
+    value: amount,
+    label: new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur }).format(amount),
+  };
+}
+
+export default function ClientePage() {
+  // --- ESTADOS ---
+  const [rows, setRows] = useState<ClientRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [sendingNow, setSendingNow] = useState(false);
+  const sendNowAbortRef = useRef<AbortController | null>(null);
+
+
+  // Modais
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
+
+  // Filtros
+  const [search, setSearch] = useState("");
+  const [showCount, setShowCount] = useState(100);
+  const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>("Todos");
+  const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
+  const [serverFilter, setServerFilter] = useState("Todos");
+  const [planFilter, setPlanFilter] = useState("Todos");
+  const [dueFilter, setDueFilter] = useState("Todos");
+
+  const [sortKey, setSortKey] = useState<SortKey>("due");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Ações
+  const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  const [showRenew, setShowRenew] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
+    open: false,
+    clientId: null,
+    clientName: undefined,
+  });
+
+  // ✅ NOVO: Estado para o aviso de alerta antes da renovação
+  const [showRenewWarning, setShowRenewWarning] = useState<{ open: boolean; clientId: string | null; clientName: string }>({
+    open: false,
+    clientId: null,
+    clientName: "",
+  });
+
+  // ✅ NOVO: Agendamentos por cliente (para badge e modal)
+  const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
+  const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
+  open: false,
+  clientId: null,
+  clientName: undefined,
+  });
+
+  
+  // Alertas (Mantido conforme original, assumindo API existente)
+  const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
+    open: false,
+    clientId: null,
+    clientName: undefined,
+  });
+  const [newAlertText, setNewAlertText] = useState("");
+  const [showAlertList, setShowAlertList] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
+    open: false,
+    clientId: null,
+    clientName: undefined,
+  });
+  const [clientAlerts, setClientAlerts] = useState<unknown[]>([]);
+
+  // Mensagem (Mantido conforme original)
+  const [showSendNow, setShowSendNow] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
+  const [messageText, setMessageText] = useState("");
+  const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleText, setScheduleText] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  function addToast(type: "success" | "error", title: string, message?: string) {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(() => removeToast(id), 4000);
+  }
+
+  function removeToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  async function getToken() {
+    const { data: { session } } = await supabaseBrowser.auth.getSession();
+    if (!session?.access_token) throw new Error("Sem sessão");
+    return session.access_token;
+  }
+
+  async function loadScheduledForClients(tid: string, clientIds: string[]) {
+  // ✅ Se não tem clientes visíveis, limpa
+  if (!clientIds.length) {
+    setScheduledMap({});
+    return;
+  }
+
+  /**
+   * ✅ TROQUE AQUI:
+   * - SCHEDULE_TABLE: nome real da tabela (achado no SQL)
+   * - colunas: ajuste conforme o schema real
+   */
+    const { data, error } = await supabaseBrowser
+    .from("client_message_jobs")
+    .select("id, client_id, send_at, message, status")
+    .eq("tenant_id", tid)
+    .in("client_id", clientIds)
+    .in("status", ["SCHEDULED", "QUEUED"]) // só pendentes
+    .order("send_at", { ascending: true })
+    .gte("send_at", new Date().toISOString());
+
+
+
+  if (error) {
+    console.error("Erro ao carregar agendamentos:", error);
+    setScheduledMap({});
+    return;
+  }
+
+  const map: Record<string, ScheduledMsg[]> = {};
+  for (const row of (data as any[]) || []) {
+    const cid = String(row.client_id);
+    if (!map[cid]) map[cid] = [];
+    map[cid].push({
+      id: String(row.id),
+      client_id: cid,
+      send_at: String(row.send_at),
+      message: String(row.message ?? ""),
+      status: row.status ?? null,
+    });
+  }
+
+  setScheduledMap(map);
+}
+
+
+  // --- CARREGAMENTO ---
+  async function loadData() {
+    setLoading(true);
+
+    const tid = await getCurrentTenantId();
+    setTenantId(tid);
+
+    if (!tid) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    const viewName = archivedFilter === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
+
+    const { data, error } = await supabaseBrowser
+    .from(viewName)
+    .select("*")
+    .eq("tenant_id", tid)
+    .neq("computed_status", "TRIAL") // ✅ não mostra trials nesta página
+    .order("vencimento", { ascending: true });
+
+
+    if (error) {
+      console.error(error);
+      addToast("error", "Erro ao carregar clientes", error.message);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    // Tipagem segura vinda do banco
+    const typed = (data || []) as VwClientRow[];
+
+    const mapped: ClientRow[] = typed.map((r) => {
+      const due = formatDue(r.vencimento);
+      const money = formatMoney(r.price_amount, r.price_currency);
+
+      return {
+        id: String(r.id),
+        name: String(r.client_name ?? "Sem Nome"),
+        username: String(r.username ?? "—"),
+
+        dueISODate: due.dueISODate,
+        dueLabelDate: due.dueLabelDate,
+        dueTime: due.dueTime,
+
+        planPeriod: extractPeriod(String(r.plan_name ?? "—")),
+        rawPlanName: String(r.plan_name ?? "—"),
+
+        valueCents: Math.round(money.value * 100),
+        valueLabel: money.label,
+
+        status: mapStatus(String(r.computed_status)),
+        server: String(r.server_name ?? r.server_id ?? "—"),
+        technology: String(r.technology || "—"), // ✅ Mapeia
+        screens: Number(r.screens || 1),
+
+        archived: Boolean(r.client_is_archived),
+        alertsCount: Number(r.alerts_open || 0),
+        apps: r.apps_names || [], // ✅ Mapeia os apps vindos da view
+
+        // Campos para Edição
+
+        // Campos para Edição
+        server_id: String(r.server_id ?? ""),
+        technology_edit: String(r.technology || "IPTV"), // ✅ Guarda valor real
+        whatsapp: String(r.whatsapp_e164 ?? ""),
+        whatsapp_username: r.whatsapp_username ?? undefined,
+        server_password: r.server_password ?? undefined, // CORRIGIDO
+        price_amount: r.price_amount ?? undefined,
+        whatsapp_extra: r.whatsapp_extra ?? undefined,
+        
+        // Passa vencimento como string 'YYYY-MM-DD' para o modal
+        expires_at: r.vencimento ? r.vencimento.split('T')[0] : undefined,
+        rawVencimento: r.vencimento, // ✅ Guarda o valor original completo
+
+        whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+        price_currency: r.price_currency ?? undefined,
+        dont_message_until: r.dont_message_until ?? undefined,
+        notes: r.notes ?? "",
+      };
+    });
+
+setRows(mapped);
+
+// ✅ carrega agendamentos desses clientes para badge/modal
+await loadScheduledForClients(tid, mapped.map((m) => m.id));
+
+setLoading(false);
+
+  }
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archivedFilter]);
+
+  useEffect(() => {
+  if (loading) return;
+
+  try {
+    const key = "clients_list_toasts";
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return;
+
+    const arr = JSON.parse(raw) as { type: "success" | "error"; title: string; message?: string }[];
+    window.sessionStorage.removeItem(key);
+
+    // ✅ dispara todos os toasts pendentes
+    for (const t of arr) {
+      addToast(t.type, t.title, t.message);
+    }
+  } catch {
+    // ignora
+  }
+}, [loading]); // quando terminar o loadData (loading=false), mostra o toast
+
+
+  // --- FILTROS ---
+  const uniqueServers = useMemo(() => Array.from(new Set(rows.map((r) => r.server).filter((s) => s !== "—"))).sort(), [rows]);
+  const uniqueplano = useMemo(() => Array.from(new Set(rows.map((r) => r.planPeriod).filter((p) => p !== "—"))).sort(), [rows]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const today = new Date().toISOString().split("T")[0];
+
+    return rows.filter((r) => {
+      if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
+      if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
+      if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
+
+      if (dueFilter !== "Todos") {
+        if (dueFilter === "Vencidos" && r.status !== "Vencido") return false;
+        if (dueFilter === "Hoje" && r.dueISODate !== today) return false;
+        if (dueFilter === "Próximos 3 dias") {
+          const diff = new Date(r.dueISODate).getTime() - new Date(today).getTime();
+          const days = diff / (1000 * 3600 * 24);
+          if (days < 0 || days > 3) return false;
+        }
+      }
+
+      if (q) {
+        const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [rows, search, statusFilter, serverFilter, planFilter, dueFilter]);
+
+  // --- ORDENAÇÃO ---
+const sorted = useMemo(() => {
+  const list = [...filtered];
+
+  // 🧠 DEFAULT (primeira vista)
+  // quando ninguém clicou ainda (estado inicial)
+  if (sortKey === "due" && sortDir === "asc") {
+    list.sort((a, b) => {
+    // 1) ATIVO primeiro
+    const sa = a.status === "Ativo" ? 0 : a.status === "Vencido" ? 1 : 2;
+    const sb = b.status === "Ativo" ? 0 : b.status === "Vencido" ? 1 : 2;
+    if (sa !== sb) return sa - sb;
+
+    // 2) vencimento mais próximo (usa o que você já monta: dueISODate + dueTime)
+    const ta = a.dueTime && a.dueTime !== "—" ? a.dueTime : "23:59";
+    const tb = b.dueTime && b.dueTime !== "—" ? b.dueTime : "23:59";
+    const da = `${a.dueISODate} ${ta}`;
+    const db = `${b.dueISODate} ${tb}`;
+
+    const dueCmp = compareText(da, db);
+    if (dueCmp !== 0) return dueCmp;
+
+    // 3) desempate visual
+    return compareText(a.name, b.name);
+
+    });
+
+    return list;
+  }
+
+  // 🔁 COMPORTAMENTO ORIGINAL (cliques nos headers)
+  list.sort((a, b) => {
+    let cmp = 0;
+
+    switch (sortKey) {
+      case "name":
+        cmp = compareText(a.name, b.name);
+        break;
+      case "due":
+        cmp = compareText(`${a.dueISODate} ${a.dueTime}`, `${b.dueISODate} ${b.dueTime}`);
+        break;
+      case "status":
+        cmp = compareNumber(statusRank(a.status), statusRank(b.status));
+        break;
+      case "server":
+        cmp = compareText(a.server, b.server);
+        break;
+      case "technology": // ✅ Adicionado
+        cmp = compareText(a.technology, b.technology);
+        break;
+      case "screens":
+        cmp = compareNumber(a.screens, b.screens);
+        break;
+      case "plan":
+        cmp = compareText(a.planPeriod, b.planPeriod);
+        break;
+      case "value":
+        cmp = compareNumber(a.valueCents, b.valueCents);
+        break;
+      case "alerts":
+        cmp = compareNumber(a.alertsCount, b.alertsCount);
+        break;
+      case "apps": // ✅ Ordena alfabeticamente pelos nomes dos apps
+        const appsA = (a.apps || []).join(", ");
+        const appsB = (b.apps || []).join(", ");
+        cmp = compareText(appsA, appsB);
+        break;
+    }
+
+    if (cmp === 0) {
+      cmp = compareText(`${a.dueISODate} ${a.dueTime}`, `${b.dueISODate} ${b.dueTime}`);
+    }
+
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  return list;
+}, [filtered, sortKey, sortDir]);
+
+
+  const visible = useMemo(() => sorted.slice(0, showCount), [sorted, showCount]);
+
+  function toggleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(nextKey);
+      setSortDir("asc");
+    }
+  }
+
+  // --- ACTIONS HANDLERS ---
+  const handleOpenEdit = (r: ClientRow) => {
+  const payload: ClientData = {
+    id: r.id,
+    client_name: r.name,
+    username: r.username,
+    server_id: r.server_id,
+    screens: r.screens,
+    technology: r.technology_edit, // ✅ Passa pro modal
+
+    whatsapp_e164: r.whatsapp,
+    whatsapp_username: r.whatsapp_username,
+    whatsapp_extra: r.whatsapp_extra,
+
+    whatsapp_opt_in: r.whatsapp_opt_in,
+    dont_message_until: r.dont_message_until,
+
+    server_password: r.server_password,
+
+    plan_name: r.rawPlanName,
+    price_amount: r.price_amount,
+    price_currency: r.price_currency,
+
+    // ✅ Passa a data/hora original exata (UTC) para o modal converter corretamente
+    vencimento: r.rawVencimento || undefined,
+
+    notes: r.notes,
+  };
+
+  setClientToEdit(payload);
+
+  // ✅ abre no próximo tick para garantir que o modal monte já em modo edição (com key correto)
+  setTimeout(() => setShowFormModal(true), 0);
+};
+
+
+  // ✅ ARQUIVAR / RESTAURAR OTIMIZADO
+  const handleArchiveToggle = async (r: ClientRow) => {
+    if (!tenantId) return;
+
+    const goingToArchive = !r.archived;
+    const confirmed = window.confirm(
+      goingToArchive ? "Arquivar este cliente? (Ele irá para a Lixeira)" : "Restaurar este cliente da Lixeira?"
+    );
+    if (!confirmed) return;
+
+    try {
+      // Simplificado: update_client usa COALESCE, então só passamos o que muda
+      const { error } = await supabaseBrowser.rpc("update_client", {
+        p_tenant_id: tenantId,
+        p_client_id: r.id,
+        p_is_archived: goingToArchive,
+        // Todos os outros campos são omitidos e o banco mantém o valor atual
+      });
+
+      if (error) throw error;
+
+      addToast("success", goingToArchive ? "Cliente arquivado" : "Cliente restaurado");
+      loadData();
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "Erro desconhecido";
+      console.error(e);
+      addToast("error", "Falha ao atualizar cliente", msg);
+    }
+  };
+
+  // ... (Funções de Alerta e Mensagem mantidas iguais pois são APIs externas por enquanto) ...
+  const handleSaveAlert = async () => {
+    if (!newAlertText.trim() || !showNewAlert.clientId || !tenantId) return;
+    
+    try {
+      const { error } = await supabaseBrowser
+        .from("client_alerts") // ⚠️ Confirme o nome da tabela
+        .insert({
+          tenant_id: tenantId,
+          client_id: showNewAlert.clientId,
+          message: newAlertText,
+          status: "OPEN", // Define como aberto
+          // created_by: userId (Se tiver esse campo e quiser salvar quem criou)
+        });
+
+      if (error) throw error;
+
+      addToast("success", "Alerta criado", "O alerta foi salvo com sucesso.");
+      
+      // Fecha modal e limpa
+      setShowNewAlert({ open: false, clientId: null });
+      setNewAlertText("");
+      
+      // Recarrega a lista principal para atualizar o contador
+      loadData(); 
+    } catch (error: any) {
+      console.error("Erro ao salvar alerta:", error);
+      addToast("error", "Erro ao criar alerta", error.message);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId: string) => {
+    if (!tenantId) return;
+    
+    // Pergunta: Você quer deletar ou apenas marcar como resolvido?
+    // Opção A: Deletar permanentemente
+    try {
+      const { error } = await supabaseBrowser
+        .from("client_alerts")
+        .delete()
+        .eq("id", alertId);
+
+      if (error) throw error;
+
+      // Remove da lista visualmente na hora (sem precisar recarregar tudo)
+      setClientAlerts((prev) => (prev as any[]).filter((a) => a.id !== alertId));
+      
+      // Atualiza a contagem na tabela principal
+      loadData();
+      
+    } catch (error: any) {
+      console.error("Erro ao excluir alerta:", error);
+      addToast("error", "Erro ao excluir", error.message);
+    }
+  };
+
+const handleOpenAlertList = async (clientId: string, clientName: string) => {
+    // Limpa lista anterior e abre modal
+    setClientAlerts([]); 
+    setShowAlertList({ open: true, clientId, clientName });
+
+    try {
+      if (!tenantId) return;
+
+      // Busca direta no banco
+      const { data, error } = await supabaseBrowser
+        .from("client_alerts") // ⚠️ Confirme se o nome é esse mesmo
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("client_id", clientId)
+        // Se quiser ver histórico, remova a linha abaixo
+        .eq("status", "OPEN") 
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setClientAlerts(data || []);
+    } catch (error: any) {
+      console.error("Erro ao buscar alertas:", error);
+      addToast("error", "Erro ao carregar alertas", error.message);
+    }
+  };
+
+  const handleSendMessage = async () => {
+  if (!tenantId || !showSendNow.clientId) return;
+  if (sendingNow) return; // ✅ trava double click
+
+  const msg = (messageText || "").trim();
+  if (!msg) {
+    addToast("error", "Mensagem vazia", "Digite uma mensagem antes de enviar.");
+    return;
+  }
+
+  try {
+  setSendingNow(true);
+
+  // ✅ aborta tentativa anterior (se existiu)
+  if (sendNowAbortRef.current) {
+    try { sendNowAbortRef.current.abort(); } catch {}
+  }
+
+  const controller = new AbortController();
+  sendNowAbortRef.current = controller;
+
+  const token = await getToken();
+
+const res = await fetch("/api/whatsapp/envio_agora", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  cache: "no-store",
+  signal: controller.signal,
+  body: JSON.stringify({
+    tenant_id: tenantId,
+    client_id: showSendNow.clientId,
+    message: msg,
+    whatsapp_session: "default", // pode manter, o back ignora
+  }),
+});
+
+
+    const raw = await res.text();
+    let json: any = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch {}
+
+    if (!res.ok) throw new Error(json?.error || raw || "Falha ao enviar");
+
+    addToast("success", "Enviado", "Mensagem enviada imediatamente via WhatsApp.");
+
+    setShowSendNow({ open: false, clientId: null });
+    setMessageText("");
+  } catch (e: any) {
+    // Abort é ok silencioso
+    if (e?.name !== "AbortError") {
+      console.error("Erro ao enviar mensagem:", e);
+      addToast("error", "Erro ao enviar mensagem", e?.message || "Falha desconhecida");
+    }
+} finally {
+  setSendingNow(false);
+  // ✅ limpa ref (opcional mas bom)
+  sendNowAbortRef.current = null;
+}
+
+};
+
+
+  const handleScheduleMessage = async () => {
+  if (!tenantId || !showScheduleMsg.clientId) return;
+  if (scheduling) return; // ✅ trava double click
+
+  const msg = (scheduleText || "").trim();
+  if (!msg) {
+    addToast("error", "Mensagem vazia", "Digite uma mensagem antes de agendar.");
+    return;
+  }
+
+  if (!scheduleDate) {
+    addToast("error", "Data obrigatória", "Selecione data e hora do envio.");
+    return;
+  }
+
+  try {
+    setScheduling(true);
+
+    const sendAtIso = localDateTimeToIso(scheduleDate);
+
+    // ✅ opcional, mas recomendo: impedir agendar no passado
+    if (new Date(sendAtIso).getTime() <= Date.now()) {
+      addToast("error", "Data inválida", "Escolha uma data/hora no futuro.");
+      return;
+    }
+
+    const token = await getToken();
+
+const res = await fetch("/api/whatsapp/envio_programado", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  cache: "no-store",
+  body: JSON.stringify({
+    tenant_id: tenantId,
+    client_id: showScheduleMsg.clientId,
+    message: msg,
+    send_at: sendAtIso,
+    whatsapp_session: "default",
+  }),
+});
+
+
+    const raw = await res.text();
+    let json: any = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch {}
+
+    if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
+
+    addToast("success", "Agendado", "Mensagem programada com sucesso.");
+
+    setShowScheduleMsg({ open: false, clientId: null });
+    setScheduleText("");
+    setScheduleDate("");
+
+    await loadScheduledForClients(tenantId, rows.map((x) => x.id));
+  } catch (e: any) {
+    console.error("Erro ao agendar:", e);
+    addToast("error", "Erro ao agendar", e?.message || "Falha desconhecida");
+  } finally {
+    setScheduling(false);
+  }
+};
+
+
+
+
+
+  function closeAllPopups() {
+    setMsgMenuForId(null);
+  }
+
+  // ✅ Lógica de Interceptação da Renovação
+  const handleClickRenew = (r: ClientRow) => {
+  // Fecha menus se estiverem abertos
+  setMsgMenuForId(null);
+
+  if (r.alertsCount > 0) {
+    // Tem alerta? Abre o aviso primeiro
+    setShowRenewWarning({ open: true, clientId: r.id, clientName: r.name });
+  } else {
+    // Sem alerta? Abre renovação direto (comportamento original)
+    setShowRenew({ open: true, clientId: r.id, clientName: r.name });
+  }
+};
+
+
+  
+  return (
+    <div className="p-5 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => closeAllPopups()}>
+      {/* Topo */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-1 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestão de Clientes</h1>
+          <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie assinaturas, renovações e testes.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
+              archivedFilter === "Sim"
+                ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+            }`}
+          >
+            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setClientToEdit(null);
+              setShowFormModal(true);
+            }}
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+          >
+            <span>+</span> Novo Cliente
+          </button>
+        </div>
+      </div>
+
+      {/* --- BARRA DE FILTROS COMPLETA --- */}
+      <div
+        className="p-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm space-y-4 mb-6 sticky top-4 z-20"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">Filtros Rápidos</div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1fr_0.5fr_1fr_1fr_1fr_1fr_1fr] gap-2">
+          <div className="col-span-2 lg:col-span-2 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
+                <IconX />
+              </button>
+            )}
+          </div>
+
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
+            <option value="Todos">Status (Todos)</option>
+            <option value="Ativo">Ativo</option>
+            <option value="Vencido">Vencido</option>
+            {/* Trials aparecem na tela de Testes, não aqui */}
+
+          </Select>
+
+          <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
+            <option value="Todos">Servidor (Todos)</option>
+            {uniqueServers.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </Select>
+
+          <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
+            <option value="Todos">Plano (Todos)</option>
+            {uniqueplano.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+
+          <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
+            <option value="Todos">Vencimento (Todos)</option>
+            <option value="Hoje">Hoje</option>
+            <option value="Próximos 3 dias">Próximos 3 dias</option>
+            <option value="Vencidos">Vencidos</option>
+          </Select>
+
+          <button
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("Todos");
+              setServerFilter("Todos");
+              setPlanFilter("Todos");
+              setDueFilter("Todos");
+              setArchivedFilter("Não");
+            }}
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+          >
+            <IconX /> Limpar
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
+          Carregando dados...
+        </div>
+      )}
+
+      {!loading && (
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+            <div className="text-sm font-bold text-slate-700 dark:text-white">
+              Lista de Clientes{" "}
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
+              <span>Mostrar</span>
+              <select
+                value={showCount}
+                onChange={(e) => setShowCount(Number(e.target.value))}
+                className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-250">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
+                  <Th width={40}>
+                    <input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+                  </Th>
+                  <ThSort label="Cliente" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
+                  <ThSort label="Vencimento" active={sortKey === "due"} dir={sortDir} onClick={() => toggleSort("due")} />
+                  <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
+                  <ThSort label="Servidor" active={sortKey === "server"} dir={sortDir} onClick={() => toggleSort("server")} />
+                  <ThSort label="Tecnologia" active={sortKey === "technology"} dir={sortDir} onClick={() => toggleSort("technology")} />
+                  <ThSort label="Telas" active={sortKey === "screens"} dir={sortDir} onClick={() => toggleSort("screens")} />
+                  <ThSort label="Plano" active={sortKey === "plan"} dir={sortDir} onClick={() => toggleSort("plan")} />
+                  <ThSort label="Valor" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} />
+                  <ThSort label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} />
+                  <Th align="right">Ações</Th>  
+                </tr>
+              </thead>
+
+              <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
+                {visible.map((r) => {
+                  const isExpired = r.status === "Vencido";
+                  return (
+                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                      <Td>
+                        <input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+                      </Td>
+
+                      <Td>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <Link href={`/admin/cliente/${r.id}`} className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer">
+                              {r.name}
+                            </Link>
+                            
+                            {/* ✅ SINO DE ALERTA (Clicável para abrir lista) */}
+                            {r.alertsCount > 0 && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      handleOpenAlertList(r.id, r.name);
+    }}
+    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+    title="Ver alertas pendentes"
+  >
+    🔔 {r.alertsCount}
+  </button>
+)}
+
+{(scheduledMap[r.id]?.length || 0) > 0 && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
+    }}
+    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
+    title="Ver mensagens programadas"
+  >
+    🗓️ {scheduledMap[r.id].length}
+  </button>
+)}
+
+                          </div>
+                          <span className="text-xs text-slate-400 dark:text-white/40">{r.username}</span>
+                        </div>
+                      </Td>
+
+                      <Td>
+                        <div className="flex flex-col">
+                          <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>{r.dueLabelDate}</span>
+                          <span className="text-xs text-slate-400 dark:text-white/30">{r.dueTime}</span>
+                        </div>
+                      </Td>
+
+                      <Td>
+                        <StatusBadge status={r.status} />
+                      </Td>
+
+                      <Td>
+                        <span className="text-slate-600 dark:text-white/70">{r.server}</span>
+                      </Td>
+
+                      <Td>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+                          {r.technology}
+                        </span>
+                      </Td>
+
+                      <Td>
+                        <span className="text-slate-600 dark:text-white/70 pl-2">{r.screens}</span>
+                      </Td>
+
+                      <Td>
+                        <span className="text-slate-600 dark:text-white/80">{r.planPeriod}</span>
+                      </Td>
+
+                      <Td>
+                        <span className="font-medium text-slate-700 dark:text-white/90">{r.valueLabel}</span>
+                      </Td>
+
+                      <Td>
+                        {/* ✅ Lista de Aplicativos */}
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {r.apps && r.apps.length > 0 ? (
+                            r.apps.map((app, i) => (
+                              <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate">
+                                {app}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-300 dark:text-white/10 text-xs">—</span>
+                          )}
+                        </div>
+                      </Td>
+
+                      <Td align="right">
+                        <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
+                          <div className="relative">
+                            <IconActionBtn title="Mensagem" tone="blue" onClick={(e) => { e.stopPropagation(); setMsgMenuForId((cur) => (cur === r.id ? null : r.id)); }}>
+                              <IconChat />
+                            </IconActionBtn>
+
+                            {msgMenuForId === r.id && (
+                              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden">
+                                <MenuItem icon={<IconSend />} label="Enviar agora" onClick={() => { setMsgMenuForId(null); setMessageText(""); setShowSendNow({ open: true, clientId: r.id }); }} />
+                                <MenuItem icon={<IconClock />} label="Programar" onClick={() => { setMsgMenuForId(null); setScheduleText(""); setScheduleDate(""); setShowScheduleMsg({ open: true, clientId: r.id }); }} />
+                              </div>
+                            )}
+                          </div>
+
+                          <IconActionBtn title="Renovar" tone="green" onClick={(e) => { e.stopPropagation(); handleClickRenew(r); }}>
+                            <IconMoney />
+                          </IconActionBtn>
+
+                          <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); handleOpenEdit(r); }}>
+                            <IconEdit />
+                          </IconActionBtn>
+
+                          <IconActionBtn title="Novo alerta" tone="purple" onClick={(e) => { e.stopPropagation(); setNewAlertText(""); setShowNewAlert({ open: true, clientId: r.id, clientName: r.name }); }}>
+                            <IconBell />
+                          </IconActionBtn>
+
+                          <IconActionBtn
+                            title={r.archived ? "Restaurar" : "Arquivar"}
+                            tone={r.archived ? "green" : "red"} // ✅ opcional: restaura em verde
+                            onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
+                          >
+                            {r.archived ? <IconRestore /> : <IconTrash />}
+                          </IconActionBtn>
+
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+
+                {visible.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="p-8 text-center text-slate-400 dark:text-white/40 italic">Nenhum cliente encontrado.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAIS --- */}
+      {showFormModal && (
+        <NovoCliente
+          key={clientToEdit?.id ?? "new"} // ✅ força o modal re-montar ao trocar novo/editar
+          clientToEdit={clientToEdit}
+          onClose={() => setShowFormModal(false)}
+          onSuccess={() => {
+            setShowFormModal(false);
+            loadData();
+          }}
+        />
+      )}
+
+{/* ✅ MODAL DE AVISO DE ALERTA (INTERCEPTADOR) */}
+      {showRenewWarning.open && (
+        <Modal title="⚠️ Cliente com Alertas" onClose={() => setShowRenewWarning({ open: false, clientId: null, clientName: "" })}>
+          <div className="space-y-6">
+            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+                <span className="text-2xl">📢</span>
+                <div>
+                  <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
+                    O cliente <strong className="text-amber-700 dark:text-amber-400">{showRenewWarning.clientName}</strong> possui pendências/alertas em aberto.
+                  </p>
+                  <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                    Recomendamos verificar os alertas antes de realizar a renovação para evitar problemas.
+                  </p>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => {
+                  const { clientId, clientName } = showRenewWarning;
+                  setShowRenewWarning({ open: false, clientId: null, clientName: "" });
+                  // Abre a lista de alertas para checar
+                  if (clientId) handleOpenAlertList(clientId, clientName);
+                }}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+              >
+                Ver Alertas
+              </button>
+
+              <button
+                onClick={() => {
+                  const { clientId, clientName } = showRenewWarning;
+                  setShowRenewWarning({ open: false, clientId: null, clientName: "" });
+                  // Ignora e abre a renovação
+                  setShowRenew({ open: true, clientId, clientName });
+                }}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
+              >
+                Ignorar e Renovar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+
+      {showRenew.open && showRenew.clientId && (
+      <RecargaCliente
+        clientId={showRenew.clientId}
+        clientName={showRenew.clientName || "Cliente"}
+        onClose={() => setShowRenew({ open: false, clientId: null, clientName: undefined })}
+        onSuccess={() => {
+          setShowRenew({ open: false, clientId: null, clientName: undefined });
+          loadData();
+
+          // ✅ 2 toasts finais após refresh (igual ao detalhe)
+          setTimeout(() => {
+            addToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.");
+            addToast("success", "Cliente renovado", "Renovação registrada com sucesso.");
+          }, 150);
+        }}
+      />
+    )}
+
+
+{showNewAlert.open && (
+        <Modal title="Criar Novo Alerta" onClose={() => setShowNewAlert({ open: false, clientId: null })}>
+          <div className="space-y-4">
+            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
+               <span className="text-xl">🔔</span>
+               <div className="text-sm text-purple-900 dark:text-purple-200">
+                 Adicionando alerta para <strong>{showNewAlert.clientName}</strong>
+               </div>
+            </div>
+
+            <textarea
+              value={newAlertText}
+              onChange={(e) => setNewAlertText(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+              placeholder="Descreva o alerta ou pendência deste cliente..."
+              autoFocus
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button 
+                onClick={() => setShowNewAlert({ open: false, clientId: null })} 
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveAlert}
+                className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 text-sm transition-all" 
+              >
+                Salvar Alerta
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+{showScheduledModal.open && showScheduledModal.clientId && (
+  <ScheduledMessagesModal
+  tenantId={tenantId!}
+  clientId={showScheduledModal.clientId}
+  clientName={showScheduledModal.clientName || "Cliente"}
+  items={scheduledMap[showScheduledModal.clientId] || []}
+  onClose={() => setShowScheduledModal({ open: false, clientId: null, clientName: undefined })}
+  onDeleted={async () => {
+    if (tenantId) await loadScheduledForClients(tenantId, rows.map((x) => x.id));
+  }}
+  addToast={addToast}
+/>
+
+)}
+
+
+{showAlertList.open && (
+        <Modal title={`Alertas: ${showAlertList.clientName}`} onClose={() => setShowAlertList({ open: false, clientId: null })}>
+          <div className="space-y-4">
+            
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
+              {(clientAlerts as { id: string; message?: string }[]).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+                   <span className="text-2xl mb-2">✅</span>
+                   <p className="text-sm">Nenhum alerta pendente.</p>
+                </div>
+              ) : (
+                (clientAlerts as { id: string; message?: string }[]).map((alert) => (
+                  <div key={alert.id} className="group p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4">
+                    <div className="flex gap-3">
+                        <span className="text-rose-500 mt-0.5">⚠️</span>
+                        <p className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap leading-relaxed">{alert.message || ""}</p>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteAlert(alert.id)} 
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                      title="Resolver / Excluir"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 dark:border-white/5 pt-4">
+              <button 
+                onClick={() => setShowAlertList({ open: false, clientId: null })} 
+                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
+              >
+                Fechar Lista
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
+{showSendNow.open && (
+        <Modal title="Enviar Mensagem Rápida" onClose={() => setShowSendNow({ open: false, clientId: null })}>
+          <div className="space-y-4">
+            <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 p-3 rounded-lg flex items-center gap-3">
+               <span className="text-xl">💬</span>
+               <div className="text-sm text-sky-900 dark:text-sky-200">
+                 Esta mensagem será enviada <strong>imediatamente</strong> via WhatsApp.
+               </div>
+            </div>
+
+            <textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none"
+              placeholder="Olá, gostaria de informar que..."
+              autoFocus
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button 
+                onClick={() => setShowSendNow({ open: false, clientId: null })} 
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+              onClick={handleSendMessage}
+              disabled={sendingNow}
+              className="px-6 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 shadow-lg shadow-sky-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <IconSend /> {sendingNow ? "Enviando..." : "Enviar Agora"}
+            </button>
+
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- MODAL DE AGENDAMENTO DE MENSAGEM --- */}
+      {showScheduleMsg.open && (
+        <Modal title="Agendar Mensagem" onClose={() => setShowScheduleMsg({ open: false, clientId: null })}>
+          <div className="space-y-5">
+            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
+               <span className="text-xl">📅</span>
+               <div className="text-sm text-purple-900 dark:text-purple-200">
+                 Programe avisos ou cobranças para o futuro.
+               </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <input
+                type="datetime-local"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
+              <textarea
+                value={scheduleText}
+                onChange={(e) => setScheduleText(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
+                placeholder="Ex: Olá, seu plano vence amanhã..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button 
+                onClick={() => setShowScheduleMsg({ open: false, clientId: null })} 
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleScheduleMessage}
+                disabled={scheduling}
+                className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <IconClock /> {scheduling ? "Agendando..." : "Confirmar Agendamento"}
+              </button>
+
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+
+      <style jsx global>{`
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          opacity: 0;
+          display: none;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// --- SUB-COMPONENTES VISUAIS (TEMA LIGHT/DARK) ---
+
+function Select({
+  children,
+  value,
+  onChange,
+}: {
+  children: React.ReactNode;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+    >
+      {children}
+    </select>
+  );
+}
+
+const ALIGN_CLASS: Record<"left" | "right", string> = {
+  left: "text-left",
+  right: "text-right",
+};
+
+function Th({ children, width, align = "left" }: { children: React.ReactNode; width?: number; align?: "left" | "right" }) {
+  return (
+    <th className={`px-4 py-3 ${ALIGN_CLASS[align]}`} style={{ width }}>
+      {children}
+    </th>
+  );
+}
+
+function ThSort({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
+  return (
+    <th onClick={onClick} className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left">
+      <div className="flex items-center gap-1">
+        {label}
+        <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}>
+          {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
+        </span>
+      </div>
+    </th>
+  );
+}
+
+function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+  return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle`}>{children}</td>;
+}
+
+
+function ScheduledMessagesModal({
+  tenantId,
+  clientId,
+  clientName,
+  items,
+  onClose,
+  onDeleted,
+  addToast,
+}: {
+  tenantId: string;
+  clientId: string;
+  clientName: string;
+  items: ScheduledMsg[];
+  onClose: () => void;
+  onDeleted: () => void;
+  addToast: (type: "success" | "error", title: string, message?: string) => void;
+}) {
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(scheduleId: string) {
+    const ok = window.confirm("Excluir este agendamento?");
+    if (!ok) return;
+
+    try {
+      setDeletingId(scheduleId);
+
+      // ✅ Preferível: deletar via API (respeita auth + regras)
+      const { error } = await supabaseBrowser.rpc("client_message_cancel", {
+  p_tenant_id: tenantId,
+  p_job_id: scheduleId,
+});
+
+if (error) throw error;
+
+addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelada.");
+
+      await onDeleted();
+      onClose();
+    } catch (e: any) {
+      console.error(e);
+      addToast("error", "Erro ao excluir", e?.message || "Erro desconhecido");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
+      {items.length === 0 ? (
+        <div className="text-sm text-slate-500 dark:text-white/60 italic">Nenhum agendamento encontrado.</div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((it) => (
+            <div
+              key={it.id}
+              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
+                    Envio em:{" "}
+                    <span className="text-slate-700 dark:text-white">
+                      {new Date(it.send_at).toLocaleString("pt-BR")}
+                    </span>
+                    {it.status ? (
+                      <span className="ml-2 px-2 py-0.5 rounded bg-slate-200/70 dark:bg-white/10 text-[10px] font-bold">
+                        {it.status}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-2 text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap break-words">
+                    {it.message}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDelete(it.id)}
+                  disabled={deletingId === it.id}
+                  className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 transition disabled:opacity-50"
+                >
+                  {deletingId === it.id ? "Excluindo..." : "Excluir"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+
+function StatusBadge({ status }: { status: ClientStatus }) {
+  const tone =
+    status === "Ativo"
+      ? { bg: "bg-emerald-100 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-500", border: "border-emerald-200 dark:border-emerald-500/20" }
+      : status === "Vencido"
+      ? { bg: "bg-rose-100 dark:bg-rose-500/10", text: "text-rose-700 dark:text-rose-500", border: "border-rose-200 dark:border-rose-500/20" }
+      : { bg: "bg-sky-100 dark:bg-sky-500/10", text: "text-sky-700 dark:text-sky-500", border: "border-sky-200 dark:border-sky-500/20" };
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${tone.bg} ${tone.text} ${tone.border}`}>{status}</span>;
+}
+
+function IconActionBtn({
+  children,
+  title,
+  tone,
+  onClick,
+}: {
+  children: React.ReactNode;
+  title: string;
+  tone: "blue" | "green" | "amber" | "purple" | "red";
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const colors = {
+    blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
+    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+    amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
+    purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
+    red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+  };
+  return (
+    <button onClick={(e) => { e.stopPropagation(); onClick(e); }} title={title} className={`p-1.5 rounded-lg border transition-all ${colors[tone]}`}>
+      {children}
+    </button>
+  );
+}
+
+function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full px-4 py-2 flex items-center gap-3 text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-white transition-colors text-left text-sm font-medium">
+      <span className="opacity-70">{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
+    >
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <div className="font-bold text-slate-800 dark:text-white">{title}</div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white">
+            <IconX />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// --- ICONES ---
+function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
+function IconSortUp() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6" /></svg>; }
+function IconSortDown() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>; }
+function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
+function IconSend() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></svg>; }
+function IconClock() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
+function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
+function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function IconBell() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" /><path d="M10 21a2 2 0 0 0 4 0" /></svg>; }
+function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
+function IconRestore() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}

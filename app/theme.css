@@ -1,0 +1,117 @@
+/* app/theme.css */
+
+/* =========================================================
+   THEME TOKENS (v2.1 - Ajustado para UniGestor)
+   - Padrão: LIGHT
+   - Troca por: document.documentElement.dataset.theme = "dark"
+   ========================================================= */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  
+  /* Fundos */
+  --bg-app: 248 250 252;          /* slate-50 */
+  --bg-app-2: 241 245 249;        /* slate-100 */
+  --bg-card: 255 255 255;         /* white */
+  --bg-card-2: 248 250 252;       /* slate-50 (fundo de headers de cards) */
+  
+  /* Bordas */
+  --border: 226 232 240;          /* slate-200 */
+  --border-2: 203 213 225;        /* slate-300 */
+
+  /* Textos */
+  --text: 30 41 59;               /* slate-800 */
+  --text-2: 71 85 105;            /* slate-600 */
+  --muted: 148 163 184;           /* slate-400 */
+
+  /* Navegação (Top Nav fixa em preto conforme layout) */
+  --topbar: 5 5 5;                /* #050505 */
+  --topbar-alpha: 1;
+
+  /* Cores de Marca */
+  --primary: 16 185 129;          /* emerald-500 */
+  --primary-2: 5 150 105;         /* emerald-600 */
+  --danger: 244 63 94;            /* rose-500 */
+  --warning: 217 119 6;           /* amber-600 */
+  --info: 14 165 233;             /* sky-500 */
+
+  --shadow: 2 6 23;               /* slate-950 */
+  --whatsapp: 37 211 102;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Fundos */
+  --bg-app: 15 20 27;             /* #0f141b */
+  --bg-app-2: 11 15 20;           /* #0b0f14 */
+  --bg-card: 22 27 34;            /* #161b22 - Fundo oficial dos cards */
+  --bg-card-2: 255 255 255;       /* via alpha 0.05 no util */
+
+  /* Bordas */
+  --border: 255 255 255;          /* via alpha 0.10 */
+  --border-2: 255 255 255;        /* via alpha 0.05 */
+
+  /* Textos */
+  --text: 229 231 235;            /* zinc-200 */
+  --text-2: 148 163 184;          /* slate-400 */
+  --muted: 100 116 139;           /* slate-500 */
+
+  /* Navegação */
+  --topbar: 5 5 5;                /* #050505 */
+  --topbar-alpha: 1;
+
+  /* Cores de Marca */
+  --primary: 16 185 129;          /* emerald-500 */
+  --primary-2: 5 150 105;         /* emerald-600 */
+  --danger: 244 63 94;            /* rose-500 */
+  --warning: 245 158 11;          /* amber-500 */
+  --info: 56 189 248;             /* sky-400 */
+
+  --shadow: 0 0 0;
+  --whatsapp: 37 211 102;
+}
+
+/* =========================================================
+   UTIL CLASSES (ajustadas para o padrão visual)
+   ========================================================= */
+
+.bg-app { background-color: rgb(var(--bg-app)); }
+.bg-app-2 { background-color: rgb(var(--bg-app-2)); }
+
+/* Card principal */
+.bg-card { background-color: rgb(var(--bg-card)); }
+
+/* Sub-seções de cards (Header/Footer) */
+.bg-card-2 { 
+  background-color: var(--bg-card-2); 
+}
+[data-theme="dark"] .bg-card-2 {
+  background-color: rgb(255 255 255 / 0.05); /* Padrão translúcido escuro */
+}
+
+.text-app { color: rgb(var(--text)); }
+.text-app-2 { color: rgb(var(--text-2)); }
+.text-muted { color: rgb(var(--muted)); }
+
+/* Bordas com opacidades padronizadas */
+.border-app { border-color: rgb(var(--border) / 0.10); }
+[data-theme="light"] .border-app { border-color: rgb(var(--border)); }
+
+.border-app-2 { border-color: rgb(var(--border-2) / 0.05); }
+[data-theme="light"] .border-app-2 { border-color: rgb(var(--border-2)); }
+
+.bg-topbar { background-color: rgb(var(--topbar) / var(--topbar-alpha)); }
+
+/* Sombras baseadas no layout memorizado */
+.shadow-soft { box-shadow: 0 4px 12px rgb(var(--shadow) / 0.05); }
+.shadow-strong { box-shadow: 0 18px 60px rgb(var(--shadow) / 0.15); }
+.shadow-emerald { box-shadow: 0 10px 15px -3px rgb(16 185 129 / 0.2); }
+
+.btn-whatsapp { background-color: rgb(var(--whatsapp)); color: white; }
+
+/* Utilitários de Tones para botões de ação */
+.tone-blue { color: rgb(var(--info)); background-color: rgb(var(--info) / 0.1); border: 1px solid rgb(var(--info) / 0.2); }
+.tone-green { color: rgb(var(--primary)); background-color: rgb(var(--primary) / 0.1); border: 1px solid rgb(var(--primary) / 0.2); }
+.tone-amber { color: rgb(var(--warning)); background-color: rgb(var(--warning) / 0.1); border: 1px solid rgb(var(--warning) / 0.2); }
+.tone-red { color: rgb(var(--danger)); background-color: rgb(var(--danger) / 0.1); border: 1px solid rgb(var(--danger) / 0.2); }
