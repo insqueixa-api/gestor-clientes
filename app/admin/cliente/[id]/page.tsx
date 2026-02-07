@@ -166,10 +166,16 @@ type TimelineItem = {
 
 
 export default function ClientDetailsPage() {
-  const params = useParams();
+const params = useParams();
 
-  // Aceita id em rotas diferentes (evita “tela quebrada” se a pasta estiver diferente)
-  const clientId = (params as any)?.id || (params as any)?.clientId || (params as any)?.clienteId;
+// ✅ aceita /[id] ou /[client_id] ou /[clientId] ou /[clienteId]
+const p = params as any;
+const clientIdRaw =
+  (p?.id ?? p?.client_id ?? p?.clientId ?? p?.clienteId) as string | string[] | undefined;
+
+const clientId = Array.isArray(clientIdRaw) ? clientIdRaw[0] : clientIdRaw;
+const clientIdSafe = (clientId ?? "").trim();
+
 
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -178,7 +184,7 @@ export default function ClientDetailsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
 
-  // --- TOASTS (15s) ---
+  // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
@@ -195,7 +201,7 @@ export default function ClientDetailsPage() {
   }, [client?.dont_message_until]);
 
   async function loadData() {
-    if (!clientId) return;
+    if (!clientIdSafe) return;
 
     setLoading(true);
     try {
@@ -213,7 +219,7 @@ export default function ClientDetailsPage() {
         .from("vw_clients_list_active")
         .select("*")
         .eq("tenant_id", tid)
-        .eq("id", String(clientId))
+        .eq("id", clientIdSafe)
         .maybeSingle();
 
       // 2) se não achou, tenta na view ARCHIVED
@@ -224,7 +230,7 @@ export default function ClientDetailsPage() {
               .from("vw_clients_list_archived")
               .select("*")
               .eq("tenant_id", tid)
-              .eq("id", clientId)
+              .eq("id", clientIdSafe)
               .maybeSingle();
 
       const row = ((r1.data || r2.data) as VwClientRow | null) ?? null;
@@ -352,7 +358,8 @@ export default function ClientDetailsPage() {
     }
   }
 
-  if (!clientId) {
+  if (!clientIdSafe) {
+
     return (
       <div className="p-10 text-center text-rose-500 font-bold">
         Rota inválida: não encontrei o <span className="font-mono">id</span> do cliente nos params.
@@ -364,11 +371,14 @@ export default function ClientDetailsPage() {
   if (!client) return <div className="p-10 text-center text-rose-500 font-bold">Cliente não encontrado.</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors p-1 md:p-0">
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
-        <div className="w-full md:w-auto">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+
+<div className="w-full md:w-auto text-right">
+  <div className="flex items-center justify-end gap-3">
+
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">{client.client_name}</h1>
             <StatusBadge status={client.computed_status} />
           </div>
@@ -378,25 +388,28 @@ export default function ClientDetailsPage() {
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
           <Link
             href="/admin/cliente"
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all"
+            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+
           >
             Voltar
           </Link>
 
           <button
             onClick={handleArchiveToggle}
-            className={`px-4 py-2 rounded-lg border font-bold text-sm transition-all shadow-sm ${
-              client.client_is_archived
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
-            }`}
+            className={`h-10 px-4 rounded-lg border font-bold text-sm transition-all shadow-sm inline-flex items-center justify-center ${
+  client.client_is_archived
+    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+}`}
+
           >
             {client.client_is_archived ? "Restaurar" : "Arquivar"}
           </button>
 
           <button
             onClick={() => setShowEditModal(true)}
-            className="px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-sm hover:bg-amber-500/20 transition-all shadow-sm"
+            className="h-10 px-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-sm hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center"
+
           >
             Editar
           </button>
@@ -404,7 +417,8 @@ export default function ClientDetailsPage() {
           <button
             onClick={() => setShowRenewModal(true)}
             disabled={client.client_is_archived}
-            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="h-10 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
+
           >
             <span className="text-lg leading-none">$</span> Renovar
           </button>
@@ -667,7 +681,10 @@ export default function ClientDetailsPage() {
 )}
 
 
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      <div className="relative z-[999999]">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+</div>
+
     </div>
   );
 }

@@ -359,11 +359,14 @@ const totalInvested = useMemo(() => {
     return <div className="p-10 text-center text-rose-500 font-bold">Revenda não encontrada.</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors p-1 md:p-0 pb-20">
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
       {/* HEADER IGUAL AO CLIENTE */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
-        <div className="w-full md:w-auto">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+
+<div className="w-full md:w-auto text-right">
+  <div className="flex items-center justify-end gap-3">
+
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
               {reseller.name}
             </h1>
@@ -377,16 +380,14 @@ const totalInvested = useMemo(() => {
               {reseller.is_archived ? "ARQUIVADO" : "ATIVO"}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-1.5 text-sm text-slate-500 dark:text-white/40 font-medium">
-            
 
-          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
           <Link
             href="/admin/revendedor"
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all"
+            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+
           >
             Voltar
           </Link>
@@ -396,7 +397,8 @@ const totalInvested = useMemo(() => {
               setEditLink({ resellerServerId: null, initial: undefined });
               setShowServerModal(true);
             }}
-            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+
           >
             <span>+</span> Vincular Servidor
           </button>
@@ -404,7 +406,8 @@ const totalInvested = useMemo(() => {
       </div>
 
       {/* GRID PRINCIPAL (3 COLUNAS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+
         {/* ================= COLUNA ESQUERDA (INFO + CONTATOS) ================= */}
         <div className="space-y-6">
           {/* 1. CARD RESUMO */}
@@ -682,7 +685,10 @@ const totalInvested = useMemo(() => {
         />
       )}
 
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      <div className="relative z-[999999]">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+</div>
+
     </div>
   );
 }

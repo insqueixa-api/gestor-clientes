@@ -676,14 +676,25 @@ if (warnCount > 0) {
   }
 
 
-  if (loading) return <div className="p-10 text-center text-slate-400 animate-pulse">Carregando configurações...</div>;
-
+  if (loading) {
   return (
-    <div className="w-full space-y-6 pb-10">
+    <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
+      <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
+        Carregando configurações...
+      </div>
+    </div>
+  );
+}
+
+
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
+
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
      
      {showImportModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+  <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+
     <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4">
       
       <h3 className="text-lg font-bold text-slate-800 dark:text-white">
@@ -728,29 +739,35 @@ if (warnCount > 0) {
   </div>
   )}
       {/* HEADER + BOTÃO DINÂMICO */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
-        <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Configurações da Conta</h1>
-            <p className="text-sm text-slate-500 dark:text-white/50">Gerencie seu perfil, conexões e dados.</p>
-        </div>
+<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+  <div className="flex flex-col gap-1 text-right w-full sm:w-auto">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+      Configurações da Conta
+    </h1>
+    <p className="text-sm text-slate-500 dark:text-white/50">
+      Gerencie seu perfil, conexões e dados.
+    </p>
+  </div>
         
-        {!isEditing ? (
-             <button 
-                onClick={() => setIsEditing(true)}
-                className="px-6 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-all text-sm flex items-center gap-2"
-            >
-                <span>✏️</span> Editar
-            </button>
-        ) : (
-            <button 
-                onClick={handleSave} 
-                disabled={saving} 
-                className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 text-sm flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
-            >
-                {saving ? "Salvando..." : "💾 Salvar Alterações"}
-            </button>
-        )}
-      </div>
+        <div className="flex justify-end w-full sm:w-auto">
+    {!isEditing ? (
+      <button
+        onClick={() => setIsEditing(true)}
+        className="px-6 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-all text-sm flex items-center gap-2"
+      >
+        <span>✏️</span> Editar
+      </button>
+    ) : (
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 text-sm flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
+      >
+        {saving ? "Salvando..." : "💾 Salvar Alterações"}
+      </button>
+    )}
+  </div>
+</div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
        

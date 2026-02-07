@@ -123,27 +123,31 @@ export default function PlanosPage() {
     };
   };
 
-  return (
-    <div className="p-5 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
       
       {/* HEADER DA PÁGINA (PADRÃO PAGE.TXT) */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-1 mb-6 animate-in fade-in duration-500">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-            Tabelas de Preço
-          </h1>
-          <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm font-medium">
-            Gerencie as tabelas de preço padrão e personalizadas.
-          </p>
-        </div>
-        
-        <button
-          onClick={() => setIsNewOpen(true)}
-          className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-        >
-          <span className="text-lg leading-none">+</span> Nova Tabela
-        </button>
-      </div>
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 animate-in fade-in duration-500">
+  <div className="text-right w-full md:w-auto">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+      Tabelas de Preço
+    </h1>
+    <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm font-medium">
+      Gerencie as tabelas de preço padrão e personalizadas.
+    </p>
+  </div>
+
+  <div className="w-full md:w-auto flex justify-end">
+    <button
+      onClick={() => setIsNewOpen(true)}
+      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    >
+      <span className="text-lg leading-none">+</span> Nova Tabela
+    </button>
+  </div>
+</div>
+
 
       {loading && (
         <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5 font-medium">
@@ -152,7 +156,8 @@ export default function PlanosPage() {
       )}
 
       {!loading && (
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+
           {plano.map((plan) => (
             <div 
               key={plan.id}
@@ -221,7 +226,8 @@ export default function PlanosPage() {
               </div>
 
               {/* CORPO DA MATRIZ (REMOÇÃO DE UPPER) */}
-              <div className="p-5 space-y-6 bg-white dark:bg-[#161b22]">
+              <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
+
                 {[1, 2, 3].map((screenCount) => (
                   <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                     <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">

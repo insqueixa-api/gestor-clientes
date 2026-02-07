@@ -136,10 +136,12 @@ function compareNumber(a: number, b: number) {
   return a - b;
 }
 function statusRank(s: ClientStatus) {
-  if (s === "Vencido") return 3;
-  if (s === "Teste") return 2;
-  return 1;
+  if (s === "Vencido") return 4;
+  if (s === "Teste") return 3;
+  if (s === "Arquivado") return 2;
+  return 1; // Ativo
 }
+
 
 function extractPeriod(planName: string) {
   const p = (planName || "").trim();
@@ -198,6 +200,10 @@ export default function ClientePage() {
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
@@ -211,6 +217,10 @@ export default function ClientePage() {
   const [serverFilter, setServerFilter] = useState("Todos");
   const [planFilter, setPlanFilter] = useState("Todos");
   const [dueFilter, setDueFilter] = useState("Todos");
+
+// ✅ Mobile: menu de filtros
+const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
 
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -595,6 +605,38 @@ const sorted = useMemo(() => {
 
   const visible = useMemo(() => sorted.slice(0, showCount), [sorted, showCount]);
 
+  useEffect(() => {
+  const el = selectAllRef.current;
+  if (!el) return;
+
+  const total = visible.length;
+  const sel = visible.filter((r) => selectedIds.has(r.id)).length;
+
+  el.indeterminate = sel > 0 && sel < total;
+}, [selectedIds, visible]);
+
+function toggleSelected(id: string, checked: boolean) {
+  setSelectedIds((prev) => {
+    const next = new Set(prev);
+    if (checked) next.add(id);
+    else next.delete(id);
+    return next;
+  });
+}
+
+function setAllVisible(checked: boolean) {
+  setSelectedIds((prev) => {
+    const next = new Set(prev);
+    for (const r of visible) {
+      if (checked) next.add(r.id);
+      else next.delete(r.id);
+    }
+    return next;
+  });
+}
+
+
+
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -936,25 +978,30 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
   
   return (
-    <div className="p-5 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => closeAllPopups()}>
-      {/* Topo */}
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4 pb-1 mb-3">
+  <div
+    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    onClick={() => closeAllPopups()}
+  >
 
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestão de Clientes</h1>
-          <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie assinaturas, renovações e testes.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* Topo */}
+<div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-3">
+  <div className="w-full md:w-auto text-right">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestão de Clientes</h1>
+    <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie assinaturas, renovações e testes.</p>
+  </div>
+  <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+
           <button
             onClick={(e) => {
               e.stopPropagation();
               setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
             }}
-            className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${
-              archivedFilter === "Sim"
-                ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-            }`}
+            className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
+  archivedFilter === "Sim"
+    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+    : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+}`}
+
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
           </button>
@@ -965,7 +1012,8 @@ const res = await fetch("/api/whatsapp/envio_programado", {
               setClientToEdit(null);
               setShowFormModal(true);
             }}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+
           >
             <span>+</span> Novo Cliente
           </button>
@@ -973,74 +1021,141 @@ const res = await fetch("/api/whatsapp/envio_programado", {
       </div>
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
-      <div
-        className="p-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm space-y-4 mb-6 sticky top-4 z-20"
-        onClick={(e) => e.stopPropagation()}
-      >
+<div
+  className="p-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm space-y-4 mb-6 md:sticky md:top-4 z-20"
+  onClick={(e) => e.stopPropagation()}
+>
+
         <div className="text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">Filtros Rápidos</div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1fr_0.5fr_1fr_1fr_1fr_1fr_1fr] gap-2">
-          <div className="col-span-2 lg:col-span-2 relative">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
-                <IconX />
-              </button>
-            )}
-          </div>
+        {/* Linha 1: Pesquisa + botão filtros (mobile) */}
+<div className="flex items-center gap-2">
+  <div className="flex-1 relative">
+    <input
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Pesquisar..."
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+    />
+    {search && (
+      <button
+        onClick={() => setSearch("")}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+      >
+        <IconX />
+      </button>
+    )}
+  </div>
 
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
-            <option value="Todos">Status (Todos)</option>
-            <option value="Ativo">Ativo</option>
-            <option value="Vencido">Vencido</option>
-            {/* Trials aparecem na tela de Testes, não aqui */}
+  {/* ✅ Botão de filtros: só no mobile */}
+  <button
+    onClick={() => setMobileFiltersOpen((v) => !v)}
+    className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+    title="Filtros"
+  >
+    Filtros
+  </button>
+</div>
 
-          </Select>
+{/* ✅ Painel de filtros no mobile */}
+{mobileFiltersOpen && (
+  <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+    <Select
+  value={statusFilter}
+  onChange={(e) => {
+    setStatusFilter(e.target.value as "Todos" | ClientStatus);
+    // opcional: fecha painel
+    // setMobileFiltersOpen(false);
+  }}
+>
 
-          <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
-            <option value="Todos">Servidor (Todos)</option>
-            {uniqueServers.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
+      <option value="Todos">Status (Todos)</option>
+      <option value="Ativo">Ativo</option>
+      <option value="Vencido">Vencido</option>
+    </Select>
 
-          <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
-            <option value="Todos">Plano (Todos)</option>
-            {uniqueplano.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </Select>
+    <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
+      <option value="Todos">Servidor (Todos)</option>
+      {uniqueServers.map((s) => (
+        <option key={s} value={s}>{s}</option>
+      ))}
+    </Select>
 
-          <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
-            <option value="Todos">Vencimento (Todos)</option>
-            <option value="Hoje">Hoje</option>
-            <option value="Próximos 3 dias">Próximos 3 dias</option>
-            <option value="Vencidos">Vencidos</option>
-          </Select>
+    <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
+      <option value="Todos">Plano (Todos)</option>
+      {uniqueplano.map((p) => (
+        <option key={p} value={p}>{p}</option>
+      ))}
+    </Select>
 
-          <button
-            onClick={() => {
-              setSearch("");
-              setStatusFilter("Todos");
-              setServerFilter("Todos");
-              setPlanFilter("Todos");
-              setDueFilter("Todos");
-              setArchivedFilter("Não");
-            }}
-            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-          >
-            <IconX /> Limpar
-          </button>
-        </div>
+    <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
+      <option value="Todos">Vencimento (Todos)</option>
+      <option value="Hoje">Hoje</option>
+      <option value="Próximos 3 dias">Próximos 3 dias</option>
+      <option value="Vencidos">Vencidos</option>
+    </Select>
+
+    <button
+      onClick={() => {
+        setSearch("");
+        setStatusFilter("Todos");
+        setServerFilter("Todos");
+        setPlanFilter("Todos");
+        setDueFilter("Todos");
+        setArchivedFilter("Não");
+        setMobileFiltersOpen(false);
+      }}
+      className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+    >
+      <IconX /> Limpar
+    </button>
+  </div>
+)}
+
+{/* ✅ Desktop mantém tudo como era */}
+<div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1fr_0.5fr_1fr_1fr_1fr_1fr_1fr] gap-2">
+  <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
+    <option value="Todos">Status (Todos)</option>
+    <option value="Ativo">Ativo</option>
+    <option value="Vencido">Vencido</option>
+  </Select>
+
+  <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
+    <option value="Todos">Servidor (Todos)</option>
+    {uniqueServers.map((s) => (
+      <option key={s} value={s}>{s}</option>
+    ))}
+  </Select>
+
+  <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
+    <option value="Todos">Plano (Todos)</option>
+    {uniqueplano.map((p) => (
+      <option key={p} value={p}>{p}</option>
+    ))}
+  </Select>
+
+  <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
+    <option value="Todos">Vencimento (Todos)</option>
+    <option value="Hoje">Hoje</option>
+    <option value="Próximos 3 dias">Próximos 3 dias</option>
+    <option value="Vencidos">Vencidos</option>
+  </Select>
+
+  <button
+    onClick={() => {
+      setSearch("");
+      setStatusFilter("Todos");
+      setServerFilter("Todos");
+      setPlanFilter("Todos");
+      setDueFilter("Todos");
+      setArchivedFilter("Não");
+    }}
+    className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+  >
+    <IconX /> Limpar
+  </button>
+</div>
+
       </div>
 
       {loading && (
@@ -1071,11 +1186,21 @@ const res = await fetch("/api/whatsapp/envio_programado", {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-250">
+            <table className="w-full text-left border-collapse min-w-[250px]">
+
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
                   <Th width={40}>
-                    <input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+<input
+  ref={selectAllRef}
+  type="checkbox"
+  checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.id))}
+  onClick={(e) => e.stopPropagation()}
+  onChange={(e) => setAllVisible(e.target.checked)}
+  className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+/>
+
+
                   </Th>
                   <ThSort label="Cliente" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
                   <ThSort label="Vencimento" active={sortKey === "due"} dir={sortDir} onClick={() => toggleSort("due")} />
@@ -1094,9 +1219,25 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                 {visible.map((r) => {
                   const isExpired = r.status === "Vencido";
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                    <tr
+  key={r.id}
+  className={`transition-colors group ${
+    selectedIds.has(r.id)
+      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+      : "hover:bg-slate-50 dark:hover:bg-white/5"
+  }`}
+>
+
                       <Td>
-                        <input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+<input
+  type="checkbox"
+  checked={selectedIds.has(r.id)}
+  onClick={(e) => e.stopPropagation()}
+  onChange={(e) => toggleSelected(r.id, e.target.checked)}
+  className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+/>
+
+
                       </Td>
 
                       <Td>
@@ -1235,14 +1376,6 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                           </IconActionBtn>
 
                           <IconActionBtn
-                            title={r.archived ? "Restaurar" : "Arquivar"}
-                            tone={r.archived ? "green" : "red"} // ✅ opcional: restaura em verde
-                            onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
-                          >
-                            {r.archived ? <IconRestore /> : <IconTrash />}
-                          </IconActionBtn>
-
-                          <IconActionBtn
   title={r.archived ? "Restaurar" : "Arquivar"}
   tone={r.archived ? "green" : "red"}
   onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
@@ -1250,8 +1383,8 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   {r.archived ? <IconRestore /> : <IconTrash />}
 </IconActionBtn>
 
-{/* ✅ Excluir definitivo (só na lixeira) */}
-{r.archived && (
+{/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
+{archivedFilter === "Sim" && r.archived && (
   <IconActionBtn
     title="Excluir definitivamente"
     tone="red"
@@ -1262,6 +1395,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 )}
 
 
+
                         </div>
                       </Td>
                     </tr>
@@ -1269,10 +1403,13 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                 })}
 
                 {visible.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="p-8 text-center text-slate-400 dark:text-white/40 italic">Nenhum cliente encontrado.</td>
-                  </tr>
-                )}
+  <tr>
+    <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+      Nenhum cliente encontrado.
+    </td>
+  </tr>
+)}
+
               </tbody>
             </table>
           </div>
@@ -1622,7 +1759,10 @@ const res = await fetch("/api/whatsapp/envio_programado", {
         </Modal>
       )}
 
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      <div className="relative z-[999999]">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+</div>
+
 
       <style jsx global>{`
         input[type="date"]::-webkit-calendar-picker-indicator,

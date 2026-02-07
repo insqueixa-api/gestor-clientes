@@ -129,7 +129,8 @@ export default function AdminShell({
       {/* TOP NAV */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         {/* Adicionado mx-auto e max-w-screen-2xl */}
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-4 sm:px-6 lg:px-8 py-2">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+
           <Link
             href="/admin"
             className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
@@ -309,7 +310,9 @@ export default function AdminShell({
 
 
       {/* Adicionado mx-auto e max-w-screen-2xl */}
-      <main className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 animate-in fade-in duration-500">
+      <main className="mx-auto w-full max-w-screen-2xl px-2 sm:px-6 lg:px-8 pt-2 pb-6 animate-in fade-in duration-500">
+
+
         {children}
       </main>
     </div>

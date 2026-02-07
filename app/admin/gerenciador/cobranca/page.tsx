@@ -470,17 +470,22 @@ const getImpactedClients = (rule: Automation) => {
 
   const filtered = automations.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
-  return (
-    <div className="p-6 min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Automação de Cobranças</h1>
-          <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie suas regras de envio automático.</p>
-        </div>
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3">
+
+<div className="text-right">
+  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Automação de Cobranças</h1>
+  <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie suas regras de envio automático.</p>
+</div>
+
         
-        <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+        <div className="flex gap-3 w-full md:w-auto justify-end">
+
+            <div className="relative flex-1 min-w-[180px] md:w-72">
+
                 <input 
                     value={search} onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar regra..."
@@ -509,7 +514,8 @@ const getImpactedClients = (rule: Automation) => {
            <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie sua primeira automação de cobrança.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+
            {filtered.map((auto) => {
              const impacted = getImpactedClients(auto);
              return (
@@ -597,7 +603,7 @@ function AutomationCard({
     const status = data.execution_status || 'IDLE';
 
     return (
-        <div className={`bg-white dark:bg-[#161b22] border rounded-xl p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? 'border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-white/10' : 'border-slate-200 dark:border-white/10 opacity-75 grayscale-[0.8] hover:grayscale-0'}`}>
+        <div className={`bg-white dark:bg-[#161b22] border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-full relative overflow-hidden group ${data.is_active ? 'border-t-4 border-t-emerald-500 border-x-slate-200 border-b-slate-200 dark:border-white/10' : 'border-slate-200 dark:border-white/10 opacity-75 grayscale-[0.8] hover:grayscale-0'}`}>
             
             {/* Header: Nome e Toggle */}
             <div className="flex justify-between items-start mb-3">

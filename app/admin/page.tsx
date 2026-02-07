@@ -360,6 +360,7 @@ const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().m
 return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

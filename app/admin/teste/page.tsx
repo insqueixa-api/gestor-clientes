@@ -414,14 +414,21 @@ export default function TrialsPage() {
     });
   };
 
-  return (
-    <div className="p-5 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => closeAllPopups()}>
+return (
+  <div
+    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100"
+    onClick={closeAllPopups}
+  >
+
       {/* Topo */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-1 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Testes</h1>
-          <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie testes, vencimentos e conversão para cliente.</p>
-        </div>
+<div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1">
+  <div className="text-right w-full md:w-auto">
+    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Testes</h1>
+    <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+      Gerencie testes, vencimentos e conversão para cliente.
+    </p>
+  </div>
+
 
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative w-full md:w-64">
@@ -481,10 +488,12 @@ export default function TrialsPage() {
 
       {!loading && (
         <div
-          className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors"
+          className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors"
+
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">
+
             <div className="text-sm font-bold text-slate-700 dark:text-white">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">

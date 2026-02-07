@@ -271,19 +271,28 @@ async function handleDelete(id: string) {
 }
 
 
-  return (
-    <div className="w-full space-y-6">
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
+      <div className="relative z-[999999]">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+</div>
+
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Aplicativos</h1>
-          <p className="text-sm text-slate-500 dark:text-white/50">Configure quais aplicativos e campos seus clientes usarão.</p>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10 animate-in fade-in duration-500">
+
+<div className="text-right">
+  <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Aplicativos</h1>
+  <p className="text-sm text-slate-500 dark:text-white/60 mt-0.5 font-medium">
+    Configure quais aplicativos e campos seus clientes usarão.
+  </p>
+</div>
+
         <button
           onClick={openNew}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+          className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+
         >
           <span>+</span> Novo Aplicativo
         </button>
@@ -297,9 +306,10 @@ async function handleDelete(id: string) {
           Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+
           {apps.map((app) => (
-            <div key={app.id} className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm hover:shadow-md transition-all relative">
+            <div key={app.id} className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative">
               <div className="flex justify-between items-start mb-3">
                 <div className="space-y-1">
                   <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>

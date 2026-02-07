@@ -27,8 +27,14 @@ type ClientStats = {
 };
 
 export default function ServerDetailsPage() {
-  const params = useParams();
-  const serverId = params.id as string;
+const params = useParams();
+
+// ✅ aceita /[id] ou /[server_id] ou /[serverId]
+const p = params as any;
+const serverIdRaw = (p?.id ?? p?.server_id ?? p?.serverId) as string | string[] | undefined;
+const serverId = Array.isArray(serverIdRaw) ? serverIdRaw[0] : serverIdRaw;
+const serverIdSafe = (serverId ?? "").trim();
+
 
   const [loading, setLoading] = useState(true);
   const [server, setServer] = useState<ServerRow | null>(null);
@@ -48,8 +54,10 @@ export default function ServerDetailsPage() {
       setLoading(true);
       
       try {
-        const tenantId = await getCurrentTenantId();
-        const supabase = supabaseBrowser;
+const tenantId = await getCurrentTenantId();
+if (!tenantId) throw new Error("Tenant não encontrado");
+const supabase = supabaseBrowser;
+
 
         // 1. Dados do Servidor
         const { data: sData, error: sErr } = await supabase
@@ -123,7 +131,8 @@ export default function ServerDetailsPage() {
   }
 
   useEffect(() => {
-    if (serverId) loadData();
+    if (serverIdSafe) loadData();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId, selectedDate]);
 
@@ -178,18 +187,22 @@ export default function ServerDetailsPage() {
   if (!server) return <div className="text-rose-500 p-8">Servidor não encontrado.</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6">
+
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pb-2 border-b border-slate-200 dark:border-white/10">
-        <div className="w-full md:w-auto">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+
+<div className="w-full md:w-auto text-right">
+  <div className="flex items-center justify-end gap-3">
+
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">{server.name}</h1>
             <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border shadow-sm ${server.credits_available > 10 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
               {fmtInt(server.credits_available)} créditos disponíveis
             </span>
           </div>
-          <div className="text-slate-500 dark:text-white/40 mt-1 text-xs flex items-center gap-2 font-medium">
+          <div className="text-slate-500 dark:text-white/40 mt-1 text-xs flex items-center justify-end gap-2 font-medium">
+
              <Link href="/admin/gerenciador/servidor" className="hover:text-emerald-500 transition-colors">Servidores</Link>
              <span className="opacity-30">/</span>
              <span className="text-slate-400">detalhes</span>
@@ -197,7 +210,8 @@ export default function ServerDetailsPage() {
         </div>
 
         {/* SELETOR DE MÊS */}
-        <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10 shadow-sm">
+        <div className="w-full md:w-auto flex justify-end">
+        <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10 shadow-sm w-full md:w-auto"></div>
           <button onClick={handlePrevMonth} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-md text-slate-500 dark:text-white/70 transition-all active:scale-95">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           </button>
@@ -208,12 +222,19 @@ export default function ServerDetailsPage() {
         </div>
 
         <div className="flex gap-3 w-full md:w-auto justify-end">
-          <Link href="/admin/gerenciador/servidor" className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-bold transition-all shadow-sm">Voltar</Link>
+          <Link
+  href="/admin/gerenciador/servidor"
+  className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-bold transition-all shadow-sm inline-flex items-center justify-center"
+>
+  Voltar
+</Link>
+
           
-          <button 
-            onClick={() => setIsRecargaOpen(true)}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-          >
+<button
+  onClick={() => setIsRecargaOpen(true)}
+  className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+>
+
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
              Nova Recarga
           </button>

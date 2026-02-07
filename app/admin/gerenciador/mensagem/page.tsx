@@ -158,18 +158,23 @@ export default function MessagesPage() {
   // Filtro de Busca
   const filteredMessages = messages.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()));
 
-  return (
-    <div className="p-6 min-h-screen bg-slate-50 dark:bg-[#0f141a]">
-      {/* TOPO COM BUSCA */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
-        <div className="w-full md:w-auto">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Central de Mensagens</h1>
-          <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie seus modelos de comunicação.</p>
-        </div>
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-        <div className="flex gap-3 w-full md:w-auto">
+      {/* TOPO COM BUSCA */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-3">
+
+<div className="w-full md:w-auto text-right">
+  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Central de Mensagens</h1>
+  <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie seus modelos de comunicação.</p>
+</div>
+
+
+        <div className="flex gap-3 w-full md:w-auto justify-end">
+
           {/* CAMPO DE BUSCA */}
-          <div className="relative flex-1 md:w-64">
+          <div className="relative flex-1 min-w-[180px] md:w-72">
+
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -203,12 +208,14 @@ export default function MessagesPage() {
           <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie um novo modelo ou ajuste sua busca.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+
           {filteredMessages.map((msg) => (
             // CARD COMPACTO (h-40)
             <div
               key={msg.id}
-              className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-40 relative overflow-hidden"
+              className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-40 relative overflow-hidden"
+
             >
               {/* NOME CENTRALIZADO */}
               <div className="flex-1 flex items-center justify-center text-center px-4">
