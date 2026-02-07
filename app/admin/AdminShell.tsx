@@ -34,12 +34,15 @@ function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: s
 
 
       <div className="min-w-0 flex flex-col justify-center">
-
+        <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 group-hover:text-white/60 transition-colors">
+          Logado como
+        </div>
 
         {/* ✅ AQUI: Adicionei 'uppercase' e removi a div de baixo que repetia informação */}
-        <div className="text-xs font-bold text-white truncate max-w-40 sm:max-w-56 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
-          {userLabel}
-        </div>
+        <div className="text-xs font-bold text-white truncate flex-1 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
+  {userLabel}
+</div>
+
       </div>
     </div>
   );
