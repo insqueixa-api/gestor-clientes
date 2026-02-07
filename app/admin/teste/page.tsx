@@ -446,19 +446,20 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
   };
 
 return (
-  <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+<div
+  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+  onClick={closeAllPopups}
+>
 
-    onClick={closeAllPopups}
-  >
 
 
       {/* Topo */}
-<div className="flex items-center justify-between gap-2 pb-0 mb-2">
+<div className="flex items-center justify-between gap-2 pb-0 mb-0">
+
   {/* Título (esquerda) */}
   <div className="min-w-0 text-left">
     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Testes
+      Gestão de Testes
     </h1>
   </div>
 

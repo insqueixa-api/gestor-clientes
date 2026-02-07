@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react"; 
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -21,9 +21,22 @@ type SortKey =
   | "revenue"
   | "cost"
   | "profit"
-  | "status"
-  | "alerts";
+  | "status";
+
+
 type SortDir = "asc" | "desc";
+
+type ScheduledMsg = {
+  id: string;
+  client_id: string; // ✅ banco usa client_id
+  send_at: string;   // timestamptz
+  message: string;
+  status?: string | null;
+};
+
+
+type MessageTemplate = { id: string; name: string; content: string };
+
 
 // Financeiro por venda (server_credit_sales) - agregação no front
 type VwResellerFinanceAgg = {
@@ -116,6 +129,13 @@ function brl(val: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val || 0);
 }
 
+function localDateTimeToIso(local: string): string {
+  const d = new Date(local); // interpreta como local
+  if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
+  return d.toISOString(); // timestamptz-friendly
+}
+
+
 function num(v: any) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -153,16 +173,56 @@ export default function RevendaPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Mensagem e Alertas (Mock visual para paridade)
-  const [showSendNow, setShowSendNow] = useState<{ open: boolean; resellerId: string | null }>({ open: false, resellerId: null });
+  // ✅ Modais de mensagem / alerta (ESTAVAM FALTANDO)
+  const [showSendNow, setShowSendNow] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+    open: false,
+    resellerId: null,
+    resellerName: undefined,
+  });
   const [messageText, setMessageText] = useState("");
-  const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; resellerId: string | null }>({ open: false, resellerId: null });
+
+  const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+    open: false,
+    resellerId: null,
+    resellerName: undefined,
+  });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
-  
-  // Alertas
-  const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({ open: false, resellerId: null, resellerName: undefined });
+
+  const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+    open: false,
+    resellerId: null,
+    resellerName: undefined,
+  });
   const [newAlertText, setNewAlertText] = useState("");
+
+  // Mensagem e Alertas (paridade)
+  const [sendingNow, setSendingNow] = useState(false);
+
+const sendNowAbortRef = useRef<AbortController | null>(null);
+
+const [scheduling, setScheduling] = useState(false);
+
+const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
+const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
+const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
+
+// ✅ agendamentos por revenda
+const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
+const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  open: false,
+  resellerId: null,
+  resellerName: undefined,
+});
+
+// ✅ lista de alertas por revenda (igual cliente)
+const [showAlertList, setShowAlertList] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+  open: false,
+  resellerId: null,
+  resellerName: undefined,
+});
+const [resellerAlerts, setResellerAlerts] = useState<unknown[]>([]);
+
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -182,11 +242,147 @@ export default function RevendaPage() {
     return session.access_token;
   }
 
+  async function loadMessageTemplates(tid: string) {
+  const { data, error } = await supabaseBrowser
+    .from("message_templates")
+    .select("id,name,content")
+    .eq("tenant_id", tid)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao carregar templates:", error);
+    setMessageTemplates([]);
+    return;
+  }
+
+  const mapped = ((data as any[]) || []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name ?? "Sem nome"),
+    content: String(r.content ?? ""),
+  })) as MessageTemplate[];
+
+  setMessageTemplates(mapped);
+}
+
+
+// ✅ carrega agendamentos por revenda (badge + modal)
+async function loadScheduledForResellers(tid: string, resellerIds: string[]) {
+  if (!resellerIds.length) {
+    setScheduledMap({});
+    return;
+  }
+
+  const { data, error } = await supabaseBrowser
+  .from("client_message_jobs")
+  .select("id, client_id, send_at, message, status")
+  .eq("tenant_id", tid)
+  .in("client_id", resellerIds)
+  .in("status", ["SCHEDULED", "QUEUED"])
+  .order("send_at", { ascending: true })
+  .gte("send_at", new Date().toISOString());
+
+if (error) {
+  console.error("Erro ao carregar agendamentos:", error);
+  setScheduledMap({});
+  return;
+}
+
+const map: Record<string, ScheduledMsg[]> = {};
+for (const row of (data as any[]) || []) {
+  const cid = String((row as any).client_id);
+  if (!map[cid]) map[cid] = [];
+  map[cid].push({
+    id: String((row as any).id),
+    client_id: cid,
+    send_at: String((row as any).send_at),
+    message: String((row as any).message ?? ""),
+    status: (row as any).status ?? null,
+  });
+}
+setScheduledMap(map);
+
+}
+
+// ✅ carrega contagem de alertas OPEN por revenda (badge)
+async function loadOpenAlertsCount(tid: string, resellerIds: string[]) {
+  if (!resellerIds.length) return new Map<string, number>();
+
+  const { data, error } = await supabaseBrowser
+  .from("client_alerts")
+  .select("id,client_id")
+  .eq("tenant_id", tid)
+  .in("client_id", resellerIds)
+  .eq("status", "OPEN");
+
+if (error) {
+  console.error("Erro ao carregar alertas:", error);
+  return new Map<string, number>();
+}
+
+const m = new Map<string, number>();
+for (const row of (data as any[]) || []) {
+  const cid = String((row as any).client_id);
+  m.set(cid, (m.get(cid) || 0) + 1);
+}
+return m;
+
+}
+
+// ✅ abre modal de alertas OPEN
+async function handleOpenAlertList(resellerId: string, resellerName: string) {
+  setResellerAlerts([]);
+  setShowAlertList({ open: true, resellerId, resellerName });
+
+  try {
+    if (!tenantId) return;
+
+const { data, error } = await supabaseBrowser
+  .from("client_alerts")
+  .select("*")
+  .eq("tenant_id", tenantId)
+  .eq("client_id", resellerId)
+  .eq("status", "OPEN")
+  .order("created_at", { ascending: false });
+
+
+    if (error) throw error;
+    setResellerAlerts(data || []);
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao carregar alertas", e?.message || "Erro desconhecido");
+  }
+}
+
+// ✅ exclui alerta (e atualiza contagem)
+async function handleDeleteAlert(alertId: string) {
+  if (!tenantId) return;
+
+  try {
+    const { error } = await supabaseBrowser
+      .from("client_alerts")
+      .delete()
+      .eq("id", alertId);
+
+    if (error) throw error;
+
+    setResellerAlerts((prev) => (prev as any[]).filter((a) => a.id !== alertId));
+    await loadData(); // atualiza contagem na lista
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao excluir alerta", e?.message || "Erro desconhecido");
+  }
+}
+
+
   // --- CARREGAMENTO ---
   async function loadData() {
     setLoading(true);
     const tid = await getCurrentTenantId();
     setTenantId(tid);
+    if (tid) {
+  await loadMessageTemplates(tid);
+}
+
 
     if (!tid) {
       setRows([]);
@@ -194,7 +390,7 @@ export default function RevendaPage() {
       return;
     }
 
-    // Seleciona a VIEW correta baseado no filtro de arquivados (Padrão do Contrato)
+    
 
 
 const viewName =
@@ -311,10 +507,21 @@ const profit = revenue - cost;
 });
 
 
+// ✅ carrega contagens de alertas e agendamentos pra badge
+const ids = mapped.map((m) => m.id);
 
+const alertsCountMap = await loadOpenAlertsCount(tid, ids);
+await loadScheduledForResellers(tid, ids);
 
-    setRows(mapped);
-    setLoading(false);
+// injeta alertsCount no mapped (sem mexer no resto)
+const mappedWithAlerts = mapped.map((m) => ({
+  ...m,
+  alertsCount: alertsCountMap.get(m.id) || 0,
+}));
+
+setRows(mappedWithAlerts);
+setLoading(false);
+
   }
 
   useEffect(() => {
@@ -360,7 +567,7 @@ const profit = revenue - cost;
         case "revenue": cmp = compareNumber(a.revenueVal, b.revenueVal); break;
         case "cost": cmp = compareNumber(a.costVal, b.costVal); break;
         case "profit": cmp = compareNumber(a.profitVal, b.profitVal); break;
-        case "alerts": cmp = compareNumber(a.alertsCount, b.alertsCount); break;
+        
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -427,108 +634,286 @@ const profit = revenue - cost;
     }
   };
 
-  // Mensagens (Mock / API)
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !showSendNow.resellerId || !tenantId) return;
+  const handleDeleteForever = async (r: ResellerRow) => {
+  if (!tenantId) return;
+
+  if (!r.archived) {
+    addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente pela Lixeira.");
+    return;
+  }
+
+  const confirmed = window.confirm("Excluir permanentemente esta revenda? Esta ação NÃO pode ser desfeita.");
+  if (!confirmed) return;
+
+  try {
+    const { error } = await supabaseBrowser.rpc("delete_reseller_forever", {
+      p_tenant_id: tenantId,
+      p_reseller_id: r.id,
+    });
+
+    if (error) throw error;
+
+    addToast("success", "Excluído", "Revenda removida definitivamente.");
+    await loadData();
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
+  }
+};
+
+
+    const handleSaveAlert = async () => {
+    if (!tenantId || !showNewAlert.resellerId) return;
+
+    const text = (newAlertText || "").trim();
+    if (!text) {
+      addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
+      return;
+    }
+
     try {
-      const token = await getToken();
-      await fetch("/api/messages/send", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenant_id: tenantId, client_id: showSendNow.resellerId, message: messageText }),
-      });
-      addToast("success", "Mensagem enviada!");
-      setShowSendNow({ open: false, resellerId: null });
-      setMessageText("");
-    } catch (error) {
-      addToast("error", "Erro ao enviar", "Verifique o serviço de mensagem.");
+      
+const { error } = await supabaseBrowser.from("client_alerts").insert({
+  tenant_id: tenantId,
+  client_id: showNewAlert.resellerId, // ✅ grava no client_id
+  status: "OPEN",
+  message: text,
+});
+
+
+      if (error) throw error;
+
+      addToast("success", "Alerta criado!");
+      setShowNewAlert({ open: false, resellerId: null, resellerName: undefined });
+      setNewAlertText("");
+      await loadData();
+    } catch (e: any) {
+      console.error(e);
+      addToast("error", "Erro ao criar alerta", e?.message || "Erro desconhecido");
     }
   };
 
-  const handleScheduleMessage = async () => {
-    // Mesma lógica do cliente
-    addToast("success", "Agendamento salvo!");
-    setShowScheduleMsg({ open: false, resellerId: null });
-  };
 
-  // Alertas (Mock visual para manter paridade com cliente)
-  const handleSaveAlert = () => {
-      addToast("success", "Alerta criado!");
-      setShowNewAlert({ open: false, resellerId: null });
-      setNewAlertText("");
+  const handleSendMessage = async () => {
+  if (!tenantId || !showSendNow.resellerId) return;
+  if (sendingNow) return;
+
+  const msg = (messageText || "").trim();
+  if (!msg) {
+    addToast("error", "Mensagem vazia", "Digite uma mensagem antes de enviar.");
+    return;
   }
+
+  try {
+    setSendingNow(true);
+
+    if (sendNowAbortRef.current) {
+      try { sendNowAbortRef.current.abort(); } catch {}
+    }
+
+    const controller = new AbortController();
+    sendNowAbortRef.current = controller;
+
+    const token = await getToken();
+
+    const res = await fetch("/api/whatsapp/envio_agora", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+body: JSON.stringify({
+  tenant_id: tenantId,
+  reseller_id: showSendNow.resellerId,
+  message: msg,
+  whatsapp_session: "default",
+}),
+
+    });
+
+    const raw = await res.text();
+    let json: any = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch {}
+    if (!res.ok) throw new Error(json?.error || raw || "Falha ao enviar");
+
+    addToast("success", "Enviado", "Mensagem enviada imediatamente via WhatsApp.");
+    setShowSendNow({ open: false, resellerId: null });
+    setMessageText("");
+    setSelectedTemplateNowId("");
+  } catch (e: any) {
+    if (e?.name !== "AbortError") {
+      console.error(e);
+      addToast("error", "Erro ao enviar mensagem", e?.message || "Falha desconhecida");
+    }
+  } finally {
+    setSendingNow(false);
+    sendNowAbortRef.current = null;
+  }
+};
+
+const handleScheduleMessage = async () => {
+  if (!tenantId || !showScheduleMsg.resellerId) return;
+  if (scheduling) return;
+
+  const msg = (scheduleText || "").trim();
+  if (!msg) {
+    addToast("error", "Mensagem vazia", "Digite a mensagem para agendar.");
+    return;
+  }
+
+  const local = (scheduleDate || "").trim();
+  if (!local) {
+    addToast("error", "Data/hora inválida", "Selecione a data e hora do envio.");
+    return;
+  }
+
+  let sendAtIso = "";
+  try {
+    sendAtIso = localDateTimeToIso(local);
+  } catch (e: any) {
+    addToast("error", "Data/hora inválida", e?.message || "Data/hora inválida.");
+    return;
+  }
+
+  try {
+    setScheduling(true);
+
+    // ✅ agenda direto na tabela (mesmo padrão do seu select)
+const { error } = await supabaseBrowser.from("client_message_jobs").insert({
+  tenant_id: tenantId,
+  client_id: showScheduleMsg.resellerId, // ✅ grava no client_id
+  send_at: sendAtIso,
+  message: msg,
+  status: "SCHEDULED",
+} as any);
+
+
+    if (error) throw error;
+
+    addToast("success", "Agendado", "Mensagem agendada com sucesso.");
+    setShowScheduleMsg({ open: false, resellerId: null, resellerName: undefined });
+    setScheduleText("");
+    setScheduleDate("");
+    setSelectedTemplateScheduleId("");
+
+    await loadData(); // recarrega badges/listas
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao agendar", e?.message || "Erro desconhecido");
+  } finally {
+    setScheduling(false);
+  }
+};
+
+
 
   function closeAllPopups() { setMsgMenuForId(null); }
 
 return (
-  <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100"
-    onClick={closeAllPopups}
-  >
+<div
+  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors text-zinc-900 dark:text-zinc-100"
+  onClick={closeAllPopups}
+>
+
 
       
       {/* Topo */}
-<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 animate-in fade-in duration-500">
-
-  {/* Título esquerda */}
-  <div className="text-left w-full md:w-auto">
-    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-      Gestão de Revendas
-    </h1>
-
-    <p className="mt-0.5 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-      Gerencie parceiros, recargas e servidores.
-    </p>
-  </div>
-
-  {/* Ações direita */}
-  <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-
-    {/* BUSCA */}
-    <div className="relative w-full md:w-64">
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Pesquisar..."
-        className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
-      />
-
-      {search && (
-        <button
-          onClick={() => setSearch("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
-        >
-          <IconX />
-        </button>
-      )}
+<div className="space-y-3 pb-0 animate-in fade-in duration-500">
+  {/* Linha 1: Título + Novo */}
+  <div className="flex items-center justify-between gap-2">
+    <div className="min-w-0 text-left">
+      <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
+        Gestão de Revendas
+      </h1>
     </div>
 
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-      }}
-      className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap flex items-center ${
-        archivedFilter === "Sim"
-          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-      }`}
-    >
-      {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-    </button>
-
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        handleOpenNew();
-      }}
-      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
-    >
-      <span>+</span> Nova Revenda
-    </button>
-
+    <div className="flex items-center gap-2 justify-end shrink-0">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleOpenNew();
+        }}
+        className="h-9 sm:h-10 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
+      >
+        <span>+</span> Novo
+      </button>
+    </div>
   </div>
 
+  {/* Linha 2: Barra de filtros (campo + menu ao lado) */}
+  <div
+    className="p-0 sm:p-4 bg-transparent sm:bg-white sm:dark:bg-[#161b22] border-0 sm:border sm:border-slate-200 sm:dark:border-white/10 rounded-none sm:rounded-xl shadow-none sm:shadow-sm"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <div className="flex items-center gap-2">
+      {/* Busca ocupa tudo */}
+      <div className="flex-1 relative">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Pesquisar..."
+          className="w-full h-10 px-3 bg-white sm:bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
+            title="Limpar pesquisa"
+          >
+            <IconX />
+          </button>
+        )}
+      </div>
+
+      {/* Menu lateral de filtros (lixeira + status) */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+          }}
+          className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap flex items-center gap-2 ${
+            archivedFilter === "Sim"
+              ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+              : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+          }`}
+          title="Lixeira"
+        >
+          <IconTrash />
+          {archivedFilter === "Sim" ? "Lixeira ON" : "Lixeira OFF"}
+        </button>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+          title="Status"
+        >
+          <option value="Todos">Status</option>
+          <option value="Ativo">Ativo</option>
+          <option value="Inativo">Inativo</option>
+          <option value="Arquivado">Arquivado</option>
+        </select>
+
+        <button
+          onClick={() => {
+            setSearch("");
+            setStatusFilter("Todos");
+            setArchivedFilter("Não");
+          }}
+          className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+          title="Limpar filtros"
+        >
+          <IconX />
+          <span className="hidden sm:inline">Limpar</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
+
 
 
       {loading && (
@@ -538,7 +923,11 @@ return (
       )}
 
       {!loading && (
-        <div className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors" onClick={(e) => e.stopPropagation()}>
+        <div
+  className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors"
+  onClick={(e) => e.stopPropagation()}
+>
+
           <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">
 
             <div className="text-sm font-bold text-slate-700 dark:text-white tracking-tight">
@@ -566,7 +955,6 @@ return (
                   <ThSort label="Custo" active={sortKey === "cost"} dir={sortDir} onClick={() => toggleSort("cost")} />
                   <ThSort label="Lucro" active={sortKey === "profit"} dir={sortDir} onClick={() => toggleSort("profit")} />
                   <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
-                  <ThSort label="Alertas" active={sortKey === "alerts"} dir={sortDir} onClick={() => toggleSort("alerts")} />
                   <Th align="right" className="pr-6">Ações</Th>
                 </tr>
               </thead>
@@ -576,17 +964,56 @@ return (
                   <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
                     <Td><input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 text-emerald-500 focus:ring-emerald-500/30" /></Td>
 
-                    <Td>
-                      <div className="flex flex-col">
-                        <Link href={`/admin/revendedor/${r.id}`} className="font-bold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors decoration-slate-200 dark:decoration-white/5">
-                          {r.name}
-                        </Link>
-                        <span className="text-[11px] font-medium text-slate-400 dark:text-white/30">
-                          {formatPhoneE164BR(r.primary_phone)}
-                        </span>
+<Td>
+  <div className="flex flex-col gap-0.5">
+    <div className="flex items-center gap-2 min-w-0">
+      <Link
+        href={`/admin/revendedor/${r.id}`}
+        className="font-bold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors decoration-slate-200 dark:decoration-white/5 truncate"
+        title={r.name}
+      >
+        {r.name}
+      </Link>
 
-                      </div>
-                    </Td>
+      {/* ✅ ALERTAS (ao lado do nome) */}
+      {r.alertsCount > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenAlertList(r.id, r.name);
+          }}
+          title={`${r.alertsCount} alerta(s)`}
+          className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 text-[10px] font-extrabold hover:bg-amber-500/20 transition-all"
+        >
+          <IconBell />
+          <span>{r.alertsCount}</span>
+        </button>
+      )}
+
+      {/* ✅ AGENDADAS (ao lado do nome) */}
+      {(scheduledMap[r.id]?.length || 0) > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowScheduledModal({ open: true, resellerId: r.id, resellerName: r.name });
+          }}
+          title={`${scheduledMap[r.id]?.length || 0} mensagem(ns) agendada(s)`}
+          className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-[10px] font-extrabold hover:bg-sky-500/20 transition-all"
+        >
+          <IconClock />
+          <span>{scheduledMap[r.id]?.length || 0}</span>
+        </button>
+      )}
+    </div>
+
+    <span className="text-[11px] font-medium text-slate-400 dark:text-white/30">
+      {formatPhoneE164BR(r.primary_phone)}
+    </span>
+  </div>
+</Td>
+
 
                     <Td>
                         <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 shadow-sm">
@@ -600,15 +1027,7 @@ return (
                     
                     <Td><StatusBadge status={r.status} /></Td>
 
-                    <Td>
-                      {r.alertsCount > 0 ? (
-                        <button className="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 text-[10px] font-bold hover:bg-amber-500/20 transition-all shadow-sm">
-                          {r.alertsCount} alerta(s)
-                        </button>
-                      ) : (
-                        <span className="text-slate-300 dark:text-white/10">—</span>
-                      )}
-                    </Td>
+                    
 
                     <Td align="right" className="pr-6">
                       <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 relative transition-opacity">
@@ -642,9 +1061,30 @@ return (
                            <IconBell />
                         </IconActionBtn>
 
-                        <IconActionBtn title={r.archived ? "Restaurar" : "Arquivar"} tone={r.archived ? "green" : "red"} onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}>
-                          {r.archived ? <IconRestore /> : <IconTrash />}
+                        <IconActionBtn
+                        title={r.archived ? "Restaurar" : "Arquivar"}
+                        tone={r.archived ? "green" : "red"}
+                        onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
+                      >
+                        {r.archived ? <IconRestore /> : <IconTrash />}
+                      </IconActionBtn>
+
+                      {/* ✅ Excluir definitivo: só quando estiver VISUALIZANDO a Lixeira */}
+                      {archivedFilter === "Sim" && r.archived && (
+                        <IconActionBtn
+                          title="Excluir definitivamente"
+                          tone="red"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteForever(r);
+                          }}
+                        >
+                          <IconTrash />
                         </IconActionBtn>
+                      )}
+
+
+
 
                       </div>
                     </Td>
@@ -653,7 +1093,7 @@ return (
 
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="p-12 text-center text-slate-400 dark:text-white/30 italic font-medium bg-slate-50/30 dark:bg-white/5">Nenhuma revenda encontrada com os filtros atuais.</td>
+                    <td colSpan={8} className="p-12 text-center text-slate-400 dark:text-white/30 italic font-medium bg-slate-50/30 dark:bg-white/5">Nenhuma revenda encontrada com os filtros atuais.</td>
                   </tr>
                 )}
               </tbody>
@@ -773,6 +1213,109 @@ return (
           </div>
         </Modal>
       )}
+
+            {/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
+      {showScheduledModal.open && showScheduledModal.resellerId && (
+        <Modal
+          title={`Agendadas: ${showScheduledModal.resellerName || "Revenda"}`}
+          onClose={() => setShowScheduledModal({ open: false, resellerId: null, resellerName: undefined })}
+        >
+          <div className="space-y-3">
+            {((scheduledMap[showScheduledModal.resellerId] || []) as ScheduledMsg[]).length === 0 ? (
+              <div className="text-sm text-slate-500 dark:text-white/50">
+                Nenhuma mensagem agendada.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(scheduledMap[showScheduledModal.resellerId] || []).map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+                  >
+                    <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                      <IconClock />
+                      <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
+                      {s.status ? <span className="ml-auto text-[10px] opacity-60">{String(s.status)}</span> : null}
+                    </div>
+                    <div className="mt-2 text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                      {s.message}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 flex justify-end">
+              <button
+                onClick={() => setShowScheduledModal({ open: false, resellerId: null, resellerName: undefined })}
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ✅ MODAL LISTA DE ALERTAS (OPEN) */}
+      {showAlertList.open && showAlertList.resellerId && (
+        <Modal
+          title={`Alertas: ${showAlertList.resellerName || "Revenda"}`}
+          onClose={() => setShowAlertList({ open: false, resellerId: null, resellerName: undefined })}
+        >
+          <div className="space-y-3">
+            {(resellerAlerts as any[]).length === 0 ? (
+              <div className="text-sm text-slate-500 dark:text-white/50">
+                Nenhum alerta aberto.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(resellerAlerts as any[]).map((a) => (
+                  <div
+                    key={String(a.id)}
+                    className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5 text-amber-600 dark:text-amber-500">
+                        <IconBell />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                          {String(a.message ?? a.text ?? a.alert_text ?? "Alerta")}
+                        </div>
+                        {a.created_at ? (
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-white/40">
+                            {new Date(String(a.created_at)).toLocaleString("pt-BR")}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteAlert(String(a.id))}
+                        className="shrink-0 px-2 py-1 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-extrabold hover:bg-rose-500/20 transition-colors"
+                        title="Excluir alerta"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 flex justify-end">
+              <button
+                onClick={() => setShowAlertList({ open: false, resellerId: null, resellerName: undefined })}
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
 
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
       <style jsx global>{`
