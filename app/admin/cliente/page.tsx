@@ -256,10 +256,18 @@ export default function ClientePage() {
   // Mensagem (Mantido conforme original)
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
   const [messageText, setMessageText] = useState("");
+
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
   const [scheduling, setScheduling] = useState(false);
+
+  // ✅ Templates (mensagens prontas)
+  type MessageTemplate = { id: string; name: string; content: string };
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");       // modal enviar agora
+  const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>(""); // modal agendar
+
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -325,6 +333,30 @@ export default function ClientePage() {
 }
 
 
+  async function loadMessageTemplates(tid: string) {
+    // ✅ Ajuste APENAS se sua tabela tiver outro nome/colunas
+    const { data, error } = await supabaseBrowser
+      .from("message_templates")
+      .select("id,name,content")
+      .eq("tenant_id", tid)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar templates:", error);
+      setMessageTemplates([]);
+      return;
+    }
+
+    const mapped = ((data as any[]) || []).map((r) => ({
+      id: String(r.id),
+      name: String(r.name ?? "Sem nome"),
+      content: String(r.content ?? ""),
+    })) as MessageTemplate[];
+
+    setMessageTemplates(mapped);
+  }
+
+
   // --- CARREGAMENTO ---
   async function loadData() {
     setLoading(true);
@@ -332,7 +364,12 @@ export default function ClientePage() {
     const tid = await getCurrentTenantId();
     setTenantId(tid);
 
+    if (tid) {
+      await loadMessageTemplates(tid);
+    }
+
     if (!tid) {
+
       setRows([]);
       setLoading(false);
       return;
@@ -632,6 +669,34 @@ const sorted = useMemo(() => {
     }
   };
 
+    const handleDeleteForever = async (r: ClientRow) => {
+    if (!tenantId) return;
+
+    if (!r.archived) {
+      addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente pela Lixeira.");
+      return;
+    }
+
+    const confirmed = window.confirm("Excluir permanentemente este cliente? Esta ação NÃO pode ser desfeita.");
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabaseBrowser.rpc("delete_client_forever", {
+        p_tenant_id: tenantId,
+        p_client_id: r.id,
+      });
+
+      if (error) throw error;
+
+      addToast("success", "Excluído", "Cliente removido definitivamente.");
+      loadData();
+    } catch (e: any) {
+      console.error(e);
+      addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
+    }
+  };
+
+
   // ... (Funções de Alerta e Mensagem mantidas iguais pois são APIs externas por enquanto) ...
   const handleSaveAlert = async () => {
     if (!newAlertText.trim() || !showNewAlert.clientId || !tenantId) return;
@@ -873,7 +938,8 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   return (
     <div className="p-5 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => closeAllPopups()}>
       {/* Topo */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-1 mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4 pb-1 mb-3">
+
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestão de Clientes</h1>
           <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie assinaturas, renovações e testes.</p>
@@ -1129,8 +1195,29 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
                             {msgMenuForId === r.id && (
                               <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden">
-                                <MenuItem icon={<IconSend />} label="Enviar agora" onClick={() => { setMsgMenuForId(null); setMessageText(""); setShowSendNow({ open: true, clientId: r.id }); }} />
-                                <MenuItem icon={<IconClock />} label="Programar" onClick={() => { setMsgMenuForId(null); setScheduleText(""); setScheduleDate(""); setShowScheduleMsg({ open: true, clientId: r.id }); }} />
+                                <MenuItem
+  icon={<IconSend />}
+  label="Enviar agora"
+  onClick={() => {
+    setMsgMenuForId(null);
+    setSelectedTemplateNowId("");
+    setMessageText("");
+    setShowSendNow({ open: true, clientId: r.id });
+  }}
+/>
+
+<MenuItem
+  icon={<IconClock />}
+  label="Programar"
+  onClick={() => {
+    setMsgMenuForId(null);
+    setSelectedTemplateScheduleId("");
+    setScheduleText("");
+    setScheduleDate("");
+    setShowScheduleMsg({ open: true, clientId: r.id });
+  }}
+/>
+
                               </div>
                             )}
                           </div>
@@ -1154,6 +1241,26 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                           >
                             {r.archived ? <IconRestore /> : <IconTrash />}
                           </IconActionBtn>
+
+                          <IconActionBtn
+  title={r.archived ? "Restaurar" : "Arquivar"}
+  tone={r.archived ? "green" : "red"}
+  onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
+>
+  {r.archived ? <IconRestore /> : <IconTrash />}
+</IconActionBtn>
+
+{/* ✅ Excluir definitivo (só na lixeira) */}
+{r.archived && (
+  <IconActionBtn
+    title="Excluir definitivamente"
+    tone="red"
+    onClick={(e) => { e.stopPropagation(); handleDeleteForever(r); }}
+  >
+    <IconTrash />
+  </IconActionBtn>
+)}
+
 
                         </div>
                       </Td>
@@ -1345,7 +1452,12 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
 {showSendNow.open && (
-        <Modal title="Enviar Mensagem Rápida" onClose={() => setShowSendNow({ open: false, clientId: null })}>
+        <Modal title="Enviar Mensagem Rápida" onClose={() => {
+  setShowSendNow({ open: false, clientId: null });
+  setSelectedTemplateNowId("");
+  setMessageText("");
+}}
+>
           <div className="space-y-4">
             <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 p-3 rounded-lg flex items-center gap-3">
                <span className="text-xl">💬</span>
@@ -1354,13 +1466,49 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                </div>
             </div>
 
-            <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none"
-              placeholder="Olá, gostaria de informar que..."
-              autoFocus
-            />
+            {/* ✅ Select de template (opcional) */}
+<div>
+  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+    Mensagem pronta (opcional)
+  </label>
+
+  <select
+    value={selectedTemplateNowId}
+    onChange={(e) => {
+      const id = e.target.value;
+      setSelectedTemplateNowId(id);
+
+      if (id) {
+        const tpl = messageTemplates.find((t) => t.id === id);
+        setMessageText(tpl?.content ?? "");
+      } else {
+        setMessageText("");
+      }
+    }}
+    className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+  >
+    <option value="">Selecionar...</option>
+    {messageTemplates.map((t) => (
+      <option key={t.id} value={t.id}>
+        {t.name}
+      </option>
+    ))}
+  </select>
+</div>
+
+<textarea
+  value={messageText}
+  disabled={!!selectedTemplateNowId}
+  onChange={(e) => {
+    // digitou manual = limpa template
+    if (selectedTemplateNowId) setSelectedTemplateNowId("");
+    setMessageText(e.target.value);
+  }}
+  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+  placeholder="Olá, gostaria de informar que..."
+  autoFocus
+/>
+
 
             <div className="flex justify-end gap-3 pt-2">
               <button 
@@ -1384,7 +1532,13 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
       {/* --- MODAL DE AGENDAMENTO DE MENSAGEM --- */}
       {showScheduleMsg.open && (
-        <Modal title="Agendar Mensagem" onClose={() => setShowScheduleMsg({ open: false, clientId: null })}>
+        <Modal title="Agendar Mensagem" onClose={() => {
+  setShowScheduleMsg({ open: false, clientId: null });
+  setSelectedTemplateScheduleId("");
+  setScheduleText("");
+  setScheduleDate("");
+}}
+>
           <div className="space-y-5">
             <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
                <span className="text-xl">📅</span>
@@ -1405,12 +1559,47 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
-              <textarea
-                value={scheduleText}
-                onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none"
-                placeholder="Ex: Olá, seu plano vence amanhã..."
-              />
+{/* ✅ Select de template (opcional) */}
+<div>
+  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+    Mensagem pronta (opcional)
+  </label>
+
+  <select
+    value={selectedTemplateScheduleId}
+    onChange={(e) => {
+      const id = e.target.value;
+      setSelectedTemplateScheduleId(id);
+
+      if (id) {
+        const tpl = messageTemplates.find((t) => t.id === id);
+        setScheduleText(tpl?.content ?? "");
+      } else {
+        setScheduleText("");
+      }
+    }}
+    className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
+  >
+    <option value="">Selecionar...</option>
+    {messageTemplates.map((t) => (
+      <option key={t.id} value={t.id}>
+        {t.name}
+      </option>
+    ))}
+  </select>
+</div>
+
+<textarea
+  value={scheduleText}
+  disabled={!!selectedTemplateScheduleId}
+  onChange={(e) => {
+    if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
+    setScheduleText(e.target.value);
+  }}
+  className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+  placeholder="Ex: Olá, seu plano vence amanhã..."
+/>
+
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
