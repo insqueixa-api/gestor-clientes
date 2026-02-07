@@ -169,6 +169,8 @@ export default function RevendaPage() {
   const [showCount, setShowCount] = useState(100);
   const [statusFilter, setStatusFilter] = useState<"Todos" | ResellerStatus>("Todos");
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
 
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -813,9 +815,10 @@ const { error } = await supabaseBrowser.from("client_message_jobs").insert({
 
 return (
 <div
-  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors text-zinc-900 dark:text-zinc-100"
+  className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors text-zinc-900 dark:text-zinc-100"
   onClick={closeAllPopups}
 >
+
 
 
       
@@ -867,53 +870,143 @@ return (
         )}
       </div>
 
-      {/* Menu lateral de filtros (lixeira + status) */}
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-          }}
-          className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap flex items-center gap-2 ${
-            archivedFilter === "Sim"
-              ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-              : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
-          }`}
-          title="Lixeira"
-        >
-          <IconTrash />
-          {archivedFilter === "Sim" ? "Lixeira ON" : "Lixeira OFF"}
-        </button>
+<div className="flex items-center gap-2 shrink-0">
+  {/* ✅ Mobile: abre painel */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setMobileFiltersOpen(true);
+    }}
+    className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors flex items-center gap-2 whitespace-nowrap"
+    title="Filtros"
+  >
+    <IconFilter />
+    Filtros
+  </button>
 
+  {/* ✅ Desktop: Status + Limpar + Lixeira (Lixeira já está hidden md:inline-flex no ajuste 2) */}
+  <select
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value as any)}
+    className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+    title="Status"
+  >
+    <option value="Todos">Status</option>
+    <option value="Ativo">Ativo</option>
+    <option value="Inativo">Inativo</option>
+    <option value="Arquivado">Arquivado</option>
+  </select>
+
+  <button
+    onClick={() => {
+      setSearch("");
+      setStatusFilter("Todos");
+      setArchivedFilter("Não");
+    }}
+    className="hidden md:flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+    title="Limpar filtros"
+  >
+    <IconX />
+    <span className="hidden sm:inline">Limpar</span>
+  </button>
+
+  {/* (Lixeira desktop fica aqui também, com hidden md:inline-flex do ajuste 2) */}
+</div>
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+  }}
+  className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap items-center gap-2 ${
+    archivedFilter === "Sim"
+      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+      : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+  }`}
+  title="Lixeira"
+>
+  <IconTrash />
+  {archivedFilter === "Sim" ? "Lixeira ON" : "Lixeira OFF"}
+</button>
+
+
+    </div>
+  </div>
+</div>
+
+{mobileFiltersOpen && (
+  <div
+    className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm md:hidden"
+    onMouseDown={() => setMobileFiltersOpen(false)}
+  >
+    <div
+      className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white dark:bg-[#161b22] border-t border-slate-200 dark:border-white/10 p-4 space-y-3"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-extrabold text-slate-700 dark:text-white">Filtros</div>
+        <button
+          onClick={() => setMobileFiltersOpen(false)}
+          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-white/70"
+          title="Fechar"
+        >
+          <IconX />
+        </button>
+      </div>
+
+      {/* Status */}
+      <div>
+        <label className="block text-[11px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/40 mb-1.5">
+          Status
+        </label>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-          title="Status"
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
         >
-          <option value="Todos">Status</option>
+          <option value="Todos">Todos</option>
           <option value="Ativo">Ativo</option>
           <option value="Inativo">Inativo</option>
           <option value="Arquivado">Arquivado</option>
         </select>
+      </div>
 
+      {/* Lixeira (mobile) */}
+      <button
+        onClick={() => setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não")}
+        className={`w-full h-11 px-3 rounded-lg text-sm font-extrabold border transition-colors flex items-center justify-center gap-2 ${
+          archivedFilter === "Sim"
+            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+            : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+        }`}
+        title="Lixeira"
+      >
+        <IconTrash />
+        {archivedFilter === "Sim" ? "Lixeira: ON" : "Lixeira: OFF"}
+      </button>
+
+      {/* Botões */}
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => setMobileFiltersOpen(false)}
+          className="flex-1 h-11 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-extrabold"
+        >
+          Fechar
+        </button>
         <button
           onClick={() => {
             setSearch("");
             setStatusFilter("Todos");
             setArchivedFilter("Não");
+            setMobileFiltersOpen(false);
           }}
-          className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-          title="Limpar filtros"
+          className="flex-1 h-11 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-extrabold shadow-lg shadow-rose-900/20"
         >
-          <IconX />
-          <span className="hidden sm:inline">Limpar</span>
+          Limpar
         </button>
       </div>
     </div>
   </div>
-</div>
-
+)}
 
 
       {loading && (
@@ -1437,3 +1530,11 @@ function IconRestore() {
     </svg>
   );
 }
+function IconFilter() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 3H2l8 9v7l4 2v-9l8-9Z" />
+    </svg>
+  );
+}
+
