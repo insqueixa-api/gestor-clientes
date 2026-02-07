@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "./simplebarchart";
+import type { ReactNode } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,13 @@ const fmtBRL = (v: number) =>
 
 const fmtBRLNoSymbol = (v: number) =>
   fmtBRL(v).replace(/\s?R\$\s?/g, "").trim();
+
+const fmtBRLNoSymbol0 = (v: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(v);
+
 
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
@@ -353,7 +361,8 @@ return (
           leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsTodayVal)}</span>
+
     <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
   </>
 }
@@ -386,7 +395,10 @@ return (
 }
     footer={
     <>
-    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}</span>
+    <span className="sm:hidden">
+  Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}
+</span>
+
     <span className="hidden sm:inline">Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}</span>
     </>
     }
@@ -544,10 +556,10 @@ function MetricCardView({
   title: string;
   accent: Accent;
   leftLabel: string;
-  leftValue: React.ReactNode;
+  leftValue: ReactNode;
   rightLabel?: string;
-  rightValue?: React.ReactNode;
-  footer?: React.ReactNode;
+  rightValue?: ReactNode;
+  footer?: ReactNode;
 }) {
 
   const colors: Record<Accent, string> = {
@@ -575,9 +587,10 @@ function MetricCardView({
     <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
       {leftLabel}
     </div>
-    <div className="text-base sm:text-xl font-bold leading-tight">
-      {leftValue}
-    </div>
+<div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+  {leftValue}
+</div>
+
   </div>
 
   {rightLabel && rightValue && (
@@ -585,9 +598,10 @@ function MetricCardView({
       <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
         {rightLabel}
       </div>
-      <div className="text-base sm:text-xl font-bold leading-tight">
-        {rightValue}
-      </div>
+<div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+  {rightValue}
+</div>
+
     </div>
   )}
 </div>
