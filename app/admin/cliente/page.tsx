@@ -984,41 +984,50 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   >
 
       {/* Topo */}
-<div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-3">
-  <div className="w-full md:w-auto text-right">
-    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Gestão de Clientes</h1>
-    <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">Gerencie assinaturas, renovações e testes.</p>
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-3">
+
+  {/* Título (sempre esquerda) */}
+  <div className="w-full md:w-auto text-left">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+      Gestão de Clientes
+    </h1>
+
+    <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">
+      Gerencie assinaturas, renovações e testes.
+    </p>
   </div>
+
+  {/* Botões (sempre direita) */}
   <div className="flex items-center gap-3 w-full md:w-auto justify-end">
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-            }}
-            className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
-  archivedFilter === "Sim"
-    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-    : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-}`}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+      }}
+      className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
+        archivedFilter === "Sim"
+          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+      }`}
+    >
+      {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+    </button>
 
-          >
-            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-          </button>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setClientToEdit(null);
+        setShowFormModal(true);
+      }}
+      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+    >
+      <span>+</span> Novo Cliente
+    </button>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setClientToEdit(null);
-              setShowFormModal(true);
-            }}
-            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+  </div>
+</div>
 
-          >
-            <span>+</span> Novo Cliente
-          </button>
-        </div>
-      </div>
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
 <div

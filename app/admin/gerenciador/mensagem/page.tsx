@@ -162,39 +162,49 @@ return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
       {/* TOPO COM BUSCA */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3">
 
-<div className="w-full md:w-auto text-right">
-  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Central de Mensagens</h1>
-  <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie seus modelos de comunicação.</p>
+  {/* Título esquerda */}
+  <div className="w-full md:w-auto text-left">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+      Central de Mensagens
+    </h1>
+
+    <p className="text-slate-500 dark:text-white/60 text-sm mt-1">
+      Gerencie seus modelos de comunicação.
+    </p>
+  </div>
+
+  {/* Ações direita */}
+  <div className="flex gap-3 w-full md:w-auto justify-end">
+
+    {/* CAMPO DE BUSCA */}
+    <div className="relative flex-1 min-w-[180px] md:w-72">
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar modelo..."
+        className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+        🔍
+      </span>
+    </div>
+
+    <button
+      onClick={() => {
+        setSelectedTemplate(null);
+        setShowEditor(true);
+      }}
+      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+    >
+      <span className="text-xl leading-none">+</span>
+      <span className="hidden sm:inline">Nova Mensagem</span>
+    </button>
+
+  </div>
 </div>
 
-
-        <div className="flex gap-3 w-full md:w-auto justify-end">
-
-          {/* CAMPO DE BUSCA */}
-          <div className="relative flex-1 min-w-[180px] md:w-72">
-
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar modelo..."
-              className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-          </div>
-
-          <button
-            onClick={() => {
-              setSelectedTemplate(null);
-              setShowEditor(true);
-            }}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span className="text-xl leading-none">+</span> <span className="hidden sm:inline">Nova Mensagem</span>
-          </button>
-        </div>
-      </div>
 
       {/* LISTA DE MENSAGENS (CARDS COMPACTOS) */}
       {loading ? (

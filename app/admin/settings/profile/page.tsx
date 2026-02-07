@@ -739,8 +739,9 @@ return (
   </div>
   )}
       {/* HEADER + BOTÃO DINÂMICO */}
-<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-  <div className="flex flex-col gap-1 text-right w-full sm:w-auto">
+<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
+  {/* Título ESQUERDA */}
+  <div className="flex flex-col gap-1 text-left w-full sm:w-auto">
     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
       Configurações da Conta
     </h1>
@@ -748,8 +749,9 @@ return (
       Gerencie seu perfil, conexões e dados.
     </p>
   </div>
-        
-        <div className="flex justify-end w-full sm:w-auto">
+
+  {/* Botão DIREITA */}
+  <div className="flex justify-end w-full sm:w-auto">
     {!isEditing ? (
       <button
         onClick={() => setIsEditing(true)}
@@ -769,7 +771,8 @@ return (
   </div>
 </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+
        
         {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
         <div className="xl:col-span-2 space-y-6">

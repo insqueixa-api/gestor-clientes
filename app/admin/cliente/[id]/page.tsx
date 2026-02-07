@@ -374,56 +374,59 @@ const clientIdSafe = (clientId ?? "").trim();
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
 
-<div className="w-full md:w-auto text-right">
-  <div className="flex items-center justify-end gap-3">
+  {/* Título (sempre esquerda) */}
+  <div className="w-full md:w-auto text-left">
+    <div className="flex items-center gap-3">
+      <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
+        {client.client_name}
+      </h1>
 
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">{client.client_name}</h1>
-            <StatusBadge status={client.computed_status} />
-          </div>
-          {/* Linha de usuário/servidor removida conforme solicitado */}
-        </div>
+      <StatusBadge status={client.computed_status} />
+    </div>
+  </div>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <Link
-            href="/admin/cliente"
-            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+  {/* Botões (sempre direita) */}
+  <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
 
-          >
-            Voltar
-          </Link>
+    <Link
+      href="/admin/cliente"
+      className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+    >
+      Voltar
+    </Link>
 
-          <button
-            onClick={handleArchiveToggle}
-            className={`h-10 px-4 rounded-lg border font-bold text-sm transition-all shadow-sm inline-flex items-center justify-center ${
-  client.client_is_archived
-    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
-}`}
+    <button
+      onClick={handleArchiveToggle}
+      className={`h-10 px-4 rounded-lg border font-bold text-sm transition-all shadow-sm inline-flex items-center justify-center ${
+        client.client_is_archived
+          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+          : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
+      }`}
+    >
+      {client.client_is_archived ? "Restaurar" : "Arquivar"}
+    </button>
 
-          >
-            {client.client_is_archived ? "Restaurar" : "Arquivar"}
-          </button>
+    <button
+      onClick={() => setShowEditModal(true)}
+      className="h-10 px-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-sm hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center"
+    >
+      Editar
+    </button>
 
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="h-10 px-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-sm hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center"
+    <button
+      onClick={() => setShowRenewModal(true)}
+      disabled={client.client_is_archived}
+      className="h-10 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
+    >
+      <span className="text-lg leading-none">$</span> Renovar
+    </button>
 
-          >
-            Editar
-          </button>
+  </div>
+</div>
 
-          <button
-            onClick={() => setShowRenewModal(true)}
-            disabled={client.client_is_archived}
-            className="h-10 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
 
-          >
-            <span className="text-lg leading-none">$</span> Renovar
-          </button>
-        </div>
-      </div>
 
       {/* GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

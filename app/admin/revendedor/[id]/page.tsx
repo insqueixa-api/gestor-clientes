@@ -362,48 +362,51 @@ const totalInvested = useMemo(() => {
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
       {/* HEADER IGUAL AO CLIENTE */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
 
-<div className="w-full md:w-auto text-right">
-  <div className="flex items-center justify-end gap-3">
+  {/* Título esquerda */}
+  <div className="w-full md:w-auto text-left">
 
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
-              {reseller.name}
-            </h1>
-            <span
-              className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border shadow-sm ${
-                reseller.is_archived
-                  ? "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-              }`}
-            >
-              {reseller.is_archived ? "ARQUIVADO" : "ATIVO"}
-            </span>
-          </div>
+    <div className="flex items-center justify-start gap-3">
+      <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
+        {reseller.name}
+      </h1>
 
-        </div>
+      <span
+        className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border shadow-sm ${
+          reseller.is_archived
+            ? "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20"
+            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+        }`}
+      >
+        {reseller.is_archived ? "ARQUIVADO" : "ATIVO"}
+      </span>
+    </div>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <Link
-            href="/admin/revendedor"
-            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+  </div>
 
-          >
-            Voltar
-          </Link>
+  {/* Botões direita */}
+  <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+    <Link
+      href="/admin/revendedor"
+      className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
+    >
+      Voltar
+    </Link>
 
-          <button
-            onClick={() => {
-              setEditLink({ resellerServerId: null, initial: undefined });
-              setShowServerModal(true);
-            }}
-            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    <button
+      onClick={() => {
+        setEditLink({ resellerServerId: null, initial: undefined });
+        setShowServerModal(true);
+      }}
+      className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    >
+      <span>+</span> Vincular Servidor
+    </button>
+  </div>
 
-          >
-            <span>+</span> Vincular Servidor
-          </button>
-        </div>
-      </div>
+</div>
+
 
       {/* GRID PRINCIPAL (3 COLUNAS) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">

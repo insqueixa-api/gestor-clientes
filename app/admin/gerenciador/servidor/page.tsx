@@ -251,25 +251,31 @@ export default function AdminServersPage() {
 
       
       {/* HEADER */}
-<div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1">
-  <div className="text-right w-full md:w-auto">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1">
+
+  {/* Título esquerda */}
+  <div className="text-left w-full md:w-auto">
     <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
       Servidores
     </h1>
+
     <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">
       Cadastre e gerencie servidores IPTV (créditos, painel, WhatsApp, DNS).
     </p>
   </div>
-        
-        <div className="flex items-center justify-end gap-3 w-full md:w-auto">
+
+  {/* Botões direita */}
+  <div className="flex items-center justify-end gap-3 w-full md:w-auto">
     <button
       onClick={() => setShowArchived(!showArchived)}
       className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors flex items-center gap-2
-        ${showArchived 
-          ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' 
-          : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/10'}`}
+        ${
+          showArchived
+            ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/10"
+        }`}
     >
-      {showArchived ? 'Ocultar arquivados' : 'Ver lixeira'}
+      {showArchived ? "Ocultar arquivados" : "Ver lixeira"}
     </button>
 
     <button
@@ -279,7 +285,9 @@ export default function AdminServersPage() {
       <span>+</span> Novo servidor
     </button>
   </div>
+
 </div>
+
       {loading && (
         <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
           Carregando servidores...

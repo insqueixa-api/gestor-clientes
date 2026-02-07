@@ -474,35 +474,45 @@ return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3">
 
-<div className="text-right">
-  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Automação de Cobranças</h1>
-  <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Gerencie suas regras de envio automático.</p>
+  {/* Título esquerda */}
+  <div className="text-left">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+      Automação de Cobranças
+    </h1>
+
+    <p className="text-slate-500 dark:text-white/60 text-sm mt-1">
+      Gerencie suas regras de envio automático.
+    </p>
+  </div>
+
+  {/* Ações direita */}
+  <div className="flex gap-3 w-full md:w-auto justify-end">
+
+    <div className="relative flex-1 min-w-[180px] md:w-72">
+      <input 
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar regra..."
+        className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm outline-none focus:border-emerald-500 transition-colors dark:text-white"
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+        🔍
+      </span>
+    </div>
+
+    <button
+      onClick={() => setWizardState({ show: true, editingRule: null })}
+      className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    >
+      <span className="text-xl leading-none">+</span>
+      Nova Regra
+    </button>
+
+  </div>
 </div>
 
-        
-        <div className="flex gap-3 w-full md:w-auto justify-end">
-
-            <div className="relative flex-1 min-w-[180px] md:w-72">
-
-                <input 
-                    value={search} onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar regra..."
-                    className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm outline-none focus:border-emerald-500 transition-colors dark:text-white"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-            </div>
-            <button
-            onClick={() => setWizardState({ show: true, editingRule: null })}
-            className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-            >
-            <span className="text-xl leading-none">+</span>
-            Nova Regra
-            </button>
-
-        </div>
-      </div>
 
       {/* LISTA (GRID 3 COLUNAS) */}
       {loading ? (

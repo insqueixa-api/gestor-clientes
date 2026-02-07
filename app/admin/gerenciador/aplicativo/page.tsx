@@ -280,23 +280,31 @@ return (
 
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10 animate-in fade-in duration-500">
+<div className="flex flex-col sm:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10 animate-in fade-in duration-500">
 
-<div className="text-right">
-  <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Aplicativos</h1>
-  <p className="text-sm text-slate-500 dark:text-white/60 mt-0.5 font-medium">
-    Configure quais aplicativos e campos seus clientes usarão.
-  </p>
+  {/* Título esquerda */}
+  <div className="text-left">
+    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+      Aplicativos
+    </h1>
+
+    <p className="text-sm text-slate-500 dark:text-white/60 mt-0.5 font-medium">
+      Configure quais aplicativos e campos seus clientes usarão.
+    </p>
+  </div>
+
+  {/* Botão direita */}
+  <div className="w-full sm:w-auto flex justify-end">
+    <button
+      onClick={openNew}
+      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    >
+      <span>+</span> Novo Aplicativo
+    </button>
+  </div>
+
 </div>
 
-        <button
-          onClick={openNew}
-          className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-
-        >
-          <span>+</span> Novo Aplicativo
-        </button>
-      </div>
 
       {/* LISTAGEM */}
       {loading ? (

@@ -128,16 +128,20 @@ return (
 
       
       {/* HEADER DA PÁGINA (PADRÃO PAGE.TXT) */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 animate-in fade-in duration-500">
-  <div className="text-right w-full md:w-auto">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 animate-in fade-in duration-500">
+
+  {/* Título esquerda */}
+  <div className="text-left w-full md:w-auto">
     <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
       Tabelas de Preço
     </h1>
+
     <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm font-medium">
       Gerencie as tabelas de preço padrão e personalizadas.
     </p>
   </div>
 
+  {/* Botão direita */}
   <div className="w-full md:w-auto flex justify-end">
     <button
       onClick={() => setIsNewOpen(true)}
@@ -146,7 +150,9 @@ return (
       <span className="text-lg leading-none">+</span> Nova Tabela
     </button>
   </div>
+
 </div>
+
 
 
       {loading && (

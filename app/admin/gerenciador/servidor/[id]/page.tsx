@@ -191,23 +191,41 @@ const supabase = supabaseBrowser;
 
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
 
-<div className="w-full md:w-auto text-right">
-  <div className="flex items-center justify-end gap-3">
+  <div className="w-full md:w-auto text-left">
+    
+    <div className="flex items-center justify-start gap-3">
+      <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+        {server.name}
+      </h1>
 
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">{server.name}</h1>
-            <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border shadow-sm ${server.credits_available > 10 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
-              {fmtInt(server.credits_available)} créditos disponíveis
-            </span>
-          </div>
-          <div className="text-slate-500 dark:text-white/40 mt-1 text-xs flex items-center justify-end gap-2 font-medium">
+      <span
+        className={`px-2 py-0.5 rounded-lg text-xs font-bold border shadow-sm ${
+          server.credits_available > 10
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+        }`}
+      >
+        {fmtInt(server.credits_available)} créditos disponíveis
+      </span>
+    </div>
 
-             <Link href="/admin/gerenciador/servidor" className="hover:text-emerald-500 transition-colors">Servidores</Link>
-             <span className="opacity-30">/</span>
-             <span className="text-slate-400">detalhes</span>
-          </div>
-        </div>
+    <div className="text-slate-500 dark:text-white/40 mt-1 text-xs flex items-center justify-start gap-2 font-medium">
+      <Link
+        href="/admin/gerenciador/servidor"
+        className="hover:text-emerald-500 transition-colors"
+      >
+        Servidores
+      </Link>
+
+      <span className="opacity-30">/</span>
+
+      <span className="text-slate-400">detalhes</span>
+    </div>
+
+  </div>
+
 
         {/* SELETOR DE MÊS */}
         <div className="w-full md:w-auto flex justify-end">

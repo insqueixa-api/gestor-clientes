@@ -467,61 +467,69 @@ return (
 
       
       {/* Topo */}
-<div className="flex flex-col md:flex-row justify-between items-end gap-3 pb-1 animate-in fade-in duration-500">
-  <div className="text-right w-full md:w-auto">
+<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 animate-in fade-in duration-500">
+
+  {/* Título esquerda */}
+  <div className="text-left w-full md:w-auto">
     <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
       Gestão de Revendas
     </h1>
+
     <p className="mt-0.5 text-sm font-medium text-zinc-500 dark:text-zinc-400">
       Gerencie parceiros, recargas e servidores.
     </p>
   </div>
 
+  {/* Ações direita */}
+  <div className="flex items-center gap-3 w-full md:w-auto justify-end">
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* BUSCA */}
-          <div className="relative w-full md:w-64">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
-              >
-                <IconX />
-              </button>
-            )}
-          </div>
+    {/* BUSCA */}
+    <div className="relative w-full md:w-64">
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Pesquisar..."
+        className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+      />
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-            }}
-            className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap flex items-center ${
-              archivedFilter === "Sim"
-                ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-            }`}
-          >
-            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-          </button>
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
+        >
+          <IconX />
+        </button>
+      )}
+    </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenNew(); // ✅ CORRIGIDO: Usa o handler correto
-            }}
-            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
-          >
-            <span>+</span> Nova Revenda
-          </button>
-        </div>
-      </div>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+      }}
+      className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap flex items-center ${
+        archivedFilter === "Sim"
+          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+      }`}
+    >
+      {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+    </button>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        handleOpenNew();
+      }}
+      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
+    >
+      <span>+</span> Nova Revenda
+    </button>
+
+  </div>
+
+</div>
+
 
       {loading && (
         <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5 font-medium">
