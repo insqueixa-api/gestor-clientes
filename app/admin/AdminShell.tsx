@@ -10,15 +10,28 @@ import { usePathname } from "next/navigation";
 function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: string }) {
   return (
     <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
+            {/* Mobile: logo curta */}
+      <Image
+        src="/brand/logo-gestor-celular.png"
+        alt="Gestor"
+        width={44}
+        height={44}
+        className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+        draggable={false}
+        priority
+      />
+
+      {/* Desktop: logo completa */}
       <Image
         src="/brand/logo-gestor.png"
         alt="Gestor"
         width={160}
         height={40}
-        className="h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+        className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
         draggable={false}
         priority
       />
+
 
       <div className="min-w-0 flex flex-col justify-center">
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 group-hover:text-white/60 transition-colors">
@@ -43,11 +56,16 @@ export default function AdminShell({
   userLabel: string;
   tenantName: string;
 }) {
-  const [openMenu, setOpenMenu] = useState<null | "manager" | "settings">(null);
+  const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
+
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const mobileRef = useRef<HTMLDivElement>(null);
+
   const [managerPos, setManagerPos] = useState<{ top: number; right: number } | null>(null);
   const [settingsPos, setSettingsPos] = useState<{ top: number; right: number } | null>(null);
+  const [mobilePos, setMobilePos] = useState<{ top: number; right: number } | null>(null);
+
 
   const pathname = usePathname();
 
@@ -90,6 +108,20 @@ export default function AdminShell({
     setOpenMenu("settings");
   }
 
+    function openMobileMenu() {
+    if (openMenu === "mobile") {
+      setOpenMenu(null);
+      return;
+    }
+    const btn = mobileRef.current?.querySelector("button");
+    if (btn) {
+      const r = (btn as HTMLButtonElement).getBoundingClientRect();
+      setMobilePos({ top: r.bottom + 8, right: window.innerWidth - r.right });
+    }
+    setOpenMenu("mobile");
+  }
+
+
   const canUseDom = typeof document !== "undefined";
 
   return (
@@ -107,58 +139,89 @@ export default function AdminShell({
 
           <div className="flex-1" />
 
-          <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
-            <NavLink href="/admin" label="📊 Dashboard" />
-            <NavLink href="/admin/cliente" label="👥 Clientes" />
-            <NavLink href="/admin/revendedor" label="🤝 Revendas" />
-            <NavLink href="/admin/teste" label="🧪 Testes" />
+                    <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
+            {/* ✅ MOBILE: mostra só Clientes + Menu */}
+            <div className="flex items-center gap-1 sm:hidden">
+              <NavLink href="/admin/cliente" label="👥 Clientes" />
 
-            <div className="w-px h-6 bg-white/10 mx-2" />
-
-            <div ref={managerRef} className="relative">
-              <button
-                onClick={openManager}
-                className={[
-                  "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                  managerActive
-                    ? "bg-white/15 text-emerald-400"
-                    : "text-white/70 hover:text-white hover:bg-white/5",
-                ].join(" ")}
-              >
-                <span>🛠️</span> Gerenciador{" "}
-                <span
+              <div ref={mobileRef} className="relative">
+                <button
+                  onClick={openMobileMenu}
                   className={[
-                    "transition-transform duration-200 text-[8px] opacity-40",
-                    openMenu === "manager" ? "rotate-180" : "",
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    openMenu === "mobile"
+                      ? "bg-white/15 text-emerald-400"
+                      : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  ▼
-                </span>
-              </button>
+                  <span className="text-base leading-none">☰</span> Menu{" "}
+                  <span
+                    className={[
+                      "transition-transform duration-200 text-[8px] opacity-40",
+                      openMenu === "mobile" ? "rotate-180" : "",
+                    ].join(" ")}
+                  >
+                    ▼
+                  </span>
+                </button>
+              </div>
             </div>
 
-            <div ref={settingsRef} className="relative">
-              <button
-                onClick={openSettings}
-                className={[
-                  "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                  settingsActive
-                    ? "bg-white/15 text-emerald-400"
-                    : "text-white/70 hover:text-white hover:bg-white/5",
-                ].join(" ")}
-              >
-                <span>⚙️</span> <span className="hidden sm:inline">Configurações</span>{" "}
-                <span
+            {/* ✅ DESKTOP: mantém tudo */}
+            <div className="hidden sm:flex items-center gap-1">
+              <NavLink href="/admin" label="📊 Dashboard" />
+              <NavLink href="/admin/cliente" label="👥 Clientes" />
+              <NavLink href="/admin/revendedor" label="🤝 Revendas" />
+              <NavLink href="/admin/teste" label="🧪 Testes" />
+
+              <div className="w-px h-6 bg-white/10 mx-2" />
+
+              <div ref={managerRef} className="relative">
+                <button
+                  onClick={openManager}
                   className={[
-                    "transition-transform duration-200 text-[8px] opacity-40",
-                    openMenu === "settings" ? "rotate-180" : "",
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    managerActive
+                      ? "bg-white/15 text-emerald-400"
+                      : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  ▼
-                </span>
-              </button>
+                  <span>🛠️</span> Gerenciador{" "}
+                  <span
+                    className={[
+                      "transition-transform duration-200 text-[8px] opacity-40",
+                      openMenu === "manager" ? "rotate-180" : "",
+                    ].join(" ")}
+                  >
+                    ▼
+                  </span>
+                </button>
+              </div>
+
+              <div ref={settingsRef} className="relative">
+                <button
+                  onClick={openSettings}
+                  className={[
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    settingsActive
+                      ? "bg-white/15 text-emerald-400"
+                      : "text-white/70 hover:text-white hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <span>⚙️</span> <span className="hidden sm:inline">Configurações</span>{" "}
+                  <span
+                    className={[
+                      "transition-transform duration-200 text-[8px] opacity-40",
+                      openMenu === "settings" ? "rotate-180" : "",
+                    ].join(" ")}
+                  >
+                    ▼
+                  </span>
+                </button>
+              </div>
             </div>
           </nav>
+
         </div>
       </div>
 
@@ -184,6 +247,47 @@ export default function AdminShell({
           document.body
         )
       }
+
+            {canUseDom && openMenu === "mobile" && mobilePos &&
+        createPortal(
+          <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+              Navegação
+            </div>
+
+            <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label="🧪 Testes" onClick={() => setOpenMenu(null)} />
+
+            <Divider />
+
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+              Gestão
+            </div>
+            <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label="📦 Planos" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagem padrão" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label="🧾 Cobrança" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
+
+            <Divider />
+
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
+              Conta
+            </div>
+            <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-bank" label="🏦 API Banco" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
+
+            <Divider />
+            <LogoutLink onLogout={() => setOpenMenu(null)} />
+          </DropdownPortal>,
+          document.body
+        )
+      }
+
 
       {canUseDom && openMenu === "settings" && settingsPos &&
         createPortal(
