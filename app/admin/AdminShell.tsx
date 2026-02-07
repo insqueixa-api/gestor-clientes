@@ -39,10 +39,9 @@ function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: s
         </div>
 
         {/* ✅ AQUI: Adicionei 'uppercase' e removi a div de baixo que repetia informação */}
-        <div className="text-xs font-bold text-white truncate flex-1 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
-  {userLabel}
-</div>
-
+        <div className="text-xs font-bold text-white truncate max-w-50 sm:max-w-66 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
+          {userLabel}
+        </div>
       </div>
     </div>
   );
@@ -130,7 +129,7 @@ export default function AdminShell({
       {/* TOP NAV */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         {/* Adicionado mx-auto e max-w-screen-2xl */}
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-4 px-4 sm:px-6 lg:px-8 py-2">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-4 sm:px-6 lg:px-8 py-2">
           <Link
             href="/admin"
             className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
@@ -162,7 +161,7 @@ export default function AdminShell({
                       openMenu === "mobile" ? "rotate-180" : "",
                     ].join(" ")}
                   >
-                    ▼
+                    
                   </span>
                 </button>
               </div>
