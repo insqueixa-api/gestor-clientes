@@ -163,11 +163,16 @@ function isoDateFromYMD(y: number, m: number, d: number) {
 }
 
 function spTitleFromISO(iso: string) {
-  // iso = YYYY-MM-DD
   const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString("pt-BR", { timeZone: TZ_SP, day: "numeric", month: "long" });
+  // Meio-dia UTC => nunca “vira” o dia quando formata em SP
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ_SP,
+    day: "numeric",
+    month: "long",
+  }).format(dt);
 }
+
 
 function daysFromMonthStartToTodaySP(): { iso: string; dayNum: number }[] {
   const today = todayInSaoPaulo();
@@ -506,7 +511,8 @@ return (
 }
           footer={
   <>
-    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+    <span className="sm:hidden">Total: {fmtBRLNoSymbol0(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+
     <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
   </>
 }
@@ -696,8 +702,10 @@ function BarCard({ title, items }: { title: string; items: BarItem[] }) {
   const max = Math.max(...items.map((i) => i.value), 1);
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-6">
-      <h3 className="text-lg font-bold mb-4">{title}</h3>
+    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+
+      <h3 className="text-base sm:text-lg font-bold mb-4">{title}</h3>
+
 
       <div className="space-y-4">
         {items.map((item) => (
