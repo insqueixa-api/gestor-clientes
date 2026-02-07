@@ -979,7 +979,8 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   
   return (
 <div
-  className="space-y-6 pt-0 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+
   onClick={() => closeAllPopups()}
 >
 
@@ -1040,8 +1041,8 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 </div>
 
 
-        {/* Linha 1: Pesquisa + botão filtros (mobile) */}
-<div className="flex items-center gap-2">
+        {/* ✅ MOBILE (somente): pesquisa + botão abrir painel */}
+<div className="md:hidden flex items-center gap-2">
   <div className="flex-1 relative">
     <input
       value={search}
@@ -1059,71 +1060,124 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     )}
   </div>
 
-  {/* ✅ Lixeira dentro do filtro (somente mobile) */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-    }}
-    className={`md:hidden h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
-      archivedFilter === "Sim"
-        ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-        : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-    }`}
-    title={archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-  >
-    <IconTrash />
-  </button>
-
-  {/* ✅ Botão de filtros: só no mobile */}
   <button
     onClick={() => setMobileFiltersOpen((v) => !v)}
-    className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
     title="Filtros"
   >
     Filtros
   </button>
 </div>
 
+{/* ✅ DESKTOP (somente): tudo na mesma linha */}
+<div className="hidden md:flex items-center gap-2">
+  <div className="flex-1 relative">
+    <input
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Pesquisar..."
+      className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+    />
+    {search && (
+      <button
+        onClick={() => setSearch("")}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+      >
+        <IconX />
+      </button>
+    )}
+  </div>
 
-{/* ✅ Painel de filtros no mobile */}
-{mobileFiltersOpen && (
-  <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
-    <Select
-  value={statusFilter}
-  onChange={(e) => {
-    setStatusFilter(e.target.value as "Todos" | ClientStatus);
-    // opcional: fecha painel
-    // setMobileFiltersOpen(false);
-  }}
->
-
+  <div className="w-[190px]">
+    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
       <option value="Todos">Status (Todos)</option>
       <option value="Ativo">Ativo</option>
       <option value="Vencido">Vencido</option>
     </Select>
+  </div>
 
+  <div className="w-[220px]">
     <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
       <option value="Todos">Servidor (Todos)</option>
       {uniqueServers.map((s) => (
         <option key={s} value={s}>{s}</option>
       ))}
     </Select>
+  </div>
 
+  <div className="w-[190px]">
     <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
       <option value="Todos">Plano (Todos)</option>
       {uniqueplano.map((p) => (
         <option key={p} value={p}>{p}</option>
       ))}
     </Select>
+  </div>
 
+  <div className="w-[210px]">
     <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
       <option value="Todos">Vencimento (Todos)</option>
       <option value="Hoje">Hoje</option>
       <option value="Próximos 3 dias">Próximos 3 dias</option>
       <option value="Vencidos">Vencidos</option>
     </Select>
+  </div>
 
+  <button
+    onClick={() => {
+      setSearch("");
+      setStatusFilter("Todos");
+      setServerFilter("Todos");
+      setPlanFilter("Todos");
+      setDueFilter("Todos");
+      setArchivedFilter("Não");
+    }}
+    className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+  >
+    <IconX /> Limpar
+  </button>
+</div>
+
+
+
+{/* ✅ Painel de filtros no mobile */}
+{mobileFiltersOpen && (
+  <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+
+    {/* ✅ Filtrar Lixeira (opção dentro do painel) */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
+      }}
+      className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+        archivedFilter === "Sim"
+          ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+      }`}
+      title="Filtrar Lixeira"
+    >
+      <span className="flex items-center gap-2">
+        <IconTrash />
+        Filtrar Lixeira
+      </span>
+      <span className="text-xs opacity-80">
+        {archivedFilter === "Sim" ? "ON" : "OFF"}
+      </span>
+    </button>
+
+    <Select
+      value={statusFilter}
+      onChange={(e) => {
+        setStatusFilter(e.target.value as "Todos" | ClientStatus);
+      }}
+    >
+      <option value="Todos">Status (Todos)</option>
+      <option value="Ativo">Ativo</option>
+      <option value="Vencido">Vencido</option>
+    </Select>
+
+    
     <button
       onClick={() => {
         setSearch("");
@@ -1141,49 +1195,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   </div>
 )}
 
-{/* ✅ Desktop mantém tudo como era */}
-<div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-[1fr_0.5fr_1fr_1fr_1fr_1fr_1fr] gap-2">
-  <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
-    <option value="Todos">Status (Todos)</option>
-    <option value="Ativo">Ativo</option>
-    <option value="Vencido">Vencido</option>
-  </Select>
 
-  <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
-    <option value="Todos">Servidor (Todos)</option>
-    {uniqueServers.map((s) => (
-      <option key={s} value={s}>{s}</option>
-    ))}
-  </Select>
-
-  <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
-    <option value="Todos">Plano (Todos)</option>
-    {uniqueplano.map((p) => (
-      <option key={p} value={p}>{p}</option>
-    ))}
-  </Select>
-
-  <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
-    <option value="Todos">Vencimento (Todos)</option>
-    <option value="Hoje">Hoje</option>
-    <option value="Próximos 3 dias">Próximos 3 dias</option>
-    <option value="Vencidos">Vencidos</option>
-  </Select>
-
-  <button
-    onClick={() => {
-      setSearch("");
-      setStatusFilter("Todos");
-      setServerFilter("Todos");
-      setPlanFilter("Todos");
-      setDueFilter("Todos");
-      setArchivedFilter("Não");
-    }}
-    className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-  >
-    <IconX /> Limpar
-  </button>
-</div>
 
       </div>
 
@@ -1194,7 +1206,11 @@ const res = await fetch("/api/whatsapp/envio_programado", {
       )}
 
       {!loading && (
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors" onClick={(e) => e.stopPropagation()}>
+        <div
+  className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0"
+  onClick={(e) => e.stopPropagation()}
+>
+
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-700 dark:text-white">
               Lista de Clientes{" "}
