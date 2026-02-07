@@ -3,128 +3,187 @@
 import React, { useMemo, useState } from "react";
 
 export type SimpleBarChartDatum = {
-  label: string; // ex "Dia 7"
-  value: number; // usado pra altura
-  displayValue: number; // texto exibido
+  label: string;
+  value: number;
+  displayValue: number;
   tooltipTitle: string;
   tooltipContent: string;
 };
 
 interface SimpleBarChartProps {
   data: SimpleBarChartDatum[];
-  colorClass?: string; // ex: "from-emerald-400 to-emerald-600"
-  label?: string; // ex: "Cadastros"
-  heightClass?: string; // ex: "h-40 sm:h-56"
+  mode?: "count" | "currency";   // 👈 NOVO
+  colorClass?: string;
+  label?: string;
+  heightClass?: string;
+}
+
+/* ======================
+   FORMATADORES
+====================== */
+
+const fmtInt = (v:number)=>
+  new Intl.NumberFormat("pt-BR").format(v);
+
+const fmtBRL = (v:number)=>
+  new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}).format(v);
+
+/* ======================
+   NICE SCALE (pro level)
+====================== */
+
+function niceCeil(n:number){
+  if(n<=0)return 1;
+  const exp=Math.pow(10,Math.floor(Math.log10(n)));
+  const f=n/exp;
+  const nice=f<=1?1:f<=2?2:f<=5?5:10;
+  return nice*exp;
 }
 
 export function SimpleBarChart({
   data,
-  colorClass = "from-zinc-400 to-zinc-600",
+  mode="count",
+  colorClass="from-zinc-400 to-zinc-600",
   label,
-  heightClass = "h-44 sm:h-56",
-}: SimpleBarChartProps) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  heightClass="h-48"
+}:SimpleBarChartProps){
 
-  const maxValue = useMemo(() => Math.max(...data.map((d) => d.value), 1), [data]);
+  const [selected,setSelected]=useState<number|null>(null);
 
-  // 4 linhas horizontais
-  const yTicks = useMemo(() => {
-    const steps = 4;
-    return Array.from({ length: steps + 1 }, (_, i) => {
-      const pct = (i / steps) * 100;
-      const v = Math.round((maxValue * (steps - i)) / steps);
-      return { pct, v };
-    });
-  }, [maxValue]);
+  const {maxNice,ticks}=useMemo(()=>{
 
-  const active = activeIndex != null ? data[activeIndex] : null;
+    const rawMax=Math.max(...data.map(d=>d.value),0);
+    const maxNice=niceCeil(rawMax||1);
 
-  function pick(i: number) {
-    setActiveIndex((cur) => (cur === i ? null : i));
-  }
+    const ticks=Array.from({length:5},(_,i)=>(maxNice*i)/4);
 
-  return (
+    return {maxNice,ticks};
+
+  },[data]);
+
+  const selectedItem=selected!=null?data[selected]:null;
+
+  const xEvery=
+    data.length<=8?1:
+    data.length<=16?2:
+    data.length<=24?3:4;
+
+  const formatY=(v:number)=>{
+    return mode==="currency"?fmtBRL(v):fmtInt(v);
+  };
+
+  return(
     <div className="w-full">
-      {/* Tooltip “fixo” (bom pra touch) */}
-      <div className="mb-3 min-h-[44px]">
-        {active ? (
-          <div className="inline-flex max-w-full items-start gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="min-w-0">
-              <div className="font-bold truncate">{active.tooltipTitle}</div>
-              <div className="text-zinc-600 dark:text-zinc-300 truncate">{active.tooltipContent}</div>
-            </div>
-            <button
-              className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
-              onClick={() => setActiveIndex(null)}
-              type="button"
-            >
-              limpar
-            </button>
+
+      {/* TOOLTIP FIXO */}
+      <div className="min-h-[44px] mb-2">
+        {selectedItem?(
+          <div className="inline-flex gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs shadow-sm">
+            <div className="font-semibold">{selectedItem.tooltipTitle}</div>
+            <div>{selectedItem.tooltipContent}</div>
           </div>
-        ) : (
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            Toque/clique em uma barra.
-          </div>
+        ):(
+          <div className="text-xs text-zinc-500">Toque/clique em uma barra</div>
         )}
       </div>
 
-      <div className={`relative w-full ${heightClass} rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900`}>
-        {/* Grid horizontal + labels Y */}
-        <div className="pointer-events-none absolute inset-3">
-          {yTicks.map((t) => (
-            <div
-              key={t.pct}
-              className="absolute left-0 right-0 border-t border-dashed border-zinc-200/70 dark:border-zinc-700/60"
-              style={{ top: `${t.pct}%` }}
-            />
-          ))}
-        </div>
+      <div className={`relative w-full ${heightClass} rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden`}>
 
-        {/* Área do chart */}
-        <div className="relative h-full">
-          {/* Colunas com largura máxima (evita retângulo gigante com poucos pontos) */}
-          <div className="flex h-full items-end gap-2 overflow-x-auto pb-2">
-            {data.map((item, i) => {
-              const h = (item.value / maxValue) * 100;
-              const isActive = i === activeIndex;
+        <div className="absolute inset-0 grid grid-cols-[48px_1fr]">
 
-              return (
-                <button
-                  key={`${item.label}-${i}`}
-                  type="button"
-                  onClick={() => pick(i)}
-                  onMouseEnter={() => setActiveIndex((cur) => (cur == null ? i : cur))}
-                  className="group relative flex h-full shrink-0 flex-col items-center justify-end outline-none"
-                  style={{ width: 28 }} // largura fixa por barra
-                  aria-label={`${label ?? "barra"} ${item.label}: ${item.displayValue}`}
-                >
-                  {/* valor pequeno acima da barra (só quando ativa/hover) */}
-                  <div className={`mb-1 text-[10px] font-semibold tabular-nums transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                    {item.displayValue}
+          {/* EIXO Y */}
+          <div className="relative border-r border-zinc-200 dark:border-zinc-800">
+
+            {ticks.map((t,i)=>{
+
+              const pct=(i/4)*100;
+
+              return(
+                <div key={i} className="absolute left-0 w-full" style={{bottom:`${pct}%`}}>
+                  
+                  <div className="w-full border-t border-dashed border-zinc-200 dark:border-zinc-800"/>
+
+                  <div className="absolute -top-2 left-1 text-[10px] tabular-nums text-zinc-500">
+                    {formatY(t)}
                   </div>
 
-                  {/* barra */}
-                  <div
-                    className={[
-                      "w-full rounded-md bg-gradient-to-t transition-all duration-200 ease-out",
-                      colorClass,
-                      isActive ? "opacity-100 ring-2 ring-black/10 dark:ring-white/10" : "opacity-80 group-hover:opacity-100",
-                    ].join(" ")}
-                    style={{
-                      height: `${Math.max(6, h)}%`, // nunca fica “colada” invisível
-                    }}
-                  />
-
-                  {/* eixo X (dia) */}
-                  <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {item.label.replace("Dia ", "")}
-                  </div>
-                </button>
+                </div>
               );
             })}
+
           </div>
+
+          {/* BARRAS */}
+          <div className="relative">
+
+            <div className="absolute inset-0 px-3 pt-3 pb-7">
+
+              <div className="h-full flex items-end gap-2">
+
+                {data.map((item,idx)=>{
+
+                  const h=maxNice>0?(item.value/maxNice)*100:0;
+                  const isZero=item.value<=0;
+                  const isSelected=selected===idx;
+
+                  return(
+
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={()=>setSelected(cur=>cur===idx?null:idx)}
+                      disabled={isZero}
+                      className={`group relative flex-1 h-full flex items-end ${
+                        isZero?"opacity-30":"cursor-pointer"
+                      }`}
+                      aria-label={`${label??"valor"}: ${item.displayValue}`}
+                    >
+
+                      <div
+                        style={{height:`${h}%`}}
+                        className={`
+                          w-full rounded-md bg-gradient-to-t ${colorClass}
+                          transition-all duration-200 origin-bottom
+                          ${isSelected?"ring-2 opacity-100":"opacity-85 group-hover:opacity-100"}
+                        `}
+                      />
+
+                    </button>
+
+                  );
+                })}
+
+              </div>
+
+            </div>
+
+            {/* EIXO X */}
+            <div className="absolute left-0 right-0 bottom-0 px-3 pb-2">
+
+              <div className="flex gap-2">
+
+                {data.map((d,i)=>(
+                  <div key={i} className="flex-1 text-center">
+                    {i%xEvery===0?
+                      <div className="text-[10px] text-zinc-500 tabular-nums">
+                        {d.label}
+                      </div>
+                    :
+                      <div className="h-3"/>
+                    }
+                  </div>
+                ))}
+
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
+
       </div>
+
     </div>
   );
 }

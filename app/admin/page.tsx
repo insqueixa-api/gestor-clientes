@@ -135,6 +135,59 @@ function monthLabelPtBr(d = new Date()): string {
   return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
+const TZ_SP = "America/Sao_Paulo";
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// pega "hoje" no timezone de SP (sem depender do timezone do server)
+function todayInSaoPaulo(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ_SP,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const y = Number(parts.find((p) => p.type === "year")?.value ?? "1970");
+  const m = Number(parts.find((p) => p.type === "month")?.value ?? "01");
+  const d = Number(parts.find((p) => p.type === "day")?.value ?? "01");
+
+  // cria um Date “local” só pra manipular dia/mês/ano (nós controlamos o y/m/d)
+  return new Date(y, m - 1, d);
+}
+
+function isoDateFromYMD(y: number, m: number, d: number) {
+  return `${y}-${pad2(m)}-${pad2(d)}`; // YYYY-MM-DD
+}
+
+function spTitleFromISO(iso: string) {
+  // iso = YYYY-MM-DD
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString("pt-BR", { timeZone: TZ_SP, day: "numeric", month: "long" });
+}
+
+function daysFromMonthStartToTodaySP(): { iso: string; dayNum: number }[] {
+  const today = todayInSaoPaulo();
+  const y = today.getFullYear();
+  const m = today.getMonth() + 1;
+  const lastDay = today.getDate();
+
+  const out: { iso: string; dayNum: number }[] = [];
+  for (let d = 1; d <= lastDay; d++) {
+    out.push({ iso: isoDateFromYMD(y, m, d), dayNum: d });
+  }
+  return out;
+}
+
+// normaliza r.day vindo da view (geralmente já é YYYY-MM-DD)
+function normalizeDayKey(day: string): string {
+  return (day ?? "").slice(0, 10);
+}
+
+
 // type guard para remover nulls sem "as any[]"
 function isChartDatum(v: SimpleBarChartDatum | null): v is SimpleBarChartDatum {
   return v !== null;
@@ -242,41 +295,52 @@ export default async function AdminDashboardPage() {
   const toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
 
   // Gráfico: novos cadastros (view já vem por dia)
-  const chartRegsData: SimpleBarChartDatum[] = regsRows
-    .map((r) => {
-      const total = toNumber(r.clients_created) + toNumber(r.trials_created);
-      if (total <= 0) return null;
+  const regsMap = new Map<string, { clients: number; trials: number }>();
+for (const r of regsRows) {
+  const key = normalizeDayKey(r.day);
+  regsMap.set(key, {
+    clients: toNumber(r.clients_created),
+    trials: toNumber(r.trials_created),
+  });
+}
 
-      const d = new Date(r.day);
-      return {
-        label: `Dia ${d.getDate()}`,
-        value: total,
-        displayValue: total,
-        tooltipTitle: d.toLocaleDateString("pt-BR", { day: "numeric", month: "long" }),
-        tooltipContent: `${fmtInt(toNumber(r.clients_created))} Clientes / ${fmtInt(toNumber(r.trials_created))} Testes`,
-      };
-    })
-    .filter(isChartDatum);
+const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+  const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
+  const total = found.clients + found.trials;
+
+  return {
+    label: String(dayNum), // eixo X limpo: 1,2,3...
+    value: total,
+    displayValue: total,
+    tooltipTitle: spTitleFromISO(iso),
+    tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
+  };
+});
+
 
   // Gráfico: pagamentos (BRL por dia)
-  const chartPaymentsData: SimpleBarChartDatum[] = paymentsRows
-    .map((r) => {
-      const clientsVal = toNumber(r.clients_paid_brl_estimated);
-      const resellerVal = toNumber(r.reseller_paid_brl);
-      const totalVal = clientsVal + resellerVal;
+const payMap = new Map<string, { clients: number; reseller: number }>();
+for (const r of paymentsRows) {
+  const key = normalizeDayKey(r.day);
+  payMap.set(key, {
+    clients: toNumber(r.clients_paid_brl_estimated),
+    reseller: toNumber(r.reseller_paid_brl),
+  });
+}
 
-      if (totalVal <= 0) return null;
+const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+  const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
+  const totalVal = found.clients + found.reseller;
 
-      const d = new Date(r.day);
-      return {
-        label: `Dia ${d.getDate()}`,
-        value: totalVal,
-        displayValue: totalVal,
-        tooltipTitle: d.toLocaleDateString("pt-BR", { day: "numeric", month: "long" }),
-        tooltipContent: `Clientes: ${fmtBRL(clientsVal)} • Revenda: ${fmtBRL(resellerVal)} • Total: ${fmtBRL(totalVal)}`,
-      };
-    })
-    .filter(isChartDatum);
+  return {
+    label: String(dayNum),
+    value: totalVal,
+    displayValue: totalVal,
+    tooltipTitle: spTitleFromISO(iso),
+    tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
+  };
+});
+
 
   const topServersItems: BarItem[] = topServers.map((s) => ({
     label: s.server_name,
@@ -369,7 +433,8 @@ return (
           rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerTodayVal)}</span>
+
     <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
   </>
 }
@@ -382,27 +447,30 @@ return (
           leftLabel={`Clientes (${fmtInt(clientsMonthQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
+    
+    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsMonthVal)}</span>
+
     <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
   </>
 }
           rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
   </>
 }
     footer={
-    <>
+  <>
     <span className="sm:hidden">
-  Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}
-</span>
+      Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}
+    </span>
+    <span className="hidden sm:inline">
+      Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
+    </span>
+  </>
+}
 
-    <span className="sm:hidden">Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}</span>
-
-    </>
-    }
         />
 
         <MetricCardView
@@ -411,7 +479,7 @@ return (
           leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(toReceiveVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
   </>
 }
@@ -425,14 +493,14 @@ return (
           leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsPrevMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
   </>
 }
           rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerPrevMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
   </>
 }
@@ -448,7 +516,8 @@ return (
 <SectionTitle title="GRÁFICOS" />
 
       {/* GRÁFICOS */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+
 
 
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
@@ -502,7 +571,7 @@ return (
       </div>
 
       {/* RANKINGS */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
         <BarCard title="Top Servidores (Mês Atual)" items={topServersItems} />
         <BarCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} />
       </div>
@@ -586,8 +655,10 @@ function MetricCardView({
       <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between">
         {title}
       </div>
-      <div className="p-3 sm:p-4 grid grid-cols-2 gap-2 sm:gap-4 flex-1">
-  <div className="min-w-0">
+      <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
+
+  <div className="min-w-0 flex-1">
+
     <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
       {leftLabel}
     </div>
@@ -598,7 +669,8 @@ function MetricCardView({
   </div>
 
   {rightLabel && rightValue && (
-    <div className="text-right min-w-0">
+    <div className="text-right min-w-0 flex-1">
+
       <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
         {rightLabel}
       </div>
