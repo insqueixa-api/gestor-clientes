@@ -136,6 +136,8 @@ function queueTrialsListToast(toast: { type: "success" | "error"; title: string;
   }
 }
 
+
+
 export default function TrialsPage() {
   // --- ESTADOS ---
   const [rows, setRows] = useState<TrialRow[]>([]);
@@ -163,6 +165,9 @@ export default function TrialsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+
   // Mensagem (igual clientes)
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
@@ -189,79 +194,75 @@ export default function TrialsPage() {
   }
 
   // --- CARREGAMENTO ---
-  async function loadData(nextArchivedFilter?: "Não" | "Sim") {
-    setLoading(true);
+  async function loadData() {
+  setLoading(true);
 
-    const tid = await getCurrentTenantId();
-    setTenantId(tid);
+  const tid = await getCurrentTenantId();
+  setTenantId(tid);
 
-    if (!tid) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const arch = nextArchivedFilter ?? archivedFilter;
-
-    // ✅ MESMO LUGAR DOS CLIENTES
-    const viewName = arch === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
-
-    const { data, error } = await supabaseBrowser
-      .from(viewName)
-      .select("*")
-      .eq("tenant_id", tid)
-      .eq("computed_status", "TRIAL")
-      .order("vencimento", { ascending: false, nullsFirst: false });
-
-    if (error) {
-      console.error(error);
-      addToast("error", "Erro ao carregar testes", error.message);
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const typed = (data || []) as VwClientRow[];
-
-    const mapped: TrialRow[] = typed.map((r) => {
-      const due = formatDue(r.vencimento);
-      const archived = Boolean(r.client_is_archived);
-      const status = mapStatus(String(r.computed_status), archived);
-
-      // opcional: não quebra se não existir
-      const converted = Boolean((r as any).converted_client_id);
-
-      return {
-        id: String(r.id),
-        name: String(r.client_name ?? "Sem Nome"),
-        username: String(r.username ?? "—"),
-
-        dueISODate: due.dueISODate,
-        dueLabelDate: due.dueLabelDate,
-        dueTime: due.dueTime,
-
-        status,
-        server: String(r.server_name ?? r.server_id ?? "—"),
-
-        archived,
-
-        server_id: String(r.server_id ?? ""),
-        whatsapp: String(r.whatsapp_e164 ?? ""),
-        whatsapp_username: r.whatsapp_username ?? undefined,
-        whatsapp_extra: r.whatsapp_extra ?? undefined,
-        whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
-        dont_message_until: r.dont_message_until ?? undefined,
-        server_password: (r.server_password ?? undefined) as any,
-        vencimento: r.vencimento ?? undefined,
-        notes: r.notes ?? "",
-
-        converted,
-      };
-    });
-
-    setRows(mapped);
+  if (!tid) {
+    setRows([]);
     setLoading(false);
+    return;
   }
+
+  const viewName = archivedFilter === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
+
+  const { data, error } = await supabaseBrowser
+    .from(viewName)
+    .select("*")
+    .eq("tenant_id", tid)
+    .eq("computed_status", "TRIAL")
+    .order("vencimento", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    console.error(error);
+    addToast("error", "Erro ao carregar testes", error.message);
+    setRows([]);
+    setLoading(false);
+    return;
+  }
+
+  const typed = (data || []) as VwClientRow[];
+
+  const mapped: TrialRow[] = typed.map((r) => {
+    const due = formatDue(r.vencimento);
+    const archived = Boolean(r.client_is_archived);
+    const status = mapStatus(String(r.computed_status), archived);
+    const converted = Boolean((r as any).converted_client_id);
+
+    return {
+      id: String(r.id),
+      name: String(r.client_name ?? "Sem Nome"),
+      username: String(r.username ?? "—"),
+
+      dueISODate: due.dueISODate,
+      dueLabelDate: due.dueLabelDate,
+      dueTime: due.dueTime,
+
+      status,
+      server: String(r.server_name ?? r.server_id ?? "—"),
+
+      archived,
+
+      server_id: String(r.server_id ?? ""),
+      whatsapp: String(r.whatsapp_e164 ?? ""),
+      whatsapp_username: r.whatsapp_username ?? undefined,
+      whatsapp_extra: r.whatsapp_extra ?? undefined,
+      whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+      dont_message_until: r.dont_message_until ?? undefined,
+      server_password: (r.server_password ?? undefined) as any,
+      vencimento: r.vencimento ?? undefined,
+      notes: r.notes ?? "",
+
+      converted,
+    };
+  });
+
+  setRows(mapped);
+  setLoading(false);
+}
+
 
   useEffect(() => {
     loadData();
@@ -370,6 +371,36 @@ export default function TrialsPage() {
   };
 
   // ✅ Arquivar/restaurar agora é update_client (porque trial é cliente TRIAL)
+
+  const handleDeleteForever = async (r: TrialRow) => {
+  if (!tenantId) return;
+
+  if (!r.archived) {
+    addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente pela Lixeira.");
+    return;
+  }
+
+  const confirmed = window.confirm("Excluir permanentemente este teste? Esta ação NÃO pode ser desfeita.");
+  if (!confirmed) return;
+
+  try {
+const { error } = await supabaseBrowser.rpc("delete_client_forever", {
+  p_tenant_id: tenantId,
+  p_client_id: r.id,
+});
+
+
+    if (error) throw error;
+
+    addToast("success", "Excluído", "Teste removido definitivamente.");
+    loadData();
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
+  }
+};
+
+
   const handleArchiveToggle = async (r: TrialRow) => {
     if (!tenantId) return;
 
@@ -416,50 +447,31 @@ export default function TrialsPage() {
 
 return (
   <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100"
+    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+
     onClick={closeAllPopups}
   >
 
+
       {/* Topo */}
-<div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 pb-1">
-  {/* Título ESQUERDA */}
-  <div className="text-left w-full md:w-auto">
-    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Testes</h1>
-    <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-      Gerencie testes, vencimentos e conversão para cliente.
-    </p>
+<div className="flex items-center justify-between gap-2 pb-0 mb-2">
+  {/* Título (esquerda) */}
+  <div className="min-w-0 text-left">
+    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+      Testes
+    </h1>
   </div>
 
-  {/* Ações DIREITA */}
-  <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-    <div className="relative w-full md:w-64">
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Pesquisar..."
-        className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-      />
-      {search && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setSearch("");
-          }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
-          title="Limpar"
-        >
-          <IconX />
-        </button>
-      )}
-    </div>
-
+  {/* Ações (direita) */}
+  <div className="flex items-center gap-2 justify-end shrink-0">
+    {/* ✅ no mobile, o botão de lixeira sai daqui (vai pro filtro) */}
     <button
       onClick={(e) => {
-        e.stopPropagation();
-        const next = archivedFilter === "Não" ? "Sim" : "Não";
-        setArchivedFilter(next);
-      }}
-      className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap ${
+  e.stopPropagation();
+  setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+}}
+
+      className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
         archivedFilter === "Sim"
           ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
           : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
@@ -474,7 +486,7 @@ return (
         setTrialToEdit(null);
         setShowFormModal(true);
       }}
-      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
+      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
     >
       <span>+</span> Novo Teste
     </button>
@@ -482,66 +494,193 @@ return (
 </div>
 
 
-      {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
-          Carregando dados...
-        </div>
-      )}
+{/* --- BARRA DE FILTROS COMPLETA (IGUAL CLIENTES) --- */}
+<div
+  className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+  onClick={(e) => e.stopPropagation()}
+>
+  <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+    Filtros Rápidos
+  </div>
 
-      {!loading && (
-        <div
-          className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-colors"
-
-          onClick={(e) => e.stopPropagation()}
+  {/* ✅ MOBILE: pesquisa + botão abrir painel */}
+  <div className="md:hidden flex items-center gap-2">
+    <div className="flex-1 relative">
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Pesquisar..."
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      />
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+          title="Limpar pesquisa"
         >
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">
+          <IconX />
+        </button>
+      )}
+    </div>
 
-            <div className="text-sm font-bold text-slate-700 dark:text-white">
-              Lista de Testes{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
-                {filtered.length}
-              </span>
-            </div>
+    <button
+      onClick={() => setMobileFiltersOpen((v) => !v)}
+      className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+        (statusFilter !== "Todos" || serverFilter !== "Todos" || archivedFilter === "Sim")
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+      }`}
+      title="Filtros"
+    >
+      Filtros
+    </button>
+  </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-              <span>Mostrar</span>
-              <select
-                value={showCount}
-                onChange={(e) => setShowCount(Number(e.target.value))}
-                className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+  {/* ✅ DESKTOP: tudo na mesma linha */}
+  <div className="hidden md:flex items-center gap-2">
+    <div className="flex-1 relative">
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Pesquisar..."
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+      />
+      {search && (
+        <button
+          onClick={() => setSearch("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+          title="Limpar pesquisa"
+        >
+          <IconX />
+        </button>
+      )}
+    </div>
 
-              <span className="ml-2">Servidor</span>
-              <select
-                value={serverFilter}
-                onChange={(e) => setServerFilter(e.target.value)}
-                className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-              >
-                <option value="Todos">Todos</option>
-                {uniqueServers.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+    <div className="w-[190px]">
+      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+        <option value="Todos">Status (Todos)</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Vencido">Vencido</option>
+        <option value="Arquivado">Arquivado</option>
+      </Select>
+    </div>
 
-              <span className="ml-2">Status</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-              >
-                <option value="Todos">Todos</option>
-                <option value="Ativo">Ativo</option>
-                <option value="Vencido">Vencido</option>
-                <option value="Arquivado">Arquivado</option>
-              </select>
-            </div>
-          </div>
+    <div className="w-[220px]">
+      <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
+        <option value="Todos">Servidor (Todos)</option>
+        {uniqueServers.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </Select>
+    </div>
+
+    <button
+      onClick={() => {
+        setSearch("");
+        setStatusFilter("Todos");
+        setServerFilter("Todos");
+        setArchivedFilter("Não");
+      }}
+      className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+    >
+      <IconX /> Limpar
+    </button>
+  </div>
+
+  {/* ✅ Painel mobile */}
+  {mobileFiltersOpen && (
+    <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+
+      {/* ✅ Filtrar Lixeira */}
+      <button
+onClick={(e) => {
+  e.stopPropagation();
+  setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
+  setMobileFiltersOpen(false);
+}}
+
+        className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+          archivedFilter === "Sim"
+            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+        }`}
+        title="Filtrar Lixeira"
+      >
+        <span className="flex items-center gap-2">
+          <IconTrash />
+          Filtrar Lixeira
+        </span>
+        <span className="text-xs opacity-80">
+          {archivedFilter === "Sim" ? "ON" : "OFF"}
+        </span>
+      </button>
+
+      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+        <option value="Todos">Status (Todos)</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Vencido">Vencido</option>
+        <option value="Arquivado">Arquivado</option>
+      </Select>
+
+      <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
+        <option value="Todos">Servidor (Todos)</option>
+        {uniqueServers.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </Select>
+
+      <button
+        onClick={() => {
+          setSearch("");
+          setStatusFilter("Todos");
+          setServerFilter("Todos");
+          setArchivedFilter("Não");
+          setMobileFiltersOpen(false);
+        }}
+        className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+      >
+        <IconX /> Limpar
+      </button>
+    </div>
+  )}
+</div>
+
+
+
+      {loading && (
+  <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
+    Carregando dados...
+  </div>
+)}
+
+{!loading && (
+  <div
+    className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">
+      <div className="text-sm font-bold text-slate-700 dark:text-white">
+        Lista de Testes{" "}
+        <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
+          {filtered.length}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
+  <span>Mostrar</span>
+  <select
+    value={showCount}
+    onChange={(e) => setShowCount(Number(e.target.value))}
+    className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
+  >
+    <option value={25}>25</option>
+    <option value={50}>50</option>
+    <option value={100}>100</option>
+  </select>
+</div>
+
+    </div>
+
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
@@ -681,6 +820,21 @@ return (
                           >
                             {r.archived ? <IconRestore /> : <IconTrash />}
                           </IconActionBtn>
+
+                          {/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
+{archivedFilter === "Sim" && r.archived && (
+  <IconActionBtn
+    title="Excluir definitivamente"
+    tone="red"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleDeleteForever(r);
+    }}
+  >
+    <IconTrash />
+  </IconActionBtn>
+)}
+
                         </div>
                       </Td>
                     </tr>
@@ -861,6 +1015,17 @@ function ThSort({
 function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
   return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle`}>{children}</td>;
 }
+
+function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { className = "", ...rest } = props;
+  return (
+    <select
+      {...rest}
+      className={`w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white ${className}`}
+    />
+  );
+}
+
 
 function StatusBadge({ status }: { status: TrialStatus }) {
   const tone =

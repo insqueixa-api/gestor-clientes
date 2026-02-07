@@ -1060,13 +1060,22 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     )}
   </div>
 
-  <button
-    onClick={() => setMobileFiltersOpen((v) => !v)}
-    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
-    title="Filtros"
-  >
-    Filtros
-  </button>
+<button
+  onClick={() => setMobileFiltersOpen((v) => !v)}
+  className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+    (statusFilter !== "Todos" ||
+      serverFilter !== "Todos" ||
+      planFilter !== "Todos" ||
+      dueFilter !== "Todos" ||
+      archivedFilter === "Sim")
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+  }`}
+  title="Filtros"
+>
+  Filtros
+</button>
+
 </div>
 
 {/* ✅ DESKTOP (somente): tudo na mesma linha */}
@@ -1166,18 +1175,54 @@ const res = await fetch("/api/whatsapp/envio_programado", {
       </span>
     </button>
 
+    {/* ✅ Status */}
     <Select
       value={statusFilter}
-      onChange={(e) => {
-        setStatusFilter(e.target.value as "Todos" | ClientStatus);
-      }}
+      onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}
     >
       <option value="Todos">Status (Todos)</option>
       <option value="Ativo">Ativo</option>
       <option value="Vencido">Vencido</option>
     </Select>
 
-    
+    {/* ✅ Servidor */}
+    <Select
+      value={serverFilter}
+      onChange={(e) => setServerFilter(e.target.value)}
+    >
+      <option value="Todos">Servidor (Todos)</option>
+      {uniqueServers.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </Select>
+
+    {/* ✅ Plano */}
+    <Select
+      value={planFilter}
+      onChange={(e) => setPlanFilter(e.target.value)}
+    >
+      <option value="Todos">Plano (Todos)</option>
+      {uniqueplano.map((p) => (
+        <option key={p} value={p}>
+          {p}
+        </option>
+      ))}
+    </Select>
+
+    {/* ✅ Vencimento */}
+    <Select
+      value={dueFilter}
+      onChange={(e) => setDueFilter(e.target.value)}
+    >
+      <option value="Todos">Vencimento (Todos)</option>
+      <option value="Hoje">Hoje</option>
+      <option value="Próximos 3 dias">Próximos 3 dias</option>
+      <option value="Vencidos">Vencidos</option>
+    </Select>
+
+    {/* ✅ Limpar */}
     <button
       onClick={() => {
         setSearch("");
@@ -1194,6 +1239,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     </button>
   </div>
 )}
+
 
 
 
