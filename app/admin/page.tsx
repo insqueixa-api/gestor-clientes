@@ -399,7 +399,8 @@ return (
   Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}
 </span>
 
-    <span className="hidden sm:inline">Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}</span>
+    <span className="sm:hidden">Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}</span>
+
     </>
     }
         />
@@ -444,8 +445,11 @@ return (
         />
       </div>
 
+<SectionTitle title="GRÁFICOS" />
+
       {/* GRÁFICOS */}
-      <div className="grid grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 xl:grid-cols-2">
+
 
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
           <div className="flex justify-between items-center mb-2 sm:mb-4">
