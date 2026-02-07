@@ -116,6 +116,9 @@ function toNumber(v: unknown): number {
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+const fmtBRLNoSymbol = (v: number) =>
+  fmtBRL(v).replace(/\s?R\$\s?/g, "").trim();
+
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
@@ -291,8 +294,7 @@ return (
       </div>
 
       {/* CARDS TOPO */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
-
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
         <MetricCardView
           title="Ativos"
           accent="green"
@@ -336,16 +338,32 @@ return (
       </div>
 
       {/* FINANCEIRO */}
-      <SectionTitle title="FINANCEIRO" />
+      <div className="sm:hidden">
+  <SectionTitle title="FINANCEIRO R$" />
+</div>
+<div className="hidden sm:block">
+  <SectionTitle title="FINANCEIRO" />
+</div>
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
 
         <MetricCardView
           title="Recebidos Hoje"
           accent="green"
           leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
-          leftValue={fmtBRL(clientsTodayVal)}
+          leftValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
+  </>
+}
           rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
-          rightValue={fmtBRL(resellerTodayVal)}
+          rightValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
+  </>
+}
           footer="Hoje (view)"
         />
 
@@ -353,17 +371,38 @@ return (
           title="Faturamento (Mês)"
           accent="green"
           leftLabel={`Clientes (${fmtInt(clientsMonthQty)})`}
-          leftValue={fmtBRL(clientsMonthVal)}
+          leftValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
+  </>
+}
           rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
-          rightValue={fmtBRL(resellerMonthVal)}
-          footer={`Total: ${fmtBRL(clientsMonthVal + resellerMonthVal)}`}
+          rightValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
+  </>
+}
+    footer={
+    <>
+    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}</span>
+    <span className="hidden sm:inline">Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}</span>
+    </>
+    }
         />
 
         <MetricCardView
           title="A Receber (Ativos)"
           accent="amber"
           leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
-          leftValue={fmtBRL(toReceiveVal)}
+          leftValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
+  </>
+}
+
           footer="Até o fim do mês (view)"
         />
 
@@ -371,10 +410,25 @@ return (
           title="Mês Anterior"
           accent="gray"
           leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
-          leftValue={fmtBRL(clientsPrevMonthVal)}
+          leftValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
+  </>
+}
           rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
-          rightValue={fmtBRL(resellerPrevMonthVal)}
-          footer={`Total: ${fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}`}
+          rightValue={
+  <>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
+    <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
+  </>
+}
+          footer={
+  <>
+    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+    <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+  </>
+}
         />
       </div>
 
@@ -382,15 +436,14 @@ return (
       <div className="grid grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6">
 
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-3 sm:mb-6">
+          <div className="flex justify-between items-center mb-2 sm:mb-4">
+
 
             <div>
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Novos Cadastros (Mês Atual)
-              </h3>
-              <p className="text-xs text-zinc-500">
-                View: vw_dashboard_new_registrations_daily_current_month
-              </p>
+              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+  Novos clientes
+</h3>
+
             </div>
           </div>
           <div className="w-full">
@@ -408,15 +461,14 @@ return (
         </div>
 
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-3 sm:mb-6">
+          <div className="flex justify-between items-center mb-2 sm:mb-4">
+
 
             <div>
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Pagamentos Recebidos (BRL)
-              </h3>
-              <p className="text-xs text-zinc-500">
-                View: vw_dashboard_payments_daily_current_month
-              </p>
+              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+  Pagamentos Recebidos
+</h3>
+
             </div>
           </div>
           <div className="w-full">
@@ -434,8 +486,7 @@ return (
       </div>
 
       {/* RANKINGS */}
-      <div className="grid grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6">
-
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <BarCard title="Top Servidores (Mês Atual)" items={topServersItems} />
         <BarCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} />
       </div>
@@ -493,11 +544,12 @@ function MetricCardView({
   title: string;
   accent: Accent;
   leftLabel: string;
-  leftValue: string;
+  leftValue: React.ReactNode;
   rightLabel?: string;
-  rightValue?: string;
-  footer?: string;
+  rightValue?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
+
   const colors: Record<Accent, string> = {
     green:
       "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
@@ -518,23 +570,34 @@ function MetricCardView({
       <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between">
         {title}
       </div>
-      <div className="p-3 sm:p-4 grid grid-cols-2 gap-3 sm:gap-4 flex-1">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">{leftLabel}</div>
-          <div className="text-lg sm:text-xl font-bold">{leftValue}</div>
-        </div>
-        {rightLabel && rightValue && (
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">{rightLabel}</div>
-            <div className="text-lg sm:text-xl font-bold">{rightValue}</div>
-          </div>
-        )}
+      <div className="p-3 sm:p-4 grid grid-cols-2 gap-2 sm:gap-4 flex-1">
+  <div className="min-w-0">
+    <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
+      {leftLabel}
+    </div>
+    <div className="text-base sm:text-xl font-bold leading-tight">
+      {leftValue}
+    </div>
+  </div>
+
+  {rightLabel && rightValue && (
+    <div className="text-right min-w-0">
+      <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
+        {rightLabel}
       </div>
-      {footer && (
-        <div className="px-4 py-2 text-xs bg-black/5 dark:bg-white/5 opacity-80">
-          {footer}
-        </div>
-      )}
+      <div className="text-base sm:text-xl font-bold leading-tight">
+        {rightValue}
+      </div>
+    </div>
+  )}
+</div>
+
+{footer && (
+  <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
+    {footer}
+  </div>
+)}
+
     </div>
   );
 }
