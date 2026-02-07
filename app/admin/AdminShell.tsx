@@ -34,9 +34,7 @@ function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: s
 
 
       <div className="min-w-0 flex flex-col justify-center">
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 group-hover:text-white/60 transition-colors">
-          Logado como
-        </div>
+
 
         {/* ✅ AQUI: Adicionei 'uppercase' e removi a div de baixo que repetia informação */}
         <div className="text-xs font-bold text-white truncate max-w-40 sm:max-w-56 tracking-tight group-hover:text-emerald-400 transition-colors uppercase">
@@ -252,7 +250,7 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Navegação
+              Navegação 
             </div>
 
             <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
