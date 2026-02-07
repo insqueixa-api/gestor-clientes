@@ -208,7 +208,7 @@ export default function AdminShell({
                       : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span>⚙️</span> <span className="hidden sm:inline">Configurações</span>{" "}
+                  <span>⚙️</span> <span className="hidden sm:inline">Conta</span>{" "}
                   <span
                     className={[
                       "transition-transform duration-200 text-[8px] opacity-40",
@@ -263,7 +263,7 @@ export default function AdminShell({
             <Divider />
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Menu
+              Gerenciador
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/plano" label="📦 Planos" onClick={() => setOpenMenu(null)} />

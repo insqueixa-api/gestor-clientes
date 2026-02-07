@@ -277,8 +277,9 @@ export default async function AdminDashboardPage() {
     value: toNumber(a.clients_count),
   }));
 
-  return (
-    <div className="space-y-8 p-6 text-zinc-900 dark:text-zinc-100">
+return (
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -290,7 +291,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* CARDS TOPO */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+
         <MetricCardView
           title="Ativos"
           accent="green"
@@ -324,7 +326,8 @@ export default async function AdminDashboardPage() {
 
       {/* VENCIMENTOS */}
       <SectionTitle title="VENCIMENTOS (5 DIAS)" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
+
         <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
         <VencimentoCard diff={-1} map={dueByOffset} title="Venceu Ontem" color="gray" />
         <VencimentoCard diff={0} map={dueByOffset} title="Vence Hoje" color="yellow" />
@@ -334,7 +337,8 @@ export default async function AdminDashboardPage() {
 
       {/* FINANCEIRO */}
       <SectionTitle title="FINANCEIRO" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+
         <MetricCardView
           title="Recebidos Hoje"
           accent="green"
@@ -375,9 +379,11 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* GRÁFICOS */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+      <div className="grid grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6">
+
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="flex justify-between items-center mb-3 sm:mb-6">
+
             <div>
               <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                 Novos Cadastros (Mês Atual)
@@ -388,19 +394,22 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
           <div className="w-full">
-            <SimpleBarChart
-              data={chartRegsData}
-              colorClass="from-emerald-400 to-emerald-600 ring-emerald-500"
-              label="Cadastros"
-            />
+<SimpleBarChart
+  data={chartRegsData}
+  colorClass="from-emerald-400 to-emerald-600 ring-emerald-500"
+  label="Cadastros"
+  heightClass="h-40 sm:h-56"
+/>
+
             {chartRegsData.length === 0 && (
               <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+          <div className="flex justify-between items-center mb-3 sm:mb-6">
+
             <div>
               <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
                 Pagamentos Recebidos (BRL)
@@ -415,6 +424,7 @@ export default async function AdminDashboardPage() {
               data={chartPaymentsData}
               colorClass="from-sky-400 to-blue-600 ring-blue-500"
               label="BRL"
+              heightClass="h-40 sm:h-56"
             />
             {chartPaymentsData.length === 0 && (
               <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
@@ -424,7 +434,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* RANKINGS */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 xl:grid-cols-2 gap-3 sm:gap-6">
+
         <BarCard title="Top Servidores (Mês Atual)" items={topServersItems} />
         <BarCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} />
       </div>
@@ -504,18 +515,18 @@ function MetricCardView({
 
   return (
     <div className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[accent]}`}>
-      <div className="px-4 py-3 border-b border-black/5 dark:border-white/5 font-bold text-sm flex justify-between">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between">
         {title}
       </div>
-      <div className="p-4 grid grid-cols-2 gap-4 flex-1">
+      <div className="p-3 sm:p-4 grid grid-cols-2 gap-3 sm:gap-4 flex-1">
         <div>
           <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">{leftLabel}</div>
-          <div className="text-xl font-bold">{leftValue}</div>
+          <div className="text-lg sm:text-xl font-bold">{leftValue}</div>
         </div>
         {rightLabel && rightValue && (
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">{rightLabel}</div>
-            <div className="text-xl font-bold">{rightValue}</div>
+            <div className="text-lg sm:text-xl font-bold">{rightValue}</div>
           </div>
         )}
       </div>
@@ -532,7 +543,7 @@ function BarCard({ title, items }: { title: string; items: BarItem[] }) {
   const max = Math.max(...items.map((i) => i.value), 1);
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-6">
       <h3 className="text-lg font-bold mb-4">{title}</h3>
 
       <div className="space-y-4">
