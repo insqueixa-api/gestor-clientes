@@ -978,34 +978,32 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
   
   return (
-  <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
-    onClick={() => closeAllPopups()}
-  >
+<div
+  className="space-y-6 pt-0 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+  onClick={() => closeAllPopups()}
+>
+
 
       {/* Topo */}
-<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-3">
+<div className="flex items-center justify-between gap-2 pb-0 mb-2">
 
-  {/* Título (sempre esquerda) */}
-  <div className="w-full md:w-auto text-left">
-    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+  {/* Título (esquerda) */}
+  <div className="min-w-0 text-left">
+    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
       Gestão de Clientes
     </h1>
-
-    <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm">
-      Gerencie assinaturas, renovações e testes.
-    </p>
   </div>
 
-  {/* Botões (sempre direita) */}
-  <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+  {/* Ações (direita) */}
+  <div className="flex items-center gap-2 justify-end shrink-0">
 
+    {/* ✅ no mobile, o botão de lixeira sai daqui (vai pro filtro) */}
     <button
       onClick={(e) => {
         e.stopPropagation();
         setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
       }}
-      className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
+      className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
         archivedFilter === "Sim"
           ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
           : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
@@ -1020,7 +1018,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
         setClientToEdit(null);
         setShowFormModal(true);
       }}
-      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
     >
       <span>+</span> Novo Cliente
     </button>
@@ -1029,13 +1027,18 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 </div>
 
 
+
       {/* --- BARRA DE FILTROS COMPLETA --- */}
 <div
-  className="p-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm space-y-4 mb-6 md:sticky md:top-4 z-20"
+  className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
   onClick={(e) => e.stopPropagation()}
 >
 
-        <div className="text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">Filtros Rápidos</div>
+
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+  Filtros Rápidos
+</div>
+
 
         {/* Linha 1: Pesquisa + botão filtros (mobile) */}
 <div className="flex items-center gap-2">
@@ -1056,6 +1059,22 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     )}
   </div>
 
+  {/* ✅ Lixeira dentro do filtro (somente mobile) */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+    }}
+    className={`md:hidden h-10 px-3 rounded-lg text-xs font-bold border transition-colors inline-flex items-center justify-center ${
+      archivedFilter === "Sim"
+        ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+        : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+    }`}
+    title={archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+  >
+    <IconTrash />
+  </button>
+
   {/* ✅ Botão de filtros: só no mobile */}
   <button
     onClick={() => setMobileFiltersOpen((v) => !v)}
@@ -1065,6 +1084,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     Filtros
   </button>
 </div>
+
 
 {/* ✅ Painel de filtros no mobile */}
 {mobileFiltersOpen && (
