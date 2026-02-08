@@ -171,7 +171,10 @@ export default function RevendaPage() {
   const [statusFilter, setStatusFilter] = useState<"Todos" | ResellerStatus>("Todos");
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [serverFilter, setServerFilter] = useState<string>("Todos");
+  const [serversOptions, setServersOptions] = useState<{ id: string; name: string }[]>([]);
 
+  const [resellerIdsByServer, setResellerIdsByServer] = useState<Set<string> | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -397,6 +400,22 @@ async function handleDeleteAlert(alertId: string) {
   await loadMessageTemplates(tid);
 }
 
+const serversRes = await supabaseBrowser
+  .from("servers")
+  .select("id,name")
+  .eq("tenant_id", tid)
+  .order("name", { ascending: true });
+
+if (!serversRes.error) {
+  const opts = (serversRes.data || []).map((s: any) => ({
+    id: String(s.id),
+    name: String(s.name ?? "Servidor"),
+  }));
+  setServersOptions(opts);
+} else {
+  setServersOptions([]);
+}
+
 
     if (!tid) {
       setRows([]);
@@ -543,6 +562,46 @@ setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archivedFilter]);
 
+    // ✅ FILTRO REAL POR SERVIDOR (revenda ↔ servidor)
+useEffect(() => {
+  (async () => {
+    try {
+      if (!tenantId) {
+        setResellerIdsByServer(null);
+        return;
+      }
+
+      // sem filtro
+      if (!serverFilter || serverFilter === "Todos") {
+        setResellerIdsByServer(null);
+        return;
+      }
+
+      const { data, error } = await supabaseBrowser
+        .from("reseller_servers")
+        .select("reseller_id")
+        .eq("tenant_id", tenantId)
+        .eq("server_id", serverFilter);
+
+      if (error) throw error;
+
+      const ids = new Set<string>(
+        (data || []).map((x: any) => String(x.reseller_id))
+      );
+
+      setResellerIdsByServer(ids);
+
+    } catch (e) {
+      console.error(e);
+      setResellerIdsByServer(null);
+    }
+  })();
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [serverFilter, tenantId]);
+
+
+
   // Lógica de Toast persistente (reload/redirect)
   useEffect(() => {
     if (loading) return;
@@ -576,15 +635,24 @@ useEffect(() => {
   // --- FILTROS ---
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     return rows.filter((r) => {
       if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
+
+      // ✅ Filtro de servidor REAL
+      // - null => "Todos" (sem filtro)
+      // - Set vazio => ninguém vinculado => retorna vazio
+      if (resellerIdsByServer && !resellerIdsByServer.has(r.id)) return false;
+
       if (q) {
         const hay = [r.name, r.primary_phone, r.email, r.status].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
+
       return true;
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, resellerIdsByServer]);
+
 
   // --- ORDENAÇÃO ---
   const sorted = useMemo(() => {
@@ -606,6 +674,20 @@ useEffect(() => {
   }, [filtered, sortKey, sortDir]);
 
   const visible = useMemo(() => sorted.slice(0, showCount), [sorted, showCount]);
+  // ✅ UX: servidor selecionado sem vínculos (evita parecer bug)
+const serverSelectedName = useMemo(() => {
+  if (!serverFilter || serverFilter === "Todos") return "";
+  const found = (serversOptions || []).find((s) => s.id === serverFilter);
+  return found?.name || "Servidor";
+}, [serverFilter, serversOptions]);
+
+const serverHasNoLinks = useMemo(() => {
+  if (!serverFilter || serverFilter === "Todos") return false;
+  // se ainda não carregou o set, não afirma nada
+  if (resellerIdsByServer === null) return false;
+  return resellerIdsByServer.size === 0;
+}, [serverFilter, resellerIdsByServer]);
+
 
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -915,7 +997,7 @@ return (
       
       {/* Topo */}
 <div className="space-y-3 pb-0 animate-in fade-in duration-500">
-  {/* Linha 1: Título + Novo */}
+  {/* Linha 1: Título + Ações */}
   <div className="flex items-center justify-between gap-2">
     <div className="min-w-0 text-left">
       <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
@@ -923,7 +1005,24 @@ return (
       </h1>
     </div>
 
+    {/* ✅ Desktop: Lixeira ao lado do botão Novo (igual Cliente) */}
     <div className="flex items-center gap-2 justify-end shrink-0">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+        }}
+        className={`hidden md:inline-flex h-9 sm:h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap items-center gap-2 ${
+          archivedFilter === "Sim"
+            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+        }`}
+        title="Lixeira"
+      >
+        <IconTrash />
+        {archivedFilter === "Sim" ? "Lixeira ON" : "Lixeira OFF"}
+      </button>
+
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -931,7 +1030,7 @@ return (
         }}
         className="h-9 sm:h-10 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap"
       >
-        <span>+</span> Novo
+        <span>+</span> Novo Revendedor
       </button>
     </div>
   </div>
@@ -961,65 +1060,62 @@ return (
         )}
       </div>
 
-<div className="flex items-center gap-2 shrink-0">
-  {/* ✅ Mobile: abre painel */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      setMobileFiltersOpen(true);
-    }}
-    className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors flex items-center gap-2 whitespace-nowrap"
-    title="Filtros"
-  >
-    <IconFilter />
-    Filtros
-  </button>
+      <div className="flex items-center gap-2 shrink-0">
+        {/* ✅ Mobile: abre painel */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMobileFiltersOpen(true);
+          }}
+          className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors flex items-center gap-2 whitespace-nowrap"
+          title="Filtros"
+        >
+          <IconFilter />
+          Filtros
+        </button>
 
-  {/* ✅ Desktop: Status + Limpar + Lixeira (Lixeira já está hidden md:inline-flex no ajuste 2) */}
-  <select
-    value={statusFilter}
-    onChange={(e) => setStatusFilter(e.target.value as any)}
-    className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-    title="Status"
-  >
-    <option value="Todos">Status</option>
-    <option value="Ativo">Ativo</option>
-    <option value="Inativo">Inativo</option>
-    <option value="Arquivado">Arquivado</option>
-  </select>
+        {/* ✅ Desktop: Status + Servidor + Limpar (igual Cliente) */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+          title="Status"
+        >
+          <option value="Todos">Status</option>
+          <option value="Ativo">Ativo</option>
+          <option value="Inativo">Inativo</option>
+          <option value="Arquivado">Arquivado</option>
+        </select>
 
-  <button
-    onClick={() => {
-      setSearch("");
-      setStatusFilter("Todos");
-      setArchivedFilter("Não");
-    }}
-    className="hidden md:flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
-    title="Limpar filtros"
-  >
-    <IconX />
-    <span className="hidden sm:inline">Limpar</span>
-  </button>
+        {/* ✅ Desktop: Servidor (seu estado: serverFilter | options: serversOptions) */}
+        <select
+          value={serverFilter}
+          onChange={(e) => setServerFilter(e.target.value)}
+          className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+          title="Servidor"
+        >
+          <option value="Todos">Servidor</option>
+          {(serversOptions || []).map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
 
-  {/* (Lixeira desktop fica aqui também, com hidden md:inline-flex do ajuste 2) */}
-</div>
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-  }}
-  className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors whitespace-nowrap items-center gap-2 ${
-    archivedFilter === "Sim"
-      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-      : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
-  }`}
-  title="Lixeira"
->
-  <IconTrash />
-  {archivedFilter === "Sim" ? "Lixeira ON" : "Lixeira OFF"}
-</button>
-
-
+        <button
+          onClick={() => {
+            setSearch("");
+            setStatusFilter("Todos");
+            setServerFilter("Todos");
+            setArchivedFilter("Não");
+          }}
+          className="hidden md:flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+          title="Limpar filtros"
+        >
+          <IconX />
+          <span className="hidden sm:inline">Limpar</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1029,8 +1125,9 @@ return (
     className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm md:hidden"
     onMouseDown={() => setMobileFiltersOpen(false)}
   >
+    {/* ✅ FIX: sheet tem que ser FIXED pra não “abrir no final da página” */}
     <div
-      className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white dark:bg-[#161b22] border-t border-slate-200 dark:border-white/10 p-4 space-y-3"
+      className="fixed bottom-0 left-0 right-0 rounded-t-2xl bg-white dark:bg-[#161b22] border-t border-slate-200 dark:border-white/10 p-4 space-y-3"
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between">
@@ -1061,6 +1158,25 @@ return (
         </select>
       </div>
 
+      {/* ✅ Servidor (mobile) */}
+      <div>
+        <label className="block text-[11px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/40 mb-1.5">
+          Servidor
+        </label>
+        <select
+          value={serverFilter}
+          onChange={(e) => setServerFilter(e.target.value)}
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+        >
+          <option value="Todos">Todos</option>
+          {(serversOptions || []).map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Lixeira (mobile) */}
       <button
         onClick={() => setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não")}
@@ -1087,6 +1203,7 @@ return (
           onClick={() => {
             setSearch("");
             setStatusFilter("Todos");
+            setServerFilter("Todos");
             setArchivedFilter("Não");
             setMobileFiltersOpen(false);
           }}
@@ -1105,6 +1222,39 @@ return (
           Carregando revendas...
         </div>
       )}
+
+{serverHasNoLinks && (
+  <div
+    className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-4 py-3 flex items-start gap-3"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <div className="mt-0.5 shrink-0">
+      <IconFilter />
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <div className="text-sm font-extrabold tracking-tight">
+        Nenhuma revenda vinculada a este servidor
+      </div>
+      <div className="text-xs mt-1 opacity-80">
+        Servidor: <span className="font-bold">{serverSelectedName}</span>.  
+        Se isso não era esperado, verifique os vínculos em <span className="font-bold">reseller_servers</span> ou limpe o filtro.
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setServerFilter("Todos");
+      }}
+      className="shrink-0 h-9 px-3 rounded-lg border border-amber-500/30 bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 text-amber-700 dark:text-amber-300 text-xs font-extrabold transition-colors whitespace-nowrap"
+      title="Limpar filtro de servidor"
+    >
+      Limpar
+    </button>
+  </div>
+)}
 
       {!loading && (
         <div
@@ -1368,7 +1518,7 @@ return (
       className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
       title="Criar novo template"
     >
-      + Novo
+      + Novo Revendedor
     </button>
   </div>
 
@@ -1400,38 +1550,77 @@ return (
       )}
 
       {/* MODAL DE AGENDAMENTO DE MENSAGEM */}
-      {showScheduleMsg.open && (
-        <Modal title="Agendar mensagem" onClose={() => setShowScheduleMsg({ open: false, resellerId: null })}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e hora do envio</label>
-              <input
-                type="datetime-local"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Mensagem</label>
-              <textarea
-                value={scheduleText}
-                onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
-                placeholder="Mensagem agendada..."
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowScheduleMsg({ open: false, resellerId: null })} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors">
-                Cancelar
-              </button>
-              <button onClick={handleScheduleMessage} className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2 shadow-lg shadow-purple-900/20 transition-all text-sm">
-                <IconClock /> Agendar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+{showScheduleMsg.open && (
+  <Modal title="Agendar mensagem" onClose={() => setShowScheduleMsg({ open: false, resellerId: null })}>
+    <div className="space-y-4">
+      {/* ✅ Templates (igual Cliente) */}
+      <div className="flex items-center gap-2">
+        <select
+          value={selectedTemplateScheduleId}
+          onChange={(e) => setSelectedTemplateScheduleId(e.target.value)}
+          className="flex-1 h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+          title="Selecionar template"
+        >
+          <option value="">Selecionar mensagem...</option>
+          {messageTemplates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          onClick={() => openNewTemplate("schedule")}
+          className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+          title="Criar novo template"
+        >
+          + Novo Revendedor
+        </button>
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Data e hora do envio
+        </label>
+        <input
+          type="datetime-local"
+          value={scheduleDate}
+          onChange={(e) => setScheduleDate(e.target.value)}
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Mensagem
+        </label>
+        <textarea
+          value={scheduleText}
+          onChange={(e) => setScheduleText(e.target.value)}
+          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+          placeholder="Mensagem agendada..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setShowScheduleMsg({ open: false, resellerId: null })}
+          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleScheduleMessage}
+          className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2 shadow-lg shadow-purple-900/20 transition-all text-sm"
+        >
+          <IconClock /> Agendar
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
+
 
             {/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
       {showScheduledModal.open && showScheduledModal.resellerId && (

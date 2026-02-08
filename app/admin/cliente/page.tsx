@@ -991,7 +991,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   {/* Título (esquerda) */}
   <div className="min-w-0 text-left">
     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Gestão de Clientes
+      Gestão de Clientes 
     </h1>
   </div>
 
