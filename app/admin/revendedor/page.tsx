@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react"; 
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -197,6 +198,11 @@ export default function RevendaPage() {
     resellerName: undefined,
   });
   const [newAlertText, setNewAlertText] = useState("");
+  // ✅ templates (igual Cliente)
+const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
+const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
+const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
+
 
   // Mensagem e Alertas (paridade)
   const [sendingNow, setSendingNow] = useState(false);
@@ -205,9 +211,15 @@ const sendNowAbortRef = useRef<AbortController | null>(null);
 
 const [scheduling, setScheduling] = useState(false);
 
-const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
-const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
-const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
+// ✅ Criar novo template (igual Cliente)
+const [showNewTemplate, setShowNewTemplate] = useState<{ open: boolean; target: "now" | "schedule" }>({
+  open: false,
+  target: "now",
+});
+const [newTemplateName, setNewTemplateName] = useState("");
+const [newTemplateContent, setNewTemplateContent] = useState("");
+const [savingTemplate, setSavingTemplate] = useState(false);
+
 
 // ✅ agendamentos por revenda
 const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
@@ -544,6 +556,23 @@ setLoading(false);
     } catch { /* ignora */ }
   }, [loading]);
 
+
+  // ✅ Seleção de template -> preenche mensagem (igual Cliente)
+useEffect(() => {
+  if (!selectedTemplateNowId) return;
+  const t = messageTemplates.find((x) => x.id === selectedTemplateNowId);
+  if (!t) return;
+  setMessageText(t.content || "");
+}, [selectedTemplateNowId, messageTemplates]);
+
+useEffect(() => {
+  if (!selectedTemplateScheduleId) return;
+  const t = messageTemplates.find((x) => x.id === selectedTemplateScheduleId);
+  if (!t) return;
+  setScheduleText(t.content || "");
+}, [selectedTemplateScheduleId, messageTemplates]);
+
+
   // --- FILTROS ---
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -809,6 +838,68 @@ const { error } = await supabaseBrowser.from("client_message_jobs").insert({
   }
 };
 
+function openNewTemplate(target: "now" | "schedule") {
+  setShowNewTemplate({ open: true, target });
+  setNewTemplateName("");
+  // pré-preenche com o texto atual (igual padrão do Cliente)
+  setNewTemplateContent(target === "now" ? (messageText || "") : (scheduleText || ""));
+}
+
+async function handleSaveNewTemplate() {
+  if (!tenantId) {
+    addToast("error", "Sem tenant", "Não foi possível identificar o tenant.");
+    return;
+  }
+
+  const name = (newTemplateName || "").trim();
+  const content = (newTemplateContent || "").trim();
+
+  if (!name) {
+    addToast("error", "Nome vazio", "Digite um nome para o template.");
+    return;
+  }
+  if (!content) {
+    addToast("error", "Conteúdo vazio", "Digite o conteúdo do template.");
+    return;
+  }
+
+  try {
+    setSavingTemplate(true);
+
+    const { data, error } = await supabaseBrowser
+      .from("message_templates")
+      .insert({
+        tenant_id: tenantId,
+        name,
+        content,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    const newId = String((data as any)?.id || "");
+
+    // recarrega templates e seleciona o novo
+    await loadMessageTemplates(tenantId);
+
+    if (showNewTemplate.target === "now") {
+      setSelectedTemplateNowId(newId);
+      setMessageText(content);
+    } else {
+      setSelectedTemplateScheduleId(newId);
+      setScheduleText(content);
+    }
+
+    addToast("success", "Template criado", "Template salvo com sucesso.");
+    setShowNewTemplate({ open: false, target: "now" });
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao salvar template", e?.message || "Erro desconhecido");
+  } finally {
+    setSavingTemplate(false);
+  }
+}
 
 
   function closeAllPopups() { setMsgMenuForId(null); }
@@ -1255,21 +1346,56 @@ return (
       {showSendNow.open && (
         <Modal title="Enviar mensagem agora" onClose={() => setShowSendNow({ open: false, resellerId: null })}>
           <div className="space-y-4">
-            <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
-              placeholder="Digite a mensagem..."
-            />
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowSendNow({ open: false, resellerId: null })} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors">
-                Cancelar
-              </button>
-              <button onClick={handleSendMessage} className="px-6 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2 shadow-lg shadow-sky-900/20 transition-all text-sm">
-                <IconSend /> Enviar
-              </button>
-            </div>
-          </div>
+  {/* ✅ Templates (igual Cliente) */}
+  <div className="flex items-center gap-2">
+    <select
+      value={selectedTemplateNowId}
+      onChange={(e) => setSelectedTemplateNowId(e.target.value)}
+      className="flex-1 h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+      title="Selecionar template"
+    >
+      <option value="">Selecionar mensagem...</option>
+      {messageTemplates.map((t) => (
+        <option key={t.id} value={t.id}>
+          {t.name}
+        </option>
+      ))}
+    </select>
+
+    <button
+      type="button"
+      onClick={() => openNewTemplate("now")}
+      className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+      title="Criar novo template"
+    >
+      + Novo
+    </button>
+  </div>
+
+  <textarea
+    value={messageText}
+    onChange={(e) => setMessageText(e.target.value)}
+    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+    placeholder="Digite a mensagem..."
+  />
+
+  <div className="flex justify-end gap-3">
+    <button
+      onClick={() => setShowSendNow({ open: false, resellerId: null })}
+      className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+    >
+      Cancelar
+    </button>
+    <button
+      onClick={handleSendMessage}
+      className="px-6 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2 shadow-lg shadow-sky-900/20 transition-all text-sm disabled:opacity-60"
+      disabled={sendingNow}
+    >
+      <IconSend /> {sendingNow ? "Enviando..." : "Enviar"}
+    </button>
+  </div>
+</div>
+
         </Modal>
       )}
 
@@ -1408,6 +1534,56 @@ return (
           </div>
         </Modal>
       )}
+
+{/* ✅ MODAL NOVO TEMPLATE (igual Cliente) */}
+{showNewTemplate.open && (
+  <Modal
+    title={`Novo template (${showNewTemplate.target === "now" ? "Enviar agora" : "Agendar"})`}
+    onClose={() => setShowNewTemplate({ open: false, target: "now" })}
+  >
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Nome do template
+        </label>
+        <input
+          value={newTemplateName}
+          onChange={(e) => setNewTemplateName(e.target.value)}
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+          placeholder="Ex: Cobrança educada"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Conteúdo
+        </label>
+        <textarea
+          value={newTemplateContent}
+          onChange={(e) => setNewTemplateContent(e.target.value)}
+          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+          placeholder="Digite o conteúdo..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setShowNewTemplate({ open: false, target: "now" })}
+          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-semibold text-sm transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSaveNewTemplate}
+          disabled={savingTemplate}
+          className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all text-sm disabled:opacity-60"
+        >
+          {savingTemplate ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
 
 
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
