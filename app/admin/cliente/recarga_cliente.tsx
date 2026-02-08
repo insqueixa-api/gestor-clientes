@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- INTERFACES ---
 interface ClientFromView {
@@ -140,6 +141,49 @@ function pickCreditsUsed(table: PlanTable | null, period: string, screens: numbe
   return { base, used };
 }
 
+function nowInSaoPauloParts() {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = fmt.formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+
+  return {
+    dateISO: `${get("year")}-${get("month")}-${get("day")}`,
+    timeHHmm: `${get("hour")}:${get("minute")}`,
+  };
+}
+
+function hhmmFromTimestamptzInSaoPaulo(ts: string) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "00:00";
+
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  return fmt.format(d);
+}
+
+function saoPauloDateTimeToIso(dateISO: string, timeHHmm: string) {
+  if (!dateISO || !timeHHmm) throw new Error("Data/hora inválida.");
+  const isoWithTZ = `${dateISO}T${timeHHmm}:00-03:00`;
+  const d = new Date(isoWithTZ);
+  if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
+  return d.toISOString();
+}
+
+
 export default function RecargaCliente({
   clientId,
   clientName,
@@ -183,17 +227,17 @@ export default function RecargaCliente({
   const [technology, setTechnology] = useState("IPTV");
   const [customTechnology, setCustomTechnology] = useState("");
 
-  // Novo vencimento: data + hora separados
-  const [dueDate, setDueDate] = useState<string>(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  });
   
-  // Inicializa com hora atual (para o caso de vencidos)
-  const [dueTime, setDueTime] = useState(() => {
-    const d = new Date();
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  // Novo vencimento: data + hora separados (SEMPRE São Paulo)
+  const [dueDate, setDueDate] = useState<string>(() => {
+    return nowInSaoPauloParts().dateISO;
   });
+
+  const [dueTime, setDueTime] = useState(() => {
+    return nowInSaoPauloParts().timeHHmm;
+  });
+
+
 
   // Aux
   const [fxRate, setFxRate] = useState<number>(1);
@@ -204,15 +248,16 @@ export default function RecargaCliente({
   const [sendWhats, setSendWhats] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [payDate, setPayDate] = useState(getLocalISOString());
-  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; details: string[]; isTrial: boolean } | null>(null);
+  const { confirm, ConfirmUI } = useConfirm();
+
 
   // ========= LOAD =========
   useEffect(() => {
-    let alive = true;
+  let alive = true;
 
-    async function load() {
-      try {
-        const tid = await getCurrentTenantId();
+  async function load() {
+    try {
+      const tid = await getCurrentTenantId();
 
         // 1) Cliente
         const { data: client, error: cErr } = await supabaseBrowser
@@ -245,28 +290,37 @@ export default function RecargaCliente({
         // 3) LÓGICA DE VENCIMENTO (ATIVO vs VENCIDO)
         {
           const monthsToAdd = PLAN_MONTHS[foundPeriod] || 1;
-          const isActive = c.computed_status === "ACTIVE";
-          
-          let baseDate: Date;
-          let newTimeStr: string;
+const isActive = c.computed_status === "ACTIVE";
 
-          if (isActive && c.vencimento) {
-            // ATIVO: Parte do vencimento atual e mantém a hora
-            baseDate = new Date(c.vencimento); // UTC -> Local
-            newTimeStr = `${pad2(baseDate.getHours())}:${pad2(baseDate.getMinutes())}`;
-          } else {
-            // VENCIDO/OUTROS: Parte de AGORA e usa hora ATUAL
-            baseDate = new Date(); // Agora
-            newTimeStr = `${pad2(baseDate.getHours())}:${pad2(baseDate.getMinutes())}`;
-          }
+let baseDate: Date;
+let newTimeStr: string;
 
-          // Calcula Data Alvo
-          const target = new Date(baseDate);
-          target.setMonth(target.getMonth() + monthsToAdd);
+if (isActive && c.vencimento) {
+  // ✅ ATIVO: baseia no vencimento do banco e mantém a hora (em São Paulo)
+  baseDate = new Date(c.vencimento);
+  newTimeStr = hhmmFromTimestamptzInSaoPaulo(c.vencimento);
+} else {
+  // ✅ NÃO ATIVO: base = agora, hora = agora (São Paulo)
+  baseDate = new Date();
+  newTimeStr = nowInSaoPauloParts().timeHHmm;
+}
 
-          const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
-          setDueDate(dISO);
-          setDueTime(newTimeStr);
+// soma meses (a parte de "dia" pode variar com setMonth, mantém teu comportamento)
+const target = new Date(baseDate);
+target.setMonth(target.getMonth() + monthsToAdd);
+
+// ✅ grava a data em São Paulo (YYYY-MM-DD)
+const fmtDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const dISO = fmtDate.format(target);
+
+setDueDate(dISO);
+setDueTime(newTimeStr);
+
         }
 
         // 4) Tabelas
@@ -354,46 +408,54 @@ export default function RecargaCliente({
         }
 
       } catch (err: any) {
-        console.error("❌ Crash load:", err);
-      } finally {
-        if (alive) setFetching(false);
-      }
+      console.error("❌ Crash load:", err);
+    } finally {
+      if (alive) setFetching(false);
     }
+  }
 
     load();
-    return () => {
-      alive = false;
-    };
-  }, [clientId, onClose]);
+  return () => {
+    alive = false;
+  };
+  // ⚠️ IMPORTANTE: NÃO depende de onClose (evita re-fetch em loop)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [clientId]);
+
 
   // ========= REGRAS DE UI =========
 
   // Quando troca o período: recalcula vencimento seguindo a mesma lógica (Ativo vs Vencido)
-  useEffect(() => {
-    if (!clientData) return;
+    useEffect(() => {
+  if (!clientData) return;
 
-    const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
-    const isActive = clientData.computed_status === "ACTIVE";
-    
-    // Se ativo, base = vencimento antigo. Se vencido, base = agora.
-    const base = isActive && clientData.vencimento ? new Date(clientData.vencimento) : new Date();
+  const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
+  const isActive = clientData.computed_status === "ACTIVE";
 
-    const target = new Date(base);
-    target.setMonth(target.getMonth() + monthsToAdd);
+  const base =
+    isActive && clientData.vencimento ? new Date(clientData.vencimento) : new Date();
 
-    const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
-    setDueDate(dISO);
-    
-    // NOTA: Ao trocar período, mantemos o dueTime que já está na tela para não frustrar o usuário,
-    // a menos que queira forçar a lógica de "Vencido = Agora" novamente. 
-    // Por enquanto, só a data muda.
+  const target = new Date(base);
+  target.setMonth(target.getMonth() + monthsToAdd);
 
-    // preço: só auto se não está "tocado"
-    if (!priceTouched) {
-      const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
-      setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-    }
-  }, [selectedPlanPeriod]);
+  const fmtDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const dISO = fmtDate.format(target);
+  setDueDate(dISO);
+
+  // preço: só auto se não está "tocado"
+  if (!priceTouched) {
+    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
+    setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
+  }
+}, [clientData, selectedPlanPeriod, priceTouched, selectedTable, screens]);
+
+
 
   // Quando troca telas
   useEffect(() => {
@@ -471,7 +533,8 @@ export default function RecargaCliente({
   // ========= LOGICA DE CONFIRMAÇÃO =========
 
   // 1. Valida e Abre o Popup
-  const handlePreCheck = () => {
+  const handlePreCheck = async () => {
+
     if (loading || !clientData) return;
 
     // Validação Tecnologia
@@ -504,19 +567,26 @@ export default function RecargaCliente({
     }
 
     // Abre o Modal Bonito
-    setConfirmModal({
-        open: true,
-        title: isFromTrial && !isPaymentFlow ? "Converter Cliente" : "Confirmar Renovação",
-        details,
-        isTrial: isFromTrial && !isPaymentFlow
-    });
+const ok = await confirm({
+  title: isFromTrial && !isPaymentFlow ? "Converter Cliente" : "Confirmar Renovação",
+  subtitle: "Confira os dados antes de salvar.",
+  tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
+  icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
+  details,
+  confirmText: "Confirmar",
+  cancelText: "Voltar",
+});
+
+if (!ok) return;
+
+await executeSave();
+
   };
 
   // 2. Executa a Gravação (Chamado pelo botão "Confirmar" do popup)
-  const executeSave = async () => {
-    if (!confirmModal) return;
-    setConfirmModal(null); // Fecha popup
-    setLoading(true);
+const executeSave = async () => {
+  if (loading) return;
+  setLoading(true);
 
     try {
       // Prepara dados finais
@@ -525,8 +595,8 @@ export default function RecargaCliente({
 
       const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
       const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
-      const dueLocal = new Date(`${dueDate}T${dueTime}:00`);
-      const dueISO = dueLocal.toISOString();
+      const dueISO = saoPauloDateTimeToIso(dueDate, dueTime);
+
       const tid = await getCurrentTenantId();
       const nameToSend = clientData?.display_name || clientName;
 
@@ -838,28 +908,8 @@ export default function RecargaCliente({
         </div>
       </div>
 
-      {/* --- POPUP CONFIRMAÇÃO --- */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-2xl">{confirmModal.isTrial ? '✨' : '💰'}</div>
-                    <div><h3 className="text-lg font-bold text-slate-800 dark:text-white">{confirmModal.title}</h3><p className="text-xs text-slate-500 dark:text-white/60">Confira os dados antes de salvar.</p></div>
-                </div>
-                <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
-                    <ul className="space-y-2">
-                        {confirmModal.details.map((line, i) => (
-                            <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2"><span className="text-emerald-500 font-bold">•</span>{line}</li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="flex gap-3 pt-2">
-                    <button onClick={() => setConfirmModal(null)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Voltar</button>
-                    <button onClick={executeSave} className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-lg shadow-emerald-500/30 transition-all transform active:scale-95">Confirmar</button>
-                </div>
-            </div>
-        </div>
-      )}
+      {/* ✅ Confirm Dialog Global */}
+      {ConfirmUI}
 
       <ToastNotifications
         toasts={toasts}

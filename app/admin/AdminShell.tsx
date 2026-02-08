@@ -235,7 +235,7 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/plano" label="📦 Planos" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label="💬 mensagem padrão" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagem padrão" onClick={() => setOpenMenu(null)} />
             <Divider />
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
               Financeiro

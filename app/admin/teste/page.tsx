@@ -656,7 +656,7 @@ onClick={(e) => {
 
 {!loading && (
   <div
-    className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0"
+    className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
     onClick={(e) => e.stopPropagation()}
   >
     <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">

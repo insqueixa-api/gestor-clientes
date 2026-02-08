@@ -122,6 +122,24 @@ type ClientRow = {
 
 // --- HELPERS ---
 
+
+function isoDateInSaoPaulo(d = new Date()) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(d); // YYYY-MM-DD
+}
+
+function addDaysIsoInSaoPaulo(iso: string, days: number) {
+  // usa meio-dia -03:00 pra evitar “virada” por timezone
+  const base = new Date(`${iso}T12:00:00-03:00`);
+  base.setDate(base.getDate() + days);
+  return isoDateInSaoPaulo(base);
+}
+
 function localDateTimeToIso(local: string): string {
   const d = new Date(local); // interpreta como local
   if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
@@ -178,8 +196,9 @@ function formatDue(rawDue: string | null) {
   
   return { 
     dueISODate: isoDate, 
-    dueLabelDate: dt.toLocaleDateString("pt-BR"), 
-    dueTime: dt.toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }) 
+dueLabelDate: dt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+dueTime: dt.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })
+
   };
 }
 
@@ -196,6 +215,7 @@ export default function ClientePage() {
   // --- ESTADOS ---
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
@@ -207,11 +227,15 @@ const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
+  const [appsMap, setAppsMap] = useState<Record<string, any>>({});
+const [showAppModal, setShowAppModal] = useState<any | null>(null);
+
   const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
 
   // Filtros
   const [search, setSearch] = useState("");
-  const [showCount, setShowCount] = useState(100);
+  const [pageSize, setPageSize] = useState(100);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>("Todos");
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
   const [serverFilter, setServerFilter] = useState("Todos");
@@ -249,7 +273,7 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   });
 
   
-  // Alertas (Mantido conforme original, assumindo API existente)
+  
   const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
     open: false,
     clientId: null,
@@ -281,15 +305,40 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, type, title, message }]);
-    setTimeout(() => removeToast(id), 4000);
-  }
+  const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  function removeToast(id: number) {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+function addToast(type: "success" | "error", title: string, message?: string) {
+  const id = Date.now();
+
+  setToasts((prev) => [...prev, { id, type, title, message }]);
+
+  // garante 5s exatos e evita timer duplicado
+  if (toastTimersRef.current[id]) clearTimeout(toastTimersRef.current[id]);
+
+  toastTimersRef.current[id] = setTimeout(() => {
+    removeToast(id);
+  }, 5000);
+}
+
+function removeToast(id: number) {
+  if (toastTimersRef.current[id]) {
+    clearTimeout(toastTimersRef.current[id]);
+    delete toastTimersRef.current[id];
   }
+  setToasts((prev) => prev.filter((t) => t.id !== id));
+}
+
+useEffect(() => {
+  return () => {
+    // cleanup geral ao desmontar a página
+    for (const idStr of Object.keys(toastTimersRef.current)) {
+      const id = Number(idStr);
+      clearTimeout(toastTimersRef.current[id]);
+    }
+    toastTimersRef.current = {};
+  };
+}, []);
+
 
   async function getToken() {
     const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -368,9 +417,13 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
 
   // --- CARREGAMENTO ---
-  async function loadData() {
-    setLoading(true);
+async function loadData() {
+  if (loadingRef.current) return;
 
+  loadingRef.current = true;
+  setLoading(true);
+
+  try {
     const tid = await getCurrentTenantId();
     setTenantId(tid);
 
@@ -378,32 +431,38 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
       await loadMessageTemplates(tid);
     }
 
-    if (!tid) {
+    const { data: appsData } = await supabaseBrowser
+      .from("apps")
+      .select("*")
+      .eq("tenant_id", tid);
 
+    if (appsData) {
+      const map: Record<string, any> = {};
+      for (const a of appsData) map[a.name] = a;
+      setAppsMap(map);
+    }
+
+    if (!tid) {
       setRows([]);
-      setLoading(false);
       return;
     }
 
     const viewName = archivedFilter === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
 
     const { data, error } = await supabaseBrowser
-    .from(viewName)
-    .select("*")
-    .eq("tenant_id", tid)
-    .neq("computed_status", "TRIAL") // ✅ não mostra trials nesta página
-    .order("vencimento", { ascending: true });
-
+      .from(viewName)
+      .select("*")
+      .eq("tenant_id", tid)
+      .neq("computed_status", "TRIAL")
+      .order("vencimento", { ascending: true });
 
     if (error) {
       console.error(error);
       addToast("error", "Erro ao carregar clientes", error.message);
       setRows([]);
-      setLoading(false);
       return;
     }
 
-    // Tipagem segura vinda do banco
     const typed = (data || []) as VwClientRow[];
 
     const mapped: ClientRow[] = typed.map((r) => {
@@ -427,27 +486,23 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
         status: mapStatus(String(r.computed_status)),
         server: String(r.server_name ?? r.server_id ?? "—"),
-        technology: String(r.technology || "—"), // ✅ Mapeia
+        technology: String(r.technology || "—"),
         screens: Number(r.screens || 1),
 
         archived: Boolean(r.client_is_archived),
         alertsCount: Number(r.alerts_open || 0),
-        apps: r.apps_names || [], // ✅ Mapeia os apps vindos da view
+        apps: r.apps_names || [],
 
-        // Campos para Edição
-
-        // Campos para Edição
         server_id: String(r.server_id ?? ""),
-        technology_edit: String(r.technology || "IPTV"), // ✅ Guarda valor real
+        technology_edit: String(r.technology || "IPTV"),
         whatsapp: String(r.whatsapp_e164 ?? ""),
         whatsapp_username: r.whatsapp_username ?? undefined,
-        server_password: r.server_password ?? undefined, // CORRIGIDO
+        server_password: r.server_password ?? undefined,
         price_amount: r.price_amount ?? undefined,
         whatsapp_extra: r.whatsapp_extra ?? undefined,
-        
-        // Passa vencimento como string 'YYYY-MM-DD' para o modal
-        expires_at: r.vencimento ? r.vencimento.split('T')[0] : undefined,
-        rawVencimento: r.vencimento, // ✅ Guarda o valor original completo
+
+        expires_at: r.vencimento ? r.vencimento.split("T")[0] : undefined,
+        rawVencimento: r.vencimento,
 
         whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
         price_currency: r.price_currency ?? undefined,
@@ -456,14 +511,15 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
       };
     });
 
-setRows(mapped);
+    setRows(mapped);
 
-// ✅ carrega agendamentos desses clientes para badge/modal
-await loadScheduledForClients(tid, mapped.map((m) => m.id));
-
-setLoading(false);
-
+    await loadScheduledForClients(tid, mapped.map((m) => m.id));
+  } finally {
+    loadingRef.current = false;
+    setLoading(false);
   }
+}
+
 
   useEffect(() => {
     loadData();
@@ -496,32 +552,46 @@ setLoading(false);
   const uniqueplano = useMemo(() => Array.from(new Set(rows.map((r) => r.planPeriod).filter((p) => p !== "—"))).sort(), [rows]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const today = new Date().toISOString().split("T")[0];
+  const q = search.trim().toLowerCase();
 
-    return rows.filter((r) => {
-      if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
-      if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
-      if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
+  const today = isoDateInSaoPaulo();
+  const end3 = addDaysIsoInSaoPaulo(today, 3);
 
-      if (dueFilter !== "Todos") {
-        if (dueFilter === "Vencidos" && r.status !== "Vencido") return false;
-        if (dueFilter === "Hoje" && r.dueISODate !== today) return false;
-        if (dueFilter === "Próximos 3 dias") {
-          const diff = new Date(r.dueISODate).getTime() - new Date(today).getTime();
-          const days = diff / (1000 * 3600 * 24);
-          if (days < 0 || days > 3) return false;
-        }
+  return rows.filter((r) => {
+    if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
+    if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
+    if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
+
+    if (dueFilter !== "Todos") {
+      if (dueFilter === "Vencidos" && r.status !== "Vencido") return false;
+
+      if (dueFilter === "Hoje") {
+        if (r.dueISODate !== today) return false;
       }
 
-      if (q) {
-        const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status].join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
+      if (dueFilter === "Próximos 3 dias") {
+        // inclui hoje até +3 (e exclui “9999-12-31”)
+        if (r.dueISODate === "9999-12-31") return false;
+        if (r.dueISODate < today || r.dueISODate > end3) return false;
       }
+    }
 
-      return true;
-    });
-  }, [rows, search, statusFilter, serverFilter, planFilter, dueFilter]);
+    if (q) {
+      const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status]
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [rows, search, statusFilter, serverFilter, planFilter, dueFilter]);
+
+
+  useEffect(() => {
+  setPage(1);
+}, [search, statusFilter, serverFilter, planFilter, dueFilter, archivedFilter]);
+
 
   // --- ORDENAÇÃO ---
 const sorted = useMemo(() => {
@@ -538,12 +608,19 @@ const sorted = useMemo(() => {
 
     // 2) vencimento mais próximo (usa o que você já monta: dueISODate + dueTime)
     const ta = a.dueTime && a.dueTime !== "—" ? a.dueTime : "23:59";
-    const tb = b.dueTime && b.dueTime !== "—" ? b.dueTime : "23:59";
-    const da = `${a.dueISODate} ${ta}`;
-    const db = `${b.dueISODate} ${tb}`;
+const tb = b.dueTime && b.dueTime !== "—" ? b.dueTime : "23:59";
 
-    const dueCmp = compareText(da, db);
-    if (dueCmp !== 0) return dueCmp;
+const aTs = a.dueISODate === "9999-12-31"
+  ? Number.MAX_SAFE_INTEGER
+  : new Date(`${a.dueISODate}T${ta}:00`).getTime();
+
+const bTs = b.dueISODate === "9999-12-31"
+  ? Number.MAX_SAFE_INTEGER
+  : new Date(`${b.dueISODate}T${tb}:00`).getTime();
+
+const dueCmp = aTs - bTs;
+if (dueCmp !== 0) return dueCmp;
+
 
     // 3) desempate visual
     return compareText(a.name, b.name);
@@ -603,7 +680,26 @@ const sorted = useMemo(() => {
 }, [filtered, sortKey, sortDir]);
 
 
-  const visible = useMemo(() => sorted.slice(0, showCount), [sorted, showCount]);
+  const totalPages = useMemo(() => {
+  const n = Math.ceil(sorted.length / pageSize);
+  return Math.max(1, n);
+}, [sorted.length, pageSize]);
+
+const safePage = useMemo(() => {
+  return Math.min(Math.max(1, page), totalPages);
+}, [page, totalPages]);
+
+useEffect(() => {
+  if (page !== safePage) setPage(safePage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [safePage]);
+
+const visible = useMemo(() => {
+  const start = (safePage - 1) * pageSize;
+  const end = start + pageSize;
+  return sorted.slice(start, end);
+}, [sorted, safePage, pageSize]);
+
 
   useEffect(() => {
   const el = selectAllRef.current;
@@ -1253,7 +1349,7 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
       {!loading && (
         <div
-  className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0"
+  className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
   onClick={(e) => e.stopPropagation()}
 >
 
@@ -1262,18 +1358,49 @@ const res = await fetch("/api/whatsapp/envio_programado", {
               Lista de Clientes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-              <span>Mostrar</span>
-              <select
-                value={showCount}
-                onChange={(e) => setShowCount(Number(e.target.value))}
-                className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50">
+  <div className="flex items-center gap-2">
+    <span>Mostrar</span>
+    <select
+      value={pageSize}
+      onChange={(e) => {
+        setPageSize(Number(e.target.value));
+        setPage(1);
+      }}
+      className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
+    >
+      <option value={25}>25</option>
+      <option value={50}>50</option>
+      <option value={100}>100</option>
+    </select>
+  </div>
+
+  {/* ✅ paginação */}
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => setPage((p) => Math.max(1, p - 1))}
+      disabled={safePage <= 1}
+      className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition"
+      title="Página anterior"
+    >
+      ←
+    </button>
+
+    <span className="min-w-[90px] text-center">
+      Página <span className="font-bold text-slate-700 dark:text-white">{safePage}</span> / {totalPages}
+    </span>
+
+    <button
+      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+      disabled={safePage >= totalPages}
+      className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition"
+      title="Próxima página"
+    >
+      →
+    </button>
+  </div>
+</div>
+
           </div>
 
           <div className="overflow-x-auto">
@@ -1408,9 +1535,17 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
-                              <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate">
-                                {app}
-                              </span>
+<button
+  key={i}
+  onClick={(e) => {
+    e.stopPropagation();
+    setShowAppModal(appsMap[app] || { name: app });
+  }}
+  className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
+>
+  {app}
+</button>
+
                             ))
                           ) : (
                             <span className="text-slate-300 dark:text-white/10 text-xs">—</span>
@@ -1568,19 +1703,26 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
       {showRenew.open && showRenew.clientId && (
       <RecargaCliente
-        clientId={showRenew.clientId}
-        clientName={showRenew.clientName || "Cliente"}
-        onClose={() => setShowRenew({ open: false, clientId: null, clientName: undefined })}
-        onSuccess={() => {
-          setShowRenew({ open: false, clientId: null, clientName: undefined });
-          loadData();
+  key={showRenew.clientId}  // ✅ força reset interno quando troca cliente
+  clientId={showRenew.clientId}
+  clientName={showRenew.clientName || "Cliente"}
+  onClose={() => setShowRenew({ open: false, clientId: null, clientName: undefined })}
+  onSuccess={() => {
+  // ✅ 1) fecha o modal primeiro
+  setShowRenew({ open: false, clientId: null, clientName: undefined });
 
-          // ✅ 2 toasts finais após refresh (igual ao detalhe)
-          setTimeout(() => {
-            addToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.");
-            addToast("success", "Cliente renovado", "Renovação registrada com sucesso.");
-          }, 150);
-        }}
+  // ✅ 2) só depois recarrega (garante unmount antes de ligar loading)
+  setTimeout(async () => {
+    await loadData();
+
+    // ✅ toasts após refresh
+    setTimeout(() => {
+      addToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.");
+      addToast("success", "Cliente renovado", "Renovação registrada com sucesso.");
+    }, 150);
+  }, 0);
+}}
+
       />
     )}
 
@@ -1850,6 +1992,41 @@ const res = await fetch("/api/whatsapp/envio_programado", {
         </Modal>
       )}
 
+{showAppModal && (
+  <Modal
+    title={`Aplicativo: ${showAppModal.name}`}
+    onClose={() => setShowAppModal(null)}
+  >
+    <div className="space-y-4 text-sm">
+
+      {showAppModal.info_url && (
+        <a
+  href={showAppModal.info_url}
+  target="_blank"
+  rel="noreferrer"
+  className="text-emerald-600 hover:underline font-bold"
+>
+
+          Abrir site de configuração
+        </a>
+      )}
+
+      <div className="text-slate-600 dark:text-white/70">
+        ID: {showAppModal.id || "—"}
+      </div>
+
+      <button
+  onClick={() => setShowAppModal(null)}
+  className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+>
+  Fechar
+</button>
+
+
+    </div>
+  </Modal>
+)}
+
       <div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
 </div>
@@ -1982,7 +2159,8 @@ addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelad
                   <div className="text-[11px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
                     Envio em:{" "}
                     <span className="text-slate-700 dark:text-white">
-                      {new Date(it.send_at).toLocaleString("pt-BR")}
+                      {new Date(it.send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+
                     </span>
                     {it.status ? (
                       <span className="ml-2 px-2 py-0.5 rounded bg-slate-200/70 dark:bg-white/10 text-[10px] font-bold">

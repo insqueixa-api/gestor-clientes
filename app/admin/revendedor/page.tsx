@@ -1344,7 +1344,7 @@ return (
 
       {!loading && (
         <div
-  className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors"
+  className="bg-white dark:bg-[#161b22] border border-zinc-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
   onClick={(e) => e.stopPropagation()}
 >
 
