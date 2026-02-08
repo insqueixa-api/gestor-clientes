@@ -43,9 +43,11 @@ type ModalMode = "client" | "trial";
 interface Props {
   clientToEdit?: ClientData | null;
   mode?: ModalMode;
+  initialTab?: "dados" | "pagamento" | "apps"; // ✅ NOVO: iniciar em uma aba específica
   onClose: () => void;
   onSuccess: () => void;
 }
+
 
 // ===== PLAN TABLES =====
 type Currency = "BRL" | "USD" | "EUR";
@@ -465,11 +467,18 @@ function queueListToast(
   }
 }
 
-export default function NovoCliente({ clientToEdit, mode = "client", onClose, onSuccess }: Props) {
+export default function NovoCliente({ clientToEdit, mode = "client", initialTab, onClose, onSuccess }: Props) {
   const isEditing = !!clientToEdit;
   const isTrialMode = mode === "trial";
 
-  const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">("dados");
+
+    const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(initialTab || "dados");
+
+      useEffect(() => {
+    if (!initialTab) return;
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
 
   const [loading, setLoading] = useState(false);
   const [fetchingAux, setFetchingAux] = useState(true);
@@ -801,12 +810,12 @@ export default function NovoCliente({ clientToEdit, mode = "client", onClose, on
 
           setWhatsappOptIn(clientToEdit.whatsapp_opt_in ?? true);
 
-if (clientToEdit.dont_message_until) {
-  const v = isoToLocalDateTimeInputValue(clientToEdit.dont_message_until);
-  setDontMessageUntil(v); // v já vem "" se for epoch/antigo
-} else {
-  setDontMessageUntil("");
-}
+          if (clientToEdit.dont_message_until) {
+            const v = isoToLocalDateTimeInputValue(clientToEdit.dont_message_until);
+            setDontMessageUntil(v); // v já vem "" se for epoch/antigo
+          } else {
+            setDontMessageUntil("");
+          }
 
 
 

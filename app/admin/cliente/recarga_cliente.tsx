@@ -741,11 +741,11 @@ const executeSave = async () => {
                         </Select>
                     </div>
                     <div>
-                        <Label>Telas (Conexões)</Label>
+                        <Label># Telas</Label>
                         <Input type="number" min={1} value={screens} onChange={(e) => setScreens(Math.max(1, Number(e.target.value || 1)))} />
                     </div>
                     <div>
-                        <Label>Créditos a Descontar</Label>
+                        <Label># Créditos</Label>
                         <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
                           {creditsInfo ? creditsInfo.used : "-"}
                         </div>
@@ -803,7 +803,7 @@ const executeSave = async () => {
                     <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <Label>Método de Pagamento</Label>
+                                <Label>Pagamento</Label>
                                 <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                                     <option value="PIX">PIX</option>
                                     <option value="Dinheiro">Dinheiro</option>

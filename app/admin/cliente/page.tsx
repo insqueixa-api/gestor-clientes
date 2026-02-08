@@ -7,6 +7,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import NovoCliente, { ClientData } from "./novo_cliente";
 import RecargaCliente from "./recarga_cliente";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
@@ -140,11 +141,25 @@ function addDaysIsoInSaoPaulo(iso: string, days: number) {
   return isoDateInSaoPaulo(base);
 }
 
-function localDateTimeToIso(local: string): string {
-  const d = new Date(local); // interpreta como local
-  if (Number.isNaN(d.getTime())) throw new Error("Data/hora inválida.");
-  return d.toISOString(); // timestamptz-friendly
+function saoPauloDateTimeToIso(local: string): string {
+  // local vem como: YYYY-MM-DDTHH:mm
+
+  if (!local) throw new Error("Data/hora inválida.");
+
+  // força timezone São Paulo (-03:00)
+  // evita depender do timezone do navegador
+  const isoWithTZ = `${local}:00-03:00`;
+
+  const d = new Date(isoWithTZ);
+
+  if (Number.isNaN(d.getTime())) {
+    throw new Error("Data/hora inválida.");
+  }
+
+  // converte para UTC (timestamptz correto)
+  return d.toISOString();
 }
+
 
 
 function compareText(a: string, b: string) {
@@ -187,8 +202,9 @@ function formatDue(rawDue: string | null) {
     return { dueISODate: "9999-12-31", dueLabelDate: "—", dueTime: "—" };
   }
   // A view retorna timestamptz, cortamos para pegar a data YYYY-MM-DD
-  const isoDate = rawDue.split("T")[0];
-  const dt = new Date(rawDue); // O browser converte UTC para local
+const dt = new Date(rawDue);
+const isoDate = isoDateInSaoPaulo(dt);
+
   
   if (Number.isNaN(dt.getTime())) {
     return { dueISODate: "9999-12-31", dueLabelDate: "—", dueTime: "—" };
@@ -221,14 +237,42 @@ export default function ClientePage() {
   const sendNowAbortRef = useRef<AbortController | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
 
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
-  const [appsMap, setAppsMap] = useState<Record<string, any>>({});
-const [showAppModal, setShowAppModal] = useState<any | null>(null);
+type AppsIndex = {
+  byId: Record<string, any>;
+  byName: Record<string, any>; // chave normalizada
+};
+
+const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
+
+function normAppKey(v: any): string {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+// modal “insano”
+type ClientAppModalState = {
+  open: boolean;
+  clientId: string;
+  clientName: string;
+  appName: string;
+  app: any; // AppData do banco (quando existir)
+};
+
+const [appModal, setAppModal] = useState<ClientAppModalState | null>(null);
+const [appValues, setAppValues] = useState<Record<string, string>>({});
+const [appLoading, setAppLoading] = useState(false);
+const [appSaving, setAppSaving] = useState(false); // ✅ ADD (mesmo que você não salve ainda)
+
+
+
 
   const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
 
@@ -301,6 +345,7 @@ const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");       // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>(""); // modal agendar
+  const { confirm, ConfirmUI } = useConfirm();
 
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -432,15 +477,23 @@ async function loadData() {
     }
 
     const { data: appsData } = await supabaseBrowser
-      .from("apps")
-      .select("*")
-      .eq("tenant_id", tid);
+  .from("apps")
+  .select("id,name,info_url,fields_config,is_active,partner_server_id,cost_type") // ✅ só o que usa aqui
+  .eq("tenant_id", tid);
 
-    if (appsData) {
-      const map: Record<string, any> = {};
-      for (const a of appsData) map[a.name] = a;
-      setAppsMap(map);
-    }
+if (appsData) {
+  const byId: Record<string, any> = {};
+  const byName: Record<string, any> = {};
+
+  for (const a of appsData as any[]) {
+    if (a?.id) byId[String(a.id)] = a;
+    byName[normAppKey(a?.name)] = a;
+  }
+
+  setAppsIndex({ byId, byName });
+} else {
+  setAppsIndex({ byId: {}, byName: {} });
+}
 
     if (!tid) {
       setRows([]);
@@ -519,6 +572,91 @@ async function loadData() {
     setLoading(false);
   }
 }
+
+function normalizeValue(v: any): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
+/**
+ * Estratégia:
+ * - field_values no banco deve usar o field.id como chave.
+ * - MAS: se no passado você salvou usando label, fazemos fallback.
+ */
+function readFieldValue(fieldValues: Record<string, any> | null | undefined, field: any): string {
+  const fv = fieldValues || {};
+  const byId = fv[field.id];
+  if (byId !== undefined) return normalizeValue(byId);
+
+  const byLabel = fv[field.label];
+  if (byLabel !== undefined) return normalizeValue(byLabel);
+
+  return "";
+}
+
+function isUuidLike(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string) {
+  if (!tenantId) return;
+
+  const key = String(appNameOrId ?? "").trim();
+
+  // ✅ tenta resolver por ID (caso a view venha com id ou você mude no futuro)
+  const byId = isUuidLike(key) ? appsIndex.byId[key] : null;
+
+  // ✅ resolve por nome normalizado (caso comum hoje)
+  const byName = appsIndex.byName[normAppKey(key)];
+
+  const app = byId || byName || { name: key || "App", fields_config: [], info_url: null, id: null };
+
+  setAppModal({
+    open: true,
+    clientId,
+    clientName,
+    appName: String(app?.name ?? key),
+    app,
+  });
+
+  setAppValues({});
+  setAppLoading(true);
+
+  try {
+    // ✅ se não tem app_id real, não dá pra buscar values
+    if (!app?.id) {
+      setAppValues({});
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("client_apps")
+      .select("field_values")
+      .eq("tenant_id", tenantId)
+      .eq("client_id", clientId)
+      .eq("app_id", String(app.id))
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const fieldValues = (data as any)?.field_values || {};
+
+    const next: Record<string, string> = {};
+    const fields = Array.isArray(app.fields_config) ? app.fields_config : [];
+
+    for (const f of fields) {
+      next[String(f.id)] = readFieldValue(fieldValues, f);
+    }
+
+    setAppValues(next);
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao carregar app", e?.message || "Erro desconhecido");
+  } finally {
+    setAppLoading(false);
+  }
+}
+
 
 
   useEffect(() => {
@@ -742,14 +880,38 @@ function setAllVisible(checked: boolean) {
   }
 
   // --- ACTIONS HANDLERS ---
-  const handleOpenEdit = (r: ClientRow) => {
+
+// ✅ controle de qual aba abrir no modal global (NovoCliente)
+type EditTab = "dados" | "pagamento" | "apps";
+
+const [editInitialTab, setEditInitialTab] = useState<EditTab>("dados");
+
+// ✅ abre o modal de edição pelo id (útil pro popup de apps)
+function openEditById(clientId: string, initialTab: EditTab = "dados") {
+  const r = rows.find((x) => x.id === clientId);
+  if (!r) {
+    addToast("error", "Cliente não encontrado", "Não foi possível abrir edição deste cliente.");
+    return;
+  }
+
+  // ✅ define aba
+  setEditInitialTab(initialTab);
+
+  // ✅ reaproveita a abertura normal
+  handleOpenEdit(r, initialTab);
+}
+
+const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
+  // ✅ define qual aba abrir
+  setEditInitialTab(initialTab);
+
   const payload: ClientData = {
     id: r.id,
     client_name: r.name,
     username: r.username,
     server_id: r.server_id,
     screens: r.screens,
-    technology: r.technology_edit, // ✅ Passa pro modal
+    technology: r.technology_edit,
 
     whatsapp_e164: r.whatsapp,
     whatsapp_username: r.whatsapp_username,
@@ -764,7 +926,7 @@ function setAllVisible(checked: boolean) {
     price_amount: r.price_amount,
     price_currency: r.price_currency,
 
-    // ✅ Passa a data/hora original exata (UTC) para o modal converter corretamente
+    // ✅ Timestamp original completo (UTC) pro modal converter certo
     vencimento: r.rawVencimento || undefined,
 
     notes: r.notes,
@@ -772,7 +934,7 @@ function setAllVisible(checked: boolean) {
 
   setClientToEdit(payload);
 
-  // ✅ abre no próximo tick para garantir que o modal monte já em modo edição (com key correto)
+  // ✅ abre no próximo tick para garantir montagem correta
   setTimeout(() => setShowFormModal(true), 0);
 };
 
@@ -782,10 +944,23 @@ function setAllVisible(checked: boolean) {
     if (!tenantId) return;
 
     const goingToArchive = !r.archived;
-    const confirmed = window.confirm(
-      goingToArchive ? "Arquivar este cliente? (Ele irá para a Lixeira)" : "Restaurar este cliente da Lixeira?"
-    );
-    if (!confirmed) return;
+const ok = await confirm({
+  title: goingToArchive ? "Arquivar cliente" : "Restaurar cliente",
+  subtitle: goingToArchive
+    ? "O cliente irá para a Lixeira (pode ser restaurado depois)."
+    : "O cliente voltará para a lista ativa.",
+  tone: goingToArchive ? "amber" : "emerald",
+  icon: goingToArchive ? "🗑️" : "↩️",
+  details: [
+    `Cliente: ${r.name}`,
+    goingToArchive ? "Destino: Lixeira" : "Destino: Ativos",
+  ],
+  confirmText: goingToArchive ? "Arquivar" : "Restaurar",
+  cancelText: "Voltar",
+});
+
+if (!ok) return;
+
 
     try {
       // Simplificado: update_client usa COALESCE, então só passamos o que muda
@@ -815,8 +990,21 @@ function setAllVisible(checked: boolean) {
       return;
     }
 
-    const confirmed = window.confirm("Excluir permanentemente este cliente? Esta ação NÃO pode ser desfeita.");
-    if (!confirmed) return;
+const ok = await confirm({
+  title: "Excluir definitivamente",
+  subtitle: "Essa ação NÃO pode ser desfeita.",
+  tone: "rose",
+  icon: "⚠️",
+  details: [
+    `Cliente: ${r.name}`,
+    "Ação: excluir para sempre",
+  ],
+  confirmText: "Excluir",
+  cancelText: "Voltar",
+});
+
+if (!ok) return;
+
 
     try {
       const { error } = await supabaseBrowser.rpc("delete_client_forever", {
@@ -868,6 +1056,23 @@ function setAllVisible(checked: boolean) {
 
   const handleDeleteAlert = async (alertId: string) => {
     if (!tenantId) return;
+      const alertObj = (clientAlerts as any[]).find((a) => String(a.id) === String(alertId));
+
+  const ok = await confirm({
+    title: "Remover alerta",
+    subtitle: "Este alerta será removido e não poderá ser recuperado.",
+    tone: "rose",
+    icon: "⚠️",
+    details: [
+      `Cliente: ${showAlertList.clientName ?? "—"}`,
+      alertObj?.message ? `Alerta: ${String(alertObj.message).slice(0, 140)}${String(alertObj.message).length > 140 ? "..." : ""}` : "Alerta: —",
+    ],
+    confirmText: "Remover",
+    cancelText: "Voltar",
+  });
+
+  if (!ok) return;
+
     
     // Pergunta: Você quer deletar ou apenas marcar como resolvido?
     // Opção A: Deletar permanentemente
@@ -998,18 +1203,21 @@ const res = await fetch("/api/whatsapp/envio_agora", {
     return;
   }
 
-  try {
+    try {
     setScheduling(true);
 
-    const sendAtIso = localDateTimeToIso(scheduleDate);
+    // ✅ SEMPRE interpretar o input como São Paulo e converter para UTC (timestamptz)
+    const sendAtIso = saoPauloDateTimeToIso(scheduleDate);
 
-    // ✅ opcional, mas recomendo: impedir agendar no passado
-    if (new Date(sendAtIso).getTime() <= Date.now()) {
+    // ✅ impedir agendar no passado (comparação em UTC)
+    const nowIso = new Date().toISOString();
+    if (sendAtIso <= nowIso) {
       addToast("error", "Data inválida", "Escolha uma data/hora no futuro.");
       return;
     }
 
     const token = await getToken();
+
 
 const res = await fetch("/api/whatsapp/envio_programado", {
   method: "POST",
@@ -1109,16 +1317,18 @@ const res = await fetch("/api/whatsapp/envio_programado", {
       {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
     </button>
 
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setClientToEdit(null);
-        setShowFormModal(true);
-      }}
-      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-    >
-      <span>+</span> Novo Cliente
-    </button>
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    setClientToEdit(null);
+    setEditInitialTab("dados"); // ✅ add
+    setShowFormModal(true);
+  }}
+  className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+>
+  <span>+</span> Novo Cliente
+</button>
+
 
   </div>
 </div>
@@ -1409,14 +1619,14 @@ const res = await fetch("/api/whatsapp/envio_programado", {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
                   <Th width={40}>
-<input
-  ref={selectAllRef}
-  type="checkbox"
-  checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.id))}
-  onClick={(e) => e.stopPropagation()}
-  onChange={(e) => setAllVisible(e.target.checked)}
-  className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
-/>
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.id))}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setAllVisible(e.target.checked)}
+                    className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                  />
 
 
                   </Th>
@@ -1438,22 +1648,22 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                   const isExpired = r.status === "Vencido";
                   return (
                     <tr
-  key={r.id}
-  className={`transition-colors group ${
-    selectedIds.has(r.id)
-      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
-      : "hover:bg-slate-50 dark:hover:bg-white/5"
-  }`}
->
+                      key={r.id}
+                      className={`transition-colors group ${
+                        selectedIds.has(r.id)
+                          ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+                          : "hover:bg-slate-50 dark:hover:bg-white/5"
+                      }`}
+                    >
 
-                      <Td>
-<input
-  type="checkbox"
-  checked={selectedIds.has(r.id)}
-  onClick={(e) => e.stopPropagation()}
-  onChange={(e) => toggleSelected(r.id, e.target.checked)}
-  className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
-/>
+                                          <Td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(r.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => toggleSelected(r.id, e.target.checked)}
+                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                    />
 
 
                       </Td>
@@ -1467,30 +1677,30 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                             
                             {/* ✅ SINO DE ALERTA (Clicável para abrir lista) */}
                             {r.alertsCount > 0 && (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      handleOpenAlertList(r.id, r.name);
-    }}
-    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
-    title="Ver alertas pendentes"
-  >
-    🔔 {r.alertsCount}
-  </button>
-)}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenAlertList(r.id, r.name);
+                              }}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+                              title="Ver alertas pendentes"
+                            >
+                              🔔 {r.alertsCount}
+                            </button>
+                          )}
 
-{(scheduledMap[r.id]?.length || 0) > 0 && (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
-    }}
-    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
-    title="Ver mensagens programadas"
-  >
-    🗓️ {scheduledMap[r.id].length}
-  </button>
-)}
+                          {(scheduledMap[r.id]?.length || 0) > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
+                              }}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
+                              title="Ver mensagens programadas"
+                            >
+                              🗓️ {scheduledMap[r.id].length}
+                            </button>
+                          )}
 
                           </div>
                           <span className="text-xs text-slate-400 dark:text-white/40">{r.username}</span>
@@ -1535,16 +1745,17 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
-<button
-  key={i}
-  onClick={(e) => {
-    e.stopPropagation();
-    setShowAppModal(appsMap[app] || { name: app });
-  }}
-  className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
->
-  {app}
-</button>
+                          <button
+                          key={i}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAppConfigModal(r.id, r.name, app);
+                          }}
+                          className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
+                        >
+                          {app}
+                        </button>
+
 
                             ))
                           ) : (
@@ -1563,27 +1774,27 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                             {msgMenuForId === r.id && (
                               <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f141a] z-50 shadow-2xl overflow-hidden">
                                 <MenuItem
-  icon={<IconSend />}
-  label="Enviar agora"
-  onClick={() => {
-    setMsgMenuForId(null);
-    setSelectedTemplateNowId("");
-    setMessageText("");
-    setShowSendNow({ open: true, clientId: r.id });
-  }}
-/>
+                              icon={<IconSend />}
+                              label="Enviar agora"
+                              onClick={() => {
+                                setMsgMenuForId(null);
+                                setSelectedTemplateNowId("");
+                                setMessageText("");
+                                setShowSendNow({ open: true, clientId: r.id });
+                              }}
+                            />
 
-<MenuItem
-  icon={<IconClock />}
-  label="Programar"
-  onClick={() => {
-    setMsgMenuForId(null);
-    setSelectedTemplateScheduleId("");
-    setScheduleText("");
-    setScheduleDate("");
-    setShowScheduleMsg({ open: true, clientId: r.id });
-  }}
-/>
+                            <MenuItem
+                              icon={<IconClock />}
+                              label="Programar"
+                              onClick={() => {
+                                setMsgMenuForId(null);
+                                setSelectedTemplateScheduleId("");
+                                setScheduleText("");
+                                setScheduleDate("");
+                                setShowScheduleMsg({ open: true, clientId: r.id });
+                              }}
+                            />
 
                               </div>
                             )}
@@ -1593,32 +1804,33 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                             <IconMoney />
                           </IconActionBtn>
 
-                          <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); handleOpenEdit(r); }}>
+                          <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); handleOpenEdit(r, "dados"); }}>
                             <IconEdit />
                           </IconActionBtn>
+
 
                           <IconActionBtn title="Novo alerta" tone="purple" onClick={(e) => { e.stopPropagation(); setNewAlertText(""); setShowNewAlert({ open: true, clientId: r.id, clientName: r.name }); }}>
                             <IconBell />
                           </IconActionBtn>
 
                           <IconActionBtn
-  title={r.archived ? "Restaurar" : "Arquivar"}
-  tone={r.archived ? "green" : "red"}
-  onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
->
-  {r.archived ? <IconRestore /> : <IconTrash />}
-</IconActionBtn>
+                            title={r.archived ? "Restaurar" : "Arquivar"}
+                            tone={r.archived ? "green" : "red"}
+                            onClick={(e) => { e.stopPropagation(); handleArchiveToggle(r); }}
+                          >
+                            {r.archived ? <IconRestore /> : <IconTrash />}
+                          </IconActionBtn>
 
-{/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
-{archivedFilter === "Sim" && r.archived && (
-  <IconActionBtn
-    title="Excluir definitivamente"
-    tone="red"
-    onClick={(e) => { e.stopPropagation(); handleDeleteForever(r); }}
-  >
-    <IconTrash />
-  </IconActionBtn>
-)}
+                          {/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
+                          {archivedFilter === "Sim" && r.archived && (
+                            <IconActionBtn
+                              title="Excluir definitivamente"
+                              tone="red"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteForever(r); }}
+                            >
+                              <IconTrash />
+                            </IconActionBtn>
+                          )}
 
 
 
@@ -1629,30 +1841,36 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                 })}
 
                 {visible.length === 0 && (
-  <tr>
-    <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
-      Nenhum cliente encontrado.
-    </td>
-  </tr>
-)}
+                    <tr>
+                      <td colSpan={11} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                        Nenhum cliente encontrado.
+                      </td>
+                    </tr>
+                  )}
 
               </tbody>
+
             </table>
+             {/* ✅ espaço fixo depois do último cliente (para popups/menus não serem cortados) */}
+              <div className="h-24 md:h-20" />
           </div>
         </div>
       )}
 
       {/* --- MODAIS --- */}
       {showFormModal && (
-        <NovoCliente
-          key={clientToEdit?.id ?? "new"} // ✅ força o modal re-montar ao trocar novo/editar
-          clientToEdit={clientToEdit}
-          onClose={() => setShowFormModal(false)}
-          onSuccess={() => {
-            setShowFormModal(false);
-            loadData();
-          }}
-        />
+<NovoCliente
+  key={clientToEdit?.id ?? "new"}
+  clientToEdit={clientToEdit}
+  initialTab={editInitialTab} // ✅ agora sim (Passo C)
+  onClose={() => setShowFormModal(false)}
+  onSuccess={() => {
+    setShowFormModal(false);
+    loadData();
+  }}
+/>
+
+
       )}
 
 {/* ✅ MODAL DE AVISO DE ALERTA (INTERCEPTADOR) */}
@@ -1992,41 +2210,153 @@ const res = await fetch("/api/whatsapp/envio_programado", {
         </Modal>
       )}
 
-{showAppModal && (
+{appModal?.open && (
   <Modal
-    title={`Aplicativo: ${showAppModal.name}`}
-    onClose={() => setShowAppModal(null)}
+    title={`Aplicativo: ${appModal.app?.name || appModal.appName}`}
+    onClose={() => setAppModal(null)}
   >
     <div className="space-y-4 text-sm">
-
-      {showAppModal.info_url && (
-        <a
-  href={showAppModal.info_url}
-  target="_blank"
-  rel="noreferrer"
-  className="text-emerald-600 hover:underline font-bold"
->
-
-          Abrir site de configuração
-        </a>
-      )}
-
-      <div className="text-slate-600 dark:text-white/70">
-        ID: {showAppModal.id || "—"}
+      {/* Header / Cliente */}
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
+          Cliente
+        </div>
+        <div className="mt-1 font-bold text-slate-800 dark:text-white truncate">
+          {appModal.clientName}
+        </div>
       </div>
 
-      <button
-  onClick={() => setShowAppModal(null)}
-  className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
->
-  Fechar
-</button>
+      {/* URL de configuração */}
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
+          URL de configuração (global)
+        </div>
 
+        {appModal.app?.info_url ? (
+          <div className="mt-2 flex items-center gap-2">
+            <a
+              href={appModal.app.info_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 text-emerald-600 dark:text-emerald-400 font-bold hover:underline truncate"
+              title={appModal.app.info_url}
+            >
+              🔗 {appModal.app.info_url}
+            </a>
+
+            <button
+              onClick={() => {
+                try {
+                  navigator.clipboard.writeText(String(appModal.app.info_url));
+                  addToast("success", "Copiado", "URL copiada para a área de transferência.");
+                } catch {}
+              }}
+              className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-100 dark:hover:bg-white/15 transition"
+              title="Copiar URL"
+            >
+              Copiar
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 text-slate-400 dark:text-white/30 italic">
+            Nenhuma URL cadastrada para este app.
+          </div>
+        )}
+      </div>
+
+      {/* Campos do app */}
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
+            Campos do aplicativo
+          </div>
+
+          {appLoading && (
+            <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 animate-pulse">
+              Carregando...
+            </span>
+          )}
+        </div>
+
+        {(!Array.isArray(appModal.app?.fields_config) || appModal.app.fields_config.length === 0) ? (
+          <div className="mt-2 text-slate-400 dark:text-white/30 italic">
+            Este app não tem campos personalizados.
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {appModal.app.fields_config.map((f: any) => {
+              const fid = String(f.id);
+
+              const inputType =
+                f.type === "date" ? "date" : f.type === "link" ? "url" : "text";
+
+              return (
+                <div key={fid} className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                    {f.label}
+                  </label>
+
+                  <input
+                    type={inputType}
+                    value={appValues[fid] ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAppValues((prev) => ({ ...prev, [fid]: v }));
+                    }}
+                    className="w-full h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                    placeholder={f.placeholder || ""}
+                    disabled={appLoading || appSaving}
+                  />
+
+                  {/* extra: se for link, mostra botão abrir */}
+                  {f.type === "link" && (appValues[fid] || "").trim() && (
+                    <div className="flex justify-end">
+                      <a
+                        href={(appValues[fid] || "").trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                      >
+                        Abrir link →
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-1">
+  <button
+    onClick={() => setAppModal(null)}
+    className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
+  >
+    Fechar
+  </button>
+
+  <button
+    onClick={() => {
+      if (!appModal?.clientId) return;
+      setAppModal(null);
+      // ✅ abre edição do cliente (aba apps via initialTab, ver ajuste no NovoCliente)
+      openEditById(appModal.clientId, "apps");
+
+    }}
+    className="h-10 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
+    title="Abrir edição completa do cliente"
+  >
+    Editar Cliente
+  </button>
+</div>
 
     </div>
   </Modal>
 )}
 
+{ConfirmUI}
       <div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
 </div>
@@ -2115,9 +2445,27 @@ function ScheduledMessagesModal({
 }) {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+    const { confirm } = useConfirm();
+
 
   async function handleDelete(scheduleId: string) {
-    const ok = window.confirm("Excluir este agendamento?");
+    const it = items.find((x) => x.id === scheduleId);
+
+    const ok = await confirm({
+      title: "Cancelar agendamento",
+      subtitle: "A mensagem programada será removida da fila.",
+      tone: "rose",
+      icon: "🗓️",
+      details: [
+        `Cliente: ${clientName}`,
+        it?.send_at
+          ? `Envio em: ${new Date(it.send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+          : "Envio em: —",
+      ],
+      confirmText: "Cancelar",
+      cancelText: "Voltar",
+    });
+
     if (!ok) return;
 
     try {
@@ -2144,9 +2492,12 @@ addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelad
   }
 
   return (
+  <>
     <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
       {items.length === 0 ? (
-        <div className="text-sm text-slate-500 dark:text-white/60 italic">Nenhum agendamento encontrado.</div>
+        <div className="text-sm text-slate-500 dark:text-white/60 italic">
+          Nenhum agendamento encontrado.
+        </div>
       ) : (
         <div className="space-y-3">
           {items.map((it) => (
@@ -2159,9 +2510,11 @@ addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelad
                   <div className="text-[11px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
                     Envio em:{" "}
                     <span className="text-slate-700 dark:text-white">
-                      {new Date(it.send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-
+                      {new Date(it.send_at).toLocaleString("pt-BR", {
+                        timeZone: "America/Sao_Paulo",
+                      })}
                     </span>
+
                     {it.status ? (
                       <span className="ml-2 px-2 py-0.5 rounded bg-slate-200/70 dark:bg-white/10 text-[10px] font-bold">
                         {it.status}
@@ -2187,7 +2540,11 @@ addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelad
         </div>
       )}
     </Modal>
-  );
+
+    
+  </>
+);
+
 }
 
 
