@@ -147,6 +147,34 @@ function mapStatus(isActive: boolean, statusStr: string): ResellerStatus {
     return isActive ? "Ativo" : "Inativo";
 }
 
+type AlertTargetKind = "client" | "reseller";
+
+type AlertTarget = {
+  kind: AlertTargetKind;
+  id: string;
+};
+
+function alertFkColumn(kind: AlertTargetKind): "client_id" | "reseller_id" {
+  return kind === "client" ? "client_id" : "reseller_id";
+}
+
+// monta payload com a FK correta (client_id ou reseller_id)
+function buildAlertInsertPayload(args: {
+  tenant_id: string;
+  target: AlertTarget;
+  message: string;
+  status: "OPEN" | "CLOSED";
+}) {
+  const col = alertFkColumn(args.target.kind);
+  return {
+    tenant_id: args.tenant_id,
+    status: args.status,
+    message: args.message,
+    [col]: args.target.id,
+  } as any;
+}
+
+
 export default function RevendaPage() {
   // --- ESTADOS ---
   const [rows, setRows] = useState<ResellerRow[]>([]);
@@ -156,6 +184,9 @@ export default function RevendaPage() {
   // Modais (Estado Unificado)
   const [showFormModal, setShowFormModal] = useState(false);
   const [resellerToEdit, setResellerToEdit] = useState<ResellerRow | null>(null);
+
+  const [serversByReseller, setServersByReseller] = useState<Record<string, string[]>>({});
+
   
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
@@ -195,13 +226,23 @@ export default function RevendaPage() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
 
-  const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
-    open: false,
-    resellerId: null,
-    resellerName: undefined,
-  });
-  const [newAlertText, setNewAlertText] = useState("");
-  // ✅ templates (igual Cliente)
+
+
+// --- Modal Novo Alerta (unificado) ---
+const [showNewAlert, setShowNewAlert] = useState<{
+  open: boolean;
+  target: AlertTarget | null;
+  targetName?: string;
+}>({
+  open: false,
+  target: null,
+  targetName: undefined,
+});
+
+const [newAlertText, setNewAlertText] = useState("");
+
+// ✅ templates (igual Cliente)
+
 const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
 const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
 const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
@@ -233,11 +274,16 @@ const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; re
 });
 
 // ✅ lista de alertas por revenda (igual cliente)
-const [showAlertList, setShowAlertList] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
+const [showAlertList, setShowAlertList] = useState<{
+  open: boolean;
+  target: AlertTarget | null;
+  targetName?: string;
+}>({
   open: false,
-  resellerId: null,
-  resellerName: undefined,
+  target: null,
+  targetName: undefined,
 });
+
 const [resellerAlerts, setResellerAlerts] = useState<unknown[]>([]);
 
 
@@ -321,46 +367,53 @@ setScheduledMap(map);
 }
 
 // ✅ carrega contagem de alertas OPEN por revenda (badge)
-async function loadOpenAlertsCount(tid: string, resellerIds: string[]) {
-  if (!resellerIds.length) return new Map<string, number>();
+async function loadOpenAlertsCountByTarget(
+  tid: string,
+  targetKind: AlertTargetKind,
+  targetIds: string[]
+) {
+  if (!targetIds.length) return new Map<string, number>();
+
+  const col = alertFkColumn(targetKind);
 
   const { data, error } = await supabaseBrowser
-  .from("client_alerts")
-  .select("id,client_id")
-  .eq("tenant_id", tid)
-  .in("client_id", resellerIds)
-  .eq("status", "OPEN");
+    .from("client_alerts")
+    .select(`id,${col}`)
+    .eq("tenant_id", tid)
+    .in(col, targetIds)
+    .eq("status", "OPEN");
 
-if (error) {
-  console.error("Erro ao carregar alertas:", error);
-  return new Map<string, number>();
+  if (error) {
+    console.error("Erro ao carregar alertas:", error);
+    return new Map<string, number>();
+  }
+
+  const m = new Map<string, number>();
+  for (const row of (data as any[]) || []) {
+    const id = String(row[col]);
+    m.set(id, (m.get(id) || 0) + 1);
+  }
+  return m;
 }
 
-const m = new Map<string, number>();
-for (const row of (data as any[]) || []) {
-  const cid = String((row as any).client_id);
-  m.set(cid, (m.get(cid) || 0) + 1);
-}
-return m;
-
-}
 
 // ✅ abre modal de alertas OPEN
-async function handleOpenAlertList(resellerId: string, resellerName: string) {
+async function handleOpenAlertList(target: AlertTarget, targetName: string) {
   setResellerAlerts([]);
-  setShowAlertList({ open: true, resellerId, resellerName });
+  setShowAlertList({ open: true, target, targetName });
 
   try {
     if (!tenantId) return;
 
-const { data, error } = await supabaseBrowser
-  .from("client_alerts")
-  .select("*")
-  .eq("tenant_id", tenantId)
-  .eq("client_id", resellerId)
-  .eq("status", "OPEN")
-  .order("created_at", { ascending: false });
+    const col = alertFkColumn(target.kind);
 
+    const { data, error } = await supabaseBrowser
+      .from("client_alerts")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq(col, target.id)
+      .eq("status", "OPEN")
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
     setResellerAlerts(data || []);
@@ -369,6 +422,7 @@ const { data, error } = await supabaseBrowser
     addToast("error", "Erro ao carregar alertas", e?.message || "Erro desconhecido");
   }
 }
+
 
 // ✅ exclui alerta (e atualiza contagem)
 async function handleDeleteAlert(alertId: string) {
@@ -492,6 +546,37 @@ if (salesRes.error) {
 
 const typed = (data || []) as VwResellerRow[];
 
+// ✅ carregar nomes dos servidores vinculados
+const { data: links, error: linksError } = await supabaseBrowser
+  .from("reseller_servers")
+  .select(`
+    reseller_id,
+    servers (
+      name
+    )
+  `)
+  .eq("tenant_id", tid);
+
+if (!linksError && links) {
+  const map: Record<string, string[]> = {};
+
+  links.forEach((row: any) => {
+    const rid = String(row.reseller_id);
+    const name = row.servers?.name;
+
+    if (!name) return;
+
+    if (!map[rid]) map[rid] = [];
+    map[rid].push(name);
+// ✅ dedup + ordena (pra não repetir e ficar bonito)
+map[rid] = Array.from(new Set(map[rid])).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+
+  });
+
+  setServersByReseller(map);
+}
+
+
 
     const mapped: ResellerRow[] = typed.map((r) => {
 const revenue = Number(r.revenue_brl_total || 0);
@@ -543,7 +628,8 @@ const profit = revenue - cost;
 // ✅ carrega contagens de alertas e agendamentos pra badge
 const ids = mapped.map((m) => m.id);
 
-const alertsCountMap = await loadOpenAlertsCount(tid, ids);
+const alertsCountMap = await loadOpenAlertsCountByTarget(tid, "reseller", ids);
+
 await loadScheduledForResellers(tid, ids);
 
 // injeta alertsCount no mapped (sem mexer no resto)
@@ -776,35 +862,35 @@ const serverHasNoLinks = useMemo(() => {
 
 
     const handleSaveAlert = async () => {
-    if (!tenantId || !showNewAlert.resellerId) return;
+  if (!tenantId || !showNewAlert.target?.id) return;
 
-    const text = (newAlertText || "").trim();
-    if (!text) {
-      addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
-      return;
-    }
+  const text = (newAlertText || "").trim();
+  if (!text) {
+    addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
+    return;
+  }
 
-    try {
-      
-const { error } = await supabaseBrowser.from("client_alerts").insert({
-  tenant_id: tenantId,
-  client_id: showNewAlert.resellerId, // ✅ grava no client_id
-  status: "OPEN",
-  message: text,
-});
+  try {
+    const payload = buildAlertInsertPayload({
+      tenant_id: tenantId,
+      target: showNewAlert.target,
+      message: text,
+      status: "OPEN",
+    });
 
+    const { error } = await supabaseBrowser.from("client_alerts").insert(payload);
+    if (error) throw error;
 
-      if (error) throw error;
+    addToast("success", "Alerta criado!");
+    setShowNewAlert({ open: false, target: null, targetName: undefined });
+    setNewAlertText("");
+    await loadData();
+  } catch (e: any) {
+    console.error(e);
+    addToast("error", "Erro ao criar alerta", e?.message || "Erro desconhecido");
+  }
+};
 
-      addToast("success", "Alerta criado!");
-      setShowNewAlert({ open: false, resellerId: null, resellerName: undefined });
-      setNewAlertText("");
-      await loadData();
-    } catch (e: any) {
-      console.error(e);
-      addToast("error", "Erro ao criar alerta", e?.message || "Erro desconhecido");
-    }
-  };
 
 
   const handleSendMessage = async () => {
@@ -1315,7 +1401,8 @@ return (
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            handleOpenAlertList(r.id, r.name);
+            handleOpenAlertList({ kind: "reseller", id: r.id }, r.name)
+
           }}
           title={`${r.alertsCount} alerta(s)`}
           className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 text-[10px] font-extrabold hover:bg-amber-500/20 transition-all"
@@ -1342,18 +1429,34 @@ return (
       )}
     </div>
 
-    <span className="text-[11px] font-medium text-slate-400 dark:text-white/30">
-      {formatPhoneE164BR(r.primary_phone)}
-    </span>
+<span className="text-[11px] font-medium text-slate-400 dark:text-white/30 whitespace-nowrap tabular-nums">
+  {r.primary_phone}
+</span>
+
   </div>
 </Td>
 
 
-                    <Td>
-                        <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 shadow-sm">
-                            {r.linked_servers_count}
-                        </span>
-                    </Td>
+<Td>
+  <div className="flex flex-wrap items-center justify-center gap-1">
+    {((serversByReseller[r.id] || []) as string[]).length === 0 ? (
+      <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 shadow-sm">
+        0
+      </span>
+    ) : (
+      (serversByReseller[r.id] || []).map((name, i) => (
+        <span
+          key={`${r.id}-srv-${i}`}
+          className="inline-flex items-center justify-center h-6 px-2 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[11px] font-extrabold text-slate-600 dark:text-white/70 shadow-sm"
+          title={name}
+        >
+          {name}
+        </span>
+      ))
+    )}
+  </div>
+</Td>
+
 
                     <Td><span className="font-mono font-bold text-slate-700 dark:text-white/80">{r.revenueLabel}</span></Td>
                     <Td><span className="font-mono font-bold text-slate-500 dark:text-white/40">{r.costLabel}</span></Td>
@@ -1391,7 +1494,16 @@ return (
                           <IconEdit />
                         </IconActionBtn>
 
-                        <IconActionBtn title="Novo alerta" tone="purple" onClick={(e) => { e.stopPropagation(); setNewAlertText(""); setShowNewAlert({ open: true, resellerId: r.id, resellerName: r.name }); }}>
+                        <IconActionBtn title="Novo alerta" tone="purple" onClick={(e) => {
+  e.stopPropagation();
+  setNewAlertText("");
+  setShowNewAlert({
+    open: true,
+    target: { kind: "reseller", id: r.id },
+    targetName: r.name,
+  });
+}}
+>
                            <IconBell />
                         </IconActionBtn>
 
@@ -1473,24 +1585,35 @@ return (
       )}
 
       {/* MODAL DE NOVO ALERTA */}
-      {showNewAlert.open && (
-        <Modal title={`Novo alerta: ${showNewAlert.resellerName}`} onClose={() => setShowNewAlert({ open: false, resellerId: null })}>
-          <textarea
-            value={newAlertText}
-            onChange={(e) => setNewAlertText(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 transition-colors focus:border-emerald-500/50"
-            placeholder="Digite o alerta..."
-          />
-          <div className="mt-4 flex justify-end gap-3">
-            <button onClick={() => setShowNewAlert({ open: false, resellerId: null })} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors">
-              Cancelar
-            </button>
-            <button className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all text-sm" onClick={handleSaveAlert}>
-              Salvar alerta
-            </button>
-          </div>
-        </Modal>
-      )}
+      {/* MODAL DE NOVO ALERTA */}
+{showNewAlert.open && (
+  <Modal
+    title={`Novo alerta: ${showNewAlert.targetName || "Registro"}`}
+    onClose={() => setShowNewAlert({ open: false, target: null, targetName: undefined })}
+  >
+    <textarea
+      value={newAlertText}
+      onChange={(e) => setNewAlertText(e.target.value)}
+      className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 transition-colors focus:border-emerald-500/50"
+      placeholder="Digite o alerta..."
+    />
+    <div className="mt-4 flex justify-end gap-3">
+      <button
+        onClick={() => setShowNewAlert({ open: false, target: null, targetName: undefined })}
+        className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+      >
+        Cancelar
+      </button>
+      <button
+        className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all text-sm"
+        onClick={handleSaveAlert}
+      >
+        Salvar alerta
+      </button>
+    </div>
+  </Modal>
+)}
+
 
       {/* MODAL DE ENVIO DE MENSAGEM */}
       {showSendNow.open && (
@@ -1518,7 +1641,7 @@ return (
       className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
       title="Criar novo template"
     >
-      + Novo Revendedor
+      + Novo Template
     </button>
   </div>
 
@@ -1666,10 +1789,13 @@ return (
       )}
 
       {/* ✅ MODAL LISTA DE ALERTAS (OPEN) */}
-      {showAlertList.open && showAlertList.resellerId && (
+      {showAlertList.open && showAlertList.target && (
+
         <Modal
-          title={`Alertas: ${showAlertList.resellerName || "Revenda"}`}
-          onClose={() => setShowAlertList({ open: false, resellerId: null, resellerName: undefined })}
+          title={`Alertas: ${showAlertList.targetName || "Registro"}`}
+
+          onClose={() => setShowAlertList({ open: false, target: null, targetName: undefined })}
+
         >
           <div className="space-y-3">
             {(resellerAlerts as any[]).length === 0 ? (
@@ -1714,7 +1840,8 @@ return (
 
             <div className="pt-3 flex justify-end">
               <button
-                onClick={() => setShowAlertList({ open: false, resellerId: null, resellerName: undefined })}
+                onClick={() => setShowAlertList({ open: false, target: null, targetName: undefined })}
+
                 className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
               >
                 Fechar
