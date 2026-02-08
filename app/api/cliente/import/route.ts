@@ -255,6 +255,30 @@ function pickRpcClientId(data: any): string | null {
   return null;
 }
 
+function onlyDigits(v: string) {
+  return (v || "").replace(/\D+/g, "");
+}
+
+// ✅ regra simples: se já tem +, mantém; se não, assume BR (+55)
+// (mantém seu CSV compatível, sem inventar DDI por tabela)
+function toE164Phone(raw: string | null | undefined): string | null {
+  const s = (raw || "").trim();
+  if (!s) return null;
+
+  if (s.startsWith("+")) {
+    const digits = onlyDigits(s);
+    return digits ? `+${digits}` : null;
+  }
+
+  const digits = onlyDigits(s);
+  if (!digits) return null;
+
+  // se vier com 55 na frente, mantém; se não, prefixa 55
+  const withDdi = digits.startsWith("55") ? digits : `55${digits}`;
+  return `+${withDdi}`;
+}
+
+
 export async function POST(req: Request) {
   const supabase = await createClient();
 
@@ -555,38 +579,46 @@ if (defaultPriceAmount === null) {
 
       if (!client_id) {
         // ✅ CREATE via RPC (SECURITY DEFINER)
-        const { data: created, error: crErr } = await supabase.rpc("create_client_and_setup", {
-          p_tenant_id: tenant_id,
-          p_created_by: created_by,
+        const phoneE164 = toE164Phone(parsed.telefone_principal);
 
-          p_display_name: nameParts.display_name,
+const { data: created, error: crErr } = await supabase.rpc("create_client_and_setup", {
+  p_tenant_id: tenant_id,
+  p_created_by: created_by,
 
-          p_server_id: server_id,
-          p_server_username: parsed.usuario,
-          p_server_password: parsed.senha || null,
+  p_display_name: nameParts.display_name,
 
-          p_screens: screens,
-          p_plan_label: parsed.plano || null,
-          p_price_amount: defaultPriceAmount, // ✅ agora vem da tabela padrão
-          p_price_currency: parsed.currency,
+  p_server_id: server_id,
+  p_server_username: parsed.usuario,
+  p_server_password: parsed.senha || null,
 
+  p_screens: screens,
+  p_plan_label: parsed.plano || null,
+  p_price_amount: defaultPriceAmount,
+  p_price_currency: parsed.currency,
 
-          p_vencimento: vencimentoISO,
-          p_is_trial: false,
-          p_notes: parsed.obs || null,
+  p_vencimento: vencimentoISO,
+  p_is_trial: false,
+  p_notes: parsed.obs || null,
 
-          p_phone_primary_e164: parsed.telefone_principal || null,
+  // ✅ normalizado
+  p_phone_primary_e164: phoneE164,
 
-          p_whatsapp_opt_in: parsed.aceita_mensagem,
-          p_whatsapp_username: parsed.whatsapp_username || null,
-          p_whatsapp_snooze_until: null,
+  p_whatsapp_opt_in: parsed.aceita_mensagem,
+  p_whatsapp_username: parsed.whatsapp_username || null,
 
-          p_app_ids: appIds,
-          p_is_archived: false,
+  // ✅ mantendo sua regra atual: import NÃO seta snooze
+  p_whatsapp_snooze_until: null,
 
-          // ✅ sempre enviar para bater na assinatura “completa”
-          p_technology: parsed.tecnologia || null,
-        });
+  // ✅ OBRIGATÓRIO pra bater a assinatura real do banco
+  p_clear_whatsapp_snooze_until: true,
+
+  p_app_ids: appIds,
+  p_is_archived: false,
+
+  // ✅ pode mandar sempre, mas nunca null (pra evitar edge)
+  p_technology: (parsed.tecnologia || "").trim() || "IPTV",
+});
+
 
         if (crErr) throw new Error(`create_client_and_setup: ${crErr.message}`);
 
@@ -612,37 +644,41 @@ if (defaultPriceAmount === null) {
       } else {
         // ✅ UPDATE via RPC
         const { error: upErr } = await supabase.rpc("update_client", {
-          p_tenant_id: tenant_id,
-          p_client_id: client_id,
+  p_tenant_id: tenant_id,
+  p_client_id: client_id,
 
-          p_display_name: nameParts.display_name,
-          p_name_prefix: parsed.saudacao || null,
+  p_display_name: nameParts.display_name,
+  p_name_prefix: parsed.saudacao || null,
 
-          p_notes: parsed.obs || null,
-          p_clear_notes: false,
+  p_notes: parsed.obs || null,
+  p_clear_notes: false,
 
-          p_server_id: server_id,
-          p_server_username: parsed.usuario,
-          p_server_password: parsed.senha || null,
+  p_server_id: server_id,
+  p_server_username: parsed.usuario,
+  p_server_password: parsed.senha || null,
 
-          p_screens: screens,
-          p_plan_label: parsed.plano || null,
-          p_price_amount: defaultPriceAmount, // ✅ agora vem da tabela padrão
-          p_price_currency: parsed.currency,
+  p_screens: screens,
+  p_plan_label: parsed.plano || null,
+  p_price_amount: defaultPriceAmount,
+  p_price_currency: parsed.currency,
 
+  p_vencimento: vencimentoISO,
+  p_is_trial: false,
 
-          p_vencimento: vencimentoISO,
-          p_is_trial: false,
+  p_whatsapp_opt_in: parsed.aceita_mensagem,
+  p_whatsapp_username: parsed.whatsapp_username || null,
 
-          p_whatsapp_opt_in: parsed.aceita_mensagem,
-          p_whatsapp_username: parsed.whatsapp_username || null,
-          p_whatsapp_snooze_until: null,
+  // ✅ mantém: import não seta snooze
+  p_whatsapp_snooze_until: null,
 
-          p_is_archived: false,
+  // ✅ OBRIGATÓRIO pra bater a assinatura real do banco
+  p_clear_whatsapp_snooze_until: true,
 
-          // ✅ sempre enviar para bater na assinatura “completa”
-          p_technology: parsed.tecnologia || null,
-        });
+  p_is_archived: false,
+
+  p_technology: (parsed.tecnologia || "").trim() || "IPTV",
+});
+
 
         if (upErr) throw new Error(`update_client: ${upErr.message}`);
         updated++;
@@ -659,13 +695,16 @@ if (defaultPriceAmount === null) {
       }
 
       // ✅ Telefones via RPC (primário; secundários = [])
-      if (parsed.telefone_principal) {
-        const { error: phErr } = await supabase.rpc("set_client_phones", {
-          p_tenant_id: tenant_id,
-          p_client_id: client_id,
-          p_primary_e164: parsed.telefone_principal,
-          p_secondary_e164: [],
-        });
+const phoneE164 = toE164Phone(parsed.telefone_principal);
+
+if (phoneE164) {
+  const { error: phErr } = await supabase.rpc("set_client_phones", {
+    p_tenant_id: tenant_id,
+    p_client_id: client_id,
+    p_primary_e164: phoneE164,
+    p_secondary_e164: [],
+  });
+
 
         if (phErr) {
           warnings.push({ row: rowNum, warning: `Telefone não foi importado (set_client_phones): ${phErr.message}` });
