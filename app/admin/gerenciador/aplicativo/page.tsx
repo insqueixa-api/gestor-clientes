@@ -93,19 +93,41 @@ export default function AppManagerPage() {
       if (!tid) return;
 
       // 1. Carrega Apps
-      const { data: appsData, error: appsError } = await supabaseBrowser
-        .from("apps")
-        .select("*")
-        .eq("tenant_id", tid)
-        .order("created_at", { ascending: false });
+const { data: appsData, error: appsError } = await supabaseBrowser
+  .from("apps")
+  .select("*")
+  .eq("tenant_id", tid)
+  .order("name", { ascending: true });
+
 
       if (appsError) throw appsError;
 
-      const formattedApps = (appsData || []).map((app) => ({
-        ...app,
-        fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
-        cost_type: app.cost_type || "paid"
-      }));
+const costPriority: Record<string, number> = {
+  partnership: 0,
+  free: 1,
+  paid: 2,
+};
+
+const formattedApps = (appsData || [])
+  .map((app) => ({
+    ...app,
+    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
+    cost_type: app.cost_type || "paid",
+  }))
+  .sort((a, b) => {
+    const costDiff =
+      (costPriority[a.cost_type ?? "paid"] ?? 99) -
+      (costPriority[b.cost_type ?? "paid"] ?? 99);
+
+    // primeiro ordena pelo tipo
+    if (costDiff !== 0) return costDiff;
+
+    // depois alfabético (pt-BR bonito)
+    return a.name.localeCompare(b.name, "pt-BR", {
+      sensitivity: "base",
+    });
+  });
+
       setApps(formattedApps);
 
       // 2. Carrega Servidores
@@ -129,6 +151,14 @@ export default function AppManagerPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // ✅ +++ Agrupamento PRO (Parcerias / Gratuitos / Pagos)
+const groupedApps = {
+  partnership: apps.filter((a) => (a.cost_type ?? "paid") === "partnership"),
+  free: apps.filter((a) => (a.cost_type ?? "paid") === "free"),
+  paid: apps.filter((a) => (a.cost_type ?? "paid") === "paid"),
+};
+
 
   // --- MANIPULAÇÃO DO MODAL ---
   function openNew() {
@@ -155,7 +185,8 @@ export default function AppManagerPage() {
   function addField() {
     setFormFields((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), label: "", type: "text" },
+      { id: globalThis.crypto.randomUUID(), label: "", type: "text" },
+
     ]);
   }
 
@@ -163,7 +194,8 @@ export default function AppManagerPage() {
   function addExpirationField() {
     setFormFields((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), label: "Vencimento", type: "date" },
+      { id: globalThis.crypto.randomUUID(), label: "Vencimento", type: "date" },
+
     ]);
   }
 
@@ -270,6 +302,95 @@ async function handleDelete(id: string) {
   }
 }
 
+// ✅ Render único do Card (pra reutilizar nos 3 grupos)
+function renderAppCard(app: AppData) {
+  return (
+    <div
+      key={app.id}
+      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="space-y-1">
+          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+
+          <div className="flex flex-wrap gap-2 text-[10px]">
+            {app.cost_type === "free" && (
+              <span className="text-emerald-600 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                GRÁTIS
+              </span>
+            )}
+
+            {app.cost_type === "partnership" && (
+              <span className="text-purple-600 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded">
+                PARCERIA
+              </span>
+            )}
+
+            {(app.cost_type ?? "paid") === "paid" && (
+              <span className="text-rose-600 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                PAGO
+              </span>
+            )}
+
+            {app.partner_server_id && (
+              <span className="text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                {servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor Desconhecido"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-1">
+          <button
+            onClick={() => openEdit(app)}
+            className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+            title="Editar"
+          >
+            ✏️
+          </button>
+          <button
+            onClick={() => handleDelete(app.id)}
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+            title="Excluir"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
+
+      {app.info_url && (
+        <a
+          href={app.info_url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
+        >
+          🔗 {app.info_url}
+        </a>
+      )}
+
+      <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
+
+        <div className="flex flex-wrap gap-1">
+          {app.fields_config.length > 0 ? (
+            app.fields_config.map((field, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
+              >
+                {field.label} {field.type === "date" && "📅"}
+              </span>
+            ))
+          ) : (
+            <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
@@ -314,57 +435,50 @@ return (
           Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+        <div className="space-y-6">
+  {/* PARCERIAS */}
+{groupedApps.partnership.length > 0 && (
+  <div>
+    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
+      Parcerias
+    </div>
 
-          {apps.map((app) => (
-            <div key={app.id} className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative">
-              <div className="flex justify-between items-start mb-3">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-                  <div className="flex flex-wrap gap-2 text-[10px]">
-                      {app.cost_type === 'free' && <span className="text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">GRÁTIS</span>}
-                      {app.cost_type === 'partnership' && <span className="text-purple-500 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded">PARCERIA</span>}
-                      {app.partner_server_id && (
-                          <span className="text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
-                              {servers.find(s => s.id === app.partner_server_id)?.name || 'Servidor Desconhecido'}
-                          </span>
-                      )}
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => openEdit(app)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors" title="Editar">
-                    ✏️
-                  </button>
-                  <button onClick={() => handleDelete(app.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors" title="Excluir">
-                    🗑️
-                  </button>
-                </div>
-              </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+      {groupedApps.partnership.map((app) => renderAppCard(app))}
+    </div>
+  </div>
+)}
 
-              {app.info_url && (
-                 <a href={app.info_url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3">
-                    🔗 {app.info_url}
-                 </a>
-              )}
 
-              {/* Lista de Campos Configurados */}
-              <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
-                <div className="flex flex-wrap gap-1">
-                  {app.fields_config.length > 0 ? (
-                    app.fields_config.map((field, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1">
-                        {field.label} {field.type === 'date' && '📅'}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+  {/* GRATUITOS */}
+{groupedApps.free.length > 0 && (
+  <div>
+    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+      Gratuitos
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+      {groupedApps.free.map((app) => renderAppCard(app))}
+    </div>
+  </div>
+)}
+
+
+  {/* PAGOS */}
+{groupedApps.paid.length > 0 && (
+  <div>
+    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
+      Pagos
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+      {groupedApps.paid.map((app) => renderAppCard(app))}
+    </div>
+  </div>
+)}
+
+</div>
+
       )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
