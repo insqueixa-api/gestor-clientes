@@ -4,6 +4,8 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
+const TZ_SP = "America/Sao_Paulo";
+
 function makeSessionKey(tenantId: string, userId: string) {
   return crypto.createHash("sha256").update(`${tenantId}:${userId}`).digest("hex");
 }
@@ -19,31 +21,86 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * Extrai partes de data/hora no fuso de SP com Intl (server-safe).
+ * Retorna strings já com zero-pad quando aplicável.
+ */
+function getSPParts(d: Date) {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ_SP,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+
+  const map: Record<string, string> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+
+  return map as {
+    day: string;
+    month: string;
+    year: string;
+    hour: string;
+    minute: string;
+    second: string;
+  };
+}
+
 function toBRDate(d: Date) {
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  // ✅ SP fixo
+  const p = getSPParts(d);
+  return `${p.day}/${p.month}/${p.year}`;
 }
 
 function toBRTime(d: Date) {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  // ✅ SP fixo
+  const p = getSPParts(d);
+  return `${p.hour}:${p.minute}`;
 }
 
 function weekdayPtBR(d: Date) {
-  // Ex: "sexta-feira"
-  const s = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(d);
+  // ✅ SP fixo
+  const s = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ_SP, weekday: "long" }).format(d);
   // "Sexta-feira" (primeira maiúscula)
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function saudacaoTempo(d: Date) {
-  const h = d.getHours();
+  // ✅ SP fixo
+  const p = getSPParts(d);
+  const h = Number(p.hour);
   if (h < 12) return "Bom dia";
   if (h < 18) return "Boa tarde";
   return "Boa noite";
 }
 
+/**
+ * Gera uma chave de dia (YYYY-MM-DD) no fuso SP.
+ */
+function spDayKey(d: Date) {
+  const p = getSPParts(d);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/**
+ * Diferença inteira de dias (a - b) baseada no "dia" de SP
+ * (não UTC, não timezone do servidor).
+ */
 function diffDays(a: Date, b: Date) {
-  // diferença inteira de dias (a - b)
-  const ms = a.getTime() - b.getTime();
+  const aKey = spDayKey(a);
+  const bKey = spDayKey(b);
+
+  // Converte as chaves em UTC meia-noite pra subtrair sem depender do timezone local
+  const aUtc = new Date(`${aKey}T00:00:00.000Z`);
+  const bUtc = new Date(`${bKey}T00:00:00.000Z`);
+
+  const ms = aUtc.getTime() - bUtc.getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
@@ -63,29 +120,26 @@ function renderTemplate(text: string, vars: Record<string, string>) {
 }
 
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
-  const now = new Date();
+  const now = new Date(); // ✅ ok (format/cálculos travados em SP pelas helpers)
 
   const row = params.recipientRow || {};
 
   // nomes possíveis (cliente e revenda podem variar)
-  const displayName =
-    String(row.display_name ?? row.name ?? row.full_name ?? row.nome ?? "").trim();
+  const displayName = String(row.display_name ?? row.name ?? row.full_name ?? row.nome ?? "").trim();
 
-  const namePrefix =
-    String(row.name_prefix ?? row.saudacao ?? "").trim(); // se existir no seu schema
+  const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim(); // se existir no seu schema
 
   // datas possíveis
   const createdAt = safeDate(row.created_at ?? row.createdAt);
   const dueAt = safeDate(row.vencimento ?? row.due_at ?? row.due_date ?? row.expire_at ?? row.expires_at);
 
-  const daysSinceCadastro =
-    createdAt ? Math.max(0, diffDays(now, createdAt)) : "";
+  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : "";
 
   let diasParaVencimento = "";
   let diasAtraso = "";
 
   if (dueAt) {
-    const d = diffDays(dueAt, now); // vencimento - agora
+    const d = diffDays(dueAt, now); // vencimento - agora (em dias SP)
     if (d >= 0) {
       diasParaVencimento = String(d);
       diasAtraso = "0";
@@ -96,12 +150,10 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   }
 
   // saudacao (do print você quer algo tipo "Sr., Sra.")
-  const saudacao =
-    namePrefix ||
-    (displayName ? displayName : "");
+  const saudacao = namePrefix || (displayName ? displayName : "");
 
   return {
-    // ✅ Automação inteligente & prazos
+    // ✅ Automação inteligente & prazos (SP)
     hora_agora: toBRTime(now),
     hoje_data: toBRDate(now),
     hoje_dia_semana: weekdayPtBR(now),
@@ -119,7 +171,6 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     tipo_destino: params.recipientType, // "client" | "reseller"
   };
 }
-
 
 function getBearerToken(req: Request): string | null {
   const h = req.headers.get("authorization") || "";
@@ -144,7 +195,6 @@ type SendNowBody = {
   whatsapp_session?: string | null; // mantido
 };
 
-
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
   const { data, error } = await sb
     .from("vw_clients_list")
@@ -165,7 +215,6 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
     row: data, // ✅ para variáveis
   };
 }
-
 
 async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string) {
   const tryViews = ["vw_resellers_list_active", "vw_resellers_list_archived"];
@@ -198,8 +247,6 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
   if (lastErr) throw new Error(lastErr.message);
   throw new Error("Revenda não encontrada nas views de revenda");
 }
-
-
 
 export async function POST(req: Request) {
   const baseUrl = process.env.UNIGESTOR_WA_BASE_URL!;
@@ -235,60 +282,58 @@ export async function POST(req: Request) {
   }
 
   const tenantId = String((body as any).tenant_id || "").trim();
-const message = String((body as any).message || "").trim();
+  const message = String((body as any).message || "").trim();
 
-// ✅ aceita 3 formatos:
-// 1) legado: client_id
-// 2) novo: reseller_id
-// 3) padrão: recipient_id + recipient_type
-const rawClientId = String((body as any).client_id || "").trim();
-const rawResellerId = String((body as any).reseller_id || "").trim();
-const rawRecipientId = String((body as any).recipient_id || "").trim();
-const rawRecipientType = String((body as any).recipient_type || "").trim();
+  // ✅ aceita 3 formatos:
+  // 1) legado: client_id
+  // 2) novo: reseller_id
+  // 3) padrão: recipient_id + recipient_type
+  const rawClientId = String((body as any).client_id || "").trim();
+  const rawResellerId = String((body as any).reseller_id || "").trim();
+  const rawRecipientId = String((body as any).recipient_id || "").trim();
+  const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-let recipientType: "client" | "reseller" | null = null;
-let recipientId = "";
+  let recipientType: "client" | "reseller" | null = null;
+  let recipientId = "";
 
-// prioridade: recipient_id+type > reseller_id > client_id
-if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
-  recipientType = rawRecipientType as any;
-  recipientId = rawRecipientId;
-} else if (rawResellerId) {
-  recipientType = "reseller";
-  recipientId = rawResellerId;
-} else if (rawClientId) {
-  recipientType = "client";
-  recipientId = rawClientId;
-}
+  // prioridade: recipient_id+type > reseller_id > client_id
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
+    recipientType = rawRecipientType as any;
+    recipientId = rawRecipientId;
+  } else if (rawResellerId) {
+    recipientType = "reseller";
+    recipientId = rawResellerId;
+  } else if (rawClientId) {
+    recipientType = "client";
+    recipientId = rawClientId;
+  }
 
-if (!tenantId || !message || !recipientType || !recipientId) {
-  return NextResponse.json(
-    { error: "tenant_id, message e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
-    { status: 400 }
-  );
-}
+  if (!tenantId || !message || !recipientType || !recipientId) {
+    return NextResponse.json(
+      { error: "tenant_id, message e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
+      { status: 400 }
+    );
+  }
 
-// ✅ pega SEMPRE do destino certo
-const wa =
-  recipientType === "reseller"
-    ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
-    : await fetchClientWhatsApp(sb, tenantId, recipientId);
+  // ✅ pega SEMPRE do destino certo
+  const wa =
+    recipientType === "reseller"
+      ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
+      : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
+  if (!wa.phone) {
+    return NextResponse.json(
+      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` },
+      { status: 400 }
+    );
+  }
 
-if (!wa.phone) {
-  return NextResponse.json(
-    { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` },
-    { status: 400 }
-  );
-}
-
-if (!wa.whatsapp_opt_in) {
-  return NextResponse.json(
-    { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` },
-    { status: 400 }
-  );
-}
-
+  if (!wa.whatsapp_opt_in) {
+    return NextResponse.json(
+      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` },
+      { status: 400 }
+    );
+  }
 
   if (wa.dont_message_until) {
     const until = new Date(wa.dont_message_until);
@@ -303,13 +348,15 @@ if (!wa.whatsapp_opt_in) {
 
     // Só bloqueia se a pausa estiver no FUTURO
     if (until > new Date()) {
-      const formatted = until.toLocaleString("pt-BR", {
+      const formatted = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: TZ_SP,
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
+        hour12: false,
+      }).format(until);
 
       return NextResponse.json(
         { error: `Cliente não quer receber mensagens até: ${formatted}` },
@@ -322,37 +369,35 @@ if (!wa.whatsapp_opt_in) {
   const sessionKey = makeSessionKey(tenantId, authedUserId);
 
   // ✅ LOG (ajuste sugerido)
-console.log("[WA][send_now]", {
-  tenantId,
-  recipientType,
-  recipientId,
-  to: wa.phone,
-  authedUserId,
-});
+  console.log("[WA][send_now]", {
+    tenantId,
+    recipientType,
+    recipientId,
+    to: wa.phone,
+    authedUserId,
+  });
 
+  // ✅ monta variáveis e renderiza o texto (agora tudo em SP)
+  const vars = buildTemplateVars({
+    recipientType, // "client" | "reseller"
+    recipientRow: wa.row, // linha completa que buscamos na view
+  });
 
-// ✅ monta variáveis e renderiza o texto
-const vars = buildTemplateVars({
-  recipientType,        // "client" | "reseller"
-  recipientRow: wa.row, // linha completa que buscamos na view
-});
+  const renderedMessage = renderTemplate(message, vars);
 
-const renderedMessage = renderTemplate(message, vars);
-
-const res = await fetch(`${baseUrl}/send`, {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${waToken}`,
-    "x-session-key": sessionKey,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
-  body: JSON.stringify({
-    phone: wa.phone,
-    message: renderedMessage,
-  }),
-});
-
+  const res = await fetch(`${baseUrl}/send`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${waToken}`,
+      "x-session-key": sessionKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      phone: wa.phone,
+      message: renderedMessage,
+    }),
+  });
 
   const raw = await res.text();
   if (!res.ok) {
@@ -360,5 +405,4 @@ const res = await fetch(`${baseUrl}/send`, {
   }
 
   return NextResponse.json({ ok: true, to: wa.phone, recipient_type: recipientType, recipient_id: recipientId });
-
 }

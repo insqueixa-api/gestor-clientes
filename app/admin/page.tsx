@@ -120,20 +120,19 @@ const fmtBRL = (v: number) =>
 const fmtBRLNoSymbol = (v: number) =>
   fmtBRL(v).replace(/\s?R\$\s?/g, "").trim();
 
-const fmtBRLNoSymbol0 = (v: number) =>
-  new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(v);
-
 
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
 function monthLabelPtBr(d = new Date()): string {
-  return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return d.toLocaleDateString("pt-BR", {
+    timeZone: TZ_SP,
+    month: "long",
+    year: "numeric",
+  });
 }
+
 
 const TZ_SP = "America/Sao_Paulo";
 
@@ -358,11 +357,11 @@ const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().m
   }));
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
-
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-0">
+
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -380,7 +379,7 @@ return (
           leftValue={fmtInt(activeClients)}
           rightLabel="MRR Estimado"
           rightValue={fmtBRL(activeMrr)}
-          footer="Mês atual (view)"
+          footer="Mês atual"
         />
 
         <MetricCardView
@@ -390,7 +389,7 @@ return (
           leftValue={fmtInt(overdueClients)}
           rightLabel="Pendente"
           rightValue={fmtBRL(overdueAmount)}
-          footer="Mês atual (view)"
+          footer="Mês atual"
         />
 
         <MetricCardView
@@ -431,7 +430,8 @@ return (
           leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsTodayVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+
 
     <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
   </>
@@ -439,12 +439,12 @@ return (
           rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerTodayVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
 
     <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
   </>
 }
-          footer="Hoje (view)"
+          footer="Hoje"
         />
 
         <MetricCardView
@@ -454,7 +454,7 @@ return (
           leftValue={
   <>
     
-    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
 
     <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
   </>
@@ -462,14 +462,14 @@ return (
           rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
   </>
 }
     footer={
   <>
     <span className="sm:hidden">
-      Total: {fmtBRLNoSymbol0(clientsMonthVal + resellerMonthVal)}
+      Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
     </span>
     <span className="hidden sm:inline">
       Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
@@ -485,12 +485,12 @@ return (
           leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(toReceiveVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
   </>
 }
 
-          footer="Até o fim do mês (view)"
+          footer="Até o fim do mês"
         />
 
         <MetricCardView
@@ -499,20 +499,20 @@ return (
           leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
           leftValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(clientsPrevMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
   </>
 }
           rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
           rightValue={
   <>
-    <span className="sm:hidden">{fmtBRLNoSymbol0(resellerPrevMonthVal)}</span>
+    <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
     <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
   </>
 }
           footer={
   <>
-    <span className="sm:hidden">Total: {fmtBRLNoSymbol0(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
 
     <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
   </>

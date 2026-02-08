@@ -143,22 +143,20 @@ function addDaysIsoInSaoPaulo(iso: string, days: number) {
 
 function saoPauloDateTimeToIso(local: string): string {
   // local vem como: YYYY-MM-DDTHH:mm
-
   if (!local) throw new Error("Data/hora inválida.");
 
-  // força timezone São Paulo (-03:00)
-  // evita depender do timezone do navegador
-  const isoWithTZ = `${local}:00-03:00`;
-
-  const d = new Date(isoWithTZ);
-
-  if (Number.isNaN(d.getTime())) {
-    throw new Error("Data/hora inválida.");
-  }
-
-  // converte para UTC (timestamptz correto)
-  return d.toISOString();
+  // ✅ NÃO fixa -03:00 (evita bug se SP mudar offset no futuro)
+  // Em vez disso, manda SEM timezone e deixa o BACK interpretar como SP.
+  //
+  // O back já tem normalizeSendAtToUtcISOString() que:
+  // - se vier com TZ => usa
+  // - se vier sem TZ => interpreta como São Paulo e converte pra UTC
+  //
+  // Então aqui devolvemos apenas o "local" padronizado com segundos.
+  const normalized = `${local}:00`; // "YYYY-MM-DDTHH:mm:00"
+  return normalized;
 }
+
 
 
 
@@ -577,6 +575,20 @@ function normalizeValue(v: any): string {
   if (v === null || v === undefined) return "";
   return String(v);
 }
+
+function copyToClipboard(value?: string | null) {
+  const v = String(value ?? "").trim();
+  if (!v) return;
+
+  try {
+    navigator.clipboard.writeText(v);
+    addToast("success", "Copiado", "Valor copiado para a área de transferência.");
+  } catch (e) {
+    console.error(e);
+    addToast("error", "Falha ao copiar", "Não foi possível copiar este valor.");
+  }
+}
+
 
 /**
  * Estratégia:
@@ -1209,12 +1221,19 @@ const res = await fetch("/api/whatsapp/envio_agora", {
     // ✅ SEMPRE interpretar o input como São Paulo e converter para UTC (timestamptz)
     const sendAtIso = saoPauloDateTimeToIso(scheduleDate);
 
-    // ✅ impedir agendar no passado (comparação em UTC)
-    const nowIso = new Date().toISOString();
-    if (sendAtIso <= nowIso) {
-      addToast("error", "Data inválida", "Escolha uma data/hora no futuro.");
-      return;
-    }
+// ✅ impedir agendar no passado (comparação numérica, robusta)
+// - se sendAtIso vier sem TZ (ex: "YYYY-MM-DDTHH:mm:00"),
+//   o Date() vai interpretar no timezone do browser.
+//   Então, para esta validação local, a gente converte usando -03:00
+//   APENAS para checar "futuro" no client (sem afetar o payload pro back).
+const check = new Date(`${scheduleDate}:00-03:00`).getTime();
+const now = Date.now();
+
+if (!Number.isFinite(check) || check <= now) {
+  addToast("error", "Data inválida", "Escolha uma data/hora no futuro.");
+  return;
+}
+
 
     const token = await getToken();
 
@@ -2296,17 +2315,33 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                     {f.label}
                   </label>
 
-                  <input
-                    type={inputType}
-                    value={appValues[fid] ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setAppValues((prev) => ({ ...prev, [fid]: v }));
-                    }}
-                    className="w-full h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
-                    placeholder={f.placeholder || ""}
-                    disabled={appLoading || appSaving}
-                  />
+                  <div className="flex items-center gap-2">
+  <input
+    type={inputType}
+    value={appValues[fid] ?? ""}
+    onChange={(e) => {
+      const v = e.target.value;
+      setAppValues((prev) => ({ ...prev, [fid]: v }));
+    }}
+    className="flex-1 h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+    placeholder={f.placeholder || ""}
+    disabled={appLoading || appSaving}
+  />
+
+  {/* ✅ Copiar só em campos livres (não-date) */}
+  {f.type !== "date" && (
+    <button
+      type="button"
+      onClick={() => copyToClipboard(appValues[fid])}
+      disabled={appLoading || appSaving}
+      className="h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-100 dark:hover:bg-white/15 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      title="Copiar valor"
+    >
+      Copiar
+    </button>
+  )}
+</div>
+
 
                   {/* extra: se for link, mostra botão abrir */}
                   {f.type === "link" && (appValues[fid] || "").trim() && (

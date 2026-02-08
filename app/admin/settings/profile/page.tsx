@@ -228,6 +228,9 @@ const [waLastError, setWaLastError] = useState<string | null>(null);
 const [waSessionLabel, setWaSessionLabel] = useState<string>("Contato principal");
 const [waPushName, setWaPushName] = useState<string | null>(null);
 const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null); // vem do /api/whatsapp/profile (pictureUrl)
+// controle cache profile (evita bater na VM toda hora)
+const waLastProfileFetchRef = useRef<number>(0);
+
 
 const [waStatusText, setWaStatusText] = useState<string | null>(null);
 
@@ -361,14 +364,62 @@ const [waStatusText, setWaStatusText] = useState<string | null>(null);
   if (!tenantId) return;
   if (!canPairWhatsApp) return;
 
-  void refreshWhatsAppPanel();
+  let stopped = false;
+  let timer: any = null;
 
-  const t = setInterval(() => {
-    void refreshWhatsAppPanel();
-  }, 8000);
+  const INTERVAL_CONNECTED = 5 * 60 * 1000;     // 5 min
+  const INTERVAL_DISCONNECTED = 8 * 1000;       // 8s
+  const INTERVAL_HIDDEN = 10 * 60 * 1000;       // 10 min
 
-  return () => clearInterval(t);
-}, [tenantId, canPairWhatsApp]);
+  const clear = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  const scheduleNext = (ms: number) => {
+    clear();
+    timer = setTimeout(() => {
+      void tick();
+    }, ms);
+  };
+
+  const tick = async () => {
+    if (stopped) return;
+
+    // Se a aba estiver oculta, não martela a VM
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      scheduleNext(INTERVAL_HIDDEN);
+      return;
+    }
+
+    // roda o refresh
+    await refreshWhatsAppPanel();
+
+    // agenda próximo check baseado no status atual
+    scheduleNext(waConnected ? INTERVAL_CONNECTED : INTERVAL_DISCONNECTED);
+  };
+
+  // primeira rodada
+  void tick();
+
+  // ao voltar pra aba, atualiza imediatamente
+  const onVis = () => {
+    if (document.visibilityState === "visible") {
+      void tick();
+    }
+  };
+
+  document.addEventListener("visibilitychange", onVis);
+
+  return () => {
+    stopped = true;
+    clear();
+    document.removeEventListener("visibilitychange", onVis);
+  };
+}, [tenantId, canPairWhatsApp, waConnected]);
+
 
 
 
@@ -513,11 +564,23 @@ if (connected) {
   setWaQr(null);
   setWaQrDataUrl(null);
 
-  // ✅ agora profile vem de um endpoint próprio
-  await fetchWaProfile();
+  const now = Date.now();
+
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  const needProfile =
+    !waPushName ||                       // nunca carregou
+    !waProfilePicUrl ||                 // sem avatar
+    now - waLastProfileFetchRef.current > ONE_DAY; // passou 1 dia
+
+  if (needProfile) {
+    await fetchWaProfile();
+    waLastProfileFetchRef.current = now;
+  }
 
   return;
 }
+
 
     const qr = await fetchWaQr();
     if (!qr) {
@@ -933,14 +996,11 @@ return (
           </h3>
 
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-slate-600 dark:text-white/70">
-              Conecte seu WhatsApp para enviar mensagens automáticas.
-            </p>
 
             {/* Segurança SaaS: só o responsável (owner) pode parear */}
             {!canPairWhatsApp ? (
             <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs">
-              Você precisa estar logado e vinculado a um tenant para conectar o WhatsApp.
+              Você precisa estar logado para conectar o WhatsApp.
             </div>
             ) : (
               <>
@@ -1038,10 +1098,7 @@ return (
 )}
 
 
-                <p className="text-[11px] text-slate-500 dark:text-white/40">
-                  Segurança: o token da VM <b>não</b> vai para o navegador. O UniGestor chama um endpoint interno (server-side) e só
-                  renderiza o QR aqui.
-                </p>
+                
               </>
             )}
           </div>

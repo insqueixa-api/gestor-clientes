@@ -27,7 +27,7 @@ type Automation = {
   rule_days_diff: number;
 
   message_template?: { name: string };
-  last_run_at: string;
+  last_run_at: string | null;
   
 
   // ✅ NOVOS CAMPOS (Para Edição e Controle)
@@ -58,7 +58,7 @@ type LogEntry = {
     client_name: string;
     client_whatsapp: string;
     status: string;
-    sent_at: string;
+    sent_at: string | null;
     error_message?: string;
 };
 
@@ -75,6 +75,25 @@ const DAYS_OF_WEEK = [
   { id: 1, label: "Seg" }, { id: 2, label: "Ter" }, { id: 3, label: "Qua" }, 
   { id: 4, label: "Qui" }, { id: 5, label: "Sex" }, { id: 6, label: "Sáb" }, { id: 0, label: "Dom" }
 ];
+
+// =====================
+// TIMEZONE (SP) + HELPERS (GLOBAL)
+// =====================
+const BILLING_TZ = "America/Sao_Paulo";
+
+function formatDateTimeSP(input?: string | null): string {
+  if (!input) return "Nunca";
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "Nunca";
+  return d.toLocaleString("pt-BR", { timeZone: BILLING_TZ });
+}
+
+function formatDateSP(input?: string | null): string {
+  if (!input) return "--";
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "--";
+  return d.toLocaleDateString("pt-BR", { timeZone: BILLING_TZ });
+}
 
 // ============================================================================
 // PÁGINA PRINCIPAL
@@ -340,7 +359,6 @@ const { error } = await supabaseBrowser
   // --- LÓGICA DE FILTRO (IMPACTO) ---
 // ✅ Bloco único (sem duplicação), timezone-safe, status normalizado
 
-const BILLING_TZ = "America/Sao_Paulo";
 
 /** Retorna YYYY-MM-DD no timezone informado (timezone-safe) */
 function dateKeyInTZ(input: Date | string, tz = BILLING_TZ): string {
@@ -818,9 +836,10 @@ function AutomationCard({
                 </div>
                 
                 {/* Data Ultimo Envio */}
-                <div className="mt-2 text-[9px] text-center text-slate-400">
-                    Último envio: {data.last_run_at ? new Date(data.last_run_at).toLocaleString("pt-BR") : "Nunca"}
-                </div>
+                    <div className="mt-2 text-[9px] text-center text-slate-400">
+                    Último envio: {formatDateTimeSP(data.last_run_at)}
+                    </div>
+
             </div>
         </div>
     );
@@ -862,7 +881,8 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
                                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                         <td className="p-3 font-bold">{c.display_name}</td>
                                         <td className="p-3 font-mono text-xs">{c.whatsapp_username}</td>
-                                        <td className="p-3">{c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : "--"}</td>
+                                        <td className="p-3">{formatDateSP(c.vencimento)}</td>
+
                                         <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-xs">{c.plan_label}</span></td>
                                     </tr>
                                 ))}
@@ -1297,7 +1317,10 @@ function LogsModal({ ruleId, ruleName, onClose }: { ruleId: string, ruleName: st
                             <tbody>
                                 {logs.map(log => (
                                     <tr key={log.id} className="border-b border-slate-50 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5">
-                                        <td className="p-2 text-slate-500 font-mono text-xs">{new Date(log.sent_at).toLocaleString("pt-BR")}</td>
+                                        <td className="p-2 text-slate-500 font-mono text-xs">
+                                        {formatDateTimeSP(log.sent_at)}
+                                        </td>
+
                                         <td className="p-2 font-bold text-slate-700 dark:text-white">{log.client_name}</td>
                                         <td className="p-2 text-slate-500">{log.client_whatsapp}</td>
                                         <td className="p-2">
