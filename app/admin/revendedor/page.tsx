@@ -1508,13 +1508,13 @@ export default function RevendaPage() {
               </select>
 
               <button
-                type="button"
-                onClick={() => openNewTemplate("schedule")}
-                className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
-                title="Criar novo template"
-              >
-                + Novo Revendedor
-              </button>
+  type="button"
+  onClick={() => openNewTemplate("now")} // (Mantenha o parametro que já está: "now" ou "schedule")
+  className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+  title="Criar novo template"
+>
+  + Novo Template
+</button>
             </div>
 
             <div>
@@ -1576,12 +1576,65 @@ export default function RevendaPage() {
                     key={s.id}
                     className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
                   >
-                    <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
-                      <IconClock />
-                      <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
-                      {s.status ? <span className="ml-auto text-[10px] opacity-60">{String(s.status)}</span> : null}
+                    {/* Alterado para flex justify-between para acomodar o botão Excluir */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                        <IconClock />
+                        <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
+                        {s.status ? <span className="text-[10px] opacity-60 ml-1">{String(s.status)}</span> : null}
+                      </div>
+
+                      {/* ✅ BOTÃO EXCLUIR QUE FALTAVA + CONFIRM BONITÃO */}
+                      <button
+                        onClick={async () => {
+                          if (!tenantId) return;
+
+                          const ok = await confirm({
+                            title: "Cancelar agendamento",
+                            subtitle: "A mensagem será removida da fila de envios.",
+                            tone: "rose",
+                            icon: "🗑️",
+                            details: [
+                              `Destino: ${showScheduledModal.resellerName}`,
+                              `Mensagem: "${s.message.substring(0, 25)}..."`
+                            ],
+                            confirmText: "Sim, Excluir",
+                            cancelText: "Voltar",
+                          });
+
+                          if (!ok) return;
+
+                          try {
+                            const { error } = await supabaseBrowser.rpc("client_message_cancel", { 
+                                p_tenant_id: tenantId, 
+                                p_job_id: s.id 
+                            });
+
+                            if (error) throw error;
+
+                            addToast("success", "Removido", "Agendamento cancelado.");
+
+                            // Atualiza a lista visualmente
+                            const newMap = { ...scheduledMap };
+                            if (showScheduledModal.resellerId) {
+                                newMap[showScheduledModal.resellerId] = (newMap[showScheduledModal.resellerId] || []).filter(x => x.id !== s.id);
+                                setScheduledMap(newMap);
+                            }
+                            
+                            // Recarrega do banco
+                            await loadScheduledForResellers(tenantId, rows.map(r => r.id));
+                          } catch (e: any) {
+                            console.error(e);
+                            addToast("error", "Erro", e.message || "Falha ao cancelar.");
+                          }
+                        }}
+                        className="text-[10px] text-rose-500 font-bold hover:underline hover:text-rose-600 transition-colors"
+                      >
+                        Excluir
+                      </button>
                     </div>
-                    <div className="mt-2 text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+
+                    <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
                       {s.message}
                     </div>
                   </div>
@@ -1769,7 +1822,9 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
   const tone = status === "Ativo" ? { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/20" }
     : status === "Arquivado" ? { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-rose-500/20" }
       : { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20" };
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase border shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}>{status}</span>;
+  
+  // Alterado: rounded-lg -> rounded-full (Padrão Pílula)
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}>{status}</span>;
 }
 
 function IconActionBtn({ children, title, tone, onClick }: { children: React.ReactNode, title: string, tone: "blue" | "green" | "amber" | "purple" | "red", onClick: (e: React.MouseEvent) => void }) {

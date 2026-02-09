@@ -6,6 +6,9 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import Link from "next/link";
 
+// ✅ 1. Importar o Hook
+import { useConfirm } from "@/app/admin/HookuseConfirm";
+
 // Modais
 import VincularServidor from "./vincular_servidor";
 import QuickRechargeModal from "../recarga_revenda";
@@ -167,6 +170,8 @@ const resellerIdRaw =
 const resellerId = Array.isArray(resellerIdRaw) ? resellerIdRaw[0] : resellerIdRaw;
 const resellerIdSafe = (resellerId ?? "").trim();
 
+// ✅ 2. Inicializar o Hook de Confirmação
+  const { confirm, ConfirmUI } = useConfirm();
 
   // Estados de Dados
   const [loading, setLoading] = useState(true);
@@ -313,25 +318,40 @@ const historyRes = await supabaseBrowser
 
   // --- AÇÕES ---
   async function handleDeleteLink(resellerServerId: string, serverName?: string | null) {
-  if (!window.confirm(`Remover este vínculo${serverName ? ` (${serverName})` : ""}? Isso não apaga o histórico financeiro.`)) return;
-
-  try {
-    const tid = await getCurrentTenantId();
-    if (!tid) throw new Error("Tenant não encontrado");
-
-    const { error } = await supabaseBrowser.rpc("unlink_reseller_from_server", {
-      p_tenant_id: tid,
-      p_reseller_server_id: resellerServerId,
+    // ✅ 3. Agora o 'confirm' existe e aceita o objeto
+    const ok = await confirm({
+      title: "Remover vínculo?",
+      subtitle: "Esta ação impede que a revenda continue usando este servidor.",
+      tone: "rose",
+      icon: "💔", // Pode usar string ou componente <Icon />
+      details: [
+        serverName ? `Servidor: ${serverName}` : "Servidor desconhecido",
+        "O histórico financeiro SERÁ MANTIDO.",
+        "A revenda perderá acesso a criar novos testes/clientes neste servidor."
+      ],
+      confirmText: "Remover Vínculo",
+      cancelText: "Voltar",
     });
 
-    if (error) throw error;
+    if (!ok) return;
 
-    addToast("success", "Vínculo removido");
-    loadData();
-  } catch (e: any) {
-    addToast("error", "Erro ao remover", e?.message ?? "Erro desconhecido");
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Tenant não encontrado");
+
+      const { error } = await supabaseBrowser.rpc("unlink_reseller_from_server", {
+        p_tenant_id: tid,
+        p_reseller_server_id: resellerServerId,
+      });
+
+      if (error) throw error;
+
+      addToast("success", "Vínculo removido");
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao remover", e?.message ?? "Erro desconhecido");
+    }
   }
-}
 
 
   // --- CÁLCULOS TOTAIS ---
@@ -359,62 +379,65 @@ const totalInvested = useMemo(() => {
     return <div className="p-10 text-center text-rose-500 font-bold">Revenda não encontrada.</div>;
 
   return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+// ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
+<div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-      {/* HEADER IGUAL AO CLIENTE */}
-<div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10">
-
-  {/* Título esquerda */}
-  <div className="w-full md:w-auto text-left">
-
-    <div className="flex items-center justify-start gap-3">
-      <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
-        {reseller.name}
-      </h1>
-
-      <span
-        className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border shadow-sm ${
-          reseller.is_archived
-            ? "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20"
-            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-        }`}
-      >
-        {reseller.is_archived ? "ARQUIVADO" : "ATIVO"}
+  {/* HEADER CLEAN */}
+  <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
+    
+    {/* Título + Badge */}
+    <div className="min-w-0 text-left flex flex-col">
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+          {reseller.name}
+        </h1>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+            reseller.is_archived
+              ? "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20"
+              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+          }`}
+        >
+          {reseller.is_archived ? "Arquivado" : "Ativo"}
+        </span>
+      </div>
+      {/* Subtítulo opcional (email ou telefone) */}
+      <span className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
+         {reseller.email || "Sem email"}
       </span>
     </div>
 
+    {/* Ações */}
+    <div className="flex items-center gap-2 shrink-0">
+      {/* Voltar (Só Desktop) */}
+      <Link
+        href="/admin/revendedor"
+        className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all items-center justify-center"
+      >
+        Voltar
+      </Link>
+
+      {/* Vincular Servidor (Visível Mobile e Desktop) */}
+      <button
+        onClick={() => {
+          setEditLink({ resellerServerId: null, initial: undefined });
+          setShowServerModal(true);
+        }}
+        className="h-9 sm:h-10 px-4 sm:px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+      >
+        <span>+</span> Vincular Servidor
+      </button>
+    </div>
   </div>
-
-  {/* Botões direita */}
-  <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-    <Link
-      href="/admin/revendedor"
-      className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center"
-    >
-      Voltar
-    </Link>
-
-    <button
-      onClick={() => {
-        setEditLink({ resellerServerId: null, initial: undefined });
-        setShowServerModal(true);
-      }}
-      className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-    >
-      <span>+</span> Vincular Servidor
-    </button>
-  </div>
-
-</div>
 
 
       {/* GRID PRINCIPAL (3 COLUNAS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
 
-        {/* ================= COLUNA ESQUERDA (INFO + CONTATOS) ================= */}
-        <div className="space-y-6">
-          {/* 1. CARD RESUMO */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm transition-colors">
+  {/* COLUNA ESQUERDA */}
+  <div className="space-y-4">
+    {/* 1. CARD RESUMO */}
+    <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">
               Resumo da Conta
             </h3>
@@ -467,25 +490,33 @@ const totalInvested = useMemo(() => {
                 </span>
               </div>
 
-              {/* WhatsApp Username Link */}
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">Username</span>
-                {reseller.whatsapp_username ? (
-                  <a
-                    href={`https://wa.me/${reseller.whatsapp_username}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                    </svg>
-                    <span>@{reseller.whatsapp_username}</span>
-                  </a>
-                ) : (
-                  <span className="text-slate-400 italic text-sm">—</span>
-                )}
-              </div>
+              {/* WhatsApp Link */}
+<div className="flex justify-between items-center">
+  <span className="text-slate-500 dark:text-white/40 font-medium">WhatsApp</span>
+  {reseller.whatsapp_username ? (
+    <a
+      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+    >
+      <IconWhatsapp />
+      @{reseller.whatsapp_username}
+    </a>
+  ) : reseller.whatsapp_e164 ? (
+     <a
+      href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 font-bold hover:underline"
+    >
+      <IconWhatsapp />
+      {formatPhoneDisplay(reseller.whatsapp_e164)}
+    </a>
+  ) : (
+    <span className="text-slate-400 italic text-sm">—</span>
+  )}
+</div>
 
               {/* Opt-in */}
               <div className="py-2 border-t border-b border-slate-100 dark:border-white/5">
@@ -688,6 +719,11 @@ const totalInvested = useMemo(() => {
         />
       )}
 
+{/* ✅ OBRIGATÓRIO: O componente do popup precisa estar aqui */}
+      {ConfirmUI}
+
+{/* ✅ Spacer do Rodapé (Contrato UI) */}
+      <div className="h-24 md:h-20" />
       <div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
 </div>
@@ -764,3 +800,6 @@ function IconActionBtn({
     </button>
   );
 }
+
+function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
+function IconWhatsapp() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>; }
