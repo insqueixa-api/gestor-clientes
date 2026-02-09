@@ -546,12 +546,24 @@ export default function AdminServersPage() {
                         </a>
                       </div>
                     )}
-                    {server.panel_telegram_group && (
-                      <div className="flex gap-2">
-                        <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Telegram:</span>
-                        <span className="text-slate-600 dark:text-white/70 truncate">{server.panel_telegram_group}</span>
-                      </div>
-                    )}
+{server.panel_telegram_group && (
+  <div className="flex gap-2">
+    <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Telegram:</span>
+    <a
+      href={
+        server.panel_telegram_group.startsWith("http")
+          ? server.panel_telegram_group
+          : `https://t.me/${server.panel_telegram_group.replace(/^@/, "")}`
+      }
+      target="_blank"
+      rel="noreferrer"
+      // Usei 'text-sky-600' (Azul) para o Telegram, mantendo o estilo de fonte do link acima
+      className="text-sky-600 dark:text-sky-400 hover:underline truncate font-medium"
+    >
+      {server.panel_telegram_group}
+    </a>
+  </div>
+)}
                     {server.notes && (
                       <div className="italic text-slate-400 dark:text-white/30 pt-1 border-t border-dashed border-slate-200 dark:border-white/5 mt-2 line-clamp-1">
                         obs: {server.notes}
