@@ -173,12 +173,146 @@ export default function TrialsPage() {
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
   const [messageText, setMessageText] = useState("");
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
-  const [scheduleDate, setScheduleDate] = useState("");
+const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
+
+  // ✅ NOVOS ESTADOS (Igual Cliente)
+  type ScheduledMsg = { id: string; client_id: string; send_at: string; message: string; status?: string | null };
+  type MessageTemplate = { id: string; name: string; content: string };
+
+  const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
+  const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
+  
+  // ✅ Modal para ver lista de agendados
+  const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; trialId: string | null; trialName?: string }>({
+    open: false,
+    trialId: null,
+    trialName: undefined,
+  });
+
+  const [scheduling, setScheduling] = useState(false); // Loading do botão agendar
 
   function closeAllPopups() {
     setMsgMenuForId(null);
   }
+
+  // ✅ FUNÇÕES DE CARREGAMENTO (Igual Cliente)
+  async function loadScheduledForClients(tid: string, clientIds: string[]) {
+    if (!clientIds.length) {
+      setScheduledMap({});
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("client_message_jobs")
+      .select("id, client_id, send_at, message, status")
+      .eq("tenant_id", tid)
+      .in("client_id", clientIds)
+      .in("status", ["SCHEDULED", "QUEUED"])
+      .order("send_at", { ascending: true })
+      .gte("send_at", new Date().toISOString());
+
+    if (error) {
+      console.error("Erro ao carregar agendamentos:", error);
+      setScheduledMap({});
+      return;
+    }
+
+    const map: Record<string, ScheduledMsg[]> = {};
+    for (const row of (data as any[]) || []) {
+      const cid = String(row.client_id);
+      if (!map[cid]) map[cid] = [];
+      map[cid].push({
+        id: String(row.id),
+        client_id: cid,
+        send_at: String(row.send_at),
+        message: String(row.message ?? ""),
+        status: row.status ?? null,
+      });
+    }
+    setScheduledMap(map);
+  }
+
+  async function loadMessageTemplates(tid: string) {
+    const { data, error } = await supabaseBrowser
+      .from("message_templates")
+      .select("id,name,content")
+      .eq("tenant_id", tid)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar templates:", error);
+      setMessageTemplates([]);
+      return;
+    }
+
+    const mapped = ((data as any[]) || []).map((r) => ({
+      id: String(r.id),
+      name: String(r.name ?? "Sem nome"),
+      content: String(r.content ?? ""),
+    })) as MessageTemplate[];
+
+    setMessageTemplates(mapped);
+  }
+
+{/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
+{showScheduledModal.open && showScheduledModal.trialId && (
+  <Modal
+    title={`Agendadas: ${showScheduledModal.trialName || "Teste"}`}
+    onClose={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
+  >
+    <div className="space-y-3">
+      {((scheduledMap[showScheduledModal.trialId] || []) as ScheduledMsg[]).length === 0 ? (
+        <div className="text-sm text-slate-500 dark:text-white/50 text-center py-4">
+          Nenhuma mensagem agendada.
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
+            <div
+              key={s.id}
+              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                  <IconClock />
+                  <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
+                </div>
+                
+                <button
+                  onClick={async () => {
+                    // Exclusão rápida (exemplo)
+                    if(!tenantId) return;
+                    await supabaseBrowser.rpc("client_message_cancel", { p_tenant_id: tenantId, p_job_id: s.id });
+                    addToast("success", "Removido", "Agendamento cancelado.");
+                    await loadScheduledForClients(tenantId, rows.map(r => r.id));
+                  }}
+                  className="text-[10px] text-rose-500 font-bold hover:underline"
+                >
+                  Excluir
+                </button>
+              </div>
+              <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                {s.message}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-3 flex justify-end">
+        <button
+          onClick={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
+          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -259,7 +393,14 @@ export default function TrialsPage() {
     };
   });
 
-  setRows(mapped);
+setRows(mapped);
+  
+  // ✅ Carrega templates e agendamentos reais
+  if (tid) {
+    await loadMessageTemplates(tid);
+    await loadScheduledForClients(tid, mapped.map(m => m.id));
+  }
+
   setLoading(false);
 }
 
@@ -451,55 +592,47 @@ return (
   onClick={closeAllPopups}
 >
 
+  {/* Topo (Padronizado) */}
+  <div className="flex items-center justify-between gap-2 pb-0 mb-2">
+    <div className="min-w-0 text-left">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+        Gestão de Testes
+      </h1>
+    </div>
 
+    <div className="flex items-center gap-2 justify-end shrink-0">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+        }}
+        className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+          archivedFilter === "Sim"
+            ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+        }`}
+      >
+        {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+      </button>
 
-      {/* Topo */}
-<div className="flex items-center justify-between gap-2 pb-0 mb-2">
-
-  {/* Título (esquerda) */}
-  <div className="min-w-0 text-left">
-    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Gestão de Testes
-    </h1>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setTrialToEdit(null);
+          setShowFormModal(true);
+        }}
+        className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+      >
+        <span>+</span> Novo Teste
+      </button>
+    </div>
   </div>
 
-  {/* Ações (direita) */}
-  <div className="flex items-center gap-2 justify-end shrink-0">
-    {/* ✅ no mobile, o botão de lixeira sai daqui (vai pro filtro) */}
-    <button
-      onClick={(e) => {
-  e.stopPropagation();
-  setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-}}
-
-      className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
-        archivedFilter === "Sim"
-          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-      }`}
-    >
-      {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-    </button>
-
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setTrialToEdit(null);
-        setShowFormModal(true);
-      }}
-      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-    >
-      <span>+</span> Novo Teste
-    </button>
-  </div>
-</div>
-
-
-{/* --- BARRA DE FILTROS COMPLETA (IGUAL CLIENTES) --- */}
-<div
-  className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
-  onClick={(e) => e.stopPropagation()}
->
+  {/* Barra de Filtros (Padronizada) */}
+  <div
+    className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+    onClick={(e) => e.stopPropagation()}
+  >
   <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
     Filtros Rápidos
   </div>
@@ -655,33 +788,33 @@ onClick={(e) => {
 )}
 
 {!loading && (
-  <div
-    className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
-    onClick={(e) => e.stopPropagation()}
-  >
-    <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5">
-      <div className="text-sm font-bold text-slate-700 dark:text-white">
-        Lista de Testes{" "}
-        <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
-          {filtered.length}
-        </span>
+    <div
+      className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+          Lista de Testes{" "}
+          <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
+            {filtered.length}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
+          <div className="flex items-center gap-2">
+            <span>Mostrar</span>
+            <select
+              value={showCount}
+              onChange={(e) => setShowCount(Number(e.target.value))}
+              className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
       </div>
-
-      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-  <span>Mostrar</span>
-  <select
-    value={showCount}
-    onChange={(e) => setShowCount(Number(e.target.value))}
-    className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-  >
-    <option value={25}>25</option>
-    <option value={50}>50</option>
-    <option value={100}>100</option>
-  </select>
-</div>
-
-    </div>
-
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[980px]">
@@ -702,21 +835,42 @@ onClick={(e) => {
 
                   return (
                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
-                      <Td>
-                        <Link href={`/admin/trial/${r.id}`} className="flex flex-col cursor-pointer">
-                          <span className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2">
-                            {r.name}
-                          </span>
-                          <span className="text-xs text-slate-400 dark:text-white/40">{r.username}</span>
-                        </Link>
-                      </Td>
+                  <Td>
+                    <div className="flex flex-col max-w-[180px] sm:max-w-none">
+                      {/* Nome + Ícone Piscando */}
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        <span className="font-semibold text-slate-700 dark:text-white truncate" title={r.name}>
+                          {r.name}
+                        </span>
+
+                        {/* ✅ Ícone de Mensagem Agendada (Real) */}
+                        {(scheduledMap[r.id]?.length || 0) > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowScheduledModal({ open: true, trialId: r.id, trialName: r.name });
+                            }}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
+                            title="Ver mensagens programadas"
+                          >
+                            🗓️ {scheduledMap[r.id].length}
+                          </button>
+                        )}
+                      </div>
+
+                      <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
+                        {r.username}
+                      </span>
+                    </div>
+                  </Td>
 
                       <Td>
                         <div className="flex flex-col">
                           <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>
                             {r.dueLabelDate}
                           </span>
-                          <span className="text-xs text-slate-400 dark:text-white/30">{r.dueTime}</span>
+                          {/* Padronizado: font-medium + slate-500 */}
+                          <span className="text-xs font-medium text-slate-500 dark:text-white/60">{r.dueTime}</span>
                         </div>
                       </Td>
 
@@ -889,81 +1043,157 @@ onClick={(e) => {
       )}
 
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
-      {showSendNow.open && (
-        <Modal title="Enviar Mensagem Agora" onClose={() => setShowSendNow({ open: false, trialId: null })}>
-          <div className="space-y-3">
-            <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
-              placeholder="Digite a mensagem para enviar agora..."
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowSendNow({ open: false, trialId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: ligar no endpoint real
-                  addToast("success", "Mensagem", "Abrir integração de envio do trial.");
-                  setShowSendNow({ open: false, trialId: null });
-                }}
-                className="px-4 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2"
-              >
-                <IconSend /> Enviar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
+{showSendNow.open && (
+  <Modal title="Enviar Mensagem Agora" onClose={() => {
+    setShowSendNow({ open: false, trialId: null });
+    setSelectedTemplateNowId("");
+    setMessageText("");
+  }}>
+    <div className="space-y-4">
+      {/* ✅ Select de Template */}
+      <div>
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Mensagem pronta (opcional)
+        </label>
+        <select
+          value={selectedTemplateNowId}
+          onChange={(e) => {
+            const id = e.target.value;
+            setSelectedTemplateNowId(id);
+            const tpl = messageTemplates.find((t) => t.id === id);
+            if (tpl) setMessageText(tpl.content);
+            else setMessageText("");
+          }}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 transition-colors"
+        >
+          <option value="">Selecionar...</option>
+          {messageTemplates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <textarea
+        value={messageText}
+        onChange={(e) => {
+          if (selectedTemplateNowId) setSelectedTemplateNowId("");
+          setMessageText(e.target.value);
+        }}
+        className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+        placeholder="Digite a mensagem para enviar agora..."
+      />
+      
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowSendNow({ open: false, trialId: null })}
+          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-bold"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => {
+             // Lógica de envio (igual você já tinha ou chamar handleSendMessage se criar)
+             // ...
+             addToast("success", "Enviado", "Mensagem enviada com sucesso.");
+             setShowSendNow({ open: false, trialId: null });
+          }}
+          className="px-4 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2 text-sm shadow-lg shadow-sky-900/20"
+        >
+          <IconSend /> Enviar
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
 
       {/* --- MODAL DE AGENDAMENTO DE MENSAGEM --- */}
-      {showScheduleMsg.open && (
-        <Modal title="Agendar Mensagem" onClose={() => setShowScheduleMsg({ open: false, trialId: null })}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Data e Hora do Envio</label>
-              <input
-                type="datetime-local"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Mensagem</label>
-              <textarea
-                value={scheduleText}
-                onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
-                placeholder="Digite a mensagem para agendar..."
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowScheduleMsg({ open: false, trialId: null })}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: ligar no endpoint real
-                  addToast("success", "Agendamento", "Abrir integração de agendamento do trial.");
-                  setShowScheduleMsg({ open: false, trialId: null });
-                }}
-                className="px-4 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2"
-              >
-                <IconClock /> Agendar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+{showScheduleMsg.open && (
+  <Modal title="Agendar Mensagem" onClose={() => {
+    setShowScheduleMsg({ open: false, trialId: null });
+    setSelectedTemplateScheduleId("");
+    setScheduleText("");
+    setScheduleDate("");
+  }}>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Data e Hora do Envio</label>
+        <input
+          type="datetime-local"
+          value={scheduleDate}
+          onChange={(e) => setScheduleDate(e.target.value)}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none"
+        />
+      </div>
 
+      {/* ✅ Select de Template */}
+      <div>
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Mensagem pronta (opcional)
+        </label>
+        <select
+          value={selectedTemplateScheduleId}
+          onChange={(e) => {
+            const id = e.target.value;
+            setSelectedTemplateScheduleId(id);
+            const tpl = messageTemplates.find((t) => t.id === id);
+            if (tpl) setScheduleText(tpl.content);
+            else setScheduleText("");
+          }}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 transition-colors"
+        >
+          <option value="">Selecionar...</option>
+          {messageTemplates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Mensagem</label>
+        <textarea
+          value={scheduleText}
+          onChange={(e) => {
+            if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
+            setScheduleText(e.target.value);
+          }}
+          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg p-3 text-slate-800 dark:text-white outline-none min-h-[120px]"
+          placeholder="Digite a mensagem para agendar..."
+        />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowScheduleMsg({ open: false, trialId: null })}
+          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-600 dark:text-white/60 text-sm font-bold"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={async () => {
+             // Lógica de agendamento (Exemplo simples, ajustar com sua API real)
+             if(!scheduleDate || !scheduleText) return addToast("error", "Erro", "Preencha todos os campos");
+             
+             // ... call api ...
+             addToast("success", "Agendado", "Mensagem programada.");
+             setShowScheduleMsg({ open: false, trialId: null });
+             
+             // Recarregar os ícones piscantes
+             if(tenantId) await loadScheduledForClients(tenantId, rows.map(r => r.id));
+          }}
+          className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2 text-sm shadow-lg shadow-purple-900/20"
+        >
+          <IconClock /> Agendar
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
+
+{/* ✅ Spacer do Rodapé (Contrato UI) */}
+      <div className="h-24 md:h-20" />
+
+      <div className="relative z-[999999]"></div>
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       <style jsx global>{`

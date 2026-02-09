@@ -919,16 +919,19 @@ export default function RevendaPage() {
 
   return (
     <div
-      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
-      onClick={closeAllPopups}
-    >
-      {/* Topo */}
-      <div className="flex items-center justify-between gap-2 pb-0 mb-2">
-        <div className="min-w-0 text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-            Gestão de Revendas
-          </h1>
-        </div>
+  // Removido text-zinc-900...
+  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+  onClick={closeAllPopups}
+>
+
+  {/* Topo (Contrato UI: mb-2, pt-0) */}
+  <div className="flex items-center justify-between gap-2 pb-0 mb-2">
+    {/* Título */}
+    <div className="min-w-0 text-left">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+        Gestão de Revendas
+      </h1>
+    </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
@@ -1198,17 +1201,23 @@ export default function RevendaPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] font-bold uppercase text-slate-500 dark:text-white/30 bg-slate-50/50 dark:bg-black/20 tracking-widest">
-                  <Th width={40}><input type="checkbox" className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" /></Th>
-                  <ThSort label="Revenda / Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
-                  <ThSort label="Servidores" active={sortKey === "servers"} dir={sortDir} onClick={() => toggleSort("servers")} />
-                  <ThSort label="Faturamento" active={sortKey === "revenue"} dir={sortDir} onClick={() => toggleSort("revenue")} />
-                  <ThSort label="Custo" active={sortKey === "cost"} dir={sortDir} onClick={() => toggleSort("cost")} />
-                  <ThSort label="Lucro" active={sortKey === "profit"} dir={sortDir} onClick={() => toggleSort("profit")} />
-                  <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
-                  <Th align="right" className="pr-6">Ações</Th>
-                </tr>
-              </thead>
+  {/* Ajustado: text-xs, text-white/40 e removido bg e tracking-widest */}
+  <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
+    <Th width={40}>
+      <input 
+        type="checkbox" 
+        className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" 
+      />
+    </Th>
+    <ThSort label="Revenda / Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
+    <ThSort label="Servidores" active={sortKey === "servers"} dir={sortDir} onClick={() => toggleSort("servers")} />
+    <ThSort label="Faturamento" active={sortKey === "revenue"} dir={sortDir} onClick={() => toggleSort("revenue")} />
+    <ThSort label="Custo" active={sortKey === "cost"} dir={sortDir} onClick={() => toggleSort("cost")} />
+    <ThSort label="Lucro" active={sortKey === "profit"} dir={sortDir} onClick={() => toggleSort("profit")} />
+    <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
+    <Th align="right" className="pr-6">Ações</Th>
+  </tr>
+</thead>
 
               <tbody className="text-sm divide-y divide-slate-100 dark:divide-white/5">
                 {visible.map((r) => (
@@ -1701,6 +1710,7 @@ export default function RevendaPage() {
 
       {ConfirmUI}
 
+    {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
 
       <div className="relative z-[999999]">
@@ -1727,10 +1737,11 @@ function Td({ children, align = "left", className = "" }: { children: React.Reac
 
 function ThSort({ label, active, dir, onClick }: { label: string, active: boolean, dir: SortDir, onClick: () => void }) {
   return (
-    <th onClick={onClick} className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left font-bold uppercase text-[11px] tracking-widest">
-      <div className="flex items-center gap-1.5">
+    // Removido text-[11px] e tracking-widest. Mantido classes de hover e layout.
+    <th onClick={onClick} className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left">
+      <div className="flex items-center gap-1">
         {label}
-        <span className={`transition-all duration-300 ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500 scale-110" : "opacity-20 group-hover:opacity-50"}`}>
+        <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}>
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
         </span>
       </div>
