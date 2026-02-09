@@ -1604,30 +1604,36 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     </select>
   </div>
 
-  {/* ✅ paginação */}
-  <div className="flex items-center gap-2">
-    <button
-      onClick={() => setPage((p) => Math.max(1, p - 1))}
-      disabled={safePage <= 1}
-      className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition"
-      title="Página anterior"
-    >
-      ←
-    </button>
+  {/* ✅ paginação (Compacta no Mobile) */}
+<div className="flex items-center gap-1 sm:gap-2">
+  <button
+    onClick={() => setPage((p) => Math.max(1, p - 1))}
+    disabled={safePage <= 1}
+    // Alterado: w-8 no mobile para ficar quadrado e ocupar menos espaço, px-0 no mobile
+    className="h-8 w-8 sm:w-auto sm:px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+    title="Página anterior"
+  >
+    ←
+  </button>
 
-    <span className="min-w-[90px] text-center">
-      Página <span className="font-bold text-slate-700 dark:text-white">{safePage}</span> / {totalPages}
-    </span>
+  {/* Alterado: removemos min-w fixo grande e escondemos a palavra 'Página' no mobile */}
+  <span className="text-xs sm:text-sm text-center min-w-[40px] sm:min-w-[90px] whitespace-nowrap">
+    <span className="hidden sm:inline">Página </span>
+    <span className="font-bold text-slate-700 dark:text-white">{safePage}</span>
+    <span className="mx-1">/</span>
+    {totalPages}
+  </span>
 
-    <button
-      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-      disabled={safePage >= totalPages}
-      className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition"
-      title="Próxima página"
-    >
-      →
-    </button>
-  </div>
+  <button
+    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+    disabled={safePage >= totalPages}
+    // Alterado: w-8 no mobile
+    className="h-8 w-8 sm:w-auto sm:px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+    title="Próxima página"
+  >
+    →
+  </button>
+</div>
 </div>
 
           </div>
@@ -1688,43 +1694,48 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                       </Td>
 
                       <Td>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <Link href={`/admin/cliente/${r.id}`} className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer">
-                              {r.name}
-                            </Link>
-                            
-                            {/* ✅ SINO DE ALERTA (Clicável para abrir lista) */}
-                            {r.alertsCount > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenAlertList(r.id, r.name);
-                              }}
-                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
-                              title="Ver alertas pendentes"
-                            >
-                              🔔 {r.alertsCount}
-                            </button>
-                          )}
+  <div className="flex flex-col max-w-[180px] sm:max-w-none"> {/* Limite opcional no mobile se quiser truncar nomes gigantes */}
+    
+    {/* Alterado: Adicionado whitespace-nowrap para impedir que ícones quebrem a linha */}
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <Link href={`/admin/cliente/${r.id}`} className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate">
+        {r.name}
+      </Link>
+      
+      {/* Adicionado shrink-0 para garantir que os ícones nunca sejam esmagados */}
+      <div className="flex items-center gap-1 shrink-0">
+        {r.alertsCount > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenAlertList(r.id, r.name);
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+            title="Ver alertas pendentes"
+          >
+            🔔 {r.alertsCount}
+          </button>
+        )}
 
-                          {(scheduledMap[r.id]?.length || 0) > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
-                              }}
-                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
-                              title="Ver mensagens programadas"
-                            >
-                              🗓️ {scheduledMap[r.id].length}
-                            </button>
-                          )}
-
-                          </div>
-                          <span className="text-xs text-slate-400 dark:text-white/40">{r.username}</span>
-                        </div>
-                      </Td>
+        {(scheduledMap[r.id]?.length || 0) > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
+            title="Ver mensagens programadas"
+          >
+            🗓️ {scheduledMap[r.id].length}
+          </button>
+        )}
+      </div>
+    </div>
+    
+    {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
+    <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">{r.username}</span>
+  </div>
+</Td>
 
                       <Td>
                         <div className="flex flex-col">
