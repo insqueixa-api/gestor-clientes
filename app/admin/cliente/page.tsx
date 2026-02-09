@@ -1583,60 +1583,79 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 >
 
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-bold text-slate-700 dark:text-white">
-              Lista de Clientes{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50">
-  <div className="flex items-center gap-2">
-    <span>Mostrar</span>
-    <select
-      value={pageSize}
-      onChange={(e) => {
-        setPageSize(Number(e.target.value));
-        setPage(1);
-      }}
-      className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white"
-    >
-      <option value={25}>25</option>
-      <option value={50}>50</option>
-      <option value={100}>100</option>
-    </select>
+  <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+    Lista de Clientes{" "}
+    <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
   </div>
 
-  {/* ✅ paginação (Compacta no Mobile) */}
-<div className="flex items-center gap-1 sm:gap-2">
-  <button
-    onClick={() => setPage((p) => Math.max(1, p - 1))}
-    disabled={safePage <= 1}
-    // Alterado: w-8 no mobile para ficar quadrado e ocupar menos espaço, px-0 no mobile
-    className="h-8 w-8 sm:w-auto sm:px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
-    title="Página anterior"
-  >
-    ←
-  </button>
+  <div className="flex items-center justify-end gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
+    
+    {/* --- 📱 VERSÃO MOBILE: Dropdown de Páginas --- */}
+    <div className="md:hidden">
+      <select
+        value={safePage}
+        onChange={(e) => setPage(Number(e.target.value))}
+        className="h-8 pl-3 pr-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none relative z-10"
+        style={{
+           // Seta customizada via CSS inline para garantir visual limpo
+           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+           backgroundPosition: `right 0.5rem center`,
+           backgroundRepeat: `no-repeat`,
+           backgroundSize: `1.5em 1.5em`
+        }}
+      >
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
+          <option key={pNum} value={pNum}>
+            Página {pNum}
+          </option>
+        ))}
+      </select>
+    </div>
 
-  {/* Alterado: removemos min-w fixo grande e escondemos a palavra 'Página' no mobile */}
-  <span className="text-xs sm:text-sm text-center min-w-[40px] sm:min-w-[90px] whitespace-nowrap">
-    <span className="hidden sm:inline">Página </span>
-    <span className="font-bold text-slate-700 dark:text-white">{safePage}</span>
-    <span className="mx-1">/</span>
-    {totalPages}
-  </span>
+    {/* --- 💻 VERSÃO DESKTOP: Botões Originais --- */}
+    <div className="hidden md:flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <span>Mostrar</span>
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPage(1);
+          }}
+          className="bg-transparent border border-slate-300 dark:border-white/10 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-white cursor-pointer hover:border-emerald-500/50 transition-colors"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      </div>
 
-  <button
-    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-    disabled={safePage >= totalPages}
-    // Alterado: w-8 no mobile
-    className="h-8 w-8 sm:w-auto sm:px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
-    title="Próxima página"
-  >
-    →
-  </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={safePage <= 1}
+          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+          title="Página anterior"
+        >
+          ←
+        </button>
+
+        <span className="min-w-[90px] text-center whitespace-nowrap">
+          Página <span className="font-bold text-slate-700 dark:text-white">{safePage}</span> / {totalPages}
+        </span>
+
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={safePage >= totalPages}
+          className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-white/10 transition flex items-center justify-center"
+          title="Próxima página"
+        >
+          →
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
-
-          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[250px]">
