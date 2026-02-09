@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -11,7 +11,6 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- TIPAGEM ---
-
 export type ServerRow = {
   id: string;
   tenant_id: string;
@@ -21,7 +20,6 @@ export type ServerRow = {
   default_currency: "BRL" | "USD" | "EUR";
   default_credit_unit_price: number | null;
 
-  // Campos Financeiros (Aliases da View)
   avg_credit_cost_brl?: number;
   credit_unit_cost_brl?: number;
 
@@ -35,7 +33,6 @@ export type ServerRow = {
   is_archived: boolean;
   created_at: string;
 
-  // Estatísticas (Hydration)
   stats?: {
     total: number;
     active: number;
@@ -51,7 +48,6 @@ type ClientLight = {
   client_is_archived: boolean;
 };
 
-// ✅ Trials agora vêm direto da tabela clients (somente o necessário)
 type TrialClientLight = {
   server_id: string | null;
   is_archived: boolean;
@@ -63,65 +59,31 @@ type ResellerLinkView = {
 
 export default function AdminServersPage() {
   const [loading, setLoading] = useState(true);
-
   const [servers, setServers] = useState<ServerRow[]>([]);
   const [showArchived, setShowArchived] = useState(false);
 
-  // Modal & Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<ServerRow | null>(null);
 
-  // Modal Recarga
   const [isRecargaOpen, setIsRecargaOpen] = useState(false);
   const [rechargingServer, setRechargingServer] = useState<ServerRow | null>(null);
 
-  // Toasts
+  // ✅ Seu hook (pelo erro) é o formato "confirm simples"
+  const { confirm, ConfirmUI } = useConfirm();
+
+
+
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
-    setTimeout(() => removeToast(id), 4000);
+    setTimeout(() => removeToast(id), 5000);
   }
 
   function removeToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
-
-  // ✅ Adapter: funciona com qualquer assinatura do useConfirm
-  const confirmApi = useConfirm() as any;
-
-  const confirm = useMemo(() => {
-    const fn =
-      typeof confirmApi === "function"
-        ? confirmApi
-        : confirmApi?.confirm ?? confirmApi?.[0];
-
-    // fallback seguro pra não quebrar build se o hook for diferente
-    if (typeof fn !== "function") {
-      return async (opts: any) => {
-        const msg =
-          (opts?.title ? `${opts.title}\n\n` : "") +
-          (opts?.description ? `${opts.description}\n\n` : "") +
-          (Array.isArray(opts?.details) && opts.details.length
-            ? `• ${opts.details.join("\n• ")}`
-            : "");
-        return window.confirm(msg || "Confirmar ação?");
-      };
-    }
-
-    return fn as (opts: any) => Promise<boolean>;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const ConfirmModal = useMemo(() => {
-    const Comp =
-      typeof confirmApi === "object"
-        ? confirmApi?.ConfirmModal ?? confirmApi?.[1]
-        : null;
-    return Comp ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // --- FETCH DATA ---
   async function fetchServers() {
@@ -133,20 +95,17 @@ export default function AdminServersPage() {
       const supabase = supabaseBrowser;
       const targetServerView = showArchived ? "vw_servers_archived" : "vw_servers_active";
 
-      // 1. Busca os Servidores
       const serversPromise = supabase
         .from(targetServerView)
         .select("*")
         .eq("tenant_id", tenantId)
         .order("name", { ascending: true });
 
-      // 2. Busca Clientes
       const clientsPromise = supabase
         .from("vw_clients_list")
         .select("server_id, computed_status, client_is_archived")
         .eq("tenant_id", tenantId);
 
-      // 3. Trials (direto clients)
       const trialClientsPromise = supabase
         .from("clients")
         .select("server_id, is_archived")
@@ -154,7 +113,6 @@ export default function AdminServersPage() {
         .eq("is_trial", true)
         .eq("is_archived", false);
 
-      // 4. Revendas
       const resellersPromise = supabase.from("reseller_servers").select("server_id");
 
       const [serversRes, clientsRes, trialClientsRes, resellersRes] = await Promise.all([
@@ -174,7 +132,6 @@ export default function AdminServersPage() {
       const rawTrialClients = (trialClientsRes.data as TrialClientLight[]) || [];
       const rawResellers = (resellersRes.data as ResellerLinkView[]) || [];
 
-      // --- STATS ---
       const statsMap = new Map<
         string,
         { total: number; active: number; inactive: number; trial: number; resellers: number }
@@ -184,13 +141,11 @@ export default function AdminServersPage() {
         statsMap.set(s.id, { total: 0, active: 0, inactive: 0, trial: 0, resellers: 0 });
       });
 
-      // A. Clientes (sem trial)
       rawClients.forEach((c) => {
         if (!c.server_id || !statsMap.has(c.server_id)) return;
-        const st = statsMap.get(c.server_id)!;
-
         if (c.client_is_archived) return;
 
+        const st = statsMap.get(c.server_id)!;
         const status = (c.computed_status || "").toUpperCase();
         if (status === "TRIAL") return;
 
@@ -199,19 +154,15 @@ export default function AdminServersPage() {
         else if (status === "OVERDUE") st.inactive++;
       });
 
-      // B. Trials ativos
       rawTrialClients.forEach((t) => {
         if (!t.server_id || !statsMap.has(t.server_id)) return;
-        const st = statsMap.get(t.server_id)!;
         if (t.is_archived) return;
-        st.trial++;
+        statsMap.get(t.server_id)!.trial++;
       });
 
-      // C. Revendas
       rawResellers.forEach((r) => {
         if (!r.server_id || !statsMap.has(r.server_id)) return;
-        const st = statsMap.get(r.server_id)!;
-        st.resellers++;
+        statsMap.get(r.server_id)!.resellers++;
       });
 
       const mergedServers: ServerRow[] = rawServers.map((s) => ({
@@ -230,24 +181,23 @@ export default function AdminServersPage() {
 
   // --- ACTIONS ---
   async function handleArchive(server: ServerRow) {
-    const action = server.is_archived ? "restaurar" : "arquivar";
-
+    // ✅ botão de excluir (arquivar) restaurado
+    
     const ok = await confirm({
-      title: server.is_archived ? "Restaurar servidor?" : "Arquivar servidor?",
-      description: `Tem certeza que deseja ${action} o servidor "${server.name}"?`,
-      tone: server.is_archived ? "default" : "danger",
+      title: server.is_archived ? "Restaurar servidor?" : "Excluir servidor?",
+      subtitle: `Tem certeza que deseja ${server.is_archived ? "restaurar" : "arquivar (enviar para lixeira)"} o servidor "${server.name}"?`,
+      tone: server.is_archived ? "emerald" : "rose",
       confirmText: server.is_archived ? "Restaurar" : "Arquivar",
       cancelText: "Voltar",
       details: server.is_archived
         ? ["O servidor voltará para a lista ativa."]
         : ["Ele irá para a lixeira.", "Você poderá restaurar ou excluir definitivamente depois."],
     });
-
     if (!ok) return;
 
+
     try {
-      const supabase = supabaseBrowser;
-      const { error } = await supabase.rpc("toggle_server_archive", { p_server_id: server.id });
+      const { error } = await supabaseBrowser.rpc("toggle_server_archive", { p_server_id: server.id });
       if (error) throw error;
 
       addToast("success", "Sucesso", `Servidor ${server.is_archived ? "restaurado" : "arquivado"} com sucesso.`);
@@ -265,32 +215,31 @@ export default function AdminServersPage() {
 
     const ok = await confirm({
       title: "Excluir definitivamente?",
-      description: `Isso vai remover o servidor "${server.name}" e TODOS os registros ligados a ele (financeiro, clientes remanescentes, etc).`,
-      tone: "danger",
+      subtitle: `Isso vai remover o servidor "${server.name}" e TODOS os registros ligados a ele.`,
+      tone: "rose",
       confirmText: "Excluir definitivo",
       cancelText: "Voltar",
       details: [
         "Ação irreversível",
         "Remove compras/vendas/uso de crédito do servidor",
-        "Remove clientes e históricos que ainda estiverem ligados",
+        "Remove quaisquer registros ainda ligados a ele",
       ],
     });
-
     if (!ok) return;
 
+
     try {
-      const supabase = supabaseBrowser;
       const tenantId = await getCurrentTenantId();
       if (!tenantId) return;
 
-      const userRes = await supabase.auth.getUser();
+      const userRes = await supabaseBrowser.auth.getUser();
       const userId = userRes.data.user?.id;
       if (!userId) {
         addToast("error", "Erro", "Usuário não autenticado.");
         return;
       }
 
-      const { error } = await supabase.rpc("delete_server_hard", {
+      const { error } = await supabaseBrowser.rpc("delete_server_hard", {
         p_tenant_id: tenantId,
         p_server_id: server.id,
         p_created_by: userId,
@@ -326,7 +275,6 @@ export default function AdminServersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showArchived]);
 
-  // Helpers
   const formatMoney = (amount: number | null | undefined, currency: string) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(amount || 0);
 
@@ -334,13 +282,11 @@ export default function AdminServersPage() {
 
   return (
     <div className="pt-0 pb-6 px-0 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
-      {/* HEADER (mobile sem espaço e usando lateral total) */}
+      {/* HEADER (sem espaço no mobile e usando lateral toda) */}
       <div className="px-3 sm:px-0 pt-0">
         <div className="flex flex-col md:flex-row justify-between items-start gap-0 pb-0">
           <div className="text-left w-full md:w-auto">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-              Servidores
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Servidores</h1>
             <p className="text-slate-500 dark:text-white/60 mt-0 text-sm">
               Cadastre e gerencie servidores IPTV (créditos, painel, WhatsApp, DNS).
             </p>
@@ -414,7 +360,7 @@ export default function AdminServersPage() {
                   </Link>
 
                   <div className="flex gap-2 shrink-0">
-                    {/* ✅ Lixeira aparece antes e só na lixeira */}
+                    {/* ✅ Hard delete (apenas arquivado) aparece ANTES */}
                     {server.is_archived && (
                       <IconActionBtn
                         title="Excluir definitivamente"
@@ -425,7 +371,11 @@ export default function AdminServersPage() {
                         }}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 3v9m4-9v9m4-9v9M5 7l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 3v9m4-9v9m4-9v9M5 7l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14"
+                          />
                         </svg>
                       </IconActionBtn>
                     )}
@@ -448,12 +398,18 @@ export default function AdminServersPage() {
                       }}
                       className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
                       title="Editar"
+                      type="button"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
                       </svg>
                     </button>
 
+                    {/* ✅ Excluir (Arquivar) voltou ao normal */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -464,15 +420,24 @@ export default function AdminServersPage() {
                           ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"
                           : "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100"
                       }`}
-                      title={server.is_archived ? "Restaurar" : "Arquivar"}
+                      title={server.is_archived ? "Restaurar" : "Excluir (Arquivar)"}
+                      type="button"
                     >
                       {server.is_archived ? (
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
                         </svg>
                       ) : (
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       )}
                     </button>
@@ -489,7 +454,7 @@ export default function AdminServersPage() {
                   </div>
                 </div>
 
-                {/* CORPO */}
+                {/* (seu corpo do card original continua igual) */}
                 <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center text-sm">
@@ -581,9 +546,7 @@ export default function AdminServersPage() {
 
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-white/50">🔗 Integração</span>
-                      <span className="font-medium text-slate-700 dark:text-white">
-                        {server.panel_integration || "--"}
-                      </span>
+                      <span className="font-medium text-slate-700 dark:text-white">{server.panel_integration || "--"}</span>
                     </div>
 
                     <div className="flex justify-between items-center">
@@ -595,9 +558,7 @@ export default function AdminServersPage() {
 
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-white/50">🌐 DNS config.</span>
-                      <span className="font-bold text-slate-700 dark:text-white">
-                        {server.dns?.length || 0}
-                      </span>
+                      <span className="font-bold text-slate-700 dark:text-white">{server.dns?.length || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -606,9 +567,7 @@ export default function AdminServersPage() {
                   <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-white/10 text-[11px] space-y-2">
                     {server.panel_web_url && (
                       <div className="flex gap-2">
-                        <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">
-                          Url:
-                        </span>
+                        <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Url:</span>
                         <a href={server.panel_web_url} target="_blank" className="text-emerald-600 dark:text-emerald-400 hover:underline truncate font-medium">
                           {server.panel_web_url}
                         </a>
@@ -616,12 +575,8 @@ export default function AdminServersPage() {
                     )}
                     {server.panel_telegram_group && (
                       <div className="flex gap-2">
-                        <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">
-                          Telegram:
-                        </span>
-                        <span className="text-slate-600 dark:text-white/70 truncate">
-                          {server.panel_telegram_group}
-                        </span>
+                        <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Telegram:</span>
+                        <span className="text-slate-600 dark:text-white/70 truncate">{server.panel_telegram_group}</span>
                       </div>
                     )}
                     {server.notes && (
@@ -659,9 +614,8 @@ export default function AdminServersPage() {
             }}
           />
         )}
-
-        {/* ✅ Só renderiza se existir */}
-        {ConfirmModal ? <ConfirmModal /> : null}
+        
+        {ConfirmUI}
 
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
@@ -670,7 +624,6 @@ export default function AdminServersPage() {
 }
 
 // --- COMPONENTES VISUAIS AUXILIARES ---
-
 function IconActionBtn({
   children,
   title,
@@ -680,7 +633,8 @@ function IconActionBtn({
   children: ReactNode;
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
-  onClick: (e: MouseEvent) => void;
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+
 }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
@@ -707,16 +661,7 @@ function IconActionBtn({
 
 function IconMoney() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="5" width="20" height="14" rx="2" />
       <line x1="2" y1="10" x2="22" y2="10" />
     </svg>

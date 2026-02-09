@@ -1736,18 +1736,19 @@ const res = await fetch("/api/whatsapp/envio_programado", {
           </button>
         )}
 
-        {(scheduledMap[r.id]?.length || 0) > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
-            }}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors"
-            title="Ver mensagens programadas"
-          >
-            🗓️ {scheduledMap[r.id].length}
-          </button>
-        )}
+{(scheduledMap[r.id]?.length || 0) > 0 && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name });
+    }}
+    // Alterado: Adicionado 'animate-pulse' no final das classes
+    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
+    title="Ver mensagens programadas"
+  >
+    🗓️ {scheduledMap[r.id].length}
+  </button>
+)}
       </div>
     </div>
     
@@ -1757,11 +1758,13 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 </Td>
 
                       <Td>
-                        <div className="flex flex-col">
-                          <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>{r.dueLabelDate}</span>
-                          <span className="text-xs text-slate-400 dark:text-white/30">{r.dueTime}</span>
-                        </div>
-                      </Td>
+  <div className="flex flex-col">
+    <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>{r.dueLabelDate}</span>
+    
+    {/* Alterado: Aplicado o mesmo estilo do Username (font-medium + slate-500) */}
+    <span className="text-xs font-medium text-slate-500 dark:text-white/60">{r.dueTime}</span>
+  </div>
+</Td>
 
                       <Td>
                         <StatusBadge status={r.status} />
@@ -2508,26 +2511,28 @@ function ScheduledMessagesModal({
   onDeleted: () => void;
   addToast: (type: "success" | "error", title: string, message?: string) => void;
 }) {
-
   const [deletingId, setDeletingId] = useState<string | null>(null);
-    const { confirm } = useConfirm();
-
+  
+  // ✅ Instância correta do hook DENTRO deste componente
+  const { confirm, ConfirmUI } = useConfirm(); 
 
   async function handleDelete(scheduleId: string) {
     const it = items.find((x) => x.id === scheduleId);
 
+    // ✅ Agora o confirm funciona pois o ConfirmUI está no return abaixo
     const ok = await confirm({
       title: "Cancelar agendamento",
-      subtitle: "A mensagem programada será removida da fila.",
+      subtitle: "Tem certeza que deseja remover esta mensagem da fila?",
       tone: "rose",
-      icon: "🗓️",
+      icon: "🗑️", // Icone ajustado para lixeira
       details: [
         `Cliente: ${clientName}`,
         it?.send_at
-          ? `Envio em: ${new Date(it.send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+          ? `Envio programado: ${new Date(it.send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
           : "Envio em: —",
+        it?.message ? `Mensagem: "${it.message.slice(0, 50)}${it.message.length > 50 ? "..." : ""}"` : ""
       ],
-      confirmText: "Cancelar",
+      confirmText: "Sim, Excluir",
       cancelText: "Voltar",
     });
 
@@ -2536,18 +2541,16 @@ function ScheduledMessagesModal({
     try {
       setDeletingId(scheduleId);
 
-      // ✅ Preferível: deletar via API (respeita auth + regras)
       const { error } = await supabaseBrowser.rpc("client_message_cancel", {
-  p_tenant_id: tenantId,
-  p_job_id: scheduleId,
-});
+        p_tenant_id: tenantId,
+        p_job_id: scheduleId,
+      });
 
-if (error) throw error;
+      if (error) throw error;
 
-addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelada.");
-
+      addToast("success", "Agendamento cancelado", "A mensagem foi removida da fila de envios.");
       await onDeleted();
-      onClose();
+      // Não fecha o modal (onClose) para permitir excluir outros se quiser
     } catch (e: any) {
       console.error(e);
       addToast("error", "Erro ao excluir", e?.message || "Erro desconhecido");
@@ -2557,59 +2560,65 @@ addToast("success", "Agendamento cancelado", "A mensagem programada foi cancelad
   }
 
   return (
-  <>
-    <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
-      {items.length === 0 ? (
-        <div className="text-sm text-slate-500 dark:text-white/60 italic">
-          Nenhum agendamento encontrado.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((it) => (
-            <div
-              key={it.id}
-              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
-                    Envio em:{" "}
-                    <span className="text-slate-700 dark:text-white">
-                      {new Date(it.send_at).toLocaleString("pt-BR", {
-                        timeZone: "America/Sao_Paulo",
-                      })}
-                    </span>
+    <>
+      <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+             <span className="text-2xl mb-2">🗓️</span>
+             <p className="text-sm">Nenhum agendamento encontrado.</p>
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {items.map((it) => (
+              <div
+                key={it.id}
+                className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 transition hover:border-purple-200 dark:hover:border-purple-500/30"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-white/5">
+                        {new Date(it.send_at).toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
+                          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+                        })}
+                      </div>
 
-                    {it.status ? (
-                      <span className="ml-2 px-2 py-0.5 rounded bg-slate-200/70 dark:bg-white/10 text-[10px] font-bold">
-                        {it.status}
-                      </span>
-                    ) : null}
+                      {it.status && (
+                        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[9px] font-bold uppercase tracking-wider">
+                          {it.status}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-slate-200 dark:border-white/10 pl-3">
+                      {it.message}
+                    </div>
                   </div>
 
-                  <div className="mt-2 text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap break-words">
-                    {it.message}
-                  </div>
+                  <button
+                    onClick={() => handleDelete(it.id)}
+                    disabled={deletingId === it.id}
+                    className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                    title="Excluir agendamento"
+                  >
+                    {deletingId === it.id ? (
+                      <span className="animate-spin">⏳</span>
+                    ) : (
+                      <IconTrash />
+                    )}
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => handleDelete(it.id)}
-                  disabled={deletingId === it.id}
-                  className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 transition disabled:opacity-50"
-                >
-                  {deletingId === it.id ? "Excluindo..." : "Excluir"}
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Modal>
+            ))}
+          </div>
+        )}
+      </Modal>
 
-    
-  </>
-);
-
+      {/* ✅ OBRIGATÓRIO: Renderiza o componente visual do ConfirmDialog */}
+      {ConfirmUI}
+    </>
+  );
 }
 
 
