@@ -281,39 +281,41 @@ export default function AdminServersPage() {
   const formatNumber = (num: number | undefined) => new Intl.NumberFormat("pt-BR").format(num || 0);
 
   return (
-    <div className="pt-0 pb-6 px-0 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
-      {/* HEADER (sem espaço no mobile e usando lateral toda) */}
-      <div className="px-3 sm:px-0 pt-0">
-        <div className="flex flex-col md:flex-row justify-between items-start gap-0 pb-0">
-          <div className="text-left w-full md:w-auto">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Servidores</h1>
-            <p className="text-slate-500 dark:text-white/60 mt-0 text-sm">
-              Cadastre e gerencie servidores IPTV (créditos, painel, WhatsApp, DNS).
-            </p>
-          </div>
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  
+  {/* Topo (Padronizado conforme Contrato) */}
+  <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0">
+    
+    {/* Título (esquerda) */}
+    <div className="min-w-0 text-left">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+        Servidores
+      </h1>
+    </div>
 
-          <div className="flex items-center justify-end gap-3 w-full md:w-auto mt-0">
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors flex items-center gap-2
-                ${
-                  showArchived
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
-                    : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/10"
-                }`}
-            >
-              {showArchived ? "Ocultar arquivados" : "Ver lixeira"}
-            </button>
+    {/* Ações (direita) */}
+    <div className="flex items-center gap-2 justify-end shrink-0">
+      
+      {/* Botão Lixeira Padronizado */}
+      <button
+        onClick={() => setShowArchived(!showArchived)}
+        className={`h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+          showArchived
+            ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+            : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+        }`}
+      >
+        {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
+      </button>
 
-            <button
-              onClick={handleOpenNew}
-              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-            >
-              <span>+</span> Novo servidor
-            </button>
-          </div>
-        </div>
-      </div>
+      <button
+        onClick={handleOpenNew}
+        className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+      >
+        <span>+</span> Novo Servidor
+      </button>
+    </div>
+  </div>
 
       <div className="space-y-6 pt-0 px-0">
         {loading && (
@@ -330,128 +332,99 @@ export default function AdminServersPage() {
 
         {!loading && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-            {servers.map((server) => (
-              <div
-                key={server.id}
-                className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22]
-                  ${
-                    server.is_archived
-                      ? "border-amber-500/30 opacity-75 grayscale-[0.5]"
-                      : "border-slate-200 dark:border-white/10 hover:border-emerald-500/30"
-                  }`}
-              >
-                <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                  <Link
-                    href={`/admin/gerenciador/servidor/${server.id}`}
-                    className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
-                  >
-                    <h2
-                      className="text-base font-bold truncate text-slate-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight"
-                      title={server.name}
-                    >
-                      {server.name}
-                    </h2>
+  {servers.map((server) => (
+    <div
+      key={server.id}
+      // ✅ PADRÃO CONTRATO: Fundo white/dark[#161b22], borda slate-200/white-10
+      className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22]
+        ${
+          server.is_archived
+            ? "border-amber-500/30 opacity-75 grayscale-[0.5]"
+            : "border-slate-200 dark:border-white/10 hover:border-emerald-500/30"
+        }`}
+    >
+      {/* ✅ HEADER DO CARD: Fundo slate-50/white-5, igual ao header da tabela de clientes */}
+      <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+        <Link
+          href={`/admin/gerenciador/servidor/${server.id}`}
+          className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
+        >
+          {/* ✅ TÍTULO: Ajustado para text-slate-700 (era 800) para igualar ao título da lista de clientes */}
+          <h2
+            className="text-base font-bold truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight"
+            title={server.name}
+          >
+            {server.name}
+          </h2>
 
-                    {server.is_archived && (
-                      <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase">
-                        Arquivado
-                      </span>
-                    )}
+{server.is_archived && (
+  // Alterado: 'rounded' para 'rounded-full', ajustado px para 2.5 (padrão pílula)
+  <span className="inline-flex items-center text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+    Arquivado
+  </span>
+)}
                   </Link>
 
                   <div className="flex gap-2 shrink-0">
-                    {/* ✅ Hard delete (apenas arquivado) aparece ANTES */}
-                    {server.is_archived && (
-                      <IconActionBtn
-                        title="Excluir definitivamente"
-                        tone="red"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleHardDelete(server);
-                        }}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 3v9m4-9v9m4-9v9M5 7l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14"
-                          />
-                        </svg>
-                      </IconActionBtn>
-                    )}
+  {/* Hard Delete (Apenas se arquivado) */}
+  {server.is_archived && (
+    <IconActionBtn
+      title="Excluir definitivamente"
+      tone="red"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleHardDelete(server);
+      }}
+    >
+      <IconTrash />
+    </IconActionBtn>
+  )}
 
-                    <IconActionBtn
-                      title="Recarregar Créditos"
-                      tone="green"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenRecarga(server);
-                      }}
-                    >
-                      <IconMoney />
-                    </IconActionBtn>
+  <IconActionBtn
+    title="Recarregar Créditos"
+    tone="green"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleOpenRecarga(server);
+    }}
+  >
+    <IconMoney />
+  </IconActionBtn>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEdit(server);
-                      }}
-                      className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
-                      title="Editar"
-                      type="button"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
+  <IconActionBtn
+    title="Editar"
+    tone="amber"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleOpenEdit(server);
+    }}
+  >
+    <IconEdit />
+  </IconActionBtn>
 
-                    {/* ✅ Excluir (Arquivar) voltou ao normal */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleArchive(server);
-                      }}
-                      className={`p-1.5 rounded-lg border transition-all ${
-                        server.is_archived
-                          ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"
-                          : "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100"
-                      }`}
-                      title={server.is_archived ? "Restaurar" : "Excluir (Arquivar)"}
-                      type="button"
-                    >
-                      {server.is_archived ? (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                          />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      )}
-                    </button>
+  {/* Alternar Arquivar/Restaurar */}
+  <IconActionBtn
+    title={server.is_archived ? "Restaurar" : "Arquivar"}
+    tone={server.is_archived ? "green" : "red"}
+    onClick={(e) => {
+      e.stopPropagation();
+      handleArchive(server);
+    }}
+  >
+    {server.is_archived ? <IconRestore /> : <IconTrash />}
+  </IconActionBtn>
 
-                    <Link
-                      href={`/admin/gerenciador/servidor/${server.id}`}
-                      className="p-1.5 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
-                      title="Detalhes"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                    </Link>
-                  </div>
+  {/* Link de Detalhes (usando o estilo do IconActionBtn mas renderizado como Link manualmente se preferir, ou apenas o botão wrapping) */}
+  {/* Para manter consistência visual, usei as classes do IconActionBtn no Link abaixo */}
+  <Link
+    href={`/admin/gerenciador/servidor/${server.id}`}
+    onClick={(e) => e.stopPropagation()}
+    title="Detalhes"
+    className="p-1.5 rounded-lg border transition-all text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20"
+  >
+    <IconDetails />
+  </Link>
+</div>
                 </div>
 
                 {/* (seu corpo do card original continua igual) */}
@@ -617,13 +590,19 @@ export default function AdminServersPage() {
         
         {ConfirmUI}
 
-        <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        {/* ✅ OBRIGATÓRIO CONTRATO: Espaço para evitar cortes no mobile */}
+        <div className="h-24 md:h-20" />
+
+        <div className="relative z-[999999]">
+          <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        </div>
       </div>
     </div>
   );
 }
 
-// --- COMPONENTES VISUAIS AUXILIARES ---
+// --- COMPONENTES VISUAIS AUXILIARES (PADRÃO CONTRATO) ---
+
 function IconActionBtn({
   children,
   title,
@@ -634,7 +613,6 @@ function IconActionBtn({
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
-
 }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
@@ -659,11 +637,9 @@ function IconActionBtn({
   );
 }
 
-function IconMoney() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      <line x1="2" y1="10" x2="22" y2="10" />
-    </svg>
-  );
-}
+// Ícones Padronizados
+function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
+function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
+function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
+function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
