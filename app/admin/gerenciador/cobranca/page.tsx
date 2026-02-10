@@ -50,6 +50,7 @@ type ClientLight = {
   created_at: string;
   computed_status: string;
   server_name?: string;
+  apps_names?: string[]; // ✅ Adicionado para o filtro de aplicativos
 };
 
 
@@ -91,9 +92,38 @@ function formatDateTimeSP(input?: string | null): string {
 
 function formatDateSP(input?: string | null): string {
   if (!input) return "--";
-  const d = new Date(input);
+  let d = new Date(input);
   if (isNaN(d.getTime())) return "--";
+  
+  // ✅ Blindagem contra shift de timezone em datas YYYY-MM-DD
+  if (input.length === 10 && input.includes("-")) {
+      d = new Date(`${input}T12:00:00-03:00`);
+  }
   return d.toLocaleDateString("pt-BR", { timeZone: BILLING_TZ });
+}
+
+function isoDateInSaoPaulo(d = new Date()) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BILLING_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(d); // YYYY-MM-DD
+}
+
+function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {
+  const dBase = new Date(baseDateStr);
+  if (isNaN(dBase.getTime())) return null;
+
+  // Descobre que dia foi em SP a data base
+  const baseDateSP = isoDateInSaoPaulo(dBase);
+  
+  // Força meio dia para somar/subtrair sem bugar por fuso
+  const dTarget = new Date(`${baseDateSP}T12:00:00-03:00`);
+  dTarget.setDate(dTarget.getDate() + daysDiff);
+  
+  return isoDateInSaoPaulo(dTarget);
 }
 
 // ============================================================================
@@ -208,8 +238,9 @@ const addToast = (
     .eq("tenant_id", tid)
     .order("created_at", { ascending: false }),
 
-  supabaseBrowser
-    .from("vw_clients_list_active_compat")
+  
+supabaseBrowser
+    .from("vw_clients_list_active") // ✅ View oficial corrigida
     .select(`
       id,
       display_name:client_name,
@@ -219,8 +250,9 @@ const addToast = (
       plan_label:plan_name,
       vencimento,
       created_at,
-      computed_status
-    `)
+      computed_status,
+      apps_names
+    `) // ✅ apps_names adicionado
     .eq("tenant_id", tid),
 
   supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
@@ -363,37 +395,6 @@ const { error } = await supabaseBrowser
 
 
   // --- LÓGICA DE FILTRO (IMPACTO) ---
-  // ✅ Bloco único (sem duplicação), timezone-safe, status normalizado
-
-  /** Retorna YYYY-MM-DD no timezone informado (timezone-safe) */
-  function dateKeyInTZ(input: Date | string, tz = BILLING_TZ): string {
-    const d = typeof input === "string" ? new Date(input) : input;
-
-    const fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-
-    return fmt.format(d); // YYYY-MM-DD
-  }
-
-  /**
-   * Soma dias de forma estável:
-   * - Usa chave YYYY-MM-DD no TZ
-   * - Cria data base em UTC meio-dia (evita DST/shift)
-   * - Retorna chave final no TZ
-   */
-  function addDaysAsDateKeyInTZ(dateStr: string, days: number, tz = BILLING_TZ): string {
-    const key = dateKeyInTZ(dateStr, tz);
-    const [y, m, d] = key.split("-").map(Number);
-
-    const base = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-    base.setUTCDate(base.getUTCDate() + Number(days));
-
-    return dateKeyInTZ(base, tz);
-  }
 
   /** Normaliza o status vindo da view para o padrão do sistema */
   function normalizeClientStatus(
@@ -401,40 +402,30 @@ const { error } = await supabaseBrowser
   ): "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string {
     const s = String(raw ?? "").trim().toUpperCase();
 
-    // já no padrão
     if (["ACTIVE", "OVERDUE", "TRIAL", "ARCHIVED"].includes(s)) return s;
 
-    // pt-br comuns
     if (s === "ATIVO") return "ACTIVE";
     if (s === "VENCIDO" || s === "ATRASADO" || s === "INADIMPLENTE") return "OVERDUE";
     if (s === "TESTE") return "TRIAL";
     if (s === "ARQUIVADO") return "ARCHIVED";
 
-    return s; // fallback
+    return s;
   }
 
   function dayOfWeekInTZ(d: Date = new Date(), tz = BILLING_TZ): number {
-    // 0=Dom ... 6=Sáb (igual seu DAYS_OF_WEEK)
     const wd = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(d);
     const map: Record<string, number> = {
-      Sun: 0,
-      Mon: 1,
-      Tue: 2,
-      Wed: 3,
-      Thu: 4,
-      Fri: 5,
-      Sat: 6,
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
     };
     return map[wd] ?? d.getDay();
   }
 
   function shouldRunToday(rule: Automation): boolean {
-    // Se for automático, respeita os dias da semana (timezone SP).
     if (!rule.is_automatic) return true;
 
     const todayDow = dayOfWeekInTZ(new Date(), BILLING_TZ);
     const days = Array.isArray(rule.schedule_days) ? rule.schedule_days : [];
-    if (days.length === 0) return true; // sem filtro => assume todos
+    if (days.length === 0) return true; 
     return days.includes(todayDow);
   }
 
@@ -447,12 +438,11 @@ const { error } = await supabaseBrowser
   }
 
   const getImpactedClients = (rule: Automation): ClientLight[] => {
-    // ✅ Se for automático e hoje não está na agenda, já retorna vazio
     if (!shouldRunToday(rule)) return [];
 
-    const todayKey = dateKeyInTZ(new Date(), BILLING_TZ);
+    // ✅ Hoje exato em São Paulo
+    const todaySP = isoDateInSaoPaulo(new Date());
 
-    // ✅ normaliza também os alvos da regra (podem vir pt-br ou já em enum)
     const ruleStatuses = rule.target_status?.length
       ? rule.target_status.map(normalizeClientStatus)
       : null;
@@ -460,7 +450,6 @@ const { error } = await supabaseBrowser
     return clients.filter((client) => {
       // 1) STATUS
       const clientStatus = normalizeClientStatus(client.computed_status);
-
       if (ruleStatuses?.length) {
         if (!ruleStatuses.includes(clientStatus)) return false;
       }
@@ -475,19 +464,23 @@ const { error } = await supabaseBrowser
         const plan = String(client.plan_label ?? "");
         if (!rule.target_plans.includes(plan)) return false;
       }
+      
+      // 4) APLICATIVOS
+      if (rule.target_apps?.length) {
+        const clientApps = client.apps_names || [];
+        const hasApp = clientApps.some(app => rule.target_apps.includes(app));
+        if (!hasApp) return false;
+      }
 
-      // 4) DATA (timezone-safe)
+      // 5) DATA (Fuso horário garantido SP)
       const field = normalizeRuleDateField(rule.rule_date_field);
       const targetDateStr = field === "vencimento" ? client.vencimento : client.created_at;
       if (!targetDateStr) return false;
 
-      const expectedKey = addDaysAsDateKeyInTZ(
-        targetDateStr,
-        Number(rule.rule_days_diff),
-        BILLING_TZ
-      );
-
-      return expectedKey === todayKey;
+      // Usando a nova função SP
+      const expectedRunDate = getExpectedRunDateSP(targetDateStr, Number(rule.rule_days_diff));
+      
+      return expectedRunDate === todaySP;
     });
   };
 

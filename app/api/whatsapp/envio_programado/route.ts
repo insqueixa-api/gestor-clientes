@@ -653,3 +653,10 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, send_at: sendAtUtc });
 }
+// ============================================================================
+// ✅ ADICIONADO: O Vercel Cron SEMPRE faz requisições GET.
+// Redirecionamos o GET para a sua função POST, onde a segurança já está pronta.
+// ============================================================================
+export async function GET(req: Request) {
+  return POST(req);
+}
