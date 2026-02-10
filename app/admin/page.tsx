@@ -380,7 +380,7 @@ return (
           rightLabel="MRR Estimado"
           rightValue={fmtBRL(activeMrr)}
           footer="Mês atual"
-          href="/admin/cliente?filter=ativos" // <--- Link para lista filtrada
+          href="/admin/cliente?filter=ativos" // ✅ Abre lista filtrada por Status: Ativo
         />
 
 <MetricCardView
@@ -391,7 +391,7 @@ return (
           rightLabel="Pendente"
           rightValue={fmtBRL(overdueAmount)}
           footer="Mês atual"
-          href="/admin/cliente?filter=vencidos" 
+          href="/admin/cliente?filter=vencidos" // ✅ Abre lista filtrada por Status: Vencido
         />
 
 <MetricCardView

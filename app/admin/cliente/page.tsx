@@ -279,21 +279,28 @@ export default function ClientePage() {
   useEffect(() => {
     const filterParam = searchParams.get("filter");
     if (filterParam) {
-      // ✅ Caso especial: Filtro de Ativos muda o Status, não o Vencimento
+      
+      // 1. Filtros de STATUS (Ativos ou Vencidos vindo dos Cards)
       if (filterParam === "ativos") {
         setStatusFilter("Ativo");
+        setDueFilter("Todos"); // Garante limpar filtro de data
+        return;
+      }
+      if (filterParam === "vencidos") {
+        setStatusFilter("Vencido");
+        setDueFilter("Todos"); // Garante limpar filtro de data
         return;
       }
 
-      // Demais filtros mudam o Vencimento (DueFilter)
+      // 2. Filtros de DATA (VencimentoCard)
       const map: Record<string, string> = {
         "venceu_ontem": "Venceu Ontem",
         "venceu_2_dias": "Venceu há 2 dias",
-        "vence_hoje": "Vence Hoje",
+        "vence_hoje": "Hoje", // Ajuste para bater com o <option>
         "vence_amanha": "Vence Amanhã",
         "vence_2_dias": "Vence em 2 dias",
         "mes_atual": "Mês Atual",
-        "vencidos": "Vencidos"
+        // removemos "vencidos" daqui pois agora é status
       };
       if (map[filterParam]) {
         setDueFilter(map[filterParam]);
@@ -1605,9 +1612,12 @@ const res = await fetch("/api/whatsapp/envio_programado", {
       onChange={(e) => setDueFilter(e.target.value)}
     >
       <option value="Todos">Vencimento (Todos)</option>
+      <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+      <option value="Venceu Ontem">Venceu Ontem</option>
       <option value="Hoje">Hoje</option>
-      <option value="Próximos 3 dias">Próximos 3 dias</option>
-      <option value="Vencidos">Vencidos</option>
+      <option value="Vence Amanhã">Vence Amanhã</option>
+      <option value="Vence em 2 dias">Vence em 2 dias</option>
+      <option value="Mês Atual">Mês Atual</option>
     </Select>
 
     {/* ✅ Limpar */}
@@ -1829,23 +1839,45 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   </div>
 </Td>
 
-                      <Td align="center">
-                        <div className="flex flex-col items-center">
-                          <StatusBadge status={r.status} />
-                          {/* ✅ Lógica do Sub-status Colorido */}
-                          {(() => {
-                             const diff = getDiffDays(r.dueISODate);
-                             const info = getSubStatusInfo(diff, r.status);
-                             if (!info) return null;
-                             
-                             return (
-                               <span className={`text-[10px] font-bold mt-1 whitespace-nowrap ${info.color}`}>
-                                 {info.text}
-                               </span>
-                             );
-                          })()}
-                        </div>
-                      </Td>
+<Td align="center">
+  {(() => {
+    const diff = getDiffDays(r.dueISODate);
+    
+    // ✅ CORREÇÃO: Força o tipo 'string' para aceitar qualquer texto
+    let label: string = r.status; 
+
+    if (r.status !== "Arquivado" && r.status !== "Teste") {
+        if (diff === -1) label = "Venceu Ontem";
+        else if (diff === -2) label = "Venceu há 2 dias";
+        else if (diff < -2) label = `Venceu há ${Math.abs(diff)} dias`;
+        else if (diff === 0) label = "Vence Hoje";
+        else if (diff === 1) label = "Vence Amanhã";
+        else if (diff === 2) label = "Vence em 2 dias";
+        else if (diff > 2) label = `Vence em ${Math.abs(diff)} dias`;
+    
+      }
+
+    // Lógica de Cor
+    let colorTone: "green" | "red" | "amber" | "blue" = "blue";
+    
+    if (r.status === "Vencido") colorTone = "red";
+    else if (r.status === "Ativo") {
+        if (diff === 0) colorTone = "amber";
+        else if (diff > 0) colorTone = "green"; 
+        else colorTone = "green";
+    } else {
+        colorTone = "blue";
+    }
+
+    return (
+      <StatusBadge 
+        status={r.status} 
+        customLabel={label} 
+        customTone={colorTone} 
+      />
+    );
+  })()}
+</Td>
 
                       <Td>
                         <span className="text-slate-600 dark:text-white/70">{r.server}</span>
@@ -2580,7 +2612,12 @@ function SortClick({ label, onClick, active, dir }: { label: string; onClick: ()
 }
 
 function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" | "center" }) {
-  return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle`}>{children}</td>;
+  // Define classes explícitas
+  let alignClass = "text-left";
+  if (align === "right") alignClass = "text-right";
+  if (align === "center") alignClass = "text-center";
+
+  return <td className={`px-4 py-3 ${alignClass} align-middle`}>{children}</td>;
 }
 
 function ScheduledMessagesModal({
@@ -2711,14 +2748,36 @@ function ScheduledMessagesModal({
 }
 
 
-function StatusBadge({ status }: { status: ClientStatus }) {
-  const tone =
-    status === "Ativo"
-      ? { bg: "bg-emerald-100 dark:bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-500", border: "border-emerald-200 dark:border-emerald-500/20" }
-      : status === "Vencido"
-      ? { bg: "bg-rose-100 dark:bg-rose-500/10", text: "text-rose-700 dark:text-rose-500", border: "border-rose-200 dark:border-rose-500/20" }
-      : { bg: "bg-sky-100 dark:bg-sky-500/10", text: "text-sky-700 dark:text-sky-500", border: "border-sky-200 dark:border-sky-500/20" };
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${tone.bg} ${tone.text} ${tone.border}`}>{status}</span>;
+function StatusBadge({ 
+  status, 
+  customLabel, 
+  customTone 
+}: { 
+  status: string; 
+  customLabel?: string; 
+  customTone?: "green" | "red" | "amber" | "blue" 
+}) {
+  
+  // Define a cor base
+  let color = "sky"; // Default (Teste/Arquivado)
+  
+  if (customTone) {
+     // Se veio forçado da tabela (ex: Hoje = amber)
+     if (customTone === "green") color = "emerald";
+     if (customTone === "red") color = "rose";
+     if (customTone === "amber") color = "amber"; // ou yellow
+     if (customTone === "blue") color = "sky";
+  } else {
+     // Fallback para status original se não vier customTone
+     if (status === "Ativo") color = "emerald";
+     if (status === "Vencido") color = "rose";
+  }
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/10 text-${color}-700 dark:text-${color}-500 border-${color}-200 dark:border-${color}-500/20 whitespace-nowrap`}>
+      {customLabel || status}
+    </span>
+  );
 }
 
 function IconActionBtn({
