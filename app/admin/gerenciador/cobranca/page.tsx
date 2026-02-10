@@ -495,38 +495,66 @@ const { error } = await supabaseBrowser
 
 
   const handleManualRun = async (rule: Automation) => {
-  // ✅ Segurança: não deixa disparar manual se a regra estiver desativada
-  if (!rule.is_active) {
-    addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
-    return;
-  }
+    // 1. Validações iniciais
+    if (!rule.is_active) {
+      addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
+      return;
+    }
 
-  const affected = getImpactedClients(rule);
-  if (affected.length === 0) {
-    addToast("error", "Sem alvos", "Nenhum cliente atende a regra hoje.");
-    return;
-  }
+    const affected = getImpactedClients(rule);
+    if (affected.length === 0) {
+      addToast("error", "Sem alvos", "Nenhum cliente atende a regra hoje.");
+      return;
+    }
 
-  if (!confirm(`Deseja ENFILEIRAR AGORA para ${affected.length} clientes?`)) return;
+    if (!confirm(`Deseja ENFILEIRAR AGORA mensagens para ${affected.length} clientes?`)) return;
 
-  const tid = await getCurrentTenantId();
-  if (!tid) return;
+    const tid = await getCurrentTenantId();
+    if (!tid) return;
 
-  const { data, error } = await supabaseBrowser.rpc("billing_enqueue_now", {
-    p_tenant_id: tid,
-    p_automation_id: rule.id,
-  });
+    try {
+      // 2. Descobre o ID do template (mesmo se vier do join do banco)
+      const templateId = rule.message_template_id || (rule.message_template as any)?.id;
+      if (!templateId) throw new Error("Esta regra não tem um template de mensagem vinculado.");
 
-  if (error) {
-    addToast("error", "Erro ao enfileirar", error.message);
-    return;
-  }
+      // 3. Busca o texto exato da mensagem lá no banco
+      const { data: tpl, error: tplErr } = await supabaseBrowser
+        .from("message_templates")
+        .select("content")
+        .eq("id", templateId)
+        .single();
 
-  addToast("success", "Envio Manual", `${data || 0} mensagens enfileiradas.`);
+      if (tplErr || !tpl) throw new Error("Falha ao carregar o texto do template.");
 
-  // ✅ Recarrega do banco pra refletir "RUNNING" caso o backend marque
-  await loadData();
-};
+      // 4. Prepara a lista de inserção em massa na tabela correta do Cron
+      const nowIso = new Date().toISOString();
+      
+      const inserts = affected.map(client => ({
+        tenant_id: tid,
+        client_id: client.id,
+        message: tpl.content, // O Cron vai trocar as variáveis {nome}, {vencimento} na hora de enviar!
+        status: "SCHEDULED",
+        send_at: nowIso, // Dispara imediatamente
+        whatsapp_session: rule.whatsapp_session || "default",
+      }));
+
+      // 5. Salva tudo de uma vez na client_message_jobs
+      const { error: insErr } = await supabaseBrowser
+        .from("client_message_jobs")
+        .insert(inserts);
+
+      if (insErr) throw insErr;
+
+      addToast("success", "Fila Criada!", `${inserts.length} mensagens foram para a fila do Cron.`);
+      
+      // Recarrega os dados visuais
+      await loadData();
+
+    } catch (err: any) {
+      console.error("Erro no envio manual:", err);
+      addToast("error", "Erro ao enfileirar", err.message || "Falha desconhecida.");
+    }
+  };
 
 
 
