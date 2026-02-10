@@ -357,8 +357,9 @@ const [appSaving, setAppSaving] = useState(false); // ✅ ADD (mesmo que você n
 const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
 
-  const [sortKey, setSortKey] = useState<SortKey>("due");
+const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [isDefaultSort, setIsDefaultSort] = useState(true); // <--- ADICIONAR ISSO
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
@@ -822,23 +823,21 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
 const sorted = useMemo(() => {
   const list = [...filtered];
 
-  // 🧠 DEFAULT (Ordenação Inteligente por Data)
-  if (sortKey === "due" && sortDir === "asc") {
+  // 🧠 ORDENAÇÃO
+  // Regra Padrão (só na entrada): Prioriza quem vence de -2 dias em diante
+  if (isDefaultSort && sortKey === "due" && sortDir === "asc") {
     list.sort((a, b) => {
       const diffA = getDiffDays(a.dueISODate);
       const diffB = getDiffDays(b.dueISODate);
 
-      // Regra: Quem deve aparecer na lista principal? (>= -2 dias)
-      // Quem é muito antigo (< -2 dias) vai para o "fim da fila"
+      // Regra: Lista principal = >= -2 dias
       const isMainListA = diffA >= -2;
       const isMainListB = diffB >= -2;
 
-      // Se um é da lista principal e o outro não, prioriza a lista principal
       if (isMainListA && !isMainListB) return -1;
       if (!isMainListA && isMainListB) return 1;
 
-      // Se ambos são do mesmo grupo, ordena por data CRESCENTE (mais antigo primeiro dentro do grupo)
-      // Ex: Ontem (-1) vem antes de Hoje (0)
+      // Desempate por data
       if (a.dueISODate !== b.dueISODate) {
         return a.dueISODate.localeCompare(b.dueISODate);
       }
@@ -847,7 +846,8 @@ const sorted = useMemo(() => {
     return list;
   }
 
-  // 🔁 COMPORTAMENTO ORIGINAL (cliques nos headers)
+  // 🔁 ORDENAÇÃO MANUAL (Pura)
+  // Se o usuário clicou, cai aqui direto e ordena data por data sem agrupar
   list.sort((a, b) => {
     let cmp = 0;
 
@@ -950,7 +950,8 @@ function setAllVisible(checked: boolean) {
 
 
 
-  function toggleSort(nextKey: SortKey) {
+function toggleSort(nextKey: SortKey) {
+    setIsDefaultSort(false); // ✅ Usuário clicou, desliga a regra automática
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortKey(nextKey);
@@ -1830,12 +1831,16 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   </div>
 </Td>
 
-                      <Td>
+<Td>
   <div className="flex flex-col">
-    <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>{r.dueLabelDate}</span>
+    {/* ✅ Cor fixa padrão (sem vermelho) */}
+    <span className="font-mono font-medium text-slate-600 dark:text-white/80">
+      {r.dueLabelDate}
+    </span>
     
-    {/* Alterado: Aplicado o mesmo estilo do Username (font-medium + slate-500) */}
-    <span className="text-xs font-medium text-slate-500 dark:text-white/60">{r.dueTime}</span>
+    <span className="text-xs font-medium text-slate-500 dark:text-white/60">
+      {r.dueTime}
+    </span>
   </div>
 </Td>
 
@@ -2602,9 +2607,10 @@ function ThSort({ label, active, dir, onClick }: { label: string; active: boolea
 // ✅ Componente auxiliar para cabeçalhos centralizados clicáveis (já que ThSort é fixo a esquerda)
 function SortClick({ label, onClick, active, dir }: { label: string; onClick: () => void; active: boolean; dir: SortDir }) {
   return (
-    <div onClick={onClick} className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors">
-      {label}
-      <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40"}`}>
+    // ✅ Alterado para 'flex w-full justify-center' para garantir o centro absoluto na célula
+    <div onClick={onClick} className="flex w-full justify-center items-center gap-1.5 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors py-1">
+      <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
+      <span className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-30"}`}>
         {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
       </span>
     </div>
