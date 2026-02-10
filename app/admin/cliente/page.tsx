@@ -11,6 +11,39 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation"; // <--- NOVO
+
+// Helper para calcular diferença de dias (Fuso SP)
+function getDiffDays(isoDateTarget: string) {
+  if (!isoDateTarget || isoDateTarget === "9999-12-31") return 9999;
+  
+  // Data de hoje em SP (yyyy-mm-dd)
+  const today = isoDateInSaoPaulo();
+  
+  // Convertendo para Date (fixando meio-dia para evitar problemas de fuso na subtração)
+  const d1 = new Date(`${today}T12:00:00`);
+  const d2 = new Date(`${isoDateTarget}T12:00:00`);
+  
+  const diffTime = d2.getTime() - d1.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// Helper para texto colorido abaixo do status
+function getSubStatusInfo(diff: number, status: ClientStatus) {
+  if (status === "Arquivado" || status === "Teste") return null;
+  if (diff > 2) return null; // Futuro distante não mostra nada
+
+  if (diff < -2) return { text: `Venceu há ${Math.abs(diff)} dias`, color: "text-rose-500" };
+  if (diff === -2) return { text: "Venceu há 2 dias", color: "text-rose-500" };
+  if (diff === -1) return { text: "Venceu Ontem", color: "text-rose-500" };
+  if (diff === 0) return { text: "Vence Hoje", color: "text-amber-500" };
+  if (diff === 1) return { text: "Vence Amanhã", color: "text-emerald-500" };
+  if (diff === 2) return { text: "Vence em 2 dias", color: "text-emerald-500" };
+  
+  return null;
+}
+
+
 
 // --- TIPOS ---
 type ClientStatus = "Ativo" | "Vencido" | "Teste" | "Arquivado";
@@ -124,6 +157,7 @@ type ClientRow = {
 // --- HELPERS ---
 
 
+
 function isoDateInSaoPaulo(d = new Date()) {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
@@ -225,7 +259,10 @@ function formatMoney(amount: number | null, currency: string | null) {
   };
 }
 
+
+
 export default function ClientePage() {
+  const searchParams = useSearchParams(); // <--- Hook do Next.js
   // --- ESTADOS ---
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +274,25 @@ export default function ClientePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
-
+// --- ADICIONAR ESTE useEffect ---
+  // Captura o clique vindo do Dashboard
+  useEffect(() => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam) {
+      const map: Record<string, string> = {
+        "venceu_ontem": "Venceu Ontem",
+        "venceu_2_dias": "Venceu há 2 dias",
+        "vence_hoje": "Vence Hoje",
+        "vence_amanha": "Vence Amanhã",
+        "vence_2_dias": "Vence em 2 dias",
+        "mes_atual": "Mês Atual",
+        "vencidos": "Vencidos"
+      };
+      if (map[filterParam]) {
+        setDueFilter(map[filterParam]);
+      }
+    }
+  }, [searchParams]);
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
@@ -713,18 +768,28 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
     if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
 
     if (dueFilter !== "Todos") {
-      if (dueFilter === "Vencidos" && r.status !== "Vencido") return false;
+        const diff = getDiffDays(r.dueISODate); // Calcula a diferença para a linha
 
-      if (dueFilter === "Hoje") {
-        if (r.dueISODate !== today) return false;
+        switch(dueFilter) {
+          case "Hoje": if (diff !== 0) return false; break;
+          case "Vence Amanhã": if (diff !== 1) return false; break;
+          case "Venceu Ontem": if (diff !== -1) return false; break;
+          case "Venceu há 2 dias": if (diff !== -2) return false; break;
+          case "Vence em 2 dias": if (diff !== 2) return false; break;
+          case "Vencidos": if (r.status !== "Vencido") return false; break;
+          
+          case "Próximos 3 dias": 
+             // Hoje (0) até +3 dias
+             if (diff < 0 || diff > 3) return false; 
+             break;
+            
+          case "Mês Atual":
+            // Compara se o prefixo YYYY-MM é igual
+            const currentMonth = isoDateInSaoPaulo().slice(0, 7);
+            if (!r.dueISODate.startsWith(currentMonth)) return false;
+            break;
+        }
       }
-
-      if (dueFilter === "Próximos 3 dias") {
-        // inclui hoje até +3 (e exclui “9999-12-31”)
-        if (r.dueISODate === "9999-12-31") return false;
-        if (r.dueISODate < today || r.dueISODate > end3) return false;
-      }
-    }
 
     if (q) {
       const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status]
@@ -747,36 +812,28 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
 const sorted = useMemo(() => {
   const list = [...filtered];
 
-  // 🧠 DEFAULT (primeira vista)
-  // quando ninguém clicou ainda (estado inicial)
+  // 🧠 DEFAULT (Ordenação Inteligente por Data)
   if (sortKey === "due" && sortDir === "asc") {
     list.sort((a, b) => {
-    // 1) ATIVO primeiro
-    const sa = a.status === "Ativo" ? 0 : a.status === "Vencido" ? 1 : 2;
-    const sb = b.status === "Ativo" ? 0 : b.status === "Vencido" ? 1 : 2;
-    if (sa !== sb) return sa - sb;
+      const diffA = getDiffDays(a.dueISODate);
+      const diffB = getDiffDays(b.dueISODate);
 
-    // 2) vencimento mais próximo (usa o que você já monta: dueISODate + dueTime)
-    const ta = a.dueTime && a.dueTime !== "—" ? a.dueTime : "23:59";
-const tb = b.dueTime && b.dueTime !== "—" ? b.dueTime : "23:59";
+      // Regra: Quem deve aparecer na lista principal? (>= -2 dias)
+      // Quem é muito antigo (< -2 dias) vai para o "fim da fila"
+      const isMainListA = diffA >= -2;
+      const isMainListB = diffB >= -2;
 
-const aTs = a.dueISODate === "9999-12-31"
-  ? Number.MAX_SAFE_INTEGER
-  : new Date(`${a.dueISODate}T${ta}:00`).getTime();
+      // Se um é da lista principal e o outro não, prioriza a lista principal
+      if (isMainListA && !isMainListB) return -1;
+      if (!isMainListA && isMainListB) return 1;
 
-const bTs = b.dueISODate === "9999-12-31"
-  ? Number.MAX_SAFE_INTEGER
-  : new Date(`${b.dueISODate}T${tb}:00`).getTime();
-
-const dueCmp = aTs - bTs;
-if (dueCmp !== 0) return dueCmp;
-
-
-    // 3) desempate visual
-    return compareText(a.name, b.name);
-
+      // Se ambos são do mesmo grupo, ordena por data CRESCENTE (mais antigo primeiro dentro do grupo)
+      // Ex: Ontem (-1) vem antes de Hoje (0)
+      if (a.dueISODate !== b.dueISODate) {
+        return a.dueISODate.localeCompare(b.dueISODate);
+      }
+      return a.dueTime.localeCompare(b.dueTime);
     });
-
     return list;
   }
 
