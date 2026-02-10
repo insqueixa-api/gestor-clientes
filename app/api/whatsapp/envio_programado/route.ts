@@ -302,22 +302,31 @@ export async function POST(req: Request) {
   const sb = createClient(supabaseUrl, serviceKey);
 
   // =========================
-  // 1) Autorização: CRON ou USER
+  // 1) Autorização BLINDADA: CRON ou USER
   // =========================
-  const cronSecret = process.env.UNIGESTOR_CRON_SECRET;
-  const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
+  
+  // Pega o cabeçalho Authorization (padrão Vercel e padrão JWT)
+  const authHeader = req.headers.get("authorization");
+  
+  // Pega a senha mestra que definimos nas variáveis de ambiente
+  const cronSecret = process.env.CRON_SECRET; 
+
+  // Verifica se é o Cron da Vercel (O "Crachá" bate com a senha?)
+  // A Vercel envia "Bearer SUA_SENHA", então comparamos direto
+  const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
 
   let authedUserId: string | null = null;
 
+  // Se NÃO for o Cron, tenta autenticar como usuário logado (Front-end)
   if (!isCron) {
-    const token = getBearerToken(req);
+    const token = getBearerToken(req); // Sua função auxiliar
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: No Token" }, { status: 401 });
     }
 
     const { data, error } = await sb.auth.getUser(token);
     if (error || !data?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized: Invalid User" }, { status: 401 });
     }
 
     authedUserId = data.user.id;

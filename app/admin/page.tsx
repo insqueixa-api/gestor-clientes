@@ -428,27 +428,34 @@ return (
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
 
         <MetricCardView
-          title="Recebidos Hoje"
-          accent="green"
-          leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
-          leftValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+  title="Recebidos Hoje"
+  accent="green"
+  leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
+  leftValue={
+    <>
+      <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+      <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
+    </>
+  }
+  rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
+  rightValue={
+    <>
+      <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
+      <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
+    </>
+  }
+  footer={
+    <>
+      <span className="sm:hidden">
+        Total: {fmtBRLNoSymbol(clientsTodayVal + resellerTodayVal)}
+      </span>
+      <span className="hidden sm:inline">
+        Total: {fmtBRL(clientsTodayVal + resellerTodayVal)}
+      </span>
+    </>
+  }
+/>
 
-
-    <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
-  </>
-}
-          rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
-          rightValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
-
-    <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
-  </>
-}
-          footer="Hoje"
-        />
 
         <MetricCardView
           title="Faturamento (Mês)"

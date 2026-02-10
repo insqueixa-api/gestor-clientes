@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react"; // Removi useMemo não usado
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+
 
 
 
@@ -193,42 +194,48 @@ const addToast = (
 
 
     try {
-        // 1. Automações
-        const { data: autoData } = await supabaseBrowser
-        .from("billing_automations")
-        .select(`*, message_template:message_templates(id, name)`)
-        .eq("tenant_id", tid)
-        .order("created_at", { ascending: false });
+        const [
+  autoRes,
+  clientRes,
+  msgRes,
+  srvRes,
+  appRes,
+  waProfRes,
+] = await Promise.all([
+  supabaseBrowser
+    .from("billing_automations")
+    .select(`*, message_template:message_templates(id, name)`)
+    .eq("tenant_id", tid)
+    .order("created_at", { ascending: false }),
 
+  supabaseBrowser
+    .from("vw_clients_list_active_compat")
+    .select(`
+      id,
+      display_name:client_name,
+      whatsapp_username,
+      server_id,
+      server_name,
+      plan_label:plan_name,
+      vencimento,
+      created_at,
+      computed_status
+    `)
+    .eq("tenant_id", tid),
 
-        // 2. Clientes (Para calcular impacto em tempo real)
-        // Usamos a view active para pegar status computado e server name
-        const { data: clientData } = await supabaseBrowser
-        .from("vw_clients_list_active_compat")
-        .select(`
-            id,
-            display_name:client_name,
-            whatsapp_username,
-            server_id,
-            server_name,
-            plan_label:plan_name,
-            vencimento,
-            created_at,
-            computed_status
-        `)
-        .eq("tenant_id", tid);
-
-
-        // 3. Auxiliares
-const [msgRes, srvRes, appRes, waProfRes] = await Promise.all([
   supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
   supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
   supabaseBrowser.from("apps").select("id, name").eq("tenant_id", tid),
+
   fetch("/api/whatsapp/profile", { cache: "no-store" }).then(async (r) => {
     const j = await r.json().catch(() => ({} as any));
     return { ok: r.ok, json: j };
   }),
 ]);
+
+const autoData = autoRes.data;
+const clientData = clientRes.data;
+
 
 const sessions: SelectOption[] = (() => {
   // se a API falhar, assume desconectado
@@ -355,99 +362,143 @@ const { error } = await supabaseBrowser
 }
 
 
-
   // --- LÓGICA DE FILTRO (IMPACTO) ---
-// ✅ Bloco único (sem duplicação), timezone-safe, status normalizado
+  // ✅ Bloco único (sem duplicação), timezone-safe, status normalizado
 
+  /** Retorna YYYY-MM-DD no timezone informado (timezone-safe) */
+  function dateKeyInTZ(input: Date | string, tz = BILLING_TZ): string {
+    const d = typeof input === "string" ? new Date(input) : input;
 
-/** Retorna YYYY-MM-DD no timezone informado (timezone-safe) */
-function dateKeyInTZ(input: Date | string, tz = BILLING_TZ): string {
-  const d = typeof input === "string" ? new Date(input) : input;
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
 
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+    return fmt.format(d); // YYYY-MM-DD
+  }
 
-  return fmt.format(d); // YYYY-MM-DD
-}
+  /**
+   * Soma dias de forma estável:
+   * - Usa chave YYYY-MM-DD no TZ
+   * - Cria data base em UTC meio-dia (evita DST/shift)
+   * - Retorna chave final no TZ
+   */
+  function addDaysAsDateKeyInTZ(dateStr: string, days: number, tz = BILLING_TZ): string {
+    const key = dateKeyInTZ(dateStr, tz);
+    const [y, m, d] = key.split("-").map(Number);
 
-/**
- * Soma dias de forma estável:
- * - Usa chave YYYY-MM-DD no TZ
- * - Cria data base em UTC meio-dia (evita DST/shift)
- * - Retorna chave final no TZ
- */
-function addDaysAsDateKeyInTZ(dateStr: string, days: number, tz = BILLING_TZ): string {
-  const key = dateKeyInTZ(dateStr, tz);
-  const [y, m, d] = key.split("-").map(Number);
+    const base = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    base.setUTCDate(base.getUTCDate() + Number(days));
 
-  const base = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  base.setUTCDate(base.getUTCDate() + Number(days));
+    return dateKeyInTZ(base, tz);
+  }
 
-  return dateKeyInTZ(base, tz);
-}
+  /** Normaliza o status vindo da view para o padrão do sistema */
+  function normalizeClientStatus(
+    raw: any
+  ): "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string {
+    const s = String(raw ?? "").trim().toUpperCase();
 
-/** Normaliza o status vindo da view para o padrão do sistema */
-function normalizeClientStatus(raw: any): "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string {
-  const s = String(raw ?? "").trim().toUpperCase();
+    // já no padrão
+    if (["ACTIVE", "OVERDUE", "TRIAL", "ARCHIVED"].includes(s)) return s;
 
-  // já no padrão
-  if (["ACTIVE", "OVERDUE", "TRIAL", "ARCHIVED"].includes(s)) return s;
+    // pt-br comuns
+    if (s === "ATIVO") return "ACTIVE";
+    if (s === "VENCIDO" || s === "ATRASADO" || s === "INADIMPLENTE") return "OVERDUE";
+    if (s === "TESTE") return "TRIAL";
+    if (s === "ARQUIVADO") return "ARCHIVED";
 
-  // pt-br comuns
-  if (s === "ATIVO") return "ACTIVE";
-  if (s === "VENCIDO" || s === "ATRASADO" || s === "INADIMPLENTE") return "OVERDUE";
-  if (s === "TESTE") return "TRIAL";
-  if (s === "ARQUIVADO") return "ARCHIVED";
+    return s; // fallback
+  }
 
-  return s; // fallback
-}
+  function dayOfWeekInTZ(d: Date = new Date(), tz = BILLING_TZ): number {
+    // 0=Dom ... 6=Sáb (igual seu DAYS_OF_WEEK)
+    const wd = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(d);
+    const map: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    return map[wd] ?? d.getDay();
+  }
 
-const getImpactedClients = (rule: Automation) => {
-  const todayKey = dateKeyInTZ(new Date(), BILLING_TZ);
+  function shouldRunToday(rule: Automation): boolean {
+    // Se for automático, respeita os dias da semana (timezone SP).
+    if (!rule.is_automatic) return true;
 
-  // ✅ normaliza também os alvos da regra (podem vir pt-br ou já em enum)
-  const ruleStatuses =
-    rule.target_status?.length ? rule.target_status.map(normalizeClientStatus) : null;
+    const todayDow = dayOfWeekInTZ(new Date(), BILLING_TZ);
+    const days = Array.isArray(rule.schedule_days) ? rule.schedule_days : [];
+    if (days.length === 0) return true; // sem filtro => assume todos
+    return days.includes(todayDow);
+  }
 
-  return clients.filter((client) => {
-    // 1) STATUS
-    const clientStatus = normalizeClientStatus(client.computed_status);
+  function normalizeRuleDateField(raw: any): "vencimento" | "created_at" {
+    const s = String(raw ?? "").trim().toLowerCase();
+    if (s === "vencimento") return "vencimento";
+    if (s === "cadastro") return "created_at";
+    if (s === "created_at") return "created_at";
+    return "created_at";
+  }
 
-    if (ruleStatuses?.length) {
-      if (!ruleStatuses.includes(clientStatus)) return false;
+  const getImpactedClients = (rule: Automation): ClientLight[] => {
+    // ✅ Se for automático e hoje não está na agenda, já retorna vazio
+    if (!shouldRunToday(rule)) return [];
+
+    const todayKey = dateKeyInTZ(new Date(), BILLING_TZ);
+
+    // ✅ normaliza também os alvos da regra (podem vir pt-br ou já em enum)
+    const ruleStatuses = rule.target_status?.length
+      ? rule.target_status.map(normalizeClientStatus)
+      : null;
+
+    return clients.filter((client) => {
+      // 1) STATUS
+      const clientStatus = normalizeClientStatus(client.computed_status);
+
+      if (ruleStatuses?.length) {
+        if (!ruleStatuses.includes(clientStatus)) return false;
+      }
+
+      // 2) SERVIDOR
+      if (rule.target_servers?.length) {
+        if (!rule.target_servers.includes(client.server_id)) return false;
+      }
+
+      // 3) PLANO
+      if (rule.target_plans?.length) {
+        const plan = String(client.plan_label ?? "");
+        if (!rule.target_plans.includes(plan)) return false;
+      }
+
+      // 4) DATA (timezone-safe)
+      const field = normalizeRuleDateField(rule.rule_date_field);
+      const targetDateStr = field === "vencimento" ? client.vencimento : client.created_at;
+      if (!targetDateStr) return false;
+
+      const expectedKey = addDaysAsDateKeyInTZ(
+        targetDateStr,
+        Number(rule.rule_days_diff),
+        BILLING_TZ
+      );
+
+      return expectedKey === todayKey;
+    });
+  };
+
+  const impactedByRule = useMemo(() => {
+    const map = new Map<string, ClientLight[]>();
+    for (const r of automations) {
+      map.set(r.id, getImpactedClients(r));
     }
-
-    // 2) SERVIDOR
-    if (rule.target_servers?.length) {
-      if (!rule.target_servers.includes(client.server_id)) return false;
-    }
-
-    // 3) PLANO
-    if (rule.target_plans?.length) {
-      const plan = String(client.plan_label ?? "");
-      if (!rule.target_plans.includes(plan)) return false;
-    }
-
-    // 4) DATA (timezone-safe)
-    // Obs: no seu Wizard você usa "cadastro" no select, mas no client é created_at.
-    const field = rule.rule_date_field === "vencimento" ? "vencimento" : "created_at";
-
-    const targetDateStr = field === "vencimento" ? client.vencimento : client.created_at;
-    if (!targetDateStr) return false;
-
-    const expectedKey = addDaysAsDateKeyInTZ(
-      targetDateStr,
-      Number(rule.rule_days_diff),
-      BILLING_TZ
-    );
-
-    return expectedKey === todayKey;
-  });
-};
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automations, clients]);
 
 
   const handleManualRun = async (rule: Automation) => {
@@ -545,24 +596,23 @@ return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
 
            {filtered.map((auto) => {
-             const impacted = getImpactedClients(auto);
-             return (
-                <AutomationCard 
-                key={auto.id} 
-                data={auto}
-                impactCount={impacted.length}
-                onToggle={() => toggleActive(auto)} 
+  const impacted = impactedByRule.get(auto.id) ?? [];
+  return (
+    <AutomationCard 
+      key={auto.id} 
+      data={auto}
+      impactCount={impacted.length}
+      onToggle={() => toggleActive(auto)}
+      onDelete={() => handleDelete(auto.id)}
+      onEdit={() => setWizardState({ show: true, editingRule: auto })}
+      onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted })}
+      onControl={(action) => handleControl(auto, action)}
+      onShowLogs={() => setLogsModalData({ ruleId: auto.id, ruleName: auto.name })}
+      onRun={() => handleManualRun(auto)}
+    />
+  );
+})}
 
-                onDelete={() => handleDelete(auto.id)}
-                onEdit={() => setWizardState({ show: true, editingRule: auto })}
-                onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted })}
-                onControl={(action) => handleControl(auto, action)}
-                onShowLogs={() => setLogsModalData({ ruleId: auto.id, ruleName: auto.name })}
-                onRun={() => handleManualRun(auto)}   // ✅
-                />
-
-             );
-           })}
         </div>
       )}
 
@@ -600,10 +650,7 @@ return (
   );
 }
 
-// ============================================================================
-// ============================================================================
-// CARD COMPACTO (3 POR LINHA) - CORRIGIDO
-// ============================================================================
+
 // ============================================================================
 // CARD COMPACTO (3 POR LINHA) - CORRIGIDO
 // ============================================================================
