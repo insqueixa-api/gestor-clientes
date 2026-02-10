@@ -275,10 +275,17 @@ export default function ClientePage() {
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
 // --- ADICIONAR ESTE useEffect ---
-  // Captura o clique vindo do Dashboard
+// Captura o clique vindo do Dashboard
   useEffect(() => {
     const filterParam = searchParams.get("filter");
     if (filterParam) {
+      // ✅ Caso especial: Filtro de Ativos muda o Status, não o Vencimento
+      if (filterParam === "ativos") {
+        setStatusFilter("Ativo");
+        return;
+      }
+
+      // Demais filtros mudam o Vencimento (DueFilter)
       const map: Record<string, string> = {
         "venceu_ontem": "Venceu Ontem",
         "venceu_2_dias": "Venceu há 2 dias",
@@ -768,26 +775,22 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
     if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
 
     if (dueFilter !== "Todos") {
-        const diff = getDiffDays(r.dueISODate); // Calcula a diferença para a linha
+        const diff = getDiffDays(r.dueISODate);
 
         switch(dueFilter) {
+          case "Venceu há 2 dias": if (diff !== -2) return false; break;
+          case "Venceu Ontem": if (diff !== -1) return false; break;
           case "Hoje": if (diff !== 0) return false; break;
           case "Vence Amanhã": if (diff !== 1) return false; break;
-          case "Venceu Ontem": if (diff !== -1) return false; break;
-          case "Venceu há 2 dias": if (diff !== -2) return false; break;
           case "Vence em 2 dias": if (diff !== 2) return false; break;
-          case "Vencidos": if (r.status !== "Vencido") return false; break;
           
-          case "Próximos 3 dias": 
-             // Hoje (0) até +3 dias
-             if (diff < 0 || diff > 3) return false; 
-             break;
             
           case "Mês Atual":
             // Compara se o prefixo YYYY-MM é igual
             const currentMonth = isoDateInSaoPaulo().slice(0, 7);
             if (!r.dueISODate.startsWith(currentMonth)) return false;
             break;
+          
         }
       }
 
@@ -1505,12 +1508,15 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     </Select>
   </div>
 
-  <div className="w-[210px]">
+<div className="w-[210px]">
     <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
       <option value="Todos">Vencimento (Todos)</option>
+      <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+      <option value="Venceu Ontem">Venceu Ontem</option>
       <option value="Hoje">Hoje</option>
-      <option value="Próximos 3 dias">Próximos 3 dias</option>
-      <option value="Vencidos">Vencidos</option>
+      <option value="Vence Amanhã">Vence Amanhã</option>
+      <option value="Vence em 2 dias">Vence em 2 dias</option>
+      <option value="Mês Atual">Mês Atual</option>
     </Select>
   </div>
 
@@ -1733,13 +1739,13 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                   </Th>
                   <ThSort label="Cliente" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
                   <ThSort label="Vencimento" active={sortKey === "due"} dir={sortDir} onClick={() => toggleSort("due")} />
-                  <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
-                  <ThSort label="Servidor" active={sortKey === "server"} dir={sortDir} onClick={() => toggleSort("server")} />
-                  <ThSort label="Tecnologia" active={sortKey === "technology"} dir={sortDir} onClick={() => toggleSort("technology")} />
-                  <ThSort label="Telas" active={sortKey === "screens"} dir={sortDir} onClick={() => toggleSort("screens")} />
-                  <ThSort label="Plano" active={sortKey === "plan"} dir={sortDir} onClick={() => toggleSort("plan")} />
-                  <ThSort label="Valor" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} />
-                  <ThSort label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} />
+                  <Th align="center"><SortClick label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} /></Th>
+                  <Th align="center"><SortClick label="Servidor" active={sortKey === "server"} dir={sortDir} onClick={() => toggleSort("server")} /></Th>
+                  <Th align="center"><SortClick label="Tecnologia" active={sortKey === "technology"} dir={sortDir} onClick={() => toggleSort("technology")} /></Th>
+                  <Th align="center"><SortClick label="Telas" active={sortKey === "screens"} dir={sortDir} onClick={() => toggleSort("screens")} /></Th>
+                  <Th align="center"><SortClick label="Plano" active={sortKey === "plan"} dir={sortDir} onClick={() => toggleSort("plan")} /></Th>
+                  <Th align="center"><SortClick label="Valor" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} /></Th>
+                  <Th align="center"><SortClick label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} /></Th>
                   <Th align="right">Ações</Th>  
                 </tr>
               </thead>
@@ -1823,8 +1829,22 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   </div>
 </Td>
 
-                      <Td>
-                        <StatusBadge status={r.status} />
+                      <Td align="center">
+                        <div className="flex flex-col items-center">
+                          <StatusBadge status={r.status} />
+                          {/* ✅ Lógica do Sub-status Colorido */}
+                          {(() => {
+                             const diff = getDiffDays(r.dueISODate);
+                             const info = getSubStatusInfo(diff, r.status);
+                             if (!info) return null;
+                             
+                             return (
+                               <span className={`text-[10px] font-bold mt-1 whitespace-nowrap ${info.color}`}>
+                                 {info.text}
+                               </span>
+                             );
+                          })()}
+                        </div>
                       </Td>
 
                       <Td>
@@ -2520,12 +2540,13 @@ function Select({
   );
 }
 
-const ALIGN_CLASS: Record<"left" | "right", string> = {
+const ALIGN_CLASS: Record<"left" | "right" | "center", string> = {
   left: "text-left",
   right: "text-right",
+  center: "text-center",
 };
 
-function Th({ children, width, align = "left" }: { children: React.ReactNode; width?: number; align?: "left" | "right" }) {
+function Th({ children, width, align = "left" }: { children: React.ReactNode; width?: number; align?: "left" | "right" | "center" }) {
   return (
     <th className={`px-4 py-3 ${ALIGN_CLASS[align]}`} style={{ width }}>
       {children}
@@ -2546,10 +2567,21 @@ function ThSort({ label, active, dir, onClick }: { label: string; active: boolea
   );
 }
 
-function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
-  return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle`}>{children}</td>;
+// ✅ Componente auxiliar para cabeçalhos centralizados clicáveis (já que ThSort é fixo a esquerda)
+function SortClick({ label, onClick, active, dir }: { label: string; onClick: () => void; active: boolean; dir: SortDir }) {
+  return (
+    <div onClick={onClick} className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors">
+      {label}
+      <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40"}`}>
+        {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
+      </span>
+    </div>
+  );
 }
 
+function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" | "center" }) {
+  return <td className={`px-4 py-3 ${ALIGN_CLASS[align]} align-middle`}>{children}</td>;
+}
 
 function ScheduledMessagesModal({
   tenantId,

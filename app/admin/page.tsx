@@ -372,7 +372,7 @@ return (
 
       {/* CARDS TOPO */}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
-        <MetricCardView
+<MetricCardView
           title="Ativos"
           accent="green"
           leftLabel="Clientes"
@@ -380,6 +380,7 @@ return (
           rightLabel="MRR Estimado"
           rightValue={fmtBRL(activeMrr)}
           footer="Mês atual"
+          href="/admin/cliente?filter=ativos" // <--- Link para lista filtrada
         />
 
 <MetricCardView
@@ -393,7 +394,7 @@ return (
           href="/admin/cliente?filter=vencidos" 
         />
 
-        <MetricCardView
+<MetricCardView
           title="Testes"
           accent="blue"
           leftLabel="Criados"
@@ -401,6 +402,7 @@ return (
           rightLabel="Conversão"
           rightValue={fmtPct(trialsConvPct)}
           footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
+          href="/admin/teste" // <--- Link direto para página de testes
         />
       </div>
 
