@@ -279,32 +279,44 @@ export default function ClientePage() {
   useEffect(() => {
     const filterParam = searchParams.get("filter");
     if (filterParam) {
-      
       // 1. Filtros de STATUS (Ativos ou Vencidos vindo dos Cards)
       if (filterParam === "ativos") {
         setStatusFilter("Ativo");
-        setDueFilter("Todos"); // Garante limpar filtro de data
+        setDueFilter("Todos"); 
         return;
       }
       if (filterParam === "vencidos") {
         setStatusFilter("Vencido");
-        setDueFilter("Todos"); // Garante limpar filtro de data
+        setDueFilter("Todos"); 
         return;
       }
 
-      // 2. Filtros de DATA (VencimentoCard)
+      // 2. Filtros de DATA
       const map: Record<string, string> = {
         "venceu_ontem": "Venceu Ontem",
         "venceu_2_dias": "Venceu há 2 dias",
-        "vence_hoje": "Hoje", // Ajuste para bater com o <option>
+        "vence_hoje": "Hoje",
         "vence_amanha": "Vence Amanhã",
         "vence_2_dias": "Vence em 2 dias",
         "mes_atual": "Mês Atual",
-        // removemos "vencidos" daqui pois agora é status
       };
       if (map[filterParam]) {
         setDueFilter(map[filterParam]);
       }
+    } else {
+      // ✅ RESET TOTAL (Quando clica no menu Clientes ou limpa a URL)
+      // Isso funciona como um "Refresh" da regra de negócio da tela
+      setSearch("");
+      setStatusFilter("Todos");
+      setServerFilter("Todos");
+      setPlanFilter("Todos");
+      setDueFilter("Todos");
+      setArchivedFilter("Não");
+      
+      // Reseta ordenação para o padrão inteligente
+      setSortKey("due");
+      setSortDir("asc");
+      setIsDefaultSort(true);
     }
   }, [searchParams]);
 
@@ -1528,19 +1540,25 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     </Select>
   </div>
 
-  <button
-    onClick={() => {
-      setSearch("");
-      setStatusFilter("Todos");
-      setServerFilter("Todos");
-      setPlanFilter("Todos");
-      setDueFilter("Todos");
-      setArchivedFilter("Não");
-    }}
-    className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-  >
-    <IconX /> Limpar
-  </button>
+<button
+  onClick={() => {
+    // Limpa filtros
+    setSearch("");
+    setStatusFilter("Todos");
+    setServerFilter("Todos");
+    setPlanFilter("Todos");
+    setDueFilter("Todos");
+    setArchivedFilter("Não");
+    
+    // ✅ RESETA ORDENAÇÃO (Volta para o padrão inteligente)
+    setSortKey("due");
+    setSortDir("asc");
+    setIsDefaultSort(true);
+  }}
+  className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+>
+  <IconX /> Limpar
+</button>
 </div>
 
 
@@ -1623,19 +1641,25 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
     {/* ✅ Limpar */}
     <button
-      onClick={() => {
-        setSearch("");
-        setStatusFilter("Todos");
-        setServerFilter("Todos");
-        setPlanFilter("Todos");
-        setDueFilter("Todos");
-        setArchivedFilter("Não");
-        setMobileFiltersOpen(false);
-      }}
-      className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-    >
-      <IconX /> Limpar
-    </button>
+  onClick={() => {
+    setSearch("");
+    setStatusFilter("Todos");
+    setServerFilter("Todos");
+    setPlanFilter("Todos");
+    setDueFilter("Todos");
+    setArchivedFilter("Não");
+    
+    // ✅ RESETA ORDENAÇÃO
+    setSortKey("due");
+    setSortDir("asc");
+    setIsDefaultSort(true);
+    
+    setMobileFiltersOpen(false);
+  }}
+  className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+>
+  <IconX /> Limpar
+</button>
   </div>
 )}
 
@@ -2607,9 +2631,10 @@ function ThSort({ label, active, dir, onClick }: { label: string; active: boolea
 // ✅ Componente auxiliar para cabeçalhos centralizados clicáveis (já que ThSort é fixo a esquerda)
 function SortClick({ label, onClick, active, dir }: { label: string; onClick: () => void; active: boolean; dir: SortDir }) {
   return (
-    // ✅ Alterado para 'flex w-full justify-center' para garantir o centro absoluto na célula
-    <div onClick={onClick} className="flex w-full justify-center items-center gap-1.5 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors py-1">
+    // ✅ Alterado: 'justify-center' puro e gap menor para garantir alinhamento visual com a coluna
+    <div onClick={onClick} className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors h-full w-full">
       <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
+      {/* Ícone condicional para não empurrar o texto quando inativo (opcional, mas ajuda na centralização visual exata) */}
       <span className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-30"}`}>
         {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
       </span>
