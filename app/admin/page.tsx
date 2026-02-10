@@ -453,7 +453,7 @@ return (
         Total: {fmtBRL(clientsTodayVal + resellerTodayVal)}
       </span>
     </>
-  }
+  } 
 />
 
 
