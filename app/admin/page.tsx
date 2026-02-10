@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "./simplebarchart";
 import type { ReactNode } from "react";
-
+import Link from "next/link"; // <--- ADICIONAR ISSO
 export const dynamic = "force-dynamic";
 
 /* =====================
@@ -382,7 +382,7 @@ return (
           footer="Mês atual"
         />
 
-        <MetricCardView
+<MetricCardView
           title="Vencidos"
           accent="red"
           leftLabel="Clientes"
@@ -390,6 +390,7 @@ return (
           rightLabel="Pendente"
           rightValue={fmtBRL(overdueAmount)}
           footer="Mês atual"
+          href="/admin/cliente?filter=vencidos" 
         />
 
         <MetricCardView
@@ -612,6 +613,15 @@ function VencimentoCard({
   color: Accent;
 }) {
   const d = map.get(diff) ?? { qty: 0, amount: 0 };
+
+  // Mapeia o diff para o slug do filtro na página de clientes
+  let filterSlug = "";
+  if (diff === -2) filterSlug = "venceu_2_dias";
+  if (diff === -1) filterSlug = "venceu_ontem";
+  if (diff === 0)  filterSlug = "vence_hoje";
+  if (diff === 1)  filterSlug = "vence_amanha";
+  if (diff === 2)  filterSlug = "vence_2_dias";
+
   return (
     <MetricCardView
       title={title}
@@ -620,6 +630,8 @@ function VencimentoCard({
       leftValue={fmtInt(d.qty)}
       rightLabel="Valor"
       rightValue={fmtBRL(d.amount)}
+      // Passa o link se houver slug
+      href={filterSlug ? `/admin/cliente?filter=${filterSlug}` : undefined}
     />
   );
 }
@@ -632,6 +644,7 @@ function MetricCardView({
   rightLabel,
   rightValue,
   footer,
+  href, // <--- NOVO PROP
 }: {
   title: string;
   accent: Accent;
@@ -640,6 +653,7 @@ function MetricCardView({
   rightLabel?: string;
   rightValue?: ReactNode;
   footer?: ReactNode;
+  href?: string; // <--- TIPO NOVO
 }) {
 
   const colors: Record<Accent, string> = {
@@ -657,46 +671,60 @@ function MetricCardView({
       "border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100",
   };
 
-  return (
-    <div className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[accent]}`}>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between">
+  // Extraimos o conteúdo para não duplicar código
+  const content = (
+    <>
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
         {title}
+        {/* Ícone discreto indicando link */}
+        {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
       <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
+            {leftLabel}
+          </div>
+          <div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+            {leftValue}
+          </div>
+        </div>
 
-  <div className="min-w-0 flex-1">
-
-    <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
-      {leftLabel}
-    </div>
-<div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
-  {leftValue}
-</div>
-
-  </div>
-
-  {rightLabel && rightValue && (
-    <div className="text-right min-w-0 flex-1">
-
-      <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
-        {rightLabel}
+        {rightLabel && rightValue && (
+          <div className="text-right min-w-0 flex-1">
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
+              {rightLabel}
+            </div>
+            <div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+              {rightValue}
+            </div>
+          </div>
+        )}
       </div>
-<div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
-  {rightValue}
-</div>
 
-    </div>
-  )}
-</div>
-
-{footer && (
-  <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
-    {footer}
-  </div>
-)}
-
-    </div>
+      {footer && (
+        <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
+          {footer}
+        </div>
+      )}
+    </>
   );
+
+  const baseClass = `rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[accent]}`;
+
+  // Se tiver link, retorna Link. Senão, retorna div.
+  if (href) {
+    return (
+      <Link 
+        href={href} 
+        target="_blank" // Nova aba
+        className={`${baseClass} hover:scale-[1.02] transition-transform cursor-pointer hover:shadow-md`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={baseClass}>{content}</div>;
 }
 
 function BarCard({ title, items }: { title: string; items: BarItem[] }) {
