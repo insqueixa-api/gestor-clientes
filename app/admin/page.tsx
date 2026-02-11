@@ -380,7 +380,7 @@ return (
           rightLabel="MRR Estimado"
           rightValue={fmtBRL(activeMrr)}
           footer="Mês atual"
-          href="/portal/admin/cliente?filter=ativos" // ✅ Abre lista filtrada por Status: Ativo
+          href="/admin/cliente?filter=ativos" // ✅ Abre lista filtrada por Status: Ativo
         />
 
 <MetricCardView
@@ -391,7 +391,7 @@ return (
           rightLabel="Pendente"
           rightValue={fmtBRL(overdueAmount)}
           footer="Mês atual"
-          href="/portal/admin/cliente?filter=vencidos" // ✅ Abre lista filtrada por Status: Vencido
+          href="/admin/cliente?filter=vencidos" // ✅ Abre lista filtrada por Status: Vencido
         />
 
 <MetricCardView
@@ -402,7 +402,7 @@ return (
           rightLabel="Conversão"
           rightValue={fmtPct(trialsConvPct)}
           footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
-          href="/portal/admin/teste" // <--- Link direto para página de testes
+          href="/admin/teste" // <--- Link direto para página de testes
         />
       </div>
 
@@ -640,7 +640,7 @@ function VencimentoCard({
       rightLabel="Valor"
       rightValue={fmtBRL(d.amount)}
       // Passa o link se houver slug
-      href={filterSlug ? `/portal/admin/cliente?filter=${filterSlug}` : undefined}
+      href={filterSlug ? `/admin/cliente?filter=${filterSlug}` : undefined}
     />
   );
 }

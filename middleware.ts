@@ -45,20 +45,20 @@ export async function middleware(request: NextRequest) {
   // --- REGRAS DE PROTEÇÃO ATUALIZADAS ---
 
   // A. Proteção da nova pasta PORTAL (antigo /admin)
-  if (!user && url.pathname.startsWith('/portal')) {
+  if (!user && url.pathname.startsWith('/admin')) {
     // Se não está logado e tenta entrar no portal, manda para a tela de login
-    // Como o seu login agora ESTÁ no /portal, precisamos cuidar para não dar loop
-    if (url.pathname !== '/portal') {
-      return NextResponse.redirect(new URL('/portal', request.url));
+    
+    if (url.pathname !== '/admin') {
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
   }
 
   // B. Se já estiver logado e tentar acessar a raiz / ou o /portal (estando na tela de login)
   // Redireciona para o Dashboard interno
-  if (user && url.pathname === '/portal') {
+  if (user && url.pathname === '/admin') {
      // Aqui você redireciona para a página interna do seu dashboard
-     // Exemplo: se o dashboard for /portal/dashboard ou algo assim
-     // return NextResponse.redirect(new URL('/portal/dashboard', request.url));
+     
+     
   }
 
   return response;
