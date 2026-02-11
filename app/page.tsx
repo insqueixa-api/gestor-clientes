@@ -53,21 +53,19 @@ export default function AreaDoCliente() {
         return;
       }
 
-      // 2. Chama sua API da VM para enviar a mensagem
-      // Aqui você deve disparar o fetch para a sua rota /send que configuramos na VM
-      const response = await fetch("https://unigestor.net.br/api/whatsapp/send-pin", {
+      // 2. Chama sua API interna para enviar a mensagem
+      const response = await fetch("/api/whatsapp/send-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            phone: cleanPhone, 
-            message: `Olá! Seu PIN de acesso ao UniGestor é: ${data.access_pin || data.whatsapp.slice(-4)}` 
-        }),
+        body: JSON.stringify({ phone: cleanPhone }),
       });
+
+      const resData = await response.json();
 
       if (response.ok) {
         setMsg({ text: "PIN enviado para seu WhatsApp!", type: "success" });
       } else {
-        throw new Error();
+        throw new Error(resData.error || "Erro desconhecido");
       }
 
     } catch (err) {
@@ -79,7 +77,7 @@ export default function AreaDoCliente() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-6 py-10 bg-slate-50 dark:bg-[#0f141a]">
-      {/* Fundo com gradiente (Mantido) */}
+      {/* Fundo com gradiente */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />

@@ -1,10 +1,16 @@
 // app/admin/layout.tsx (SERVER)
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Dashboard | UniGestor", // <--- O NOME QUE VAI NA ABA
+  description: "Painel Administrativo",
+};
 
 type TenantMemberRow = {
   tenant_id: string;
