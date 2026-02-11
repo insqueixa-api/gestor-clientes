@@ -123,16 +123,18 @@ function renderTemplate(text: string, vars: Record<string, string>) {
 }
 
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
-  const now = new Date(); // Travado em SP pelas helpers
+  const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
 
-  const displayName = String(row.display_name ?? row.name ?? row.full_name ?? row.nome ?? "").trim();
+  // 1. DADOS BÁSICOS (Mapeados exatamente da sua vw_clients_list_active)
+  const displayName = String(row.client_name ?? row.name ?? "").trim(); // NOME EXATO DO BANCO
   const primeiroNome = displayName.split(" ")[0] || "";
   const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim();
   const saudacao = namePrefix || (displayName ? displayName : "");
 
-  const createdAt = safeDate(row.created_at ?? row.createdAt);
-  const dueAt = safeDate(row.vencimento ?? row.due_at ?? row.due_date ?? row.expire_at ?? row.expires_at);
+  // 2. DATAS
+  const createdAt = safeDate(row.created_at);
+  const dueAt = safeDate(row.vencimento);
 
   const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
 
@@ -148,12 +150,16 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     }
   }
 
-  // ✅ NOVO: Geração do Link de Pagamento Seguro
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gestor-clientes-psi.vercel.app";
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp || "");
-  const linkPagamento = cleanPhone ? `${appUrl}/pagamento/${cleanPhone}` : "";
+  // 3. O LINK ENCURTADO E SEGURO (Fixo no domínio de produção)
+  const appUrl = "https://unigestor.net.br";
+  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+  const linkPagamento = cleanPhone ? `${appUrl}/p/${cleanPhone}` : "";
 
-  // Mapeamento EXATO das variáveis da sua tela de Mensagens
+  // 4. PREÇO (Mapeado exatamente de price_amount)
+  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
+  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
+
+  // 5. RETORNO DE TODAS AS VARIÁVEIS
   return {
     // 🤖 Automação & Prazos
     saudacao_tempo: saudacaoTempo(now),
@@ -169,13 +175,13 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     primeiro_nome: primeiroNome,
     nome_completo: displayName,
     whatsapp: row.whatsapp_username || "",
-    observacoes: row.notes || "",
+    observacoes: row.notes || "", // Mantido como fallback se um dia você adicionar notes
     data_cadastro: createdAt ? toBRDate(createdAt) : "",
 
-    // 🖥️ Acesso e Servidor
-    usuario_app: row.server_username || "",
+    // 🖥️ Acesso e Servidor (Nomes exatos do Banco)
+    usuario_app: row.username || "",
     senha_app: row.server_password || "",
-    plano_nome: row.plan_name || row.plan_label || "",
+    plano_nome: row.plan_name || "",
     telas_qtd: String(row.screens || ""),
     tecnologia: row.technology || "",
     servidor_nome: row.server_name || "",
@@ -185,17 +191,17 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     hora_vencimento: dueAt ? toBRTime(dueAt) : "",
     dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
 
-    // 🏢 Revenda (Se aplicável)
+    // 🏢 Revenda (Mantido compatibilidade caso haja revendas depois)
     revenda_nome: row.reseller_name || "",
     revenda_site: row.reseller_panel_url || "",
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
 
     // 💰 Financeiro
-    pix_copia_cola: row.pix_code || "",
-    link_pagamento: linkPagamento, // <- O LINK ENTRA AQUI
-    chave_pix_manual: row.pix_manual || "",
-    valor_fatura: row.price ? `R$ ${Number(row.price).toFixed(2).replace('.', ',')}` : "",
+    link_pagamento: linkPagamento, 
+    pix_copia_cola: row.pix_code || "", 
+    chave_pix_manual: row.pix_manual || "", 
+    valor_fatura: valorFaturaStr,
 
     // Legado (Para não quebrar o que já existia)
     nome: displayName,
