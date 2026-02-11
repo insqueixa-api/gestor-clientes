@@ -37,26 +37,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 2. Verifica o usuário (Isso dispara o setAll se o token precisar de refresh)
+// 2. Verifica o usuário
   const { data: { user } } = await supabase.auth.getUser();
 
-  // --- REGRAS DE PROTEÇÃO ---
+  const url = request.nextUrl.clone();
 
-  // A. Se NÃO estiver logado e tentar acessar área /admin -> Manda para Login
-  if (!user && request.nextUrl.pathname.startsWith('/admin')) {
-    const loginUrl = new URL('/login', request.url);
-    // Removemos o parâmetro 'next' para simplificar, já que o redirect padrão do login é /admin
-    return NextResponse.redirect(loginUrl);
+  // --- REGRAS DE PROTEÇÃO ATUALIZADAS ---
+
+  // A. Proteção da nova pasta PORTAL (antigo /admin)
+  if (!user && url.pathname.startsWith('/portal')) {
+    // Se não está logado e tenta entrar no portal, manda para a tela de login
+    // Como o seu login agora ESTÁ no /portal, precisamos cuidar para não dar loop
+    if (url.pathname !== '/portal') {
+      return NextResponse.redirect(new URL('/portal', request.url));
+    }
   }
 
-  // B. Se JÁ estiver logado e tentar acessar /login -> Manda para Admin
-  if (user && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/admin', request.url));
-  }
-
-  // C. Se estiver logado e na raiz /, manda para /admin (Opcional, boa prática)
-  if (user && request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/admin', request.url));
+  // B. Se já estiver logado e tentar acessar a raiz / ou o /portal (estando na tela de login)
+  // Redireciona para o Dashboard interno
+  if (user && url.pathname === '/portal') {
+     // Aqui você redireciona para a página interna do seu dashboard
+     // Exemplo: se o dashboard for /portal/dashboard ou algo assim
+     // return NextResponse.redirect(new URL('/portal/dashboard', request.url));
   }
 
   return response;
