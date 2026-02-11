@@ -44,16 +44,16 @@ export async function middleware(request: NextRequest) {
 
   // --- REGRAS DE PROTEÇÃO ATUALIZADAS ---
 
-  // A. Proteção da nova pasta PORTAL (antigo /admin)
+  // A. Proteção da nova pasta admin (antigo /admin)
   if (!user && url.pathname.startsWith('/admin')) {
-    // Se não está logado e tenta entrar no portal, manda para a tela de login
+    // Se não está logado e tenta entrar no admin, manda para a tela de login
     
     if (url.pathname !== '/admin') {
       return NextResponse.redirect(new URL('/admin', request.url));
     }
   }
 
-  // B. Se já estiver logado e tentar acessar a raiz / ou o /portal (estando na tela de login)
+  // B. Se já estiver logado e tentar acessar a raiz / ou o /admin (estando na tela de login)
   // Redireciona para o Dashboard interno
   if (user && url.pathname === '/admin') {
      // Aqui você redireciona para a página interna do seu dashboard

@@ -133,7 +133,7 @@ export async function loginAction(
     await refreshFxIfNeeded(supabase);
 
     // ✅ IMPORTANTE: não deixe o catch capturar o redirect
-    redirect("/portal");
+    redirect("/admin");
   } catch (err: unknown) {
     // ✅ Se for redirect, re-lança para o Next finalizar a navegação
     if (isNextRedirectError(err)) {
