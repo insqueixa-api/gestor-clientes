@@ -10,7 +10,6 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 const TAG_GROUPS = [
   {
     title: "🤖 Automação Inteligente & Prazos",
-    // Ajustado para estilo padrão (Indigo)
     color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
     tags: [
       { label: "{saudacao_tempo}", desc: "Bom dia / Boa tarde / Boa noite" },
@@ -69,8 +68,8 @@ const TAG_GROUPS = [
     title: "💰 Financeiro",
     color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
     tags: [
+      { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" }, // ✅ De volta ao Financeiro, com prioridade!
       { label: "{pix_copia_cola}", desc: "Código Pix (Auto)" },
-      { label: "{link_pagamento}", desc: "Checkout (Auto)" },
       { label: "{chave_pix_manual}", desc: "Chave manual cadastrada" },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
     ],

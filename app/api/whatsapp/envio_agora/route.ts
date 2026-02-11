@@ -75,8 +75,12 @@ function saudacaoTempo(d: Date) {
   // ✅ SP fixo
   const p = getSPParts(d);
   const h = Number(p.hour);
-  if (h < 12) return "Bom dia";
-  if (h < 18) return "Boa tarde";
+  
+  // Entre 04:00 e 11:59
+  if (h >= 4 && h < 12) return "Bom dia";
+  // Entre 12:00 e 17:59
+  if (h >= 12 && h < 18) return "Boa tarde";
+  // Antes das 04:00 ou depois das 18:00
   return "Boa noite";
 }
 
@@ -120,55 +124,83 @@ function renderTemplate(text: string, vars: Record<string, string>) {
 }
 
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
-  const now = new Date(); // ✅ ok (format/cálculos travados em SP pelas helpers)
-
+  const now = new Date(); // Travado em SP pelas helpers
   const row = params.recipientRow || {};
 
-  // nomes possíveis (cliente e revenda podem variar)
   const displayName = String(row.display_name ?? row.name ?? row.full_name ?? row.nome ?? "").trim();
+  const primeiroNome = displayName.split(" ")[0] || "";
+  const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim();
+  const saudacao = namePrefix || (displayName ? displayName : "");
 
-  const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim(); // se existir no seu schema
-
-  // datas possíveis
   const createdAt = safeDate(row.created_at ?? row.createdAt);
   const dueAt = safeDate(row.vencimento ?? row.due_at ?? row.due_date ?? row.expire_at ?? row.expires_at);
 
-  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : "";
+  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
 
-  let diasParaVencimento = "";
-  let diasAtraso = "";
+  let diasParaVencimento = "0";
+  let diasAtraso = "0";
 
   if (dueAt) {
-    const d = diffDays(dueAt, now); // vencimento - agora (em dias SP)
+    const d = diffDays(dueAt, now);
     if (d >= 0) {
       diasParaVencimento = String(d);
-      diasAtraso = "0";
     } else {
-      diasParaVencimento = "0";
       diasAtraso = String(Math.abs(d));
     }
   }
 
-  // saudacao (do print você quer algo tipo "Sr., Sra.")
-  const saudacao = namePrefix || (displayName ? displayName : "");
+  // ✅ Geração do Link de Pagamento Seguro
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://gestor-clientes-psi.vercel.app";
+  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp || "");
+  const linkPagamento = cleanPhone ? `${appUrl}/pagamento/${cleanPhone}` : "";
 
+  // Mapeamento EXATO das variáveis da sua tela de Mensagens
   return {
-    // ✅ Automação inteligente & prazos (SP)
-    hora_agora: toBRTime(now),
-    hoje_data: toBRDate(now),
-    hoje_dia_semana: weekdayPtBR(now),
+    // 🤖 Automação & Prazos
     saudacao_tempo: saudacaoTempo(now),
-
-    dias_desde_cadastro: daysSinceCadastro === "" ? "" : String(daysSinceCadastro),
+    dias_desde_cadastro: String(daysSinceCadastro),
     dias_para_vencimento: diasParaVencimento,
     dias_atraso: diasAtraso,
+    hoje_data: toBRDate(now),
+    hoje_dia_semana: weekdayPtBR(now),
+    hora_agora: toBRTime(now),
 
-    // ✅ Dados do cliente (você pode expandir depois)
+    // 👤 Dados do Cliente
     saudacao: saudacao,
+    primeiro_nome: primeiroNome,
+    nome_completo: displayName,
+    whatsapp: row.whatsapp_username || "",
+    observacoes: row.notes || "",
+    data_cadastro: createdAt ? toBRDate(createdAt) : "",
 
-    // extras úteis (se quiser usar)
+    // 🖥️ Acesso e Servidor
+    usuario_app: row.server_username || "",
+    senha_app: row.server_password || "",
+    plano_nome: row.plan_name || row.plan_label || "",
+    telas_qtd: String(row.screens || ""),
+    tecnologia: row.technology || "",
+    servidor_nome: row.server_name || "",
+
+    // 📅 Dados da Assinatura
+    data_vencimento: dueAt ? toBRDate(dueAt) : "",
+    hora_vencimento: dueAt ? toBRTime(dueAt) : "",
+    dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
+
+    // 🏢 Revenda (Se aplicável)
+    revenda_nome: row.reseller_name || "",
+    revenda_site: row.reseller_panel_url || "",
+    revenda_telegram: row.reseller_telegram || "",
+    revenda_dns: row.reseller_dns || "",
+
+    // 💰 Financeiro
+    pix_copia_cola: row.pix_code || "",
+    link_pagamento: linkPagamento, 
+    chave_pix_manual: row.pix_manual || "",
+    valor_fatura: row.price ? `R$ ${Number(row.price).toFixed(2).replace('.', ',')}` : "",
+
+    // Legado (Para não quebrar o que já existia)
     nome: displayName,
-    tipo_destino: params.recipientType, // "client" | "reseller"
+    tipo_destino: params.recipientType,
   };
 }
 
