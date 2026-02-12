@@ -194,6 +194,7 @@ function GlobalQueueMonitor({
   ) => void;
 }) {
 
+
   const [loading, setLoading] = useState(false);
   const [queueData, setQueueData] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -274,17 +275,23 @@ const { data, error } = await supabaseBrowser
   }, []);
 
   // 2. Ação: PAUSAR TUDO
-  const handleGlobalPause = async () => {
-    setLoading(true);
-    const tid = await getCurrentTenantId();
-    await supabaseBrowser.from("client_message_jobs").update({ status: "PAUSED" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED"]);await supabaseBrowser
-  .from("client_message_jobs")
-  .update({ status: "PAUSED" })
-  .eq("tenant_id", tid!)
-  .in("status", ["SCHEDULED", "QUEUED", "SENDING"]);
-
+const handleGlobalPause = async () => {
+  setLoading(true);
+  const tid = await getCurrentTenantId();
+  if (!tid) {
     setLoading(false);
-  };
+    return;
+  }
+
+  await supabaseBrowser
+    .from("client_message_jobs")
+    .update({ status: "PAUSED" })
+    .eq("tenant_id", tid)
+    .in("status", ["SCHEDULED", "QUEUED", "SENDING"]);
+
+  setLoading(false);
+};
+
 
   // 3. Ação: RETOMAR TUDO
   const handleGlobalResume = async () => {
