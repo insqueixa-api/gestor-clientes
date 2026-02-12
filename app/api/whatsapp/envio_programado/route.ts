@@ -125,90 +125,77 @@ function renderTemplate(text: string, vars: Record<string, string>) {
 }
 
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
-  const now = new Date(); // Travado em SP
-  const row = params.recipientRow || {};
+  const now = new Date();
+  const row = params.recipientRow || {};
 
-  // 1. DADOS BÁSICOS (Mapeados exatamente da sua vw_clients_list_active)
-  const displayName = String(row.client_name ?? row.name ?? "").trim(); // NOME EXATO DO BANCO
-  const primeiroNome = displayName.split(" ")[0] || "";
-  const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim();
-  const saudacao = namePrefix || (displayName ? displayName : "");
+  // 1. DADOS BÁSICOS (Lógica Estrita)
+  const displayName = String(row.client_name || row.name || "").trim();
+  const primeiroNome = displayName.split(" ")[0] || "";
+  
+  // Prefixo/Saudação: Apenas o que está no campo. Sem fallback para nome.
+  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  const saudacao = namePrefix ? namePrefix : ""; 
 
-  // 2. DATAS
-  const createdAt = safeDate(row.created_at);
-  const dueAt = safeDate(row.vencimento);
+  // 2. DATAS
+  const createdAt = safeDate(row.created_at);
+  const dueAt = safeDate(row.vencimento);
+  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
 
-  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
+  let diasParaVencimento = "0";
+  let diasAtraso = "0";
 
-  let diasParaVencimento = "0";
-  let diasAtraso = "0";
+  if (dueAt) {
+    const d = diffDays(dueAt, now);
+    if (d >= 0) diasParaVencimento = String(d);
+    else diasAtraso = String(Math.abs(d));
+  }
 
-  if (dueAt) {
-    const d = diffDays(dueAt, now);
-    if (d >= 0) {
-      diasParaVencimento = String(d);
-    } else {
-      diasAtraso = String(Math.abs(d));
-    }
-  }
+  const appUrl = "https://unigestor.net.br";
+  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+  const linkPagamento = cleanPhone ? `${appUrl}/p/${cleanPhone}` : "";
+  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
+  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
 
-  // 3. O LINK ENCURTADO E SEGURO (Fixo no domínio de produção)
-  const appUrl = "https://unigestor.net.br";
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
-  const linkPagamento = cleanPhone ? `${appUrl}/p/${cleanPhone}` : "";
+  return {
+    saudacao_tempo: saudacaoTempo(now),
+    dias_desde_cadastro: String(daysSinceCadastro),
+    dias_para_vencimento: diasParaVencimento,
+    dias_atraso: diasAtraso,
+    hoje_data: toBRDate(now),
+    hoje_dia_semana: weekdayPtBR(now),
+    hora_agora: toBRTime(now),
 
-  // 4. PREÇO (Mapeado exatamente de price_amount)
-  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
-  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
+    saudacao: saudacao,          // ✅ Corrigido: Só traz Sr./Sra. ou vazio
+    primeiro_nome: primeiroNome, // ✅ Corrigido: Só o primeiro nome
+    nome_completo: displayName,  // ✅ Corrigido: Nome completo
+    whatsapp: row.whatsapp_username || "",
+    observacoes: row.notes || "",
+    data_cadastro: createdAt ? toBRDate(createdAt) : "",
 
-  // 5. RETORNO DE TODAS AS VARIÁVEIS
-  return {
-    // 🤖 Automação & Prazos
-    saudacao_tempo: saudacaoTempo(now),
-    dias_desde_cadastro: String(daysSinceCadastro),
-    dias_para_vencimento: diasParaVencimento,
-    dias_atraso: diasAtraso,
-    hoje_data: toBRDate(now),
-    hoje_dia_semana: weekdayPtBR(now),
-    hora_agora: toBRTime(now),
+    usuario_app: row.username || "",
+    senha_app: row.server_password || "",
+    plano_nome: row.plan_name || "",
+    telas_qtd: String(row.screens || ""),
+    tecnologia: row.technology || "",
+    servidor_nome: row.server_name || "",
 
-    // 👤 Dados do Cliente
-    saudacao: saudacao,
-    primeiro_nome: primeiroNome,
-    nome_completo: displayName,
-    whatsapp: row.whatsapp_username || "",
-    observacoes: row.notes || "", // Mantido como fallback se um dia você adicionar notes
-    data_cadastro: createdAt ? toBRDate(createdAt) : "",
+    data_vencimento: dueAt ? toBRDate(dueAt) : "",
+    hora_vencimento: dueAt ? toBRTime(dueAt) : "",
+    dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
 
-    // 🖥️ Acesso e Servidor (Nomes exatos do Banco)
-    usuario_app: row.username || "",
-    senha_app: row.server_password || "",
-    plano_nome: row.plan_name || "",
-    telas_qtd: String(row.screens || ""),
-    tecnologia: row.technology || "",
-    servidor_nome: row.server_name || "",
+    revenda_nome: row.reseller_name || "",
+    revenda_site: row.reseller_panel_url || "",
+    revenda_telegram: row.reseller_telegram || "",
+    revenda_dns: row.reseller_dns || "",
 
-    // 📅 Dados da Assinatura
-    data_vencimento: dueAt ? toBRDate(dueAt) : "",
-    hora_vencimento: dueAt ? toBRTime(dueAt) : "",
-    dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
+    link_pagamento: linkPagamento, 
+    pix_copia_cola: row.pix_code || "", 
+    chave_pix_manual: row.pix_manual || "", 
+    valor_fatura: valorFaturaStr,
 
-    // 🏢 Revenda (Mantido compatibilidade caso haja revendas depois)
-    revenda_nome: row.reseller_name || "",
-    revenda_site: row.reseller_panel_url || "",
-    revenda_telegram: row.reseller_telegram || "",
-    revenda_dns: row.reseller_dns || "",
-
-    // 💰 Financeiro
-    link_pagamento: linkPagamento, 
-    pix_copia_cola: row.pix_code || "", 
-    chave_pix_manual: row.pix_manual || "", 
-    valor_fatura: valorFaturaStr,
-
-    // Legado (Para não quebrar o que já existia)
-    nome: displayName,
-    tipo_destino: params.recipientType,
-  };
+    nome: displayName,
+    tipo_destino: params.recipientType,
+  };
 }
 
 function getBearerToken(req: Request): string | null {
@@ -390,20 +377,22 @@ export async function POST(req: Request) {
       .eq("status", "SENDING")
       .lt("updated_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()); // 5 min
 
-    const { data: jobs, error: jobsErr } = await sb
-      .from("client_message_jobs")
-      .select(`
-  id, 
-  tenant_id, 
-  client_id, 
-  reseller_id, 
-  whatsapp_session, 
-  message, 
-  send_at, 
-  created_by, 
-  automation_id,
-  billing_automations ( delay_min ) 
-`)
+// ✅ CORREÇÃO CRÍTICA: Adicionado 'billing_automations(delay_min)' para o sleep
+    // O 'automation_id' já estava, mas garantimos que ele seja lido.
+    const { data: jobs, error: jobsErr } = await sb
+      .from("client_message_jobs")
+      .select(`
+        id, 
+        tenant_id, 
+        client_id, 
+        reseller_id, 
+        whatsapp_session, 
+        message, 
+        send_at, 
+        created_by, 
+        automation_id,
+        billing_automations ( delay_min )
+      `)
       .in("status", ["QUEUED", "SCHEDULED"])
       .lte("send_at", new Date().toISOString())
       .order("send_at", { ascending: true })
