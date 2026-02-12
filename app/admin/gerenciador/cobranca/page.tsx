@@ -495,78 +495,81 @@ const { error } = await supabaseBrowser
 
 
   const handleManualRun = async (rule: Automation) => {
-    if (!rule.is_active) {
-      addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
-      return;
-    }
+    if (!rule.is_active) {
+      addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
+      return;
+    }
 
-    const affected = getImpactedClients(rule);
-    if (affected.length === 0) {
-      addToast("error", "Sem alvos", "Nenhum cliente atende a regra hoje.");
-      return;
-    }
+    const affected = getImpactedClients(rule);
+    if (affected.length === 0) {
+      addToast("error", "Sem alvos", "Nenhum cliente atende a regra hoje.");
+      return;
+    }
 
-    if (!confirm(`Deseja ENFILEIRAR AGORA mensagens para ${affected.length} clientes?`)) return;
+    if (!confirm(`Deseja ENFILEIRAR AGORA mensagens para ${affected.length} clientes?`)) return;
 
-    const tid = await getCurrentTenantId();
-    if (!tid) return;
+    const tid = await getCurrentTenantId();
+    if (!tid) return;
 
-    try {
-      const templateId = rule.message_template_id || (rule.message_template as any)?.id;
-      if (!templateId) throw new Error("Esta regra não tem um template de mensagem vinculado.");
+    try {
+      const templateId = rule.message_template_id || (rule.message_template as any)?.id;
+      if (!templateId) throw new Error("Esta regra não tem um template de mensagem vinculado.");
 
-      const { data: tpl, error: tplErr } = await supabaseBrowser
-        .from("message_templates")
-        .select("content")
-        .eq("id", templateId)
-        .single();
+      const { data: tpl, error: tplErr } = await supabaseBrowser
+        .from("message_templates")
+        .select("content")
+        .eq("id", templateId)
+        .single();
 
-      if (tplErr || !tpl) throw new Error("Falha ao carregar o texto do template.");
+      if (tplErr || !tpl) throw new Error("Falha ao carregar o texto do template.");
 
-      // ✅ 1. LÓGICA DE DELAY INTELIGENTE (Segurança Anti-Ban)
-      let currentSendAt = new Date(); // O relógio começa agora
+      // ======================================================
+      // ✅ LÓGICA DE AGENDAMENTO (ESCADINHA DE HORÁRIOS)
+      // ======================================================
+      let currentSendAt = new Date(); // Começa "Agora"
 
-      const inserts = affected.map(client => {
-        // Sorteia um tempo de espera entre o mínimo e máximo que você definiu
-        const min = rule.delay_min || 15;
-        const max = rule.delay_max || 60;
-        const delaySecs = Math.floor(Math.random() * (max - min + 1)) + min;
-        
-        // Empurra o horário de envio dessa mensagem um pouquinho pra frente
-        currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
+      const inserts = affected.map(client => {
+        // 1. Sorteia o tempo (Ex: entre 15 e 60 segundos)
+        const min = rule.delay_min || 15;
+        const max = rule.delay_max || 60;
+        const delaySecs = Math.floor(Math.random() * (max - min + 1)) + min;
+        
+        // 2. Soma ao horário acumulado (NÃO USA SLEEP AQUI)
+        // Isso cria datas futuras: T+15s, T+35s, T+50s...
+        currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
 
-        return {
-          tenant_id: tid,
-          client_id: client.id,
-          automation_id: rule.id, // ✅ Salva a regra para alimentar os Logs depois!
-          message: tpl.content,
-          status: "SCHEDULED",
-          send_at: currentSendAt.toISOString(), // Cada cliente fica num minuto diferente
-          whatsapp_session: rule.whatsapp_session || "default",
-        };
-      });
+        return {
+          tenant_id: tid,
+          client_id: client.id,
+          automation_id: rule.id, // <--- ✅ ISSO CONECTA O LOG
+          message: tpl.content,
+          status: "SCHEDULED",
+          send_at: currentSendAt.toISOString(), 
+          whatsapp_session: rule.whatsapp_session || "default",
+        };
+      });
 
-      // 2. Insere na fila
-      const { error: insErr } = await supabaseBrowser
-        .from("client_message_jobs")
-        .insert(inserts);
+      // 3. Salva tudo no banco de uma vez
+      const { error: insErr } = await supabaseBrowser
+        .from("client_message_jobs")
+        .insert(inserts);
 
-      if (insErr) throw insErr;
+      if (insErr) throw insErr;
 
-      // ✅ 3. Resolve o problema do texto "Último envio: Nunca" no Card
-      await supabaseBrowser
-        .from("billing_automations")
-        .update({ last_run_at: new Date().toISOString() })
-        .eq("id", rule.id);
+      // 4. Atualiza "Último Envio" na tela
+      await supabaseBrowser
+        .from("billing_automations")
+        .update({ last_run_at: new Date().toISOString() })
+        .eq("id", rule.id);
 
-      addToast("success", "Fila Criada!", `${inserts.length} mensagens foram agendadas de forma segura.`);
-      await loadData();
+      addToast("success", "Fila Criada!", `${inserts.length} mensagens foram agendadas. O envio ocorrerá gradualmente.`);
+      await loadData();
 
-    } catch (err: any) {
-      console.error("Erro no envio manual:", err);
-      addToast("error", "Erro ao enfileirar", err.message || "Falha desconhecida.");
-    }
-  };
+    } catch (err: any) {
+      console.error("Erro no envio manual:", err);
+      addToast("error", "Erro ao enfileirar", err.message || "Falha desconhecida.");
+    }
+  };
 
 
 
