@@ -179,7 +179,7 @@ function buildWhatsAppSessionLabel(profile: any): string {
 }
 
 // ============================================================================
-// ✅ NOVO COMPONENTE: MONITOR GLOBAL DE FILA (COM PAUSE/RESUME/CANCEL)
+// ✅ NOVO COMPONENTE: MONITOR GLOBAL DE FILA (VERSÃO ROBUSTA)
 // ============================================================================
 function GlobalQueueMonitor() {
   const [loading, setLoading] = useState(false);
@@ -193,6 +193,7 @@ function GlobalQueueMonitor() {
       const tid = await getCurrentTenantId();
       if (!tid) return;
 
+      // 🔍 DIAGNÓSTICO: Removemos o Join complexo para garantir que traga dados
       const { data, error } = await supabaseBrowser
         .from("client_message_jobs")
         .select(`
@@ -200,15 +201,19 @@ function GlobalQueueMonitor() {
           status, 
           send_at, 
           client_id,
-          automation_id,
-          billing_automations ( name )
+          automation_id
         `)
         .eq("tenant_id", tid)
-        // ✅ Agora trazemos também os PAUSED para saber o que está segurado
+        // Traz tudo que não terminou
         .in("status", ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"]) 
         .order("send_at", { ascending: true });
 
-      if (!error && data) {
+      if (error) {
+          console.error("Erro Monitor:", error);
+      }
+
+      if (data) {
+        if (data.length > 0) console.log("Monitor: Encontrados", data.length, "jobs na fila.");
         setQueueData(data);
         setLastUpdate(new Date());
       }
@@ -219,64 +224,40 @@ function GlobalQueueMonitor() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Ação: PAUSAR TUDO (Freio de Mão)
+  // 2. Ação: PAUSAR TUDO
   const handleGlobalPause = async () => {
     setLoading(true);
     const tid = await getCurrentTenantId();
-    
-    // Transforma tudo que está na fila em PAUSED
-    await supabaseBrowser
-      .from("client_message_jobs")
-      .update({ status: "PAUSED" })
-      .eq("tenant_id", tid!)
-      .in("status", ["SCHEDULED", "QUEUED"]); // Não pausa o que já está SENDING
-
+    await supabaseBrowser.from("client_message_jobs").update({ status: "PAUSED" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED"]);
     setLoading(false);
   };
 
-  // 3. Ação: RETOMAR TUDO (Soltar o Freio)
+  // 3. Ação: RETOMAR TUDO
   const handleGlobalResume = async () => {
     setLoading(true);
     const tid = await getCurrentTenantId();
-    
-    // Devolve para a fila (QUEUED) tudo que estava PAUSED
-    await supabaseBrowser
-      .from("client_message_jobs")
-      .update({ status: "QUEUED" }) // O Cron vai pegar na próxima rodada
-      .eq("tenant_id", tid!)
-      .eq("status", "PAUSED");
-
+    await supabaseBrowser.from("client_message_jobs").update({ status: "QUEUED" }).eq("tenant_id", tid!).eq("status", "PAUSED");
     setLoading(false);
   };
 
-  // 4. Ação: CANCELAR TUDO (Botão de Pânico)
+  // 4. Ação: CANCELAR TUDO
   const handleNukeQueue = async () => {
     const count = queueData.length;
     if (count === 0) return;
-
-    const confirmText = prompt(
-      `🚨 ATENÇÃO: PARADA DE EMERGÊNCIA 🚨\n\nIsso vai cancelar ${count} envios (inclusive os pausados) DEFINITIVAMENTE.\n\nDigite "CANCELAR" para confirmar:`
-    );
-
-    if (confirmText !== "CANCELAR") return;
+    
+    // Confirmação simples
+    if (!confirm(`PARADA DE EMERGÊNCIA: Cancelar ${count} envios pendentes agora?`)) return;
 
     setLoading(true);
     const tid = await getCurrentTenantId();
-    
-    await supabaseBrowser
-      .from("client_message_jobs")
-      .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
-      .eq("tenant_id", tid!)
-      .in("status", ["SCHEDULED", "QUEUED", "PAUSED"]);
-
+    await supabaseBrowser.from("client_message_jobs").update({ status: "CANCELLED", error_message: "Cancelado Globalmente" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED", "PAUSED"]);
     setLoading(false);
     setShowModal(false);
   };
 
-  // Se não tem fila (nem ativa nem pausada), não mostra nada
+  // Se não tem fila, não mostra nada
   if (queueData.length === 0) return null;
 
-  // Cálculos rápidos para o UI
   const activeCount = queueData.filter(j => ["SCHEDULED", "QUEUED", "SENDING"].includes(j.status)).length;
   const pausedCount = queueData.filter(j => j.status === "PAUSED").length;
   const isGlobalPaused = activeCount === 0 && pausedCount > 0;
@@ -286,148 +267,83 @@ function GlobalQueueMonitor() {
       {/* 🟢 BARRA DE MONITORAMENTO (TOPO) */}
       <div 
         onClick={() => setShowModal(true)}
-        className={`mb-6 mx-1 border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all group animate-in slide-in-from-top-2
+        className={`mb-6 mx-1 border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all group relative z-50
             ${isGlobalPaused 
-                ? 'bg-amber-100 border-amber-300 dark:bg-amber-900/40 dark:border-amber-500/50' // Estilo Pausado
-                : 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-500/30' // Estilo Ativo
+                ? 'bg-amber-100 border-amber-300' 
+                : 'bg-emerald-50 border-emerald-200'
             }`}
       >
         <div className="flex items-center gap-4">
-          <div className="relative">
-            {/* Se estiver pausado, bolinha fixa amarela. Se ativo, ping verde */}
+          <div className="relative flex items-center justify-center w-6 h-6">
             {isGlobalPaused ? (
-                <div className="w-3 h-3 bg-amber-500 rounded-full relative shadow-sm"></div>
+                <div className="w-3 h-3 bg-amber-500 rounded-full shadow-sm"></div>
             ) : (
                 <>
-                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-ping absolute top-0 left-0 opacity-75"></div>
-                    <div className="w-3 h-3 bg-emerald-500 rounded-full relative"></div>
+                    <div className="absolute w-3 h-3 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
+                    <div className="relative w-3 h-3 bg-emerald-500 rounded-full"></div>
                 </>
             )}
           </div>
           <div>
-            <h3 className={`font-bold text-sm uppercase tracking-wide ${isGlobalPaused ? 'text-amber-800 dark:text-amber-200' : 'text-emerald-800 dark:text-emerald-200'}`}>
-              {isGlobalPaused ? "⏸️ FILA PAUSADA" : "🚀 ENVIANDO AGORA"}
+            <h3 className={`font-bold text-sm uppercase tracking-wide ${isGlobalPaused ? 'text-amber-800' : 'text-emerald-800'}`}>
+              {isGlobalPaused ? "⏸️ FILA PAUSADA" : "🚀 PROCESSANDO ENVIO"}
             </h3>
-            <p className={`text-xs mt-0.5 ${isGlobalPaused ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {isGlobalPaused 
-                ? `${pausedCount} mensagens aguardando retomada.` 
-                : `Processando ${activeCount} envios.` + (pausedCount > 0 ? ` (${pausedCount} em pausa)` : "")}
+            <p className={`text-xs mt-0.5 ${isGlobalPaused ? 'text-amber-700' : 'text-emerald-600'}`}>
+              {queueData.length} mensagens na fila ({pausedCount} em espera).
             </p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-            <button className={`px-4 py-2 bg-white border rounded-lg text-xs font-bold uppercase transition-colors shadow-sm
-                ${isGlobalPaused 
-                    ? 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:bg-black/20 dark:border-amber-500/30 dark:text-amber-300' 
-                    : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:bg-black/20 dark:border-emerald-500/30 dark:text-emerald-300'
-                }`}>
-                Abrir Painel
-            </button>
-        </div>
+        <button className="px-4 py-2 bg-white/50 border border-black/5 rounded-lg text-xs font-bold uppercase hover:bg-white transition-colors">
+            Abrir Painel
+        </button>
       </div>
 
-      {/* 🔴 MODAL RAIO-X (DETALHES) */}
+      {/* 🔴 MODAL RAIO-X */}
       {showModal && createPortal(
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
             
-            {/* Header Modal */}
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  🚦 Centro de Controle
-                  {isGlobalPaused && <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500 text-white font-bold uppercase">Pausado</span>}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                    Total: <strong>{queueData.length}</strong> • Ativos: <strong>{activeCount}</strong> • Pausados: <strong>{pausedCount}</strong>
-                </p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">✕</button>
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
+              <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
 
-            {/* Lista Scrollable */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-100 dark:bg-white/5 sticky top-0 text-xs uppercase text-slate-500 font-bold z-10">
-                  <tr>
-                    <th className="p-4">Previsão</th>
-                    <th className="p-4">Regra / Origem</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4 text-right">ID</th>
-                  </tr>
+            <div className="flex-1 overflow-y-auto p-0">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-bold text-xs uppercase sticky top-0">
+                  <tr><th className="p-4">Horário</th><th className="p-4">Status</th><th className="p-4 text-right">ID</th></tr>
                 </thead>
-                <tbody className="text-sm divide-y divide-slate-100 dark:divide-white/5">
+                <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                   {queueData.map((job) => (
-                    <tr key={job.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                      <td className="p-4 font-mono text-slate-600 dark:text-slate-400">
-                        {new Date(job.send_at).toLocaleTimeString()} 
-                        <span className="text-[10px] ml-2 text-slate-400">
+                    <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+                      <td className="p-4 font-mono text-gray-600 dark:text-gray-400">
+                        {new Date(job.send_at).toLocaleTimeString()}
+                        <span className="text-[10px] ml-2 text-gray-400">
                             {job.status === 'PAUSED' ? '(Parado)' : `(+${Math.max(0, Math.floor((new Date(job.send_at).getTime() - Date.now())/1000))}s)`}
                         </span>
                       </td>
-                      <td className="p-4 font-bold text-slate-800 dark:text-white">
-                        {(job.billing_automations as any)?.name || "Envio Avulso"}
-                      </td>
                       <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase 
-                            ${job.status === 'SENDING' ? 'bg-purple-100 text-purple-700 animate-pulse' : 
-                              job.status === 'PAUSED' ? 'bg-amber-100 text-amber-700' :
-                              'bg-slate-100 text-slate-600'}`}>
-                          {job.status === 'SENDING' ? 'Enviando...' : 
-                           job.status === 'PAUSED' ? '⏸️ Pausado' : 
-                           'Na Fila'}
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${job.status === 'PAUSED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                            {job.status}
                         </span>
                       </td>
-                      <td className="p-4 text-right text-xs text-slate-400 font-mono">
-                        {job.id.slice(0, 8)}...
-                      </td>
+                      <td className="p-4 text-right font-mono text-xs text-gray-400">{job.id.slice(0,8)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Footer com CONTROLES GLOBAIS */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex gap-2 w-full sm:w-auto">
-                    {/* BOTÃO PAUSAR / RETOMAR */}
-                    {activeCount > 0 ? (
-                        <button 
-                            onClick={handleGlobalPause}
-                            disabled={loading}
-                            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-xs uppercase shadow hover:bg-amber-600 transition-all flex items-center justify-center gap-2"
-                        >
-                            ⏸️ Pausar Tudo
-                        </button>
-                    ) : (
-                        <button 
-                            onClick={handleGlobalResume}
-                            disabled={loading || pausedCount === 0}
-                            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs uppercase shadow hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            ▶️ Retomar Envios
-                        </button>
-                    )}
-                </div>
-
-                <div className="flex gap-3 w-full sm:w-auto justify-end">
-                    <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-slate-500 font-bold text-xs uppercase hover:bg-slate-200 transition-colors">
-                        Fechar
-                    </button>
-                    <button 
-                        onClick={handleNukeQueue}
-                        disabled={loading}
-                        className="px-6 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs uppercase shadow-lg shadow-rose-900/20 hover:bg-rose-500 hover:scale-105 transition-all flex items-center gap-2"
-                    >
-                        {loading ? "Processando..." : "🚨 Cancelar Tudo"}
-                    </button>
-                </div>
+            <div className="p-4 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5">
+                {activeCount > 0 ? 
+                    <button onClick={handleGlobalPause} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
+                    <button onClick={handleGlobalResume} disabled={pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
+                }
+                <button onClick={handleNukeQueue} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700">🚨 CANCELAR TUDO</button>
             </div>
-
           </div>
-        </div>,
-        document.body
+        </div>, document.body
       )}
     </>
   );
