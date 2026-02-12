@@ -568,18 +568,23 @@ export async function POST(req: Request) {
           .eq("id", job.id);
 
 // ✅ SALVA O LOG PARA A TELA DE HISTÓRICO LER
+// ✅ SALVA O LOG (Corrigido)
         if ((job as any).automation_id) {
-           const clientName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
-           
-           await sb.from("billing_logs").insert({
-               tenant_id: job.tenant_id,
-               automation_id: (job as any).automation_id,
-               client_name: clientName,
-               client_whatsapp: wa.phone,
-               status: "SENT",
-               sent_at: new Date().toISOString(),
-               error_message: null
-           });
+            const cName = String(wa.row?.display_name || wa.row?.client_name || "Cliente").trim();
+            
+            // Agora enviamos o client_id para satisfazer o banco
+            const logError = await sb.from("billing_logs").insert({
+                tenant_id: job.tenant_id,
+                automation_id: (job as any).automation_id,
+                client_id: job.client_id || null, // <--- OBRIGATÓRIO SEGUNDO SEU CSV
+                client_name: cName,
+                client_whatsapp: wa.phone,
+                status: "SENT",
+                sent_at: new Date().toISOString()
+            });
+
+            // Se der erro ao salvar o log, mostra no console da Vercel para debug
+            if (logError.error) console.error("Erro ao salvar Log:", logError.error);
         }
 
         processed++;
