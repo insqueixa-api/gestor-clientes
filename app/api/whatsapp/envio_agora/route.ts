@@ -152,9 +152,13 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   }
 
   // 3. O LINK ENCURTADO E SEGURO (Fixo no domínio de produção)
-  const appUrl = "https://unigestor.net.br";
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
-  const linkPagamento = cleanPhone ? `${appUrl}/p/${cleanPhone}` : "";
+const appUrl = "https://unigestor.net.br";
+const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+
+// ✅ link_pagamento agora será /renew?t=TOKEN (gerado mais abaixo no POST)
+// aqui fica apenas um placeholder seguro (evita quebrar se o token falhar)
+const linkPagamento = "";
+
 
   // 4. PREÇO (Mapeado exatamente de price_amount)
   const priceVal = row.price_amount ? Number(row.price_amount) : 0;
@@ -198,11 +202,14 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
 
-    // 💰 Financeiro
-    link_pagamento: linkPagamento, 
-    pix_copia_cola: row.pix_code || "", 
-    chave_pix_manual: row.pix_manual || "", 
-    valor_fatura: valorFaturaStr,
+    
+// 💰 Financeiro
+link_pagamento: linkPagamento,
+pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ PIN inicial padrão
+pix_copia_cola: row.pix_code || "",
+chave_pix_manual: row.pix_manual || "",
+valor_fatura: valorFaturaStr,
+
 
     // Legado (Para não quebrar o que já existia)
     nome: displayName,
@@ -289,10 +296,15 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
 export async function POST(req: Request) {
   const baseUrl = process.env.UNIGESTOR_WA_BASE_URL!;
   const waToken = process.env.UNIGESTOR_WA_TOKEN!;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  const sb = createClient(supabaseUrl, serviceKey);
+const sb = createClient(supabaseUrl, serviceKey);
+
+
+
+
 
   // =========================
   // 1) Autorização: USER
@@ -309,6 +321,11 @@ export async function POST(req: Request) {
 
   const authedUserId = data.user.id;
 
+  
+
+
+
+
   // =========================
   // 2) Body
   // =========================
@@ -321,6 +338,29 @@ export async function POST(req: Request) {
 
   const tenantId = String((body as any).tenant_id || "").trim();
   const message = String((body as any).message || "").trim();
+
+  {
+  const { data: mem, error: memErr } = await sb
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", authedUserId)
+    .maybeSingle();
+
+  if (memErr || !mem) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+}
+
+// client "do usuário" (usa o Bearer token) para RPCs que dependem de auth.uid()
+const userSb = createClient(supabaseUrl, anonKey, {
+  global: {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  },
+});
+
 
   // ✅ aceita 3 formatos:
   // 1) legado: client_id
@@ -416,12 +456,36 @@ export async function POST(req: Request) {
   });
 
   // ✅ monta variáveis e renderiza o texto (agora tudo em SP)
-  const vars = buildTemplateVars({
-    recipientType, // "client" | "reseller"
-    recipientRow: wa.row, // linha completa que buscamos na view
-  });
+const vars = buildTemplateVars({
+  recipientType,
+  recipientRow: wa.row,
+});
 
-  const renderedMessage = renderTemplate(message, vars);
+// ✅ Gera/reutiliza token do portal (precisa ser chamado como USER por causa do auth.uid())
+try {
+  const whatsappUsername = String((wa.row as any)?.whatsapp_username ?? "").trim();
+  if (whatsappUsername) {
+    const { data: tokData, error: tokErr } = await userSb.rpc("portal_admin_create_token_for_whatsapp", {
+      p_tenant_id: tenantId,
+      p_whatsapp_username: whatsappUsername,
+      p_label: "Envio manual",
+      p_expires_at: null,
+    });
+
+    if (!tokErr) {
+      const row = Array.isArray(tokData) ? tokData[0] : null;
+      const portalToken = row?.token ? String(row.token) : "";
+      if (portalToken) {
+        vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+      }
+    }
+  }
+} catch {
+  // silêncio: mantém vars.link_pagamento vazio (não quebra envio)
+}
+
+const renderedMessage = renderTemplate(message, vars);
+
 
   const res = await fetch(`${baseUrl}/send`, {
     method: "POST",

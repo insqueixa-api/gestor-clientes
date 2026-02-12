@@ -37,15 +37,14 @@ function extractPeriod(planName: string) {
   return p;
 }
 
-function extractTable(planName: string) {
-  const p = (planName || "").trim();
-  if (!p || p === "—") return "Tabela Padrão";
-  if (p.includes("-")) {
-    const parts = p.split("-");
-    return parts.slice(0, -1).join("-").trim();
-  }
-  return "Tabela Geral";
+function tableLabelFromClient(c: { plan_table_name?: string | null; plan_table_id?: string | null } | null | undefined) {
+  if (!c) return "—";
+  const name = String(c.plan_table_name || "").trim();
+  if (name) return name;
+  // se não veio nome, pelo menos não inventa
+  return "—";
 }
+
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -105,6 +104,10 @@ type VwClientRow = {
   price_amount: number | null;
   price_currency: string | null;
 
+  // ✅ NOVO (fonte da verdade)
+  plan_table_id?: string | null;
+  plan_table_name?: string | null;
+
   server_id: string | null;
   server_name: string | null;
   technology: string | null; // ✅ NOVO
@@ -134,6 +137,9 @@ type ClientDetail = {
   plan_name: string;
   price_amount: number | null;
   price_currency: string | null;
+  // ✅ NOVO (fonte da verdade)
+  plan_table_id?: string | null;
+  plan_table_name?: string | null;
 
   vencimento: string | null;
   computed_status: string;
@@ -251,9 +257,14 @@ const clientIdSafe = (clientId ?? "").trim();
         server_name: String(row.server_name ?? row.server_id ?? "—"),
         technology: row.technology ?? "—", // ✅ Mapeia
 
-        plan_name: String(row.plan_name ?? "—"),
-        price_amount: row.price_amount ?? null,
-        price_currency: row.price_currency ?? "BRL",
+plan_name: String(row.plan_name ?? "—"),
+price_amount: row.price_amount ?? null,
+price_currency: row.price_currency ?? "BRL",
+
+// ✅ fonte da verdade
+plan_table_id: (row as any).plan_table_id ?? null,
+plan_table_name: (row as any).plan_table_name ?? null,
+
 
         vencimento: row.vencimento ?? null,
         computed_status: String(row.computed_status ?? "ACTIVE"),
@@ -490,7 +501,10 @@ const clientIdSafe = (clientId ?? "").trim();
               {/* BLOCO FINANCEIRO (Sem bordas internas) */}
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 dark:text-white/40 font-medium">Tabela</span>
-                <span className="font-bold text-slate-700 dark:text-white/90 tracking-tight text-right">{extractTable(client.plan_name)}</span>
+                <span className="font-bold text-slate-700 dark:text-white/90 tracking-tight text-right">
+  {tableLabelFromClient(client)}
+</span>
+
               </div>
 
               <div className="flex justify-between items-center">
@@ -664,9 +678,14 @@ const clientIdSafe = (clientId ?? "").trim();
             screens: client.screens,
             technology: client.technology ?? undefined, // ✅ Passa pro modal
 
-            plan_name: client.plan_name ?? undefined,
-            price_amount: client.price_amount ?? undefined,
-            price_currency: client.price_currency ?? "BRL",
+plan_name: client.plan_name ?? undefined,
+price_amount: client.price_amount ?? undefined,
+price_currency: client.price_currency ?? "BRL",
+
+// ✅ essencial pro prefill escolher a tabela certa
+plan_table_id: (client as any).plan_table_id ?? null,
+plan_table_name: (client as any).plan_table_name ?? null,
+
 
             vencimento: client.vencimento ?? undefined,
             notes: client.notes ?? undefined,

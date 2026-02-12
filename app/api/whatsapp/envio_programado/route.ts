@@ -150,9 +150,12 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     else diasAtraso = String(Math.abs(d));
   }
 
-  const appUrl = "https://unigestor.net.br";
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
-  const linkPagamento = cleanPhone ? `${appUrl}/p/${cleanPhone}` : "";
+const appUrl = "https://unigestor.net.br";
+const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+
+// ✅ link_pagamento será preenchido na hora do envio (manual/cron) via token
+const linkPagamento = "";
+
   const priceVal = row.price_amount ? Number(row.price_amount) : 0;
   const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
 
@@ -188,10 +191,12 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
 
-    link_pagamento: linkPagamento, 
-    pix_copia_cola: row.pix_code || "", 
-    chave_pix_manual: row.pix_manual || "", 
-    valor_fatura: valorFaturaStr,
+link_pagamento: linkPagamento,
+pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ NOVO
+pix_copia_cola: row.pix_code || "",
+chave_pix_manual: row.pix_manual || "",
+valor_fatura: valorFaturaStr,
+
 
     nome: displayName,
     tipo_destino: params.recipientType,
@@ -525,12 +530,36 @@ export async function POST(req: Request) {
         });
 
         // ✅ renderiza tags NA HORA DO ENVIO (CRON) (agora tudo em SP)
-        const vars = buildTemplateVars({
-          recipientType,
-          recipientRow: (wa as any).row,
-        });
+const vars = buildTemplateVars({
+  recipientType,
+  recipientRow: (wa as any).row,
+});
 
-        const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
+// ✅ CRON: gera token do portal via service_role, amarrado ao tenant do job
+try {
+  const whatsappUsername = String((wa as any).row?.whatsapp_username ?? "").trim();
+  if (whatsappUsername) {
+    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_cron", {
+      p_tenant_id: String(job.tenant_id),
+      p_whatsapp_username: whatsappUsername,
+      p_label: "Cobranca automatica",
+      p_expires_minutes: 43200, // 30 dias (ajuste se quiser)
+    });
+
+    if (!tokErr) {
+      const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+      const portalToken = rowTok?.token ? String(rowTok.token) : "";
+      if (portalToken) {
+        vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+      }
+    }
+  }
+} catch {
+  // silêncio: mantém link vazio (não quebra envio)
+}
+
+const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
+
 
         const res = await fetch(`${baseUrl}/send`, {
           method: "POST",

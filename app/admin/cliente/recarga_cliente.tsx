@@ -13,15 +13,24 @@ interface ClientFromView {
   username: string | null;
   server_id: string | null;
   server_name: string | null;
+
   plan_name: string | null;
+
+  // ✅ NOVO (fonte da verdade da tabela)
+  plan_table_id?: string | null;
+  plan_table_name?: string | null;
+
   vencimento: string | null; // timestamptz
   computed_status: string | null;
   screens: number | null;
+
   price_amount: number | null;
   price_currency: string | null;
+
   whatsapp?: string | null;
   notes?: string | null;
 }
+
 
 type Currency = "BRL" | "USD" | "EUR";
 
@@ -341,29 +350,41 @@ setDueTime(newTimeStr);
         const allTables = (tData || []) as unknown as PlanTable[];
         setTables(allTables);
 
-        // 5) Seleção inicial de tabela
-        const desiredCurrency = (c.price_currency as Currency) || "BRL";
-        const defaultOfCurrency =
-          allTables.find((t) => t.currency === desiredCurrency && t.is_system_default) ||
-          allTables.find((t) => t.currency === desiredCurrency) ||
-          allTables[0];
+        // 5) Seleção inicial de tabela (✅ respeita a tabela real do cliente)
+          const desiredCurrency = (c.price_currency as Currency) || "BRL";
 
-        if (defaultOfCurrency) {
-          setSelectedTableId(defaultOfCurrency.id);
-          setCurrency(defaultOfCurrency.currency || "BRL");
-        } else {
-          setCurrency(desiredCurrency);
-        }
+          // 5.1) tenta usar a tabela salva no cliente
+          const fromClient =
+            c.plan_table_id
+              ? allTables.find((t) => t.id === c.plan_table_id)
+              : null;
+
+          // 5.2) fallback: mesma lógica antiga (default por moeda)
+          const fallbackByCurrency =
+            allTables.find((t) => t.currency === desiredCurrency && t.is_system_default) ||
+            allTables.find((t) => t.currency === desiredCurrency) ||
+            allTables[0];
+
+          const initialTable = fromClient || fallbackByCurrency || null;
+
+          if (initialTable) {
+            setSelectedTableId(initialTable.id);
+            setCurrency((initialTable.currency as Currency) || "BRL");
+          } else {
+            setCurrency(desiredCurrency);
+          }
+
 
         // 6) Valor inicial
-        if (c.price_amount != null) {
-          setPlanPrice(Number(c.price_amount).toFixed(2).replace(".", ","));
-          setPriceTouched(true);
-        } else {
-          const initialPrice = pickPriceFromTable(defaultOfCurrency || null, foundPeriod, c.screens || 1);
-          setPlanPrice(Number(initialPrice || 0).toFixed(2).replace(".", ","));
-          setPriceTouched(false);
-        }
+          if (c.price_amount != null) {
+            setPlanPrice(Number(c.price_amount).toFixed(2).replace(".", ","));
+            setPriceTouched(true);
+          } else {
+            const initialPrice = pickPriceFromTable(initialTable || null, foundPeriod, c.screens || 1);
+            setPlanPrice(Number(initialPrice || 0).toFixed(2).replace(".", ","));
+            setPriceTouched(false);
+          }
+
 
         // 7) FX
         if (desiredCurrency !== "BRL") {
@@ -658,11 +679,12 @@ const executeSave = async () => {
     <>
       {/* --- MODAL PRINCIPAL --- */}
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
         onClick={onClose}
       >
         <div
-          className="w-full max-w-xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[95vh]"
+          // Alterado: w-full em mobile com rounded-t-2xl (estilo sheet) ou rounded-xl em desktop
+          className="w-full sm:max-w-xl bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* HEADER */}
@@ -690,15 +712,17 @@ const executeSave = async () => {
           </div>
 
           {/* BODY */}
-          <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* Alterado: p-4 no mobile, gap menor */}
+          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-y-auto custom-scrollbar">
             
-            {/* 1. SEÇÃO VENCIMENTO (CARD) */}
-            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-4">
+            {/* 1. SEÇÃO VENCIMENTO (Compacto) */}
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3 sm:p-4">
                <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-white/10 pb-2">
-                  <span className="text-emerald-500">📅</span>
-                  <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">Novo Vencimento</span>
+                 <span className="text-emerald-500">📅</span>
+                 <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">Novo Vencimento</span>
                </div>
-               <div className="grid grid-cols-2 gap-4">
+               {/* Alterado: grid-cols-1 no mobile para garantir espaço pro input de data e hora */}
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <Label>Data do Vencimento</Label>
                     <input
@@ -732,20 +756,20 @@ const executeSave = async () => {
 
             {/* 2. SEÇÃO PLANO */}
             <div>
-                
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-1">
+                {/* Alterado: No mobile, o Período ocupa a linha toda (col-span-2), e Telas/Créditos dividem a linha de baixo */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="col-span-2 sm:col-span-1">
                         <Label>Período / Ciclo</Label>
                         <Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value)}>
                           {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </Select>
                     </div>
                     <div>
-                        <Label># Telas</Label>
+                        <Label>Telas</Label>
                         <Input type="number" min={1} value={screens} onChange={(e) => setScreens(Math.max(1, Number(e.target.value || 1)))} />
                     </div>
                     <div>
-                        <Label># Créditos</Label>
+                        <Label>Créditos</Label>
                         <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
                           {creditsInfo ? creditsInfo.used : "-"}
                         </div>
@@ -768,8 +792,9 @@ const executeSave = async () => {
                     </select>
                 </div>
 
+{/* Alterado: grid flexível ou mantido 3 colunas mas com atenção ao tamanho da fonte do preço */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div>
+                    <div className="col-span-1">
                        <Label>Moeda</Label>
                        <div className="h-10 w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-600 dark:text-white">
                          {currency}
@@ -780,7 +805,7 @@ const executeSave = async () => {
                        <Input
                          value={planPrice}
                          onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }}
-                         className="text-right font-bold text-slate-800 dark:text-white text-lg"
+                         className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight" // tracking-tight ajuda números grandes
                          placeholder="0,00"
                        />
                     </div>
@@ -836,14 +861,14 @@ const executeSave = async () => {
 
             {/* 4. SEÇÃO OUTROS */}
             <div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-3">
+                {/* Alterado: gap-3 para alinhar com o resto */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div>
                         <Label>Tecnologia</Label>
                         {technology === "Personalizado" ? (
                             <div className="flex gap-1">
                                 <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." autoFocus />
-                                <button onClick={() => setTechnology("IPTV")} className="p-2 text-slate-400 hover:text-rose-500 border rounded dark:border-white/10">✕</button>
+                                <button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
                             </div>
                         ) : (
                             <Select value={technology} onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}>
@@ -856,7 +881,7 @@ const executeSave = async () => {
                         )}
                     </div>
                     <div>
-                        <Label>Notificação WhatsApp</Label>
+                        <Label>Notificação</Label> {/* Encurtei o label */}
                         <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Comprovante?</span>
                             <div className={`relative w-8 h-4 rounded-full transition-colors ${sendWhats ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>

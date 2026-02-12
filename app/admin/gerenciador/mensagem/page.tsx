@@ -64,16 +64,18 @@ const TAG_GROUPS = [
       { label: "{revenda_dns}", desc: "Lista DNS (dns)" },
     ],
   },
-  {
-    title: "💰 Financeiro",
-    color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
-    tags: [
-      { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" }, // ✅ De volta ao Financeiro, com prioridade!
-      { label: "{pix_copia_cola}", desc: "Código Pix (Auto)" },
-      { label: "{chave_pix_manual}", desc: "Chave manual cadastrada" },
-      { label: "{valor_fatura}", desc: "Valor da renovação" },
-    ],
-  },
+{
+  title: "💰 Financeiro",
+  color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+  tags: [
+    { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" }, // ✅ Link do token (/renew?t=...)
+    { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" }, // ✅ NOVO: logo após o link
+    { label: "{pix_copia_cola}", desc: "Código Pix (Auto)" },
+    { label: "{chave_pix_manual}", desc: "Chave manual cadastrada" },
+    { label: "{valor_fatura}", desc: "Valor da renovação" },
+  ],
+},
+
 ];
 
 // --- TIPOS ---

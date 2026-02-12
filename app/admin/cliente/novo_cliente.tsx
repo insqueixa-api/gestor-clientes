@@ -33,10 +33,17 @@ export type ClientData = {
   price_amount?: number;
   price_currency?: string;
 
+  // ✅ NOVO (fonte da verdade)
+  plan_table_id?: string | null;
+
+  // ✅ OPCIONAL (se você trouxer na view/join)
+  plan_table_name?: string | null;
+
   vencimento?: string; // timestamptz
   apps_names?: string[];
-  technology?: string; // ✅ Campo Novo
+  technology?: string;
 };
+
 
 type ModalMode = "client" | "trial";
 
@@ -291,6 +298,28 @@ function splitE164(raw: string) {
   const national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
   return { ddi, national };
 }
+
+function clientTableLabelFromRow(
+  client: ClientData | null | undefined,
+  tables: PlanTable[]
+) {
+  if (!client) return "—";
+
+  // 1) se já veio o nome da tabela do banco, usa ele e pronto
+  const name = (client.plan_table_name || "").trim();
+  if (name) return name;
+
+  // 2) senão, tenta pelo ID
+  const id = client.plan_table_id || "";
+  if (id) {
+    const t = tables.find((x) => x.id === id);
+    if (t) return formatTableLabel(t);
+  }
+
+  // 3) fallback neutro (NUNCA “Tabela Geral”)
+  return "—";
+}
+
 
 function formatTableLabel(t: PlanTable) {
   const currency = t.currency || "BRL";
@@ -702,12 +731,28 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
           allTables.find((t) => t.currency === "BRL") ||
           allTables[0];
 
-        if (defaultBRL) {
-          setSelectedTableId(defaultBRL.id);
-          setCurrency(defaultBRL.currency || "BRL");
-          const p = pickPriceFromTable(defaultBRL, "MONTHLY", 1);
-          setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-          setPriceTouched(false);
+        // ✅ 1) define qual tabela deve ficar selecionada
+        let initialTableId = defaultBRL?.id || "";
+        if (clientToEdit?.plan_table_id) {
+          // se a tabela do cliente existir e estiver ativa (está em allTables), usa ela
+          const exists = allTables.some((t) => t.id === clientToEdit.plan_table_id);
+          if (exists) initialTableId = clientToEdit.plan_table_id;
+        }
+
+        // ✅ aplica a seleção inicial
+        if (initialTableId) {
+          setSelectedTableId(initialTableId);
+
+          const t0 = allTables.find((t) => t.id === initialTableId) || defaultBRL || null;
+          if (t0) {
+            setCurrency(t0.currency || "BRL");
+
+            // preço inicial só “auto” se o usuário não tiver sobrescrito
+            // (na edição, seu priceTouched vira true se tiver price_amount)
+            const p = pickPriceFromTable(t0, "MONTHLY", 1);
+            setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
+            setPriceTouched(false);
+          }
         }
 
         if (isTrialMode && defaultBRL) {
@@ -721,144 +766,176 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
         }
 
         // ===== PREFILL EDIÇÃO =====
-        if (clientToEdit) {
-          setName((clientToEdit.client_name || "").trim());
-          
-          // Tecnologia
-          const tec = clientToEdit.technology || "IPTV";
-          if (["IPTV", "P2P", "OTT"].includes(tec)) {
-            setTechnology(tec);
-            setCustomTechnology("");
-          } else {
-            setTechnology("Personalizado");
-            setCustomTechnology(tec);
-          }
-          
-          setUsername(clientToEdit.username || "");
-          setPassword(clientToEdit.server_password || "");
+if (clientToEdit) {
+  setName((clientToEdit.client_name || "").trim());
 
-          // Telefones
-          if (clientToEdit.whatsapp_e164) {
-            const { ddi, national } = splitE164(clientToEdit.whatsapp_e164);
-            setPrimaryCountryLabel(ddiMeta(ddi).label);
-            setPrimaryPhoneRaw(formatNational(ddi, national) || national);
-            if (!whatsUserTouched) setWhatsappUsername(clientToEdit.whatsapp_username || onlyDigits(clientToEdit.whatsapp_e164));
-          }
-
-          if (Array.isArray(clientToEdit.whatsapp_extra)) {
-            setExtras(
-              clientToEdit.whatsapp_extra.map((ph, i) => {
-                const { ddi, national } = splitE164(ph);
-                return {
-                  id: i + 1,
-                  raw: formatNational(ddi, national) || national,
-                  countryLabel: ddiMeta(ddi).label,
-                };
-              })
-            );
-          }
-
-          setServerId(clientToEdit.server_id || "");
-          setScreens(clientToEdit.screens || 1);
-
-          // Plano e Preço
-          const pName = (clientToEdit.plan_name || "").toUpperCase();
-          let foundPeriod: keyof typeof PLAN_LABELS = "MONTHLY";
-          if (pName.includes("ANUAL")) foundPeriod = "ANNUAL";
-          else if (pName.includes("SEMESTRAL")) foundPeriod = "SEMIANNUAL";
-          else if (pName.includes("TRIMESTRAL")) foundPeriod = "QUARTERLY";
-          else if (pName.includes("BIMESTRAL")) foundPeriod = "BIMONTHLY";
-          setSelectedPlanPeriod(foundPeriod);
-
-          if (clientToEdit.price_amount != null) {
-            setPlanPrice(Number(clientToEdit.price_amount).toFixed(2).replace(".", ","));
-            setPriceTouched(true);
-          }
-
-          // Câmbio
-          if (clientToEdit.price_currency) {
-            const ccy = clientToEdit.price_currency as Currency;
-            if (ccy !== "BRL") {
-              const { data: fx, error: fxErr } = await supabaseBrowser
-                .from("tenant_fx_rates")
-                .select("usd_to_brl, eur_to_brl, as_of_date")
-                .eq("tenant_id", tid)
-                .order("as_of_date", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-              if (fxErr) {
-                console.error("tenant_fx_rates error:", fxErr);
-                setFxRate(5);
-              } else {
-                const rate = ccy === "USD" ? Number(fx?.usd_to_brl || 5) : Number(fx?.eur_to_brl || 5);
-                setFxRate(rate);
-              }
-            } else {
-              setFxRate(1);
-            }
-          }
-
-          // Data Vencimento
-          if (clientToEdit.vencimento) {
-            const dt = new Date(clientToEdit.vencimento);
-            const dISO = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
-            const tISO = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
-            setDueDate(dISO);
-            setDueTime(tISO);
-          }
-
-          setWhatsappOptIn(clientToEdit.whatsapp_opt_in ?? true);
-
-          if (clientToEdit.dont_message_until) {
-            const v = isoToLocalDateTimeInputValue(clientToEdit.dont_message_until);
-            setDontMessageUntil(v); // v já vem "" se for epoch/antigo
-          } else {
-            setDontMessageUntil("");
-          }
+  // ✅ TABELA DO CLIENTE (prefill)
+  // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
+  const clientPlanTableId = (clientToEdit as any)?.plan_table_id || null;
+if (clientPlanTableId) {
+  const exists = allTables.some((t) => t.id === clientPlanTableId);
+  if (exists) {
+    setSelectedTableId(clientPlanTableId);
+    const tSel = allTables.find((t) => t.id === clientPlanTableId) || null;
+    if (tSel) setCurrency(tSel.currency || "BRL");
+  }
+}
 
 
+  // Tecnologia
+  const tec = clientToEdit.technology || "IPTV";
+  if (["IPTV", "P2P", "OTT"].includes(tec)) {
+    setTechnology(tec);
+    setCustomTechnology("");
+  } else {
+    setTechnology("Personalizado");
+    setCustomTechnology(tec);
+  }
 
-          setNotes(clientToEdit.notes || "");
+  setUsername(clientToEdit.username || "");
+  setPassword(clientToEdit.server_password || "");
 
-          // ✅ CARREGAMENTO DE APPS (NOVA LÓGICA)
-          if (clientToEdit.id) {
-            const { data: currentApps } = await supabaseBrowser
-              .from("client_apps")
-              .select("app_id, field_values, apps(name, fields_config)")
-              .eq("client_id", clientToEdit.id);
+  // Telefones
+  if (clientToEdit.whatsapp_e164) {
+    const { ddi, national } = splitE164(clientToEdit.whatsapp_e164);
+    setPrimaryCountryLabel(ddiMeta(ddi).label);
+    setPrimaryPhoneRaw(formatNational(ddi, national) || national);
+    if (!whatsUserTouched) {
+      setWhatsappUsername(
+        clientToEdit.whatsapp_username || onlyDigits(clientToEdit.whatsapp_e164)
+      );
+    }
+  }
 
-            if (currentApps) {
-              const instances = currentApps.map((ca: any) => {
-              const savedValues = ca.field_values || {};
-              // Extrai as configs especiais do JSON e remove do objeto de valores visuais
-              const { _config_cost, _config_partner, ...restValues } = savedValues;
+  if (Array.isArray(clientToEdit.whatsapp_extra)) {
+    setExtras(
+      clientToEdit.whatsapp_extra.map((ph, i) => {
+        const { ddi, national } = splitE164(ph);
+        return {
+          id: i + 1,
+          raw: formatNational(ddi, national) || national,
+          countryLabel: ddiMeta(ddi).label,
+        };
+      })
+    );
+  }
 
-              return {
-                instanceId: crypto.randomUUID(),
-                app_id: ca.app_id,
-                name: ca.apps?.name || "App Removido",
-                values: restValues, // Apenas os campos do formulário (MAC, etc)
-                fields_config: Array.isArray(ca.apps?.fields_config) ? ca.apps?.fields_config : [],
-                costType: _config_cost || "paid",
-                partnerServerId: _config_partner || ""
-              };
-            });
-              setSelectedApps(instances);
-            }
-          }
+  setServerId(clientToEdit.server_id || "");
+  setScreens(clientToEdit.screens || 1);
 
-          // Tecnologia (Fallback)
-          const tecRaw = clientToEdit.technology || "IPTV";
-          const isStandard = ["IPTV", "P2P", "OTT"].some(t => t.toUpperCase() === tecRaw.toUpperCase());
-          if (isStandard) {
-            setTechnology(tecRaw.toUpperCase());
-            setCustomTechnology("");
-          } else {
-            setTechnology("Personalizado");
-            setCustomTechnology(tecRaw);
-          }
-        }
+  // Plano e Preço
+  const pName = (clientToEdit.plan_name || "").toUpperCase();
+  let foundPeriod: keyof typeof PLAN_LABELS = "MONTHLY";
+  if (pName.includes("ANUAL")) foundPeriod = "ANNUAL";
+  else if (pName.includes("SEMESTRAL")) foundPeriod = "SEMIANNUAL";
+  else if (pName.includes("TRIMESTRAL")) foundPeriod = "QUARTERLY";
+  else if (pName.includes("BIMESTRAL")) foundPeriod = "BIMONTHLY";
+  setSelectedPlanPeriod(foundPeriod);
+
+  // ✅ Se tiver override de preço, mantém como estava
+  if (clientToEdit.price_amount != null) {
+    setPlanPrice(Number(clientToEdit.price_amount).toFixed(2).replace(".", ","));
+    setPriceTouched(true);
+  } else {
+    // ✅ Se NÃO tiver override, recalcula pelo preço da TABELA DO CLIENTE (não pela default BRL)
+    const currentTableId = clientPlanTableId && tables.some((t) => t.id === clientPlanTableId)
+      ? clientPlanTableId
+      : selectedTableId; // fallback: o que já estiver selecionado
+
+    const tSel = tables.find((t) => t.id === currentTableId) || null;
+    if (tSel) {
+      const pAuto = pickPriceFromTable(tSel, foundPeriod, clientToEdit.screens || 1);
+      setPlanPrice(Number(pAuto || 0).toFixed(2).replace(".", ","));
+      setPriceTouched(false);
+      setCurrency(tSel.currency || "BRL");
+    }
+  }
+
+  // Câmbio
+  if (clientToEdit.price_currency) {
+    const ccy = clientToEdit.price_currency as Currency;
+    if (ccy !== "BRL") {
+      const { data: fx, error: fxErr } = await supabaseBrowser
+        .from("tenant_fx_rates")
+        .select("usd_to_brl, eur_to_brl, as_of_date")
+        .eq("tenant_id", tid)
+        .order("as_of_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fxErr) {
+        console.error("tenant_fx_rates error:", fxErr);
+        setFxRate(5);
+      } else {
+        const rate =
+          ccy === "USD"
+            ? Number(fx?.usd_to_brl || 5)
+            : Number(fx?.eur_to_brl || 5);
+        setFxRate(rate);
+      }
+    } else {
+      setFxRate(1);
+    }
+  }
+
+  // Data Vencimento
+  if (clientToEdit.vencimento) {
+    const dt = new Date(clientToEdit.vencimento);
+    const dISO = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+    const tISO = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    setDueDate(dISO);
+    setDueTime(tISO);
+  }
+
+  setWhatsappOptIn(clientToEdit.whatsapp_opt_in ?? true);
+
+  if (clientToEdit.dont_message_until) {
+    const v = isoToLocalDateTimeInputValue(clientToEdit.dont_message_until);
+    setDontMessageUntil(v);
+  } else {
+    setDontMessageUntil("");
+  }
+
+  setNotes(clientToEdit.notes || "");
+
+  // ✅ CARREGAMENTO DE APPS (NOVA LÓGICA)
+  if (clientToEdit.id) {
+    const { data: currentApps } = await supabaseBrowser
+      .from("client_apps")
+      .select("app_id, field_values, apps(name, fields_config)")
+      .eq("client_id", clientToEdit.id);
+
+    if (currentApps) {
+      const instances = currentApps.map((ca: any) => {
+        const savedValues = ca.field_values || {};
+        const { _config_cost, _config_partner, ...restValues } = savedValues;
+
+        return {
+          instanceId: crypto.randomUUID(),
+          app_id: ca.app_id,
+          name: ca.apps?.name || "App Removido",
+          values: restValues,
+          fields_config: Array.isArray(ca.apps?.fields_config) ? ca.apps?.fields_config : [],
+          costType: _config_cost || "paid",
+          partnerServerId: _config_partner || ""
+        };
+      });
+      setSelectedApps(instances);
+    }
+  }
+
+  // Tecnologia (Fallback)
+  const tecRaw = clientToEdit.technology || "IPTV";
+  const isStandard = ["IPTV", "P2P", "OTT"].some((t) => t.toUpperCase() === tecRaw.toUpperCase());
+  if (isStandard) {
+    setTechnology(tecRaw.toUpperCase());
+    setCustomTechnology("");
+  } else {
+    setTechnology("Personalizado");
+    setCustomTechnology(tecRaw);
+  }
+}
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -954,6 +1031,10 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
   }, [selectedTable, selectedPlanPeriod, screens]);
 
   const showFx = currency !== "BRL";
+
+  const tableLabel = clientTableLabelFromRow(clientToEdit, tables);
+
+
 
 // Adiciona uma nova instância de app ao cliente
 function addAppToClient(app: AppCatalog) {
@@ -1064,6 +1145,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_server_password: password?.trim() || "",
   p_screens: rpcScreens,
   p_plan_label: rpcPlanLabel,
+  p_plan_table_id: selectedTableId,
   p_price_amount: rpcPriceAmount,
   p_price_currency: rpcCurrency as any,
   p_vencimento: dueISO,
@@ -1076,6 +1158,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_is_trial: isTrialMode,
   p_name_prefix: namePrefix,
   p_technology: finalTechnology,
+  
 });
 
 
@@ -1114,6 +1197,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_server_password: password?.trim() || "",
   p_screens: rpcScreens,
   p_plan_label: rpcPlanLabel,
+  p_plan_table_id: selectedTableId,
   p_price_amount: rpcPriceAmount,
   p_price_currency: rpcCurrency as any,
   p_vencimento: dueISO,
@@ -1230,32 +1314,30 @@ const { error } = await supabaseBrowser.rpc("update_client", {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
         onClick={onClose}
       >
         <div
-          className="w-full max-w-3xl max-h-[95vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          className="w-full sm:max-w-3xl max-h-[90vh] sm:max-h-[90vh] bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* HEADER */}
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-white dark:bg-[#161b22]">
             <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">
               {isEditing ? (isTrialMode ? "Editar teste" : "Editar cliente") : (isTrialMode ? "Novo teste" : "Novo cliente")}
             </h2>
-
             <button
               onClick={onClose}
               type="button"
-              className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 hover:text-slate-800 dark:hover:text-white transition-colors"
-              aria-label="Fechar"
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 transition-colors"
             >
-              ✕
+              <IconX />
             </button>
           </div>
 
           {/* ABAS */}
-          <div className="flex justify-center border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] px-5 py-2">
-            <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
+          <div className="flex justify-center border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 px-4 py-2">
+            <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
               {([
                 { key: "dados", label: "DADOS" },
                 { key: "pagamento", label: isTrialMode ? "SERVIDOR" : "PAGAMENTO" },
@@ -1264,9 +1346,9 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-6 py-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider ${
+                  className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
                     activeTab === tab.key
-                      ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-sm"
+                      ? "bg-white dark:bg-white/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
                       : "text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white"
                   }`}
                 >
@@ -1277,13 +1359,15 @@ const { error } = await supabaseBrowser.rpc("update_client", {
           </div>
 
           {/* BODY */}
-          <div className="p-5 overflow-y-auto space-y-5 flex-1 bg-white dark:bg-[#161b22]">
+          <div className="p-4 overflow-y-auto space-y-4 flex-1 bg-white dark:bg-[#161b22] custom-scrollbar">
+            
             {/* TAB: DADOS */}
             {activeTab === "dados" && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                
                 {/* Saudação + Nome */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="md:col-span-1">
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-1">
                     <Label>Saudação</Label>
                     <Select value={salutation} onChange={(e) => setSalutation(e.target.value)}>
                       <option value="">(Nenhum)</option>
@@ -1294,15 +1378,14 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                       <option value="Dna.">Dna.</option>
                     </Select>
                   </div>
-
-                  <div className="md:col-span-3">
+                  <div className="col-span-3">
                     <Label>Nome do cliente *</Label>
                     <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
                   </div>
                 </div>
 
-                {/* Telefone principal + Whats username */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Telefone + WhatsUser */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <PhoneRow
                     label="Telefone principal"
                     countryLabel={primaryCountryLabel}
@@ -1314,9 +1397,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                   <div>
                     <Label>WhatsApp username</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        @
-                      </span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
                       <Input
                         className="pl-8 pr-10"
                         value={whatsappUsername}
@@ -1324,7 +1405,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                           setWhatsappUsername(e.target.value);
                           setWhatsUserTouched(true);
                         }}
-                        placeholder="Whatsapp username"
+                        placeholder="username"
                       />
                       {whatsappUsername && (
                         <a
@@ -1333,17 +1414,9 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
-                          title="Abrir conversa no WhatsApp"
+                          title="Abrir conversa"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 32 32"
-                            className="w-5 h-5"
-                            fill="currentColor"
-                          >
-                            <path d="M19.11 17.53c-.28-.14-1.64-.81-1.9-.9-.25-.1-.44-.14-.62.14-.18.28-.72.9-.88 1.09-.16.18-.32.2-.6.07-.28-.14-1.17-.43-2.24-1.38-.83-.74-1.39-1.66-1.55-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.32.42-.48.14-.16.18-.28.28-.46.1-.18.05-.35-.02-.49-.07-.14-.62-1.49-.85-2.04-.22-.53-.44-.46-.62-.47l-.53-.01c-.18 0-.46.07-.7.35-.24.28-.92.9-.92 2.2s.94 2.55 1.07 2.73c.14.18 1.85 2.83 4.49 3.97.63.27 1.12.43 1.5.55.63.2 1.21.17 1.67.1.51-.08 1.64-.67 1.87-1.32.23-.65.23-1.21.16-1.32-.07-.11-.25-.18-.53-.32z" />
-                            <path d="M16.02 3C9.38 3 4 8.38 4 15.02c0 2.65.87 5.09 2.34 7.06L4 29l7.1-2.29a12 12 0 0 0 4.92 1.02h.01c6.64 0 12.02-5.38 12.02-12.02C28.05 8.38 22.67 3 16.02 3zm0 21.8a9.75 9.75 0 0 1-4.98-1.36l-.36-.21-4.21 1.36 1.37-4.1-.23-.37a9.78 9.78 0 1 1 8.41 4.68z" />
-                          </svg>
+                          <IconChat />
                         </a>
                       )}
                     </div>
@@ -1362,12 +1435,11 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                           { id: Date.now() + Math.floor(Math.random() * 100000), raw: "", countryLabel: "—" },
                         ])
                       }
-                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20"
+                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                     >
-                      + ADD
+                      + ADD TELEFONE
                     </button>
                   </div>
-
                   <div className="space-y-2">
                     {extras.map((ex) => (
                       <PhoneRow
@@ -1386,22 +1458,22 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                   </div>
                 </div>
 
-                {/* Cadastro + Whats (compacto) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Cadastro + Whats + Não Perturbe */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>Data do Cadastro</Label>
+                    <Label>Data Cadastro</Label>
                     <Input
                       type="datetime-local"
                       value={createdAt}
                       onChange={(e) => setCreatedAt(e.target.value)}
-                      className="h-9 text-xs"
+                      className="h-10 text-xs"
                     />
                   </div>
 
-                  <div className="pt-[18px]">
+                  <div className="pt-0 sm:pt-[18px]">
                     <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3">
                       <span className="text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
-                        Aceita mensagens
+                        Aceita msg?
                       </span>
                       <Switch
                         checked={whatsappOptIn}
@@ -1417,10 +1489,22 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                       type="datetime-local"
                       value={dontMessageUntil}
                       onChange={(e) => setDontMessageUntil(e.target.value)}
-                      className="h-9 text-xs"
+                      className="h-10 text-xs"
                     />
                   </div>
                 </div>
+
+                {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
+                <div>
+                   <Label>Observações Internas</Label>
+                   <textarea
+                     value={notes}
+                     onChange={(e) => setNotes(e.target.value)}
+                     placeholder="Anote detalhes importantes sobre este cliente..."
+                     className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                   />
+                </div>
+
               </div>
             )}
 
@@ -1429,93 +1513,70 @@ const { error } = await supabaseBrowser.rpc("update_client", {
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                 
                 {/* CARD ACESSO */}
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
-                   
-                   {/* HEADER DO CARD: Título + Tecnologia */}
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
                    <div className="flex justify-between items-center gap-3">
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Acesso</span>
                       
-                      {/* ✅ TECNOLOGIA */}
+                      {/* Tecnologia */}
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold">Tecnologia:</span>
-                        
+                        <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tecnologia:</span>
                         {technology === "Personalizado" ? (
-                            /* MODO INPUT (Personalizado) */
                             <div className="relative flex items-center">
                                  <input 
                                     value={customTechnology}
                                     onChange={(e) => setCustomTechnology(e.target.value)}
-                                    className="h-8 w-[180px] pl-2 pr-14 text-xs font-bold text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded outline-none focus:border-emerald-500/50 transition-all"
+                                    className="h-8 w-[140px] sm:w-[180px] pl-2 pr-8 text-xs font-bold text-slate-700 dark:text-white bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded outline-none focus:border-emerald-500/50 transition-all"
                                     placeholder="Digite..."
                                     autoFocus
                                  />
-                                 <div className="absolute right-1 flex items-center gap-1">
-                                    <button 
-                                      type="button"
-                                      onClick={() => { setTechnology("IPTV"); setCustomTechnology(""); }}
-                                      className="h-6 w-6 flex items-center justify-center rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                                      title="Cancelar"
-                                    >
-                                      ✕
-                                    </button>
-                                    
-                                    <button 
-                                      type="button"
-                                      onClick={() => { 
-                                          if (customTechnology.trim()) {
-                                              setTechnology(customTechnology.trim()); 
-                                          }
-                                      }}
-                                      className="h-6 w-6 flex items-center justify-center rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 font-bold hover:brightness-110 transition-all"
-                                      title="Confirmar"
-                                    >
-                                      ✓
-                                    </button>
-                                 </div>
+                                 <button 
+                                    type="button"
+                                    onClick={() => { setTechnology("IPTV"); setCustomTechnology(""); }}
+                                    className="absolute right-1 h-6 w-6 flex items-center justify-center rounded text-slate-400 hover:text-rose-500 transition-colors"
+                                 >
+                                    ✕
+                                 </button>
                             </div>
                         ) : (
-                            /* MODO SELECT (Largura fixada em w-[180px] para igualar a Tabela) */
-                            <select
-                                value={technology}
+                            <select 
+                                value={technology} 
                                 onChange={(e) => {
                                      const val = e.target.value;
                                      if (val === "Personalizado") {
-                                         setTechnology("Personalizado");
-                                         setCustomTechnology(""); 
+                                          setTechnology("Personalizado");
+                                          setCustomTechnology(""); 
                                      } else {
-                                         setTechnology(val);
+                                          setTechnology(val);
                                      }
-                                }}
+                                }} 
                                 className="h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
                             >
                                 <option value="IPTV">IPTV</option>
                                 <option value="P2P">P2P</option>
                                 <option value="OTT">OTT</option>
-                                
                                 {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && (
                                     <option value={technology}>{technology}</option>
                                 )}
-
-                                <option value="Personalizado">Personalizado...</option>
+                                <option value="Personalizado">Outro...</option>
                             </select>
                         )}
                       </div>
                    </div>
 
-                   {/* INPUTS DE ACESSO */}
-                   <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                      <div className="md:col-span-2">
+                   {/* Inputs Acesso */}
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
                         <Label>Servidor *</Label>
                         <Select value={serverId} onChange={(e) => setServerId(e.target.value)}>
                             <option value="">Selecione...</option>
                             {servers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </Select>
                       </div>
-                      <div className="md:col-span-2">
+                      <div>
                         <Label>Usuário*</Label>
                         <Input value={username} onChange={(e) => setUsername(e.target.value)} />
                       </div>
-                      <div className="md:col-span-2">
+                      <div>
                         <Label>Senha</Label>
                         <Input value={password} onChange={(e) => setPassword(e.target.value)} />
                       </div>
@@ -1523,33 +1584,30 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                 </div>
 
                 {!isTrialMode && (
-                   <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
-                      
+                   <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
                       <div className="flex justify-between items-center gap-3">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold">Tabela:</span>
-                          
-                          {/* ✅ TABELA (Largura fixada em w-[180px] para igualar a Tecnologia) */}
+                          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tabela:</span>
                           <select 
                             value={selectedTableId} 
                             onChange={(e) => setSelectedTableId(e.target.value)} 
-                            className="h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
+                            className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                           >
                             {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
                           </select>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <div><Label>Plano</Label><Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}>{Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="col-span-2 sm:col-span-1"><Label>Plano</Label><Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}>{Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
                         <div><Label>Telas</Label><Input type="number" min={1} value={screens} onChange={(e) => setScreens(Math.max(1, Number(e.target.value || 1)))} /></div>
                         <div><Label>Créditos</Label><div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">{creditsInfo ? creditsInfo.used : "-"}</div></div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-3">
                         <div><Label>Moeda</Label><div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">{currency}</div></div>
-                        <div className="col-span-2"><Label>Valor</Label><Input value={planPrice} onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }} placeholder="0,00" /></div>
+                        <div className="col-span-2"><Label>Valor</Label><Input value={planPrice} onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }} placeholder="0,00" className="text-right font-bold tracking-tight text-lg" /></div>
                       </div>
 
                       {showFx && (
@@ -1560,29 +1618,31 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                       )}
                    </div>
                 )}
-
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
-                  <div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Vencimento (data)</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
-                    <div>
-                      <Label>Vencimento (hora)</Label>
-                      <div className="flex gap-2">
-                        <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="dark:[color-scheme:dark]" />
-                        <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-white/70 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Definir para fim do dia">23:59</button>
+                
+                {/* VENCIMENTO */}
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
+                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span></div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div><Label>Data</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
+                      <div>
+                        <Label>Hora</Label>
+                        <div className="flex gap-2">
+                           <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="dark:[color-scheme:dark]" />
+                           <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-white/70 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Fim do dia">23:59</button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  {!isEditing && (
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Teste automático" : "Registrar renovação"}</span><Switch checked={registerRenewal} onChange={(v) => { setRegisterRenewal(v); if (v) setSendPaymentMsg(true); else setSendPaymentMsg(false); }} label="" /></div>
-                      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Enviar msg teste criado" : "Enviar msg pagamento"}</span><Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" /></div>
-                    </div>
-                  )}
+                   </div>
+                   {!isEditing && (
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Teste automático" : "Registrar renovação"}</span><Switch checked={registerRenewal} onChange={(v) => { setRegisterRenewal(v); if (v) setSendPaymentMsg(true); else setSendPaymentMsg(false); }} label="" /></div>
+                        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Enviar msg teste" : "Enviar msg pagto"}</span><Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" /></div>
+                     </div>
+                   )}
                 </div>
               </div>
             )}
 
+            {/* TAB: APLICATIVOS */}
             {activeTab === "apps" && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                 
@@ -1602,135 +1662,111 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                         </button>
                       </div>
 
-                      {/* Renderiza os campos configurados para este app */}
-                {/* ✅ Configuração de Custo e Parceria desta instância */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
-              <div>
-                  <Label>Parceria com Servidor?</Label>
-                  <Select 
-                      value={app.partnerServerId} 
-                      onChange={(e) => updateAppConfig(app.instanceId, "partnerServerId", e.target.value)}
-                  >
-                      <option value="">Não (Nenhum)</option>
-                      {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </Select>
-              </div>
-              <div>
-                  <Label>Custo do Aplicativo</Label>
-                  <Select 
-                      value={app.costType} 
-                      onChange={(e) => updateAppConfig(app.instanceId, "costType", e.target.value)}
-                  >
-                      <option value="paid">Pago pelo Cliente</option>
-                      <option value="free">Gratuito / Incluso</option>
-                      {app.partnerServerId && <option value="partnership">Parceria (Pago pelo Server)</option>}
-                  </Select>
-              </div>
-          </div>
+                      {/* Configuração de Custo e Parceria */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
+                          <div>
+                              <Label>Parceria com Servidor?</Label>
+                              <Select 
+                                  value={app.partnerServerId} 
+                                  onChange={(e) => updateAppConfig(app.instanceId, "partnerServerId", e.target.value)}
+                              >
+                                  <option value="">Não (Nenhum)</option>
+                                  {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              </Select>
+                          </div>
+                          <div>
+                              <Label>Custo do Aplicativo</Label>
+                              <Select 
+                                  value={app.costType} 
+                                  onChange={(e) => updateAppConfig(app.instanceId, "costType", e.target.value)}
+                              >
+                                  <option value="paid">Pago pelo Cliente</option>
+                                  <option value="free">Gratuito / Incluso</option>
+                                  {app.partnerServerId && <option value="partnership">Parceria (Pago pelo Server)</option>}
+                              </Select>
+                          </div>
+                      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* ✅ Blindagem: Opcional Chaining (?.) para não quebrar se for null */}
-            {app.fields_config?.length > 0 ? (
-              app.fields_config.map((field: any) => (
-                            <div key={field.id}>
-                              <Label>{field.label}</Label>
-                              <Input 
-                                type={field.type === 'date' ? 'date' : 'text'}
-                                value={app.values[field.label] || ""}
-                                onChange={(e) => updateAppFieldValue(app.instanceId, field.label, e.target.value)}
-                                placeholder={`Digite ${field.label}...`}
-                              />
+                      {/* Campos do App */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {app.fields_config?.length > 0 ? (
+                          app.fields_config.map((field: any) => (
+                                        <div key={field.id}>
+                                          <Label>{field.label}</Label>
+                                          <Input 
+                                            type={field.type === 'date' ? 'date' : 'text'}
+                                            value={app.values[field.label] || ""}
+                                            onChange={(e) => updateAppFieldValue(app.instanceId, field.label, e.target.value)}
+                                            placeholder={`Digite ${field.label}...`}
+                                          />
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-[10px] text-slate-400 italic col-span-2 py-1">
+                                        Este aplicativo não requer configuração adicional.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-[10px] text-slate-400 italic col-span-2 py-1">
-                            Este aplicativo não requer configuração adicional.
-                          </p>
-                        )}
+
+                {/* Seletor de Aplicativos (Tipo Combobox) */}
+                <div className="relative">
+                  {!showAppSelector ? (
+                    <button 
+                      onClick={() => { setShowAppSelector(true); setAppSearch(""); }} 
+                      className="w-full h-10 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-xs uppercase flex items-center justify-center gap-2"
+                    >
+                      <span>+</span> Adicionar Aplicativo
+                    </button>
+                  ) : (
+                    <div className="relative animate-in fade-in zoom-in-95 duration-200">
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</div>
+                        <input 
+                          autoFocus
+                          placeholder="Digite para buscar o aplicativo..."
+                          value={appSearch}
+                          onChange={(e) => setAppSearch(e.target.value)}
+                          className="w-full h-10 pl-9 pr-10 bg-white dark:bg-[#0d1117] border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-slate-800 dark:text-white outline-none shadow-lg"
+                        />
+                        <button 
+                          onClick={() => setShowAppSelector(false)} 
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
+                        >✕</button>
+                      </div>
+
+                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                         {(() => {
+                            const filtered = catalog
+                              .filter(app => app.name.toLowerCase().includes(appSearch.toLowerCase()))
+                              .sort((a, b) => a.name.localeCompare(b.name));
+
+                            if (filtered.length === 0) {
+                              return <div className="p-4 text-center text-xs text-slate-400 italic">Nenhum aplicativo encontrado para "{appSearch}".</div>;
+                            }
+
+                            return filtered.map(app => (
+                              <button
+                                key={app.id}
+                                onClick={() => addAppToClient(app)}
+                                className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
+                              >
+                                <span className="font-medium">{app.name}</span>
+                                <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">Selecionar</span>
+                              </button>
+                            ));
+                         })()}
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
 
-                {/* Botão para Adicionar Outro App (Com Busca e Rolagem) */}
-    {/* Seletor de Aplicativos (Tipo Combobox) */}
-    <div className="relative">
-      {!showAppSelector ? (
-        <button 
-          onClick={() => { setShowAppSelector(true); setAppSearch(""); }} 
-          className="w-full h-10 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-xs uppercase flex items-center justify-center gap-2"
-        >
-          <span>+</span> Adicionar Aplicativo
-        </button>
-      ) : (
-        <div className="relative animate-in fade-in zoom-in-95 duration-200">
-          {/* Input de Busca */}
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              🔍
-            </div>
-            <input 
-              autoFocus
-              placeholder="Digite para buscar o aplicativo..."
-              value={appSearch}
-              onChange={(e) => setAppSearch(e.target.value)}
-              className="w-full h-10 pl-9 pr-10 bg-white dark:bg-[#0d1117] border border-emerald-500 ring-1 ring-emerald-500/20 rounded-lg text-sm text-slate-800 dark:text-white outline-none shadow-lg"
-            />
-            <button 
-              onClick={() => setShowAppSelector(false)} 
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors"
-              title="Fechar seleção"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Lista Dropdown (Flutuante) */}
-          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-             {(() => {
-                const filtered = catalog
-                  .filter(app => app.name.toLowerCase().includes(appSearch.toLowerCase()))
-                  .sort((a, b) => a.name.localeCompare(b.name)); // ✅ Ordem Alfabética
-
-                if (filtered.length === 0) {
-                  return (
-                    <div className="p-4 text-center text-xs text-slate-400 italic">
-                      Nenhum aplicativo encontrado para "{appSearch}".
-                    </div>
-                  );
-                }
-
-                return filtered.map(app => (
-                  <button
-                    key={app.id}
-                    onClick={() => addAppToClient(app)}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
-                  >
-                    <span className="font-medium">{app.name}</span>
-                    <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
-                      Selecionar
-                    </span>
-                  </button>
-                ));
-             })()}
-          </div>
-        </div>
-      )}
-    </div>
-
-                {/* Observações (Mantido) */}
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-2 mt-4">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Observações Internas</span>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Obs..."
-                    className="w-full h-20 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
-                  />
-                </div>
+                {/* OBS: Removido campo de Observações daqui pois foi movido para a Tab DADOS */}
               </div>
             )}
-            </div>
+          </div>
 
           {/* FOOTER */}
           <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2">
@@ -1752,26 +1788,28 @@ const { error } = await supabaseBrowser.rpc("update_client", {
           </div>
         </div>
       </div>
-      {/* === MODAL DE CONFIRMAÇÃO (Igual ao Recarga) === */}
+
+      {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-2xl">
+        <div className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+            <div className="w-full sm:max-w-sm bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 flex flex-col gap-5 animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+                
+                <div className="flex flex-col items-center text-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-3xl">
                         💰
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">{confirmModal.title}</h3>
-                        <p className="text-xs text-slate-500 dark:text-white/60">Confira o lançamento financeiro.</p>
+                        <p className="text-sm text-slate-500 dark:text-white/60 mt-1">Confira os dados financeiros.</p>
                     </div>
                 </div>
                 
                 <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
-                    <ul className="space-y-2">
+                    <ul className="space-y-2.5">
                         {confirmModal.details.map((line, i) => (
-                            <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                                <span className="text-emerald-500 font-bold">•</span>
-                                {line}
+                            <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2.5">
+                                <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                                <span className="leading-tight">{line}</span>
                             </li>
                         ))}
                     </ul>
@@ -1780,13 +1818,13 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                 <div className="flex gap-3 pt-2">
                     <button 
                         onClick={() => setConfirmModal(null)}
-                        className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                        className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                     >
                         Voltar
                     </button>
                     <button 
                         onClick={executeSave}
-                        className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-lg shadow-emerald-500/30 transition-all transform active:scale-95"
+                        className="flex-1 h-12 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow-lg shadow-emerald-500/30 transition-all transform active:scale-95"
                     >
                         Confirmar
                     </button>
@@ -1795,5 +1833,20 @@ const { error } = await supabaseBrowser.rpc("update_client", {
         </div>
       )}
     </>
+  );
+}
+function IconX() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
   );
 }

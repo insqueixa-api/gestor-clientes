@@ -183,7 +183,17 @@ function buildWhatsAppSessionLabel(profile: any): string {
 // ============================================================================
 // ✅ MONITOR GLOBAL DE FILA (CORRIGIDO: SEM JOIN QUEBRADO)
 // ============================================================================
-function GlobalQueueMonitor() {
+function GlobalQueueMonitor({
+  addToast,
+}: {
+  addToast: (
+    type: "success" | "error",
+    title: string,
+    msg?: string,
+    durationMs?: number
+  ) => void;
+}) {
+
   const [loading, setLoading] = useState(false);
   const [queueData, setQueueData] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -197,6 +207,31 @@ function GlobalQueueMonitor() {
     const fetchQueue = async () => {
       const tid = await getCurrentTenantId();
       if (!tid) return;
+
+      // ✅ BLINDAGEM: garante que o usuário logado pertence ao tenant
+{
+const { data: u } = await supabaseBrowser.auth.getUser();
+const userId = u?.user?.id;
+
+if (!userId) {
+  addToast("error", "Sessão inválida", "Faça login novamente.");
+  return;
+}
+
+const { data: mem, error: memErr } = await supabaseBrowser
+  .from("tenant_members")
+  .select("tenant_id")
+  .eq("tenant_id", tid)
+  .eq("user_id", userId)
+  .maybeSingle();
+
+if (memErr || !mem) {
+  addToast("error", "Acesso negado", "Você não tem permissão neste tenant.");
+  return;
+}
+
+}
+
 
       
       const statuses = ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"];
@@ -838,7 +873,10 @@ return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
     {/* 👇 COLOQUE AQUI NO TOPO */}
-      <GlobalQueueMonitor />
+      <GlobalQueueMonitor addToast={addToast} />
+
+
+
 
       {/* HEADER */}
 <div className="flex flex-col md:flex-row justify-between items-start gap-3">
@@ -1318,6 +1356,24 @@ function AutomationWizard({ auxData, editingRule, onClose, onSuccess, onError }:
         try {
             const tid = await getCurrentTenantId();
 if (!tid) throw new Error("Sessão inválida.");
+
+// ✅ BLINDAGEM: garante membership antes de salvar regra
+{
+const { data: u } = await supabaseBrowser.auth.getUser();
+const userId = u?.user?.id;
+if (!userId) throw new Error("Sessão inválida.");
+
+const { data: mem, error: memErr } = await supabaseBrowser
+  .from("tenant_members")
+  .select("tenant_id")
+  .eq("tenant_id", tid)
+  .eq("user_id", userId)
+  .maybeSingle();
+
+if (memErr || !mem) throw new Error("Forbidden");
+
+}
+
 
 const payload = {
   tenant_id: tid,
