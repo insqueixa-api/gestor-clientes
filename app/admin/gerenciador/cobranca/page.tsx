@@ -178,6 +178,189 @@ function buildWhatsAppSessionLabel(profile: any): string {
   return `Principal • ${pretty || "Conectado"}`;
 }
 
+// ============================================================================
+// ✅ NOVO COMPONENTE: MONITOR GLOBAL DE FILA (COM BOTÃO DE PÂNICO)
+// ============================================================================
+function GlobalQueueMonitor() {
+  const [loading, setLoading] = useState(false);
+  const [queueData, setQueueData] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  // 1. Polling: Checa o banco a cada 3 segundos
+  useEffect(() => {
+    const fetchQueue = async () => {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
+
+      // Busca jobs pendentes + nome da regra (join)
+      const { data, error } = await supabaseBrowser
+        .from("client_message_jobs")
+        .select(`
+          id, 
+          status, 
+          send_at, 
+          client_id,
+          automation_id,
+          billing_automations ( name )
+        `)
+        .eq("tenant_id", tid)
+        .in("status", ["SCHEDULED", "QUEUED"])
+        .order("send_at", { ascending: true });
+
+      if (!error && data) {
+        setQueueData(data);
+        setLastUpdate(new Date());
+      }
+    };
+
+    // Roda agora e a cada 3s
+    fetchQueue();
+    const interval = setInterval(fetchQueue, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 2. Ação: Cancelar TUDO (Botão de Pânico)
+  const handleNukeQueue = async () => {
+    const count = queueData.length;
+    if (count === 0) return;
+
+    const confirmText = prompt(
+      `🚨 ATENÇÃO: PARADA DE EMERGÊNCIA 🚨\n\nIsso vai cancelar ${count} envios pendentes IMEDIATAMENTE.\n\nDigite "CANCELAR" para confirmar:`
+    );
+
+    if (confirmText !== "CANCELAR") return;
+
+    setLoading(true);
+    const tid = await getCurrentTenantId();
+    
+    // Atualiza status para CANCELLED
+    await supabaseBrowser
+      .from("client_message_jobs")
+      .update({ status: "CANCELLED", error_message: "Parada de emergência global" })
+      .eq("tenant_id", tid!)
+      .in("status", ["SCHEDULED", "QUEUED"]);
+
+    setLoading(false);
+    setShowModal(false);
+    // O polling vai limpar a lista em 3s
+  };
+
+  // Se não tem fila, não mostra nada
+  if (queueData.length === 0) return null;
+
+  return (
+    <>
+      {/* 🟢 BARRA DE MONITORAMENTO (TOPO) */}
+      <div 
+        onClick={() => setShowModal(true)}
+        className="mb-6 mx-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all group animate-in slide-in-from-top-2"
+      >
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-3 h-3 bg-amber-500 rounded-full animate-ping absolute top-0 left-0 opacity-75"></div>
+            <div className="w-3 h-3 bg-amber-500 rounded-full relative"></div>
+          </div>
+          <div>
+            <h3 className="font-bold text-amber-800 dark:text-amber-200 text-sm uppercase tracking-wide">
+              Processamento em Andamento
+            </h3>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              Existem <strong className="text-lg">{queueData.length}</strong> mensagens na fila de envio.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+            <span className="text-[10px] text-amber-500 font-mono hidden sm:block">
+                Atualizado: {lastUpdate.toLocaleTimeString()}
+            </span>
+            <button className="px-4 py-2 bg-white dark:bg-amber-900/40 border border-amber-200 dark:border-amber-500/30 rounded-lg text-xs font-bold text-amber-700 dark:text-amber-300 group-hover:bg-amber-100 transition-colors uppercase">
+            Ver Detalhes
+            </button>
+        </div>
+      </div>
+
+      {/* 🔴 MODAL RAIO-X (DETALHES) */}
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
+            
+            {/* Header Modal */}
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  🚦 Monitor de Fila (Ao Vivo)
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">{queueData.length} pendentes</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">A lista atualiza automaticamente a cada 3 segundos.</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">✕</button>
+            </div>
+
+            {/* Lista Scrollable */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-100 dark:bg-white/5 sticky top-0 text-xs uppercase text-slate-500 font-bold z-10">
+                  <tr>
+                    <th className="p-4">Previsão Envio</th>
+                    <th className="p-4">Automação (Regra)</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">ID Job</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm divide-y divide-slate-100 dark:divide-white/5">
+                  {queueData.map((job) => (
+                    <tr key={job.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                      <td className="p-4 font-mono text-slate-600 dark:text-slate-400">
+                        {new Date(job.send_at).toLocaleTimeString()} 
+                        <span className="text-[10px] ml-2 text-slate-400">
+                            (+{Math.max(0, Math.floor((new Date(job.send_at).getTime() - Date.now())/1000))}s)
+                        </span>
+                      </td>
+                      <td className="p-4 font-bold text-slate-800 dark:text-white">
+                        {(job.billing_automations as any)?.name || "Envio Avulso"}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${job.status === 'SENDING' ? 'bg-purple-100 text-purple-700 animate-pulse' : 'bg-slate-100 text-slate-600'}`}>
+                          {job.status === 'SENDING' ? 'Enviando...' : 'Na Fila'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right text-xs text-slate-400 font-mono">
+                        {job.id.slice(0, 8)}...
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer com Botão de Pânico */}
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
+                <span className="text-xs text-slate-400">
+                    *Para cancelar apenas uma regra específica, use o botão "Parar" no card da regra.
+                </span>
+                <div className="flex gap-3">
+                    <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-slate-500 font-bold text-xs uppercase hover:bg-slate-200 transition-colors">
+                        Fechar Monitor
+                    </button>
+                    <button 
+                        onClick={handleNukeQueue}
+                        disabled={loading}
+                        className="px-6 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs uppercase shadow-lg shadow-rose-900/20 hover:bg-rose-500 hover:scale-105 transition-all flex items-center gap-2"
+                    >
+                        {loading ? "Cancelando..." : "🚨 Cancelar TODOS os Envios"}
+                    </button>
+                </div>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 export default function BillingPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -577,6 +760,9 @@ const { error } = await supabaseBrowser
 
 return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
+    {/* 👇 COLOQUE AQUI NO TOPO */}
+      <GlobalQueueMonitor />
 
       {/* HEADER */}
 <div className="flex flex-col md:flex-row justify-between items-start gap-3">
