@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
+
 
 
 
@@ -187,22 +189,28 @@ function GlobalQueueMonitor() {
   const [showModal, setShowModal] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
+  const { confirm, ConfirmUI } = useConfirm();
+
+
   // 1. Polling: Busca a fila (Simplificado para não falhar)
   useEffect(() => {
     const fetchQueue = async () => {
       const tid = await getCurrentTenantId();
       if (!tid) return;
 
+      
       const statuses = ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"];
 
 
-      const { data, error } = await supabaseBrowser
-        .from("client_message_jobs")
-        .select("id,status,send_at,created_at,client_id,automation_id")
-        .eq("tenant_id", tid)
-        .in("status", statuses)
-        .order("send_at", { ascending: true })
-        .order("created_at", { ascending: true });
+const { data, error } = await supabaseBrowser
+  .from("vw_client_message_jobs_queue_details")
+  .select(
+    "id,status,when_sp,when_ts_utc,origem,client_id,client_name,whatsapp_username,automation_id,template_name,message_preview,message_full,whatsapp_session,error_message"
+  )
+  .eq("tenant_id", tid)
+  .in("status", statuses)
+  .order("when_ts_utc", { ascending: true });
+
 
 
       if (error) {
@@ -254,19 +262,42 @@ function GlobalQueueMonitor() {
   // 4. Ação: CANCELAR TUDO
   const handleNukeQueue = async () => {
     if (queueData.length === 0) return;
-    const confirmText = prompt(`PARADA DE EMERGÊNCIA: Cancelar ${queueData.length} envios?\n\nDigite "CANCELAR" para confirmar:`);
-    if (confirmText !== "CANCELAR") return;
+
+    const ok = await confirm({
+      title: "Cancelar tudo da fila?",
+      subtitle: `Isso vai cancelar ${queueData.length} mensagens pendentes.`,
+      details: [
+        "Status afetados: SCHEDULED, QUEUED, SENDING e PAUSED",
+        "As mensagens serão marcadas como CANCELLED (histórico preservado)",
+      ],
+      tone: "rose",
+      icon: "alert",
+      confirmText: "Sim, cancelar tudo",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
 
     setLoading(true);
-    const tid = await getCurrentTenantId();
-    await supabaseBrowser
-  .from("client_message_jobs")
-  .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
-  .eq("tenant_id", tid!)
-  .in("status", ["SCHEDULED", "QUEUED", "SENDING", "PAUSED"]);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
 
-    setLoading(false);
-    setShowModal(false);
+      const { error } = await supabaseBrowser
+        .from("client_message_jobs")
+        .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
+        .eq("tenant_id", tid)
+        .in("status", ["SCHEDULED", "QUEUED", "SENDING", "PAUSED"]);
+
+      if (error) {
+        console.error("[QueueMonitor] Erro ao cancelar tudo:", error);
+        return;
+      }
+
+      setShowModal(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (queueData.length === 0) return null;
@@ -277,6 +308,9 @@ function GlobalQueueMonitor() {
 
   return (
     <>
+      {/* ✅ UI do confirm (PRECISA estar renderizado aqui) */}
+      {ConfirmUI}
+
       {/* 🟢 BARRA DE MONITORAMENTO */}
       <div 
         onClick={() => setShowModal(true)}
@@ -309,57 +343,100 @@ function GlobalQueueMonitor() {
       </div>
 
       {/* 🔴 MODAL RAIO-X */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
-              <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-0">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-bold text-xs uppercase sticky top-0">
-                  <tr><th className="p-4">Previsão</th><th className="p-4">Tipo</th><th className="p-4">Status</th><th className="p-4 text-right">ID</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                  {queueData.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
-                      <td className="p-4 font-mono text-gray-600 dark:text-gray-400">
-                        {(() => {
-                          const when = job.send_at || job.created_at;
-                          if (!when) return "--:--";
-                          return new Date(when).toLocaleTimeString("pt-BR");
-                        })()}
-                      </td>
+{showModal && createPortal(
+  <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
+    <div className="w-full max-w-6xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
+        <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
+        <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+      </div>
 
+      <div className="flex-1 overflow-y-auto p-0">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-bold text-xs uppercase sticky top-0">
+            <tr>
+              <th className="p-4">Quando</th>
+              <th className="p-4">Origem</th>
+              <th className="p-4">Cliente</th>
+              <th className="p-4">WhatsApp</th>
+              <th className="p-4">Mensagem</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 text-right">ID</th>
+            </tr>
+          </thead>
 
-                      <td className="p-4 font-bold text-slate-800 dark:text-white">
-                        {job.automation_id ? "Automação" : "Envio Manual"}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${job.status === 'PAUSED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                            {job.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-mono text-xs text-gray-400">{job.id.slice(0,8)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5">
-                {activeCount > 0 ? 
-                    <button onClick={handleGlobalPause} disabled={loading} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
-                    <button onClick={handleGlobalResume} disabled={loading || pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
-                }
-                <button onClick={handleNukeQueue} disabled={loading} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700">🚨 CANCELAR TUDO</button>
-            </div>
-          </div>
-        </div>, document.body
-      )}
+          <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+            {queueData.map((job) => (
+              <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-white/5 align-top">
+                {/* QUANDO */}
+                <td className="p-4 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  {job.when_sp || "--"}
+                </td>
+
+                {/* ORIGEM */}
+                <td className="p-4 font-bold text-slate-800 dark:text-white whitespace-nowrap">
+                  {job.origem === "AUTOMACAO" ? "Automação" : "Envio Manual"}
+                </td>
+
+                {/* CLIENTE */}
+                <td className="p-4 font-bold text-slate-800 dark:text-white">
+                  {job.client_name || <span className="text-slate-400 font-normal">(cliente não encontrado)</span>}
+                </td>
+
+                {/* WHATSAPP */}
+                <td className="p-4 font-mono text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
+                  {job.whatsapp_username || "--"}
+                </td>
+
+                {/* MENSAGEM */}
+                <td className="p-4">
+                  {job.template_name ? (
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-800 dark:text-white">{job.template_name}</span>
+                      <span className="text-[10px] text-slate-400">Template</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-800 dark:text-white">Personalizada</span>
+                      <span className="text-[11px] text-slate-500 dark:text-white/60 line-clamp-2">
+                        {job.message_preview || "--"}
+                      </span>
+                    </div>
+                  )}
+                </td>
+
+                {/* STATUS */}
+                <td className="p-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${job.status === 'PAUSED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    {job.status}
+                  </span>
+                </td>
+
+                {/* ID */}
+                <td className="p-4 text-right font-mono text-xs text-gray-400 whitespace-nowrap">
+                  {job.id.slice(0,8)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="p-4 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5">
+        {activeCount > 0 ? 
+          <button onClick={handleGlobalPause} disabled={loading} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
+          <button onClick={handleGlobalResume} disabled={loading || pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
+        }
+        <button onClick={handleNukeQueue} disabled={loading} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700">🚨 CANCELAR TUDO</button>
+      </div>
+    </div>
+  </div>, document.body
+)}
+
     </>
   );
 }
+
 
 export default function BillingPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -402,8 +479,6 @@ const addToast = (
   async function loadData() {
     setLoading(true);
     const tid = await getCurrentTenantId();
-    console.log("TENANT DO MONITOR:", tid);
-
     if (!tid) { setLoading(false); return; }
 
 
