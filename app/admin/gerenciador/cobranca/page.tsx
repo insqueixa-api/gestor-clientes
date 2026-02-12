@@ -179,7 +179,7 @@ function buildWhatsAppSessionLabel(profile: any): string {
 }
 
 // ============================================================================
-// ✅ NOVO COMPONENTE: MONITOR GLOBAL DE FILA (VERSÃO ROBUSTA)
+// ✅ MONITOR GLOBAL DE FILA (CORRIGIDO: SEM JOIN QUEBRADO)
 // ============================================================================
 function GlobalQueueMonitor() {
   const [loading, setLoading] = useState(false);
@@ -187,36 +187,42 @@ function GlobalQueueMonitor() {
   const [showModal, setShowModal] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // 1. Polling: Busca status QUEUED, SCHEDULED e agora PAUSED também
+  // 1. Polling: Busca a fila (Simplificado para não falhar)
   useEffect(() => {
     const fetchQueue = async () => {
       const tid = await getCurrentTenantId();
       if (!tid) return;
 
-      // 🔍 DIAGNÓSTICO: Removemos o Join complexo para garantir que traga dados
+      const statuses = ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"];
+
+
       const { data, error } = await supabaseBrowser
         .from("client_message_jobs")
-        .select(`
-          id, 
-          status, 
-          send_at, 
-          client_id,
-          automation_id
-        `)
+        .select("id,status,send_at,created_at,client_id,automation_id")
         .eq("tenant_id", tid)
-        // Traz tudo que não terminou
-        .in("status", ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"]) 
-        .order("send_at", { ascending: true });
+        .in("status", statuses)
+        .order("send_at", { ascending: true })
+        .order("created_at", { ascending: true });
+
 
       if (error) {
-          console.error("Erro Monitor:", error);
+        console.error("[QueueMonitor] Erro ao buscar fila:", error);
+        setQueueData([]);
+        return;
       }
 
-      if (data) {
-        if (data.length > 0) console.log("Monitor: Encontrados", data.length, "jobs na fila.");
-        setQueueData(data);
-        setLastUpdate(new Date());
-      }
+      const rows = (data ?? []) as any[];
+
+      console.log("[QueueMonitor] OK", {
+        tenant_id: tid,
+        count: rows.length,
+        first: rows[0] ?? null,
+      });
+
+      setQueueData(rows);
+      setLastUpdate(new Date());
+
+
     };
 
     fetchQueue();
@@ -228,7 +234,12 @@ function GlobalQueueMonitor() {
   const handleGlobalPause = async () => {
     setLoading(true);
     const tid = await getCurrentTenantId();
-    await supabaseBrowser.from("client_message_jobs").update({ status: "PAUSED" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED"]);
+    await supabaseBrowser.from("client_message_jobs").update({ status: "PAUSED" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED"]);await supabaseBrowser
+  .from("client_message_jobs")
+  .update({ status: "PAUSED" })
+  .eq("tenant_id", tid!)
+  .in("status", ["SCHEDULED", "QUEUED", "SENDING"]);
+
     setLoading(false);
   };
 
@@ -242,20 +253,22 @@ function GlobalQueueMonitor() {
 
   // 4. Ação: CANCELAR TUDO
   const handleNukeQueue = async () => {
-    const count = queueData.length;
-    if (count === 0) return;
-    
-    // Confirmação simples
-    if (!confirm(`PARADA DE EMERGÊNCIA: Cancelar ${count} envios pendentes agora?`)) return;
+    if (queueData.length === 0) return;
+    const confirmText = prompt(`PARADA DE EMERGÊNCIA: Cancelar ${queueData.length} envios?\n\nDigite "CANCELAR" para confirmar:`);
+    if (confirmText !== "CANCELAR") return;
 
     setLoading(true);
     const tid = await getCurrentTenantId();
-    await supabaseBrowser.from("client_message_jobs").update({ status: "CANCELLED", error_message: "Cancelado Globalmente" }).eq("tenant_id", tid!).in("status", ["SCHEDULED", "QUEUED", "PAUSED"]);
+    await supabaseBrowser
+  .from("client_message_jobs")
+  .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
+  .eq("tenant_id", tid!)
+  .in("status", ["SCHEDULED", "QUEUED", "SENDING", "PAUSED"]);
+
     setLoading(false);
     setShowModal(false);
   };
 
-  // Se não tem fila, não mostra nada
   if (queueData.length === 0) return null;
 
   const activeCount = queueData.filter(j => ["SCHEDULED", "QUEUED", "SENDING"].includes(j.status)).length;
@@ -264,14 +277,11 @@ function GlobalQueueMonitor() {
 
   return (
     <>
-      {/* 🟢 BARRA DE MONITORAMENTO (TOPO) */}
+      {/* 🟢 BARRA DE MONITORAMENTO */}
       <div 
         onClick={() => setShowModal(true)}
-        className={`mb-6 mx-1 border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all group relative z-50
-            ${isGlobalPaused 
-                ? 'bg-amber-100 border-amber-300' 
-                : 'bg-emerald-50 border-emerald-200'
-            }`}
+        className={`mb-6 mx-1 border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all relative z-50
+            ${isGlobalPaused ? 'bg-amber-100 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}
       >
         <div className="flex items-center gap-4">
           <div className="relative flex items-center justify-center w-6 h-6">
@@ -293,7 +303,6 @@ function GlobalQueueMonitor() {
             </p>
           </div>
         </div>
-        
         <button className="px-4 py-2 bg-white/50 border border-black/5 rounded-lg text-xs font-bold uppercase hover:bg-white transition-colors">
             Abrir Painel
         </button>
@@ -303,25 +312,29 @@ function GlobalQueueMonitor() {
       {showModal && createPortal(
         <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-            
             <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
               <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-0">
               <table className="w-full text-left text-sm">
                 <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-bold text-xs uppercase sticky top-0">
-                  <tr><th className="p-4">Horário</th><th className="p-4">Status</th><th className="p-4 text-right">ID</th></tr>
+                  <tr><th className="p-4">Previsão</th><th className="p-4">Tipo</th><th className="p-4">Status</th><th className="p-4 text-right">ID</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                   {queueData.map((job) => (
                     <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
                       <td className="p-4 font-mono text-gray-600 dark:text-gray-400">
-                        {new Date(job.send_at).toLocaleTimeString()}
-                        <span className="text-[10px] ml-2 text-gray-400">
-                            {job.status === 'PAUSED' ? '(Parado)' : `(+${Math.max(0, Math.floor((new Date(job.send_at).getTime() - Date.now())/1000))}s)`}
-                        </span>
+                        {(() => {
+                          const when = job.send_at || job.created_at;
+                          if (!when) return "--:--";
+                          return new Date(when).toLocaleTimeString("pt-BR");
+                        })()}
+                      </td>
+
+
+                      <td className="p-4 font-bold text-slate-800 dark:text-white">
+                        {job.automation_id ? "Automação" : "Envio Manual"}
                       </td>
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${job.status === 'PAUSED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
@@ -334,13 +347,12 @@ function GlobalQueueMonitor() {
                 </tbody>
               </table>
             </div>
-
             <div className="p-4 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5">
                 {activeCount > 0 ? 
-                    <button onClick={handleGlobalPause} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
-                    <button onClick={handleGlobalResume} disabled={pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
+                    <button onClick={handleGlobalPause} disabled={loading} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
+                    <button onClick={handleGlobalResume} disabled={loading || pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
                 }
-                <button onClick={handleNukeQueue} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700">🚨 CANCELAR TUDO</button>
+                <button onClick={handleNukeQueue} disabled={loading} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700">🚨 CANCELAR TUDO</button>
             </div>
           </div>
         </div>, document.body
@@ -390,6 +402,8 @@ const addToast = (
   async function loadData() {
     setLoading(true);
     const tid = await getCurrentTenantId();
+    console.log("TENANT DO MONITOR:", tid);
+
     if (!tid) { setLoading(false); return; }
 
 
