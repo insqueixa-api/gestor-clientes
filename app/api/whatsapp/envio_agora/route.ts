@@ -463,7 +463,10 @@ const vars = buildTemplateVars({
 
 // ✅ Gera/reutiliza token do portal (precisa ser chamado como USER por causa do auth.uid())
 try {
-  const whatsappUsername = String((wa.row as any)?.whatsapp_username ?? "").trim();
+  // importante: muitas vezes seu "whatsapp_username" é telefone -> normalize evita mismatch no RPC
+  const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
+  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // ✅
+
   if (whatsappUsername) {
     const { data: tokData, error: tokErr } = await userSb.rpc("portal_admin_create_token_for_whatsapp", {
       p_tenant_id: tenantId,
@@ -472,17 +475,48 @@ try {
       p_expires_at: null,
     });
 
-    if (!tokErr) {
-      const row = Array.isArray(tokData) ? tokData[0] : null;
-      const portalToken = row?.token ? String(row.token) : "";
-      if (portalToken) {
-        vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
-      }
+    console.log("[PORTAL][token]", {
+      tokErr: tokErr?.message ?? null,
+      tokDataType: typeof tokData,
+      tokData,
+      whatsappUsername,
+      tenantId,
+      authedUserId,
+    });
+
+    if (tokErr) {
+      // agora você enxerga o erro no log
+      throw new Error(tokErr.message);
     }
+
+    let portalToken = "";
+
+    // ✅ aceita string
+    if (typeof tokData === "string") {
+      portalToken = tokData;
+    }
+    // ✅ aceita objeto { token: "..." }
+    else if (tokData && typeof tokData === "object" && !Array.isArray(tokData) && (tokData as any).token) {
+      portalToken = String((tokData as any).token);
+    }
+    // ✅ aceita array [{ token: "..." }]
+    else if (Array.isArray(tokData) && tokData[0]?.token) {
+      portalToken = String(tokData[0].token);
+    }
+
+    if (portalToken) {
+      vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+    } else {
+      console.log("[PORTAL][token] retorno sem token parseável");
+    }
+  } else {
+    console.log("[PORTAL][token] whatsapp_username vazio no destino");
   }
-} catch {
-  // silêncio: mantém vars.link_pagamento vazio (não quebra envio)
+} catch (e: any) {
+  console.log("[PORTAL][token] falhou", e?.message ?? e);
+  // mantém vars.link_pagamento vazio (mas agora você sabe o porquê no log)
 }
+
 
 const renderedMessage = renderTemplate(message, vars);
 

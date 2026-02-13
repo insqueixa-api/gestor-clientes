@@ -537,26 +537,58 @@ const vars = buildTemplateVars({
 
 // ✅ CRON: gera token do portal via service_role, amarrado ao tenant do job
 try {
-  const whatsappUsername = String((wa as any).row?.whatsapp_username ?? "").trim();
+  // normalize evita mismatch (muito comum quando whatsapp_username vem com +, espaços, etc)
+  const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
+  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // ✅
+
   if (whatsappUsername) {
     const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_cron", {
       p_tenant_id: String(job.tenant_id),
       p_whatsapp_username: whatsappUsername,
       p_label: "Cobranca automatica",
-      p_expires_minutes: 43200, // 30 dias (ajuste se quiser)
+      p_expires_minutes: 43200, // 30 dias
     });
 
-    if (!tokErr) {
-      const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-      const portalToken = rowTok?.token ? String(rowTok.token) : "";
-      if (portalToken) {
-        vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
-      }
+    console.log("[PORTAL][cron_token]", {
+      jobId: job.id,
+      tenantId: job.tenant_id,
+      createdBy: job.created_by,
+      whatsappUsername,
+      tokErr: tokErr?.message ?? null,
+      tokDataType: typeof tokData,
+      tokData,
+    });
+
+    if (tokErr) throw new Error(tokErr.message);
+
+    let portalToken = "";
+
+    // ✅ aceita retorno como string (token direto)
+    if (typeof tokData === "string") {
+      portalToken = tokData;
     }
+    // ✅ aceita retorno como objeto { token: "..." }
+    else if (tokData && typeof tokData === "object" && !Array.isArray(tokData) && (tokData as any).token) {
+      portalToken = String((tokData as any).token);
+    }
+    // ✅ aceita retorno como array [{ token: "..." }]
+    else if (Array.isArray(tokData) && tokData[0]?.token) {
+      portalToken = String(tokData[0].token);
+    }
+
+    if (portalToken) {
+      vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+    } else {
+      console.log("[PORTAL][cron_token] retorno sem token parseável");
+    }
+  } else {
+    console.log("[PORTAL][cron_token] whatsapp_username vazio no destino");
   }
-} catch {
-  // silêncio: mantém link vazio (não quebra envio)
+} catch (e: any) {
+  console.log("[PORTAL][cron_token] falhou", e?.message ?? e);
+  // mantém vars.link_pagamento vazio (mas agora você enxerga o motivo nos logs)
 }
+
 
 const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
