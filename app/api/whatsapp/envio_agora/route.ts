@@ -128,7 +128,8 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   const row = params.recipientRow || {};
 
   // 1. DADOS BÁSICOS (Mapeados exatamente da sua vw_clients_list_active)
-  const displayName = String(row.client_name ?? row.name ?? "").trim(); // NOME EXATO DO BANCO
+  const displayName = String(row.display_name ?? row.client_name ?? row.name ?? "").trim();
+
   const primeiroNome = displayName.split(" ")[0] || "";
   const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim();
   const saudacao = namePrefix || (displayName ? displayName : "");
@@ -298,100 +299,94 @@ export async function POST(req: Request) {
   const waToken = process.env.UNIGESTOR_WA_TOKEN!;
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const sb = createClient(supabaseUrl, serviceKey);
 
 
+// =========================
+// 1) Autorização: USER
+// =========================
+const token = getBearerToken(req);
 
-
-
-  // =========================
-  // 1) Autorização: USER
-  // =========================
-  const token = getBearerToken(req);
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data, error } = await sb.auth.getUser(token);
-  if (error || !data?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const authedUserId = data.user.id;
-
-  
-
-
-
-
-  // =========================
-  // 2) Body
-  // =========================
-  let body: SendNowBody;
-  try {
-    body = (await req.json()) as SendNowBody;
-  } catch {
-    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
-  }
-
-  const tenantId = String((body as any).tenant_id || "").trim();
-  const message = String((body as any).message || "").trim();
-
-  {
-  const { data: mem, error: memErr } = await sb
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", authedUserId)
-    .maybeSingle();
-
-  if (memErr || !mem) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+if (!token) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
-// client "do usuário" (usa o Bearer token) para RPCs que dependem de auth.uid()
-const userSb = createClient(supabaseUrl, anonKey, {
-  global: {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  },
-});
+const { data, error } = await sb.auth.getUser(token);
+
+if (error || !data?.user?.id) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+const authedUserId = data.user.id;
 
 
-  // ✅ aceita 3 formatos:
-  // 1) legado: client_id
-  // 2) novo: reseller_id
-  // 3) padrão: recipient_id + recipient_type
-  const rawClientId = String((body as any).client_id || "").trim();
-  const rawResellerId = String((body as any).reseller_id || "").trim();
-  const rawRecipientId = String((body as any).recipient_id || "").trim();
-  const rawRecipientType = String((body as any).recipient_type || "").trim();
+// =========================
+// 2) Body
+// =========================
+let body: SendNowBody;
 
-  let recipientType: "client" | "reseller" | null = null;
-  let recipientId = "";
+try {
+  body = (await req.json()) as SendNowBody;
+} catch {
+  return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+}
 
-  // prioridade: recipient_id+type > reseller_id > client_id
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
-    recipientType = rawRecipientType as any;
-    recipientId = rawRecipientId;
-  } else if (rawResellerId) {
-    recipientType = "reseller";
-    recipientId = rawResellerId;
-  } else if (rawClientId) {
-    recipientType = "client";
-    recipientId = rawClientId;
-  }
+const tenantId = String((body as any).tenant_id || "").trim();
+const message = String((body as any).message || "").trim();
 
-  if (!tenantId || !message || !recipientType || !recipientId) {
-    return NextResponse.json(
-      { error: "tenant_id, message e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
-      { status: 400 }
-    );
-  }
+
+// =========================
+// 3) Validação de membro do tenant
+// =========================
+const { data: mem, error: memErr } = await sb
+  .from("tenant_members")
+  .select("tenant_id")
+  .eq("tenant_id", tenantId)
+  .eq("user_id", authedUserId)
+  .maybeSingle();
+
+if (memErr || !mem) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
+
+// =========================
+// 4) Identificação do destino
+// =========================
+
+// ✅ aceita 3 formatos:
+// 1) legado: client_id
+// 2) novo: reseller_id
+// 3) padrão: recipient_id + recipient_type
+
+const rawClientId = String((body as any).client_id || "").trim();
+const rawResellerId = String((body as any).reseller_id || "").trim();
+const rawRecipientId = String((body as any).recipient_id || "").trim();
+const rawRecipientType = String((body as any).recipient_type || "").trim();
+
+let recipientType: "client" | "reseller" | null = null;
+let recipientId = "";
+
+// prioridade: recipient_id+type > reseller_id > client_id
+if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
+  recipientType = rawRecipientType as any;
+  recipientId = rawRecipientId;
+} else if (rawResellerId) {
+  recipientType = "reseller";
+  recipientId = rawResellerId;
+} else if (rawClientId) {
+  recipientType = "client";
+  recipientId = rawClientId;
+}
+
+if (!tenantId || !message || !recipientType || !recipientId) {
+  return NextResponse.json(
+    { error: "tenant_id, message e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
+    { status: 400 }
+  );
+}
+
 
   // ✅ pega SEMPRE do destino certo
   const wa =
@@ -461,21 +456,21 @@ const vars = buildTemplateVars({
   recipientRow: wa.row,
 });
 
-// ✅ Gera/reutiliza token do portal (precisa ser chamado como USER por causa do auth.uid())
+// ✅ Gera/reutiliza token do portal (v2: NÃO usa auth.uid, valida por created_by)
 try {
-  // importante: muitas vezes seu "whatsapp_username" é telefone -> normalize evita mismatch no RPC
   const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
-  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // ✅
+  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // mantém seu padrão
 
   if (whatsappUsername) {
-    const { data: tokData, error: tokErr } = await userSb.rpc("portal_admin_create_token_for_whatsapp", {
+    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
       p_tenant_id: tenantId,
       p_whatsapp_username: whatsappUsername,
+      p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
       p_label: "Envio manual",
       p_expires_at: null,
     });
 
-    console.log("[PORTAL][token]", {
+    console.log("[PORTAL][token:v2]", {
       tokErr: tokErr?.message ?? null,
       tokDataType: typeof tokData,
       tokData,
@@ -484,38 +479,24 @@ try {
       authedUserId,
     });
 
-    if (tokErr) {
-      // agora você enxerga o erro no log
-      throw new Error(tokErr.message);
-    }
+    if (tokErr) throw new Error(tokErr.message);
 
-    let portalToken = "";
-
-    // ✅ aceita string
-    if (typeof tokData === "string") {
-      portalToken = tokData;
-    }
-    // ✅ aceita objeto { token: "..." }
-    else if (tokData && typeof tokData === "object" && !Array.isArray(tokData) && (tokData as any).token) {
-      portalToken = String((tokData as any).token);
-    }
-    // ✅ aceita array [{ token: "..." }]
-    else if (Array.isArray(tokData) && tokData[0]?.token) {
-      portalToken = String(tokData[0].token);
-    }
+    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+    const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
     if (portalToken) {
       vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
     } else {
-      console.log("[PORTAL][token] retorno sem token parseável");
+      console.log("[PORTAL][token:v2] retorno sem token");
     }
   } else {
-    console.log("[PORTAL][token] whatsapp_username vazio no destino");
+    console.log("[PORTAL][token:v2] whatsapp_username vazio no destino");
   }
 } catch (e: any) {
-  console.log("[PORTAL][token] falhou", e?.message ?? e);
-  // mantém vars.link_pagamento vazio (mas agora você sabe o porquê no log)
+  console.log("[PORTAL][token:v2] falhou", e?.message ?? e);
+  // mantém vars.link_pagamento vazio
 }
+
 
 
 const renderedMessage = renderTemplate(message, vars);

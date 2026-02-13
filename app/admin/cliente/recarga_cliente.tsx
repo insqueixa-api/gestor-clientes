@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom"; // ✅ Importação necessária
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
@@ -200,6 +201,18 @@ export default function RecargaCliente({
   onSuccess,
   allowConvertWithoutPayment = false,
 }: Props) {
+  // ✅ 1. Estado para garantir renderização no client (evita erro de hidratação no Portal)
+  const [mounted, setMounted] = useState(false);
+
+  // ✅ 2. Efeito para TRAVAR O SCROLL da página de fundo
+  useEffect(() => {
+    setMounted(true);
+    document.body.style.overflow = "hidden"; // Trava
+    return () => {
+      document.body.style.overflow = ""; // Destrava ao fechar
+    };
+  }, []);
+
   // Estados globais
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -246,7 +259,10 @@ export default function RecargaCliente({
     return nowInSaoPauloParts().timeHHmm;
   });
 
+// ✅ ADICIONAR ESTA INTERFACE ANTES DA FUNÇÃO OU NO TOPO
+  interface MessageTemplate { id: string; name: string; content: string; }
 
+  // ...
 
   // Aux
   const [fxRate, setFxRate] = useState<number>(1);
@@ -254,8 +270,16 @@ export default function RecargaCliente({
 
   const [obs, setObs] = useState("");
   const [registerPayment, setRegisterPayment] = useState(true);
+  
+  // ✅ CORREÇÃO: Adicionar os estados que faltavam para a mensagem
   const [sendWhats, setSendWhats] = useState(true);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [messageContent, setMessageContent] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+
+
   const [payDate, setPayDate] = useState(getLocalISOString());
   const { confirm, ConfirmUI } = useConfirm();
 
@@ -420,12 +444,29 @@ setDueTime(newTimeStr);
         const tecRaw = (c as any).technology || "IPTV";
         const isStandard = ["IPTV", "P2P", "OTT"].some(t => t.toUpperCase() === tecRaw.toUpperCase());
         
-        if (isStandard) {
+if (isStandard) {
            setTechnology(tecRaw.toUpperCase());
            setCustomTechnology("");
         } else {
            setTechnology("Personalizado");
            setCustomTechnology(tecRaw);
+        }
+
+        // ✅ CORREÇÃO: Carregar templates e pré-selecionar
+        const { data: tmplData } = await supabaseBrowser
+          .from("message_templates")
+          .select("id, name, content")
+          .eq("tenant_id", tid)
+          .order("name", { ascending: true });
+
+        if (tmplData) {
+          setTemplates(tmplData);
+          // Tenta achar "Pagamento Realizado"
+          const defaultTpl = tmplData.find(t => t.name.toLowerCase().includes("pagamento realizado"));
+          if (defaultTpl) {
+            setSelectedTemplateId(defaultTpl.id);
+            setMessageContent(defaultTpl.content);
+          }
         }
 
       } catch (err: any) {
@@ -657,7 +698,31 @@ const executeSave = async () => {
           p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
           p_new_vencimento: dueISO,
         });
-        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+      }
+
+      // ✅ 3. ENVIO DE WHATSAPP (Se marcado)
+      if (sendWhats && messageContent) {
+          // Não usamos await aqui para não travar o fechamento do modal (fire-and-forget visual)
+          const { data: session } = await supabaseBrowser.auth.getSession();
+          const token = session.session?.access_token;
+
+          fetch("/api/whatsapp/envio_agora", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                tenant_id: tid,
+                client_id: clientId,
+                message: messageContent,
+                whatsapp_session: "default",
+              }),
+          }).then(res => {
+              if (res.ok) addToast("success", "Mensagem enviada", "Notificação enviada com sucesso.");
+              else addToast("error", "Erro mensagem", "Falha ao enviar notificação.");
+          });
       }
 
       setTimeout(() => { onSuccess(); onClose(); }, 500);
@@ -670,58 +735,59 @@ const executeSave = async () => {
     }
   };
 
-  if (fetching) return null;
+if (fetching || !mounted) return null; // ✅ Aguarda montagem
 
   const isFromTrial = Boolean(allowConvertWithoutPayment);
   const headerTitle = isFromTrial ? "Converter em Assinante" : "Renovação de Assinatura";
 
-  return (
+  // ✅ Wrap com createPortal para renderizar no document.body
+  return createPortal(
     <>
       {/* --- MODAL PRINCIPAL --- */}
       <div
+        // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
         className="fixed inset-0 z-[99990] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
         onClick={onClose}
       >
         <div
-          // Alterado: w-full em mobile com rounded-t-2xl (estilo sheet) ou rounded-xl em desktop
+          // ✅ CONTAINER: Full width e rounded-top no mobile. Max-width e rounded-xl no desktop.
           className="w-full sm:max-w-xl bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* HEADER */}
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-white dark:bg-[#161b22]">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-white dark:bg-[#161b22]">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
-                 {isFromTrial ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                 ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                 )}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
+                 {isFromTrial ? 
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 
+                    : 
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                 }
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
+                <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">
                   {headerTitle}
                 </h2>
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-                   <span className="font-medium text-slate-700 dark:text-white">{clientName}</span>
-                   <span>•</span>
-                   <span>{clientData?.server_name || "Sem servidor"}</span>
+                <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/50">
+                   <span className="font-medium">{clientName}</span>
                 </div>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                <IconX />
+            </button>
           </div>
 
           {/* BODY */}
-          {/* Alterado: p-4 no mobile, gap menor */}
           <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-y-auto custom-scrollbar">
             
-            {/* 1. SEÇÃO VENCIMENTO (Compacto) */}
+            {/* 1. SEÇÃO VENCIMENTO */}
             <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3 sm:p-4">
                <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-white/10 pb-2">
                  <span className="text-emerald-500">📅</span>
                  <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">Novo Vencimento</span>
                </div>
-               {/* Alterado: grid-cols-1 no mobile para garantir espaço pro input de data e hora */}
+               {/* Mobile: 1 coluna. Desktop: 2 colunas */}
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <Label>Data do Vencimento</Label>
@@ -745,7 +811,6 @@ const executeSave = async () => {
                         type="button"
                         onClick={() => setDueTime("23:59")}
                         className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all"
-                        title="Definir fim do dia"
                       >
                         23:59
                       </button>
@@ -756,10 +821,10 @@ const executeSave = async () => {
 
             {/* 2. SEÇÃO PLANO */}
             <div>
-                {/* Alterado: No mobile, o Período ocupa a linha toda (col-span-2), e Telas/Créditos dividem a linha de baixo */}
+                {/* Mobile: 2 colunas (Plano ocupa tudo). Desktop: 3 colunas. */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="col-span-2 sm:col-span-1">
-                        <Label>Período / Ciclo</Label>
+                        <Label>Período</Label>
                         <Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value)}>
                           {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </Select>
@@ -777,7 +842,7 @@ const executeSave = async () => {
                 </div>
             </div>
 
-            {/* 3. SEÇÃO FINANCEIRO (CARD DESTACADO) */}
+            {/* 3. SEÇÃO FINANCEIRO */}
             <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm">
                 <div className="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-white/5 pb-2">
                     <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -792,7 +857,6 @@ const executeSave = async () => {
                     </select>
                 </div>
 
-{/* Alterado: grid flexível ou mantido 3 colunas mas com atenção ao tamanho da fonte do preço */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="col-span-1">
                        <Label>Moeda</Label>
@@ -805,17 +869,16 @@ const executeSave = async () => {
                        <Input
                          value={planPrice}
                          onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }}
-                         className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight" // tracking-tight ajuda números grandes
+                         className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight"
                          placeholder="0,00"
                        />
                     </div>
                 </div>
 
-                {/* Opção de Registrar Pagamento */}
                 {Boolean(allowConvertWithoutPayment) && (
                     <div className="mb-3">
                         <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-3 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
-                            <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento Agora?</span>
+                            <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
                             <div className={`relative w-9 h-5 rounded-full transition-colors ${registerPayment ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
                                 <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${registerPayment ? "translate-x-4" : "translate-x-0"}`} />
                             </div>
@@ -823,12 +886,11 @@ const executeSave = async () => {
                     </div>
                 )}
 
-                {/* DETALHES DO PAGAMENTO (SE ATIVO) */}
                 {registerPayment && (
                     <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <Label>Pagamento</Label>
+                                <Label>Método</Label>
                                 <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                                     <option value="PIX">PIX</option>
                                     <option value="Dinheiro">Dinheiro</option>
@@ -836,7 +898,7 @@ const executeSave = async () => {
                                 </Select>
                             </div>
                             <div>
-                                <Label>Data do Pagamento</Label>
+                                <Label>Data Pagto</Label>
                                 <Input
                                     type="datetime-local"
                                     value={payDate}
@@ -847,27 +909,19 @@ const executeSave = async () => {
                         </div>
                     </div>
                 )}
-
-                {showFx && (
-                    <div className="mt-3 flex gap-2 p-2 bg-amber-50 dark:bg-amber-500/10 rounded border border-amber-100 dark:border-amber-500/20 items-center justify-between text-xs">
-                       <div className="flex items-center gap-1">
-                          <span className="font-bold text-amber-700 dark:text-amber-400">Câmbio:</span>
-                          <input type="number" value={Number(fxRate).toFixed(4)} onChange={(e) => setFxRate(Number(e.target.value))} className="w-16 bg-white dark:bg-black/20 border border-amber-200 rounded px-1 text-center outline-none" />
-                       </div>
-                       <div className="font-bold text-emerald-700 dark:text-emerald-400">Total: {fmtMoney("BRL", totalBrl)}</div>
-                    </div>
-                )}
             </div>
 
-            {/* 4. SEÇÃO OUTROS */}
-            <div>
-                {/* Alterado: gap-3 para alinhar com o resto */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            {/* 4. SEÇÃO OUTROS + COMUNICAÇÃO */}
+            <div className="space-y-4">
+                {/* ✅ GRID INTELIGENTE: 1 coluna no mobile, 3 no desktop (se whats ligado), ou 2 (se desligado) */}
+                <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}>
+                    
+                    {/* A. TECNOLOGIA */}
                     <div>
                         <Label>Tecnologia</Label>
                         {technology === "Personalizado" ? (
                             <div className="flex gap-1">
-                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." autoFocus />
+                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." />
                                 <button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
                             </div>
                         ) : (
@@ -880,24 +934,62 @@ const executeSave = async () => {
                             </Select>
                         )}
                     </div>
+                    
+                    {/* B. TOGGLE NOTIFICAÇÃO */}
                     <div>
-                        <Label>Notificação</Label> {/* Encurtei o label */}
-                        <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Comprovante?</span>
-                            <div className={`relative w-8 h-4 rounded-full transition-colors ${sendWhats ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${sendWhats ? "translate-x-4" : "translate-x-0"}`} />
-                            </div>
-                        </div>
+                         <Label>Notificação</Label>
+                         <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
+                             <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Whats?</span>
+                             <div className={`relative w-8 h-4 rounded-full transition-colors ${sendWhats ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                                 <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${sendWhats ? "translate-x-4" : "translate-x-0"}`} />
+                             </div>
+                         </div>
                     </div>
+
+                    {/* C. SELETOR DE MODELO (Só aparece se whats on) */}
+                    {sendWhats && (
+                        <div className="animate-in fade-in zoom-in duration-200">
+                             <Label>Modelo</Label>
+                             <Select 
+                                value={selectedTemplateId} 
+                                onChange={(e) => {
+                                    const id = e.target.value;
+                                    setSelectedTemplateId(id);
+                                    const tpl = templates.find(t => t.id === id);
+                                    if(tpl) setMessageContent(tpl.content);
+                                }}
+                             >
+                                 <option value="">-- Personalizado --</option>
+                                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                             </Select>
+                        </div>
+                    )}
                 </div>
 
+                {/* ÁREA DE TEXTO DA MENSAGEM (Full width) */}
+                {sendWhats && (
+                     <div className="animate-in slide-in-from-top-2 duration-200">
+                         <Label>Conteúdo da Mensagem</Label>
+                         <textarea 
+                            value={messageContent}
+                            onChange={(e) => { 
+                                setMessageContent(e.target.value); 
+                                if(selectedTemplateId) setSelectedTemplateId(""); 
+                            }}
+                            className="w-full h-24 p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none font-sans mt-1"
+                            placeholder="Escreva a mensagem aqui..."
+                         />
+                     </div>
+                )}
+
+                {/* OBSERVAÇÕES */}
                 <div>
-                    <Label>Observações (Opcional)</Label>
+                    <Label>Observações (Internas)</Label>
                     <textarea
                         value={obs}
                         onChange={(e) => setObs(e.target.value)}
                         className="w-full h-16 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 resize-none dark:text-white transition-all"
-                        placeholder="Adicione uma nota sobre esta renovação..."
+                        placeholder="Nota interna sobre esta renovação..."
                     />
                 </div>
             </div>
@@ -925,7 +1017,7 @@ const executeSave = async () => {
               ) : (
                  <>
                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                   {Boolean(allowConvertWithoutPayment) && !registerPayment ? "Converter sem Pagar" : "Confirmar Renovação"}
+                   {Boolean(allowConvertWithoutPayment) && !registerPayment ? "Converter" : "Confirmar"}
                  </>
               )}
             </button>
@@ -940,7 +1032,8 @@ const executeSave = async () => {
         toasts={toasts}
         removeToast={(id) => setToasts((p) => p.filter((t) => t.id !== id))}
       />
-    </>
+    </>,
+    document.body // ✅ Alvo do Portal
   );
 }
 
@@ -967,5 +1060,12 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
       {...props}
       className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
+  );
+}
+function IconX() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
   );
 }

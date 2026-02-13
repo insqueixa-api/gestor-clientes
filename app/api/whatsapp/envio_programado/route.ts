@@ -76,7 +76,7 @@ function saudacaoTempo(d: Date) {
   // ✅ SP fixo
   const p = getSPParts(d);
   const h = Number(p.hour);
-  
+
   // Entre 04:00 e 11:59
   if (h >= 4 && h < 12) return "Bom dia";
   // Entre 12:00 e 17:59
@@ -125,82 +125,81 @@ function renderTemplate(text: string, vars: Record<string, string>) {
 }
 
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
-  const now = new Date();
-  const row = params.recipientRow || {};
+  const now = new Date();
+  const row = params.recipientRow || {};
 
-  // 1. DADOS BÁSICOS (Lógica Estrita)
-  const displayName = String(row.client_name || row.name || "").trim();
-  const primeiroNome = displayName.split(" ")[0] || "";
-  
+  // 1. DADOS BÁSICOS (Lógica Estrita)
+  const displayName = String(row.client_name || row.name || "").trim();
+  const primeiroNome = displayName.split(" ")[0] || "";
+
   // Prefixo/Saudação: Apenas o que está no campo. Sem fallback para nome.
-  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
-  const saudacao = namePrefix ? namePrefix : ""; 
+  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  const saudacao = namePrefix ? namePrefix : "";
 
-  // 2. DATAS
-  const createdAt = safeDate(row.created_at);
-  const dueAt = safeDate(row.vencimento);
-  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
+  // 2. DATAS
+  const createdAt = safeDate(row.created_at);
+  const dueAt = safeDate(row.vencimento);
+  const daysSinceCadastro = createdAt ? Math.max(0, diffDays(now, createdAt)) : 0;
 
-  let diasParaVencimento = "0";
-  let diasAtraso = "0";
+  let diasParaVencimento = "0";
+  let diasAtraso = "0";
 
-  if (dueAt) {
-    const d = diffDays(dueAt, now);
-    if (d >= 0) diasParaVencimento = String(d);
-    else diasAtraso = String(Math.abs(d));
-  }
+  if (dueAt) {
+    const d = diffDays(dueAt, now);
+    if (d >= 0) diasParaVencimento = String(d);
+    else diasAtraso = String(Math.abs(d));
+  }
 
-const appUrl = "https://unigestor.net.br";
-const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+  const appUrl = "https://unigestor.net.br";
+  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
 
-// ✅ link_pagamento será preenchido na hora do envio (manual/cron) via token
-const linkPagamento = "";
+  // ✅ link_pagamento será preenchido na hora do envio (manual/cron) via token
+  const linkPagamento = "";
 
-  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
-  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
+  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
+  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace(".", ",")}` : "";
 
-  return {
-    saudacao_tempo: saudacaoTempo(now),
-    dias_desde_cadastro: String(daysSinceCadastro),
-    dias_para_vencimento: diasParaVencimento,
-    dias_atraso: diasAtraso,
-    hoje_data: toBRDate(now),
-    hoje_dia_semana: weekdayPtBR(now),
-    hora_agora: toBRTime(now),
+  return {
+    saudacao_tempo: saudacaoTempo(now),
+    dias_desde_cadastro: String(daysSinceCadastro),
+    dias_para_vencimento: diasParaVencimento,
+    dias_atraso: diasAtraso,
+    hoje_data: toBRDate(now),
+    hoje_dia_semana: weekdayPtBR(now),
+    hora_agora: toBRTime(now),
 
-    saudacao: saudacao,          // ✅ Corrigido: Só traz Sr./Sra. ou vazio
-    primeiro_nome: primeiroNome, // ✅ Corrigido: Só o primeiro nome
-    nome_completo: displayName,  // ✅ Corrigido: Nome completo
-    whatsapp: row.whatsapp_username || "",
-    observacoes: row.notes || "",
-    data_cadastro: createdAt ? toBRDate(createdAt) : "",
+    saudacao: saudacao, // ✅ Corrigido: Só traz Sr./Sra. ou vazio
+    primeiro_nome: primeiroNome, // ✅ Corrigido: Só o primeiro nome
+    nome_completo: displayName, // ✅ Corrigido: Nome completo
+    whatsapp: row.whatsapp_username || "",
+    observacoes: row.notes || "",
+    data_cadastro: createdAt ? toBRDate(createdAt) : "",
 
-    usuario_app: row.username || "",
-    senha_app: row.server_password || "",
-    plano_nome: row.plan_name || "",
-    telas_qtd: String(row.screens || ""),
-    tecnologia: row.technology || "",
-    servidor_nome: row.server_name || "",
+    usuario_app: row.username || "",
+    senha_app: row.server_password || "",
+    plano_nome: row.plan_name || "",
+    telas_qtd: String(row.screens || ""),
+    tecnologia: row.technology || "",
+    servidor_nome: row.server_name || "",
 
-    data_vencimento: dueAt ? toBRDate(dueAt) : "",
-    hora_vencimento: dueAt ? toBRTime(dueAt) : "",
-    dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
+    data_vencimento: dueAt ? toBRDate(dueAt) : "",
+    hora_vencimento: dueAt ? toBRTime(dueAt) : "",
+    dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
 
-    revenda_nome: row.reseller_name || "",
-    revenda_site: row.reseller_panel_url || "",
-    revenda_telegram: row.reseller_telegram || "",
-    revenda_dns: row.reseller_dns || "",
+    revenda_nome: row.reseller_name || "",
+    revenda_site: row.reseller_panel_url || "",
+    revenda_telegram: row.reseller_telegram || "",
+    revenda_dns: row.reseller_dns || "",
 
-link_pagamento: linkPagamento,
-pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ NOVO
-pix_copia_cola: row.pix_code || "",
-chave_pix_manual: row.pix_manual || "",
-valor_fatura: valorFaturaStr,
+    link_pagamento: linkPagamento,
+    pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ NOVO
+    pix_copia_cola: row.pix_code || "",
+    chave_pix_manual: row.pix_manual || "",
+    valor_fatura: valorFaturaStr,
 
-
-    nome: displayName,
-    tipo_destino: params.recipientType,
-  };
+    nome: displayName,
+    tipo_destino: params.recipientType,
+  };
 }
 
 function getBearerToken(req: Request): string | null {
@@ -253,12 +252,7 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
   let lastErr: any = null;
 
   for (const view of tryViews) {
-    const { data, error } = await sb
-      .from(view)
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("id", resellerId)
-      .maybeSingle();
+    const { data, error } = await sb.from(view).select("*").eq("tenant_id", tenantId).eq("id", resellerId).maybeSingle();
 
     if (error) {
       lastErr = error;
@@ -343,12 +337,12 @@ export async function POST(req: Request) {
   // =========================
   // 1) Autorização BLINDADA: CRON ou USER
   // =========================
-  
+
   // Pega o cabeçalho Authorization (padrão Vercel e padrão JWT)
   const authHeader = req.headers.get("authorization");
-  
+
   // Pega a senha mestra que definimos nas variáveis de ambiente
-  const cronSecret = process.env.CRON_SECRET; 
+  const cronSecret = process.env.CRON_SECRET;
 
   // Verifica se é o Cron da Vercel (O "Crachá" bate com a senha?)
   // A Vercel envia "Bearer SUA_SENHA", então comparamos direto
@@ -372,9 +366,46 @@ export async function POST(req: Request) {
   }
 
   // =========================
-  // 2) CRON: processa fila
+  // 2) CRON: enfileira automações + processa fila
   // =========================
   if (isCron) {
+    // ============================================================
+    // ✅ PASSO 0 (NOVO): ENFILEIRAR AUTOMAÇÕES DO DIA (SP) POR TENANT
+    // - A função do banco é: billing_enqueue_scheduled(p_tenant_id uuid, p_fire_date date)
+    // - Sem isso, o automático nunca cria jobs em client_message_jobs.
+    // ============================================================
+    try {
+      const fireDate = spDayKey(new Date()); // YYYY-MM-DD (SP)
+
+      const { data: tenantsRows, error: tenantsErr } = await sb
+        .from("billing_automations")
+        .select("tenant_id")
+        .eq("is_active", true)
+        .eq("is_automatic", true);
+
+      if (tenantsErr) {
+        console.log("[BILLING][enqueue] falhou ao listar tenants", tenantsErr.message);
+      } else {
+        const tenantIds = Array.from(new Set((tenantsRows ?? []).map((r: any) => String(r.tenant_id)))).filter(Boolean);
+
+        for (const tenantId of tenantIds) {
+          const { error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
+            p_tenant_id: tenantId,
+            p_fire_date: fireDate,
+          });
+
+          console.log("[BILLING][enqueue_scheduled]", {
+            tenantId,
+            fireDate,
+            enqErr: enqErr?.message ?? null,
+          });
+        }
+      }
+    } catch (e: any) {
+      console.log("[BILLING][enqueue_scheduled] falhou", e?.message ?? e);
+      // Soft-fail: não derruba o envio dos jobs já existentes
+    }
+
     // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
     await sb
       .from("client_message_jobs")
@@ -382,11 +413,10 @@ export async function POST(req: Request) {
       .eq("status", "SENDING")
       .lt("updated_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()); // 5 min
 
-// ✅ CORREÇÃO CRÍTICA: Adicionado 'billing_automations(delay_min)' para o sleep
-    // O 'automation_id' já estava, mas garantimos que ele seja lido.
-    const { data: jobs, error: jobsErr } = await sb
-      .from("client_message_jobs")
-      .select(`
+    // ✅ CORREÇÃO CRÍTICA: Adicionado 'billing_automations(delay_min)' para o sleep
+    const { data: jobs, error: jobsErr } = await sb
+      .from("client_message_jobs")
+      .select(`
         id, 
         tenant_id, 
         client_id, 
@@ -530,71 +560,60 @@ export async function POST(req: Request) {
         });
 
         // ✅ renderiza tags NA HORA DO ENVIO (CRON) (agora tudo em SP)
-const vars = buildTemplateVars({
-  recipientType,
-  recipientRow: (wa as any).row,
-});
+        const vars = buildTemplateVars({
+          recipientType,
+          recipientRow: (wa as any).row,
+        });
 
-// ✅ CRON: gera token do portal via service_role, amarrado ao tenant do job
-try {
-  // normalize evita mismatch (muito comum quando whatsapp_username vem com +, espaços, etc)
-  const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
-  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // ✅
+        // ✅ CRON: gera/reutiliza token do portal via RPC v2 (sem auth.uid, valida por created_by)
+        try {
+          const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
+          const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
 
-  if (whatsappUsername) {
-const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
+          if (whatsappUsername) {
+            // v2 espera expires_at timestamptz (pode ser null). Mantive 30 dias aqui.
+            const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
 
-const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp", {
-  p_tenant_id: String(job.tenant_id),
-  p_whatsapp_username: whatsappUsername,
-  p_label: "Cobranca automatica",
-  p_expires_at: expiresAt, // ✅ é isso que a função existente espera
-});
+            const createdBy = String((job as any).created_by || "").trim();
 
+            const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+              p_tenant_id: String(job.tenant_id),
+              p_whatsapp_username: whatsappUsername,
+              p_created_by: createdBy, // ✅ ESSENCIAL (é ele que valida tenant_members)
+              p_label: "Cobranca automatica",
+              p_expires_at: expiresAt,
+            });
 
-    console.log("[PORTAL][cron_token]", {
-      jobId: job.id,
-      tenantId: job.tenant_id,
-      createdBy: job.created_by,
-      whatsappUsername,
-      tokErr: tokErr?.message ?? null,
-      tokDataType: typeof tokData,
-      tokData,
-    });
+            console.log("[PORTAL][cron_token:v2]", {
+              jobId: job.id,
+              tenantId: job.tenant_id,
+              createdBy,
+              whatsappUsername,
+              tokErr: tokErr?.message ?? null,
+              tokDataType: typeof tokData,
+              tokData,
+            });
 
-    if (tokErr) throw new Error(tokErr.message);
+            if (tokErr) throw new Error(tokErr.message);
 
-    let portalToken = "";
+            // v2 retorna TABLE(token text, token_id uuid) -> vem como array
+            const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+            const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
-    // ✅ aceita retorno como string (token direto)
-    if (typeof tokData === "string") {
-      portalToken = tokData;
-    }
-    // ✅ aceita retorno como objeto { token: "..." }
-    else if (tokData && typeof tokData === "object" && !Array.isArray(tokData) && (tokData as any).token) {
-      portalToken = String((tokData as any).token);
-    }
-    // ✅ aceita retorno como array [{ token: "..." }]
-    else if (Array.isArray(tokData) && tokData[0]?.token) {
-      portalToken = String(tokData[0].token);
-    }
+            if (portalToken) {
+              vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+            } else {
+              console.log("[PORTAL][cron_token:v2] retorno sem token");
+            }
+          } else {
+            console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
+          }
+        } catch (e: any) {
+          console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
+          // mantém vars.link_pagamento vazio
+        }
 
-    if (portalToken) {
-      vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
-    } else {
-      console.log("[PORTAL][cron_token] retorno sem token parseável");
-    }
-  } else {
-    console.log("[PORTAL][cron_token] whatsapp_username vazio no destino");
-  }
-} catch (e: any) {
-  console.log("[PORTAL][cron_token] falhou", e?.message ?? e);
-  // mantém vars.link_pagamento vazio (mas agora você enxerga o motivo nos logs)
-}
-
-
-const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
-
+        const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
         const res = await fetch(`${baseUrl}/send`, {
           method: "POST",
@@ -631,68 +650,60 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
           })
           .eq("id", job.id);
 
-// ✅ SALVA O LOG PARA A TELA DE HISTÓRICO LER
-// ✅ SALVA O LOG (Corrigido)
+        // ✅ SALVA O LOG PARA A TELA DE HISTÓRICO LER
         if ((job as any).automation_id) {
-            const cName = String(wa.row?.display_name || wa.row?.client_name || "Cliente").trim();
-            
-            // Agora enviamos o client_id para satisfazer o banco
-            const logError = await sb.from("billing_logs").insert({
-                tenant_id: job.tenant_id,
-                automation_id: (job as any).automation_id,
-                client_id: job.client_id || null, // <--- OBRIGATÓRIO SEGUNDO SEU CSV
-                client_name: cName,
-                client_whatsapp: wa.phone,
-                status: "SENT",
-                sent_at: new Date().toISOString()
-            });
+          const cName = String(wa.row?.display_name || wa.row?.client_name || "Cliente").trim();
 
-            // Se der erro ao salvar o log, mostra no console da Vercel para debug
-            if (logError.error) console.error("Erro ao salvar Log:", logError.error);
+          const logError = await sb.from("billing_logs").insert({
+            tenant_id: job.tenant_id,
+            automation_id: (job as any).automation_id,
+            client_id: job.client_id || null, // <--- OBRIGATÓRIO
+            client_name: cName,
+            client_whatsapp: wa.phone,
+            status: "SENT",
+            sent_at: new Date().toISOString(),
+          });
+
+          if (logError.error) console.error("Erro ao salvar Log:", logError.error);
         }
 
         processed++;
 
-// Pausa Inteligente entre envios
+        // Pausa Inteligente entre envios
         if (processed < jobs.length) {
-            // Tenta ler o delay configurado na regra (se existir)
-            const automationConfig = Array.isArray((job as any).billing_automations) 
-                ? (job as any).billing_automations[0] 
-                : (job as any).billing_automations;
-            
-            // Se não tiver regra, usa 10 segundos padrão
-            const dbDelay = automationConfig?.delay_min ? Number(automationConfig.delay_min) : 10;
+          const automationConfig = Array.isArray((job as any).billing_automations)
+            ? (job as any).billing_automations[0]
+            : (job as any).billing_automations;
 
-            // Trava de segurança para o Cron não morrer (Máx 10s)
-            const safeDelay = Math.min(dbDelay, 10);
-            const finalDelay = Math.max(safeDelay, 5); // Mínimo de 5s
+          const dbDelay = automationConfig?.delay_min ? Number(automationConfig.delay_min) : 10;
 
-            await sleep(finalDelay * 1000);
-        
-}
+          const safeDelay = Math.min(dbDelay, 10);
+          const finalDelay = Math.max(safeDelay, 5);
 
+          await sleep(finalDelay * 1000);
+        }
       } catch (e: any) {
         const errorMsg = e?.message || "Falha ao processar job";
-        
+
         await sb
           .from("client_message_jobs")
           .update({
             status: "FAILED",
             error_message: errorMsg,
           })
-          .eq("id", job.id);
+          .eq("id", (job as any).id);
 
         // ✅ SALVA O ERRO NOS LOGS
         if ((job as any).automation_id) {
-           await sb.from("billing_logs").insert({
-               tenant_id: job.tenant_id,
-               automation_id: (job as any).automation_id,
-               client_name: "Falha no Envio",
-               client_whatsapp: "-",
-               status: "FAILED",
-               sent_at: new Date().toISOString(),
-               error_message: errorMsg.slice(0, 500)
-           });
+          await sb.from("billing_logs").insert({
+            tenant_id: (job as any).tenant_id,
+            automation_id: (job as any).automation_id,
+            client_name: "Falha no Envio",
+            client_whatsapp: "-",
+            status: "FAILED",
+            sent_at: new Date().toISOString(),
+            error_message: String(errorMsg).slice(0, 500),
+          });
         }
       }
     }
@@ -753,23 +764,14 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
   // ✅ validações iguais ao dispatch (mantidas)
   const wa =
-    recipientType === "reseller"
-      ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
-      : await fetchClientWhatsApp(sb, tenantId, recipientId);
+    recipientType === "reseller" ? await fetchResellerWhatsApp(sb, tenantId, recipientId) : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
-  // ✅ validações iguais, mas com texto certo
   if (!wa.phone) {
-    return NextResponse.json(
-      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` }, { status: 400 });
   }
 
   if (!wa.whatsapp_opt_in) {
-    return NextResponse.json(
-      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` }, { status: 400 });
   }
 
   if (wa.dont_message_until) {
@@ -793,10 +795,7 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
         hour12: false,
       }).format(until);
 
-      return NextResponse.json(
-        { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não quer receber mensagens até: ${formatted}` },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não quer receber mensagens até: ${formatted}` }, { status: 409 });
     }
   }
 
@@ -818,6 +817,7 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
   return NextResponse.json({ ok: true, send_at: sendAtUtc });
 }
+
 // ============================================================================
 // ✅ ADICIONADO: O Vercel Cron SEMPRE faz requisições GET.
 // Redirecionamos o GET para a sua função POST, onde a segurança já está pronta.
