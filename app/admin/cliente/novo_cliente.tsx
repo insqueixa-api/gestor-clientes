@@ -904,7 +904,29 @@ if (clientPlanTableId) {
     setDontMessageUntil("");
   }
 
-  setNotes(clientToEdit.notes || "");
+  setNotes(clientToEdit.notes || "");  // ✅ OBSERVAÇÕES: não confiar no clientToEdit vindo da view/lista
+  // (muitas views não trazem notes, aí parece que "sumiu")
+  try {
+    if (clientToEdit.id) {
+      const { data: nrow, error: nerr } = await supabaseBrowser
+        .from("clients")
+        .select("notes")
+        .eq("tenant_id", tid)
+        .eq("id", clientToEdit.id)
+        .maybeSingle();
+
+      if (!nerr) {
+        setNotes((nrow?.notes || "").toString());
+      } else {
+        setNotes(clientToEdit.notes || "");
+      }
+    } else {
+      setNotes(clientToEdit.notes || "");
+    }
+  } catch {
+    setNotes(clientToEdit.notes || "");
+  }
+
 
   // ✅ CARREGAMENTO DE APPS (NOVA LÓGICA)
   if (clientToEdit.id) {
@@ -1165,8 +1187,9 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_price_amount: rpcPriceAmount,
   p_price_currency: rpcCurrency as any,
   p_vencimento: dueISO,
-  p_notes: notes || null,
-  p_clear_notes: (isEditing && !notes), // ✅ Se está editando e nota está vazia, força limpar
+  p_notes: notes?.trim() ? notes.trim() : null,
+  p_clear_notes: Boolean(isEditing && !notes?.trim()),
+
   p_whatsapp_username: whatsappUsername || null,
   p_whatsapp_opt_in: Boolean(whatsappOptIn),
   p_whatsapp_snooze_until: snoozeISO,
@@ -1376,7 +1399,8 @@ function handleSave() {
           </div>
 
           {/* BODY */}
-          <div className="p-4 overflow-y-auto space-y-4 flex-1 bg-white dark:bg-[#161b22] custom-scrollbar">
+          <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 bg-white dark:bg-[#161b22] custom-scrollbar">
+
             
             {/* TAB: DADOS */}
             {activeTab === "dados" && (
@@ -1530,7 +1554,7 @@ function handleSave() {
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                 
                 {/* CARD ACESSO */}
-                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
                    <div className="flex justify-between items-center gap-3">
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Acesso</span>
                       
@@ -1601,7 +1625,7 @@ function handleSave() {
                 </div>
 
                 {!isTrialMode && (
-                   <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
+                   <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
                       <div className="flex justify-between items-center gap-3">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
                         <div className="flex items-center gap-2">
@@ -1616,37 +1640,45 @@ function handleSave() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="col-span-2 sm:col-span-1"><Label>Plano</Label><Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}>{Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
-                        <div>
-                            <Label>Telas</Label>
-                            <Input 
-                                type="number" 
-                                min={1} 
-                                value={screens} 
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
-                                }} 
-                                onBlur={() => { if (!screens || Number(screens) < 1) setScreens(1); }}
-                            />
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="col-span-2 sm:col-span-1">
+                          <Label>Plano</Label>
+                          <Select
+                            value={selectedPlanPeriod}
+                            onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}
+                          >
+                            {Object.entries(PLAN_LABELS).map(([k, v]) => (
+                              <option key={k} value={k}>
+                                {v}
+                              </option>
+                            ))}
+                          </Select>
                         </div>
-                        <Input 
-                        type="number" 
-                        min={1} 
-                        value={screens} 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          // Permite ficar vazio durante a digitação, senão assume 1
-                          setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
-                        }} 
-                        onBlur={() => {
-                          // Garante valor válido ao sair do campo
-                          if (!screens || Number(screens) < 1) setScreens(1);
-                        }}
-                      />
-                        <div><Label>Créditos</Label><div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">{creditsInfo ? creditsInfo.used : "-"}</div></div>
+
+                        <div>
+                          <Label>Telas</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={screens}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
+                            }}
+                            onBlur={() => {
+                              if (!screens || Number(screens) < 1) setScreens(1);
+                            }}
+                          />
+                        </div>
+
+                        <div className="col-span-2 sm:col-span-1">
+                          <Label>Créditos</Label>
+                          <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
+                            {creditsInfo ? creditsInfo.used : "—"}
+                          </div>
+                        </div>
                       </div>
+
 
                       <div className="grid grid-cols-3 gap-3">
                         <div><Label>Moeda</Label><div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">{currency}</div></div>
@@ -1663,7 +1695,7 @@ function handleSave() {
                 )}
                 
                 {/* VENCIMENTO */}
-                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
                    <div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span></div>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>Data</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
@@ -1782,6 +1814,7 @@ function handleSave() {
                   ) : (
                     <div className="relative animate-in fade-in zoom-in-95 duration-200">
                       <div className="relative">
+                        
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</div>
                         <input 
                           autoFocus
@@ -1796,28 +1829,35 @@ function handleSave() {
                         >✕</button>
                       </div>
 
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-                          {(() => {
-                            const filtered = catalog
-                              .filter(app => app.name.toLowerCase().includes(appSearch.toLowerCase()))
-                              .sort((a, b) => a.name.localeCompare(b.name));
+                                            <div className="mt-2 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
+                        {(() => {
+                          const filtered = catalog
+                            .filter((app) => app.name.toLowerCase().includes(appSearch.toLowerCase()))
+                            .sort((a, b) => a.name.localeCompare(b.name));
 
-                            if (filtered.length === 0) {
-                              return <div className="p-4 text-center text-xs text-slate-400 italic">Nenhum aplicativo encontrado para "{appSearch}".</div>;
-                            }
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="p-4 text-center text-xs text-slate-400 italic">
+                                Nenhum aplicativo encontrado para &quot;{appSearch}&quot;.
+                              </div>
+                            );
+                          }
 
-                            return filtered.map(app => (
-                              <button
-                                key={app.id}
-                                onClick={() => addAppToClient(app)}
-                                className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
-                              >
-                                <span className="font-medium">{app.name}</span>
-                                <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">Selecionar</span>
-                              </button>
-                            ));
-                          })()}
+                          return filtered.map((app) => (
+                            <button
+                              key={app.id}
+                              onClick={() => addAppToClient(app)}
+                              className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
+                            >
+                              <span className="font-medium">{app.name}</span>
+                              <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
+                                Selecionar
+                              </span>
+                            </button>
+                          ));
+                        })()}
                       </div>
+
                     </div>
                   )}
                 </div>
