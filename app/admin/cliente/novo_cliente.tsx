@@ -524,6 +524,9 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
   const TOAST_DURATION = 5000;
   const toastSeq = useRef(1);
 
+    // ✅ trava para não resetar override durante o prefill inicial
+  const didInitRef = useRef(false);
+
   const addToast = (type: "success" | "error", title: string, message?: string) => {
     const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
     setToasts((prev) => [
@@ -740,12 +743,14 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
           allTables[0];
 
         // ✅ 1) define qual tabela deve ficar selecionada
-        let initialTableId = defaultBRL?.id || "";
-        if (clientToEdit?.plan_table_id) {
-          // se a tabela do cliente existir e estiver ativa (está em allTables), usa ela
-          const exists = allTables.some((t) => t.id === clientToEdit.plan_table_id);
-          if (exists) initialTableId = clientToEdit.plan_table_id;
-        }
+        // ✅ prioridade absoluta: tabela do cliente (se existir/ativa)
+        const clientTableId = (clientToEdit as any)?.plan_table_id || "";
+        const clientTableExists = clientTableId ? allTables.some((t) => t.id === clientTableId) : false;
+
+        let initialTableId = clientTableExists
+          ? clientTableId
+          : (defaultBRL?.id || allTables[0]?.id || "");
+
 
         // ✅ aplica a seleção inicial
         if (initialTableId) {
@@ -844,13 +849,16 @@ if (clientPlanTableId) {
   if (clientToEdit.price_amount != null) {
     setPlanPrice(Number(clientToEdit.price_amount).toFixed(2).replace(".", ","));
     setPriceTouched(true);
-  } else {
-    // ✅ Se NÃO tiver override, recalcula pelo preço da TABELA DO CLIENTE (não pela default BRL)
-    const currentTableId = clientPlanTableId && tables.some((t) => t.id === clientPlanTableId)
-      ? clientPlanTableId
-      : selectedTableId; // fallback: o que já estiver selecionado
+    } else {
+    // ✅ Se NÃO tiver override, recalcula pelo preço da TABELA DO CLIENTE
+    // ⚠️ IMPORTANTE: aqui ainda estamos dentro do load() — use allTables (local), não `tables` (state)
+    const currentTableId =
+      clientPlanTableId && allTables.some((t) => t.id === clientPlanTableId)
+        ? clientPlanTableId
+        : (initialTableId || "");
 
-    const tSel = tables.find((t) => t.id === currentTableId) || null;
+
+    const tSel = allTables.find((t) => t.id === currentTableId) || null;
     if (tSel) {
       const pAuto = pickPriceFromTable(tSel, foundPeriod, clientToEdit.screens || 1);
       setPlanPrice(Number(pAuto || 0).toFixed(2).replace(".", ","));
@@ -858,6 +866,7 @@ if (clientPlanTableId) {
       setCurrency(tSel.currency || "BRL");
     }
   }
+
 
   // Câmbio
   if (clientToEdit.price_currency) {
@@ -970,8 +979,12 @@ if (clientPlanTableId) {
       } catch (err) {
         console.error(err);
       } finally {
+        // ✅ daqui pra frente, qualquer mudança em telas/plano/tabela já é "interação" (ou pós-prefill)
+        didInitRef.current = true;
+
         if (alive) setFetchingAux(false);
       }
+
     }
 
     load();
@@ -980,12 +993,11 @@ if (clientPlanTableId) {
     };
   }, [clientToEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ======= REGRAS =======
+    // ======= REGRAS =======
 
   useEffect(() => {
     const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
 
-    // Se estiver marcando renovação (normalmente na criação), recalculamos
     if (registerRenewal) {
       const base = new Date();
       const target = new Date(base);
@@ -993,41 +1005,37 @@ if (clientPlanTableId) {
 
       const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
       setDueDate(dISO);
-      // Não mexemos no dueTime aqui para preservar a escolha do usuário
     }
 
-    if (!priceTouched) {
-      const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
-      setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-    }
-  }, [selectedPlanPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
+    // ✅ NÃO recalcula preço aqui (deixa isso só nos effects de preço)
+  }, [selectedPlanPeriod, registerRenewal]);
 
-// 1. Se mudar a estrutura (Telas, Tabela, Periodo), reseta o override (priceTouched = false)
+  // 1) Se mudar a estrutura (Telas, Tabela, Periodo), reseta o override
+  // ✅ mas só DEPOIS do prefill inicial terminar (senão apaga override ao abrir edição)
   useEffect(() => {
+    if (!didInitRef.current) return;
     setPriceTouched(false);
   }, [screens, selectedPlanPeriod, selectedTableId]);
 
-  // 2. Calcula o preço (agora vai rodar porque priceTouched foi resetado acima)
+  // 2) Calcula o preço AUTOMÁTICO quando não tem override
   useEffect(() => {
     if (!selectedTable) return;
-    if (priceTouched) return; // Só respeita se o usuário digitou o preço MANUALMENTE sem mudar telas depois
+    if (priceTouched) return;
 
     const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, Number(screens) || 1);
     setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
   }, [screens, selectedTable, selectedPlanPeriod, priceTouched]);
 
+  // 3) Sempre que trocar a tabela, atualiza moeda + câmbio
   useEffect(() => {
     if (!selectedTable) return;
 
     setCurrency(selectedTable.currency || "BRL");
 
-    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
-    setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-    setPriceTouched(false);
-
     (async () => {
       try {
         const tid = await getCurrentTenantId();
+
         if (selectedTable.currency === "BRL") {
           setFxRate(1);
           return;
@@ -1048,7 +1056,9 @@ if (clientPlanTableId) {
         }
 
         const rate =
-          selectedTable.currency === "USD" ? Number(fx?.usd_to_brl || 5) : Number(fx?.eur_to_brl || 5);
+          selectedTable.currency === "USD"
+            ? Number(fx?.usd_to_brl || 5)
+            : Number(fx?.eur_to_brl || 5);
 
         setFxRate(rate);
       } catch (e: any) {
@@ -1056,7 +1066,9 @@ if (clientPlanTableId) {
         setFxRate(5);
       }
     })();
-  }, [selectedTableId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedTableId, selectedTable]); // ✅ aqui é só troca de tabela/moeda/câmbio
+
+
 
   useEffect(() => {
     const rawVal = safeNumberFromMoneyBR(planPrice);
@@ -1304,6 +1316,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
       console.error("Erro RPC:", err);
       const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
       addToast("error", "Erro ao salvar", errorMsg);
+
     } finally {
       setLoading(false);
     }
