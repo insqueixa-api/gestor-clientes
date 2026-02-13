@@ -368,348 +368,329 @@ export async function POST(req: Request) {
   // =========================
   // 2) CRON: enfileira automações + processa fila
   // =========================
-  if (isCron) {
-    // ============================================================
-    // ✅ PASSO 0 (NOVO): ENFILEIRAR AUTOMAÇÕES DO DIA (SP) POR TENANT
-    // - A função do banco é: billing_enqueue_scheduled(p_tenant_id uuid, p_fire_date date)
-    // - Sem isso, o automático nunca cria jobs em client_message_jobs.
-    // ============================================================
+  // =========================
+// 2) CRON: processa fila
+// =========================
+if (isCron) {
+  // ============================================================
+  // ✅ PASSO 0: ENFILEIRAR AUTOMAÇÕES
+  // - Sem isso, o automático nunca cria jobs em client_message_jobs.
+  // - A RPC deve criar os jobs (SCHEDULED/QUEUED) respeitando regras do banco.
+  // - Soft-fail: se enfileirar falhar, ainda processamos jobs existentes.
+  // ============================================================
+  try {
+    // roda no "dia SP" para alinhar com suas regras (sem depender do timezone do server)
+    const p = getSPParts(new Date());
+    const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
+
+    const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
+      p_fire_date: fireDate,
+    });
+
+    console.log("[BILLING][enqueue_scheduled]", {
+      fireDate,
+      ok: !enqErr,
+      enqErr: enqErr?.message ?? null,
+      enqData,
+    });
+  } catch (e: any) {
+    console.log("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
+  }
+
+  // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
+  await sb
+    .from("client_message_jobs")
+    .update({ status: "QUEUED", error_message: null })
+    .eq("status", "SENDING")
+    .lt("updated_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()); // 5 min
+
+  // ✅ busca jobs prontos para enviar
+  const { data: jobs, error: jobsErr } = await sb
+    .from("client_message_jobs")
+    .select(`
+      id,
+      tenant_id,
+      client_id,
+      reseller_id,
+      whatsapp_session,
+      message,
+      send_at,
+      created_by,
+      automation_id,
+      billing_automations ( delay_min )
+    `)
+    .in("status", ["QUEUED", "SCHEDULED"])
+    .lte("send_at", new Date().toISOString())
+    .order("send_at", { ascending: true })
+    .limit(30);
+
+  if (jobsErr) return NextResponse.json({ error: jobsErr.message }, { status: 500 });
+  if (!jobs?.length) return NextResponse.json({ ok: true, processed: 0 });
+
+  let processed = 0;
+
+  for (const job of jobs) {
     try {
-      const fireDate = spDayKey(new Date()); // YYYY-MM-DD (SP)
+      // ✅ LOCK ANTI DUPLICAÇÃO (CRON SAFE)
+      const { data: locked, error: lockErr } = await sb
+        .from("client_message_jobs")
+        .update({ status: "SENDING", error_message: null })
+        .eq("id", job.id)
+        .in("status", ["QUEUED", "SCHEDULED"])
+        .select("id")
+        .maybeSingle();
 
-      const { data: tenantsRows, error: tenantsErr } = await sb
-        .from("billing_automations")
-        .select("tenant_id")
-        .eq("is_active", true)
-        .eq("is_automatic", true);
+      if (lockErr) throw new Error(lockErr.message);
+      if (!locked) continue;
 
-      if (tenantsErr) {
-        console.log("[BILLING][enqueue] falhou ao listar tenants", tenantsErr.message);
-      } else {
-        const tenantIds = Array.from(new Set((tenantsRows ?? []).map((r: any) => String(r.tenant_id)))).filter(Boolean);
+      // resolve destino
+      const rawClientId = String((job as any).client_id || "").trim();
+      const rawResellerId = String((job as any).reseller_id || "").trim();
 
-        for (const tenantId of tenantIds) {
-          const { error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
-            p_tenant_id: tenantId,
-            p_fire_date: fireDate,
-          });
+      let recipientType: "client" | "reseller" | null = null;
+      let recipientId = "";
 
-          console.log("[BILLING][enqueue_scheduled]", {
-            tenantId,
-            fireDate,
-            enqErr: enqErr?.message ?? null,
-          });
-        }
+      if (rawResellerId) {
+        recipientType = "reseller";
+        recipientId = rawResellerId;
+      } else if (rawClientId) {
+        recipientType = "client";
+        recipientId = rawClientId;
       }
-    } catch (e: any) {
-      console.log("[BILLING][enqueue_scheduled] falhou", e?.message ?? e);
-      // Soft-fail: não derruba o envio dos jobs já existentes
-    }
 
-    // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
-    await sb
-      .from("client_message_jobs")
-      .update({ status: "QUEUED", error_message: null })
-      .eq("status", "SENDING")
-      .lt("updated_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()); // 5 min
-
-    // ✅ CORREÇÃO CRÍTICA: Adicionado 'billing_automations(delay_min)' para o sleep
-    const { data: jobs, error: jobsErr } = await sb
-      .from("client_message_jobs")
-      .select(`
-        id, 
-        tenant_id, 
-        client_id, 
-        reseller_id, 
-        whatsapp_session, 
-        message, 
-        send_at, 
-        created_by, 
-        automation_id,
-        billing_automations ( delay_min )
-      `)
-      .in("status", ["QUEUED", "SCHEDULED"])
-      .lte("send_at", new Date().toISOString())
-      .order("send_at", { ascending: true })
-      .limit(30);
-
-    if (jobsErr) return NextResponse.json({ error: jobsErr.message }, { status: 500 });
-    if (!jobs?.length) return NextResponse.json({ ok: true, processed: 0 });
-
-    let processed = 0;
-
-    for (const job of jobs) {
-      try {
-        // ✅ LOCK ANTI DUPLICAÇÃO (CRON SAFE)
-        const { data: locked, error: lockErr } = await sb
+      if (!recipientType || !recipientId) {
+        await sb
           .from("client_message_jobs")
-          .update({ status: "SENDING", error_message: null })
-          .eq("id", job.id)
-          .in("status", ["QUEUED", "SCHEDULED"])
-          .select("id")
-          .maybeSingle();
+          .update({ status: "FAILED", error_message: "Job sem destino (client_id/reseller_id ausente)" })
+          .eq("id", job.id);
+        continue;
+      }
 
-        if (lockErr) throw new Error(lockErr.message);
-        if (!locked) continue; // outro worker pegou antes
+      // ✅ pega WhatsApp e linha pra tags
+      const wa =
+        recipientType === "reseller"
+          ? await fetchResellerWhatsApp(sb, job.tenant_id, recipientId)
+          : await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
 
-        // resolve destino
-        const rawClientId = String((job as any).client_id || "").trim();
-        const rawResellerId = String((job as any).reseller_id || "").trim();
-
-        let recipientType: "client" | "reseller" | null = null;
-        let recipientId = "";
-
-        if (rawResellerId) {
-          recipientType = "reseller";
-          recipientId = rawResellerId;
-        } else if (rawClientId) {
-          recipientType = "client";
-          recipientId = rawClientId;
-        }
-
-        if (!recipientType || !recipientId) {
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: "Job sem destino (client_id/reseller_id ausente)",
-            })
-            .eq("id", job.id);
-          continue;
-        }
-
-        // ✅ pega WhatsApp e linha pra tags
-        const wa =
-          recipientType === "reseller"
-            ? await fetchResellerWhatsApp(sb, job.tenant_id, recipientId)
-            : await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
-
-        // ✅ validações
-        if (!wa.phone) {
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username`,
-            })
-            .eq("id", job.id);
-          continue;
-        }
-
-        if (!wa.whatsapp_opt_in) {
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não opt-in`,
-            })
-            .eq("id", job.id);
-          continue;
-        }
-
-        if (wa.dont_message_until) {
-          const until = new Date(wa.dont_message_until);
-
-          // data inválida -> FAILED
-          if (isNaN(until.getTime())) {
-            await sb
-              .from("client_message_jobs")
-              .update({
-                status: "FAILED",
-                error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa (data inválida): ${String(
-                  wa.dont_message_until
-                )}`,
-              })
-              .eq("id", job.id);
-            continue;
-          }
-
-          // bloqueado (futuro) -> FAILED (não fica preso em SENDING)
-          if (until > new Date()) {
-            const formattedSP = new Intl.DateTimeFormat("pt-BR", {
-              timeZone: TZ_SP,
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }).format(until);
-
-            await sb
-              .from("client_message_jobs")
-              .update({
-                status: "FAILED",
-                error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa até ${formattedSP}`,
-              })
-              .eq("id", job.id);
-            continue;
-          }
-        }
-
-        const sessionUserId = String(job.created_by || "system");
-        const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
-
-        console.log("[WA][cron_send]", {
-          jobId: job.id,
-          tenantId: job.tenant_id,
-          recipientType,
-          recipientId,
-          to: wa.phone,
-          createdBy: job.created_by,
-        });
-
-        // ✅ renderiza tags NA HORA DO ENVIO (CRON) (agora tudo em SP)
-        const vars = buildTemplateVars({
-          recipientType,
-          recipientRow: (wa as any).row,
-        });
-
-        // ✅ CRON: gera/reutiliza token do portal via RPC v2 (sem auth.uid, valida por created_by)
-        try {
-          const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
-          const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
-
-          if (whatsappUsername) {
-            // v2 espera expires_at timestamptz (pode ser null). Mantive 30 dias aqui.
-            const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
-
-            const createdBy = String((job as any).created_by || "").trim();
-
-            const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-              p_tenant_id: String(job.tenant_id),
-              p_whatsapp_username: whatsappUsername,
-              p_created_by: createdBy, // ✅ ESSENCIAL (é ele que valida tenant_members)
-              p_label: "Cobranca automatica",
-              p_expires_at: expiresAt,
-            });
-
-            console.log("[PORTAL][cron_token:v2]", {
-              jobId: job.id,
-              tenantId: job.tenant_id,
-              createdBy,
-              whatsappUsername,
-              tokErr: tokErr?.message ?? null,
-              tokDataType: typeof tokData,
-              tokData,
-            });
-
-            if (tokErr) throw new Error(tokErr.message);
-
-            // v2 retorna TABLE(token text, token_id uuid) -> vem como array
-            const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-            const portalToken = rowTok?.token ? String(rowTok.token) : "";
-
-            if (portalToken) {
-              vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
-            } else {
-              console.log("[PORTAL][cron_token:v2] retorno sem token");
-            }
-          } else {
-            console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
-          }
-        } catch (e: any) {
-          console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
-          // mantém vars.link_pagamento vazio
-        }
-
-        const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
-
-        const res = await fetch(`${baseUrl}/send`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${waToken}`,
-            "x-session-key": sessionKey,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            phone: wa.phone,
-            message: renderedMessage,
-          }),
-        });
-
-        const raw = await res.text();
-        if (!res.ok) {
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: raw.slice(0, 500),
-            })
-            .eq("id", job.id);
-          continue;
-        }
-
+      // ✅ validações
+      if (!wa.phone) {
         await sb
           .from("client_message_jobs")
           .update({
-            status: "SENT",
-            sent_at: new Date().toISOString(),
-            error_message: null,
+            status: "FAILED",
+            error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username`,
           })
           .eq("id", job.id);
+        continue;
+      }
 
-        // ✅ SALVA O LOG PARA A TELA DE HISTÓRICO LER
-        if ((job as any).automation_id) {
-          const cName = String(wa.row?.display_name || wa.row?.client_name || "Cliente").trim();
-
-          const logError = await sb.from("billing_logs").insert({
-            tenant_id: job.tenant_id,
-            automation_id: (job as any).automation_id,
-            client_id: job.client_id || null, // <--- OBRIGATÓRIO
-            client_name: cName,
-            client_whatsapp: wa.phone,
-            status: "SENT",
-            sent_at: new Date().toISOString(),
-          });
-
-          if (logError.error) console.error("Erro ao salvar Log:", logError.error);
-        }
-
-        processed++;
-
-        // Pausa Inteligente entre envios
-        if (processed < jobs.length) {
-          const automationConfig = Array.isArray((job as any).billing_automations)
-            ? (job as any).billing_automations[0]
-            : (job as any).billing_automations;
-
-          const dbDelay = automationConfig?.delay_min ? Number(automationConfig.delay_min) : 10;
-
-          const safeDelay = Math.min(dbDelay, 10);
-          const finalDelay = Math.max(safeDelay, 5);
-
-          await sleep(finalDelay * 1000);
-        }
-      } catch (e: any) {
-        const errorMsg = e?.message || "Falha ao processar job";
-
+      if (!wa.whatsapp_opt_in) {
         await sb
           .from("client_message_jobs")
           .update({
             status: "FAILED",
-            error_message: errorMsg,
+            error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não opt-in`,
           })
-          .eq("id", (job as any).id);
+          .eq("id", job.id);
+        continue;
+      }
 
-        // ✅ SALVA O ERRO NOS LOGS
-        if ((job as any).automation_id) {
-          await sb.from("billing_logs").insert({
-            tenant_id: (job as any).tenant_id,
-            automation_id: (job as any).automation_id,
-            client_name: "Falha no Envio",
-            client_whatsapp: "-",
-            status: "FAILED",
-            sent_at: new Date().toISOString(),
-            error_message: String(errorMsg).slice(0, 500),
-          });
+      if (wa.dont_message_until) {
+        const until = new Date(wa.dont_message_until);
+
+        if (isNaN(until.getTime())) {
+          await sb
+            .from("client_message_jobs")
+            .update({
+              status: "FAILED",
+              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa (data inválida): ${String(
+                wa.dont_message_until
+              )}`,
+            })
+            .eq("id", job.id);
+          continue;
+        }
+
+        if (until > new Date()) {
+          const formattedSP = new Intl.DateTimeFormat("pt-BR", {
+            timeZone: TZ_SP,
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).format(until);
+
+          await sb
+            .from("client_message_jobs")
+            .update({
+              status: "FAILED",
+              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa até ${formattedSP}`,
+            })
+            .eq("id", job.id);
+          continue;
         }
       }
-    }
 
-    return NextResponse.json({ ok: true, processed });
+      const sessionUserId = String(job.created_by || "system");
+      const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
+
+      console.log("[WA][cron_send]", {
+        jobId: job.id,
+        tenantId: job.tenant_id,
+        recipientType,
+        recipientId,
+        to: wa.phone,
+        createdBy: job.created_by,
+      });
+
+      // ✅ tags
+      const vars = buildTemplateVars({
+        recipientType,
+        recipientRow: (wa as any).row,
+      });
+
+      // ✅ token v2 (sem auth.uid, valida por created_by)
+      try {
+        const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
+        const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
+
+        if (whatsappUsername) {
+          const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
+          const createdBy = String((job as any).created_by || "").trim();
+
+          const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+            p_tenant_id: String(job.tenant_id),
+            p_whatsapp_username: whatsappUsername,
+            p_created_by: createdBy,
+            p_label: "Cobranca automatica",
+            p_expires_at: expiresAt,
+          });
+
+          console.log("[PORTAL][cron_token:v2]", {
+            jobId: job.id,
+            tenantId: job.tenant_id,
+            createdBy,
+            whatsappUsername,
+            tokErr: tokErr?.message ?? null,
+            tokDataType: typeof tokData,
+            tokData,
+          });
+
+          if (tokErr) throw new Error(tokErr.message);
+
+          const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+          const portalToken = rowTok?.token ? String(rowTok.token) : "";
+
+          if (portalToken) {
+            vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+          } else {
+            console.log("[PORTAL][cron_token:v2] retorno sem token");
+          }
+        } else {
+          console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
+        }
+      } catch (e: any) {
+        console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
+      }
+
+      const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
+
+      const res = await fetch(`${baseUrl}/send`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${waToken}`,
+          "x-session-key": sessionKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          phone: wa.phone,
+          message: renderedMessage,
+        }),
+      });
+
+      const raw = await res.text();
+      if (!res.ok) {
+        await sb
+          .from("client_message_jobs")
+          .update({
+            status: "FAILED",
+            error_message: raw.slice(0, 500),
+          })
+          .eq("id", job.id);
+        continue;
+      }
+
+      await sb
+        .from("client_message_jobs")
+        .update({
+          status: "SENT",
+          sent_at: new Date().toISOString(),
+          error_message: null,
+        })
+        .eq("id", job.id);
+
+      // ✅ billing_logs (mantido como você já tinha)
+      if ((job as any).automation_id) {
+        const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
+
+        const logRes = await sb.from("billing_logs").insert({
+          tenant_id: job.tenant_id,
+          automation_id: (job as any).automation_id,
+          client_id: job.client_id || null,
+          client_name: cName,
+          client_whatsapp: wa.phone,
+          status: "SENT",
+          sent_at: new Date().toISOString(),
+        });
+
+        if (logRes.error) console.error("Erro ao salvar Log:", logRes.error);
+      }
+
+      processed++;
+
+      // ✅ delay entre envios (respeita delay_min do banco)
+      if (processed < jobs.length) {
+        const automationConfig = Array.isArray((job as any).billing_automations)
+          ? (job as any).billing_automations[0]
+          : (job as any).billing_automations;
+
+        const dbDelay = automationConfig?.delay_min ? Number(automationConfig.delay_min) : 10;
+        const safeDelay = Math.min(dbDelay, 10);
+        const finalDelay = Math.max(safeDelay, 5);
+
+        await sleep(finalDelay * 1000);
+      }
+    } catch (e: any) {
+      const errorMsg = e?.message || "Falha ao processar job";
+
+      await sb
+        .from("client_message_jobs")
+        .update({
+          status: "FAILED",
+          error_message: errorMsg,
+        })
+        .eq("id", job.id);
+
+      if ((job as any).automation_id) {
+        await sb.from("billing_logs").insert({
+          tenant_id: job.tenant_id,
+          automation_id: (job as any).automation_id,
+          client_name: "Falha no Envio",
+          client_whatsapp: "-",
+          status: "FAILED",
+          sent_at: new Date().toISOString(),
+          error_message: errorMsg.slice(0, 500),
+        });
+      }
+    }
   }
+
+  return NextResponse.json({ ok: true, processed });
+}
+
 
   // =========================
   // 3) FRONT: agenda (insere job)

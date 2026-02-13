@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -261,7 +261,7 @@ function formatMoney(amount: number | null, currency: string | null) {
 
 
 
-export default function ClientePage() {
+function ClientePageContent() {
   const searchParams = useSearchParams(); // <--- Hook do Next.js
   // --- ESTADOS ---
   const [rows, setRows] = useState<ClientRow[]>([]);
@@ -2576,6 +2576,14 @@ const res = await fetch("/api/whatsapp/envio_programado", {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ClientePage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-slate-400 animate-pulse">Carregando...</div>}>
+      <ClientePageContent />
+    </Suspense>
   );
 }
 

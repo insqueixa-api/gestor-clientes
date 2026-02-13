@@ -187,8 +187,11 @@ const clientIdSafe = (clientId ?? "").trim();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
 
-  const [showEditModal, setShowEditModal] = useState(false);
+const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
+  
+  // ✅ NOVO: Estado para o aviso de alerta antes da renovação
+  const [showRenewWarning, setShowRenewWarning] = useState(false);
 
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -369,6 +372,15 @@ plan_table_name: (row as any).plan_table_name ?? null,
     }
   }
 
+  // ✅ NOVO: Intercepta o clique no botão Renovar
+  const handleRenewClick = () => {
+    if (client && client.alerts_open > 0) {
+      setShowRenewWarning(true);
+    } else {
+      setShowRenewModal(true);
+    }
+  };
+
   if (!clientIdSafe) {
 
     return (
@@ -436,9 +448,9 @@ plan_table_name: (row as any).plan_table_name ?? null,
           <span className="hidden sm:inline">Editar</span>
         </button>
 
-        {/* Botão Renovar */}
+{/* Botão Renovar */}
         <button
-          onClick={() => setShowRenewModal(true)}
+          onClick={handleRenewClick} // ✅ Alterado para usar a função interceptadora
           disabled={client.client_is_archived}
           className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
           title="Renovar"
@@ -659,6 +671,45 @@ plan_table_name: (row as any).plan_table_name ?? null,
       </div>
 
       {/* --- MODAIS --- */}
+
+      {/* ✅ MODAL DE AVISO DE ALERTA */}
+      {showRenewWarning && client && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+             
+             <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+                <span className="text-2xl">📢</span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-1">Cliente com Alertas</h3>
+                  <p className="text-sm text-slate-700 dark:text-white/90">
+                    O cliente <strong className="text-amber-700 dark:text-amber-400">{client.client_name}</strong> possui pendências em aberto.
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-white/60 mt-1">
+                    Verifique os alertas antes de renovar.
+                  </p>
+                </div>
+             </div>
+
+             <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowRenewWarning(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRenewWarning(false);
+                    setShowRenewModal(true); // Abre a renovação mesmo assim
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
+                >
+                  Ignorar e Renovar
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
       {showEditModal && client && (
         <NovoCliente
           clientToEdit={{

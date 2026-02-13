@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { Suspense } from "react";
 
 // --- INTERFACES ---
 interface ClientFromView {
@@ -38,6 +39,12 @@ type Currency = "BRL" | "USD" | "EUR";
 interface PlanTableItemPrice {
   screens_count: number;
   price_amount: number | null;
+}
+
+interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
 }
 
 interface PlanTableItem {
@@ -194,6 +201,19 @@ function saoPauloDateTimeToIso(dateISO: string, timeHHmm: string) {
 }
 
 
+// ✅ Função auxiliar para mandar toasts para a tela de listagem (Session Storage)
+function queueToast(type: "success" | "error", title: string, message?: string) {
+  try {
+    const key = "clients_list_toasts";
+    const raw = window.sessionStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    arr.push({ type, title, message, ts: Date.now() });
+    window.sessionStorage.setItem(key, JSON.stringify(arr));
+  } catch (e) {
+    console.error("Erro ao salvar toast", e);
+  }
+}
+
 export default function RecargaCliente({
   clientId,
   clientName,
@@ -215,74 +235,59 @@ export default function RecargaCliente({
 
   // Estados globais
   const [loading, setLoading] = useState(false);
+  // ✅ NOVO: Texto dinâmico para feedback sequencial no botão
+  const [loadingText, setLoadingText] = useState("Processando..."); 
   const [fetching, setFetching] = useState(true);
 
+  // Toast Local
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const addToast = (type: "success" | "error", title: string, message?: string) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, type, title, message, durationMs: 900 }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 900);
+    setToasts((prev) => [...prev, { id, type, title, message, durationMs: 5000 }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   };
 
-  // Dados
+  // Dados do Cliente e Tabelas
   const [clientData, setClientData] = useState<ClientFromView | null>(null);
-
-  // tabelas
   const [tables, setTables] = useState<PlanTable[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>("");
-
   const tableChangedByUserRef = useRef(false);
 
   const selectedTable = useMemo(() => {
     return tables.find((t) => t.id === selectedTableId) || null;
   }, [tables, selectedTableId]);
 
-  // Form
+  // Formulário
   const [selectedPlanPeriod, setSelectedPlanPeriod] = useState("MONTHLY");
   const [screens, setScreens] = useState(1);
-
   const [currency, setCurrency] = useState<Currency>("BRL");
   const [planPrice, setPlanPrice] = useState("0,00");
   const [priceTouched, setPriceTouched] = useState(false);
 
-  // ✅ NOVO: Estados de Tecnologia
+  // Tecnologia
   const [technology, setTechnology] = useState("IPTV");
   const [customTechnology, setCustomTechnology] = useState("");
 
-  
-  // Novo vencimento: data + hora separados (SEMPRE São Paulo)
-  const [dueDate, setDueDate] = useState<string>(() => {
-    return nowInSaoPauloParts().dateISO;
-  });
+  // Vencimento (Inicia com Data de Hoje e Hora Atual de SP)
+  const [dueDate, setDueDate] = useState<string>(() => nowInSaoPauloParts().dateISO);
+  const [dueTime, setDueTime] = useState(() => nowInSaoPauloParts().timeHHmm);
 
-  const [dueTime, setDueTime] = useState(() => {
-    return nowInSaoPauloParts().timeHHmm;
-  });
-
-// ✅ ADICIONAR ESTA INTERFACE ANTES DA FUNÇÃO OU NO TOPO
-  interface MessageTemplate { id: string; name: string; content: string; }
-
-  // ...
-
-  // Aux
+  // Auxiliares e Pagamento
   const [fxRate, setFxRate] = useState<number>(1);
   const [totalBrl, setTotalBrl] = useState(0);
-
   const [obs, setObs] = useState("");
   const [registerPayment, setRegisterPayment] = useState(true);
-  
-  // ✅ CORREÇÃO: Adicionar os estados que faltavam para a mensagem
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [payDate, setPayDate] = useState(getLocalISOString());
+
+  // ✅ MENSAGENS E WHATSAPP (Estados que faltavam)
   const [sendWhats, setSendWhats] = useState(true);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [messageContent, setMessageContent] = useState("");
 
-  const [paymentMethod, setPaymentMethod] = useState("PIX");
-
-
-  const [payDate, setPayDate] = useState(getLocalISOString());
+  // Hook de Confirmação
   const { confirm, ConfirmUI } = useConfirm();
-
 
   // ========= LOAD =========
   useEffect(() => {
@@ -649,6 +654,7 @@ await executeSave();
 const executeSave = async () => {
     if (loading) return;
     setLoading(true);
+    setLoadingText("Salvando dados..."); // 1. Feedback inicial
 
     try {
       let finalTechnology = technology;
@@ -660,7 +666,7 @@ const executeSave = async () => {
       const tid = await getCurrentTenantId();
       const nameToSend = clientData?.display_name || clientName;
 
-      // 1. UPDATE CLIENT
+      // --- PASSO 1: ATUALIZAR CLIENTE ---
       const { error: updateError } = await supabaseBrowser.rpc("update_client", {
         p_tenant_id: tid,
         p_client_id: clientId,
@@ -686,8 +692,9 @@ const executeSave = async () => {
 
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
-      // 2. RENEW / PAYMENT
+      // --- PASSO 2: RENOVAR ---
       if (registerPayment) {
+        setLoadingText("Registrando pagamento..."); // 2. Feedback pagamento
         const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
           p_tenant_id: tid,
           p_client_id: clientId,
@@ -699,49 +706,54 @@ const executeSave = async () => {
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
       }
 
-      // ✅ 3. ENVIO DE WHATSAPP (FIRE AND FORGET)
-      // Não usamos 'await' aqui para não travar a tela. O modal fecha instantaneamente.
+      // --- PASSO 3: ENVIAR WHATSAPP (SEQUENCIAL) ---
       if (sendWhats && messageContent) {
-          const { data: session } = await supabaseBrowser.auth.getSession();
-          const token = session.session?.access_token;
+          setLoadingText("Enviando WhatsApp..."); // 3. Feedback envio (AQUI O USUÁRIO ESPERA SEM PÂNICO)
+          
+          try {
+              const { data: session } = await supabaseBrowser.auth.getSession();
+              const token = session.session?.access_token;
 
-          // Dispara em background
-          fetch("/api/whatsapp/envio_agora", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                tenant_id: tid,
-                client_id: clientId,
-                message: messageContent,
-                whatsapp_session: "default",
-              }),
-          }).then(async (res) => {
+              const res = await fetch("/api/whatsapp/envio_agora", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    tenant_id: tid,
+                    client_id: clientId,
+                    message: messageContent,
+                    whatsapp_session: "default",
+                  }),
+              });
+
               if (res.ok) {
-                  // Sucesso: Envia Toast para a lista
-                  queueToast("success", "Mensagem enviada", "Notificação WhatsApp entregue.");
+                  // ✅ Sucesso: Fila o toast para a próxima tela
+                  queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.");
               } else {
-                  // Erro: Envia Toast de erro para a lista
-                  queueToast("error", "Erro mensagem", "Renovado, mas falha no envio do WhatsApp.");
+                  throw new Error("API retornou erro");
               }
-          }).catch(err => {
-              console.error("Erro fetch whats", err);
-          });
+          } catch (e) {
+              console.error("Falha envio Whats:", e);
+              // ✅ Erro: Fila o toast de erro
+              queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.");
+          }
       }
 
-      // ✅ Sucesso imediato da Renovação
+      // --- FIM ---
+      setLoadingText("Concluído!");
+      
+      // Pequeno delay para ler "Concluído" e fechar suave
       setTimeout(() => { 
-          onSuccess(); // Isso dispara os toasts do pai ("Cliente Atualizado" / "Renovado")
+          onSuccess(); 
           onClose(); 
-      }, 300);
+      }, 500);
 
     } catch (err: any) {
       console.error("CRASH:", err);
       addToast("error", "Erro ao salvar", err.message || "Falha desconhecida");
-    } finally {
-      setLoading(false);
+      setLoading(false); // Só destrava se der erro fatal
     }
   };
 
@@ -976,21 +988,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                     )}
                 </div>
 
-                {/* ÁREA DE TEXTO DA MENSAGEM (Full width) */}
-                {sendWhats && (
-                     <div className="animate-in slide-in-from-top-2 duration-200">
-                         <Label>Conteúdo da Mensagem</Label>
-                         <textarea 
-                            value={messageContent}
-                            onChange={(e) => { 
-                                setMessageContent(e.target.value); 
-                                if(selectedTemplateId) setSelectedTemplateId(""); 
-                            }}
-                            className="w-full h-24 p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none font-sans mt-1"
-                            placeholder="Escreva a mensagem aqui..."
-                         />
-                     </div>
-                )}
+
 
                 {/* OBSERVAÇÕES */}
                 <div>
@@ -1017,12 +1015,14 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
             <button
               onClick={(e) => { e.stopPropagation(); handlePreCheck(); }}
               disabled={loading}
-              className="px-8 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+              className="px-8 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-80 disabled:cursor-not-allowed transition-all flex items-center gap-2 min-w-[140px] justify-center"
             >
               {loading ? (
-                 <>
+                
+<>
                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                   Processando...
+                   {/* ✅ Texto Dinâmico */}
+                   {loadingText}
                  </>
               ) : (
                  <>
@@ -1078,17 +1078,4 @@ function IconX() {
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
-}
-
-// ✅ Função auxiliar para mandar toasts para a tela de listagem
-function queueToast(type: "success" | "error", title: string, message?: string) {
-  try {
-    const key = "clients_list_toasts"; // Mesma chave que a ClientePage lê
-    const raw = window.sessionStorage.getItem(key);
-    const arr = raw ? JSON.parse(raw) : [];
-    arr.push({ type, title, message, ts: Date.now() });
-    window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch (e) {
-    console.error("Erro ao salvar toast", e);
-  }
 }
