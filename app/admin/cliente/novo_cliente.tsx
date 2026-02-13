@@ -1618,6 +1618,19 @@ function handleSave() {
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="col-span-2 sm:col-span-1"><Label>Plano</Label><Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}>{Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
+                        <div>
+                            <Label>Telas</Label>
+                            <Input 
+                                type="number" 
+                                min={1} 
+                                value={screens} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
+                                }} 
+                                onBlur={() => { if (!screens || Number(screens) < 1) setScreens(1); }}
+                            />
+                        </div>
                         <Input 
                         type="number" 
                         min={1} 
@@ -1758,13 +1771,13 @@ function handleSave() {
                 </div>
 
                 {/* Seletor de Aplicativos (Tipo Combobox) */}
-                <div className="relative">
+                <div className="relative mb-4">
                   {!showAppSelector ? (
                     <button 
                       onClick={() => { setShowAppSelector(true); setAppSearch(""); }} 
-                      className="w-full h-10 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-xs uppercase flex items-center justify-center gap-2"
+                      className="w-full h-14 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-xl text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all font-bold text-sm uppercase flex items-center justify-center gap-2"
                     >
-                      <span>+</span> Adicionar Aplicativo
+                      <span className="text-lg">+</span> Adicionar Aplicativo
                     </button>
                   ) : (
                     <div className="relative animate-in fade-in zoom-in-95 duration-200">
