@@ -999,9 +999,32 @@ function openEditById(clientId: string, initialTab: EditTab = "dados") {
   handleOpenEdit(r, initialTab);
 }
 
-const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
+const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
   // ✅ define qual aba abrir
   setEditInitialTab(initialTab);
+
+  // ✅ fallback: usar o que veio da view
+  let dbPlanTableId: string | undefined = r.plan_table_id;
+  let dbPriceCurrency: string | undefined = r.price_currency;
+
+  // ✅ fonte da verdade: buscar do clients (porque a view NÃO tem plan_table_id)
+  try {
+    if (tenantId) {
+      const { data, error } = await supabaseBrowser
+        .from("clients")
+        .select("plan_table_id, price_currency")
+        .eq("tenant_id", tenantId)
+        .eq("id", r.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
+        dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
+      }
+    }
+  } catch (e) {
+    console.error("Falha ao buscar plan_table_id/price_currency do clients:", e);
+  }
 
   const payload: ClientData = {
     id: r.id,
@@ -1018,13 +1041,17 @@ const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
     whatsapp_opt_in: r.whatsapp_opt_in,
     dont_message_until: r.dont_message_until,
 
-server_password: r.server_password,
+    server_password: r.server_password,
 
     plan_name: r.rawPlanName,
-    // ✅ ADICIONADO: Passa o ID da tabela para o modal selecionar a correta
-    plan_table_id: r.plan_table_id,
+
+    // ✅ AGORA VEM DO CLIENTS (fonte real)
+    plan_table_id: dbPlanTableId,
+
     price_amount: r.price_amount,
-    price_currency: r.price_currency,
+
+    // ✅ idem (evita voltar BRL)
+    price_currency: dbPriceCurrency,
 
     // ✅ Timestamp original completo (UTC) pro modal converter certo
     vencimento: r.rawVencimento || undefined,
@@ -1037,6 +1064,7 @@ server_password: r.server_password,
   // ✅ abre no próximo tick para garantir montagem correta
   setTimeout(() => setShowFormModal(true), 0);
 };
+
 
 
   // ✅ ARQUIVAR / RESTAURAR OTIMIZADO
@@ -2002,7 +2030,15 @@ const res = await fetch("/api/whatsapp/envio_programado", {
                             <IconMoney />
                           </IconActionBtn>
 
-                          <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); handleOpenEdit(r, "dados"); }}>
+                          <IconActionBtn
+                          title="Editar"
+                          tone="amber"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(r, "dados");
+                          }}
+                        >
+
                             <IconEdit />
                           </IconActionBtn>
 
