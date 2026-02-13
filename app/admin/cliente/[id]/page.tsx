@@ -38,9 +38,11 @@ function extractPeriod(planName: string) {
 }
 
 function tableLabelFromClient(c: { plan_table_name?: string | null } | null | undefined) {
-  if (c && c.plan_table_name) return c.plan_table_name;
-  return "—";
+  const raw = String(c?.plan_table_name ?? "").trim();
+  if (!raw || raw === "—") return "—";
+  return raw;
 }
+
 
 
 function StatusBadge({ status }: { status: string }) {
@@ -247,17 +249,53 @@ const [showEditModal, setShowEditModal] = useState(false);
         setLoading(false);
         return;
       }
+// ✅ Fonte da verdade: clients
+let dbPlanTableId: string | null = null;
+let dbNotes: string | null = null;
+let dbPriceCurrency: string | null = null;
 
-      // ✅ CORREÇÃO: Se temos ID mas não temos nome, busca na tabela oficial
-      let finalTableName = row.plan_table_name;
-      if (row.plan_table_id && !finalTableName) {
-         const { data: tData } = await supabaseBrowser
-           .from("plan_tables")
-           .select("name")
-           .eq("id", row.plan_table_id)
-           .single();
-         if (tData) finalTableName = tData.name;
-      }
+// ✅ Nome final da tabela (plan_tables > view)
+let finalTableName: string | null = null;
+
+try {
+  // 1) pega ID da tabela e notes direto da tabela clients
+  const c = await supabaseBrowser
+    .from("clients")
+    .select("plan_table_id, notes, price_currency")
+    .eq("tenant_id", tid)
+    .eq("id", clientIdSafe)
+    .maybeSingle();
+
+  if (!c.error && c.data) {
+    dbPlanTableId = (c.data as any).plan_table_id ?? null;
+
+    const n = (c.data as any).notes;
+    dbNotes = typeof n === "string" ? n : null;
+
+    const pc = (c.data as any).price_currency;
+    dbPriceCurrency = typeof pc === "string" ? pc : null;
+  }
+
+  // 2) tenta nome vindo da view (fallback)
+  const viewNameRaw = String((row as any).plan_table_name ?? "").trim();
+  if (viewNameRaw && viewNameRaw !== "—") finalTableName = viewNameRaw;
+
+  // 3) se tem ID da tabela, o nome oficial vem de plan_tables (prioridade)
+  if (dbPlanTableId) {
+    const t = await supabaseBrowser
+      .from("plan_tables")
+      .select("name")
+      .eq("id", dbPlanTableId)
+      .maybeSingle();
+
+    if (!t.error && t.data?.name) finalTableName = String(t.data.name);
+  }
+} catch (e) {
+  console.error("Falha ao buscar fonte da verdade (clients/plan_tables):", e);
+}
+
+
+
 
       const mapped: ClientDetail = {
         id: String(row.id),
@@ -270,11 +308,14 @@ const [showEditModal, setShowEditModal] = useState(false);
 
 plan_name: String(row.plan_name ?? "—"),
         price_amount: row.price_amount ?? null,
-        price_currency: row.price_currency ?? "BRL",
+price_currency: dbPriceCurrency ?? row.price_currency ?? "BRL",
 
-        // ✅ fonte da verdade (Usa o nome recuperado no Bloco 2)
-        plan_table_id: (row as any).plan_table_id ?? null,
-        plan_table_name: finalTableName ?? null,
+
+// ✅ fonte da verdade (clients)
+plan_table_id: dbPlanTableId ?? (row as any).plan_table_id ?? null,
+plan_table_name: finalTableName ?? null,
+
+
 
         vencimento: row.vencimento ?? null,
         computed_status: String(row.computed_status ?? "ACTIVE"),
@@ -291,7 +332,9 @@ plan_name: String(row.plan_name ?? "—"),
         apps_names: row.apps_names ?? null,
         alerts_open: Number(row.alerts_open || 0),
 
-        notes: row.notes || "",
+        notes: (dbNotes ?? row.notes ?? "") as any,
+
+
 
         server_password: row.server_password ?? null,
       };
@@ -738,7 +781,8 @@ plan_name: String(row.plan_name ?? "—"),
 
 plan_name: client.plan_name ?? undefined,
 price_amount: client.price_amount ?? undefined,
-price_currency: client.price_currency ?? "BRL",
+price_currency: client.price_currency ?? undefined,
+
 
 // ✅ essencial pro prefill escolher a tabela certa
 plan_table_id: (client as any).plan_table_id ?? null,
