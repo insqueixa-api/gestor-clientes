@@ -1272,10 +1272,37 @@ const { error } = await supabaseBrowser.rpc("update_client", {
 
         clientId = data;
 
-        if (clientId && namePrefix) {
-          await supabaseBrowser.rpc("update_client", { p_tenant_id: tid, p_client_id: clientId, p_display_name: displayName, p_server_id: serverId, p_server_username: username, p_server_password: password?.trim() || "", p_screens: rpcScreens, p_plan_label: rpcPlanLabel, p_price_amount: rpcPriceAmount, p_price_currency: rpcCurrency as any, p_vencimento: dueISO, p_notes: notes || null, p_clear_notes: false, p_whatsapp_username: whatsappUsername || null, p_whatsapp_opt_in: Boolean(whatsappOptIn), p_whatsapp_snooze_until: snoozeISO, p_clear_whatsapp_snooze_until: clearSnooze, p_is_trial: isTrialMode, p_name_prefix: namePrefix });
+if (clientId && namePrefix) {
+  await supabaseBrowser.rpc("update_client", {
+    p_tenant_id: tid,
+    p_client_id: clientId,
+    p_display_name: displayName,
+    p_server_id: serverId,
+    p_server_username: username,
+    p_server_password: password?.trim() || "",
+    p_screens: rpcScreens,
+    p_plan_label: rpcPlanLabel,
 
-        }
+    // ✅ CRÍTICO: não deixar a tabela “voltar pro padrão”
+    p_plan_table_id: selectedTableId || null,
+
+    p_price_amount: rpcPriceAmount,
+    p_price_currency: rpcCurrency as any,
+    p_vencimento: dueISO,
+    p_notes: notes || null,
+    p_clear_notes: false,
+    p_whatsapp_username: whatsappUsername || null,
+    p_whatsapp_opt_in: Boolean(whatsappOptIn),
+    p_whatsapp_snooze_until: snoozeISO,
+    p_clear_whatsapp_snooze_until: clearSnooze,
+    p_is_trial: isTrialMode,
+    p_name_prefix: namePrefix,
+
+    // ✅ mantém tecnologia estável (evita regressão silenciosa)
+    p_technology: finalTechnology,
+  });
+}
+
 
         if (finalExtrasE164.length > 0 && clientId) {
           await supabaseBrowser.rpc("set_client_phones", { p_tenant_id: tid, p_client_id: clientId, p_primary_e164: finalPrimaryE164, p_secondary_e164: finalExtrasE164 });
