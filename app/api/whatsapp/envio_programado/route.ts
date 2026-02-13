@@ -542,12 +542,15 @@ try {
   const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // ✅
 
   if (whatsappUsername) {
-    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_cron", {
-      p_tenant_id: String(job.tenant_id),
-      p_whatsapp_username: whatsappUsername,
-      p_label: "Cobranca automatica",
-      p_expires_minutes: 43200, // 30 dias
-    });
+const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
+
+const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp", {
+  p_tenant_id: String(job.tenant_id),
+  p_whatsapp_username: whatsappUsername,
+  p_label: "Cobranca automatica",
+  p_expires_at: expiresAt, // ✅ é isso que a função existente espera
+});
+
 
     console.log("[PORTAL][cron_token]", {
       jobId: job.id,
