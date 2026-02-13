@@ -247,11 +247,14 @@ export default function RecargaCliente({
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   };
 
-  // Dados do Cliente e Tabelas
+// Dados do Cliente e Tabelas
   const [clientData, setClientData] = useState<ClientFromView | null>(null);
   const [tables, setTables] = useState<PlanTable[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string>("");
+  
+  // ✅ Adicionado isFirstLoad para evitar reset de preço ao abrir
   const tableChangedByUserRef = useRef(false);
+  const isFirstLoad = useRef(true);
 
   const selectedTable = useMemo(() => {
     return tables.find((t) => t.id === selectedTableId) || null;
@@ -312,9 +315,12 @@ export default function RecargaCliente({
           return;
         }
 
-        const c = client as ClientFromView;
+const c = client as ClientFromView;
         setClientData(c);
         setScreens(c.screens || 1);
+        
+        // ✅ Carrega Observações salvas no banco
+        setObs(c.notes || "");
 
         // 2) Plano (detectar período pelo label)
         const pName = (c.plan_name || "").toUpperCase();
@@ -464,15 +470,17 @@ if (isStandard) {
           .eq("tenant_id", tid)
           .order("name", { ascending: true });
 
-        if (tmplData) {
+if (tmplData) {
           setTemplates(tmplData);
-          // Tenta achar "Pagamento Realizado"
           const defaultTpl = tmplData.find(t => t.name.toLowerCase().includes("pagamento realizado"));
           if (defaultTpl) {
             setSelectedTemplateId(defaultTpl.id);
             setMessageContent(defaultTpl.content);
           }
         }
+
+        // ✅ Libera a trava de "Primeira Carga" após carregar tudo
+        setTimeout(() => { isFirstLoad.current = false; }, 500);
 
       } catch (err: any) {
       console.error("❌ Crash load:", err);
@@ -492,62 +500,40 @@ if (isStandard) {
 
   // ========= REGRAS DE UI =========
 
-  // Quando troca o período: recalcula vencimento seguindo a mesma lógica (Ativo vs Vencido)
-    useEffect(() => {
-  if (!clientData) return;
+  // 1. Vencimento ao mudar plano
+  useEffect(() => {
+    if (!clientData) return;
+    const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
+    const isActive = clientData.computed_status === "ACTIVE";
+    const base = isActive && clientData.vencimento ? new Date(clientData.vencimento) : new Date();
+    const target = new Date(base);
+    target.setMonth(target.getMonth() + monthsToAdd);
+    const fmtDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
+    setDueDate(fmtDate.format(target));
+  }, [clientData, selectedPlanPeriod]);
 
-  const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
-  const isActive = clientData.computed_status === "ACTIVE";
+  // 2. Resetar Override (priceTouched) se mudar estrutura, MAS IGNORA NO LOAD
+  useEffect(() => {
+    if (isFirstLoad.current) return; // ✅ Não reseta se acabou de carregar
+    setPriceTouched(false);
+  }, [screens, selectedPlanPeriod, selectedTableId]);
 
-  const base =
-    isActive && clientData.vencimento ? new Date(clientData.vencimento) : new Date();
-
-  const target = new Date(base);
-  target.setMonth(target.getMonth() + monthsToAdd);
-
-  const fmtDate = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-
-  const dISO = fmtDate.format(target);
-  setDueDate(dISO);
-
-  // preço: só auto se não está "tocado"
-  if (!priceTouched) {
-    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
-    setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-  }
-}, [clientData, selectedPlanPeriod, priceTouched, selectedTable, screens]);
-
-
-
-  // Quando troca telas
+  // 3. Calcular Preço (Respeita Tabela se !priceTouched)
   useEffect(() => {
     if (!selectedTable) return;
     if (priceTouched) return;
 
-    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
+    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, Number(screens) || 1);
     setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
   }, [screens, selectedTable, selectedPlanPeriod, priceTouched]);
 
-  // Quando troca TABELA
+  // 4. Troca de Tabela (Atualiza Moeda e Taxa)
   useEffect(() => {
     if (!selectedTable) return;
-
     setCurrency(selectedTable.currency || "BRL");
 
     const userChanged = tableChangedByUserRef.current === true;
-
-    if (userChanged || !priceTouched) {
-      const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
-      setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-      if (userChanged) setPriceTouched(false);
-    }
-
-    tableChangedByUserRef.current = false;
+    if (userChanged) setPriceTouched(false);
 
     (async () => {
       try {
@@ -556,33 +542,14 @@ if (isStandard) {
           setFxRate(1);
           return;
         }
-
-        const { data: fx, error: fxErr } = await supabaseBrowser
-          .from("tenant_fx_rates")
-          .select("usd_to_brl, eur_to_brl, as_of_date")
-          .eq("tenant_id", tid)
-          .order("as_of_date", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (fxErr) {
-          console.error("❌ tenant_fx_rates error:", fxErr);
-          addToast("error", "Falha ao carregar câmbio", fxErr.message);
-          setFxRate(5);
-          return;
-        }
-
-        const rate =
-          selectedTable.currency === "USD"
-            ? Number(fx?.usd_to_brl || 5)
-            : Number(fx?.eur_to_brl || 5);
-
-        setFxRate(rate);
-      } catch (e: any) {
-        console.error("❌ Crash FX:", e);
-        setFxRate(5);
-      }
+        const { data: fx } = await supabaseBrowser.from("tenant_fx_rates").select("*").eq("tenant_id", tid).order("as_of_date", { ascending: false }).limit(1).maybeSingle();
+        if (fx) {
+             const rate = selectedTable.currency === "USD" ? Number(fx.usd_to_brl) : Number(fx.eur_to_brl);
+             setFxRate(rate || 5);
+        } else { setFxRate(5); }
+      } catch (e) { console.error(e); setFxRate(5); }
     })();
+    tableChangedByUserRef.current = false;
   }, [selectedTableId]);
 
   // Total BRL
@@ -672,13 +639,15 @@ const executeSave = async () => {
         p_client_id: clientId,
         p_display_name: nameToSend,
         p_name_prefix: null,
-        p_notes: null,
-        p_clear_notes: false,
+        p_notes: obs || null, 
+        p_clear_notes: (!!clientData?.notes && !obs), // Limpa se tinha nota e agora está vazio
         p_server_id: clientData?.server_id,
         p_server_username: clientData?.username,
         p_server_password: null,
         p_screens: Number(screens),
         p_plan_label: PLAN_LABELS[selectedPlanPeriod],
+        // ✅ CORREÇÃO TABELA DE PREÇO
+        p_plan_table_id: selectedTableId || null,
         p_price_amount: rawPlanPrice,
         p_price_currency: currency as any,
         p_vencimento: dueISO,
@@ -772,78 +741,85 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
         onClick={onClose}
       >
         <div
-          // ✅ CONTAINER: Full width e rounded-top no mobile. Max-width e rounded-xl no desktop.
-          className="w-full sm:max-w-xl bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
+          // ✅ Ajuste Max Width e Altura
+          className="w-full sm:max-w-xl bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh] transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* HEADER */}
+          {/* HEADER (MANTÉM IGUAL) */}
           <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-white dark:bg-[#161b22]">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
+             {/* ... conteúdo do header ... */}
+             <div className="flex items-center gap-3">
+               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
                  {isFromTrial ? 
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 
                     : 
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                  }
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">
-                  {headerTitle}
-                </h2>
-                <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/50">
-                   <span className="font-medium">{clientName}</span>
-                </div>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                <IconX />
-            </button>
+               </div>
+               <div>
+                 <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">
+                   {headerTitle}
+                 </h2>
+                 <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/50">
+                    <span className="font-medium">{clientName}</span>
+                 </div>
+               </div>
+             </div>
+             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+               <IconX />
+             </button>
           </div>
 
-          {/* BODY */}
-          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-y-auto custom-scrollbar">
+          {/* BODY - ✅ Espaçamento Reduzido (p-3 sm:p-4) */}
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto custom-scrollbar flex-1">
             
             {/* 1. SEÇÃO VENCIMENTO */}
-            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3 sm:p-4">
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3">
+               {/* ... (Conteúdo igual, inputs já estão bons) ... */}
                <div className="flex items-center gap-2 mb-3 border-b border-slate-200 dark:border-white/10 pb-2">
                  <span className="text-emerald-500">📅</span>
                  <span className="text-xs font-bold uppercase text-slate-500 dark:text-white/60 tracking-wider">Novo Vencimento</span>
                </div>
-               {/* Mobile: 1 coluna. Desktop: 2 colunas */}
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Data do Vencimento</Label>
-                    <input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]"
-                    />
+                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]" />
                   </div>
                   <div>
                     <Label>Hora Limite</Label>
                     <div className="flex gap-2">
-                      <input
-                        type="time"
-                        value={dueTime}
-                        onChange={(e) => setDueTime(e.target.value)}
-                        className="flex-1 h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setDueTime("23:59")}
-                        className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all"
-                      >
-                        23:59
-                      </button>
+                      <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="flex-1 h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]" />
+                      <button type="button" onClick={() => setDueTime("23:59")} className="px-3 h-10 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-500/50 transition-all">23:59</button>
                     </div>
                   </div>
                </div>
             </div>
 
-            {/* 2. SEÇÃO PLANO */}
-            <div>
-                {/* Mobile: 2 colunas (Plano ocupa tudo). Desktop: 3 colunas. */}
+            {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
+            <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 space-y-4">
+                
+                {/* 3. SEÇÃO FINANCEIRO */}
+            <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 shadow-sm">
+                
+                {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
+                <div className="flex justify-between items-center gap-3 border-b border-slate-100 dark:border-white/5 pb-3 mb-3">
+                    <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        💰 Financeiro
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tabela:</span>
+                        <select 
+                            value={selectedTableId} 
+                            onChange={(e) => { tableChangedByUserRef.current = true; setSelectedTableId(e.target.value); }} 
+                            className="h-8 w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                        >
+                            {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
+                        </select>
+                    </div>
+                </div>
+                </div>
+
+                {/* GRID DE PLANOS */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="col-span-2 sm:col-span-1">
                         <Label>Período</Label>
@@ -853,7 +829,16 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                     </div>
                     <div>
                         <Label>Telas</Label>
-                        <Input type="number" min={1} value={screens} onChange={(e) => setScreens(Math.max(1, Number(e.target.value || 1)))} />
+                        <Input 
+                            type="number" 
+                            min={1} 
+                            value={screens} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
+                            }} 
+                            onBlur={() => { if (!screens || Number(screens) < 1) setScreens(1); }}
+                        />
                     </div>
                     <div>
                         <Label>Créditos</Label>
@@ -862,54 +847,44 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* 3. SEÇÃO FINANCEIRO */}
-            <div className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm">
-                <div className="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-white/5 pb-2">
-                    <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        💰 Financeiro
-                    </span>
-                    <select
-                      value={selectedTableId}
-                      onChange={(e) => { tableChangedByUserRef.current = true; setSelectedTableId(e.target.value); }}
-                      className="text-[10px] bg-transparent text-right text-slate-400 font-bold outline-none cursor-pointer hover:text-emerald-500"
-                    >
-                      {tables.map((t) => <option key={t.id} value={t.id}>Tab: {formatTableLabel(t)}</option>)}
-                    </select>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="col-span-1">
-                       <Label>Moeda</Label>
-                       <div className="h-10 w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-600 dark:text-white">
-                         {currency}
-                       </div>
+                {/* GRID DE VALORES */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div>
+                        <Label>Moeda</Label>
+                        <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+                            {currency}
+                        </div>
                     </div>
                     <div className="col-span-2">
-                       <Label>Valor a Cobrar</Label>
-                       <Input
-                         value={planPrice}
-                         onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }}
-                         className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight"
-                         placeholder="0,00"
-                       />
+                        <Label>Valor a Cobrar</Label>
+                        <Input 
+                            value={planPrice} 
+                            onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }} 
+                            className="text-right font-bold text-slate-800 dark:text-white text-lg tracking-tight" 
+                            placeholder="0,00" 
+                        />
                     </div>
                 </div>
 
+                {/* CÂMBIO (Se houver) */}
+                {showFx && (
+                    <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
+                        <div><Label>Câmbio</Label><input type="number" step="0.0001" value={Number(fxRate || 0).toFixed(4)} onChange={(e) => setFxRate(Number(e.target.value))} className="w-full h-9 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white" /></div>
+                        <div><Label>Total BRL</Label><div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">{fmtMoney("BRL", totalBrl)}</div></div>
+                    </div>
+                )}
+
+                {/* BOTÃO REGISTRAR PAGAMENTO */}
                 {Boolean(allowConvertWithoutPayment) && (
-                    <div className="mb-3">
-                        <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-3 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
-                            <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
-                            <div className={`relative w-9 h-5 rounded-full transition-colors ${registerPayment ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${registerPayment ? "translate-x-4" : "translate-x-0"}`} />
-                            </div>
-                        </div>
+                    <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
+                        <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
+                        <Switch checked={registerPayment} onChange={setRegisterPayment} label="" />
                     </div>
                 )}
 
                 {registerPayment && (
-                    <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
+                    <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <Label>Método</Label>
@@ -921,84 +896,52 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                             </div>
                             <div>
                                 <Label>Data Pagto</Label>
-                                <Input
-                                    type="datetime-local"
-                                    value={payDate}
-                                    onChange={(e) => setPayDate(e.target.value)}
-                                    className="dark:[color-scheme:dark]"
-                                />
+                                <Input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
                             </div>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* 4. SEÇÃO OUTROS + COMUNICAÇÃO */}
-            <div className="space-y-4">
-                {/* ✅ GRID INTELIGENTE: 1 coluna no mobile, 3 no desktop (se whats ligado), ou 2 (se desligado) */}
+            {/* 4. OUTROS + OBS */}
+            <div className="space-y-3">
+               {/* ... (Bloco de Tecnologia e Notificação mantém, mas com gap-3 e labels ajustados) ... */}
                 <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}>
-                    
-                    {/* A. TECNOLOGIA */}
+                    {/* ... (Inputs de Tecnologia e Toggle Notification igual ao código original, apenas mantenha dentro desse padding reduzido) ... */}
                     <div>
                         <Label>Tecnologia</Label>
                         {technology === "Personalizado" ? (
-                            <div className="flex gap-1">
-                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." />
-                                <button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
-                            </div>
+                            <div className="flex gap-1"><Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." /><button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button></div>
                         ) : (
                             <Select value={technology} onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}>
-                                <option value="IPTV">IPTV</option>
-                                <option value="P2P">P2P</option>
-                                <option value="OTT">OTT</option>
+                                <option value="IPTV">IPTV</option><option value="P2P">P2P</option><option value="OTT">OTT</option>
                                 {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && <option value={technology}>{technology}</option>}
                                 <option value="Personalizado">Outro...</option>
                             </Select>
                         )}
                     </div>
                     
-                    {/* B. TOGGLE NOTIFICAÇÃO */}
-                    <div>
-                         <Label>Notificação</Label>
-                         <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
-                             <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Whats?</span>
-                             <div className={`relative w-8 h-4 rounded-full transition-colors ${sendWhats ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                                 <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${sendWhats ? "translate-x-4" : "translate-x-0"}`} />
-                             </div>
-                         </div>
+                    
+                    <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Whats?</span>
+                        <Switch checked={sendWhats} onChange={setSendWhats} label="" />
                     </div>
 
-                    {/* C. SELETOR DE MODELO (Só aparece se whats on) */}
                     {sendWhats && (
                         <div className="animate-in fade-in zoom-in duration-200">
-                             <Label>Modelo</Label>
-                             <Select 
-                                value={selectedTemplateId} 
-                                onChange={(e) => {
-                                    const id = e.target.value;
-                                    setSelectedTemplateId(id);
-                                    const tpl = templates.find(t => t.id === id);
-                                    if(tpl) setMessageContent(tpl.content);
-                                }}
-                             >
-                                 <option value="">-- Personalizado --</option>
-                                 {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                             </Select>
+                            <Label>Modelo</Label>
+                            <Select value={selectedTemplateId} onChange={(e) => { const id = e.target.value; setSelectedTemplateId(id); const tpl = templates.find(t => t.id === id); if(tpl) setMessageContent(tpl.content); }}>
+                                <option value="">-- Personalizado --</option>
+                                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </Select>
                         </div>
                     )}
                 </div>
 
-
-
                 {/* OBSERVAÇÕES */}
                 <div>
                     <Label>Observações (Internas)</Label>
-                    <textarea
-                        value={obs}
-                        onChange={(e) => setObs(e.target.value)}
-                        className="w-full h-16 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 resize-none dark:text-white transition-all"
-                        placeholder="Nota interna sobre esta renovação..."
-                    />
+                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-16 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
                 </div>
             </div>
 
@@ -1077,5 +1020,40 @@ function IconX() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
+  );
+}
+function Switch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
+      <button
+        type="button"
+        // ✅ CORREÇÃO: Adicionado stopPropagation para evitar conflito com a div pai
+        onClick={(e) => {
+          e.stopPropagation();
+          onChange(!checked);
+        }}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${
+          checked
+            ? "bg-emerald-600 border-emerald-600"
+            : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
+        }`}
+        aria-pressed={checked}
+      >
+        <span
+          className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
   );
 }

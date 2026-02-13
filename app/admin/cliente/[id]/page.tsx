@@ -37,11 +37,8 @@ function extractPeriod(planName: string) {
   return p;
 }
 
-function tableLabelFromClient(c: { plan_table_name?: string | null; plan_table_id?: string | null } | null | undefined) {
-  if (!c) return "—";
-  const name = String(c.plan_table_name || "").trim();
-  if (name) return name;
-  // se não veio nome, pelo menos não inventa
+function tableLabelFromClient(c: { plan_table_name?: string | null } | null | undefined) {
+  if (c && c.plan_table_name) return c.plan_table_name;
   return "—";
 }
 
@@ -251,6 +248,17 @@ const [showEditModal, setShowEditModal] = useState(false);
         return;
       }
 
+      // ✅ CORREÇÃO: Se temos ID mas não temos nome, busca na tabela oficial
+      let finalTableName = row.plan_table_name;
+      if (row.plan_table_id && !finalTableName) {
+         const { data: tData } = await supabaseBrowser
+           .from("plan_tables")
+           .select("name")
+           .eq("id", row.plan_table_id)
+           .single();
+         if (tData) finalTableName = tData.name;
+      }
+
       const mapped: ClientDetail = {
         id: String(row.id),
         client_name: String(row.client_name ?? "Sem Nome"),
@@ -261,13 +269,12 @@ const [showEditModal, setShowEditModal] = useState(false);
         technology: row.technology ?? "—", // ✅ Mapeia
 
 plan_name: String(row.plan_name ?? "—"),
-price_amount: row.price_amount ?? null,
-price_currency: row.price_currency ?? "BRL",
+        price_amount: row.price_amount ?? null,
+        price_currency: row.price_currency ?? "BRL",
 
-// ✅ fonte da verdade
-plan_table_id: (row as any).plan_table_id ?? null,
-plan_table_name: (row as any).plan_table_name ?? null,
-
+        // ✅ fonte da verdade (Usa o nome recuperado no Bloco 2)
+        plan_table_id: (row as any).plan_table_id ?? null,
+        plan_table_name: finalTableName ?? null,
 
         vencimento: row.vencimento ?? null,
         computed_status: String(row.computed_status ?? "ACTIVE"),
@@ -284,7 +291,7 @@ plan_table_name: (row as any).plan_table_name ?? null,
         apps_names: row.apps_names ?? null,
         alerts_open: Number(row.alerts_open || 0),
 
-        notes: row.notes ?? null,
+        notes: row.notes || "",
 
         server_password: row.server_password ?? null,
       };
@@ -627,7 +634,7 @@ plan_table_name: (row as any).plan_table_name ?? null,
               <div>
                 <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações</div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-white/5 min-h-[80px] whitespace-pre-wrap">
-                  {client.notes || "Sem observações registradas para este cliente."}
+                  {client.notes ? client.notes : <span className="italic text-slate-400">Sem observações registradas.</span>}
                 </div>
               </div>
             </div>
@@ -745,28 +752,27 @@ plan_table_name: (client as any).plan_table_name ?? null,
           }}
           onClose={() => setShowEditModal(false)}
           onSuccess={() => {
-            setShowEditModal(false);
-            loadData();
-
-            // ✅ CORREÇÃO: Captura o toast da sessão e exibe aqui mesmo
-            setTimeout(() => {
-                const key = "clients_list_toasts"; 
-                const raw = window.sessionStorage.getItem(key);
-                if (raw) {
-                    try {
-                        const arr = JSON.parse(raw);
-                        // Exibe a notificação na tela atual
-                        arr.forEach((t: any) => addToast(t.type, t.title, t.message));
-                        // Limpa para não aparecer duplicado depois
-                        window.sessionStorage.removeItem(key);
-                    } catch (e) {
-                        console.error("Erro toast:", e);
-                    }
-                }
-            }, 150);
-          }}
-        />
-      )}
+      setShowRenewModal(false);
+      loadData();
+      
+      // ✅ Captura toasts que o RecargaCliente mandou pra sessão
+      setTimeout(() => {
+          const key = "clients_list_toasts"; 
+          const raw = window.sessionStorage.getItem(key);
+          if (raw) {
+              try {
+                  const arr = JSON.parse(raw);
+                  arr.forEach((t: any) => addToast(t.type, t.title, t.message));
+                  window.sessionStorage.removeItem(key);
+              } catch (e) { console.error(e); }
+          } else {
+             // Fallback local se não tiver nada na sessão
+             addToast("success", "Renovação concluída", "Dados atualizados com sucesso.");
+          }
+      }, 150);
+    }}
+    />
+    )}
 
 {showRenewModal && client && (
   <RecargaCliente

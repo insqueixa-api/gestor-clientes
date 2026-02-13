@@ -80,6 +80,8 @@ type VwClientRow = {
   screens: number | null;
 
   plan_name: string | null;
+  // ✅ ADICIONADO: ID da tabela para persistência correta na edição
+  plan_table_id?: string | null;
   price_amount: number | null;
   price_currency: string | null;
 
@@ -140,6 +142,8 @@ type ClientRow = {
 
   // --- DADOS PARA O MODAL DE EDIÇÃO ---
   server_id: string;
+  // ✅ ADICIONADO: Guarda o ID da tabela
+  plan_table_id?: string;
   technology_edit: string; // ✅ Para passar pro modal
   whatsapp: string;
   whatsapp_username?: string;
@@ -627,6 +631,8 @@ if (appsData) {
         apps: r.apps_names || [],
 
         server_id: String(r.server_id ?? ""),
+        // ✅ ADICIONADO: Mapeia o ID vindo da view
+        plan_table_id: r.plan_table_id ?? undefined,
         technology_edit: String(r.technology || "IPTV"),
         whatsapp: String(r.whatsapp_e164 ?? ""),
         whatsapp_username: r.whatsapp_username ?? undefined,
@@ -1012,9 +1018,11 @@ const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
     whatsapp_opt_in: r.whatsapp_opt_in,
     dont_message_until: r.dont_message_until,
 
-    server_password: r.server_password,
+server_password: r.server_password,
 
     plan_name: r.rawPlanName,
+    // ✅ ADICIONADO: Passa o ID da tabela para o modal selecionar a correta
+    plan_table_id: r.plan_table_id,
     price_amount: r.price_amount,
     price_currency: r.price_currency,
 

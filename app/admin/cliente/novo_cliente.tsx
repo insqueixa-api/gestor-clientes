@@ -497,6 +497,13 @@ function queueListToast(
 }
 
 export default function NovoCliente({ clientToEdit, mode = "client", initialTab, onClose, onSuccess }: Props) {
+  // Bloqueia scroll do fundo
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
   const isEditing = !!clientToEdit;
   const isTrialMode = mode === "trial";
 
@@ -613,6 +620,7 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
   // ✅ Novos campos de controle por instância
   costType: "paid" | "free" | "partnership";
   partnerServerId: string;
+  is_minimized?: boolean; // ✅ NOVO
 };
 
 // --- ESTADOS ---
@@ -910,15 +918,16 @@ if (clientPlanTableId) {
         const savedValues = ca.field_values || {};
         const { _config_cost, _config_partner, ...restValues } = savedValues;
 
-        return {
-          instanceId: crypto.randomUUID(),
-          app_id: ca.app_id,
-          name: ca.apps?.name || "App Removido",
-          values: restValues,
-          fields_config: Array.isArray(ca.apps?.fields_config) ? ca.apps?.fields_config : [],
-          costType: _config_cost || "paid",
-          partnerServerId: _config_partner || ""
-        };
+      return {
+        instanceId: crypto.randomUUID(),
+        app_id: ca.app_id,
+        name: ca.apps?.name || "App Removido",
+        values: restValues,
+        fields_config: Array.isArray(ca.apps?.fields_config) ? ca.apps?.fields_config : [],
+        costType: _config_cost || "paid",
+        partnerServerId: _config_partner || "",
+        is_minimized: true // ✅ Garante que apps já salvos iniciem fechados na edição
+      };
       });
       setSelectedApps(instances);
     }
@@ -971,11 +980,17 @@ if (clientPlanTableId) {
     }
   }, [selectedPlanPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
+// 1. Se mudar a estrutura (Telas, Tabela, Periodo), reseta o override (priceTouched = false)
+  useEffect(() => {
+    setPriceTouched(false);
+  }, [screens, selectedPlanPeriod, selectedTableId]);
+
+  // 2. Calcula o preço (agora vai rodar porque priceTouched foi resetado acima)
   useEffect(() => {
     if (!selectedTable) return;
-    if (priceTouched) return;
+    if (priceTouched) return; // Só respeita se o usuário digitou o preço MANUALMENTE sem mudar telas depois
 
-    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, screens);
+    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, Number(screens) || 1);
     setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
   }, [screens, selectedTable, selectedPlanPeriod, priceTouched]);
 
@@ -1045,7 +1060,8 @@ function addAppToClient(app: AppCatalog) {
       fields_config: Array.isArray(app.fields_config) ? app.fields_config : [], // ✅ Blindagem contra erro
       values: {},
       costType: "paid", // Padrão: Pago
-      partnerServerId: ""
+      partnerServerId: "",
+      is_minimized: true // ✅ Inicia minimizado para não ocupar tela
     };
     setSelectedApps(prev => [...prev, newInstance]);
     setShowAppSelector(false);
@@ -1145,12 +1161,12 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_server_password: password?.trim() || "",
   p_screens: rpcScreens,
   p_plan_label: rpcPlanLabel,
-  p_plan_table_id: selectedTableId,
+  p_plan_table_id: selectedTableId || null, // ✅ Garante envio explícito do ID da tabela
   p_price_amount: rpcPriceAmount,
   p_price_currency: rpcCurrency as any,
   p_vencimento: dueISO,
   p_notes: notes || null,
-  p_clear_notes: false,
+  p_clear_notes: (isEditing && !notes), // ✅ Se está editando e nota está vazia, força limpar
   p_whatsapp_username: whatsappUsername || null,
   p_whatsapp_opt_in: Boolean(whatsappOptIn),
   p_whatsapp_snooze_until: snoozeISO,
@@ -1197,7 +1213,7 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   p_server_password: password?.trim() || "",
   p_screens: rpcScreens,
   p_plan_label: rpcPlanLabel,
-  p_plan_table_id: selectedTableId,
+  p_plan_table_id: selectedTableId || null, // ✅ CORREÇÃO: Envia NULL se estiver vazio
   p_price_amount: rpcPriceAmount,
   p_price_currency: rpcCurrency as any,
   p_vencimento: dueISO,
@@ -1271,9 +1287,10 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   }
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
-  function handleSave() {
-    if (!name.trim() || !username.trim() || !serverId) {
-      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário e Servidor.");
+function handleSave() {
+    // Validação reforçada
+    if (!name.trim() || !username.trim() || !serverId || !primaryPhoneRaw.trim() || !whatsappUsername.trim()) {
+      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp.");
       return;
     }
     
@@ -1601,7 +1618,20 @@ const { error } = await supabaseBrowser.rpc("update_client", {
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="col-span-2 sm:col-span-1"><Label>Plano</Label><Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}>{Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></div>
-                        <div><Label>Telas</Label><Input type="number" min={1} value={screens} onChange={(e) => setScreens(Math.max(1, Number(e.target.value || 1)))} /></div>
+                        <Input 
+                        type="number" 
+                        min={1} 
+                        value={screens} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // Permite ficar vazio durante a digitação, senão assume 1
+                          setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
+                        }} 
+                        onBlur={() => {
+                          // Garante valor válido ao sair do campo
+                          if (!screens || Number(screens) < 1) setScreens(1);
+                        }}
+                      />
                         <div><Label>Créditos</Label><div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">{creditsInfo ? creditsInfo.used : "-"}</div></div>
                       </div>
 
@@ -1649,11 +1679,22 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                 {/* LISTA DE APPS JÁ ADICIONADOS */}
                 <div className="space-y-3">
                   {selectedApps.map((app) => (
-                    <div key={app.instanceId} className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-4 relative group">
+                    <div key={app.instanceId} className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
+                      
+                      {/* HEADER DO CARD (Sempre visível) */}
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                          📱 {app.name}
-                        </span>
+                        <div 
+                          className="flex items-center gap-2 cursor-pointer select-none"
+                          onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
+                        >
+                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                             📱 {app.name}
+                           </span>
+                           <span className="text-[10px] text-slate-400 font-medium transition-colors hover:text-slate-600 dark:hover:text-white/60">
+                             {app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}
+                           </span>
+                        </div>
+
                         <button 
                           onClick={() => setSelectedApps(prev => prev.filter(a => a.instanceId !== app.instanceId))}
                           className="text-[10px] text-rose-500 font-bold hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
@@ -1662,35 +1703,38 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                         </button>
                       </div>
 
-                      {/* Configuração de Custo e Parceria */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
-                          <div>
-                              <Label>Parceria com Servidor?</Label>
-                              <Select 
-                                  value={app.partnerServerId} 
-                                  onChange={(e) => updateAppConfig(app.instanceId, "partnerServerId", e.target.value)}
-                              >
-                                  <option value="">Não (Nenhum)</option>
-                                  {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                              </Select>
+                      {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
+                      {!app.is_minimized && (
+                        <div className="mt-4 animate-in slide-in-from-top-2 duration-200">
+                          {/* Configuração de Custo e Parceria */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
+                              <div>
+                                  <Label>Parceria com Servidor?</Label>
+                                  <Select 
+                                      value={app.partnerServerId} 
+                                      onChange={(e) => updateAppConfig(app.instanceId, "partnerServerId", e.target.value)}
+                                  >
+                                      <option value="">Não (Nenhum)</option>
+                                      {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                  </Select>
+                              </div>
+                              <div>
+                                  <Label>Custo do Aplicativo</Label>
+                                  <Select 
+                                      value={app.costType} 
+                                      onChange={(e) => updateAppConfig(app.instanceId, "costType", e.target.value)}
+                                  >
+                                      <option value="paid">Pago pelo Cliente</option>
+                                      <option value="free">Gratuito / Incluso</option>
+                                      {app.partnerServerId && <option value="partnership">Parceria (Pago pelo Server)</option>}
+                                  </Select>
+                              </div>
                           </div>
-                          <div>
-                              <Label>Custo do Aplicativo</Label>
-                              <Select 
-                                  value={app.costType} 
-                                  onChange={(e) => updateAppConfig(app.instanceId, "costType", e.target.value)}
-                              >
-                                  <option value="paid">Pago pelo Cliente</option>
-                                  <option value="free">Gratuito / Incluso</option>
-                                  {app.partnerServerId && <option value="partnership">Parceria (Pago pelo Server)</option>}
-                              </Select>
-                          </div>
-                      </div>
 
-                      {/* Campos do App */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {app.fields_config?.length > 0 ? (
-                          app.fields_config.map((field: any) => (
+                          {/* Campos do App */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {app.fields_config?.length > 0 ? (
+                              app.fields_config.map((field: any) => (
                                         <div key={field.id}>
                                           <Label>{field.label}</Label>
                                           <Input 
@@ -1706,10 +1750,12 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                                         Este aplicativo não requer configuração adicional.
                                       </p>
                                     )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 {/* Seletor de Aplicativos (Tipo Combobox) */}
                 <div className="relative">
@@ -1737,8 +1783,8 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                         >✕</button>
                       </div>
 
-                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                         {(() => {
+                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+                          {(() => {
                             const filtered = catalog
                               .filter(app => app.name.toLowerCase().includes(appSearch.toLowerCase()))
                               .sort((a, b) => a.name.localeCompare(b.name));
@@ -1757,13 +1803,12 @@ const { error } = await supabaseBrowser.rpc("update_client", {
                                 <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">Selecionar</span>
                               </button>
                             ));
-                         })()}
+                          })()}
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* OBS: Removido campo de Observações daqui pois foi movido para a Tab DADOS */}
               </div>
             )}
           </div>
