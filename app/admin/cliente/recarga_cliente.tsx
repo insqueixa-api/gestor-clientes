@@ -647,22 +647,20 @@ await executeSave();
 
   // 2. Executa a Gravação (Chamado pelo botão "Confirmar" do popup)
 const executeSave = async () => {
-  if (loading) return;
-  setLoading(true);
+    if (loading) return;
+    setLoading(true);
 
     try {
-      // Prepara dados finais
       let finalTechnology = technology;
       if (technology === "Personalizado") finalTechnology = customTechnology.trim();
 
       const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
       const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
       const dueISO = saoPauloDateTimeToIso(dueDate, dueTime);
-
       const tid = await getCurrentTenantId();
       const nameToSend = clientData?.display_name || clientName;
 
-      // --- 1. UPDATE CLIENT ---
+      // 1. UPDATE CLIENT
       const { error: updateError } = await supabaseBrowser.rpc("update_client", {
         p_tenant_id: tid,
         p_client_id: clientId,
@@ -679,7 +677,7 @@ const executeSave = async () => {
         p_price_currency: currency as any,
         p_vencimento: dueISO,
         p_is_trial: allowConvertWithoutPayment ? false : null,
-        p_whatsapp_opt_in: Boolean(sendWhats),
+        p_whatsapp_opt_in: true,
         p_whatsapp_username: null,
         p_whatsapp_snooze_until: null,
         p_is_archived: false,
@@ -688,7 +686,7 @@ const executeSave = async () => {
 
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
-      // --- 2. RENEW / PAYMENT ---
+      // 2. RENEW / PAYMENT
       if (registerPayment) {
         const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
           p_tenant_id: tid,
@@ -698,15 +696,16 @@ const executeSave = async () => {
           p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
           p_new_vencimento: dueISO,
         });
-if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
       }
 
-      // ✅ 3. ENVIO DE WHATSAPP (Se marcado)
+      // ✅ 3. ENVIO DE WHATSAPP (FIRE AND FORGET)
+      // Não usamos 'await' aqui para não travar a tela. O modal fecha instantaneamente.
       if (sendWhats && messageContent) {
-          // Não usamos await aqui para não travar o fechamento do modal (fire-and-forget visual)
           const { data: session } = await supabaseBrowser.auth.getSession();
           const token = session.session?.access_token;
 
+          // Dispara em background
           fetch("/api/whatsapp/envio_agora", {
               method: "POST",
               headers: {
@@ -719,13 +718,24 @@ if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
                 message: messageContent,
                 whatsapp_session: "default",
               }),
-          }).then(res => {
-              if (res.ok) addToast("success", "Mensagem enviada", "Notificação enviada com sucesso.");
-              else addToast("error", "Erro mensagem", "Falha ao enviar notificação.");
+          }).then(async (res) => {
+              if (res.ok) {
+                  // Sucesso: Envia Toast para a lista
+                  queueToast("success", "Mensagem enviada", "Notificação WhatsApp entregue.");
+              } else {
+                  // Erro: Envia Toast de erro para a lista
+                  queueToast("error", "Erro mensagem", "Renovado, mas falha no envio do WhatsApp.");
+              }
+          }).catch(err => {
+              console.error("Erro fetch whats", err);
           });
       }
 
-      setTimeout(() => { onSuccess(); onClose(); }, 500);
+      // ✅ Sucesso imediato da Renovação
+      setTimeout(() => { 
+          onSuccess(); // Isso dispara os toasts do pai ("Cliente Atualizado" / "Renovado")
+          onClose(); 
+      }, 300);
 
     } catch (err: any) {
       console.error("CRASH:", err);
@@ -1068,4 +1078,17 @@ function IconX() {
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
+}
+
+// ✅ Função auxiliar para mandar toasts para a tela de listagem
+function queueToast(type: "success" | "error", title: string, message?: string) {
+  try {
+    const key = "clients_list_toasts"; // Mesma chave que a ClientePage lê
+    const raw = window.sessionStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    arr.push({ type, title, message, ts: Date.now() });
+    window.sessionStorage.setItem(key, JSON.stringify(arr));
+  } catch (e) {
+    console.error("Erro ao salvar toast", e);
+  }
 }

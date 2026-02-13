@@ -128,11 +128,13 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   const row = params.recipientRow || {};
 
   // 1. DADOS BÁSICOS (Mapeados exatamente da sua vw_clients_list_active)
-  const displayName = String(row.display_name ?? row.client_name ?? row.name ?? "").trim();
-
+  const displayName = String(row.client_name || row.name || "").trim();
   const primeiroNome = displayName.split(" ")[0] || "";
-  const namePrefix = String(row.name_prefix ?? row.saudacao ?? "").trim();
-  const saudacao = namePrefix || (displayName ? displayName : "");
+
+  // Prefixo/Saudação: Apenas o que está no campo. Sem fallback para nome.
+  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  const saudacao = namePrefix ? namePrefix : "";
+
 
   // 2. DATAS
   const createdAt = safeDate(row.created_at);
