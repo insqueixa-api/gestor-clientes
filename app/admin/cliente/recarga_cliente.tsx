@@ -984,7 +984,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                 {/* OBSERVAÇÕES */}
                 <div>
                     <Label>Observações (Internas)</Label>
-                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-14 px-2.5 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
+                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-12 px-2 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
                 </div>
             </div>
 
@@ -1045,7 +1045,7 @@ function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInput
   return (
     <input
       {...props}
-      className={`w-full h-9 px-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
     />
   );
 }
@@ -1054,7 +1054,7 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
   return (
     <select
       {...props}
-      className={`w-full h-9 px-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
