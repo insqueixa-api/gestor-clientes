@@ -509,14 +509,7 @@ export default function AdminServersPage() {
                         {formatNumber(server.credits_available)}
                       </span>
                     </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">📱 Whatsapp</span>
-                      <span className="font-medium text-slate-700 dark:text-white truncate max-w-[100px]" title={server.whatsapp_session || ""}>
-                        {server.whatsapp_session || "--"}
-                      </span>
-                    </div>
-
+                    
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-white/50">🔗 Integração</span>
                       <span className="font-medium text-slate-700 dark:text-white">{server.panel_integration || "--"}</span>

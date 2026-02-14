@@ -67,7 +67,6 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
   const [currency, setCurrency] = useState<Currency>("BRL");
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [credits, setCredits] = useState<string>("");
-  const [whatsapp, setWhatsapp] = useState("");
   const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
   const [panelValue, setPanelValue] = useState("");
   const [integration, setIntegration] = useState("");
@@ -86,7 +85,6 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       setUnitPrice(price != null ? String(price) : "");
 
       setCredits(server.credits_available?.toString() || "0");
-      setWhatsapp(server.whatsapp_session || "");
       setPanelType((server.panel_type as any) || "");
 
       if (server.panel_type === "WEB") setPanelValue(server.panel_web_url || "");
@@ -154,7 +152,6 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         slug: finalSlug,
         notes: notes?.trim() ? notes.trim() : null,
         default_currency: currency,
-        whatsapp_session: whatsapp || null,
         panel_type: panelType || null,
         panel_web_url: panelType === "WEB" ? panelValue : null,
         panel_telegram_group: panelType === "TELEGRAM" ? panelValue : null,
@@ -386,12 +383,6 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="space-y-1">
-              <Label>Sessão whatsapp</Label>
-              <Select value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}>
-                <option value="">Selecione uma sessão...</option>
-              </Select>
-            </div>
 
             <div className="space-y-1">
               <Label>Api integração</Label>
