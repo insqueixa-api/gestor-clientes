@@ -1546,7 +1546,7 @@ function handleSave() {
                   <div className="col-span-1">
                     <Label>Saudação</Label>
                     <Select value={salutation} onChange={(e) => setSalutation(e.target.value)}>
-                      <option value="">( )</option>
+                      <option value=""> </option>
                       <option value="Sr.">Sr.</option>
                       <option value="Sra.">Sra.</option>
                       <option value="Dr.">Dr.</option>
