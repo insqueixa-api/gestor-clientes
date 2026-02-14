@@ -38,7 +38,10 @@ type VwClientRow = {
   server_id: string | null;
   server_name: string | null;
 
+  technology: string | null; // ✅ NOVO
+
   whatsapp_e164: string | null;
+
   whatsapp_username: string | null;
   whatsapp_extra: string[] | null;
   whatsapp_opt_in: boolean | null;
@@ -64,7 +67,11 @@ type TrialRow = {
   status: TrialStatus;
   server: string;
 
+  technology: string;         // ✅ NOVO (já mapeado com fallback "—")
+  apps_names: string[];       // ✅ NOVO (chips)
+
   archived: boolean;
+
 
   // para editar
   server_id: string;
@@ -146,6 +153,73 @@ function queueTrialsListToast(toast: { type: "success" | "error"; title: string;
   }
 }
 
+// =====================
+// Apps (índice + modal)  ✅ igual Cliente
+// =====================
+
+type AppField = {
+  id: string;
+  label: string;
+  type: "text" | "date" | "link";
+  placeholder?: string;
+};
+
+type AppData = {
+  id: string;
+  name: string;
+  info_url: string | null;
+  is_active: boolean;
+  fields_config: AppField[];
+  partner_server_id?: string | null;
+  cost_type?: "paid" | "free" | "partnership";
+};
+
+type AppsIndex = {
+  byId: Record<string, AppData>;
+  byName: Record<string, AppData>;
+};
+
+function normKey(s: string) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+function safeString(v: any) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  try {
+    return String(v);
+  } catch {
+    return "";
+  }
+}
+
+function isLikelyUrl(v: string) {
+  const s = String(v || "").trim();
+  if (!s) return false;
+  return /^https?:\/\/\S+/i.test(s) || /^www\.\S+/i.test(s);
+}
+
+function toOpenableUrl(v: string) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^www\./i.test(s)) return `https://${s}`;
+  return s;
+}
+
+function copyText(text: string) {
+  try {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+  } catch {}
+}
+
+
 
 
 export default function TrialsPage() {
@@ -176,6 +250,24 @@ export default function TrialsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+    // =====================
+  // Apps (chips + modal)  ✅ igual Cliente
+  // =====================
+  const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
+  const [appsLoading, setAppsLoading] = useState(false);
+
+  const [showAppModal, setShowAppModal] = useState(false);
+  const [appModal, setAppModal] = useState<{
+    clientId: string;
+    clientName: string;
+    appId?: string | null;
+    appName: string;
+    infoUrl?: string | null;
+    fields: AppField[];
+    values: Record<string, any>;
+  } | null>(null);
+
 
 
   // Mensagem (igual clientes)
@@ -244,6 +336,91 @@ const [scheduleDate, setScheduleDate] = useState("");
     }
     setScheduledMap(map);
   }
+
+    async function loadAppsIndex(tid: string) {
+    setAppsLoading(true);
+    try {
+      const r = await supabaseBrowser
+        .from("apps")
+        .select("id, name, info_url, is_active, fields_config, partner_server_id, cost_type")
+        .eq("tenant_id", tid)
+        .order("name", { ascending: true });
+
+      if (r.error) throw r.error;
+
+      const byId: Record<string, AppData> = {};
+      const byName: Record<string, AppData> = {};
+
+      (r.data || []).forEach((a: any) => {
+        const app: AppData = {
+          id: String(a.id),
+          name: String(a.name),
+          info_url: a.info_url ?? null,
+          is_active: Boolean(a.is_active),
+          fields_config: Array.isArray(a.fields_config) ? a.fields_config : [],
+          partner_server_id: a.partner_server_id ?? null,
+          cost_type: a.cost_type ?? undefined,
+        };
+        byId[app.id] = app;
+        byName[normKey(app.name)] = app;
+      });
+
+      setAppsIndex({ byId, byName });
+    } catch (e) {
+      console.error("Falha ao carregar apps:", e);
+      setAppsIndex({ byId: {}, byName: {} });
+    } finally {
+      setAppsLoading(false);
+    }
+  }
+
+  async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string) {
+    const raw = String(appNameOrId || "").trim();
+    if (!raw) return;
+
+    const byId = appsIndex.byId || {};
+    const byName = appsIndex.byName || {};
+
+    const found =
+      byId[raw] ||
+      byName[normKey(raw)] ||
+      byName[normKey(raw.replace(/^#/, ""))];
+
+    if (!found) {
+      addToast("error", "App não encontrado", `Não achei o app "${raw}" na tabela apps.`);
+      return;
+    }
+
+    // busca field_values do client_apps (por app.id)
+    let values: Record<string, any> = {};
+    try {
+      const r = await supabaseBrowser
+        .from("client_apps")
+        .select("field_values")
+        .eq("client_id", clientId)
+        .eq("app_id", found.id)
+        .maybeSingle();
+
+      if (!r.error && r.data?.field_values) {
+        values = r.data.field_values as any;
+      }
+    } catch (e) {
+      console.error("Falha ao buscar client_apps.field_values:", e);
+    }
+
+    setAppModal({
+      clientId,
+      clientName,
+      appId: found.id,
+      appName: found.name,
+      infoUrl: found.info_url ?? null,
+      fields: Array.isArray(found.fields_config) ? found.fields_config : [],
+      values: { ...values },
+    });
+
+    setShowAppModal(true);
+  }
+
 
   async function loadMessageTemplates(tid: string) {
     const { data, error } = await supabaseBrowser
@@ -350,33 +527,36 @@ const mapped: TrialRow[] = typed.map((r) => {
   const id = String(r.id);
 
   return {
-    id,
-    name: String(r.client_name ?? "Sem Nome"),
-    username: String(r.username ?? "—"),
+  id,
+  name: String(r.client_name ?? "Sem Nome"),
+  username: String(r.username ?? "—"),
 
-    dueISODate: due.dueISODate,
-    dueLabelDate: due.dueLabelDate,
-    dueTime: due.dueTime,
+  dueISODate: due.dueISODate,
+  dueLabelDate: due.dueLabelDate,
+  dueTime: due.dueTime,
 
-    status,
-    server: String(r.server_name ?? r.server_id ?? "—"),
+  status,
+  server: String(r.server_name ?? r.server_id ?? "—"),
 
-    archived,
+  technology: String((r as any).technology ?? "—"),
+  apps_names: Array.isArray((r as any).apps_names) ? ((r as any).apps_names as string[]).filter(Boolean) : [],
 
-    server_id: String(r.server_id ?? ""),
-    whatsapp: String(r.whatsapp_e164 ?? ""),
-    whatsapp_username: r.whatsapp_username ?? undefined,
-    whatsapp_extra: r.whatsapp_extra ?? undefined,
-    whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
-    dont_message_until: r.dont_message_until ?? undefined,
-    server_password: (r.server_password ?? undefined) as any,
-    vencimento: r.vencimento ?? undefined,
+  archived,
 
-    // ✅ fonte da verdade (clients) -> fallback view
-    notes: (notesMap[id] ?? r.notes ?? "") as any,
+  server_id: String(r.server_id ?? ""),
+  whatsapp: String(r.whatsapp_e164 ?? ""),
+  whatsapp_username: r.whatsapp_username ?? undefined,
+  whatsapp_extra: r.whatsapp_extra ?? undefined,
+  whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+  dont_message_until: r.dont_message_until ?? undefined,
+  server_password: (r.server_password ?? undefined) as any,
+  vencimento: r.vencimento ?? undefined,
 
-    converted,
-  };
+  notes: (notesMap[id] ?? r.notes ?? "") as any,
+
+  converted,
+};
+
 });
 
 
@@ -392,10 +572,16 @@ setRows(mapped);
 }
 
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [archivedFilter]);
+useEffect(() => {
+  (async () => {
+    await loadData();
+
+    const tid = await getCurrentTenantId();
+    if (tid) await loadAppsIndex(tid);
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [archivedFilter]);
+
 
   // ✅ toasts pós-refresh
   useEffect(() => {
@@ -812,7 +998,12 @@ onClick={(e) => {
                   <ThSort label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} />
                   <Th>Convertido</Th>
                   <ThSort label="Servidor" active={sortKey === "server"} dir={sortDir} onClick={() => toggleSort("server")} />
+
+                  <Th>Tecnologia</Th>     {/* ✅ NOVO */}
+                  <Th>Apps</Th>           {/* ✅ NOVO */}
+
                   <Th align="right">Ações</Th>
+
                 </tr>
               </thead>
 
@@ -879,10 +1070,47 @@ onClick={(e) => {
                       </Td>
 
                       <Td>
-                        <span className="text-slate-600 dark:text-white/70">{r.server}</span>
-                      </Td>
+                          <span className="text-slate-600 dark:text-white/70">{r.server}</span>
+                        </Td>
 
-                      <Td align="right">
+                        {/* ✅ Tecnologia */}
+                        <Td>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+                            {r.technology || "—"}
+                          </span>
+                        </Td>
+
+                        {/* ✅ Apps (chips clicáveis → modal) */}
+                        <Td>
+                          {r.apps_names.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 max-w-[320px]">
+                              {r.apps_names.map((appName, idx) => {
+                                const name = String(appName || "").trim();
+                                return (
+                                  <button
+                                    key={`${r.id}-${name}-${idx}`}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openAppConfigModal(r.id, r.name, name);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                                    title="Ver configuração do app"
+                                  >
+                                    <span className="text-[11px] font-bold text-slate-700 dark:text-white/80">
+                                      {name || "App"}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-white/20 italic">—</span>
+                          )}
+                        </Td>
+
+                        <Td align="right">
+
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
                           {/* Mensagem */}
                           <div className="relative">
@@ -985,7 +1213,7 @@ onClick={(e) => {
 
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
                       Nenhum teste encontrado.
                     </td>
                   </tr>
@@ -1246,6 +1474,153 @@ onClick={(e) => {
     </div>
   </Modal>
 )}
+
+{showAppModal && appModal && (
+  <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden">
+      <div className="p-5 border-b border-slate-100 dark:border-white/5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
+            Aplicativo
+          </div>
+          <div className="text-lg font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            {appModal.appName}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-white/50 font-medium truncate">
+            Teste: {appModal.clientName}
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            setShowAppModal(false);
+            setAppModal(null);
+          }}
+          className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+        >
+          Fechar
+        </button>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* URL global do app */}
+        <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4">
+          <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-2">
+            URL global do app
+          </div>
+
+          {appModal.infoUrl ? (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="min-w-0 text-xs font-mono text-slate-700 dark:text-white/80 truncate">
+                {appModal.infoUrl}
+              </div>
+
+              <div className="flex gap-2 sm:ml-auto">
+                <button
+                  onClick={() => copyText(String(appModal.infoUrl || ""))}
+                  className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all"
+                >
+                  Copiar
+                </button>
+
+                <a
+                  href={toOpenableUrl(String(appModal.infoUrl || ""))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 font-bold text-xs hover:bg-sky-500/20 transition-all inline-flex items-center justify-center"
+                >
+                  Abrir
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400 dark:text-white/20 italic">
+              Este app não possui URL global configurada.
+            </div>
+          )}
+        </div>
+
+        {/* Campos */}
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4">
+          <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-3">
+            Campos
+          </div>
+
+          {appsLoading ? (
+            <div className="text-xs text-slate-400 dark:text-white/20 italic">Carregando apps...</div>
+          ) : Array.isArray(appModal.fields) && appModal.fields.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {appModal.fields.map((f) => {
+                const byId = appModal.values?.[f.id];
+                const byLabel = appModal.values?.[f.label];
+                const vRaw = byId ?? byLabel ?? "";
+                const v = safeString(vRaw);
+
+                const isLink = f.type === "link" || isLikelyUrl(v);
+
+                return (
+                  <div key={f.id} className="space-y-1">
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
+                      {f.label}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={v}
+                        readOnly
+                        placeholder={f.placeholder || ""}
+                        className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80"
+                      />
+
+                      {f.type !== "date" && v ? (
+                        <button
+                          onClick={() => copyText(v)}
+                          className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all"
+                          title="Copiar"
+                        >
+                          Copiar
+                        </button>
+                      ) : null}
+
+                      {isLink && v ? (
+                        <a
+                          href={toOpenableUrl(v)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 font-bold text-xs hover:bg-sky-500/20 transition-all inline-flex items-center justify-center"
+                          title="Abrir link"
+                        >
+                          Abrir
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400 dark:text-white/20 italic">
+              Este app não possui fields_config.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
+        <button
+          onClick={() => {
+            setShowAppModal(false);
+            setAppModal(null);
+          }}
+          className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+        >
+          Voltar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
 {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
