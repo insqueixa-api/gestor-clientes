@@ -908,7 +908,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                         <select 
                             value={selectedTableId} 
                             onChange={(e) => { tableChangedByUserRef.current = true; setSelectedTableId(e.target.value); }} 
-                            className="h-6 w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                            className="h-6 w-[160px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                         >
                             {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
                         </select>
@@ -1055,7 +1055,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
             <button
               onClick={(e) => { e.stopPropagation(); handlePreCheck(); }}
               disabled={loading}
-              className="px-8 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-80 disabled:cursor-not-allowed transition-all flex items-center gap-2 min-w-[140px] justify-center"
+              className="px-8 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-80 disabled:cursor-not-allowed transition-all flex items-center gap-2 min-w-[160px] justify-center"
             >
               {loading ? (
                 
