@@ -372,7 +372,7 @@ export async function POST(req: Request) {
 // 2) CRON: processa fila
 // =========================
 if (isCron) {
-  // ============================================================
+    // ============================================================
   // ✅ PASSO 0: ENFILEIRAR AUTOMAÇÕES
   // - Sem isso, o automático nunca cria jobs em client_message_jobs.
   // - A RPC deve criar os jobs (SCHEDULED/QUEUED) respeitando regras do banco.
@@ -383,16 +383,43 @@ if (isCron) {
     const p = getSPParts(new Date());
     const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
 
-    const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
-      p_fire_date: fireDate,
-    });
+    // ✅ BUSCA TODOS OS TENANTS QUE TÊM AUTOMAÇÕES ATIVAS
+    const { data: tenants, error: tenantsErr } = await sb
+      .from("billing_automations")
+      .select("tenant_id")
+      .eq("is_active", true)
+      .eq("is_automatic", true);
 
-    console.log("[BILLING][enqueue_scheduled]", {
-      fireDate,
-      ok: !enqErr,
-      enqErr: enqErr?.message ?? null,
-      enqData,
-    });
+    if (tenantsErr) {
+      console.log("[BILLING][get_tenants] erro:", tenantsErr.message);
+    }
+
+    // Remove duplicatas (um tenant pode ter várias automações)
+    const uniqueTenants = [...new Set((tenants || []).map(t => t.tenant_id))];
+
+    console.log("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
+
+    // ✅ PROCESSA CADA TENANT
+    let totalJobsCreated = 0;
+    for (const tenantId of uniqueTenants) {
+      const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
+        p_tenant_id: tenantId,
+        p_fire_date: fireDate,
+      });
+
+      const jobsCreated = enqData ?? 0;
+      totalJobsCreated += jobsCreated;
+
+      console.log("[BILLING][enqueue_scheduled]", {
+        tenantId,
+        fireDate,
+        ok: !enqErr,
+        enqErr: enqErr?.message ?? null,
+        jobsCreated,
+      });
+    }
+
+    console.log("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
   } catch (e: any) {
     console.log("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
   }
