@@ -854,7 +854,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                         <select 
                             value={selectedTableId} 
                             onChange={(e) => { tableChangedByUserRef.current = true; setSelectedTableId(e.target.value); }} 
-                            className="h-8 w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+                            className="h-6 w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
                         >
                             {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
                         </select>
@@ -984,7 +984,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                 {/* OBSERVAÇÕES */}
                 <div>
                     <Label>Observações (Internas)</Label>
-                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-12 px-2 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
+                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-16 px-2.5 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
                 </div>
             </div>
 
