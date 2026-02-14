@@ -1016,18 +1016,20 @@ onClick={(e) => {
 
       {/* --- MODAL CONVERTER (RecargaCliente) --- */}
       {showConvert.open && showConvert.clientId && (
-        <RecargaCliente
-          clientId={showConvert.clientId}
-          clientName={showConvert.clientName || "Teste"}
-          allowConvertWithoutPayment
-          onClose={() => setShowConvert({ open: false, clientId: null, clientName: undefined })}
-          onSuccess={() => {
-            setShowConvert({ open: false, clientId: null, clientName: undefined });
-            queueTrialsListToast({ type: "success", title: "Conversão iniciada", message: "Cliente criado com sucesso!" });
-            loadData();
-          }}
-        />
-      )}
+  <RecargaCliente
+    clientId={showConvert.clientId}
+    clientName={showConvert.clientName || "Teste"}
+    allowConvertWithoutPayment
+    toastKey="trials_list_toasts"  // ✅ NOVO: toast do Whats volta pra tela de Testes
+    onClose={() => setShowConvert({ open: false, clientId: null, clientName: undefined })}
+    onSuccess={() => {
+      setShowConvert({ open: false, clientId: null, clientName: undefined });
+      queueTrialsListToast({ type: "success", title: "Conversão iniciada", message: "Cliente criado com sucesso!" });
+      loadData();
+    }}
+  />
+)}
+
 
 {/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
 {showScheduledModal.open && showScheduledModal.trialId && (

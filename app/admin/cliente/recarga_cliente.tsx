@@ -69,7 +69,11 @@ interface Props {
   onSuccess: () => void;
   onError?: (msg: string) => void;
   allowConvertWithoutPayment?: boolean;
+
+  // ✅ NOVO: define em qual lista a tela vai ler o toast depois
+  toastKey?: "clients_list_toasts" | "trials_list_toasts";
 }
+
 
 // --- CONSTANTES ---
 const PLAN_LABELS: Record<string, string> = {
@@ -202,9 +206,13 @@ function saoPauloDateTimeToIso(dateISO: string, timeHHmm: string) {
 
 
 // ✅ Função auxiliar para mandar toasts para a tela de listagem (Session Storage)
-function queueToast(type: "success" | "error", title: string, message?: string) {
+function queueToast(
+  type: "success" | "error",
+  title: string,
+  message?: string,
+  key: "clients_list_toasts" | "trials_list_toasts" = "clients_list_toasts"
+) {
   try {
-    const key = "clients_list_toasts";
     const raw = window.sessionStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
     arr.push({ type, title, message, ts: Date.now() });
@@ -214,13 +222,16 @@ function queueToast(type: "success" | "error", title: string, message?: string) 
   }
 }
 
+
 export default function RecargaCliente({
   clientId,
   clientName,
   onClose,
   onSuccess,
   allowConvertWithoutPayment = false,
+  toastKey = "clients_list_toasts",
 }: Props) {
+
   // ✅ 1. Estado para garantir renderização no client (evita erro de hidratação no Portal)
   const [mounted, setMounted] = useState(false);
 
@@ -555,6 +566,21 @@ if (tmplData) {
     setDueDate(fmtDate.format(target));
   }, [clientData, selectedPlanPeriod]);
 
+
+  // ✅ Regra: se converter SEM pagamento, por padrão não faz sentido enviar mensagem.
+// MAS o usuário pode ligar manualmente depois.
+useEffect(() => {
+  const isFromTrial = Boolean(allowConvertWithoutPayment);
+
+  if (!isFromTrial) return;
+
+  // quando desliga "Registrar pagamento", auto-desliga Whats
+  if (!registerPayment) {
+    setSendWhats(false);
+  }
+}, [allowConvertWithoutPayment, registerPayment]);
+
+
   // 2. Resetar Override (priceTouched) se mudar estrutura, MAS IGNORA NO LOAD
   useEffect(() => {
     if (isFirstLoad.current) return; // ✅ Não reseta se acabou de carregar
@@ -631,21 +657,31 @@ if (tmplData) {
     const isPaymentFlow = Boolean(registerPayment);
 
     // Monta o resumo para o popup
-    const details = [];
-    details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
-    details.push(`Telas: ${screens}`);
-    details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
-    
-    if (isFromTrial && !isPaymentFlow) {
-        details.push(`Tipo: Conversão (Sem pagamento)`);
-    } else {
-        details.push(`Valor: ${fmtMoney(currency, rawPlanPrice)}`);
-        if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
-    }
+const details: string[] = [];
 
-    // Abre o Modal Bonito
+const nameToShow = clientData?.display_name || clientName || "—";
+
+// ✅ NOVO: cliente primeiro (igual você quer no popup)
+details.push(`Cliente: ${nameToShow}`);
+
+details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
+details.push(`Telas: ${screens}`);
+details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
+
+if (isFromTrial && !isPaymentFlow) {
+  details.push(`Tipo: Conversão (Sem pagamento)`);
+} else {
+  details.push(`Valor: ${fmtMoney(currency, rawPlanPrice)}`);
+  if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
+}
+
+// Abre o Modal Bonito
 const ok = await confirm({
-  title: isFromTrial && !isPaymentFlow ? "Converter Cliente" : "Confirmar Renovação",
+  // ✅ NOVO: deixa o título com o nome também (fica bem claro)
+  title:
+    isFromTrial && !isPaymentFlow
+      ? `Converter Cliente — ${nameToShow}`
+      : `Confirmar Renovação — ${nameToShow}`,
   subtitle: "Confira os dados antes de salvar.",
   tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
   icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
@@ -653,6 +689,7 @@ const ok = await confirm({
   confirmText: "Confirmar",
   cancelText: "Voltar",
 });
+
 
 if (!ok) return;
 
@@ -719,39 +756,56 @@ const executeSave = async () => {
       }
 
       // --- PASSO 3: ENVIAR WHATSAPP (SEQUENCIAL) ---
-      if (sendWhats && messageContent) {
-          setLoadingText("Enviando WhatsApp..."); // 3. Feedback envio (AQUI O USUÁRIO ESPERA SEM PÂNICO)
-          
-          try {
-              const { data: session } = await supabaseBrowser.auth.getSession();
-              const token = session.session?.access_token;
+// --- PASSO 3: ENVIAR WHATSAPP (SEQUENCIAL) ---
+if (sendWhats && messageContent && messageContent.trim()) {
 
-              const res = await fetch("/api/whatsapp/envio_agora", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    tenant_id: tid,
-                    client_id: clientId,
-                    message: messageContent,
-                    whatsapp_session: "default",
-                  }),
-              });
+  setLoadingText("Enviando WhatsApp...");
 
-              if (res.ok) {
-                  // ✅ Sucesso: Fila o toast para a próxima tela
-                  queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.");
-              } else {
-                  throw new Error("API retornou erro");
-              }
-          } catch (e) {
-              console.error("Falha envio Whats:", e);
-              // ✅ Erro: Fila o toast de erro
-              queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.");
-          }
-      }
+  try {
+
+    const { data: session } = await supabaseBrowser.auth.getSession();
+    const token = session.session?.access_token;
+
+    const res = await fetch("/api/whatsapp/envio_agora", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        tenant_id: tid,
+        client_id: clientId,
+        message: messageContent,
+        whatsapp_session: "default",
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("API retornou erro");
+    }
+
+    // ✅ Sucesso — envia toast para a tela correta (clientes ou testes)
+    queueToast(
+      "success",
+      "Mensagem enviada",
+      "Comprovante entregue no WhatsApp.",
+      toastKey
+    );
+
+  } catch (e) {
+
+    console.error("Falha envio Whats:", e);
+
+    // ✅ Erro também vai para a tela correta
+    queueToast(
+      "error",
+      "Erro no envio",
+      "Renovado, mas o WhatsApp falhou.",
+      toastKey
+    );
+  }
+}
+
 
       // --- FIM ---
       setLoadingText("Concluído!");

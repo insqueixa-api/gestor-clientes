@@ -79,7 +79,15 @@ interface PlanTable {
   items: PlanTableItem[];
 }
 
+// ✅ COLE AQUI
+interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+}
+
 const PLAN_LABELS: Record<string, string> = {
+
   MONTHLY: "Mensal",
   BIMONTHLY: "Bimestral",
   QUARTERLY: "Trimestral",
@@ -594,8 +602,17 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   });
 
-  const [registerRenewal, setRegisterRenewal] = useState(false);
-  const [sendPaymentMsg, setSendPaymentMsg] = useState(false);
+const [registerRenewal, setRegisterRenewal] = useState(false);
+const [sendPaymentMsg, setSendPaymentMsg] = useState(false);
+
+// ✅ TRIAL: envio de mensagem de teste (padrão LIGADO)
+const [sendTrialWhats, setSendTrialWhats] = useState(true);
+
+// ✅ Templates WhatsApp
+const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+const [selectedTemplateId, setSelectedTemplateId] = useState("");
+const [messageContent, setMessageContent] = useState("");
+
 
   useEffect(() => {
     if (isEditing) return;
@@ -720,6 +737,43 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
           .eq("is_active", true);
 
         if (!alive) return;
+
+        // ✅ 4) Templates (para mensagem automática / teste)
+const { data: tmplData, error: tmplErr } = await supabaseBrowser
+  .from("message_templates")
+  .select("id, name, content")
+  .eq("tenant_id", tid)
+  .order("name", { ascending: true });
+
+if (!alive) return;
+
+if (tmplErr) {
+  console.warn("Erro ao carregar templates:", tmplErr.message);
+} else {
+  const list = (tmplData || []) as MessageTemplate[];
+  setTemplates(list);
+
+  // ✅ TRIAL: por padrão liga envio e seleciona template "Teste..."
+  // (não sobrescreve se já existe escolha do usuário)
+  if (isTrialMode) {
+    setSendTrialWhats(true);
+
+    // tenta achar um template cujo nome comece com "Teste"
+    const defaultTpl =
+      list.find((t) => (t.name || "").trim().toLowerCase().startsWith("teste")) ||
+      list.find((t) => (t.name || "").toLowerCase().includes("teste")) ||
+      null;
+
+    if (defaultTpl) {
+      setSelectedTemplateId(defaultTpl.id);
+      setMessageContent(defaultTpl.content || "");
+    } else {
+      setSelectedTemplateId("");
+      setMessageContent("");
+    }
+  }
+}
+
 
         // Setters de Auxiliares
         if (srvRes.data) {
@@ -1316,6 +1370,47 @@ if (clientId && namePrefix) {
             await supabaseBrowser.from("client_apps").insert(toInsert);
         }
         queueListToast(isTrialMode ? "trial" : "client", { type: "success", title: isTrialMode ? "Teste criado" : "Cliente criado", message: "Cadastro realizado com sucesso." });
+        // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
+if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && clientId) {
+  try {
+    const { data: session } = await supabaseBrowser.auth.getSession();
+    const token = session.session?.access_token;
+
+    const res = await fetch("/api/whatsapp/envio_agora", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        tenant_id: tid,
+        client_id: clientId,
+        message: messageContent,
+        whatsapp_session: "default",
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("API retornou erro");
+    }
+
+    // ✅ Toast vai para a LISTA DE TESTES
+    queueListToast("trial", {
+      type: "success",
+      title: "Mensagem enviada",
+      message: "Mensagem de teste entregue no WhatsApp.",
+    });
+  } catch (e) {
+    console.error("Falha envio Whats (teste):", e);
+
+    queueListToast("trial", {
+      type: "error",
+      title: "Erro no envio",
+      message: "Teste criado, mas o WhatsApp falhou.",
+    });
+  }
+}
+
       }
 
       // RENOVAÇÃO AUTOMÁTICA (SE MARCADA)
@@ -1750,7 +1845,61 @@ function handleSave() {
                    {!isEditing && (
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                         <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Teste automático" : "Registrar renovação"}</span><Switch checked={registerRenewal} onChange={(v) => { setRegisterRenewal(v); if (v) setSendPaymentMsg(true); else setSendPaymentMsg(false); }} label="" /></div>
-                        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Enviar msg teste" : "Enviar msg pagto"}</span><Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" /></div>
+                        {isTrialMode ? (
+  <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
+    <div
+      onClick={() => setSendTrialWhats(!sendTrialWhats)}
+      className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+    >
+      <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+        Enviar msg teste?
+      </span>
+      <Switch checked={sendTrialWhats} onChange={setSendTrialWhats} label="" />
+    </div>
+
+    {sendTrialWhats && (
+      <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
+        <div>
+          <Label>Modelo</Label>
+          <Select
+            value={selectedTemplateId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedTemplateId(id);
+              const tpl = templates.find((t) => t.id === id);
+              setMessageContent(tpl?.content || "");
+            }}
+          >
+            <option value="">-- Personalizado --</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {selectedTemplateId === "" && (
+          <div>
+            <Label>Mensagem</Label>
+            <textarea
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+              placeholder="Digite a mensagem de teste..."
+            />
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+) : (
+  <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3">
+    <span className="text-xs text-slate-600 dark:text-white/70">Enviar msg pagto</span>
+    <Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" />
+  </div>
+)}
+
                      </div>
                    )}
                 </div>
