@@ -316,11 +316,48 @@ export default function RecargaCliente({
         }
 
 const c = client as ClientFromView;
-        setClientData(c);
-        setScreens(c.screens || 1);
-        
-        // ✅ Carrega Observações salvas no banco
-        setObs(c.notes || "");
+
+// ✅ Fonte da verdade: clients (notes + tabela + moeda)
+let dbNotes: string | null = null;
+let dbPlanTableId: string | null = null;
+let dbPriceCurrency: string | null = null;
+
+try {
+  const { data: cDb, error: cDbErr } = await supabaseBrowser
+    .from("clients")
+    .select("notes, plan_table_id, price_currency")
+    .eq("tenant_id", tid)
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (!cDbErr && cDb) {
+    const n = (cDb as any).notes;
+    dbNotes = typeof n === "string" ? n : null;
+
+    const pt = (cDb as any).plan_table_id;
+    dbPlanTableId = typeof pt === "string" ? pt : null;
+
+    const pc = (cDb as any).price_currency;
+    dbPriceCurrency = typeof pc === "string" ? pc : null;
+  }
+} catch (e) {
+  console.error("Falha ao buscar fonte da verdade do cliente (clients):", e);
+}
+
+// ✅ Ajusta o clientData do modal com a verdade do banco
+const cFixed: ClientFromView = {
+  ...c,
+  notes: dbNotes ?? c.notes ?? null,
+  plan_table_id: dbPlanTableId ?? c.plan_table_id ?? null,
+  price_currency: dbPriceCurrency ?? c.price_currency ?? null,
+};
+
+setClientData(cFixed);
+setScreens(cFixed.screens || 1);
+
+// ✅ Prefill Observações (agora certo)
+setObs(cFixed.notes || "");
+
 
         // 2) Plano (detectar período pelo label)
         const pName = (c.plan_name || "").toUpperCase();
@@ -386,13 +423,14 @@ setDueTime(newTimeStr);
         setTables(allTables);
 
         // 5) Seleção inicial de tabela (✅ respeita a tabela real do cliente)
-          const desiredCurrency = (c.price_currency as Currency) || "BRL";
+          const desiredCurrency = ((cFixed.price_currency as Currency) || "BRL");
 
-          // 5.1) tenta usar a tabela salva no cliente
-          const fromClient =
-            c.plan_table_id
-              ? allTables.find((t) => t.id === c.plan_table_id)
-              : null;
+// 5.1) tenta usar a tabela REAL salva no cliente
+const fromClient =
+  cFixed.plan_table_id
+    ? allTables.find((t) => t.id === cFixed.plan_table_id)
+    : null;
+
 
           // 5.2) fallback: mesma lógica antiga (default por moeda)
           const fallbackByCurrency =
@@ -410,42 +448,47 @@ setDueTime(newTimeStr);
           }
 
 
-        // 6) Valor inicial
-          if (c.price_amount != null) {
-            setPlanPrice(Number(c.price_amount).toFixed(2).replace(".", ","));
-            setPriceTouched(true);
-          } else {
-            const initialPrice = pickPriceFromTable(initialTable || null, foundPeriod, c.screens || 1);
-            setPlanPrice(Number(initialPrice || 0).toFixed(2).replace(".", ","));
-            setPriceTouched(false);
-          }
+        // 6) Valor inicial (✅ usa cFixed)
+if (cFixed.price_amount != null) {
+  setPlanPrice(Number(cFixed.price_amount).toFixed(2).replace(".", ","));
+  setPriceTouched(true);
+} else {
+  const initialPrice = pickPriceFromTable(
+    initialTable || null,
+    foundPeriod,
+    cFixed.screens || 1
+  );
+  setPlanPrice(Number(initialPrice || 0).toFixed(2).replace(".", ","));
+  setPriceTouched(false);
+}
 
 
-        // 7) FX
-        if (desiredCurrency !== "BRL") {
-          const { data: fx, error: fxErr } = await supabaseBrowser
-            .from("tenant_fx_rates")
-            .select("usd_to_brl, eur_to_brl, as_of_date")
-            .eq("tenant_id", tid)
-            .order("as_of_date", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+// 7) FX (✅ usa desiredCurrency que já veio de cFixed lá no Patch 2)
+if (desiredCurrency !== "BRL") {
+  const { data: fx, error: fxErr } = await supabaseBrowser
+    .from("tenant_fx_rates")
+    .select("usd_to_brl, eur_to_brl, as_of_date")
+    .eq("tenant_id", tid)
+    .order("as_of_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-          if (fxErr) {
-            console.error("❌ tenant_fx_rates error:", fxErr);
-            addToast("error", "Falha ao carregar câmbio", fxErr.message);
-            setFxRate(5);
-          } else {
-            const rate =
-              desiredCurrency === "USD"
-                ? Number(fx?.usd_to_brl || 5)
-                : Number(fx?.eur_to_brl || 5);
+  if (fxErr) {
+    console.error("❌ tenant_fx_rates error:", fxErr);
+    addToast("error", "Falha ao carregar câmbio", fxErr.message);
+    setFxRate(5);
+  } else {
+    const rate =
+      desiredCurrency === "USD"
+        ? Number(fx?.usd_to_brl || 5)
+        : Number(fx?.eur_to_brl || 5);
 
-            setFxRate(rate);
-          }
-        } else {
-          setFxRate(1);
-        }
+    setFxRate(rate);
+  }
+} else {
+  setFxRate(1);
+}
+
 
         // ✅ PREFILL TECNOLOGIA
         // O campo 'technology' deve vir da view. Se não vier, assume padrão.
@@ -941,7 +984,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
                 {/* OBSERVAÇÕES */}
                 <div>
                     <Label>Observações (Internas)</Label>
-                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-16 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
+                    <textarea value={obs} onChange={(e) => setObs(e.target.value)} className="w-full h-14 px-2.5 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all" placeholder="Nota interna sobre esta renovação..." />
                 </div>
             </div>
 
@@ -992,7 +1035,7 @@ if (fetching || !mounted) return null; // ✅ Aguarda montagem
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+    <label className="block text-[9px] font-bold text-slate-400 dark:text-white/40 mb-0.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -1002,7 +1045,7 @@ function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInput
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      className={`w-full h-9 px-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
     />
   );
 }
@@ -1011,10 +1054,11 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-9 px-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
+
 function IconX() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
