@@ -93,8 +93,17 @@ function statusRank(s: TrialStatus) {
   return 1;
 }
 
-function mapStatus(computed: string, archived: boolean): TrialStatus {
+function mapStatus(computed: string, archived: boolean, vencimento: string | null): TrialStatus {
   if (archived) return "Arquivado";
+
+  // ✅ Regra principal do teste:
+  // se agora > vencimento => Vencido
+  if (vencimento) {
+    const t = new Date(vencimento).getTime();
+    if (!Number.isNaN(t) && Date.now() > t) return "Vencido";
+  }
+
+  // fallback (se algum dia você mudar o filtro e vier OVERDUE/ARCHIVED)
   const map: Record<string, TrialStatus> = {
     TRIAL: "Ativo",
     OVERDUE: "Vencido",
@@ -102,6 +111,7 @@ function mapStatus(computed: string, archived: boolean): TrialStatus {
   };
   return map[computed] || "Ativo";
 }
+
 
 function formatDue(rawDue: string | null) {
   if (!rawDue) {
@@ -257,63 +267,6 @@ const [scheduleDate, setScheduleDate] = useState("");
     setMessageTemplates(mapped);
   }
 
-{/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
-{showScheduledModal.open && showScheduledModal.trialId && (
-  <Modal
-    title={`Agendadas: ${showScheduledModal.trialName || "Teste"}`}
-    onClose={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
-  >
-    <div className="space-y-3">
-      {((scheduledMap[showScheduledModal.trialId] || []) as ScheduledMsg[]).length === 0 ? (
-        <div className="text-sm text-slate-500 dark:text-white/50 text-center py-4">
-          Nenhuma mensagem agendada.
-        </div>
-      ) : (
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-          {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
-            <div
-              key={s.id}
-              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
-                  <IconClock />
-                  <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
-                </div>
-                
-                <button
-                  onClick={async () => {
-                    // Exclusão rápida (exemplo)
-                    if(!tenantId) return;
-                    await supabaseBrowser.rpc("client_message_cancel", { p_tenant_id: tenantId, p_job_id: s.id });
-                    addToast("success", "Removido", "Agendamento cancelado.");
-                    await loadScheduledForClients(tenantId, rows.map(r => r.id));
-                  }}
-                  className="text-[10px] text-rose-500 font-bold hover:underline"
-                >
-                  Excluir
-                </button>
-              </div>
-              <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
-                {s.message}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="pt-3 flex justify-end">
-        <button
-          onClick={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
-          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
-        >
-          Fechar
-        </button>
-      </div>
-    </div>
-  </Modal>
-)}
-
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -359,39 +312,73 @@ const [scheduleDate, setScheduleDate] = useState("");
 
   const typed = (data || []) as VwClientRow[];
 
-  const mapped: TrialRow[] = typed.map((r) => {
-    const due = formatDue(r.vencimento);
-    const archived = Boolean(r.client_is_archived);
-    const status = mapStatus(String(r.computed_status), archived);
-    const converted = Boolean((r as any).converted_client_id);
+  // ✅ fonte da verdade: notes direto da tabela clients (batch)
+const ids = typed.map((r) => String(r.id)).filter(Boolean);
 
-    return {
-      id: String(r.id),
-      name: String(r.client_name ?? "Sem Nome"),
-      username: String(r.username ?? "—"),
+let notesMap: Record<string, string> = {};
+try {
+  if (ids.length > 0) {
+    const { data: cData, error: cErr } = await supabaseBrowser
+      .from("clients")
+      .select("id, notes")
+      .eq("tenant_id", tid)
+      .in("id", ids);
 
-      dueISODate: due.dueISODate,
-      dueLabelDate: due.dueLabelDate,
-      dueTime: due.dueTime,
+    if (!cErr && cData) {
+      for (const row of (cData as any[]) || []) {
+        const id = String(row.id);
+        const n = row.notes;
+        notesMap[id] = typeof n === "string" ? n : "";
+      }
+    } else if (cErr) {
+      console.error("Falha ao carregar notes do clients:", cErr);
+    }
+  }
+} catch (e) {
+  console.error("Crash ao carregar notes do clients:", e);
+}
 
-      status,
-      server: String(r.server_name ?? r.server_id ?? "—"),
+const mapped: TrialRow[] = typed.map((r) => {
+  const due = formatDue(r.vencimento);
+  const archived = Boolean(r.client_is_archived);
 
-      archived,
+  // ✅ status agora considera vencimento
+  const status = mapStatus(String(r.computed_status), archived, r.vencimento);
 
-      server_id: String(r.server_id ?? ""),
-      whatsapp: String(r.whatsapp_e164 ?? ""),
-      whatsapp_username: r.whatsapp_username ?? undefined,
-      whatsapp_extra: r.whatsapp_extra ?? undefined,
-      whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
-      dont_message_until: r.dont_message_until ?? undefined,
-      server_password: (r.server_password ?? undefined) as any,
-      vencimento: r.vencimento ?? undefined,
-      notes: r.notes ?? "",
+  const converted = Boolean((r as any).converted_client_id);
 
-      converted,
-    };
-  });
+  const id = String(r.id);
+
+  return {
+    id,
+    name: String(r.client_name ?? "Sem Nome"),
+    username: String(r.username ?? "—"),
+
+    dueISODate: due.dueISODate,
+    dueLabelDate: due.dueLabelDate,
+    dueTime: due.dueTime,
+
+    status,
+    server: String(r.server_name ?? r.server_id ?? "—"),
+
+    archived,
+
+    server_id: String(r.server_id ?? ""),
+    whatsapp: String(r.whatsapp_e164 ?? ""),
+    whatsapp_username: r.whatsapp_username ?? undefined,
+    whatsapp_extra: r.whatsapp_extra ?? undefined,
+    whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+    dont_message_until: r.dont_message_until ?? undefined,
+    server_password: (r.server_password ?? undefined) as any,
+    vencimento: r.vencimento ?? undefined,
+
+    // ✅ fonte da verdade (clients) -> fallback view
+    notes: (notesMap[id] ?? r.notes ?? "") as any,
+
+    converted,
+  };
+});
+
 
 setRows(mapped);
   
@@ -1042,8 +1029,76 @@ onClick={(e) => {
         />
       )}
 
+{/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
+{showScheduledModal.open && showScheduledModal.trialId && (
+  <Modal
+    title={`Agendadas: ${showScheduledModal.trialName || "Teste"}`}
+    onClose={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
+  >
+    <div className="space-y-3">
+      {((scheduledMap[showScheduledModal.trialId] || []) as ScheduledMsg[]).length === 0 ? (
+        <div className="text-sm text-slate-500 dark:text-white/50 text-center py-4">
+          Nenhuma mensagem agendada.
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          {(scheduledMap[showScheduledModal.trialId] || []).map((s) => (
+            <div
+              key={s.id}
+              className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
+                  <IconClock />
+                  <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (!tenantId) return;
+
+                    const { error } = await supabaseBrowser.rpc("client_message_cancel", {
+                      p_tenant_id: tenantId,
+                      p_job_id: s.id,
+                    });
+
+                    if (error) {
+                      addToast("error", "Falha ao cancelar", error.message);
+                      return;
+                    }
+
+                    addToast("success", "Removido", "Agendamento cancelado.");
+                    await loadScheduledForClients(tenantId, rows.map((r) => r.id));
+                  }}
+                  className="text-[10px] text-rose-500 font-bold hover:underline"
+                >
+                  Excluir
+                </button>
+              </div>
+
+              <div className="text-sm text-slate-700 dark:text-white/80 whitespace-pre-wrap">
+                {s.message}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-3 flex justify-end">
+        <button
+          onClick={() => setShowScheduledModal({ open: false, trialId: null, trialName: undefined })}
+          className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/5 font-semibold text-sm transition-colors"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
+
+
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
-      {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
+      
 {showSendNow.open && (
   <Modal title="Enviar Mensagem Agora" onClose={() => {
     setShowSendNow({ open: false, trialId: null });
