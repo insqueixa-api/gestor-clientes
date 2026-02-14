@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import AreaDoClienteClient from "./AreaDoClienteClient";
+import AreaDoClienteClient from "./renew/RenewClient";
 
 export default function Page() {
   return (

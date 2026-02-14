@@ -339,14 +339,13 @@ export async function POST(req: Request) {
   // =========================
 
   // Pega o cabeçalho Authorization (padrão Vercel e padrão JWT)
-  const authHeader = req.headers.get("authorization");
+const cronSecret = process.env.CRON_SECRET || null;
 
-  // Pega a senha mestra que definimos nas variáveis de ambiente
-  const cronSecret = process.env.CRON_SECRET;
+// pega só o token "puro" (independente de Bearer/bearer/espacos)
+const bearer = getBearerToken(req);
 
-  // Verifica se é o Cron da Vercel (O "Crachá" bate com a senha?)
-  // A Vercel envia "Bearer SUA_SENHA", então comparamos direto
-  const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+const isCron = !!cronSecret && !!bearer && bearer === cronSecret;
+
 
   let authedUserId: string | null = null;
 
@@ -831,5 +830,14 @@ if (isCron) {
 // Redirecionamos o GET para a sua função POST, onde a segurança já está pronta.
 // ============================================================================
 export async function GET(req: Request) {
+  const cronSecret = process.env.CRON_SECRET || null;
+  const bearer = getBearerToken(req);
+  const isCron = !!cronSecret && !!bearer && bearer === cronSecret;
+
+  if (!isCron) {
+    return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+  }
+
   return POST(req);
 }
+

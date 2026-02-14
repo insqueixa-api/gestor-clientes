@@ -200,9 +200,7 @@ function GlobalQueueMonitor({
   const [showModal, setShowModal] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  const { confirm, ConfirmUI } = useConfirm();
-
-
+  
   // 1. Polling: Busca a fila (Simplificado para não falhar)
   useEffect(() => {
     const fetchQueue = async () => {
@@ -305,21 +303,6 @@ const handleGlobalPause = async () => {
   const handleNukeQueue = async () => {
     if (queueData.length === 0) return;
 
-    const ok = await confirm({
-      title: "Cancelar tudo da fila?",
-      subtitle: `Isso vai cancelar ${queueData.length} mensagens pendentes.`,
-      details: [
-        "Status afetados: SCHEDULED, QUEUED, SENDING e PAUSED",
-        "As mensagens serão marcadas como CANCELLED (histórico preservado)",
-      ],
-      tone: "rose",
-      icon: "alert",
-      confirmText: "Sim, cancelar tudo",
-      cancelText: "Voltar",
-    });
-
-    if (!ok) return;
-
     setLoading(true);
     try {
       const tid = await getCurrentTenantId();
@@ -349,46 +332,43 @@ const handleGlobalPause = async () => {
   const isGlobalPaused = activeCount === 0 && pausedCount > 0;
 
   return (
-    <>
-      {/* ✅ UI do confirm (PRECISA estar renderizado aqui) */}
-      {ConfirmUI}
-
-      {/* 🟢 BARRA DE MONITORAMENTO */}
-      <div 
-        onClick={() => setShowModal(true)}
-        className={`mb-6 mx-1 border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all relative z-50
-            ${isGlobalPaused ? 'bg-amber-100 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}
-      >
-        <div className="flex items-center gap-4">
-          <div className="relative flex items-center justify-center w-6 h-6">
-            {isGlobalPaused ? (
-                <div className="w-3 h-3 bg-amber-500 rounded-full shadow-sm"></div>
-            ) : (
-                <>
-                    <div className="absolute w-3 h-3 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
-                    <div className="relative w-3 h-3 bg-emerald-500 rounded-full"></div>
-                </>
-            )}
-          </div>
-          <div>
-            <h3 className={`font-bold text-sm uppercase tracking-wide ${isGlobalPaused ? 'text-amber-800' : 'text-emerald-800'}`}>
-              {isGlobalPaused ? "⏸️ FILA PAUSADA" : "🚀 PROCESSANDO ENVIO"}
-            </h3>
-            <p className={`text-xs mt-0.5 ${isGlobalPaused ? 'text-amber-700' : 'text-emerald-600'}`}>
-              {queueData.length} mensagens na fila ({pausedCount} em espera).
-            </p>
-          </div>
-        </div>
-        <button className="px-4 py-2 bg-white/50 border border-black/5 rounded-lg text-xs font-bold uppercase hover:bg-white transition-colors">
-            Abrir Painel
-        </button>
+  <>
+    {/* 🟢 BARRA DE MONITORAMENTO */}
+    <div 
+  onClick={() => setShowModal(true)}
+  className={`mb-4 mx-1 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all relative z-50
+      ${isGlobalPaused ? 'bg-amber-100 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}
+>
+    <div className="flex items-center gap-3">
+      <div className="relative flex items-center justify-center w-5 h-5">
+        {isGlobalPaused ? (
+            <div className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-sm"></div>
+        ) : (
+            <>
+                <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
+                <div className="relative w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
+            </>
+        )}
+      </div>
+      <div>
+        <h3 className={`font-bold text-xs uppercase tracking-wide ${isGlobalPaused ? 'text-amber-800' : 'text-emerald-800'}`}>
+          {isGlobalPaused ? "⏸️ PAUSADA" : "🚀 ENVIANDO"}
+        </h3>
+        <p className={`text-[10px] mt-0.5 ${isGlobalPaused ? 'text-amber-700' : 'text-emerald-600'}`}>
+          {queueData.length} na fila
+        </p>
+      </div>
+    </div>
+<button className="px-3 py-1.5 bg-slate-800 text-white border border-slate-700 rounded-lg text-xs font-bold uppercase hover:bg-slate-700 transition-colors">
+    Abrir
+</button>
       </div>
 
       {/* 🔴 MODAL RAIO-X */}
-{showModal && createPortal(
-  <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
-    <div className="w-full max-w-6xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
+    {showModal && createPortal(
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
+    <div className="w-full max-w-6xl bg-white dark:bg-[#161b22] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+  <div className="px-4 py-3 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-white/5">
         <h3 className="font-bold text-lg dark:text-white">Gerenciador de Fila</h3>
         <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
       </div>
@@ -464,7 +444,7 @@ const handleGlobalPause = async () => {
         </table>
       </div>
 
-      <div className="p-4 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5">
+      <div className="p-3 border-t border-gray-100 dark:border-white/10 flex gap-2 justify-end bg-gray-50 dark:bg-white/5 flex-wrap">
         {activeCount > 0 ? 
           <button onClick={handleGlobalPause} disabled={loading} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600">⏸️ PAUSAR TUDO</button> :
           <button onClick={handleGlobalResume} disabled={loading || pausedCount === 0} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50">▶️ RETOMAR</button>
