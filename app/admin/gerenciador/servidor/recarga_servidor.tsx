@@ -91,7 +91,45 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
       const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
       
-      // Chamada da RPC conforme Contrato
+      // ✅ Se TEM integração → salva log + sync
+      if (hasIntegration) {
+        // 1) Salva log financeiro (sem mexer no saldo)
+        const { error: logErr } = await supabase.rpc("log_server_credit_purchase_only", {
+          p_tenant_id: tenantId,
+          p_server_id: server.id,
+          p_credits_qty: Number(qty),
+          p_unit_price: Number(unitCost),
+          p_purchase_currency: currency,
+          p_total_amount_brl: totalBrl,
+          p_fx_rate_to_brl: Number(fxRate),
+          p_notes: `[${paymentMethod}] ${notes}`,
+        });
+
+        if (logErr) throw logErr;
+
+        // 2) Sincroniza saldo real do painel
+        const provider = String(server.panel_integration_provider || "").toUpperCase();
+        const syncUrl = provider === "FAST"
+          ? "/api/integrations/fast/sync"
+          : "/api/integrations/natv/sync";
+
+        const syncRes = await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: server.panel_integration }),
+        });
+
+        const syncJson = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok || !syncJson?.ok) {
+          throw new Error("Log salvo, mas falhou ao sincronizar saldo: " + (syncJson?.error || ""));
+        }
+
+        alert("✅ Compra registrada e saldo sincronizado!");
+        onSuccess();
+        return;
+      }
+
+      // ✅ Se NÃO tem integração → recarga normal (adiciona ao saldo)
       const { error } = await supabase.rpc("topup_server_credits_and_log", {
         p_tenant_id: tenantId,
         p_server_id: server.id,
@@ -99,14 +137,13 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
         p_unit_price: Number(unitCost),
         p_purchase_currency: currency,
         p_total_amount_brl: totalBrl,
-        p_fx_rate_to_brl: Number(fxRate), // Faltava passar isso
-        // p_payment_method: paymentMethod, // ⚠️ Verifique se sua RPC aceita isso. Se não, remova ou ponha em notes.
-        p_notes: `[${paymentMethod}] ${notes}`, // Juntei metodo nas notas pra garantir
+        p_fx_rate_to_brl: Number(fxRate),
+        p_notes: `[${paymentMethod}] ${notes}`,
       });
 
       if (error) throw error;
 
-      onSuccess(); // O page.tsx já vai exibir o toast e atualizar a lista
+      onSuccess();
     } catch (error: any) {
       console.error("Erro na recarga:", error);
       alert("Erro ao recarregar: " + error.message);
@@ -235,10 +272,10 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
         <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
           
           {hasIntegration && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg text-xs text-amber-700 dark:text-amber-400">
-              ⚠️ <strong>Este servidor está vinculado à integração "{server.panel_integration_name}".</strong>
+            <div className="p-3 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg text-xs text-sky-700 dark:text-sky-400">
+              ℹ️ <strong>Servidor com integração "{server.panel_integration_name}"</strong>
               <br />
-              O saldo é controlado pelo painel externo. Recargas manuais serão sobrescritas no próximo sync.
+              A recarga será registrada no financeiro, mas o saldo será sincronizado com o painel externo.
             </div>
           )}
 
@@ -250,47 +287,13 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
               Cancelar
             </button>
             
-            {hasIntegration ? (
-              <button
-                onClick={async () => {
-                  setSaving(true);
-                  try {
-                    const provider = String(server.panel_integration_provider || "").toUpperCase();
-                    const url = provider === "FAST"
-                      ? "/api/integrations/fast/sync"
-                      : "/api/integrations/natv/sync";
-
-                    const res = await fetch(url, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ integration_id: server.panel_integration }),
-                    });
-
-                    const json = await res.json().catch(() => ({}));
-                    if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao sincronizar.");
-
-                    alert("Saldo sincronizado com sucesso!");
-                    onSuccess();
-                  } catch (e: any) {
-                    alert("Erro: " + e.message);
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-                disabled={saving}
-                className="px-6 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-sky-900/20 transition-all"
-              >
-                {saving ? "Sincronizando..." : "🔄 Sincronizar Saldo da Integração"}
-              </button>
-            ) : (
-              <button 
-                onClick={handleSave}
-                disabled={saving}
-                className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
-              >
-                {saving ? "Registrando..." : "Confirmar Recarga"}
-              </button>
-            )}
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+            >
+              {saving ? "Processando..." : hasIntegration ? "💰 Registrar Compra + Sincronizar" : "Confirmar Recarga"}
+            </button>
           </div>
         </div>
       </div>
