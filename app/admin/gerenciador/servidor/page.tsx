@@ -747,7 +747,8 @@ function IconPlug() {
       <path d="M12 17v4" />
       <path d="M8 3h8" />
       <path d="M7 7h10" />
-      <path d="M7 11a5 5 0 0 0 10 0" />
+      <path d="M6 20h12" />
+
     </svg>
   );
 }
@@ -770,7 +771,8 @@ function IconPlugOff() {
       <path d="M12 17v4" />
       <path d="M8 3h8" />
       <path d="M3 3l18 18" />
-      <path d="M7 11a5 5 0 0 0 8.5 3.5" />
+      <path d="M3 3l18 18" strokeDasharray="4 2" />
+
     </svg>
   );
 }
