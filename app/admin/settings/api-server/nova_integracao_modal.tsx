@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-export type IntegrationProvider = "NATV";
+export type IntegrationProvider = "NATV" | "FAST";
+
 
 export type IntegrationEditPayload = {
   id: string;
@@ -30,21 +31,72 @@ export default function NovaIntegracaoModal({
   const [provider, setProvider] = useState<IntegrationProvider>(
     (String(integration?.provider || "NATV").toUpperCase() as IntegrationProvider) || "NATV"
   );
-  const [integrationName, setIntegrationName] = useState(integration?.integration_name ?? "");
-  const [apiToken, setApiToken] = useState(""); // nunca preenchemos com token atual
-  const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
+const [integrationName, setIntegrationName] = useState(integration?.integration_name ?? "");
 
-  const [saving, setSaving] = useState(false);
+// ✅ agora preenche no edit
+const [apiToken, setApiToken] = useState("");
+const [apiSecret, setApiSecret] = useState("");
+
+const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
+
+const [saving, setSaving] = useState(false);
+const [loadingEdit, setLoadingEdit] = useState(false);
+
+useEffect(() => {
+  let alive = true;
+
+  async function loadEditSecrets() {
+    if (!isEdit || !integration?.id) return;
+
+    try {
+      setLoadingEdit(true);
+
+      const { data, error } = await supabaseBrowser
+        .from("server_integrations")
+        .select("api_token, api_secret, provider, integration_name, is_active")
+        .eq("id", integration.id)
+        .single();
+
+      if (error) throw error;
+      if (!alive) return;
+
+      // mantém provider coerente com o registro
+      const p = String(data?.provider || "NATV").toUpperCase() as IntegrationProvider;
+      setProvider(p);
+
+      setIntegrationName(data?.integration_name ?? "");
+      setIsActive(Boolean(data?.is_active ?? true));
+
+      setApiToken(data?.api_token ?? "");
+      setApiSecret(data?.api_secret ?? "");
+    } catch (e) {
+      // não trava o modal
+      console.error(e);
+    } finally {
+      if (alive) setLoadingEdit(false);
+    }
+  }
+
+  loadEditSecrets();
+
+  return () => {
+    alive = false;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isEdit, integration?.id]);
 
   const canSave = useMemo(() => {
     if (!provider) return false;
     if (!integrationName.trim()) return false;
 
-    // ✅ criar: token obrigatório
-    if (!isEdit && !apiToken.trim()) return false;
+// ✅ token sempre obrigatório (criar/editar)
+if (!apiToken.trim()) return false;
 
-    // ✅ editar: token opcional
-    return true;
+// ✅ FAST exige secret sempre
+if (provider === "FAST" && !apiSecret.trim()) return false;
+
+return true;
+
   }, [provider, integrationName, apiToken, isEdit]);
 
   async function handleSave() {
@@ -57,15 +109,22 @@ export default function NovaIntegracaoModal({
 
       if (!isEdit) {
         // ✅ INSERT
-        const payload = {
-          tenant_id: tenantId,
-          provider,
-          integration_name: integrationName.trim(),
-          api_token: apiToken.trim(),
-          is_active: isActive,
-        };
+const payload: any = {
+  tenant_id: tenantId,
+  provider,
+  integration_name: integrationName.trim(),
+  api_token: apiToken.trim(),
+  is_active: isActive,
+};
 
-        const { error } = await supabaseBrowser.from("server_integrations").insert(payload);
+if (provider === "FAST") {
+  payload.api_secret = apiSecret.trim();
+} else {
+  payload.api_secret = null; // garante limpeza se trocar provider
+}
+
+const { error } = await supabaseBrowser.from("server_integrations").insert(payload);
+
         if (error) throw error;
 
         onSuccess();
@@ -74,20 +133,23 @@ export default function NovaIntegracaoModal({
 
       // ✅ UPDATE
       const patch: any = {
-        provider,
-        integration_name: integrationName.trim(),
-        is_active: isActive,
-      };
+  provider,
+  integration_name: integrationName.trim(),
+  is_active: isActive,
+  api_token: apiToken.trim(), // ✅ agora sempre salva o valor visível
+};
 
-      // só troca token se usuário digitou
-      if (apiToken.trim()) {
-        patch.api_token = apiToken.trim();
-      }
+if (provider === "FAST") {
+  patch.api_secret = apiSecret.trim();
+} else {
+  patch.api_secret = null; // ✅ se mudou pra NATV, zera secret
+}
 
-      const { error } = await supabaseBrowser
-        .from("server_integrations")
-        .update(patch)
-        .eq("id", integration!.id);
+const { error } = await supabaseBrowser
+  .from("server_integrations")
+  .update(patch)
+  .eq("id", integration!.id);
+
 
       if (error) throw error;
 
@@ -111,8 +173,9 @@ export default function NovaIntegracaoModal({
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
                 {isEdit
-                  ? "Atualize os dados. Para trocar o token, cole um novo (o atual não é exibido)."
-                  : "Cadastre um token de integração para automatizações e consulta de saldo."}
+  ? "Atualize os dados da integração (token/secret ficam visíveis para facilitar manutenção)."
+  : "Cadastre a integração para automatizações e consulta de saldo."}
+
               </p>
             </div>
             <button
@@ -132,10 +195,17 @@ export default function NovaIntegracaoModal({
             </label>
             <select
               value={provider}
-              onChange={(e) => setProvider(e.target.value as IntegrationProvider)}
+              onChange={(e) => {
+  const next = e.target.value as IntegrationProvider;
+  setProvider(next);
+  if (next !== "FAST") setApiSecret("");
+}}
+
               className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="NATV">NaTV</option>
+                <option value="FAST">Fast</option>
+
             </select>
           </div>
 
@@ -178,19 +248,42 @@ export default function NovaIntegracaoModal({
 
           <div>
             <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              {isEdit ? "Novo Token (opcional)" : "Token / Chave API"}
-            </label>
-            <input
-              value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
-              placeholder={isEdit ? "Cole aqui o NOVO token (não exibimos o atual)" : "Bearer token (sem 'Bearer ')"} 
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-            />
-            <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-              {isEdit
-                ? "Por segurança, o token atual não é exibido. Se não preencher, ele permanece igual."
-                : "Depois a gente usa o botão Sync/Testar para preencher revenda e saldo automaticamente."}
-            </p>
+  Token / Chave API
+</label>
+
+<input
+  value={apiToken}
+  onChange={(e) => setApiToken(e.target.value)}
+  placeholder={provider === "NATV" ? "Bearer token (sem 'Bearer ')" : "Token do Fast"}
+  className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+  disabled={loadingEdit}
+/>
+
+{provider === "FAST" && (
+  <div>
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+      Secret Key
+    </label>
+
+    <input
+      value={apiSecret}
+      onChange={(e) => setApiSecret(e.target.value)}
+      placeholder="Secret Key do Fast"
+      className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+      disabled={loadingEdit}
+    />
+
+    <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+      Obrigatório para autenticação do Fast.
+    </p>
+  </div>
+)}
+
+
+<p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+  {loadingEdit ? "Carregando dados da integração..." : "Esse valor fica visível para facilitar manutenção."}
+</p>
+
           </div>
         </div>
 
