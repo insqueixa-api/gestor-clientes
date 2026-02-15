@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-import NovaIntegracaoModal, { type IntegrationProvider } from "./nova_integracao_modal";
+import NovaIntegracaoModal from "./nova_integracao_modal";
 
 type IntegrationRow = {
   id: string;
   tenant_id: string;
-  server_id: string;
 
   provider: string; // 'NATV'
   integration_name: string;
@@ -23,16 +22,12 @@ type IntegrationRow = {
 
   is_active: boolean;
   created_at: string;
+  updated_at?: string | null;
 };
-
-type ServerOption = { id: string; name: string };
 
 export default function ApiServerPage() {
   const [loading, setLoading] = useState(true);
-
-  const [servers, setServers] = useState<ServerOption[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { confirm, ConfirmUI } = useConfirm();
@@ -48,41 +43,21 @@ export default function ApiServerPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
-  const serverNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    servers.forEach((s) => m.set(s.id, s.name));
-    return m;
-  }, [servers]);
-
   async function fetchData() {
     try {
       setLoading(true);
       const tenantId = await getCurrentTenantId();
       if (!tenantId) return;
 
-      const supabase = supabaseBrowser;
-
-      const serversPromise = supabase
-        .from("servers")
-        .select("id,name")
-        .eq("tenant_id", tenantId)
-        .eq("is_archived", false)
-        .order("name", { ascending: true });
-
-      const integrationsPromise = supabase
+      const { data, error } = await supabaseBrowser
         .from("vw_server_integrations")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
+      if (error) throw error;
 
-      const [sRes, iRes] = await Promise.all([serversPromise, integrationsPromise]);
-
-      if (sRes.error) throw sRes.error;
-      if (iRes.error) throw iRes.error;
-
-      setServers((sRes.data as ServerOption[]) || []);
-      setIntegrations((iRes.data as IntegrationRow[]) || []);
+      setIntegrations((data as IntegrationRow[]) || []);
     } catch (e: any) {
       console.error(e);
       addToast("error", "Erro ao carregar", e?.message ?? "Falha ao carregar dados.");
@@ -158,7 +133,6 @@ export default function ApiServerPage() {
         </div>
       </div>
 
-      {/* Conteúdo */}
       {loading && (
         <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
           Carregando integrações...
@@ -187,9 +161,11 @@ export default function ApiServerPage() {
                     >
                       {row.integration_name}
                     </h2>
+
                     <span className="inline-flex items-center text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
                       {providerLabel(row.provider)}
                     </span>
+
                     {!row.is_active && (
                       <span className="inline-flex items-center text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         Inativa
@@ -197,11 +173,8 @@ export default function ApiServerPage() {
                     )}
                   </div>
 
-                  <div className="text-[11px] text-slate-500 dark:text-white/50 mt-1 truncate">
-                    Servidor:{" "}
-                    <span className="font-bold text-slate-700 dark:text-white">
-                      {serverNameById.get(row.server_id) ?? row.server_id}
-                    </span>
+                  <div className="text-[11px] text-slate-500 dark:text-white/50 mt-1">
+                    Integração cadastrada no tenant (servidor escolhe depois).
                   </div>
                 </div>
 
@@ -253,7 +226,9 @@ export default function ApiServerPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 dark:text-white/50">⏱ Último sync</span>
                     <span className="font-medium text-slate-700 dark:text-white">
-                      {row.credits_last_sync_at ? new Date(row.credits_last_sync_at).toLocaleString("pt-BR") : "--"}
+                      {row.credits_last_sync_at
+                        ? new Date(row.credits_last_sync_at).toLocaleString("pt-BR")
+                        : "--"}
                     </span>
                   </div>
                 </div>
@@ -274,7 +249,6 @@ export default function ApiServerPage() {
 
       {isModalOpen && (
         <NovaIntegracaoModal
-          servers={servers}
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
             setIsModalOpen(false);
@@ -296,7 +270,6 @@ export default function ApiServerPage() {
   );
 }
 
-// --- COMPONENTES VISUAIS AUXILIARES (mesmo padrão do seu servidor) ---
 function IconActionBtn({
   children,
   title,

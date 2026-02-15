@@ -7,32 +7,26 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export type IntegrationProvider = "NATV";
 
-type ServerOption = { id: string; name: string };
-
 export default function NovaIntegracaoModal({
-  servers,
   onClose,
   onSuccess,
   onError,
 }: {
-  servers: ServerOption[];
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
   const [provider, setProvider] = useState<IntegrationProvider>("NATV");
   const [integrationName, setIntegrationName] = useState("");
-  const [serverId, setServerId] = useState<string>(servers?.[0]?.id ?? "");
   const [apiToken, setApiToken] = useState("");
   const [saving, setSaving] = useState(false);
 
   const canSave = useMemo(() => {
     if (!provider) return false;
     if (!integrationName.trim()) return false;
-    if (!serverId) return false;
     if (!apiToken.trim()) return false;
     return true;
-  }, [provider, integrationName, serverId, apiToken]);
+  }, [provider, integrationName, apiToken]);
 
   async function handleSave() {
     if (!canSave) return;
@@ -44,7 +38,6 @@ export default function NovaIntegracaoModal({
 
       const payload = {
         tenant_id: tenantId,
-        server_id: serverId,
         provider,
         integration_name: integrationName.trim(),
         api_token: apiToken.trim(),
@@ -87,36 +80,17 @@ export default function NovaIntegracaoModal({
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-                Provedor
-              </label>
-              <select
-                value={provider}
-                onChange={(e) => setProvider(e.target.value as IntegrationProvider)}
-                className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-              >
-                <option value="NATV">NaTV</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-                Servidor
-              </label>
-              <select
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value)}
-                className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-              >
-                {servers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+              Provedor
+            </label>
+            <select
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as IntegrationProvider)}
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+            >
+              <option value="NATV">NaTV</option>
+            </select>
           </div>
 
           <div>
