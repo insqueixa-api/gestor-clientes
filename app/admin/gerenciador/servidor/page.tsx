@@ -730,11 +730,11 @@ function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
 
-function IconPlug() {
+export function IconPlug() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -742,22 +742,22 @@ function IconPlug() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M9 7v10" />
-      <path d="M15 7v10" />
-      <path d="M12 17v4" />
-      <path d="M8 3h8" />
-      <path d="M7 7h10" />
-      <path d="M6 20h12" />
-
+      <path d="M13 2L10 2" />
+      <path d="M13 16L13 22" />
+      <path d="M6 8L6 11C6 14.3137 8.68629 17 12 17C15.3137 17 18 14.3137 18 11L18 8" />
+      <path d="M9 2V8" />
+      <path d="M15 2V8" />
+      {/* Opcional: Um raiozinho pequeno no centro se quiser detalhe */}
+      <path d="M11 10L13 12H10.5L12.5 14" strokeWidth="1.5" />
     </svg>
   );
 }
 
-function IconPlugOff() {
+export function IconPlugOff() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -765,15 +765,13 @@ function IconPlugOff() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M9 7v3" />
-      <path d="M15 7v3" />
-      <path d="M7 7h10" />
-      <path d="M12 17v4" />
-      <path d="M8 3h8" />
+      <path d="M13 2L10 2" />
+      <path d="M13 16L13 22" />
+      <path d="M6 8v3c0 1.2.3 2.3.8 3.3" />
+      <path d="M18 11V8" />
+      <path d="M9 2v4" />
+      <path d="M15 2v2" />
       <path d="M3 3l18 18" />
-      <path d="M3 3l18 18" strokeDasharray="4 2" />
-
     </svg>
   );
 }
-
