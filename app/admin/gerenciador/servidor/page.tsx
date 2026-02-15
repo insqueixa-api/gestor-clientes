@@ -732,7 +732,16 @@ function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" 
 
 function IconPlug() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9 7v10" />
       <path d="M15 7v10" />
       <path d="M12 17v4" />
@@ -745,7 +754,16 @@ function IconPlug() {
 
 function IconPlugOff() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9 7v3" />
       <path d="M15 7v3" />
       <path d="M7 7h10" />
@@ -756,3 +774,4 @@ function IconPlugOff() {
     </svg>
   );
 }
+
