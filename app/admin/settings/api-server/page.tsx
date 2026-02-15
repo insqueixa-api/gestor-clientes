@@ -80,6 +80,27 @@ export default function ApiServerPage() {
     return u || "--";
   }
 
+  async function handleSync(row: IntegrationRow) {
+  try {
+    addToast("success", "Sincronizando", "Validando token e buscando saldo...");
+    const res = await fetch("/api/integrations/natv/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ integration_id: row.id }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || "Falha ao sincronizar.");
+    }
+
+    addToast("success", "OK", json?.message || "Sincronizado.");
+    fetchData();
+  } catch (e: any) {
+    addToast("error", "Erro", e?.message ?? "Falha ao sincronizar.");
+  }
+}
+
   async function handleDelete(row: IntegrationRow) {
     const ok = await confirm({
       title: "Remover integração?",
@@ -180,6 +201,17 @@ export default function ApiServerPage() {
 
                 <div className="flex gap-2 shrink-0">
                   <IconActionBtn
+                    title="Testar/Sync"
+                    tone="blue"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSync(row);
+                    }}
+                  >
+                    <IconSync />
+                  </IconActionBtn>
+
+                  <IconActionBtn
                     title="Remover"
                     tone="red"
                     onClick={(e) => {
@@ -190,6 +222,7 @@ export default function ApiServerPage() {
                     <IconTrash />
                   </IconActionBtn>
                 </div>
+
               </div>
 
               <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -309,6 +342,14 @@ function IconTrash() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function IconSync() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <polyline points="21 3 21 9 15 9" />
     </svg>
   );
 }
