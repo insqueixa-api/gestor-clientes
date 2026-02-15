@@ -28,6 +28,26 @@ export default function RenewClient() {
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
 
   const canSubmit = useMemo(() => {
+
+    // ✅ ADICIONA ANTES DO RETURN (linha ~120)
+const formatWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.startsWith('55') && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    
+    if (rest.length === 9) {
+      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    }
+    if (rest.length === 8) {
+      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    }
+  }
+  
+  return phone;
+};
     return token.length > 10 && cleanPhone.length >= 10 && pin.length === 4;
   }, [token, cleanPhone, pin]);
 

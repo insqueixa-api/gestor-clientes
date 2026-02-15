@@ -395,12 +395,22 @@ export default function AdminServersPage() {
           className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
         >
           {/* ✅ TÍTULO: Ajustado para text-slate-700 (era 800) para igualar ao título da lista de clientes */}
-          <h2
-            className="text-base font-bold truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight"
-            title={server.name}
-          >
-            {server.name}
-          </h2>
+<h2
+  className="text-base font-bold truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
+  title={server.name}
+>
+  {server.name}
+
+  {server.panel_integration && (
+    <span
+      title="Servidor com integração"
+      className="inline-flex items-center justify-center text-sky-600 dark:text-sky-400"
+    >
+      <IconPlug />
+    </span>
+  )}
+</h2>
+
 
 {server.is_archived && (
   // Alterado: 'rounded' para 'rounded-full', ajustado px para 2.5 (padrão pílula)
@@ -558,9 +568,13 @@ export default function AdminServersPage() {
 <div className="flex justify-between items-center">
   <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
     {server.panel_integration ? (
-      <IconPlugConnected />
+      <span className="text-sky-600 dark:text-sky-400" title="Conectado">
+        <IconPlug />
+      </span>
     ) : (
-      <IconPlugDisconnected />
+      <span className="text-slate-400 dark:text-white/30" title="Sem integração">
+        <IconPlugOff />
+      </span>
     )}
     Integração
   </span>
@@ -571,6 +585,7 @@ export default function AdminServersPage() {
       : "--"}
   </span>
 </div>
+
 
 
                     <div className="flex justify-between items-center">
@@ -715,49 +730,29 @@ function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
 
-function IconPlugConnected() {
-  // tomada ligada (azul)
+function IconPlug() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-sky-500 dark:text-sky-400"
-    >
-      <path d="M9 2v6" />
-      <path d="M15 2v6" />
-      <path d="M7 8h10" />
-      <path d="M12 8v5" />
-      <path d="M8 13v4a4 4 0 0 0 8 0v-4" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 7v10" />
+      <path d="M15 7v10" />
+      <path d="M12 17v4" />
+      <path d="M8 3h8" />
+      <path d="M7 7h10" />
+      <path d="M7 11a5 5 0 0 0 10 0" />
     </svg>
   );
 }
 
-function IconPlugDisconnected() {
-  // tomada “desligada/quebrada” (cinza)
+function IconPlugOff() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-slate-400 dark:text-white/30"
-    >
-      <path d="M9 2v6" />
-      <path d="M15 2v6" />
-      <path d="M7 8h10" />
-      <path d="M12 8v5" />
-      <path d="M8 13v4a4 4 0 0 0 8 0v-1" />
-      <path d="M4 20L20 4" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 7v3" />
+      <path d="M15 7v3" />
+      <path d="M7 7h10" />
+      <path d="M12 17v4" />
+      <path d="M8 3h8" />
+      <path d="M3 3l18 18" />
+      <path d="M7 11a5 5 0 0 0 8.5 3.5" />
     </svg>
   );
 }
