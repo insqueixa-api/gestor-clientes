@@ -97,7 +97,8 @@ if (provider === "FAST" && !apiSecret.trim()) return false;
 
 return true;
 
-  }, [provider, integrationName, apiToken, isEdit]);
+    }, [provider, integrationName, apiToken, apiSecret, isEdit]);
+
 
   async function handleSave() {
     if (!canSave) return;
@@ -246,45 +247,43 @@ const { error } = await supabaseBrowser
             </button>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-  Token / Chave API
-</label>
-
-<input
-  value={apiToken}
-  onChange={(e) => setApiToken(e.target.value)}
-  placeholder={provider === "NATV" ? "Bearer token (sem 'Bearer ')" : "Token do Fast"}
-  className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-  disabled={loadingEdit}
-/>
-
-{provider === "FAST" && (
+          <div className="space-y-3">
   <div>
     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-      Secret Key
+      Token / Chave API
     </label>
-
     <input
-      value={apiSecret}
-      onChange={(e) => setApiSecret(e.target.value)}
-      placeholder="Secret Key do Fast"
+      value={apiToken}
+      onChange={(e) => setApiToken(e.target.value)}
+      placeholder={provider === "NATV" ? "Bearer token (sem 'Bearer ')" : "Token do Fast"}
       className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
       disabled={loadingEdit}
     />
-
-    <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-      Obrigatório para autenticação do Fast.
-    </p>
   </div>
-)}
 
+  {provider === "FAST" && (
+    <div>
+      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+        Secret Key
+      </label>
+      <input
+        value={apiSecret}
+        onChange={(e) => setApiSecret(e.target.value)}
+        placeholder="Secret Key do Fast"
+        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+        disabled={loadingEdit}
+      />
+      <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+        Obrigatório para autenticação do Fast.
+      </p>
+    </div>
+  )}
 
-<p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-  {loadingEdit ? "Carregando dados da integração..." : "Esse valor fica visível para facilitar manutenção."}
-</p>
+  <p className="text-[11px] text-slate-500 dark:text-white/40">
+    {loadingEdit ? "Carregando dados da integração..." : "Esse valor fica visível para facilitar manutenção."}
+  </p>
+</div>
 
-          </div>
         </div>
 
         <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
