@@ -72,6 +72,24 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
   const [integration, setIntegration] = useState("");
   const [dnsList, setDnsList] = useState<string[]>(["", "", "", "", "", ""]);
 
+  // ✅ integrações disponíveis (para o Select)
+  type IntegrationOption = {
+    id: string;
+    integration_name: string | null;
+    provider: string | null;
+    is_active: boolean | null;
+  };
+
+  const [integrationOptions, setIntegrationOptions] = useState<IntegrationOption[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+
+  function providerLabel(p: string | null | undefined) {
+    const u = String(p || "").toUpperCase();
+    if (u === "NATV") return "NaTV";
+    if (u === "FAST") return "Fast";
+    return u || "--";
+  }
+
   // Carregar dados na Edição
   useEffect(() => {
     if (server) {
@@ -98,6 +116,43 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       setDnsList(loadedDns.slice(0, 6));
     }
   }, [server]);
+
+    // ✅ carregar integrações para o Select
+  useEffect(() => {
+    let alive = true;
+
+    async function loadIntegrations() {
+      try {
+        setLoadingIntegrations(true);
+        const tenantId = await getCurrentTenantId();
+        if (!tenantId) return;
+
+        const { data, error } = await supabaseBrowser
+          .from("vw_server_integrations")
+          .select("id,integration_name,provider,is_active")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        if (!alive) return;
+
+        setIntegrationOptions((data as any) || []);
+      } catch (e) {
+        console.error(e);
+        if (alive) setIntegrationOptions([]);
+      } finally {
+        if (alive) setLoadingIntegrations(false);
+      }
+    }
+
+    loadIntegrations();
+
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server?.id]);
+
 
   const handleDnsChange = (idx: number, val: string) => {
     const newDns = [...dnsList];
@@ -164,18 +219,68 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       if (isEditing && server) {
         
         // --- ⚡️ LÓGICA DE AJUSTE MANUAL DE SALDO (SEM LOG) ---
+                // --- ⚡️ LÓGICA DE AJUSTE DE SALDO ---
+        // Se houver integração selecionada, ela manda no saldo (sobrescreve o manual).
+        const hasIntegration = Boolean(integration && integration.trim());
+
+        let newCredits = Number(credits || 0);
+
+        if (hasIntegration) {
+          // 1) Descobre o provider da integração selecionada
+          const { data: integ, error: integErr } = await supabase
+            .from("server_integrations")
+            .select("id, provider")
+            .eq("id", integration)
+            .eq("tenant_id", tenantId)
+            .single();
+
+          if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
+
+          const provider = String(integ?.provider || "").toUpperCase();
+
+          // 2) Força um sync antes de aplicar saldo
+          const syncUrl =
+            provider === "FAST"
+              ? "/api/integrations/fast/sync"
+              : "/api/integrations/natv/sync";
+
+          const syncRes = await fetch(syncUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ integration_id: integration }),
+          });
+
+          const syncJson = await syncRes.json().catch(() => ({}));
+          if (!syncRes.ok || !syncJson?.ok) {
+            throw new Error(syncJson?.error || "Falha ao sincronizar integração.");
+          }
+
+          // 3) Lê o saldo atualizado do banco (credits_last_known)
+          const { data: after, error: afterErr } = await supabase
+            .from("server_integrations")
+            .select("credits_last_known")
+            .eq("id", integration)
+            .eq("tenant_id", tenantId)
+            .single();
+
+          if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);
+
+          newCredits = Number(after?.credits_last_known ?? 0);
+        }
+
+        // aplica ajuste (manual ou integrado)
         const currentCredits = Number(server.credits_available || 0);
-        const newCredits = Number(credits || 0);
 
         if (currentCredits !== newCredits) {
-            const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {
-                p_server_id: server.id,
-                p_new_credits: newCredits
-                // Removido p_reason conforme solicitado
-            });
+          const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {
+            p_server_id: server.id,
+            p_new_credits: newCredits,
+          });
 
-            if (adjErr) throw new Error(`Erro ao ajustar saldo: ${adjErr.message}`);
+          if (adjErr) throw new Error(`Erro ao ajustar saldo: ${adjErr.message}`);
         }
+        // -----------------------------------------------------
+
         // -----------------------------------------------------
 
         const { error } = await supabase
@@ -204,57 +309,107 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       // valida moeda
       const safeCurrency: Currency = (currency === "USD" || currency === "EUR") ? currency : "BRL";
 
-      // Se for CRIAÇÃO, mantém a lógica original de compra inicial
-      if (!isEditing && serverId && initialCredits > 0) {
-        if (initialUnitPrice <= 0) {
-          alert("Servidor criado, mas o saldo inicial não foi aplicado: informe o custo unitário.");
-        } else {
-          let fxRateToBrl = 1;
+            // ✅ Se tiver integração selecionada, saldo vem dela (sem topup financeiro)
+      if (!isEditing && serverId && integration && integration.trim()) {
+        // descobre provider
+        const { data: integ, error: integErr } = await supabase
+          .from("server_integrations")
+          .select("id, provider")
+          .eq("id", integration)
+          .eq("tenant_id", tenantId)
+          .single();
 
-          if (safeCurrency !== "BRL") {
-            const { data: fx, error: fxErr } = await supabase
-              .from("tenant_fx_rates")
-              .select("usd_to_brl, eur_to_brl, as_of_date")
-              .eq("tenant_id", tenantId)
-              .order("as_of_date", { ascending: false })
-              .limit(1)
-              .maybeSingle();
+        if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
 
-            if (fxErr) throw fxErr;
+        const provider = String(integ?.provider || "").toUpperCase();
+        const syncUrl =
+          provider === "FAST"
+            ? "/api/integrations/fast/sync"
+            : "/api/integrations/natv/sync";
 
-            fxRateToBrl =
-              safeCurrency === "USD"
+        const syncRes = await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: integration }),
+        });
+
+        const syncJson = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok || !syncJson?.ok) {
+          throw new Error(syncJson?.error || "Falha ao sincronizar integração.");
+        }
+
+        const { data: after, error: afterErr } = await supabase
+          .from("server_integrations")
+          .select("credits_last_known")
+          .eq("id", integration)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);
+
+        const creditsFromIntegration = Number(after?.credits_last_known ?? 0);
+
+        const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {
+          p_server_id: serverId,
+          p_new_credits: creditsFromIntegration,
+        });
+
+        if (adjErr) throw new Error(`Servidor criado, mas falhou ao aplicar saldo da integração: ${adjErr.message}`);
+      }
+
+      // ✅ Se NÃO tiver integração, mantém a lógica de compra inicial (topup)
+      if (!isEditing && serverId && (!integration || !integration.trim())) {
+        const initialCredits = Number(credits) || 0;
+        const initialUnitPrice = Number(unitPrice) || 0;
+
+        const safeCurrency: Currency = currency === "USD" || currency === "EUR" ? currency : "BRL";
+
+        if (initialCredits > 0) {
+          if (initialUnitPrice <= 0) {
+            alert("Servidor criado, mas o saldo inicial não foi aplicado: informe o custo unitário.");
+          } else {
+            let fxRateToBrl = 1;
+
+            if (safeCurrency !== "BRL") {
+              const { data: fx, error: fxErr } = await supabase
+                .from("tenant_fx_rates")
+                .select("usd_to_brl, eur_to_brl, as_of_date")
+                .eq("tenant_id", tenantId)
+                .order("as_of_date", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (fxErr) throw fxErr;
+
+              fxRateToBrl = safeCurrency === "USD"
                 ? Number(fx?.usd_to_brl || 0)
                 : Number(fx?.eur_to_brl || 0);
 
-            if (!fxRateToBrl || fxRateToBrl <= 0) {
-              throw new Error("FX inválido em tenant_fx_rates (usd_to_brl/eur_to_brl).");
+              if (!fxRateToBrl || fxRateToBrl <= 0) {
+                throw new Error("FX inválido em tenant_fx_rates (usd_to_brl/eur_to_brl).");
+              }
             }
-          }
 
-          const totalAmountBrl = initialCredits * initialUnitPrice * fxRateToBrl;
+            const totalAmountBrl = initialCredits * initialUnitPrice * fxRateToBrl;
 
-          const { error: topupErr } = await supabase.rpc("topup_server_credits_and_log", {
-            p_tenant_id: tenantId,
-            p_server_id: serverId,
-            p_credits_qty: initialCredits,
-            p_unit_price: initialUnitPrice,
+            const { error: topupErr } = await supabase.rpc("topup_server_credits_and_log", {
+              p_tenant_id: tenantId,
+              p_server_id: serverId,
+              p_credits_qty: initialCredits,
+              p_unit_price: initialUnitPrice,
+              p_purchase_currency: safeCurrency,
+              p_total_amount_brl: totalAmountBrl,
+              p_fx_rate_to_brl: fxRateToBrl,
+              p_notes: "Saldo inicial (criação do servidor)",
+            });
 
-            // ✅ manda string válida; no banco isso deve ser currency_code
-            p_purchase_currency: safeCurrency,
-
-            p_total_amount_brl: totalAmountBrl,
-            p_fx_rate_to_brl: fxRateToBrl,
-            p_notes: "Saldo inicial (criação do servidor)",
-          });
-
-          if (topupErr) {
-            throw new Error(
-              `Servidor criado, mas falhou ao aplicar saldo inicial: ${topupErr.message}`
-            );
+            if (topupErr) {
+              throw new Error(`Servidor criado, mas falhou ao aplicar saldo inicial: ${topupErr.message}`);
+            }
           }
         }
       }
+
 
       setSaving(false);
       onSuccess();
@@ -379,6 +534,18 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
                   * Saldo inicial do servidor (registrado como compra).
                 </p>
               )}
+              {!isEditing && (
+  <p className="text-[10px] text-emerald-600/80 italic px-1">
+    * Saldo inicial do servidor (registrado como compra).
+  </p>
+)}
+
+{integration && integration.trim() && (
+  <div className="mt-1 p-2 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded text-[10px] text-sky-700 dark:text-sky-300">
+    ✅ Integração selecionada: ao salvar, o saldo será sincronizado e sobrescrito pelo painel.
+  </div>
+)}
+
             </div>
           </div>
 
@@ -386,9 +553,20 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
             <div className="space-y-1">
               <Label>Api integração</Label>
-              <Select value={integration} onChange={(e) => setIntegration(e.target.value)}>
-                <option value="">Selecione a integração...</option>
-              </Select>
+<Select value={integration} onChange={(e) => setIntegration(e.target.value)}>
+  <option value="">
+    {loadingIntegrations ? "Carregando integrações..." : "Selecione a integração..."}
+  </option>
+
+  {integrationOptions
+    .filter((i) => i?.is_active !== false) // só ativa
+    .map((i) => (
+      <option key={i.id} value={i.id}>
+        {(i.integration_name || "Sem nome") + " — " + providerLabel(i.provider)}
+      </option>
+    ))}
+</Select>
+
             </div>
           </div>
 
