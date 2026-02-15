@@ -7,26 +7,45 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export type IntegrationProvider = "NATV";
 
+export type IntegrationEditPayload = {
+  id: string;
+  provider: IntegrationProvider | string;
+  integration_name: string | null;
+  is_active: boolean | null;
+};
+
 export default function NovaIntegracaoModal({
+  integration,
   onClose,
   onSuccess,
   onError,
 }: {
+  integration?: IntegrationEditPayload | null;
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
-  const [provider, setProvider] = useState<IntegrationProvider>("NATV");
-  const [integrationName, setIntegrationName] = useState("");
-  const [apiToken, setApiToken] = useState("");
+  const isEdit = !!integration?.id;
+
+  const [provider, setProvider] = useState<IntegrationProvider>(
+    (String(integration?.provider || "NATV").toUpperCase() as IntegrationProvider) || "NATV"
+  );
+  const [integrationName, setIntegrationName] = useState(integration?.integration_name ?? "");
+  const [apiToken, setApiToken] = useState(""); // nunca preenchemos com token atual
+  const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
+
   const [saving, setSaving] = useState(false);
 
   const canSave = useMemo(() => {
     if (!provider) return false;
     if (!integrationName.trim()) return false;
-    if (!apiToken.trim()) return false;
+
+    // ✅ criar: token obrigatório
+    if (!isEdit && !apiToken.trim()) return false;
+
+    // ✅ editar: token opcional
     return true;
-  }, [provider, integrationName, apiToken]);
+  }, [provider, integrationName, apiToken, isEdit]);
 
   async function handleSave() {
     if (!canSave) return;
@@ -36,15 +55,40 @@ export default function NovaIntegracaoModal({
       const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
 
-      const payload = {
-        tenant_id: tenantId,
+      if (!isEdit) {
+        // ✅ INSERT
+        const payload = {
+          tenant_id: tenantId,
+          provider,
+          integration_name: integrationName.trim(),
+          api_token: apiToken.trim(),
+          is_active: isActive,
+        };
+
+        const { error } = await supabaseBrowser.from("server_integrations").insert(payload);
+        if (error) throw error;
+
+        onSuccess();
+        return;
+      }
+
+      // ✅ UPDATE
+      const patch: any = {
         provider,
         integration_name: integrationName.trim(),
-        api_token: apiToken.trim(),
-        // owner_id/owner_username/credits serão preenchidos quando plugar o "Testar Token"
+        is_active: isActive,
       };
 
-      const { error } = await supabaseBrowser.from("server_integrations").insert(payload);
+      // só troca token se usuário digitou
+      if (apiToken.trim()) {
+        patch.api_token = apiToken.trim();
+      }
+
+      const { error } = await supabaseBrowser
+        .from("server_integrations")
+        .update(patch)
+        .eq("id", integration!.id);
+
       if (error) throw error;
 
       onSuccess();
@@ -63,10 +107,12 @@ export default function NovaIntegracaoModal({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight truncate">
-                Nova Integração
+                {isEdit ? "Editar Integração" : "Nova Integração"}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
-                Cadastre um token de integração para automatizações e consulta de saldo.
+                {isEdit
+                  ? "Atualize os dados. Para trocar o token, cole um novo (o atual não é exibido)."
+                  : "Cadastre um token de integração para automatizações e consulta de saldo."}
               </p>
             </div>
             <button
@@ -108,18 +154,42 @@ export default function NovaIntegracaoModal({
             </p>
           </div>
 
+          {/* ✅ Status (ativa/inativa) */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-700 dark:text-white">Integração ativa</div>
+              <div className="text-[11px] text-slate-500 dark:text-white/40">
+                Se desativar, ela não deve ser usada pelo servidor.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsActive((v) => !v)}
+              className={`h-9 px-3 rounded-lg text-xs font-bold border transition-colors ${
+                isActive
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+              }`}
+            >
+              {isActive ? "Ativa" : "Inativa"}
+            </button>
+          </div>
+
           <div>
             <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              Token / Chave API
+              {isEdit ? "Novo Token (opcional)" : "Token / Chave API"}
             </label>
             <input
               value={apiToken}
               onChange={(e) => setApiToken(e.target.value)}
-              placeholder="Bearer token (sem 'Bearer ')"
+              placeholder={isEdit ? "Cole aqui o NOVO token (não exibimos o atual)" : "Bearer token (sem 'Bearer ')"} 
               className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             />
             <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-              Depois a gente pluga o botão “Testar Token” para preencher owner e saldo automaticamente.
+              {isEdit
+                ? "Por segurança, o token atual não é exibido. Se não preencher, ele permanece igual."
+                : "Depois a gente usa o botão Sync/Testar para preencher revenda e saldo automaticamente."}
             </p>
           </div>
         </div>

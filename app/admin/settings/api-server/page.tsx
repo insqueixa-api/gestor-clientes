@@ -43,6 +43,7 @@ export default function ApiServerPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
+
   async function fetchData() {
     try {
       setLoading(true);
@@ -79,6 +80,13 @@ export default function ApiServerPage() {
     if (u === "NATV") return "NaTV";
     return u || "--";
   }
+
+  const [editingIntegration, setEditingIntegration] = useState<{
+  id: string;
+  provider: string;
+  integration_name: string | null;
+  is_active: boolean | null;
+} | null>(null);
 
   async function handleSync(row: IntegrationRow) {
   try {
@@ -138,19 +146,21 @@ export default function ApiServerPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
             API Servidor
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
-            Cadastre integrações com revendas/painéis para automações (renovação, saldo, etc).
-          </p>
+
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-            type="button"
-          >
-            <span>+</span> Nova Integração
-          </button>
+        <button
+          onClick={() => {
+            setEditingIntegration(null);
+            setIsModalOpen(true);
+          }}
+          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+          type="button"
+        >
+          <span>+</span> Nova Integração
+        </button>
+
         </div>
       </div>
 
@@ -193,13 +203,27 @@ export default function ApiServerPage() {
                       </span>
                     )}
                   </div>
-
-                  <div className="text-[11px] text-slate-500 dark:text-white/50 mt-1">
-                    Integração cadastrada no tenant (servidor escolhe depois).
-                  </div>
                 </div>
 
                 <div className="flex gap-2 shrink-0">
+
+                  <IconActionBtn
+                    title="Editar"
+                    tone="amber"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingIntegration({
+                        id: row.id,
+                        provider: row.provider,
+                        integration_name: row.integration_name,
+                        is_active: row.is_active,
+                      });
+                      setIsModalOpen(true);
+                    }}
+                  >
+                    <IconEdit />
+                  </IconActionBtn>
+
                   <IconActionBtn
                     title="Testar/Sync"
                     tone="blue"
@@ -266,31 +290,29 @@ export default function ApiServerPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="bg-slate-50 dark:bg-black/20 p-3 border-t border-slate-200 dark:border-white/10 text-[11px]">
-                <span className="font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">
-                  Observação:
-                </span>{" "}
-                <span className="text-slate-500 dark:text-white/50">
-                  O Owner ID é a âncora (fica no banco). Na tela você usa o username.
-                </span>
-              </div>
+            
             </div>
           ))}
         </div>
       )}
 
-      {isModalOpen && (
-        <NovaIntegracaoModal
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={() => {
-            setIsModalOpen(false);
-            addToast("success", "Salvo", "Integração cadastrada com sucesso.");
-            fetchData();
-          }}
-          onError={(msg) => addToast("error", "Erro", msg)}
-        />
-      )}
+        {isModalOpen && (
+          <NovaIntegracaoModal
+            integration={editingIntegration}
+            onClose={() => {
+              setIsModalOpen(false);
+              setEditingIntegration(null);
+            }}
+            onSuccess={() => {
+              setIsModalOpen(false);
+              setEditingIntegration(null);
+              addToast("success", "Salvo", "Integração salva com sucesso.");
+              fetchData();
+            }}
+            onError={(msg) => addToast("error", "Erro", msg)}
+          />
+        )}
+
 
       {ConfirmUI}
 
@@ -350,6 +372,23 @@ function IconSync() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 12a9 9 0 1 1-3-6.7" />
       <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}
+function IconEdit() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
 }
