@@ -376,25 +376,73 @@ export default function QuickRechargeModal({
       if (!tenantId) throw new Error("Tenant inválido");
       if (!selectedLink?.server_id) throw new Error("Servidor inválido no vínculo");
 
+      // 1) Busca dados do servidor para saber se tem integração
+      const { data: serverData, error: serverErr } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", selectedLink.server_id)
+        .single();
+
+      if (serverErr) throw new Error(serverErr.message);
+
+      const hasIntegration = Boolean(serverData?.panel_integration);
+
+      // 2) Prepara payload base
       const payload = {
         p_tenant_id: tenantId,
         p_server_id: selectedLink.server_id,
         p_reseller_server_id: selectedResellerServerId,
-        p_credits_sold: qty, // numeric
-        p_unit_price: unitCurrency, // numeric
-        p_sale_currency: currency as any, // currency_enum
-        p_total_amount_brl: totalBRL, // numeric (calculado no front)
+        p_credits_sold: qty,
+        p_unit_price: unitCurrency,
+        p_sale_currency: currency as any,
+        p_total_amount_brl: totalBRL,
         p_notes: (notes || "").trim() || null,
       };
 
-      const { data, error } = await supabaseBrowser.rpc(
-        "sell_credits_to_reseller_and_log",
-        payload as any
-      );
+      if (hasIntegration) {
+        // 3A) Servidor COM integração → salva log + sync
+        const { error: saleErr } = await supabaseBrowser.rpc(
+          "sell_credits_to_reseller_without_balance",
+          payload as any
+        );
 
-      if (error) throw new Error(error.message);
+        if (saleErr) throw new Error(saleErr.message);
 
-      // opcional: você pode usar data.server_balance_after se quiser exibir
+        // 3B) Busca provider da integração
+        const { data: integData, error: integErr } = await supabaseBrowser
+          .from("server_integrations")
+          .select("id, provider")
+          .eq("id", serverData.panel_integration)
+          .single();
+
+        if (integErr) throw new Error(integErr.message);
+
+        const provider = String(integData?.provider || "").toUpperCase();
+        const syncUrl = provider === "FAST"
+          ? "/api/integrations/fast/sync"
+          : "/api/integrations/natv/sync";
+
+        // 3C) Chama sync
+        const syncRes = await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: serverData.panel_integration }),
+        });
+
+        const syncJson = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok || !syncJson?.ok) {
+          throw new Error("Venda registrada, mas falhou ao sincronizar saldo: " + (syncJson?.error || ""));
+        }
+      } else {
+        // 4) Servidor SEM integração → venda normal (desconta saldo)
+        const { error } = await supabaseBrowser.rpc(
+          "sell_credits_to_reseller_and_log",
+          payload as any
+        );
+
+        if (error) throw new Error(error.message);
+      }
+
       await onDone();
       onClose();
     } catch (err: any) {
