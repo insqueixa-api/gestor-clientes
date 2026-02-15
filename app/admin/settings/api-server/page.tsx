@@ -77,8 +77,10 @@ export default function ApiServerPage() {
 
   function providerLabel(p: string) {
     const u = String(p || "").toUpperCase();
-    if (u === "NATV") return "NaTV";
-    return u || "--";
+if (u === "NATV") return "NaTV";
+if (u === "FAST") return "Fast";
+return u || "--";
+
   }
 
   const [editingIntegration, setEditingIntegration] = useState<{
@@ -90,8 +92,20 @@ export default function ApiServerPage() {
 
   async function handleSync(row: IntegrationRow) {
   try {
-    addToast("success", "Sincronizando", "Validando token e buscando saldo...");
-    const res = await fetch("/api/integrations/natv/sync", {
+    const provider = String(row.provider || "").toUpperCase();
+
+    const url =
+      provider === "FAST"
+        ? "/api/integrations/fast/sync"
+        : "/api/integrations/natv/sync";
+
+    addToast(
+      "success",
+      "Sincronizando",
+      `Validando ${providerLabel(provider)} e buscando saldo...`
+    );
+
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ integration_id: row.id }),
@@ -108,6 +122,7 @@ export default function ApiServerPage() {
     addToast("error", "Erro", e?.message ?? "Falha ao sincronizar.");
   }
 }
+
 
   async function handleDelete(row: IntegrationRow) {
     const ok = await confirm({
