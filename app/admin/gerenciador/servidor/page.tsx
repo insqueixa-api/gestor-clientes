@@ -28,7 +28,14 @@ export type ServerRow = {
   panel_type: "WEB" | "TELEGRAM" | null;
   panel_web_url: string | null;
   panel_telegram_group: string | null;
+
   panel_integration: string | null;
+
+  // ✅ extras UI (não depende da view)
+  panel_integration_name?: string | null;
+  panel_integration_provider?: string | null;
+  panel_integration_active?: boolean | null;
+
   dns: string[];
   is_archived: boolean;
   created_at: string;
@@ -41,6 +48,7 @@ export type ServerRow = {
     resellers: number;
   };
 };
+
 
 type ClientLight = {
   server_id: string | null;
@@ -113,19 +121,45 @@ export default function AdminServersPage() {
         .eq("is_trial", true)
         .eq("is_archived", false);
 
-      const resellersPromise = supabase.from("reseller_servers").select("server_id");
+            const resellersPromise = supabase.from("reseller_servers").select("server_id");
 
-      const [serversRes, clientsRes, trialClientsRes, resellersRes] = await Promise.all([
-        serversPromise,
-        clientsPromise,
-        trialClientsPromise,
-        resellersPromise,
-      ]);
+      // ✅ NOVO: busca integrações para resolver nome/provider na UI
+      const integrationsPromise = supabase
+        .from("vw_server_integrations")
+        .select("id,integration_name,provider,is_active")
+        .eq("tenant_id", tenantId);
+
+      const [serversRes, clientsRes, trialClientsRes, resellersRes, integrationsRes] =
+        await Promise.all([
+          serversPromise,
+          clientsPromise,
+          trialClientsPromise,
+          resellersPromise,
+          integrationsPromise,
+        ]);
 
       if (serversRes.error) throw serversRes.error;
       if (clientsRes.error) throw clientsRes.error;
       if (trialClientsRes.error) throw trialClientsRes.error;
       if (resellersRes.error) throw resellersRes.error;
+
+      // ✅ NOVO: valida + cria map id -> (name/provider/active)
+      if (integrationsRes.error) throw integrationsRes.error;
+
+      const rawIntegrations = (integrationsRes.data as any[]) || [];
+
+      const integrationMap = new Map<
+        string,
+        { name: string | null; provider: string | null; active: boolean | null }
+      >();
+
+      rawIntegrations.forEach((i) => {
+        integrationMap.set(i.id, {
+          name: i.integration_name ?? null,
+          provider: i.provider ?? null,
+          active: i.is_active ?? null,
+        });
+      });
 
       const rawServers = (serversRes.data as any[]) || [];
       const rawClients = (clientsRes.data as ClientLight[]) || [];
@@ -165,12 +199,23 @@ export default function AdminServersPage() {
         statsMap.get(r.server_id)!.resellers++;
       });
 
-      const mergedServers: ServerRow[] = rawServers.map((s) => ({
-        ...s,
-        stats: statsMap.get(s.id) || { total: 0, active: 0, inactive: 0, trial: 0, resellers: 0 },
-      }));
+      // ✅ ALTERADO: mergedServers agora resolve o nome da integração
+      const mergedServers: ServerRow[] = rawServers.map((s) => {
+        const integId = s.panel_integration ? String(s.panel_integration) : null;
+        const integ = integId ? integrationMap.get(integId) : null;
+
+        return {
+          ...s,
+          panel_integration_name: integ?.name ?? null,
+          panel_integration_provider: integ?.provider ?? null,
+          panel_integration_active: integ?.active ?? null,
+          stats:
+            statsMap.get(s.id) || { total: 0, active: 0, inactive: 0, trial: 0, resellers: 0 },
+        };
+      });
 
       setServers(mergedServers);
+
     } catch (error: any) {
       console.error("Erro ao carregar dados:", error);
       addToast("error", "Erro ao carregar", error.message);
@@ -510,10 +555,23 @@ export default function AdminServersPage() {
                       </span>
                     </div>
                     
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">🔗 Integração</span>
-                      <span className="font-medium text-slate-700 dark:text-white">{server.panel_integration || "--"}</span>
-                    </div>
+<div className="flex justify-between items-center">
+  <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
+    {server.panel_integration ? (
+      <IconPlugConnected />
+    ) : (
+      <IconPlugDisconnected />
+    )}
+    Integração
+  </span>
+
+  <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
+    {server.panel_integration
+      ? `${server.panel_integration_name || "Sem nome"} — ${providerLabel(server.panel_integration_provider)}`
+      : "--"}
+  </span>
+</div>
+
 
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-white/50">🧩 Painel</span>
@@ -641,6 +699,14 @@ function IconActionBtn({
     </button>
   );
 }
+function providerLabel(p: string | null | undefined) {
+  const u = String(p || "").toUpperCase();
+
+  if (u === "NATV") return "NaTV";
+  if (u === "FAST") return "Fast";
+
+  return u || "--";
+}
 
 // Ícones Padronizados
 function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
@@ -648,3 +714,50 @@ function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
+
+function IconPlugConnected() {
+  // tomada ligada (azul)
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-sky-500 dark:text-sky-400"
+    >
+      <path d="M9 2v6" />
+      <path d="M15 2v6" />
+      <path d="M7 8h10" />
+      <path d="M12 8v5" />
+      <path d="M8 13v4a4 4 0 0 0 8 0v-4" />
+    </svg>
+  );
+}
+
+function IconPlugDisconnected() {
+  // tomada “desligada/quebrada” (cinza)
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-slate-400 dark:text-white/30"
+    >
+      <path d="M9 2v6" />
+      <path d="M15 2v6" />
+      <path d="M7 8h10" />
+      <path d="M12 8v5" />
+      <path d="M8 13v4a4 4 0 0 0 8 0v-1" />
+      <path d="M4 20L20 4" />
+    </svg>
+  );
+}
