@@ -6,6 +6,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 
+
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">{children}</label>;
@@ -32,6 +33,9 @@ type Props = {
 
 export default function RecargaServidorModal({ server, onClose, onSuccess }: Props) {
   const [saving, setSaving] = useState(false);
+  
+  // ✅ Detecta se tem integração
+  const hasIntegration = Boolean(server.panel_integration);
   
   // ✅ Pega dados iniciais do objeto server passado
   const defaultUnitCost = server.credit_unit_cost_brl ?? server.default_credit_unit_price ?? 0;
@@ -228,17 +232,66 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3 bg-slate-50 dark:bg-white/5">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors">
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
-          >
-            {saving ? "Registrando..." : "Confirmar Recarga"}
-          </button>
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
+          
+          {hasIntegration && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+              ⚠️ <strong>Este servidor está vinculado à integração "{server.panel_integration_name}".</strong>
+              <br />
+              O saldo é controlado pelo painel externo. Recargas manuais serão sobrescritas no próximo sync.
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button 
+              onClick={onClose} 
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 text-sm font-semibold transition-colors"
+            >
+              Cancelar
+            </button>
+            
+            {hasIntegration ? (
+              <button
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const provider = String(server.panel_integration_provider || "").toUpperCase();
+                    const url = provider === "FAST"
+                      ? "/api/integrations/fast/sync"
+                      : "/api/integrations/natv/sync";
+
+                    const res = await fetch(url, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ integration_id: server.panel_integration }),
+                    });
+
+                    const json = await res.json().catch(() => ({}));
+                    if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao sincronizar.");
+
+                    alert("Saldo sincronizado com sucesso!");
+                    onSuccess();
+                  } catch (e: any) {
+                    alert("Erro: " + e.message);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="px-6 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-sky-900/20 transition-all"
+              >
+                {saving ? "Sincronizando..." : "🔄 Sincronizar Saldo da Integração"}
+              </button>
+            ) : (
+              <button 
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+              >
+                {saving ? "Registrando..." : "Confirmar Recarga"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>,

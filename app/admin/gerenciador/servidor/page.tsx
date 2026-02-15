@@ -252,6 +252,37 @@ export default function AdminServersPage() {
     }
   }
 
+  async function handleSyncIntegration(server: ServerRow) {
+    if (!server.panel_integration) {
+      addToast("error", "Sem integração", "Este servidor não tem integração vinculada.");
+      return;
+    }
+
+    try {
+      const provider = String(server.panel_integration_provider || "").toUpperCase();
+      const url = provider === "FAST"
+        ? "/api/integrations/fast/sync"
+        : "/api/integrations/natv/sync";
+
+      addToast("success", "Sincronizando", `Atualizando saldo da integração ${server.panel_integration_name}...`);
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integration_id: server.panel_integration }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao sincronizar.");
+      }
+
+      addToast("success", "Sincronizado", "Saldo atualizado com sucesso!");
+      fetchServers();
+    } catch (e: any) {
+      addToast("error", "Erro ao sincronizar", e.message);
+    }
+  }
   async function handleHardDelete(server: ServerRow) {
     if (!server.is_archived) {
       addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente um servidor arquivado.");
@@ -432,6 +463,20 @@ export default function AdminServersPage() {
       }}
     >
       <IconTrash />
+    </IconActionBtn>
+  )}
+
+  {/* Botão de Sync (só se tiver integração) */}
+  {server.panel_integration && (
+    <IconActionBtn
+      title="Sincronizar saldo da integração"
+      tone="blue"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleSyncIntegration(server);
+      }}
+    >
+      <IconSync />
     </IconActionBtn>
   )}
 
@@ -769,6 +814,14 @@ export function IconPlugOff() {
         d="M17.1666 1.66669V8.33335H14.8888V1.66669H17.1666ZM10.3333 1.66669V8.33335H8.05552V1.66669H10.3333ZM19.4444 10.5556H5.77775C4.53822 10.5556 3.5 11.5938 3.5 12.8334C3.5 14.0729 4.53822 15.1111 5.77775 15.1111H6.66664L7.47313 16.3726C7.93464 17.0959 8.1654 17.4575 8.26393 17.7857C8.35209 18.0801 8.40109 18.3851 8.4091 18.6928C8.41794 19.0343 8.34737 19.4515 8.20621 20.286L6.66664 30.3334H18.5555L17.0159 20.286C16.8748 19.4515 16.8042 19.0343 16.813 18.6928C16.8211 18.3851 16.8701 18.0801 16.9582 17.7857C17.0568 17.4575 17.2875 17.0959 17.749 16.3726L18.5555 15.1111H19.4444C20.6839 15.1111 21.7222 14.0729 21.7222 12.8334C21.7222 11.5938 20.6839 10.5556 19.4444 10.5556Z"
         fill="currentColor" // Usa a cor do texto (preto por padrão)
       />
+    </svg>
+  );
+}
+function IconSync() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <polyline points="21 3 21 9 15 9" />
     </svg>
   );
 }
