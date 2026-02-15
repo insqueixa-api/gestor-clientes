@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import AreaDoClienteClient from "./renew/RenewClient";
+import LoginClient from "./LoginClient";
 
-export default function Page() {
+export default function HomePage() {
   return (
     <Suspense fallback={<div />}>
-      <AreaDoClienteClient />
+      <LoginClient />
     </Suspense>
   );
 }

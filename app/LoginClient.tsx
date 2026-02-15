@@ -11,13 +11,32 @@ const supabase = createClient(
 
 type Msg = { text: string; type: "error" | "success" };
 
-export default function AreaDoClienteClient() {
+function formatWhatsApp(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  
+  if (digits.startsWith('55') && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    
+    if (rest.length === 9) {
+      return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    }
+    if (rest.length === 8) {
+      return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    }
+  }
+  
+  return phone;
+}
+
+export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
   const token = useMemo(() => (sp.get("t") ?? "").trim(), [sp]);
 
-  const [whatsapp, setWhatsapp] = useState(""); // preenchido via token
+  const [whatsapp, setWhatsapp] = useState("");
   const [pin, setPin] = useState("");
   const [msg, setMsg] = useState<Msg | null>(null);
 
@@ -108,7 +127,8 @@ export default function AreaDoClienteClient() {
         return;
       }
 
-      router.push(`/renew/panel?session=${encodeURIComponent(sessionToken)}`);
+      // ✅ REDIRECIONA PARA /renew APÓS LOGIN
+      router.push(`/renew?session=${encodeURIComponent(sessionToken)}`);
     } catch {
       setMsg({ type: "error", text: "Erro ao acessar. Tente novamente." });
     } finally {
@@ -126,15 +146,7 @@ export default function AreaDoClienteClient() {
 
     setLoadingReset(true);
     try {
-      const { error } = await supabase.rpc("portal_request_pin_reset", { p_token: token });
-
-      if (error) {
-        setMsg({
-          type: "success",
-          text: "Se este número estiver cadastrado, enviaremos um link de redefinição no WhatsApp.",
-        });
-        return;
-      }
+      await supabase.rpc("portal_request_pin_reset", { p_token: token });
 
       setMsg({
         type: "success",
@@ -156,9 +168,8 @@ export default function AreaDoClienteClient() {
     return "";
   }, [cleanPhone]);
 
-return (
+  return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-10 bg-slate-50 dark:bg-[#0f141a]">
-      {/* Fundo */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -196,13 +207,12 @@ return (
                 <div className="mt-1 relative">
                   <input
                     type="text"
-                    value={whatsapp}
+                    value={formatWhatsApp(whatsapp)}
                     readOnly
                     placeholder={loadingResolve ? "Validando link..." : "—"}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-slate-900 outline-none transition
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center font-bold text-lg text-slate-900 outline-none transition
                       focus:ring-2 focus:ring-emerald-500/60
-                      dark:border-white/10 dark:bg-black/40 dark:text-white
-                      opacity-95"
+                      dark:border-white/10 dark:bg-black/40 dark:text-white"
                   />
                   {loadingResolve && (
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 dark:text-white/50">
@@ -211,7 +221,7 @@ return (
                   )}
                 </div>
 
-                <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50">
+                <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
                   Esse número vem do link. Se estiver errado, solicite um novo link.
                 </p>
               </div>
@@ -234,8 +244,8 @@ return (
                 />
 
                 {!!pinHint && (
-                  <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50">
-                    Dica: o PIN inicial costuma ser os últimos 4 dígitos do seu WhatsApp:{" "}
+                  <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
+                    Dica: PIN inicial costuma ser os últimos 4 dígitos do WhatsApp:{" "}
                     <span className="font-extrabold">{pinHint}</span>
                   </p>
                 )}

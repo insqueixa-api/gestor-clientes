@@ -610,7 +610,7 @@ if (isCron) {
           const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
           if (portalToken) {
-            vars.link_pagamento = `https://unigestor.net.br/renew?t=${encodeURIComponent(portalToken)}`;
+            vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
           } else {
             console.log("[PORTAL][cron_token:v2] retorno sem token");
           }
