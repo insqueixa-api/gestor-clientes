@@ -730,6 +730,7 @@ function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
 
+// Ícone LIGADO (Verde, com raio)
 export function IconPlug() {
   return (
     <svg
@@ -737,22 +738,23 @@ export function IconPlug() {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M13 2L10 2" />
-      <path d="M13 16L13 22" />
-      <path d="M6 8L6 11C6 14.3137 8.68629 17 12 17C15.3137 17 18 14.3137 18 11L18 8" />
-      <path d="M9 2V8" />
-      <path d="M15 2V8" />
-      {/* Opcional: Um raiozinho pequeno no centro se quiser detalhe */}
-      <path d="M11 10L13 12H10.5L12.5 14" strokeWidth="1.5" />
+      {/* Plugue e cabo preenchidos em verde */}
+      <path
+        d="M17.1666 1.66669V8.33335H14.8888V1.66669H17.1666ZM10.3333 1.66669V8.33335H8.05552V1.66669H10.3333ZM19.4444 10.5556H5.77775C4.53822 10.5556 3.5 11.5938 3.5 12.8334C3.5 14.0729 4.53822 15.1111 5.77775 15.1111H6.66664L7.47313 16.3726C7.93464 17.0959 8.1654 17.4575 8.26393 17.7857C8.35209 18.0801 8.40109 18.3851 8.4091 18.6928C8.41794 19.0343 8.34737 19.4515 8.20621 20.286L6.66664 30.3334H18.5555L17.0159 20.286C16.8748 19.4515 16.8042 19.0343 16.813 18.6928C16.8211 18.3851 16.8701 18.0801 16.9582 17.7857C17.0568 17.4575 17.2875 17.0959 17.749 16.3726L18.5555 15.1111H19.4444C20.6839 15.1111 21.7222 14.0729 21.7222 12.8334C21.7222 11.5938 20.6839 10.5556 19.4444 10.5556Z"
+        fill="#22C55E" // Cor VERDE para ligado
+      />
+      {/* Raio branco no centro */}
+      <path
+        d="M13.75 11.6667L10.3333 16.25H12.6111L11.4722 21.6667L14.8889 17.0834H12.6111L13.75 11.6667Z"
+        fill="white"
+      />
     </svg>
   );
 }
 
+// Ícone DESLIGADO (Preto, sem raio)
 export function IconPlugOff() {
   return (
     <svg
@@ -760,18 +762,13 @@ export function IconPlugOff() {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M13 2L10 2" />
-      <path d="M13 16L13 22" />
-      <path d="M6 8v3c0 1.2.3 2.3.8 3.3" />
-      <path d="M18 11V8" />
-      <path d="M9 2v4" />
-      <path d="M15 2v2" />
-      <path d="M3 3l18 18" />
+      {/* Plugue e cabo preenchidos em preto, sem o raio */}
+      <path
+        d="M17.1666 1.66669V8.33335H14.8888V1.66669H17.1666ZM10.3333 1.66669V8.33335H8.05552V1.66669H10.3333ZM19.4444 10.5556H5.77775C4.53822 10.5556 3.5 11.5938 3.5 12.8334C3.5 14.0729 4.53822 15.1111 5.77775 15.1111H6.66664L7.47313 16.3726C7.93464 17.0959 8.1654 17.4575 8.26393 17.7857C8.35209 18.0801 8.40109 18.3851 8.4091 18.6928C8.41794 19.0343 8.34737 19.4515 8.20621 20.286L6.66664 30.3334H18.5555L17.0159 20.286C16.8748 19.4515 16.8042 19.0343 16.813 18.6928C16.8211 18.3851 16.8701 18.0801 16.9582 17.7857C17.0568 17.4575 17.2875 17.0959 17.749 16.3726L18.5555 15.1111H19.4444C20.6839 15.1111 21.7222 14.0729 21.7222 12.8334C21.7222 11.5938 20.6839 10.5556 19.4444 10.5556Z"
+        fill="currentColor" // Usa a cor do texto (preto por padrão)
+      />
     </svg>
   );
 }
