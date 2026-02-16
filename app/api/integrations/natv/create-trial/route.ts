@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     const domain = finalData.domain || "natv.pm";
     const finalUsername = finalData.username || attemptUsername;
     const finalPassword = finalData.password || "";
-    const m3u_url = `http://${domain}/${finalUsername}/${finalPassword}/playlist.m3u8`;
+    const m3u_url = `http://${domain}/get.php?username=${finalUsername}&password=${finalPassword}&type=m3u_plus&output=ts`;
 
     // Retornar dados
     return NextResponse.json({

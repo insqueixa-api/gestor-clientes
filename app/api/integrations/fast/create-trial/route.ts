@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     // M3U (FAST pode retornar domain no data, ou usar padrão)
     const domain = finalData.data?.domain || "painel.fast"; // ajustar se souber o padrão
-    const m3u_url = `http://${domain}/${attemptUsername}/${attemptPassword}/playlist.m3u8`;
+    const m3u_url = `http://${domain}/get.php?username=${attemptUsername}&password=${attemptPassword}&type=m3u_plus&output=ts`;
 
     return NextResponse.json({
       ok: true,

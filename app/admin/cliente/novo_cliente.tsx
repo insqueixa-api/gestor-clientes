@@ -1576,29 +1576,54 @@ try {
         }
 
         // 6. Atualizar dados com resposta
-        apiUsername = apiJson.data.username;
-        apiPassword = apiJson.data.password;
-        apiM3uUrl = apiJson.data.m3u_url || "";
+apiUsername = apiJson.data.username;
+apiPassword = apiJson.data.password;
+apiM3uUrl = apiJson.data.m3u_url || "";
 
-        // Converter exp_date (timestamp) para ISO
-        if (apiJson.data.exp_date) {
-          const expDate = new Date(apiJson.data.exp_date * 1000);
-          apiVencimento = expDate.toISOString();
-        }
-        // ✅ DEBUG: Verificar se M3U está chegando
-        console.log("🔵 M3U da API:", apiM3uUrl);
+// ✅ ATUALIZAR ESTADO DO MODAL (para refletir na UI imediatamente)
+setUsername(apiUsername);
+setPassword(apiPassword);
+setM3uUrl(apiM3uUrl);
+
+// Converter exp_date (timestamp) para ISO
+if (apiJson.data.exp_date) {
+  const expDate = new Date(apiJson.data.exp_date * 1000);
+  apiVencimento = expDate.toISOString();
+}
 
 // 7. Sync (atualizar saldo do servidor)
-        const syncUrl = provider === "FAST"
-          ? "/api/integrations/fast/sync"
-          : "/api/integrations/natv/sync";
+const syncUrl = provider === "FAST"
+  ? "/api/integrations/fast/sync"
+  : "/api/integrations/natv/sync";
 
-        await fetch(syncUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ integration_id: srv.panel_integration }),
-        });
+await fetch(syncUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ integration_id: srv.panel_integration }),
+});
+
+// ✅ ENFILEIRAR Toast de sucesso da API
+queueListToast(isTrialMode ? "trial" : "client", {
+  type: "success",
+  title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
+  message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`
+});
+
+// 6. Atualizar dados com resposta
+apiUsername = apiJson.data.username;
+apiPassword = apiJson.data.password;
+apiM3uUrl = apiJson.data.m3u_url || "";
+
+// ✅ DEBUG
+console.log("🔵 Dados recebidos da API:", {
+  username: apiUsername,
+  password: apiPassword,
+  m3u_url: apiM3uUrl,
+  exp_date: apiJson.data.exp_date,
+});
       }
+
+      
       
       // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
       

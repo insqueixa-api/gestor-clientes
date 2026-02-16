@@ -114,7 +114,7 @@ const res = await fetch("https://revenda.pixbot.link/user", {
 
     // Construir M3U URL
     const domain = activateData.domain || "natv.pm";
-    const m3u_url = `http://${domain}/${attemptUsername}/${finalPassword}/playlist.m3u8`;
+    const m3u_url = `http://${domain}/get.php?username=${attemptUsername}&password=${finalPassword}&type=m3u_plus&output=ts`;
 
     // Retornar dados
     return NextResponse.json({
