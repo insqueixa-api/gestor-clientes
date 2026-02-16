@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../../ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // Componentes (CORRIGIDO: PascalCase)
 import NovoCliente, { ClientData } from "../novo_cliente";
@@ -122,6 +123,8 @@ type VwClientRow = {
   alerts_open: number;
 
   notes: string | null;
+  // ✅ (não vem da view; vamos buscar na tabela clients)
+  m3u_url?: string | null;
 };
 
 type ClientDetail = {
@@ -157,8 +160,14 @@ type ClientDetail = {
 
   notes: string | null;
 
+    // ✅ M3U
+  m3u_url: string | null;
+  
+
   // extras úteis para o modal editar
   server_password?: string | null;
+
+  
 };
 
 type TimelineItem = {
@@ -172,6 +181,7 @@ type TimelineItem = {
 
 export default function ClientDetailsPage() {
 const params = useParams();
+const { confirm } = useConfirm();
 
 // ✅ aceita /[id] ou /[client_id] ou /[clientId] ou /[clienteId]
 const p = params as any;
@@ -257,24 +267,31 @@ let dbPriceCurrency: string | null = null;
 // ✅ Nome final da tabela (plan_tables > view)
 let finalTableName: string | null = null;
 
+// ✅ M3U
+let dbM3uUrl: string | null = null;
+
 try {
   // 1) pega ID da tabela e notes direto da tabela clients
   const c = await supabaseBrowser
-    .from("clients")
-    .select("plan_table_id, notes, price_currency")
-    .eq("tenant_id", tid)
-    .eq("id", clientIdSafe)
-    .maybeSingle();
+  .from("clients")
+  .select("plan_table_id, notes, price_currency, m3u_url")
+  .eq("tenant_id", tid)
+  .eq("id", clientIdSafe)
+  .maybeSingle();
 
-  if (!c.error && c.data) {
-    dbPlanTableId = (c.data as any).plan_table_id ?? null;
+if (!c.error && c.data) {
+  dbPlanTableId = (c.data as any).plan_table_id ?? null;
 
-    const n = (c.data as any).notes;
-    dbNotes = typeof n === "string" ? n : null;
+  const n = (c.data as any).notes;
+  dbNotes = typeof n === "string" ? n : null;
 
-    const pc = (c.data as any).price_currency;
-    dbPriceCurrency = typeof pc === "string" ? pc : null;
-  }
+  const pc = (c.data as any).price_currency;
+  dbPriceCurrency = typeof pc === "string" ? pc : null;
+
+  const m3u = (c.data as any).m3u_url;
+  dbM3uUrl = typeof m3u === "string" ? m3u : null;
+}
+
 
   // 2) tenta nome vindo da view (fallback)
   const viewNameRaw = String((row as any).plan_table_name ?? "").trim();
@@ -334,7 +351,8 @@ plan_table_name: finalTableName ?? null,
 
         notes: (dbNotes ?? row.notes ?? "") as any,
 
-
+  // ✅ M3U vindo da fonte da verdade (clients)
+  m3u_url: dbM3uUrl ?? null,
 
         server_password: row.server_password ?? null,
       };
@@ -395,32 +413,51 @@ plan_table_name: finalTableName ?? null,
   }, [clientId]);
 
   async function handleArchiveToggle() {
-    if (!client) return;
+  if (!client) return;
 
-    const goingToArchive = !client.client_is_archived;
-    const confirmed = window.confirm(goingToArchive ? "Arquivar este cliente? (Ele irá para a Lixeira)" : "Restaurar este cliente da Lixeira?");
-    if (!confirmed) return;
+  const goingToArchive = !client.client_is_archived;
 
-    try {
-      const tid = await getCurrentTenantId();
-      if (!tid) throw new Error("Tenant não encontrado");
+  const ok = await confirm({
+    tone: goingToArchive ? "rose" : "emerald",
+    title: goingToArchive ? "Arquivar cliente?" : "Restaurar cliente?",
+    subtitle: goingToArchive
+      ? "Ele irá para a Lixeira e não aparecerá na lista principal."
+      : "Ele voltará para a lista principal de clientes.",
+    details: [
+      `Cliente: ${client.client_name}`,
+      `Usuário: ${client.username}`,
+      `Servidor: ${client.server_name}`,
+    ],
+    confirmText: goingToArchive ? "Arquivar" : "Restaurar",
+    cancelText: "Voltar",
+  });
 
-      const { error } = await supabaseBrowser.rpc("update_client", {
-        p_tenant_id: tid,
-        p_client_id: client.id,
-        p_is_archived: goingToArchive,
-      });
+  if (!ok) return;
 
-      if (error) throw error;
+  try {
+    const tid = await getCurrentTenantId();
+    if (!tid) throw new Error("Tenant não encontrado");
 
-      addToast("success", goingToArchive ? "Cliente arquivado" : "Cliente restaurado");
-      loadData();
-    } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message || "Erro desconhecido";
-      console.error(e);
-      addToast("error", "Falha ao atualizar cliente", msg);
-    }
+    // ⚠️ IMPORTANTE: só adicione p_created_by SE a assinatura do RPC pedir (confirme no SQL)
+    const payload: any = {
+      p_tenant_id: tid,
+      p_client_id: client.id,
+      p_is_archived: goingToArchive,
+      // p_created_by: "e2994494-a79e-4b04-901b-72b7a55e3a8a",
+    };
+
+    const { error } = await supabaseBrowser.rpc("update_client", payload);
+    if (error) throw error;
+
+    addToast("success", goingToArchive ? "Cliente arquivado" : "Cliente restaurado");
+    loadData();
+  } catch (e: unknown) {
+    const msg = (e as { message?: string })?.message || "Erro desconhecido";
+    console.error(e);
+    addToast("error", "Falha ao atualizar cliente", msg);
   }
+}
+
 
   // ✅ NOVO: Intercepta o clique no botão Renovar
   const handleRenewClick = () => {
@@ -789,6 +826,10 @@ plan_table_id: (client as any).plan_table_id ?? null,
 plan_table_name: (client as any).plan_table_name ?? null,
 
 
+    // ✅ M3U (prefill no modal)
+m3u_url: client.m3u_url ?? undefined,
+
+
             vencimento: client.vencimento ?? undefined,
             notes: client.notes ?? undefined,
 
@@ -824,8 +865,8 @@ plan_table_name: (client as any).plan_table_name ?? null,
     clientName={client.client_name}
     onClose={() => setShowRenewModal(false)}
     onSuccess={() => {
-      setShowRenewModal(false);
-      loadData();
+  setShowEditModal(false);
+  loadData();
       setTimeout(() => {
         addToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.");
         addToast("success", "Renovação confirmada", "Pagamento salvo e data atualizada.");
