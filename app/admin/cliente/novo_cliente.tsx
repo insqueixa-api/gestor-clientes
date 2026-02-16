@@ -1681,12 +1681,15 @@ if (clientId && (apiM3uUrl || m3uUrl)) {
   const finalM3u = apiM3uUrl || m3uUrl;
   console.log("🟢 Salvando M3U no banco:", finalM3u);
   
-const { data: updateResult, error: m3uErr } = await supabaseBrowser
-  .from("clients")
-  .update({ m3u_url: finalM3u })
-  .eq("id", clientId)
-  .eq("tenant_id", tid) // ✅ ADICIONAR
-  .select();
+  // ✅ TESTE: Delay de 100ms
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  const { data: updateResult, error: m3uErr } = await supabaseBrowser
+    .from("clients")
+    .update({ m3u_url: finalM3u })
+    .eq("id", clientId)
+    .eq("tenant_id", tid)
+    .select();
   
   if (m3uErr) {
     console.error("❌ Erro ao salvar M3U:", m3uErr);
