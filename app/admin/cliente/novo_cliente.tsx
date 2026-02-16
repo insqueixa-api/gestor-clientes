@@ -702,9 +702,13 @@ const [messageContent, setMessageContent] = useState("");
     );
   }
 
-  // ✅ NOVO: Ajustar horas de teste por provider
+// ✅ NOVO: Ajustar horas de teste por provider + desabilitar toggle se sem integração
 useEffect(() => {
-  if (!isTrialMode || !serverId) return;
+  if (!isTrialMode || !serverId) {
+    setTestHours(2);
+    setRegisterRenewal(false);
+    return;
+  }
 
   (async () => {
     try {
@@ -726,16 +730,20 @@ useEffect(() => {
         if (provider === "FAST") {
           setTestHours(4); // FAST: 4h fixo
         } else if (provider === "NATV") {
-          setTestHours(6); // NATV: 6h padrão (pode mudar)
+          setTestHours(6); // NATV: 6h padrão
         } else {
-          setTestHours(2); // Sem integração: 2h
+          setTestHours(2); // Sem integração
+          setRegisterRenewal(false); // Desliga toggle
         }
       } else {
-        setTestHours(2); // Sem integração: 2h
+        // Servidor sem integração
+        setTestHours(2);
+        setRegisterRenewal(false); // Desliga toggle
       }
     } catch (e) {
       console.error("Erro ao ajustar horas:", e);
       setTestHours(2);
+      setRegisterRenewal(false);
     }
   })();
 }, [isTrialMode, serverId]);
@@ -1566,23 +1574,60 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
       }
 
       // RENOVAÇÃO AUTOMÁTICA (SE MARCADA)
-      if (!isTrialMode && registerRenewal && clientId) {
-        const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
-        const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
-          p_tenant_id: tid,
-          p_client_id: clientId,
-          p_months: monthsToRenew,
-          p_status: "PAID",
-          p_notes: `Renovado no cadastro. Obs: ${notes || ""}`,
-          p_new_vencimento: dueISO,
+if (!isTrialMode && registerRenewal && clientId) {
+  const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
+  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+    p_tenant_id: tid,
+    p_client_id: clientId,
+    p_months: monthsToRenew,
+    p_status: "PAID",
+    p_notes: `Renovado no cadastro. Obs: ${notes || ""}`,
+    p_new_vencimento: dueISO,
+  });
+
+  if (renewError) {
+    addToast("error", "Falha ao registrar renovação", renewError.message);
+  } else {
+    queueListToast("client", { type: "success", title: "Cliente renovado", message: "Renovação registrada com sucesso." });
+    
+    // ✅ NOVO: Enviar WhatsApp se marcado (igual ao teste)
+    if (sendPaymentMsg && messageContent && messageContent.trim()) {
+      try {
+        const { data: session } = await supabaseBrowser.auth.getSession();
+        const token = session.session?.access_token;
+
+        const res = await fetch("/api/whatsapp/envio_agora", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tenant_id: tid,
+            client_id: clientId,
+            message: messageContent,
+            whatsapp_session: "default",
+          }),
         });
 
-        if (renewError) {
-          addToast("error", "Falha ao registrar renovação", renewError.message);
-        } else {
-          queueListToast("client", { type: "success", title: "Cliente renovado", message: "Renovação registrada com sucesso." });
-        }
+        if (!res.ok) throw new Error("API retornou erro");
+
+        queueListToast("client", {
+          type: "success",
+          title: "Mensagem enviada",
+          message: "Comprovante entregue no WhatsApp.",
+        });
+      } catch (e) {
+        console.error("Falha envio Whats (renovação):", e);
+        queueListToast("client", {
+          type: "error",
+          title: "Erro no envio",
+          message: "Cliente criado, mas o WhatsApp falhou.",
+        });
       }
+    }
+  }
+}
 
       setTimeout(() => { onSuccess(); onClose(); }, 900);
 
@@ -1908,42 +1953,7 @@ function handleSave() {
                         <Label>Senha</Label>
                         <Input value={password} onChange={(e) => setPassword(e.target.value)} />
                       </div>
-                      {/* ✅ SELETOR DE HORAS (SÓ PARA TESTE) */}
-{isTrialMode && (
-  <div className="sm:col-span-2">
-    <Label>Duração do Teste</Label>
-    <div className="grid grid-cols-3 gap-2">
-      {([2, 4, 6] as const).map((h) => {
-        // Determina se servidor tem integração
-        const isFAST = servers.find(s => s.id === serverId)?.name?.toLowerCase().includes('fast');
-        const isDisabled = isFAST && h !== 4; // FAST só permite 4h
-
-        return (
-          <button
-            key={h}
-            type="button"
-            onClick={() => !isDisabled && setTestHours(h)}
-            disabled={isDisabled}
-            className={`h-10 rounded-lg border font-bold text-sm transition-all ${
-              testHours === h
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : isDisabled
-                  ? "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/20 cursor-not-allowed"
-                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:border-emerald-500/50"
-            }`}
-          >
-            {h}h
-          </button>
-        );
-      })}
-    </div>
-    <p className="text-[10px] text-slate-400 dark:text-white/30 mt-1.5 italic">
-      {testHours === 4 && "FAST: duração fixa de 4 horas"}
-      {testHours === 6 && "NATV: padrão 6 horas"}
-      {testHours === 2 && "Servidor sem integração"}
-    </p>
-  </div>
-)}
+                      
                    </div>
                 </div>
 
@@ -2019,7 +2029,25 @@ function handleSave() {
                 
                 {/* VENCIMENTO */}
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
-                   <div className="flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span></div>
+   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
+   <div className="flex justify-between items-center gap-3">
+      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span>
+      
+      {isTrialMode && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Período:</span>
+          <select 
+            value={testHours} 
+            onChange={(e) => setTestHours(Number(e.target.value) as 2 | 4 | 6)}
+            className="h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
+          >
+            <option value={2}>2h</option>
+            <option value={4}>4h</option>
+            <option value={6}>6h</option>
+          </select>
+        </div>
+      )}
+   </div>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>Data</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
                       <div>
@@ -2030,66 +2058,146 @@ function handleSave() {
                         </div>
                       </div>
                    </div>
-                   {!isEditing && (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3"><span className="text-xs text-slate-600 dark:text-white/70">{isTrialMode ? "Teste automático" : "Registrar renovação"}</span><Switch checked={registerRenewal} onChange={(v) => { setRegisterRenewal(v); if (v) setSendPaymentMsg(true); else setSendPaymentMsg(false); }} label="" /></div>
-                        {isTrialMode ? (
-  <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
-    <div
-      onClick={() => setSendTrialWhats(!sendTrialWhats)}
-      className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
-    >
-      <span className="text-xs font-bold text-slate-600 dark:text-white/70">
-        Enviar msg teste?
+{!isEditing && (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+    
+    {/* ✅ COLUNA 1: Toggle Teste Automático / Registrar Renovação */}
+    <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3">
+      <span className="text-xs text-slate-600 dark:text-white/70">
+        {isTrialMode ? "Teste automático" : "Registrar renovação"}
       </span>
-      <Switch checked={sendTrialWhats} onChange={setSendTrialWhats} label="" />
+      
+      {/* ✅ Se TESTE e servidor SEM integração → desabilita */}
+      {(() => {
+        if (isTrialMode && !serverId) {
+          // Sem servidor selecionado → desabilitado
+          return (
+            <div className="relative">
+              <Switch checked={false} onChange={() => {}} label="" />
+              <div className="absolute inset-0 bg-slate-100/80 dark:bg-black/60 rounded-lg cursor-not-allowed" 
+                   title="Selecione um servidor primeiro" />
+            </div>
+          );
+        }
+        
+        // Comportamento normal (sempre habilitado para cliente)
+        return (
+          <Switch 
+            checked={registerRenewal} 
+            onChange={(v) => { 
+              setRegisterRenewal(v); 
+              if (!isTrialMode && v) setSendPaymentMsg(true); 
+              else if (!isTrialMode) setSendPaymentMsg(false); 
+            }} 
+            label="" 
+          />
+        );
+      })()}
     </div>
 
-    {sendTrialWhats && (
-      <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
-        <div>
-          <Label>Modelo</Label>
-          <Select
-            value={selectedTemplateId}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSelectedTemplateId(id);
-              const tpl = templates.find((t) => t.id === id);
-              setMessageContent(tpl?.content || "");
-            }}
-          >
-            <option value="">-- Personalizado --</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
+    {/* ✅ COLUNA 2: Mensagem WhatsApp */}
+    {isTrialMode ? (
+      // TESTE: Card de mensagem de teste
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
+        <div
+          onClick={() => setSendTrialWhats(!sendTrialWhats)}
+          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+        >
+          <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+            Enviar msg teste?
+          </span>
+          <Switch checked={sendTrialWhats} onChange={setSendTrialWhats} label="" />
         </div>
 
-        {selectedTemplateId === "" && (
-          <div>
-            <Label>Mensagem</Label>
-            <textarea
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
-              placeholder="Digite a mensagem de teste..."
-            />
+        {sendTrialWhats && (
+          <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
+            <div>
+              <Label>Modelo</Label>
+              <Select
+                value={selectedTemplateId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedTemplateId(id);
+                  const tpl = templates.find((t) => t.id === id);
+                  setMessageContent(tpl?.content || "");
+                }}
+              >
+                <option value="">-- Personalizado --</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {selectedTemplateId === "" && (
+              <div>
+                <Label>Mensagem</Label>
+                <textarea
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                  placeholder="Digite a mensagem de teste..."
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    ) : (
+      // CLIENTE: Card de mensagem de pagamento
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
+        <div
+          onClick={() => setSendPaymentMsg(!sendPaymentMsg)}
+          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+        >
+          <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+            Enviar msg pagto?
+          </span>
+          <Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" />
+        </div>
+
+        {sendPaymentMsg && (
+          <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
+            <div>
+              <Label>Modelo</Label>
+              <Select
+                value={selectedTemplateId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedTemplateId(id);
+                  const tpl = templates.find((t) => t.id === id);
+                  setMessageContent(tpl?.content || "");
+                }}
+              >
+                <option value="">-- Personalizado --</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {selectedTemplateId === "" && (
+              <div>
+                <Label>Mensagem</Label>
+                <textarea
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                  placeholder="Digite a mensagem de pagamento..."
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
     )}
-  </div>
-) : (
-  <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3">
-    <span className="text-xs text-slate-600 dark:text-white/70">Enviar msg pagto</span>
-    <Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" />
+
   </div>
 )}
-
-                     </div>
-                   )}
                 </div>
               </div>
             )}
