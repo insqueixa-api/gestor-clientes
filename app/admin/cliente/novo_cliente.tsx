@@ -842,7 +842,7 @@ useEffect(() => {
   setDueTime(tISO);
 }, [testHours, isTrialMode]);
 
-// ✅ NOVO: Buscar DNSs do servidor selecionado
+// ✅ NOVO: Buscar DNSs do servidor selecionado (coluna dns = JSON array)
 useEffect(() => {
   if (!serverId) {
     setServerDomains([]);
@@ -853,24 +853,19 @@ useEffect(() => {
     try {
       const { data: srv } = await supabaseBrowser
         .from("servers")
-        .select("domain1, domain2, domain3, domain4, domain5, domain6")
+        .select("dns")
         .eq("id", serverId)
         .single();
 
-      if (!srv) {
+      if (!srv || !srv.dns) {
         setServerDomains([]);
         return;
       }
 
-      // Coleta todos os domínios não vazios
-      const domains = [
-        srv.domain1,
-        srv.domain2,
-        srv.domain3,
-        srv.domain4,
-        srv.domain5,
-        srv.domain6,
-      ].filter((d) => d && String(d).trim().length > 0) as string[];
+      // dns é um array JSON
+      const domains = Array.isArray(srv.dns) 
+        ? srv.dns.filter((d: any) => d && String(d).trim().length > 0)
+        : [];
 
       setServerDomains(domains);
     } catch (e) {
@@ -2162,17 +2157,38 @@ function handleSave() {
       className="flex-1 text-xs font-mono"
     />
     <button
-      type="button"
-      onClick={generateM3uUrl}
-      disabled={!serverId || !username.trim()}
-      className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
-      title="Gerar link automaticamente"
-    >
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-      <span className="hidden sm:inline">Gerar</span>
-    </button>
+  type="button"
+  onClick={generateM3uUrl}
+  disabled={!serverId || !username.trim()}
+  className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+  title="Gerar link automaticamente"
+>
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+  <span className="hidden sm:inline">Gerar</span>
+</button>
+
+{/* ✅ BOTÃO COPIAR */}
+<button
+  type="button"
+  onClick={() => {
+    if (!m3uUrl.trim()) {
+      addToast("warning", "Atenção", "Nenhum link para copiar.");
+      return;
+    }
+    navigator.clipboard.writeText(m3uUrl);
+    addToast("success", "Copiado!", "Link M3U copiado para a área de transferência.");
+  }}
+  disabled={!m3uUrl.trim()}
+  className="h-10 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+  title="Copiar link M3U"
+>
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+  <span className="hidden sm:inline">Copiar</span>
+</button>
   </div>
   <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
     Gerado automaticamente com base nos domínios do servidor selecionado.
