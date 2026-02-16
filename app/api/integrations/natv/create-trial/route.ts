@@ -46,6 +46,12 @@ export async function POST(req: NextRequest) {
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
+        console.log("🔵 NATV Trial API Call:", {
+  url: "https://revenda.pixbot.link/user",
+  username: attemptUsername,
+  minutes,
+  token: token ? `${token.substring(0, 10)}...` : "SEM TOKEN",
+});
         const res = await fetch("https://revenda.pixbot.link/user", {
           method: "POST",
           headers: {
@@ -57,6 +63,12 @@ export async function POST(req: NextRequest) {
             minutes,
           }),
         });
+
+        console.log("🟢 NATV Trial Response:", {
+  status: res.status,
+  ok: res.ok,
+  statusText: res.statusText,
+});
 
         const text = await res.text();
         let data: any = {};
