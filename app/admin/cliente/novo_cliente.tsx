@@ -1478,6 +1478,27 @@ const { error } = await supabaseBrowser.rpc("update_client", {
           p_secondary_e164: finalExtrasE164,
         });
 
+        // ✅ ATUALIZAR M3U_URL (também na edição)
+if (m3uUrl && m3uUrl.trim()) {
+  console.log("🟢 [EDIÇÃO] Atualizando M3U:", m3uUrl);
+  
+  // ✅ Delay de segurança
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  const { data: m3uResult, error: m3uErr } = await supabaseBrowser
+    .from("clients")
+    .update({ m3u_url: m3uUrl })
+    .eq("id", clientId)
+    .eq("tenant_id", tid)
+    .select();
+  
+  if (m3uErr) {
+    console.error("❌ Erro ao atualizar M3U:", m3uErr);
+  } else {
+    console.log("✅ M3U atualizado com sucesso!", m3uResult);
+  }
+}
+
         // Atualiza Apps
         await supabaseBrowser.from("client_apps").delete().eq("client_id", clientId);
         if (selectedApps.length > 0) {
@@ -1665,7 +1686,7 @@ try {
     throw error;
   }
 
-  clientId = data;
+  
 
 clientId = data;
 

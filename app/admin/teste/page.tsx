@@ -30,15 +30,16 @@ type VwClientRow = {
   client_name: string | null;
   username: string | null;
   server_password?: string | null;
+  m3u_url?: string | null; // ✅ ADICIONAR
 
-  vencimento: string | null; // timestamptz
+  vencimento: string | null;
   computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
   client_is_archived: boolean | null;
 
   server_id: string | null;
   server_name: string | null;
 
-  technology: string | null; // ✅ NOVO
+  technology: string | null;
 
   whatsapp_e164: string | null;
 
@@ -51,7 +52,6 @@ type VwClientRow = {
 
   notes: string | null;
 
-  // opcional: se sua view tiver isso, ótimo; se não tiver, fica undefined e não quebra
   converted_client_id?: string | null;
 };
 
@@ -67,11 +67,10 @@ type TrialRow = {
   status: TrialStatus;
   server: string;
 
-  technology: string;         // ✅ NOVO (já mapeado com fallback "—")
-  apps_names: string[];       // ✅ NOVO (chips)
+  technology: string;
+  apps_names: string[];
 
   archived: boolean;
-
 
   // para editar
   server_id: string;
@@ -81,7 +80,8 @@ type TrialRow = {
   whatsapp_opt_in?: boolean;
   dont_message_until?: string;
   server_password?: string;
-  vencimento?: string; // ISO
+  m3u_url?: string; // ✅ ADICIONAR
+  vencimento?: string;
   notes?: string;
 
   converted: boolean;
@@ -551,6 +551,7 @@ const mapped: TrialRow[] = typed.map((r) => {
   whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
   dont_message_until: r.dont_message_until ?? undefined,
   server_password: (r.server_password ?? undefined) as any,
+  m3u_url: r.m3u_url || undefined, // ✅ ADICIONAR
   vencimento: r.vencimento ?? undefined,
 
   notes: (notesMap[id] ?? r.notes ?? "") as any,
@@ -676,6 +677,7 @@ useEffect(() => {
       dont_message_until: r.dont_message_until,
 
       server_password: r.server_password,
+      m3u_url: r.m3u_url, // ✅ ADICIONAR
 
       vencimento: r.vencimento,
       notes: r.notes ?? "",
