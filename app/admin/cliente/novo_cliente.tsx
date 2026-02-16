@@ -1576,51 +1576,46 @@ try {
         }
 
         // 6. Atualizar dados com resposta
-apiUsername = apiJson.data.username;
-apiPassword = apiJson.data.password;
-apiM3uUrl = apiJson.data.m3u_url || "";
+        apiUsername = apiJson.data.username;
+        apiPassword = apiJson.data.password;
+        apiM3uUrl = apiJson.data.m3u_url || "";
 
-// ✅ ATUALIZAR ESTADO DO MODAL (para refletir na UI imediatamente)
-setUsername(apiUsername);
-setPassword(apiPassword);
-setM3uUrl(apiM3uUrl);
+        // ✅ DEBUG
+        console.log("🔵 Dados recebidos da API:", {
+          username: apiUsername,
+          password: apiPassword,
+          m3u_url: apiM3uUrl,
+          exp_date: apiJson.data.exp_date,
+        });
 
-// Converter exp_date (timestamp) para ISO
-if (apiJson.data.exp_date) {
-  const expDate = new Date(apiJson.data.exp_date * 1000);
-  apiVencimento = expDate.toISOString();
-}
+        // ✅ ATUALIZAR ESTADO DO MODAL (para refletir na UI imediatamente)
+        setUsername(apiUsername);
+        setPassword(apiPassword);
+        setM3uUrl(apiM3uUrl);
 
-// 7. Sync (atualizar saldo do servidor)
-const syncUrl = provider === "FAST"
-  ? "/api/integrations/fast/sync"
-  : "/api/integrations/natv/sync";
+        // Converter exp_date (timestamp) para ISO
+        if (apiJson.data.exp_date) {
+          const expDate = new Date(apiJson.data.exp_date * 1000);
+          apiVencimento = expDate.toISOString();
+        }
 
-await fetch(syncUrl, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ integration_id: srv.panel_integration }),
-});
+        // 7. Sync (atualizar saldo do servidor)
+        const syncUrl = provider === "FAST"
+          ? "/api/integrations/fast/sync"
+          : "/api/integrations/natv/sync";
 
-// ✅ ENFILEIRAR Toast de sucesso da API
-queueListToast(isTrialMode ? "trial" : "client", {
-  type: "success",
-  title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
-  message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`
-});
+        await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: srv.panel_integration }),
+        });
 
-// 6. Atualizar dados com resposta
-apiUsername = apiJson.data.username;
-apiPassword = apiJson.data.password;
-apiM3uUrl = apiJson.data.m3u_url || "";
-
-// ✅ DEBUG
-console.log("🔵 Dados recebidos da API:", {
-  username: apiUsername,
-  password: apiPassword,
-  m3u_url: apiM3uUrl,
-  exp_date: apiJson.data.exp_date,
-});
+        // ✅ ENFILEIRAR Toast de sucesso da API
+        queueListToast(isTrialMode ? "trial" : "client", {
+          type: "success",
+          title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
+          message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`
+        });
       }
 
       
@@ -1672,23 +1667,37 @@ console.log("🔵 Dados recebidos da API:", {
 
   clientId = data;
 
-// ✅ ATUALIZAR M3U_URL (API ou manual)
 clientId = data;
 
 // ✅ ATUALIZAR M3U_URL (API ou manual)
+console.log("🔵 DEBUG M3U antes de salvar:", {
+  clientId,
+  apiM3uUrl,
+  m3uUrl,
+  finalValue: apiM3uUrl || m3uUrl
+});
+
 if (clientId && (apiM3uUrl || m3uUrl)) {
-  console.log("🟢 Salvando M3U:", apiM3uUrl || m3uUrl);
+  const finalM3u = apiM3uUrl || m3uUrl;
+  console.log("🟢 Salvando M3U no banco:", finalM3u);
   
-  const { error: m3uErr } = await supabaseBrowser
+  const { data: updateResult, error: m3uErr } = await supabaseBrowser
     .from("clients")
-    .update({ m3u_url: apiM3uUrl || m3uUrl })
-    .eq("id", clientId);
+    .update({ m3u_url: finalM3u })
+    .eq("id", clientId)
+    .select();
   
   if (m3uErr) {
     console.error("❌ Erro ao salvar M3U:", m3uErr);
   } else {
-    console.log("✅ M3U salvo com sucesso!");
+    console.log("✅ M3U salvo com sucesso!", updateResult);
   }
+} else {
+  console.warn("⚠️ M3U NÃO salvo. Motivo:", {
+    temClientId: !!clientId,
+    temApiM3u: !!apiM3uUrl,
+    temM3uManual: !!m3uUrl
+  });
 }
 
 if (clientId && namePrefix) {
