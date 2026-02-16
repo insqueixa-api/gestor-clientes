@@ -727,27 +727,14 @@ const [messageContent, setMessageContent] = useState("");
     );
   }
 
-// ✅ NOVO: Ajustar horas de teste por provider + desabilitar toggle se sem integração
+// ✅ NOVO: Ajustar horas de teste por provider (SEM alterar registerRenewal aqui)
 useEffect(() => {
   if (!isTrialMode || !serverId) {
     setTestHours(2);
-    setRegisterRenewal(false);
     return;
   }
 
-  // ✅ NOVO: Atualizar vencimento quando mudar período de teste
-useEffect(() => {
-  if (!isTrialMode) return;
-
-  const now = new Date();
-  const target = new Date(now.getTime() + testHours * 60 * 60 * 1000); // +X horas
-
-  const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
-  const tISO = `${pad2(target.getHours())}:${pad2(target.getMinutes())}`;
-
-  setDueDate(dISO);
-  setDueTime(tISO);
-}, [testHours, isTrialMode]);
+  let mounted = true; // ✅ Previne race condition
 
   (async () => {
     try {
@@ -757,12 +744,16 @@ useEffect(() => {
         .eq("id", serverId)
         .single();
 
+      if (!mounted) return; // ✅ Componente desmontou
+
       if (srv?.panel_integration) {
         const { data: integ } = await supabaseBrowser
           .from("server_integrations")
           .select("provider")
           .eq("id", srv.panel_integration)
           .single();
+
+        if (!mounted) return;
 
         const provider = String(integ?.provider || "").toUpperCase();
 
@@ -772,19 +763,52 @@ useEffect(() => {
           setTestHours(6); // NATV: 6h padrão
         } else {
           setTestHours(2); // Sem integração
-          setRegisterRenewal(false); // Desliga toggle
         }
       } else {
-        // Servidor sem integração
-        setTestHours(2);
-        setRegisterRenewal(false); // Desliga toggle
+        setTestHours(2); // Sem integração
       }
     } catch (e) {
       console.error("Erro ao ajustar horas:", e);
-      setTestHours(2);
-      setRegisterRenewal(false);
+      if (mounted) setTestHours(2);
     }
   })();
+
+  return () => {
+    mounted = false; // ✅ Cleanup
+  };
+}, [isTrialMode, serverId]);
+
+// ✅ NOVO: Detectar se servidor tem integração (apenas para desabilitar toggle)
+const [hasIntegration, setHasIntegration] = useState(false);
+
+useEffect(() => {
+  if (!isTrialMode || !serverId) {
+    setHasIntegration(false);
+    return;
+  }
+
+  let mounted = true;
+
+  (async () => {
+    try {
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", serverId)
+        .single();
+
+      if (!mounted) return;
+
+      setHasIntegration(Boolean(srv?.panel_integration));
+    } catch (e) {
+      console.error("Erro ao verificar integração:", e);
+      if (mounted) setHasIntegration(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
 }, [isTrialMode, serverId]);
 
 
@@ -2122,22 +2146,8 @@ function handleSave() {
         {isTrialMode ? "Teste automático" : "Registrar renovação"}
       </span>
       
-      {/* ✅ Se TESTE e servidor SEM integração → desabilita */}
-      {(() => {
-        if (isTrialMode && !serverId) {
-          // Sem servidor selecionado → desabilitado
-          return (
-            <div className="relative">
-              <Switch checked={false} onChange={() => {}} label="" />
-              <div className="absolute inset-0 bg-slate-100/80 dark:bg-black/60 rounded-lg cursor-not-allowed" 
-                   title="Selecione um servidor primeiro" />
-            </div>
-          );
-        }
-        
-        // Comportamento normal (sempre habilitado para cliente)
-        return (
-          <Switch 
+      {/* ✅ Toggle Teste Automático / Registrar Renovação */}
+<Switch 
   checked={registerRenewal} 
   onChange={(v) => { 
     setRegisterRenewal(v); 
@@ -2145,10 +2155,8 @@ function handleSave() {
     else if (!isTrialMode) setSendPaymentMsg(false); 
   }} 
   label="" 
-  disabled={isTrialMode && !registerRenewal} // ✅ Desabilita se useEffect detectou sem integração
+  disabled={isTrialMode && !hasIntegration} // ✅ Desabilita teste sem integração
 />
-        );
-      })()}
     </div>
 
     {/* ✅ COLUNA 2: Mensagem WhatsApp */}
