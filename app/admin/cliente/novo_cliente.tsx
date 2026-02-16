@@ -637,6 +637,7 @@ const [sendTrialWhats, setSendTrialWhats] = useState(true);
 // ✅ NOVO: Controle de horas de teste e M3U
 const [testHours, setTestHours] = useState<2 | 4 | 6>(2);
 const [m3uUrl, setM3uUrl] = useState("");
+const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
 
 // ✅ Templates WhatsApp
 const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -840,6 +841,44 @@ useEffect(() => {
   setDueDate(dISO);
   setDueTime(tISO);
 }, [testHours, isTrialMode]);
+
+// ✅ NOVO: Buscar DNSs do servidor selecionado
+useEffect(() => {
+  if (!serverId) {
+    setServerDomains([]);
+    return;
+  }
+
+  (async () => {
+    try {
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("domain1, domain2, domain3, domain4, domain5, domain6")
+        .eq("id", serverId)
+        .single();
+
+      if (!srv) {
+        setServerDomains([]);
+        return;
+      }
+
+      // Coleta todos os domínios não vazios
+      const domains = [
+        srv.domain1,
+        srv.domain2,
+        srv.domain3,
+        srv.domain4,
+        srv.domain5,
+        srv.domain6,
+      ].filter((d) => d && String(d).trim().length > 0) as string[];
+
+      setServerDomains(domains);
+    } catch (e) {
+      console.error("Erro ao buscar domínios:", e);
+      setServerDomains([]);
+    }
+  })();
+}, [serverId]);
 
   useEffect(() => {
     let alive = true;
@@ -1610,13 +1649,13 @@ addToast("success",
 
   clientId = data;
 
-  // ✅ ATUALIZAR M3U_URL (se houver)
-  if (clientId && apiM3uUrl) {
-    await supabaseBrowser
-      .from("clients")
-      .update({ m3u_url: apiM3uUrl })
-      .eq("id", clientId);
-  }
+// ✅ ATUALIZAR M3U_URL (API ou manual)
+if (clientId && (apiM3uUrl || m3uUrl)) {
+  await supabaseBrowser
+    .from("clients")
+    .update({ m3u_url: apiM3uUrl || m3uUrl })
+    .eq("id", clientId);
+}
 
 if (clientId && namePrefix) {
   await supabaseBrowser.rpc("update_client", {
@@ -1772,6 +1811,33 @@ if (!isTrialMode && registerRenewal && clientId) {
       setLoading(false);
     }
   }
+
+// ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
+function generateM3uUrl() {
+  if (!username.trim()) {
+    addToast("warning", "Atenção", "Preencha o usuário primeiro.");
+    return;
+  }
+
+  if (serverDomains.length === 0) {
+    addToast("warning", "Sem Domínios", "Este servidor não possui domínios configurados.");
+    return;
+  }
+
+  // Escolhe domínio aleatório
+  const randomDomain = serverDomains[Math.floor(Math.random() * serverDomains.length)];
+  
+  // Remove protocolo se houver
+  const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  
+  // Gera URL
+  const user = username.trim();
+  const pass = password?.trim() || "";
+  const url = `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+  
+  setM3uUrl(url);
+  addToast("success", "Link Gerado!", "M3U URL atualizado com sucesso.");
+}
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
 function handleSave() {
@@ -2085,6 +2151,33 @@ function handleSave() {
                         <Label>Senha</Label>
                         <Input value={password} onChange={(e) => setPassword(e.target.value)} />
                       </div>
+                      {/* ✅ M3U URL (linha toda) */}
+<div className="sm:col-span-2">
+  <Label>Link M3U (Playlist)</Label>
+  <div className="flex gap-2">
+    <Input 
+      value={m3uUrl} 
+      onChange={(e) => setM3uUrl(e.target.value)}
+      placeholder="http://dominio/get.php?username=...&password=...&type=m3u_plus&output=ts"
+      className="flex-1 text-xs font-mono"
+    />
+    <button
+      type="button"
+      onClick={generateM3uUrl}
+      disabled={!serverId || !username.trim()}
+      className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+      title="Gerar link automaticamente"
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span className="hidden sm:inline">Gerar</span>
+    </button>
+  </div>
+  <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
+    Gerado automaticamente com base nos domínios do servidor selecionado.
+  </p>
+</div>
                       
                    </div>
                 </div>
