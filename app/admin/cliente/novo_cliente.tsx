@@ -397,11 +397,36 @@ function Switch({
   checked,
   onChange,
   label,
+  disabled = false, // ✅ NOVO
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  disabled?: boolean; // ✅ NOVO
 }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
+      <button
+        type="button"
+        onClick={() => !disabled && onChange(!checked)} // ✅ NOVO
+        disabled={disabled} // ✅ NOVO
+        className={`relative w-12 h-7 rounded-full transition-colors border ${
+          checked
+            ? "bg-emerald-600 border-emerald-600"
+            : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
+        aria-pressed={checked}
+      >
+        <span
+          className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
+  );
+
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
@@ -602,8 +627,8 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   });
 
-const [registerRenewal, setRegisterRenewal] = useState(false);
-const [sendPaymentMsg, setSendPaymentMsg] = useState(false);
+const [registerRenewal, setRegisterRenewal] = useState(!isTrialMode); // ✅ Cliente: ON por padrão
+const [sendPaymentMsg, setSendPaymentMsg] = useState(!isTrialMode); // ✅ Cliente: ON por padrão
 
 // ✅ TRIAL: envio de mensagem de teste (padrão LIGADO)
 const [sendTrialWhats, setSendTrialWhats] = useState(true);
@@ -710,6 +735,20 @@ useEffect(() => {
     return;
   }
 
+  // ✅ NOVO: Atualizar vencimento quando mudar período de teste
+useEffect(() => {
+  if (!isTrialMode) return;
+
+  const now = new Date();
+  const target = new Date(now.getTime() + testHours * 60 * 60 * 1000); // +X horas
+
+  const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
+  const tISO = `${pad2(target.getHours())}:${pad2(target.getMinutes())}`;
+
+  setDueDate(dISO);
+  setDueTime(tISO);
+}, [testHours, isTrialMode]);
+
   (async () => {
     try {
       const { data: srv } = await supabaseBrowser
@@ -804,24 +843,40 @@ if (tmplErr) {
   setTemplates(list);
 
   // ✅ TRIAL: por padrão liga envio e seleciona template "Teste..."
-  // (não sobrescreve se já existe escolha do usuário)
-  if (isTrialMode) {
-    setSendTrialWhats(true);
+if (isTrialMode) {
+  setSendTrialWhats(true);
 
-    // tenta achar um template cujo nome comece com "Teste"
-    const defaultTpl =
-      list.find((t) => (t.name || "").trim().toLowerCase().startsWith("teste")) ||
-      list.find((t) => (t.name || "").toLowerCase().includes("teste")) ||
-      null;
+  const defaultTpl =
+    list.find((t) => (t.name || "").trim().toLowerCase().startsWith("teste")) ||
+    list.find((t) => (t.name || "").toLowerCase().includes("teste")) ||
+    null;
 
-    if (defaultTpl) {
-      setSelectedTemplateId(defaultTpl.id);
-      setMessageContent(defaultTpl.content || "");
-    } else {
-      setSelectedTemplateId("");
-      setMessageContent("");
-    }
+  if (defaultTpl) {
+    setSelectedTemplateId(defaultTpl.id);
+    setMessageContent(defaultTpl.content || "");
+  } else {
+    setSelectedTemplateId("");
+    setMessageContent("");
   }
+}
+
+// ✅ CLIENTE: por padrão liga envio e seleciona template "Pagamento"
+if (!isTrialMode) {
+  setSendPaymentMsg(true);
+
+  const defaultTpl =
+    list.find((t) => (t.name || "").trim().toLowerCase().includes("pagamento")) ||
+    list.find((t) => (t.name || "").toLowerCase().includes("pago")) ||
+    null;
+
+  if (defaultTpl) {
+    setSelectedTemplateId(defaultTpl.id);
+    setMessageContent(defaultTpl.content || "");
+  } else {
+    setSelectedTemplateId("");
+    setMessageContent("");
+  }
+}
 }
 
 
@@ -2068,31 +2123,16 @@ function handleSave() {
       </span>
       
       {/* ✅ Se TESTE e servidor SEM integração → desabilita */}
-      {(() => {
-        if (isTrialMode && !serverId) {
-          // Sem servidor selecionado → desabilitado
-          return (
-            <div className="relative">
-              <Switch checked={false} onChange={() => {}} label="" />
-              <div className="absolute inset-0 bg-slate-100/80 dark:bg-black/60 rounded-lg cursor-not-allowed" 
-                   title="Selecione um servidor primeiro" />
-            </div>
-          );
-        }
-        
-        // Comportamento normal (sempre habilitado para cliente)
-        return (
-          <Switch 
-            checked={registerRenewal} 
-            onChange={(v) => { 
-              setRegisterRenewal(v); 
-              if (!isTrialMode && v) setSendPaymentMsg(true); 
-              else if (!isTrialMode) setSendPaymentMsg(false); 
-            }} 
-            label="" 
-          />
-        );
-      })()}
+      <Switch 
+  checked={registerRenewal} 
+  onChange={(v) => { 
+    setRegisterRenewal(v); 
+    if (!isTrialMode && v) setSendPaymentMsg(true); 
+    else if (!isTrialMode) setSendPaymentMsg(false); 
+  }} 
+  label="" 
+  disabled={isTrialMode && !registerRenewal} // ✅ Desabilita se useEffect detectou sem integração
+/>
     </div>
 
     {/* ✅ COLUNA 2: Mensagem WhatsApp */}
@@ -2159,40 +2199,29 @@ function handleSave() {
         </div>
 
         {sendPaymentMsg && (
-          <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
-            <div>
-              <Label>Modelo</Label>
-              <Select
-                value={selectedTemplateId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedTemplateId(id);
-                  const tpl = templates.find((t) => t.id === id);
-                  setMessageContent(tpl?.content || "");
-                }}
-              >
-                <option value="">-- Personalizado --</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {selectedTemplateId === "" && (
-              <div>
-                <Label>Mensagem</Label>
-                <textarea
-                  value={messageContent}
-                  onChange={(e) => setMessageContent(e.target.value)}
-                  className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
-                  placeholder="Digite a mensagem de pagamento..."
-                />
-              </div>
-            )}
-          </div>
-        )}
+  <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
+    <div>
+      <Label>Modelo</Label>
+      <Select
+        value={selectedTemplateId}
+        onChange={(e) => {
+          const id = e.target.value;
+          setSelectedTemplateId(id);
+          const tpl = templates.find((t) => t.id === id);
+          setMessageContent(tpl?.content || "");
+        }}
+      >
+        <option value="">-- Selecione um modelo --</option>
+        {templates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </Select>
+    </div>
+       
+  </div>
+)}
       </div>
     )}
 
