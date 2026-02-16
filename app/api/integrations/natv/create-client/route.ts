@@ -45,17 +45,17 @@ export async function POST(req: NextRequest) {
     // ETAPA 1: Criar usuário teste (15 min)
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const res = await fetch("https://revenda.pixbot.link/user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            username: attemptUsername,
-            minutes: 15, // mínimo para criar
-          }),
-        });
+const res = await fetch("https://revenda.pixbot.link/user", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    username: attemptUsername,
+    minutes: "15", // ✅ STRING
+  }),
+});
 
         const text = await res.text();
         let data: any = {};

@@ -53,16 +53,16 @@ export async function POST(req: NextRequest) {
   token: token ? `${token.substring(0, 10)}...` : "SEM TOKEN",
 });
         const res = await fetch("https://revenda.pixbot.link/user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            username: attemptUsername,
-            minutes,
-          }),
-        });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    username: attemptUsername,
+    minutes: String(minutes), // ✅ CONVERTER PARA STRING
+  }),
+});
 
         console.log("🟢 NATV Trial Response:", {
   status: res.status,
