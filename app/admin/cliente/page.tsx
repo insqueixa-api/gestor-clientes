@@ -1007,24 +1007,29 @@ const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
   let dbPlanTableId: string | undefined = r.plan_table_id;
   let dbPriceCurrency: string | undefined = r.price_currency;
 
-  // ✅ fonte da verdade: buscar do clients (porque a view NÃO tem plan_table_id)
-  try {
-    if (tenantId) {
-      const { data, error } = await supabaseBrowser
-        .from("clients")
-        .select("plan_table_id, price_currency")
-        .eq("tenant_id", tenantId)
-        .eq("id", r.id)
-        .maybeSingle();
+  // ✅ fonte da verdade: buscar do clients (porque a view NÃO tem tudo)
+let dbM3uUrl: string | undefined = undefined;
 
-      if (!error && data) {
-        dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
-        dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
-      }
-    }
-  } catch (e) {
-    console.error("Falha ao buscar plan_table_id/price_currency do clients:", e);
+try {
+  if (tenantId) {
+    const { data, error } = await supabaseBrowser
+  .from("clients")
+  .select("plan_table_id, price_currency, m3u_url")
+  .eq("tenant_id", tenantId)
+  .eq("id", r.id)
+  .maybeSingle();
+
+if (!error && data) {
+  dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
+  dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
+  dbM3uUrl = (data as any).m3u_url ?? undefined;
+}
+
   }
+} catch (e) {
+  console.error("Falha ao buscar plan_table_id/price_currency/m3u_url do clients:", e);
+}
+
 
   const payload: ClientData = {
     id: r.id,
@@ -1033,6 +1038,7 @@ const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
     server_id: r.server_id,
     screens: r.screens,
     technology: r.technology_edit,
+    
 
     whatsapp_e164: r.whatsapp,
     whatsapp_username: r.whatsapp_username,
@@ -1055,8 +1061,10 @@ const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
 
     // ✅ Timestamp original completo (UTC) pro modal converter certo
     vencimento: r.rawVencimento || undefined,
+    m3u_url: dbM3uUrl ?? "",
 
     notes: r.notes,
+
   };
 
   setClientToEdit(payload);
