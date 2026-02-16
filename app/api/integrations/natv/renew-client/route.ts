@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseBrowser } from "@/lib/supabase/browser";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,14 +23,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ✅ CORRIGIDO: Usar Supabase Server
+    const supabase = await createClient();
+
     // 1. Buscar integração
-    const { data: integ, error: integErr } = await supabaseBrowser
+    const { data: integ, error: integErr } = await supabase
       .from("server_integrations")
       .select("api_token, provider")
       .eq("id", integration_id)
       .single();
 
     if (integErr || !integ) {
+      console.error("Erro ao buscar integração:", integErr);
       return NextResponse.json(
         { ok: false, error: "Integração não encontrada" },
         { status: 404 }
