@@ -300,6 +300,10 @@
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [messageContent, setMessageContent] = useState("");
 
+    // ✅ NOVO: Renovação Automática
+const [hasIntegration, setHasIntegration] = useState(false);
+const [renewAutomatic, setRenewAutomatic] = useState(false);
+
     // Hook de Confirmação
     const { confirm, ConfirmUI } = useConfirm();
 
@@ -368,6 +372,25 @@
 
   // ✅ Prefill Observações (agora certo)
   setObs(cFixed.notes || "");
+
+  // ✅ NOVO: Detectar se servidor tem integração
+if (c.server_id) {
+  try {
+    const { data: srv } = await supabaseBrowser
+      .from("servers")
+      .select("panel_integration")
+      .eq("id", c.server_id)
+      .single();
+
+    const hasInteg = Boolean(srv?.panel_integration);
+    setHasIntegration(hasInteg);
+    setRenewAutomatic(hasInteg); // Liga automaticamente se tem integração
+  } catch (e) {
+    console.error("Erro ao verificar integração:", e);
+    setHasIntegration(false);
+    setRenewAutomatic(false);
+  }
+}
 
 
           // 2) Plano (detectar período pelo label)
@@ -699,129 +722,198 @@
 
     // 2. Executa a Gravação (Chamado pelo botão "Confirmar" do popup)
   const executeSave = async () => {
-      if (loading) return;
-      setLoading(true);
-      setLoadingText("Salvando dados..."); // 1. Feedback inicial
-
-      try {
-        let finalTechnology = technology;
-        if (technology === "Personalizado") finalTechnology = customTechnology.trim();
-
-        const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
-        const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
-        const dueISO = saoPauloDateTimeToIso(dueDate, dueTime);
-        const tid = await getCurrentTenantId();
-        const nameToSend = clientData?.display_name || clientName;
-
-        // --- PASSO 1: ATUALIZAR CLIENTE ---
-        const { error: updateError } = await supabaseBrowser.rpc("update_client", {
-          p_tenant_id: tid,
-          p_client_id: clientId,
-          p_display_name: nameToSend,
-          p_name_prefix: null,
-          p_notes: obs || null, 
-          p_clear_notes: (!!clientData?.notes && !obs), // Limpa se tinha nota e agora está vazio
-          p_server_id: clientData?.server_id,
-          p_server_username: clientData?.username,
-          p_server_password: null,
-          p_screens: Number(screens),
-          p_plan_label: PLAN_LABELS[selectedPlanPeriod],
-          // ✅ CORREÇÃO TABELA DE PREÇO
-          p_plan_table_id: selectedTableId || null,
-          p_price_amount: rawPlanPrice,
-          p_price_currency: currency as any,
-          p_vencimento: dueISO,
-          p_is_trial: allowConvertWithoutPayment ? false : null,
-          p_whatsapp_opt_in: true,
-          p_whatsapp_username: null,
-          p_whatsapp_snooze_until: null,
-          p_is_archived: false,
-          p_technology: finalTechnology,
-        });
-
-        if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
-
-        // --- PASSO 2: RENOVAR ---
-        if (registerPayment) {
-          setLoadingText("Registrando pagamento..."); // 2. Feedback pagamento
-          const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
-            p_tenant_id: tid,
-            p_client_id: clientId,
-            p_months: monthsToRenew,
-            p_status: "PAID",
-            p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
-            p_new_vencimento: dueISO,
-          });
-          if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
-        }
-
-        // --- PASSO 3: ENVIAR WHATSAPP (SEQUENCIAL) ---
-  // --- PASSO 3: ENVIAR WHATSAPP (SEQUENCIAL) ---
-  if (sendWhats && messageContent && messageContent.trim()) {
-
-    setLoadingText("Enviando WhatsApp...");
+    if (loading) return;
+    setLoading(true);
+    setLoadingText("Salvando dados...");
 
     try {
+      let finalTechnology = technology;
+      if (technology === "Personalizado") finalTechnology = customTechnology.trim();
 
-      const { data: session } = await supabaseBrowser.auth.getSession();
-      const token = session.session?.access_token;
+      const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
+      const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
+      const tid = await getCurrentTenantId();
+      const nameToSend = clientData?.display_name || clientName;
 
-      const res = await fetch("/api/whatsapp/envio_agora", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          tenant_id: tid,
-          client_id: clientId,
-          message: messageContent,
-          whatsapp_session: "default",
-        }),
-      });
+      // ✅ VARIÁVEIS para dados da API
+      let apiVencimento = saoPauloDateTimeToIso(dueDate, dueTime); // inicial
+      let apiPassword: string | null = null;
 
-      if (!res.ok) {
-        throw new Error("API retornou erro");
+      // --- PASSO 1: RENOVAÇÃO AUTOMÁTICA (SE MARCADA) ---
+      if (renewAutomatic && clientData?.server_id) {
+        try {
+          setLoadingText("Renovando no servidor...");
+
+          // 1.1. Buscar integração
+          const { data: srv } = await supabaseBrowser
+            .from("servers")
+            .select("panel_integration")
+            .eq("id", clientData.server_id)
+            .single();
+
+          if (srv?.panel_integration) {
+            // 1.2. Buscar provider
+            const { data: integ } = await supabaseBrowser
+              .from("server_integrations")
+              .select("provider")
+              .eq("id", srv.panel_integration)
+              .single();
+
+            const provider = String(integ?.provider || "").toUpperCase();
+
+            // 1.3. Montar URL da API
+            const apiUrl = provider === "FAST"
+              ? "/api/integrations/fast/renew-client"
+              : "/api/integrations/natv/renew-client";
+
+            // 1.4. Chamar API
+            const apiRes = await fetch(apiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                integration_id: srv.panel_integration,
+                username: clientData.username,
+                months: monthsToRenew,
+              }),
+            });
+
+            const apiJson = await apiRes.json();
+
+            if (!apiRes.ok || !apiJson.ok) {
+              throw new Error(apiJson.error || "Erro na API de integração");
+            }
+
+            // 1.5. Atualizar com dados da API
+            const expDateISO = apiJson.data.exp_date_iso;
+            apiVencimento = expDateISO;
+
+            // NATV: atualiza senha / FAST: mantém
+            if (provider === "NATV" && apiJson.data.password) {
+              apiPassword = apiJson.data.password;
+            }
+
+            // 1.6. Sync créditos
+            const syncUrl = provider === "FAST"
+              ? "/api/integrations/fast/sync"
+              : "/api/integrations/natv/sync";
+
+            await fetch(syncUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ integration_id: srv.panel_integration }),
+            });
+
+            console.log("✅ Renovação automática concluída:", {
+              vencimento: apiVencimento,
+              senha_atualizada: !!apiPassword,
+            });
+          }
+        } catch (apiErr: any) {
+          console.error("❌ Erro na renovação automática:", apiErr);
+          
+          // Enfileira toast de erro
+          queueToast(
+            "error",
+            "Falha na Renovação Automática",
+            apiErr.message || "Não foi possível renovar no servidor. Verifique e tente novamente.",
+            toastKey
+          );
+
+          // Para a execução (não salva nada se API falhar)
+          setLoading(false);
+          return;
+        }
       }
 
-      // ✅ Sucesso — envia toast para a tela correta (clientes ou testes)
-      queueToast(
-        "success",
-        "Mensagem enviada",
-        "Comprovante entregue no WhatsApp.",
-        toastKey
-      );
+      // --- PASSO 2: ATUALIZAR CLIENTE ---
+      setLoadingText("Atualizando cadastro...");
 
-    } catch (e) {
+      const updatePayload: any = {
+        p_tenant_id: tid,
+        p_client_id: clientId,
+        p_display_name: nameToSend,
+        p_name_prefix: null,
+        p_notes: obs || null,
+        p_clear_notes: (!!clientData?.notes && !obs),
+        p_server_id: clientData?.server_id,
+        p_server_username: clientData?.username,
+        p_server_password: apiPassword, // ✅ NATV: atualiza / FAST: null (mantém)
+        p_screens: Number(screens),
+        p_plan_label: PLAN_LABELS[selectedPlanPeriod],
+        p_plan_table_id: selectedTableId || null,
+        p_price_amount: rawPlanPrice,
+        p_price_currency: currency as any,
+        p_vencimento: apiVencimento, // ✅ DA API ou calculado localmente
+        p_is_trial: allowConvertWithoutPayment ? false : null,
+        p_whatsapp_opt_in: true,
+        p_whatsapp_username: null,
+        p_whatsapp_snooze_until: null,
+        p_is_archived: false,
+        p_technology: finalTechnology,
+      };
 
-      console.error("Falha envio Whats:", e);
+      const { error: updateError } = await supabaseBrowser.rpc("update_client", updatePayload);
 
-      // ✅ Erro também vai para a tela correta
-      queueToast(
-        "error",
-        "Erro no envio",
-        "Renovado, mas o WhatsApp falhou.",
-        toastKey
-      );
+      if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
+
+      // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
+      if (registerPayment) {
+        setLoadingText("Registrando pagamento...");
+        const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+          p_tenant_id: tid,
+          p_client_id: clientId,
+          p_months: monthsToRenew,
+          p_status: "PAID",
+          p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
+          p_new_vencimento: apiVencimento, // ✅ Usa vencimento da API
+        });
+        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+      }
+
+      // --- PASSO 4: ENVIAR WHATSAPP ---
+      if (sendWhats && messageContent && messageContent.trim()) {
+        setLoadingText("Enviando WhatsApp...");
+
+        try {
+          const { data: session } = await supabaseBrowser.auth.getSession();
+          const token = session.session?.access_token;
+
+          const res = await fetch("/api/whatsapp/envio_agora", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              client_id: clientId,
+              message: messageContent,
+              whatsapp_session: "default",
+            }),
+          });
+
+          if (!res.ok) throw new Error("API retornou erro");
+
+          queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
+        } catch (e) {
+          console.error("Falha envio Whats:", e);
+          queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.", toastKey);
+        }
+      }
+
+      // --- FIM ---
+      setLoadingText("Concluído!");
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 500);
+
+    } catch (err: any) {
+      console.error("CRASH:", err);
+      addToast("error", "Erro ao salvar", err.message || "Falha desconhecida");
+      setLoading(false);
     }
-  }
-
-
-        // --- FIM ---
-        setLoadingText("Concluído!");
-        
-        // Pequeno delay para ler "Concluído" e fechar suave
-        setTimeout(() => { 
-            onSuccess(); 
-            onClose(); 
-        }, 500);
-
-      } catch (err: any) {
-        console.error("CRASH:", err);
-        addToast("error", "Erro ao salvar", err.message || "Falha desconhecida");
-        setLoading(false); // Só destrava se der erro fatal
-      }
-    };
+  };
 
   if (fetching || !mounted) return null; // ✅ Aguarda montagem
 
@@ -1003,6 +1095,39 @@
               {/* 4. OUTROS + OBS */}
               <div className="space-y-3">
                 {/* ... (Bloco de Tecnologia e Notificação mantém, mas com gap-3 e labels ajustados) ... */}
+                  {/* ✅ TOGGLE RENOVAÇÃO AUTOMÁTICA */}
+{!isFromTrial && (
+  <div 
+    onClick={() => hasIntegration && setRenewAutomatic(!renewAutomatic)}
+    className={`p-3 rounded-xl border transition-all cursor-pointer ${
+      renewAutomatic 
+        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
+        : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+    } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
+  >
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{renewAutomatic ? "🔄" : "📝"}</span>
+        <div>
+          <span className={`text-xs font-bold block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
+            Renovação Automática
+          </span>
+          <span className="text-[9px] text-slate-400 dark:text-white/40">
+            {hasIntegration ? "Sincronizar com servidor" : "Servidor sem integração"}
+          </span>
+        </div>
+      </div>
+      <Switch 
+        checked={renewAutomatic} 
+        onChange={(v) => hasIntegration && setRenewAutomatic(v)} 
+        label="" 
+      />
+    </div>
+  </div>
+)}
+
+<div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}></div>
+
                   <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}>
                       {/* ... (Inputs de Tecnologia e Toggle Notification igual ao código original, apenas mantenha dentro desse padding reduzido) ... */}
                       <div>
