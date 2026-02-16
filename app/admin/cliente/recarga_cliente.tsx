@@ -740,16 +740,30 @@ if (c.server_id) {
       let apiPassword: string | null = null;
 
       // --- PASSO 1: RENOVAÇÃO AUTOMÁTICA (SE MARCADA) ---
-      if (renewAutomatic && clientData?.server_id) {
-        try {
-          setLoadingText("Renovando no servidor...");
+console.log("🔵 DEBUG Renovação:", {
+  renewAutomatic,
+  server_id: clientData?.server_id,
+  username: clientData?.username,
+  months: monthsToRenew,
+});
 
-          // 1.1. Buscar integração
-          const { data: srv } = await supabaseBrowser
-            .from("servers")
-            .select("panel_integration")
-            .eq("id", clientData.server_id)
-            .single();
+if (renewAutomatic && clientData?.server_id) {
+  try {
+    setLoadingText("Renovando no servidor...");
+
+    // 1.1. Buscar integração
+    console.log("🔵 Buscando integração...");
+    const { data: srv, error: srvErr } = await supabaseBrowser
+      .from("servers")
+      .select("panel_integration")
+      .eq("id", clientData.server_id)
+      .single();
+
+    console.log("🔵 Servidor:", srv, srvErr);
+
+    if (srvErr) {
+      throw new Error("Erro ao buscar servidor: " + srvErr.message);
+    }
 
           if (srv?.panel_integration) {
             // 1.2. Buscar provider
@@ -767,21 +781,32 @@ if (c.server_id) {
               : "/api/integrations/natv/renew-client";
 
             // 1.4. Chamar API
-            const apiRes = await fetch(apiUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                integration_id: srv.panel_integration,
-                username: clientData.username,
-                months: monthsToRenew,
-              }),
-            });
+console.log("🔵 Chamando API:", apiUrl, {
+  integration_id: srv.panel_integration,
+  username: clientData.username,
+  months: monthsToRenew,
+});
 
-            const apiJson = await apiRes.json();
+const apiRes = await fetch(apiUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    integration_id: srv.panel_integration,
+    username: clientData.username,
+    months: monthsToRenew,
+  }),
+});
 
-            if (!apiRes.ok || !apiJson.ok) {
-              throw new Error(apiJson.error || "Erro na API de integração");
-            }
+console.log("🔵 API Response Status:", apiRes.status, apiRes.ok);
+
+const apiJson = await apiRes.json();
+console.log("🔵 API Response JSON:", apiJson);
+
+if (!apiRes.ok || !apiJson.ok) {
+  const errorMsg = apiJson.error || "Erro na API de integração";
+  console.error("❌ Erro API:", errorMsg);
+  throw new Error(errorMsg);
+}
 
             // 1.5. Atualizar com dados da API
             const expDateISO = apiJson.data.exp_date_iso;
@@ -809,20 +834,29 @@ if (c.server_id) {
             });
           }
         } catch (apiErr: any) {
-          console.error("❌ Erro na renovação automática:", apiErr);
-          
-          // Enfileira toast de erro
-          queueToast(
-            "error",
-            "Falha na Renovação Automática",
-            apiErr.message || "Não foi possível renovar no servidor. Verifique e tente novamente.",
-            toastKey
-          );
+  console.error("❌ ERRO COMPLETO:", apiErr);
+  console.error("❌ Stack:", apiErr.stack);
+  
+  // ✅ Toast LOCAL (aparece no modal)
+  addToast(
+    "error",
+    "Falha na Renovação Automática",
+    apiErr.message || "Não foi possível renovar no servidor."
+  );
 
-          // Para a execução (não salva nada se API falhar)
-          setLoading(false);
-          return;
-        }
+  // ✅ Toast na LISTA (aparece depois)
+  queueToast(
+    "error",
+    "Falha na Renovação Automática",
+    apiErr.message || "Não foi possível renovar no servidor. Verifique e tente novamente.",
+    toastKey
+  );
+
+  // Para a execução (não salva nada se API falhar)
+  setLoading(false);
+  setLoadingText("Processando..."); // ✅ Reseta texto
+  return;
+}
       }
 
       // --- PASSO 2: ATUALIZAR CLIENTE ---
