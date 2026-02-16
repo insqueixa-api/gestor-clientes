@@ -158,6 +158,8 @@ function getLocalISOString() {
   return now.toISOString().slice(0, 16); // yyyy-mm-ddThh:mm
 }
 
+
+
 function fmtMoney(currency: string, n: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -813,6 +815,20 @@ useEffect(() => {
 
 
   // ======= LOAD AUX + EDIT PREFILL =======
+// ✅ NOVO: Atualizar vencimento quando mudar período de teste
+useEffect(() => {
+  if (!isTrialMode) return;
+
+  const now = new Date();
+  const target = new Date(now.getTime() + testHours * 60 * 60 * 1000); // +X horas
+
+  const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
+  const tISO = `${pad2(target.getHours())}:${pad2(target.getMinutes())}`;
+
+  setDueDate(dISO);
+  setDueTime(tISO);
+}, [testHours, isTrialMode]);
+
   useEffect(() => {
     let alive = true;
 
@@ -1182,6 +1198,9 @@ if (clientPlanTableId) {
     // ======= REGRAS =======
 
   useEffect(() => {
+    // ✅ Esse useEffect é SÓ para CLIENTE (não teste)
+    if (isTrialMode) return;
+
     const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
 
     if (registerRenewal) {
@@ -1192,9 +1211,7 @@ if (clientPlanTableId) {
       const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
       setDueDate(dISO);
     }
-
-    // ✅ NÃO recalcula preço aqui (deixa isso só nos effects de preço)
-  }, [selectedPlanPeriod, registerRenewal]);
+  }, [selectedPlanPeriod, registerRenewal, isTrialMode]);
 
   // 1) Se mudar a estrutura (Telas, Tabela, Periodo), reseta o override
   // ✅ mas só DEPOIS do prefill inicial terminar (senão apaga override ao abrir edição)
