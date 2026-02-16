@@ -562,13 +562,13 @@ export default function NovoCliente({ clientToEdit, mode = "client", initialTab,
     // ✅ trava para não resetar override durante o prefill inicial
   const didInitRef = useRef(false);
 
-  const addToast = (type: "success" | "error", title: string, message?: string) => {
-    const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
-    setToasts((prev) => [
-      ...prev,
-      { id, type, title, message, durationMs: TOAST_DURATION },
-    ]);
-  };
+const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
+  const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
+  setToasts((prev) => [
+    ...prev,
+    { id, type, title, message, durationMs: TOAST_DURATION },
+  ]);
+};
 
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
@@ -780,12 +780,13 @@ useEffect(() => {
   };
 }, [isTrialMode, serverId]);
 
-// ✅ NOVO: Detectar se servidor tem integração (apenas para desabilitar toggle)
+// ✅ NOVO: Detectar se servidor tem integração + ligar toggle automaticamente
 const [hasIntegration, setHasIntegration] = useState(false);
 
 useEffect(() => {
   if (!isTrialMode || !serverId) {
     setHasIntegration(false);
+    setRegisterRenewal(false); // ✅ Desliga se não tem servidor
     return;
   }
 
@@ -801,10 +802,21 @@ useEffect(() => {
 
       if (!mounted) return;
 
-      setHasIntegration(Boolean(srv?.panel_integration));
+      const hasInteg = Boolean(srv?.panel_integration);
+      setHasIntegration(hasInteg);
+      
+      // ✅ LIGA toggle automaticamente se tem integração
+      if (hasInteg) {
+        setRegisterRenewal(true);
+      } else {
+        setRegisterRenewal(false);
+      }
     } catch (e) {
       console.error("Erro ao verificar integração:", e);
-      if (mounted) setHasIntegration(false);
+      if (mounted) {
+        setHasIntegration(false);
+        setRegisterRenewal(false);
+      }
     }
   })();
 
@@ -1444,13 +1456,14 @@ const { error } = await supabaseBrowser.rpc("update_client", {
   // --- CRIAÇÃO ---
   
   // ✅ NOVO: Variáveis para dados da API
-  let apiUsername = username;
-  let apiPassword = password?.trim() || "";
-  let apiVencimento = dueISO;
-  let apiM3uUrl = "";
+let apiUsername = username;
+let apiPassword = password?.trim() || "";
+let apiVencimento = dueISO;
+let apiM3uUrl = "";
+let serverName = "Servidor"; // ✅ DECLARAR AQUI (escopo correto)
 
-  // ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
-  if (registerRenewal && serverId) {
+// ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
+if (registerRenewal && serverId) {
     try {
       // 1. Buscar integração do servidor
       const { data: srv, error: srvErr } = await supabaseBrowser
@@ -1472,6 +1485,19 @@ const { error } = await supabaseBrowser.rpc("update_client", {
         if (integErr) throw new Error("Erro ao buscar integração: " + integErr.message);
 
         const provider = String(integ?.provider || "").toUpperCase();
+
+// ✅ NOVO: Buscar nome do servidor diretamente do banco
+try {
+  const { data: srvData } = await supabaseBrowser
+    .from("servers")
+    .select("name")
+    .eq("id", serverId)
+    .single();
+  
+  serverName = srvData?.name || "Servidor";
+} catch {
+  serverName = "Servidor";
+}
 
         // 3. Montar URL da API
         let apiUrl = "";
@@ -1534,11 +1560,21 @@ const { error } = await supabaseBrowser.rpc("update_client", {
           body: JSON.stringify({ integration_id: srv.panel_integration }),
         });
       }
-    } catch (apiErr: any) {
-      console.error("Erro ao chamar API:", apiErr);
-      // Continua salvando offline se API falhar
-      addToast("error", "API falhou", "Salvando offline: " + apiErr.message);
-    }
+
+      // ✅ Toast verde quando API funciona
+// ✅ Toast verde quando API funciona
+addToast("success", 
+  isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!", 
+  `Cadastro sincronizado com sucesso no servidor ${serverName}.`
+);
+} catch (apiErr: any) {
+  console.error("Erro ao chamar API:", apiErr);
+  // ✅ Toast amarelo quando salva offline
+  addToast("warning", 
+    isTrialMode ? "Teste Manual Criado" : "Cliente Offline", 
+    "API indisponível. Cadastro salvo apenas localmente (sem sincronizar com servidor)."
+  );
+}
   }
 
   // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
@@ -2129,20 +2165,25 @@ function handleSave() {
    <div className="flex justify-between items-center gap-3">
       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span>
       
-      {isTrialMode && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Período:</span>
-          <select 
-            value={testHours} 
-            onChange={(e) => setTestHours(Number(e.target.value) as 2 | 4 | 6)}
-            className="h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
-          >
-            <option value={2}>2h</option>
-            <option value={4}>4h</option>
-            <option value={6}>6h</option>
-          </select>
-        </div>
-      )}
+{isTrialMode && (
+  <div className="flex items-center gap-2">
+    <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Período:</span>
+    <select 
+      value={testHours} 
+      onChange={(e) => setTestHours(Number(e.target.value) as 2 | 4 | 6)}
+      className="h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
+    >
+      {/* ✅ 2h: desabilitado se Fast */}
+      <option value={2} disabled={testHours === 4 && hasIntegration}>2h</option>
+      
+      {/* ✅ 4h: sempre habilitado */}
+      <option value={4}>4h</option>
+      
+      {/* ✅ 6h: desabilitado se Fast */}
+      <option value={6} disabled={testHours === 4 && hasIntegration}>6h</option>
+    </select>
+  </div>
+)}
    </div>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><Label>Data</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
