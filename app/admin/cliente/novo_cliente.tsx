@@ -42,6 +42,7 @@ export type ClientData = {
   vencimento?: string; // timestamptz
   apps_names?: string[];
   technology?: string;
+  m3u_url?: string; // ✅ ADICIONADO
 };
 
 
@@ -1055,6 +1056,8 @@ if (clientPlanTableId) {
 
   setUsername(clientToEdit.username || "");
   setPassword(clientToEdit.server_password || "");
+  // ✅ M3U URL
+  setM3uUrl(clientToEdit.m3u_url || "");
 
   // Telefones
   if (clientToEdit.whatsapp_e164) {
@@ -1582,8 +1585,10 @@ try {
           const expDate = new Date(apiJson.data.exp_date * 1000);
           apiVencimento = expDate.toISOString();
         }
+        // ✅ DEBUG: Verificar se M3U está chegando
+        console.log("🔵 M3U da API:", apiM3uUrl);
 
-        // 7. Sync (atualizar saldo do servidor)
+// 7. Sync (atualizar saldo do servidor)
         const syncUrl = provider === "FAST"
           ? "/api/integrations/fast/sync"
           : "/api/integrations/natv/sync";
@@ -1594,21 +1599,19 @@ try {
           body: JSON.stringify({ integration_id: srv.panel_integration }),
         });
       }
-
-      // ✅ Toast verde quando API funciona
-// ✅ Toast verde quando API funciona
-addToast("success", 
-  isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!", 
-  `Cadastro sincronizado com sucesso no servidor ${serverName}.`
-);
-} catch (apiErr: any) {
-  console.error("Erro ao chamar API:", apiErr);
-  // ✅ Toast amarelo quando salva offline
-  addToast("warning", 
-    isTrialMode ? "Teste Manual Criado" : "Cliente Offline", 
-    "API indisponível. Cadastro salvo apenas localmente (sem sincronizar com servidor)."
-  );
-}
+      
+      // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
+      
+    } catch (apiErr: any) {
+      console.error("Erro ao chamar API:", apiErr);
+      
+      // ✅ Enfileira toast de API offline (vai aparecer junto com os outros)
+      queueListToast(isTrialMode ? "trial" : "client", {
+        type: "error", // ✅ CORRIGIDO
+        title: isTrialMode ? "Teste Manual Criado" : "Cliente Offline",
+        message: "API indisponível. Cadastro salvo apenas localmente (sem sincronizar com servidor)."
+      });
+    }
   }
 
   // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
@@ -1645,11 +1648,22 @@ addToast("success",
   clientId = data;
 
 // ✅ ATUALIZAR M3U_URL (API ou manual)
+clientId = data;
+
+// ✅ ATUALIZAR M3U_URL (API ou manual)
 if (clientId && (apiM3uUrl || m3uUrl)) {
-  await supabaseBrowser
+  console.log("🟢 Salvando M3U:", apiM3uUrl || m3uUrl);
+  
+  const { error: m3uErr } = await supabaseBrowser
     .from("clients")
     .update({ m3u_url: apiM3uUrl || m3uUrl })
     .eq("id", clientId);
+  
+  if (m3uErr) {
+    console.error("❌ Erro ao salvar M3U:", m3uErr);
+  } else {
+    console.log("✅ M3U salvo com sucesso!");
+  }
 }
 
 if (clientId && namePrefix) {
