@@ -607,6 +607,9 @@ const [sendPaymentMsg, setSendPaymentMsg] = useState(false);
 
 // ✅ TRIAL: envio de mensagem de teste (padrão LIGADO)
 const [sendTrialWhats, setSendTrialWhats] = useState(true);
+// ✅ NOVO: Controle de horas de teste e M3U
+const [testHours, setTestHours] = useState<2 | 4 | 6>(2);
+const [m3uUrl, setM3uUrl] = useState("");
 
 // ✅ Templates WhatsApp
 const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -698,6 +701,45 @@ const [messageContent, setMessageContent] = useState("");
       })
     );
   }
+
+  // ✅ NOVO: Ajustar horas de teste por provider
+useEffect(() => {
+  if (!isTrialMode || !serverId) return;
+
+  (async () => {
+    try {
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", serverId)
+        .single();
+
+      if (srv?.panel_integration) {
+        const { data: integ } = await supabaseBrowser
+          .from("server_integrations")
+          .select("provider")
+          .eq("id", srv.panel_integration)
+          .single();
+
+        const provider = String(integ?.provider || "").toUpperCase();
+
+        if (provider === "FAST") {
+          setTestHours(4); // FAST: 4h fixo
+        } else if (provider === "NATV") {
+          setTestHours(6); // NATV: 6h padrão (pode mudar)
+        } else {
+          setTestHours(2); // Sem integração: 2h
+        }
+      } else {
+        setTestHours(2); // Sem integração: 2h
+      }
+    } catch (e) {
+      console.error("Erro ao ajustar horas:", e);
+      setTestHours(2);
+    }
+  })();
+}, [isTrialMode, serverId]);
+
 
   // ======= LOAD AUX + EDIT PREFILL =======
   useEffect(() => {
@@ -822,15 +864,18 @@ if (tmplErr) {
           }
         }
 
-        if (isTrialMode && defaultBRL) {
-          setSelectedTableId(defaultBRL.id);
-          setCurrency("BRL");
-          setSelectedPlanPeriod("MONTHLY");
-          setScreens(1);
-          const p = pickPriceFromTable(defaultBRL, "MONTHLY", 1);
-          setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-          setPriceTouched(false);
-        }
+if (isTrialMode && defaultBRL) {
+  setSelectedTableId(defaultBRL.id);
+  setCurrency("BRL");
+  setSelectedPlanPeriod("MONTHLY");
+  setScreens(1);
+  const p = pickPriceFromTable(defaultBRL, "MONTHLY", 1);
+  setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
+  setPriceTouched(false);
+  
+  // ✅ NOVO: Definir horas padrão (será ajustado quando selecionar servidor)
+  setTestHours(2);
+}
 
         // ===== PREFILL EDIÇÃO =====
 if (clientToEdit) {
@@ -1292,39 +1337,146 @@ const { error } = await supabaseBrowser.rpc("update_client", {
         queueListToast(isTrialMode ? "trial" : "client", { type: "success", title: "Atualizado", message: "Cliente salvo com sucesso." });
 
       } else {
-        // --- CRIAÇÃO ---
-        const { data, error } = await supabaseBrowser.rpc("create_client_and_setup", {
-  p_tenant_id: tid,
-  p_created_by: createdBy,
-  p_display_name: displayName,
-  p_server_id: serverId,
-  p_server_username: username,
-  p_server_password: password?.trim() || "",
-  p_screens: rpcScreens,
-  p_plan_label: rpcPlanLabel,
-  p_plan_table_id: selectedTableId || null, // ✅ CORREÇÃO: Envia NULL se estiver vazio
-  p_price_amount: rpcPriceAmount,
-  p_price_currency: rpcCurrency as any,
-  p_vencimento: dueISO,
-  p_phone_primary_e164: finalPrimaryE164,
-  p_whatsapp_username: whatsappUsername || null,
-  p_whatsapp_opt_in: Boolean(whatsappOptIn),
-  p_whatsapp_snooze_until: snoozeISO,
-  p_clear_whatsapp_snooze_until: clearSnooze, // ✅ NOVO
-  p_notes: notes || null,
-  p_app_ids: [],
-  p_is_trial: isTrialMode,
-  p_is_archived: false,
-  p_technology: finalTechnology,
-});
+  // --- CRIAÇÃO ---
+  
+  // ✅ NOVO: Variáveis para dados da API
+  let apiUsername = username;
+  let apiPassword = password?.trim() || "";
+  let apiVencimento = dueISO;
+  let apiM3uUrl = "";
 
+  // ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
+  if (registerRenewal && serverId) {
+    try {
+      // 1. Buscar integração do servidor
+      const { data: srv, error: srvErr } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", serverId)
+        .single();
 
-        if (error) {
-          addToast("error", "Erro ao criar cliente", error.message);
-          throw error;
+      if (srvErr) throw new Error("Erro ao buscar servidor: " + srvErr.message);
+
+      if (srv?.panel_integration) {
+        // 2. Buscar provider
+        const { data: integ, error: integErr } = await supabaseBrowser
+          .from("server_integrations")
+          .select("provider")
+          .eq("id", srv.panel_integration)
+          .single();
+
+        if (integErr) throw new Error("Erro ao buscar integração: " + integErr.message);
+
+        const provider = String(integ?.provider || "").toUpperCase();
+
+        // 3. Montar URL da API
+        let apiUrl = "";
+        if (isTrialMode) {
+          apiUrl = provider === "FAST" 
+            ? "/api/integrations/fast/create-trial" 
+            : "/api/integrations/natv/create-trial";
+        } else {
+          apiUrl = provider === "FAST" 
+            ? "/api/integrations/fast/create-client" 
+            : "/api/integrations/natv/create-client";
         }
 
-        clientId = data;
+        // 4. Montar payload
+        const apiPayload: any = {
+          integration_id: srv.panel_integration,
+          username: apiUsername,
+          password: apiPassword || undefined,
+        };
+
+        if (isTrialMode) {
+          apiPayload.hours = testHours;
+        } else {
+          apiPayload.months = PLAN_MONTHS[selectedPlanPeriod] || 1;
+          apiPayload.screens = Number(screens);
+        }
+
+        // 5. Chamar API
+        const apiRes = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(apiPayload),
+        });
+
+        const apiJson = await apiRes.json();
+
+        if (!apiRes.ok || !apiJson.ok) {
+          throw new Error(apiJson.error || "Erro na API de integração");
+        }
+
+        // 6. Atualizar dados com resposta
+        apiUsername = apiJson.data.username;
+        apiPassword = apiJson.data.password;
+        apiM3uUrl = apiJson.data.m3u_url || "";
+
+        // Converter exp_date (timestamp) para ISO
+        if (apiJson.data.exp_date) {
+          const expDate = new Date(apiJson.data.exp_date * 1000);
+          apiVencimento = expDate.toISOString();
+        }
+
+        // 7. Sync (atualizar saldo do servidor)
+        const syncUrl = provider === "FAST"
+          ? "/api/integrations/fast/sync"
+          : "/api/integrations/natv/sync";
+
+        await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: srv.panel_integration }),
+        });
+      }
+    } catch (apiErr: any) {
+      console.error("Erro ao chamar API:", apiErr);
+      // Continua salvando offline se API falhar
+      addToast("error", "API falhou", "Salvando offline: " + apiErr.message);
+    }
+  }
+
+  // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
+  const { data, error } = await supabaseBrowser.rpc("create_client_and_setup", {
+    p_tenant_id: tid,
+    p_created_by: createdBy,
+    p_display_name: displayName,
+    p_server_id: serverId,
+    p_server_username: apiUsername,  // ✅ DA API
+    p_server_password: apiPassword,  // ✅ DA API
+    p_screens: rpcScreens,
+    p_plan_label: rpcPlanLabel,
+    p_plan_table_id: selectedTableId || null,
+    p_price_amount: rpcPriceAmount,
+    p_price_currency: rpcCurrency as any,
+    p_vencimento: apiVencimento,  // ✅ DA API
+    p_phone_primary_e164: finalPrimaryE164,
+    p_whatsapp_username: whatsappUsername || null,
+    p_whatsapp_opt_in: Boolean(whatsappOptIn),
+    p_whatsapp_snooze_until: snoozeISO,
+    p_clear_whatsapp_snooze_until: clearSnooze,
+    p_notes: notes || null,
+    p_app_ids: [],
+    p_is_trial: isTrialMode,
+    p_is_archived: false,
+    p_technology: finalTechnology,
+  });
+
+  if (error) {
+    addToast("error", "Erro ao criar cliente", error.message);
+    throw error;
+  }
+
+  clientId = data;
+
+  // ✅ ATUALIZAR M3U_URL (se houver)
+  if (clientId && apiM3uUrl) {
+    await supabaseBrowser
+      .from("clients")
+      .update({ m3u_url: apiM3uUrl })
+      .eq("id", clientId);
+  }
 
 if (clientId && namePrefix) {
   await supabaseBrowser.rpc("update_client", {
@@ -1756,6 +1908,42 @@ function handleSave() {
                         <Label>Senha</Label>
                         <Input value={password} onChange={(e) => setPassword(e.target.value)} />
                       </div>
+                      {/* ✅ SELETOR DE HORAS (SÓ PARA TESTE) */}
+{isTrialMode && (
+  <div className="sm:col-span-2">
+    <Label>Duração do Teste</Label>
+    <div className="grid grid-cols-3 gap-2">
+      {([2, 4, 6] as const).map((h) => {
+        // Determina se servidor tem integração
+        const isFAST = servers.find(s => s.id === serverId)?.name?.toLowerCase().includes('fast');
+        const isDisabled = isFAST && h !== 4; // FAST só permite 4h
+
+        return (
+          <button
+            key={h}
+            type="button"
+            onClick={() => !isDisabled && setTestHours(h)}
+            disabled={isDisabled}
+            className={`h-10 rounded-lg border font-bold text-sm transition-all ${
+              testHours === h
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : isDisabled
+                  ? "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-300 dark:text-white/20 cursor-not-allowed"
+                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:border-emerald-500/50"
+            }`}
+          >
+            {h}h
+          </button>
+        );
+      })}
+    </div>
+    <p className="text-[10px] text-slate-400 dark:text-white/30 mt-1.5 italic">
+      {testHours === 4 && "FAST: duração fixa de 4 horas"}
+      {testHours === 6 && "NATV: padrão 6 horas"}
+      {testHours === 2 && "Servidor sem integração"}
+    </p>
+  </div>
+)}
                    </div>
                 </div>
 
