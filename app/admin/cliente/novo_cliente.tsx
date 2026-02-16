@@ -2123,7 +2123,21 @@ function handleSave() {
       </span>
       
       {/* ✅ Se TESTE e servidor SEM integração → desabilita */}
-      <Switch 
+      {(() => {
+        if (isTrialMode && !serverId) {
+          // Sem servidor selecionado → desabilitado
+          return (
+            <div className="relative">
+              <Switch checked={false} onChange={() => {}} label="" />
+              <div className="absolute inset-0 bg-slate-100/80 dark:bg-black/60 rounded-lg cursor-not-allowed" 
+                   title="Selecione um servidor primeiro" />
+            </div>
+          );
+        }
+        
+        // Comportamento normal (sempre habilitado para cliente)
+        return (
+          <Switch 
   checked={registerRenewal} 
   onChange={(v) => { 
     setRegisterRenewal(v); 
@@ -2133,6 +2147,8 @@ function handleSave() {
   label="" 
   disabled={isTrialMode && !registerRenewal} // ✅ Desabilita se useEffect detectou sem integração
 />
+        );
+      })()}
     </div>
 
     {/* ✅ COLUNA 2: Mensagem WhatsApp */}
@@ -2219,7 +2235,8 @@ function handleSave() {
         ))}
       </Select>
     </div>
-       
+    
+    
   </div>
 )}
       </div>
