@@ -470,7 +470,8 @@ const [scheduleDate, setScheduleDate] = useState("");
     return;
   }
 
-  const viewName = archivedFilter === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
+  // ✅ CORRETO: Usando views de TESTES
+const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_trials_list_active";
 
   const { data, error } = await supabaseBrowser
     .from(viewName)
