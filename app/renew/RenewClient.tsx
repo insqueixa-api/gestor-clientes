@@ -221,15 +221,14 @@ setAccounts(mapped);
       if (!account || !account.plan_table_id) return;
 
       try {
-  const res = await fetch("/api/client-portal/get-prices", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      session_token: session,
-      plan_table_id: account.plan_table_id,
-      screens: account.screens,
-    }),
-  });
+const res = await fetch("/api/client-portal/get-prices", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    session_token: session,
+    client_id: selectedAccount.id,
+  }),
+});
 
   const result = await res.json();
   if (!result.ok) throw new Error(result.error);

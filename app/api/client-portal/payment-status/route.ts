@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
             }
           }
         } catch (err) {
-          console.error("Erro ao consultar MP:", err);
+          console.error("Erro ao consultar Mercado Pago:", err);
         }
       }
     }
