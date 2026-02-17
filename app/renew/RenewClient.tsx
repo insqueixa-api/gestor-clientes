@@ -48,10 +48,21 @@ const PERIOD_MONTHS: Record<string, number> = {
 };
 
 // ========= HELPERS =========
+function getSPParts(d: Date) {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(d);
+  return { hour: parts.find((p) => p.type === "hour")?.value || "12" };
+}
+
 function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
+  const p = getSPParts(new Date());
+  const h = Number(p.hour);
+  if (h >= 4 && h < 12) return "Bom dia";
+  if (h >= 12 && h < 18) return "Boa tarde";
   return "Boa noite";
 }
 
@@ -299,20 +310,22 @@ setAccounts(mapped);
           {/* Header com Logo */}
           <div className="text-center mb-8">
             <div className="inline-block bg-white dark:bg-[#161b22] rounded-2xl p-4 shadow-lg mb-4">
-              <Image
-                src="/logo.svg"
-                alt="Logo"
-                width={120}
-                height={40}
-                className="dark:invert"
-              />
+<Image
+  src="/brand/logo-full-light.png"
+  alt="UniGestor"
+  width={140}
+  height={46}
+/>
             </div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-              {getGreeting()}! 👋
-            </h1>
-            <p className="text-slate-600 dark:text-white/60">
-              Selecione a conta que deseja gerenciar
-            </p>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+  Olá, {accounts[0]?.display_name?.split(" ")[0]}! 👋
+</h1>
+<p className="text-lg font-medium text-slate-600 dark:text-white/70 mb-1">
+  {getGreeting()}!
+</p>
+<p className="text-slate-500 dark:text-white/50 text-sm">
+  Selecione a conta que deseja gerenciar
+</p>
           </div>
 
           {/* Lista de Contas */}
@@ -398,16 +411,36 @@ setAccounts(mapped);
         </div>
 
         {/* Saudação */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
-          <h1 className="text-2xl font-bold mb-2">
-            {getGreeting()}, {selectedAccount.display_name}! 👋
-          </h1>
-          <p className="text-blue-100">
-            {selectedAccount.is_trial
-              ? "Você está no período de teste. Renove agora e garanta seu acesso contínuo!"
-              : "Mantenha sua assinatura em dia e continue aproveitando nossos serviços!"}
-          </p>
-        </div>
+<div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-xl overflow-hidden">
+  {/* Decoração de fundo */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
+  <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8" />
+
+  <div className="relative">
+    <p className="text-blue-200 text-sm font-medium mb-1">{getGreeting()}! 👋</p>
+    <h1 className="text-2xl font-bold mb-3">
+      {selectedAccount.display_name}
+    </h1>
+
+    {/* Status badge */}
+    {timeRemaining?.expired ? (
+      <div className="inline-flex items-center gap-2 bg-red-500/30 border border-red-400/30 px-3 py-1.5 rounded-lg">
+        <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+        <span className="text-sm font-bold text-red-100">Assinatura Vencida</span>
+      </div>
+    ) : selectedAccount.is_trial ? (
+      <div className="inline-flex items-center gap-2 bg-sky-500/30 border border-sky-400/30 px-3 py-1.5 rounded-lg">
+        <span className="w-2 h-2 bg-sky-300 rounded-full animate-pulse" />
+        <span className="text-sm font-bold text-sky-100">Período de Teste — Renove agora!</span>
+      </div>
+    ) : (
+      <div className="inline-flex items-center gap-2 bg-emerald-500/30 border border-emerald-400/30 px-3 py-1.5 rounded-lg">
+        <span className="w-2 h-2 bg-emerald-400 rounded-full" />
+        <span className="text-sm font-bold text-emerald-100">Assinatura Ativa — {timeRemaining?.text} restantes</span>
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Botão Voltar (se tem múltiplas contas) */}
         {accounts.length > 1 && (
