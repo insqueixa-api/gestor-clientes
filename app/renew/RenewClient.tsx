@@ -121,31 +121,22 @@ export default function RenewClient() {
 
       try {
   console.log("🔵 Validando sessão...");
-  
-  // 1. Validar sessão (query direta)
-  const { data: sessionResult, error: sessionErr } = await supabaseBrowser
-    .from("client_portal_sessions")
-    .select("tenant_id, whatsapp_username")
-    .eq("session_token", session)
-    .gt("expires_at", new Date().toISOString())
-    .single();
 
-  console.log("🔵 Resultado:", { sessionResult, sessionErr });
+  // 1. Validar sessão via API (seguro, server-side)
+  const res = await fetch("/api/client-portal/validate-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_token: session }),
+  });
 
-  if (sessionErr) {
-    console.error("❌ Erro:", sessionErr);
-    throw new Error("Sessão expirada ou inválida");
+  const result = await res.json();
+  console.log("🔵 Resultado:", result);
+
+  if (!result.ok) {
+    throw new Error(result.error || "Sessão expirada ou inválida");
   }
 
-  if (!sessionResult) {
-    throw new Error("Sessão não encontrada");
-  }
-
-  const sess = sessionResult;
-
-  if (!sess.tenant_id || !sess.whatsapp_username) {
-    throw new Error("Dados inválidos");
-  }
+  const sess = result.data;
 
   console.log("✅ Sessão válida:", sess);
 
