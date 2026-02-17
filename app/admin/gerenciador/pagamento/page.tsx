@@ -169,8 +169,7 @@ const GATEWAY_META: GatewayMeta[] = [
 const PRIORITY_LABELS: Record<number, string> = {
   1: "Principal",
   2: "Fallback",
-  3: "Secundário",
-};
+  };
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 
@@ -394,7 +393,7 @@ function GatewayModal({
                   >
                     <option value={1}>1 — Principal</option>
                     <option value={2}>2 — Fallback</option>
-                    <option value={3}>3 — Secundário</option>
+                    
                   </select>
                 </div>
 
