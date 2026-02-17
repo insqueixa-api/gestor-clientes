@@ -112,6 +112,7 @@ export default function RenewClient() {
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
     async function loadData() {
+      console.log("🔵 DEBUG: session =", session);
       if (!session) {
         setError("Sessão inválida");
         setLoading(false);
@@ -119,13 +120,16 @@ export default function RenewClient() {
       }
 
       try {
+        console.log("🔵 Chamando portal_resolve_token com token:", session.slice(0, 20) + "...");
         // 1. Validar sessão
         const { data: sessionResult, error: sessionErr } = await supabaseBrowser.rpc(
           "portal_resolve_token",
           { p_token: session }
         );
 
+        console.log("🔵 Resultado do RPC:", { sessionResult, sessionErr });
         if (sessionErr || !sessionResult || !Array.isArray(sessionResult) || sessionResult.length === 0) {
+          console.error("❌ Erro no RPC:", sessionErr);
           throw new Error("Sessão expirada ou inválida");
         }
 
