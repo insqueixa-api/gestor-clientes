@@ -88,3 +88,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
+// GET para testar se a rota está ativa
+export async function GET() {
+  return NextResponse.json({ 
+    ok: true, 
+    message: "API payment-status ativa",
+    timestamp: new Date().toISOString() 
+  });
+}
