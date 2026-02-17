@@ -56,22 +56,22 @@ const GATEWAY_META: GatewayMeta[] = [
     icon: "💳",
     color: "from-blue-500 to-cyan-500",
     fields: [
-      {
-        key: "access_token",
-        label: "Access Token",
-        type: "password",
-        placeholder: "APP_USR-...",
-        hint: "Encontre em: Mercado Pago → Credenciais → Credenciais de produção",
-        required: true,
-      },
-      {
-        key: "webhook_secret",
-        label: "Webhook Secret",
-        type: "password",
-        placeholder: "Chave secreta para validar webhooks",
-        hint: "Opcional — adicione uma chave aleatória para maior segurança",
-      },
-    ],
+  {
+    key: "public_key",
+    label: "Public Key",
+    type: "text",
+    placeholder: "TEST-e3bcb621-b592-41fe-b829...",
+    hint: "Chave pública para uso no frontend (opcional)",
+  },
+  {
+    key: "access_token",
+    label: "Access Token",
+    type: "password",
+    placeholder: "TEST-2503726134717793-021713...",
+    hint: "Token de acesso para chamadas de API (obrigatório)",
+    required: true,
+  },
+],
   },
   {
     type: "banco_inter",
@@ -194,8 +194,8 @@ const GATEWAY_META: GatewayMeta[] = [
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: "Principal",
-  2: "Fallback",
-  3: "Secundário",
+  2: "Secundário",
+  3: "Fallback",
 };
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
@@ -418,9 +418,9 @@ function GatewayModal({
                     onChange={(e) => setPriority(Number(e.target.value))}
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
-                    <option value={1}>1 — Principal</option>
-                    <option value={2}>2 — Fallback</option>
-                    <option value={3}>3 — Secundário</option>
+<option value={1}>1 — Principal</option>
+<option value={2}>2 — Secundário</option>
+<option value={3}>3 — Fallback</option>
                   </select>
                 </div>
 
