@@ -125,11 +125,17 @@ export default function RenewClient() {
           { p_token: session }
         );
 
-        if (sessionErr || !sessionResult) {
+        if (sessionErr || !sessionResult || !Array.isArray(sessionResult) || sessionResult.length === 0) {
           throw new Error("Sessão expirada ou inválida");
         }
 
-        const sess = sessionResult as any;
+        // ✅ RPC retorna array, pegar primeiro item
+        const sess = sessionResult[0] as any;
+
+        if (!sess.tenant_id || !sess.whatsapp_username) {
+          throw new Error("Dados da sessão inválidos");
+        }
+
         setSessionData({
           tenant_id: sess.tenant_id,
           whatsapp_username: sess.whatsapp_username,
