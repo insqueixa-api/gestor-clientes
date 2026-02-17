@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+// ✅ Service Role bypassa RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,9 +18,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("client_portal_sessions")
       .select("tenant_id, whatsapp_username")
       .eq("session_token", session_token)
@@ -22,6 +26,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error || !data) {
+      console.error("Sessão não encontrada:", error);
       return NextResponse.json(
         { ok: false, error: "Sessão inválida" },
         { status: 401 }
@@ -36,6 +41,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    console.error("Erro validate-session:", err);
     return NextResponse.json(
       { ok: false, error: err.message },
       { status: 500 }
