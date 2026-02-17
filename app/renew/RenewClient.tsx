@@ -77,15 +77,33 @@ function getTimeRemaining(vencimento: string) {
   const now = new Date();
   const due = new Date(vencimento);
   const diff = due.getTime() - now.getTime();
+  const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (diff <= 0) return { expired: true, text: "Vencido" };
+  // Vencido
+  if (diff <= 0) {
+    const expiredDays = Math.abs(diffDays);
+    if (expiredDays === 0) return { expired: true, text: "Venceu ontem" };
+    if (expiredDays === 1) return { expired: true, text: "Venceu ontem" };
+    return { expired: true, text: `Vencida há ${expiredDays} dias` };
+  }
 
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  // Vence hoje (menos de 24h)
+  if (diffDays === 0) {
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const dueFormatted = new Date(vencimento).toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return { expired: false, today: true, text: `Vence hoje às ${dueFormatted}`, hours, minutes };
+  }
 
-  if (days > 0) return { expired: false, text: `${days} dia${days > 1 ? "s" : ""}` };
-  return { expired: false, text: `${hours}h ${minutes}min` };
+  // Vence amanhã
+  if (diffDays === 1) return { expired: false, text: "Vence amanhã" };
+
+  // Vence em X dias
+  return { expired: false, text: `Vence em ${diffDays} dias` };
 }
 
 function formatDateTime(dateStr: string) {
@@ -252,9 +270,10 @@ setAccounts(mapped);
   }, [selectedAccount]);
 
   // ========= HANDLERS =========
-  const handleSelectAccount = (accountId: string) => {
-    setSelectedAccountId(accountId);
-  };
+const handleSelectAccount = (accountId: string) => {
+  setSelectedAccountId(accountId);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
   const handleRenew = async () => {
     if (!selectedAccount || !selectedPrice) return;
@@ -339,11 +358,7 @@ setAccounts(mapped);
                             TESTE
                           </span>
                         )}
-                        {account.is_archived && (
-                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/60 text-xs font-bold rounded">
-                            ARQUIVADO
-                          </span>
-                        )}
+
                       </div>
                       <p className="text-sm text-slate-500 dark:text-white/50">
                         {account.server_name} • {account.screens} tela{account.screens > 1 ? "s" : ""}
@@ -388,7 +403,7 @@ setAccounts(mapped);
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header com Logo */}
-        <div className="text-center mb-2">
+        <div className="text-center mb-6">
   <Image
     src="/brand/logo-full-light.png"
     alt="UniGestor"
@@ -411,22 +426,24 @@ setAccounts(mapped);
     </h1>
 
     {/* Status badge */}
-    {timeRemaining?.expired ? (
-      <div className="inline-flex items-center gap-2 bg-red-500/30 border border-red-400/30 px-3 py-1.5 rounded-lg">
-        <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
-        <span className="text-sm font-bold text-red-100">Assinatura Vencida</span>
-      </div>
-    ) : selectedAccount.is_trial ? (
-      <div className="inline-flex items-center gap-2 bg-sky-500/30 border border-sky-400/30 px-3 py-1.5 rounded-lg">
-        <span className="w-2 h-2 bg-sky-300 rounded-full animate-pulse" />
-        <span className="text-sm font-bold text-sky-100">Período de Teste — Renove agora!</span>
-      </div>
-    ) : (
-      <div className="inline-flex items-center gap-2 bg-emerald-500/30 border border-emerald-400/30 px-3 py-1.5 rounded-lg">
-        <span className="w-2 h-2 bg-emerald-400 rounded-full" />
-        <span className="text-sm font-bold text-emerald-100">Assinatura Ativa — {timeRemaining?.text} restantes</span>
-      </div>
-    )}
+    <div className="flex justify-center sm:justify-start">
+  {timeRemaining?.expired ? (
+    <div className="inline-flex items-center gap-2 bg-red-500/30 border border-red-400/30 px-3 py-1.5 rounded-lg">
+      <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
+      <span className="text-sm font-bold text-red-100">{timeRemaining.text}</span>
+    </div>
+  ) : selectedAccount.is_trial ? (
+    <div className="inline-flex items-center gap-2 bg-sky-500/30 border border-sky-400/30 px-3 py-1.5 rounded-lg">
+      <span className="w-2 h-2 bg-sky-300 rounded-full animate-pulse" />
+      <span className="text-sm font-bold text-sky-100">Período de Teste — {timeRemaining?.text}</span>
+    </div>
+  ) : (
+    <div className="inline-flex items-center gap-2 bg-emerald-500/30 border border-emerald-400/30 px-3 py-1.5 rounded-lg">
+      <span className="w-2 h-2 bg-emerald-400 rounded-full" />
+      <span className="text-sm font-bold text-emerald-100">{timeRemaining?.text}</span>
+    </div>
+  )}
+</div>
   </div>
 </div>
 
@@ -472,68 +489,89 @@ setAccounts(mapped);
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-                  Telas
-                </label>
-                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-                  {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-                  Plano Atual
-                </label>
-                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-                  {selectedAccount.plan_label}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-                Vencimento
-              </label>
-              <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-                <span className="text-sm font-medium text-slate-800 dark:text-white">
-                  {formatDateTime(selectedAccount.vencimento)}
-                </span>
-                {timeRemaining && (
-                  <span className={`text-xs font-bold px-2 py-1 rounded ${timeRemaining.expired ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"}`}>
-                    {timeRemaining.text}
-                  </span>
-                )}
-              </div>
-            </div>
+  <div>
+    <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+      Telas
+    </label>
+    <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
+      {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
+    </div>
+  </div>
+  <div>
+    <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
+      Vencimento
+    </label>
+    <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
+      {formatDateTime(selectedAccount.vencimento)}
+    </div>
+  </div>
+</div>
           </div>
         </div>
 
-        {/* Seletor de Plano */}
-        <div className="bg-white dark:bg-[#161b22] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-500/5 dark:to-green-500/5 px-6 py-4 border-b border-slate-200 dark:border-white/10">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              💰 Escolha seu Plano
-            </h2>
-          </div>
+        {/* Seção de Planos */}
+<div className="bg-white dark:bg-[#161b22] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden">
+  <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-500/5 dark:to-green-500/5 px-6 py-4 border-b border-slate-200 dark:border-white/10">
+    <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+      💰 Planos
+    </h2>
+  </div>
 
-          <div className="p-6 space-y-3">
-            {prices.map((price) => {
+  <div className="p-4 space-y-4">
+
+    {/* Plano Atual */}
+    {(() => {
+      const currentPrice = prices.find(
+        (p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label
+      );
+      return (
+        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border-2 border-blue-200 dark:border-blue-500/30">
+          <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2">
+            ✅ Seu Plano Atual
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-slate-800 dark:text-white text-lg">
+              {selectedAccount.plan_label}
+            </span>
+            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              {currentPrice
+                ? formatMoney(currentPrice.price_amount, selectedAccount.price_currency)
+                : "—"}
+            </span>
+          </div>
+        </div>
+      );
+    })()}
+
+    {/* Planos Disponíveis */}
+    {prices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
+      <div>
+        <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-3 px-1">
+          Planos Disponíveis
+        </p>
+        <div className="space-y-2">
+          {prices
+            .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
+            .map((price) => {
               const months = PERIOD_MONTHS[price.period];
-              const isMonthly = price.period === "MONTHLY";
-              const monthlyRef = monthlyPrice?.price_amount || price.price_amount;
-              const discountPercent = isMonthly ? 0 : calculateDiscount(monthlyRef, price.price_amount, months);
+              const monthlyRef = prices.find((p) => p.period === "MONTHLY")?.price_amount || price.price_amount;
+              const discountPercent = price.period === "MONTHLY" ? 0 : calculateDiscount(monthlyRef, price.price_amount, months);
               const isSelected = selectedPeriod === price.period;
 
               return (
                 <button
                   key={price.period}
                   onClick={() => setSelectedPeriod(price.period)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/50"}`}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    isSelected
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
+                      : "border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/50"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-white/20"}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-white/20"}`}>
                           {isSelected && (
                             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -544,28 +582,29 @@ setAccounts(mapped);
                           {PERIOD_LABELS[price.period]}
                         </span>
                         {discountPercent > 0 && (
-                          <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded">
+                          <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full">
                             {discountPercent}% OFF
                           </span>
                         )}
                       </div>
-                      {!isMonthly && (
-                        <p className="text-xs text-slate-500 dark:text-white/50 mt-1">
-                          {formatMoney(price.price_amount / months)}/mês
-                        </p>
-                      )}
+                      <p className="text-xs text-slate-500 dark:text-white/50 mt-1 ml-7">
+                        {formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-slate-800 dark:text-white">
-                        {formatMoney(price.price_amount)}
+                    <div className="text-right ml-2">
+                      <div className="text-lg font-bold text-slate-800 dark:text-white">
+                        {formatMoney(price.price_amount, selectedAccount.price_currency)}
                       </div>
                     </div>
                   </div>
                 </button>
               );
             })}
-          </div>
         </div>
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Botão de Renovação */}
         <button
