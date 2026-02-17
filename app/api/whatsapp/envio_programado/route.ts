@@ -221,6 +221,9 @@ type ScheduleBody = {
   recipient_id?: string;
   recipient_type?: "client" | "reseller";
 
+  // ✅ novo (opcional)
+  message_template_id?: string;
+
   message: string;
   send_at: string; // ISO (pode vir sem TZ do front)
   whatsapp_session?: string | null;
@@ -815,6 +818,10 @@ if (isCron) {
     whatsapp_session: (body as any).whatsapp_session ?? "default",
     created_by: authedUserId,
   };
+
+  // ✅ opcional: se o front enviar, o job fica linkado ao template
+const mtid = String((body as any).message_template_id || "").trim();
+if (mtid) insertPayload.message_template_id = mtid;
 
   if (recipientType === "reseller") insertPayload.reseller_id = recipientId;
   else insertPayload.client_id = recipientId;

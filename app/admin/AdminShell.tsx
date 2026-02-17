@@ -272,16 +272,13 @@ export default function AdminShell({
             <MenuLink href="/admin/gerenciador/cobranca" label="🧾 Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
-
             <Divider />
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
               Conta
             </div>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/api-bank" label="🏦 API Banco" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
-
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -294,12 +291,6 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
-            
-            <Divider />
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Integrações
-            </div>
-            <MenuLink href="/admin/settings/api-bank" label="🏦 API Banco" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
