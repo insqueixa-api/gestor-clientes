@@ -918,11 +918,11 @@ export default function RevendaPage() {
   function closeAllPopups() { setMsgMenuForId(null); }
 
   return (
-    <div
-  // Removido text-zinc-900...
-  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
-  onClick={closeAllPopups}
->
+  <div
+    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    onClick={closeAllPopups}
+  >
+
 
   {/* Topo (Contrato UI: mb-2, pt-0) */}
   <div className="flex items-center justify-between gap-2 pb-0 mb-2">
@@ -1509,12 +1509,13 @@ export default function RevendaPage() {
 
               <button
   type="button"
-  onClick={() => openNewTemplate("now")} // (Mantenha o parametro que já está: "now" ou "schedule")
+  onClick={() => openNewTemplate("schedule")}
   className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
   title="Criar novo template"
 >
   + Novo Template
 </button>
+
             </div>
 
             <div>
@@ -1840,9 +1841,14 @@ function IconActionBtn({ children, title, tone, onClick }: { children: React.Rea
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) {
   return (
-    <button onClick={onClick} className="w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg">
-      <span className="opacity-70 group-hover:scale-110 transition-transform">{icon}</span>{label}
-    </button>
+<button
+  onClick={onClick}
+  className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
+>
+  <span className="opacity-70 group-hover:scale-110 transition-transform">{icon}</span>
+  {label}
+</button>
+
   );
 }
 

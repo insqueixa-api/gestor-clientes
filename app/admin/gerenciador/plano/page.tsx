@@ -131,11 +131,41 @@ async function handleDelete(plan: PlanRow) {
 
     // 4) Delete
     console.log("🗑️ Tentando delete...");
-    const { data, error, status, statusText } = await supabase
-      .from("plan_tables")
-      .delete()
-      .eq("id", plan.id)
-      .select();
+// 1. Deletar preços primeiro
+const { error: pricesErr } = await supabase
+  .from("plan_table_item_prices")
+  .delete()
+  .in(
+    "plan_table_item_id",
+    plan.items.map((i) => i.id)
+  );
+
+if (pricesErr) {
+  console.error("❌ Erro ao deletar preços:", pricesErr);
+  alert(`Erro ao deletar preços: ${pricesErr.message}`);
+  console.groupEnd();
+  return;
+}
+
+// 2. Deletar itens
+const { error: itemsErr } = await supabase
+  .from("plan_table_items")
+  .delete()
+  .eq("plan_table_id", plan.id);
+
+if (itemsErr) {
+  console.error("❌ Erro ao deletar itens:", itemsErr);
+  alert(`Erro ao deletar itens: ${itemsErr.message}`);
+  console.groupEnd();
+  return;
+}
+
+// 3. Deletar tabela
+const { data, error, status, statusText } = await supabase
+  .from("plan_tables")
+  .delete()
+  .eq("id", plan.id)
+  .select();
 
     console.log("📊 Status:", status, statusText);
     console.log("📊 Data retornada:", data);

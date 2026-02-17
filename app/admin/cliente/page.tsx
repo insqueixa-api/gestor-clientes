@@ -1424,12 +1424,12 @@ const res = await fetch("/api/whatsapp/envio_programado", {
 
 
   
-  return (
-<div
-  className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+return (
+  <div
+    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    onClick={closeAllPopups}
+  >
 
-  onClick={() => closeAllPopups()}
->
 
 
       {/* Topo */}
@@ -2896,14 +2896,18 @@ function IconActionBtn({
   );
 }
 
-function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function MenuItem({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) {
   return (
-    <button onClick={onClick} className="w-full px-4 py-2 flex items-center gap-3 text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-white transition-colors text-left text-sm font-medium">
-      <span className="opacity-70">{icon}</span>
+    <button
+      onClick={onClick}
+      className="group w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all text-left text-sm font-bold tracking-tight rounded-lg"
+    >
+      <span className="opacity-70 group-hover:scale-110 transition-transform">{icon}</span>
       {label}
     </button>
   );
 }
+
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   if (typeof document === "undefined") return null;

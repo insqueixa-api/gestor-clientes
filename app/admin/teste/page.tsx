@@ -1628,6 +1628,9 @@ onClick={(e) => {
 {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
 
+            {/* ✅ Spacer do Rodapé (Contrato UI) */}
+      <div className="h-24 md:h-20" />
+
       <div className="relative z-[999999]"></div>
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
@@ -1640,6 +1643,7 @@ onClick={(e) => {
       `}</style>
     </div>
   );
+
 }
 
 // --- SUB-COMPONENTES VISUAIS (IGUAL ADMIN) ---
