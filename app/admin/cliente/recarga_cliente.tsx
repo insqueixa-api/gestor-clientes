@@ -829,13 +829,7 @@ if (!apiRes.ok || !apiJson.ok) {
               body: JSON.stringify({ integration_id: srv.panel_integration }),
             });
 
-            console.log("✅ Renovação automática concluída:", {
-              vencimento: apiVencimento,
-              senha_atualizada: !!apiPassword,
-            });
-            // ✅ Buscar nome do servidor para o toast
-let serverName = "Servidor";
-// ✅ Buscar nome do servidor
+            // ✅ Buscar nome do servidor
 try {
   const { data: srvData } = await supabaseBrowser
     .from("servers")
@@ -853,14 +847,6 @@ console.log("✅ Renovação automática concluída:", {
   senha_atualizada: !!apiPassword,
   servidor: serverName,
 });
-
-// ✅ Toast de sucesso da renovação automática
-queueToast(
-  "success",
-  `Cliente renovado no ${serverName}`,
-  "Renovação automática registrada com sucesso.",
-  toastKey
-);
           }
         } catch (apiErr: any) {
   console.error("❌ ERRO COMPLETO:", apiErr);
@@ -988,21 +974,20 @@ if (registerPayment && renewAutomatic) {
       // --- FIM ---
 setLoadingText("Concluído!");
 
-// ✅ Toast final
+// ✅ Toast final baseado no tipo de operação
 if (renewAutomatic) {
-  queueToast(
-    "success",
-    `Cliente renovado no ${serverName}`,
-    "Renovação automática registrada com sucesso.",
-    toastKey
-  );
+  // Renovação automática
+  const isConversion = Boolean(allowConvertWithoutPayment);
+  const title = isConversion 
+    ? `Cliente convertido e renovado no ${serverName}`
+    : `Cliente renovado no ${serverName}`;
+  
+  queueToast("success", title, undefined, toastKey);
+  queueToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.", toastKey);
 } else {
-  queueToast(
-    "success",
-    "Renovação Manual Registrada",
-    "Cliente renovado localmente com sucesso.",
-    toastKey
-  );
+  // Renovação manual
+  queueToast("success", "Renovação Manual Registrada", "Cliente renovado localmente.", toastKey);
+  queueToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.", toastKey);
 }
 
 setTimeout(() => {
