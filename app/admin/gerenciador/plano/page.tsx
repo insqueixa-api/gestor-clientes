@@ -57,6 +57,8 @@ export default function PlanosPage() {
       const supabase = supabaseBrowser;
 
       const { data, error } = await supabase
+      
+      
         .from("plan_tables")
         .select(
           `
@@ -98,27 +100,36 @@ export default function PlanosPage() {
   }
 
   // --- Função de Deletar (Integral) ---
-  async function handleDelete(plan: PlanRow) {
+  // --- Função de Deletar (Integral) ---
+async function handleDelete(plan: PlanRow) {
   if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
 
   const supabase = supabaseBrowser;
-  
+
   console.group("🔍 DEBUG DELETE");
   console.log("Tabela a deletar:", plan.id);
   console.log("Tenant da tabela:", plan.tenant_id);
 
   try {
-    // 1. Verifica usuário atual
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log("👤 Usuário logado:", user?.id || "NENHUM");
-    
-    // 2. Verifica tenant atual
+    // 1) Usuário atual (cliente)
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr) console.warn("⚠️ getUser error:", userErr);
+    const user = userRes?.user ?? null;
+    console.log("👤 Usuário logado (getUser):", user?.id || "NENHUM");
+
+    // 2) Tenant atual (seu helper)
     const currentTenantId = await getCurrentTenantId();
     console.log("🏢 Tenant atual:", currentTenantId);
     console.log("🏢 Tenant da tabela:", plan.tenant_id);
     console.log("✅ Match?", currentTenantId === plan.tenant_id);
 
-    // 3. Tenta deletar COM select para ver retorno
+    // 3) ✅ DEBUG DEFINITIVO: o que o banco está vendo no request
+    console.log("🧾 Checando contexto do request (RLS)...");
+    const { data: ctx, error: ctxErr } = await supabase.rpc("debug_request_context");
+    console.log("🧾 REQUEST CONTEXT:", ctx);
+    console.log("🧾 REQUEST CONTEXT error:", ctxErr);
+
+    // 4) Delete
     console.log("🗑️ Tentando delete...");
     const { data, error, status, statusText } = await supabase
       .from("plan_tables")
@@ -137,41 +148,46 @@ export default function PlanosPage() {
       return;
     }
 
-    // 4. Verifica se realmente deletou
     if (!data || data.length === 0) {
-      console.warn("⚠️ RLS bloqueou! Nenhum registro deletado.");
-      alert("⚠️ Permissão negada (RLS).\n\nO Supabase não permitiu deletar. Verifique se:\n1. Você está no tenant correto\n2. A policy de DELETE está configurada");
+      // Aqui a gente diferencia: RLS mesmo vs request sem auth
+      const role = (ctx as any)?.role;
+      const uid = (ctx as any)?.uid;
+
+      if (!uid || role === "anon") {
+        alert(
+          "⚠️ O DELETE está chegando como ANON (sem sessão/JWT).\n" +
+            "Então auth.uid() = null e o RLS bloqueia.\n\n" +
+            "Me manda o log do '🧾 REQUEST CONTEXT' que eu te devolvo o DE/PARA do supabaseBrowser."
+        );
+      } else {
+        alert(
+          "⚠️ RLS bloqueou o delete mesmo com usuário autenticado.\n\n" +
+            "Me manda o log do '🧾 REQUEST CONTEXT' + a policy de DELETE de plan_tables."
+        );
+      }
+
       console.groupEnd();
       return;
     }
 
     console.log("✅ Deletado com sucesso no banco!");
-    
-    // 5. Confirma no banco que sumiu
-    const { data: checkData } = await supabase
-      .from("plan_tables")
-      .select("id")
-      .eq("id", plan.id)
-      .single();
-    
-    console.log("🔍 Verificação pós-delete:", checkData ? "AINDA EXISTE!" : "CONFIRMADO: deletado");
 
-    // Só remove do estado se confirmou
+    // 5) Atualiza estado
     setPlano((prev) => prev.filter((p) => p.id !== plan.id));
     setExpanded((prev) => {
       const out = { ...prev };
       delete out[plan.id];
       return out;
     });
-    
-    console.groupEnd();
 
+    console.groupEnd();
   } catch (err) {
     console.error("💥 Erro catch:", err);
     alert("Erro inesperado");
     console.groupEnd();
   }
 }
+
 
   useEffect(() => {
     fetchPlano();

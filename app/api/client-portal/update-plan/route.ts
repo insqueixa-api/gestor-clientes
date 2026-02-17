@@ -16,20 +16,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1. Validar sessão
-    const { data: sessionData, error: sessionErr } = await supabase.rpc(
-      "portal_resolve_token",
-      { p_token: session_token }
-    );
+    
+    // 1. Validar sessão (busca direto na tabela de sessões)
+const { data: sessionData, error: sessionErr } = await supabase
+  .from("client_portal_sessions")
+  .select("tenant_id, whatsapp_username")
+  .eq("session_token", session_token)
+  .gt("expires_at", new Date().toISOString())
+  .limit(1);
 
-    if (sessionErr || !sessionData) {
-      return NextResponse.json(
-        { ok: false, error: "Sessão inválida" },
-        { status: 401 }
-      );
-    }
+if (sessionErr || !sessionData || sessionData.length === 0) {
+  return NextResponse.json(
+    { ok: false, error: "Sessão inválida" },
+    { status: 401 }
+  );
+}
 
-    const sess = sessionData as any;
+const sess = sessionData[0];
 
     // 2. Verificar se o cliente pertence à sessão
     const { data: client, error: clientErr } = await supabase
