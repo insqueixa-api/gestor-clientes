@@ -384,7 +384,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 </div>
                 {isEditing && currency !== originalCurrency && (
                   <p className="text-[10px] text-amber-500 mt-2 italic">
-                    * Atenção: ao mudar a moeda, os valores serão resetados para a tabela padrão {currency}
+                    * Atenção: valores resetados para tabela Padrão {currency}
                   </p>
                 )}
               </div>

@@ -97,28 +97,49 @@ export default function PlanosPage() {
     }
   }
 
-  // --- Função de Deletar (Integral) ---
   async function handleDelete(plan: PlanRow) {
-    if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
+  if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
 
-    try {
-      const supabase = supabaseBrowser;
-      const { error } = await supabase.from("plan_tables").delete().eq("id", plan.id);
+  try {
+    const supabase = supabaseBrowser;
+    console.log("🗑️ Tentando deletar tabela:", plan.id);
+    
+    const { error, data, count } = await supabase
+      .from("plan_tables")
+      .delete()
+      .eq("id", plan.id)
+      .select(); // Adiciona .select() para ver o que foi deletado
 
-      if (error) throw error;
-      setPlano((prev) => prev.filter((p) => p.id !== plan.id));
+    console.log("📊 Resposta do delete:", { error, data, count });
 
-      // ✅ NOVO: remove estado de expand do item deletado
-      setExpanded((prev) => {
-        const out = { ...prev };
-        delete out[plan.id];
-        return out;
-      });
-    } catch (err) {
-      console.error("Erro ao deletar:", err);
-      alert("Não foi possível excluir esta tabela.");
+    if (error) {
+      console.error("❌ Erro do Supabase:", error);
+      alert(`Erro ao deletar: ${error.message}`);
+      return;
     }
+
+    // Se não retornou dados, nada foi deletado (provavelmente RLS)
+    if (!data || data.length === 0) {
+      console.warn("⚠️ Nenhum registro foi deletado. Possível causa: RLS (Row Level Security) ou registro não encontrado.");
+      alert("Não foi possível excluir. Verifique se você tem permissão ou se a tabela existe.");
+      return;
+    }
+
+    console.log("✅ Deletado com sucesso:", data);
+    
+    // Só remove do estado se realmente deletou no banco
+    setPlano((prev) => prev.filter((p) => p.id !== plan.id));
+    setExpanded((prev) => {
+      const out = { ...prev };
+      delete out[plan.id];
+      return out;
+    });
+    
+  } catch (err) {
+    console.error("💥 Erro catch:", err);
+    alert("Erro inesperado ao excluir.");
   }
+}
 
   useEffect(() => {
     fetchPlano();
