@@ -82,9 +82,9 @@ function getTimeRemaining(vencimento: string) {
   // Vencido
   if (diff <= 0) {
     const expiredDays = Math.abs(diffDays);
-    if (expiredDays === 0) return { expired: true, text: "Venceu ontem" };
-    if (expiredDays === 1) return { expired: true, text: "Venceu ontem" };
-    return { expired: true, text: `Vencida há ${expiredDays} dias` };
+    if (expiredDays === 0) return { expired: true, text: "Assinatura venceu hoje" };
+    if (expiredDays === 1) return { expired: true, text: "Assinatura venceu ontem" };
+    return { expired: true, text: `Assinatura vencida há ${expiredDays} dias` };
   }
 
   // Vence hoje (menos de 24h)
@@ -96,14 +96,14 @@ function getTimeRemaining(vencimento: string) {
       hour: "2-digit",
       minute: "2-digit",
     });
-    return { expired: false, today: true, text: `Vence hoje às ${dueFormatted}`, hours, minutes };
+    return { expired: false, today: true, text: `Assinatura vence hoje às ${dueFormatted}`, hours, minutes };
   }
 
   // Vence amanhã
-  if (diffDays === 1) return { expired: false, text: "Vence amanhã" };
+  if (diffDays === 1) return { expired: false, text: "Assinatura vence amanhã" };
 
   // Vence em X dias
-  return { expired: false, text: `Vence em ${diffDays} dias` };
+  return { expired: false, text: `Assinatura vence em ${diffDays} dias` };
 }
 
 function formatDateTime(dateStr: string) {
@@ -137,6 +137,7 @@ export default function RenewClient() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
+const [showOtherPlans, setShowOtherPlans] = useState(false);
 
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
@@ -275,6 +276,22 @@ const handleSelectAccount = (accountId: string) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
+// ✅ NOVO: interceptar botão voltar do celular
+useEffect(() => {
+  if (!selectedAccountId) return;
+
+  // Adiciona estado no histórico
+  window.history.pushState({ page: "account" }, "");
+
+  const handlePopState = () => {
+    setSelectedAccountId(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  window.addEventListener("popstate", handlePopState);
+  return () => window.removeEventListener("popstate", handlePopState);
+}, [selectedAccountId]);
+
   const handleRenew = async () => {
     if (!selectedAccount || !selectedPrice) return;
 
@@ -285,7 +302,7 @@ const handleSelectAccount = (accountId: string) => {
   // ========= RENDER: LOADING =========
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629]">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-slate-600 dark:text-white/60">Carregando...</p>
@@ -314,7 +331,7 @@ const handleSelectAccount = (accountId: string) => {
   // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
         <div className="max-w-2xl mx-auto">
           {/* Header com Logo */}
           <div className="text-center mb-2">
@@ -400,8 +417,8 @@ const handleSelectAccount = (accountId: string) => {
   if (!selectedAccount) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
+      <div className="max-w-2xl mx-auto space-y-4 px-0 sm:px-4">
         {/* Header com Logo */}
         <div className="text-center mb-6">
   <Image
@@ -426,7 +443,7 @@ const handleSelectAccount = (accountId: string) => {
     </h1>
 
     {/* Status badge */}
-    <div className="flex justify-center sm:justify-start">
+    <div className="flex justify-center">
   {timeRemaining?.expired ? (
     <div className="inline-flex items-center gap-2 bg-red-500/30 border border-red-400/30 px-3 py-1.5 rounded-lg">
       <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
@@ -468,73 +485,74 @@ const handleSelectAccount = (accountId: string) => {
             </h2>
           </div>
 
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-                  Usuário
-                </label>
-                <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-                  {selectedAccount.server_username}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-                  Servidor
-                </label>
-                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-                  {selectedAccount.server_name}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-      Telas
-    </label>
-    <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-      {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
+          <div className="p-3 space-y-2">
+  {/* Linha 1: Usuário (grande) + Servidor (pequeno) */}
+  <div className="grid grid-cols-3 gap-2">
+    <div className="col-span-2">
+      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+        Usuário
+      </label>
+      <div className="text-sm font-mono text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">
+        {selectedAccount.server_username}
+      </div>
+    </div>
+    <div className="col-span-1">
+      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+        Servidor
+      </label>
+      <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">
+        {selectedAccount.server_name}
+      </div>
     </div>
   </div>
-  <div>
-    <label className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider block mb-1">
-      Vencimento
-    </label>
-    <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10">
-      {formatDateTime(selectedAccount.vencimento)}
+
+  {/* Linha 2: Vencimento (grande) + Telas (pequeno) */}
+  <div className="grid grid-cols-3 gap-2">
+    <div className="col-span-2">
+      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+        Vencimento
+      </label>
+      <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+        {formatDateTime(selectedAccount.vencimento)}
+      </div>
+    </div>
+    <div className="col-span-1">
+      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+        Telas
+      </label>
+      <div className="text-sm font-bold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-center">
+        {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
+      </div>
     </div>
   </div>
 </div>
-          </div>
         </div>
 
         {/* Seção de Planos */}
-<div className="bg-white dark:bg-[#161b22] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden">
-  <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-500/5 dark:to-green-500/5 px-6 py-4 border-b border-slate-200 dark:border-white/10">
-    <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+<div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+  <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 border-b border-slate-200">
+    <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
       💰 Planos
     </h2>
   </div>
 
-  <div className="p-4 space-y-4">
-
+  <div className="p-4 space-y-3">
     {/* Plano Atual */}
     {(() => {
       const currentPrice = prices.find(
         (p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label
       );
       return (
-        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border-2 border-blue-200 dark:border-blue-500/30">
-          <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2">
+        <div className="p-4 rounded-xl bg-blue-50 border-2 border-blue-200">
+          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-2">
             ✅ Seu Plano Atual
           </p>
           <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-800 dark:text-white text-lg">
+            <span className="font-bold text-slate-800 text-lg">
               {selectedAccount.plan_label}
             </span>
-            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-              {currentPrice
+            <span className="text-xl font-bold text-blue-600">
+              {currentPrice && currentPrice.price_amount > 0
                 ? formatMoney(currentPrice.price_amount, selectedAccount.price_currency)
                 : "—"}
             </span>
@@ -543,80 +561,102 @@ const handleSelectAccount = (accountId: string) => {
       );
     })()}
 
-    {/* Planos Disponíveis */}
+    {/* Botão Ofertas */}
     {prices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
-      <div>
-        <p className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-3 px-1">
+      <button
+        onClick={() => setShowOtherPlans(!showOtherPlans)}
+        className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-orange-200"
+      >
+        🏷️ {showOtherPlans ? "Fechar Ofertas" : "Ver Ofertas Disponíveis"}
+        <svg className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    )}
+
+    {/* Planos Disponíveis (expandível) */}
+    {showOtherPlans && (
+      <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
           Planos Disponíveis
         </p>
-        <div className="space-y-2">
-          {prices
-            .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
-            .map((price) => {
-              const months = PERIOD_MONTHS[price.period];
-              const monthlyRef = prices.find((p) => p.period === "MONTHLY")?.price_amount || price.price_amount;
-              const discountPercent = price.period === "MONTHLY" ? 0 : calculateDiscount(monthlyRef, price.price_amount, months);
-              const isSelected = selectedPeriod === price.period;
+        {prices
+          .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
+          .map((price) => {
+            const months = PERIOD_MONTHS[price.period];
+            const monthlyRef = prices.find((p) => p.period === "MONTHLY")?.price_amount || price.price_amount;
+            const currentMonthlyEquiv = (() => {
+              const currentPrice = prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+              const currentMonths = PERIOD_MONTHS[Object.keys(PERIOD_LABELS).find(k => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"] || 1;
+              return currentPrice ? currentPrice.price_amount / currentMonths : 0;
+            })();
+            const thisMonthlyEquiv = price.price_amount / months;
+            const diffPercent = currentMonthlyEquiv > 0
+              ? Math.round(((thisMonthlyEquiv - currentMonthlyEquiv) / currentMonthlyEquiv) * 100 * 10) / 10
+              : 0;
+            const isSelected = selectedPeriod === price.period;
+            const isCheaper = diffPercent < 0;
 
-              return (
-                <button
-                  key={price.period}
-                  onClick={() => setSelectedPeriod(price.period)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    isSelected
-                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
-                      : "border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-white/20"}`}>
-                          {isSelected && (
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                        <span className="font-bold text-slate-800 dark:text-white">
-                          {PERIOD_LABELS[price.period]}
-                        </span>
-                        {discountPercent > 0 && (
-                          <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold rounded-full">
-                            {discountPercent}% OFF
-                          </span>
+            return (
+              <button
+                key={price.period}
+                onClick={() => setSelectedPeriod(price.period)}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                  isSelected
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-slate-200 hover:border-emerald-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300"}`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-white/50 mt-1 ml-7">
-                        {formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês
-                      </p>
+                      <span className="font-bold text-slate-800">
+                        {PERIOD_LABELS[price.period]}
+                      </span>
+                      {diffPercent !== 0 && price.price_amount > 0 && (
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isCheaper ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
+                          {isCheaper ? `${Math.abs(diffPercent)}% mais barato/mês` : `+${diffPercent}% por mês`}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-right ml-2">
-                      <div className="text-lg font-bold text-slate-800 dark:text-white">
-                        {formatMoney(price.price_amount, selectedAccount.price_currency)}
-                      </div>
+                    <p className="text-xs text-slate-500 mt-1 ml-7">
+                      {price.price_amount > 0 ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês` : "—"}
+                    </p>
+                  </div>
+                  <div className="text-right ml-2">
+                    <div className="text-lg font-bold text-slate-800">
+                      {price.price_amount > 0 ? formatMoney(price.price_amount, selectedAccount.price_currency) : "—"}
                     </div>
                   </div>
-                </button>
-              );
-            })}
-        </div>
+                </div>
+              </button>
+            );
+          })}
       </div>
     )}
   </div>
 </div>
 
-        {/* Botão de Renovação */}
-        <button
-          onClick={handleRenew}
-          disabled={!selectedPrice}
-          className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Renovar Agora • {selectedPrice ? formatMoney(selectedPrice.price_amount) : "—"}
-        </button>
+        {showOtherPlans && selectedPeriod && PERIOD_LABELS[selectedPeriod] !== selectedAccount.plan_label && (
+          <button
+            onClick={handleRenew}
+            disabled={!selectedPrice || !selectedPrice.price_amount}
+            className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Renovar Agora • {selectedPrice && selectedPrice.price_amount > 0 ? formatMoney(selectedPrice.price_amount, selectedAccount.price_currency) : "—"}
+          </button>
+        )}
+
       </div>
     </div>
   );

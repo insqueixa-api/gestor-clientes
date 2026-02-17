@@ -169,7 +169,7 @@ export default function LoginClient() {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-10 bg-slate-50">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -193,7 +193,7 @@ export default function LoginClient() {
               Área do Cliente
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
-              Acesse seus dados e renove seus planos com segurança.
+              Renovação automática da sua assinatura!
             </p>
           </div>
 
@@ -222,7 +222,7 @@ export default function LoginClient() {
                 </div>
 
                 <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
-                  Esse número vem do link. Se estiver errado, solicite um novo link.
+                  Se o número estiver errado, solicite um novo link.
                 </p>
               </div>
 
