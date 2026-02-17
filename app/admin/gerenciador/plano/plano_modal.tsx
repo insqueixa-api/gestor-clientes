@@ -67,48 +67,20 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
+  const [originalCurrency, setOriginalCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
   const [items, setItems] = useState<EditableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Carregar dados iniciais
   useEffect(() => {
     async function loadData() {
       if (isEditing && plan) {
         setName(plan.name);
         setCurrency(plan.currency);
+        setOriginalCurrency(plan.currency);
         
-        const supabase = supabaseBrowser;
-        const { data: dbItems } = await supabase
-          .from("plan_table_items")
-          .select("id, period, credits_base")
-          .eq("plan_table_id", plan.id);
-
-        if (dbItems) {
-          const itemIds = dbItems.map(i => i.id);
-          const { data: dbPrices } = await supabase
-            .from("plan_table_item_prices")
-            .select("plan_table_item_id, screens_count, price_amount")
-            .in("plan_table_item_id", itemIds);
-
-          const priceMap = dbPrices || [];
-          const matrix = dbItems.map(item => {
-            const p1 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 1);
-            const p2 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 2);
-            const p3 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 3);
-
-            return {
-              itemId: item.id,
-              period: item.period,
-              credits: item.credits_base || 0,
-              price1: p1?.price_amount?.toString() ?? "",
-              price2: p2?.price_amount?.toString() ?? "",
-              price3: p3?.price_amount?.toString() ?? "",
-            };
-          });
-          
-          const ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-          setItems(ordered);
-        }
+        await loadItemsFromPlan(plan.id, plan.currency);
       }
       setLoading(false);
     }
@@ -116,78 +88,124 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     loadData();
   }, [plan, isEditing]);
 
-  useEffect(() => {
-    async function cloneFromDefault() {
-      if (isEditing) return;
+  // Carrega itens de uma tabela (usado na carga inicial e quando muda moeda)
+  async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
+    const supabase = supabaseBrowser;
+    
+    const { data: dbItems } = await supabase
+      .from("plan_table_items")
+      .select("id, period, credits_base")
+      .eq("plan_table_id", planId);
+
+    if (dbItems) {
+      const itemIds = dbItems.map(i => i.id);
+      const { data: dbPrices } = await supabase
+        .from("plan_table_item_prices")
+        .select("plan_table_item_id, screens_count, price_amount")
+        .in("plan_table_item_id", itemIds);
+
+      const priceMap = dbPrices || [];
+      const matrix = dbItems.map(item => {
+        const p1 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 1);
+        const p2 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 2);
+        const p3 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 3);
+
+        return {
+          itemId: item.id,
+          period: item.period,
+          credits: item.credits_base || 0,
+          price1: p1?.price_amount?.toString() ?? "",
+          price2: p2?.price_amount?.toString() ?? "",
+          price3: p3?.price_amount?.toString() ?? "",
+        };
+      });
       
-      setLoading(true);
-      const tenantId = await getCurrentTenantId();
-      const supabase = supabaseBrowser;
-
-      try {
-        const { data: defaultTable } = await supabase
-          .from("plan_tables")
-          .select(`
-            id,
-            items:plan_table_items (
-              id,
-              period,
-              months,
-              credits_base,
-              prices:plan_table_item_prices (
-                screens_count,
-                price_amount
-              )
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .eq("currency", currency)
-          .eq("is_system_default", true)
-          .single();
-
-        if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
-          const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
-            const p1 = srcItem.prices?.find((p: any) => p.screens_count === 1);
-            const p2 = srcItem.prices?.find((p: any) => p.screens_count === 2);
-            const p3 = srcItem.prices?.find((p: any) => p.screens_count === 3);
-            
-            return {
-              itemId: `temp-${srcItem.period}`,
-              period: srcItem.period,
-              credits: srcItem.credits_base || 0,
-              price1: p1?.price_amount?.toString() ?? "",
-              price2: p2?.price_amount?.toString() ?? "",
-              price3: p3?.price_amount?.toString() ?? "",
-            };
-          });
-          
-          const ordered = PERIOD_ORDER.map(period => clonedItems.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-          setItems(ordered);
-        } else {
-          const emptyItems: EditableItem[] = PERIOD_ORDER.map((period) => {
-            const creditsMap: Record<string, number> = {
-              MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
-            };
-            return {
-              itemId: `temp-${period}`,
-              period,
-              credits: creditsMap[period] || 1,
-              price1: "",
-              price2: "",
-              price3: "",
-            };
-          });
-          setItems(emptyItems);
-        }
-      } catch (err) {
-        console.error("Erro ao clonar tabela padrão:", err);
-      } finally {
-        setLoading(false);
-      }
+      const ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+      setItems(ordered);
     }
+  }
 
-    cloneFromDefault();
-  }, [currency, isEditing]);
+  // Clona da tabela padrão (usado na criação e quando muda moeda na edição)
+  async function cloneFromDefault(curr: "BRL" | "USD" | "EUR") {
+    setLoading(true);
+    const tenantId = await getCurrentTenantId();
+    const supabase = supabaseBrowser;
+
+    try {
+      const { data: defaultTable } = await supabase
+        .from("plan_tables")
+        .select(`
+          id,
+          items:plan_table_items (
+            id,
+            period,
+            months,
+            credits_base,
+            prices:plan_table_item_prices (
+              screens_count,
+              price_amount
+            )
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .eq("currency", curr)
+        .eq("is_system_default", true)
+        .single();
+
+      if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
+        const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
+          const p1 = srcItem.prices?.find((p: any) => p.screens_count === 1);
+          const p2 = srcItem.prices?.find((p: any) => p.screens_count === 2);
+          const p3 = srcItem.prices?.find((p: any) => p.screens_count === 3);
+          
+          return {
+            itemId: `temp-${srcItem.period}`,
+            period: srcItem.period,
+            credits: srcItem.credits_base || 0,
+            price1: p1?.price_amount?.toString() ?? "",
+            price2: p2?.price_amount?.toString() ?? "",
+            price3: p3?.price_amount?.toString() ?? "",
+          };
+        });
+        
+        const ordered = PERIOD_ORDER.map(period => clonedItems.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+        setItems(ordered);
+      } else {
+        // Estrutura vazia se não encontrar padrão
+        const emptyItems: EditableItem[] = PERIOD_ORDER.map((period) => {
+          const creditsMap: Record<string, number> = {
+            MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
+          };
+          return {
+            itemId: `temp-${period}`,
+            period,
+            credits: creditsMap[period] || 1,
+            price1: "",
+            price2: "",
+            price3: "",
+          };
+        });
+        setItems(emptyItems);
+      }
+    } catch (err) {
+      console.error("Erro ao clonar tabela padrão:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Quando muda moeda na criação ou edição
+  useEffect(() => {
+    if (isEditing) {
+      // Na edição, só clona se a moeda mudou do original
+      if (currency !== originalCurrency) {
+        cloneFromDefault(currency);
+      }
+    } else {
+      // Na criação, sempre clona da padrão
+      cloneFromDefault(currency);
+    }
+  }, [currency]);
 
   const handlePriceChange = (period: string, field: 'price1'|'price2'|'price3', val: string) => {
     setItems(prev => prev.map(item => 
@@ -207,6 +225,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
     try {
       if (isEditing && plan) {
+        // Atualiza nome e moeda (agora sempre pode, exceto sistema)
         if (!isSystemDefault) {
           await supabase
             .from("plan_tables")
@@ -214,6 +233,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             .eq("id", plan.id);
         }
 
+        // Atualiza preços
         for (const row of items) {
           for (let screen = 1; screen <= 3; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
@@ -226,6 +246,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           }
         }
       } else {
+        // Criação
         const { data: tableData, error: tableError } = await supabase
           .from("plan_tables")
           .insert({
@@ -302,29 +323,16 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         
-        <div className="px-6 py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-              {isEditing 
-                ? (isSystemDefault ? "Visualizar Plano" : "Editar Tabela") 
-                : "Nova Tabela"}
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest bg-slate-200/50 dark:bg-white/5 px-2 py-0.5 rounded">
-                {currency}
-              </span>
-              {isSystemDefault && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
-                  Padrão do Sistema
-                </span>
-              )}
-            </div>
-          </div>
+        {/* HEADER - Título simples, botões menores no mobile */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            {isEditing ? "Editar Tabela" : "Nova Tabela"}
+          </h2>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button 
               onClick={onClose} 
-              className="px-4 py-2 rounded-lg text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-sm font-semibold transition-colors"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors"
             >
               Cancelar
             </button>
@@ -332,9 +340,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               <button 
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
               >
-                {saving ? "Salvando..." : (isEditing ? "Salvar alterações" : "Criar tabela")}
+                {saving ? "Salvando..." : "Salvar"}
               </button>
             )}
           </div>
@@ -342,7 +350,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
         <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
           
-          <div className="p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
+          {/* Dados Básicos - Moeda editável agora */}
+          <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Nome da tabela</Label>
@@ -355,34 +364,35 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 />
               </div>
               <div>
-                <Label>Moeda {isEditing && "(não editável)"}</Label>
+                <Label>Moeda</Label>
                 <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
                   {(['BRL', 'USD', 'EUR'] as const).map(c => (
                     <button
                       key={c}
                       type="button"
-                      onClick={() => !isEditing && setCurrency(c)}
-                      disabled={isEditing}
+                      onClick={() => !isSystemDefault && setCurrency(c)}
+                      disabled={isSystemDefault}
                       className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
                         ${currency === c 
                           ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
                           : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}
-                        ${isEditing ? 'cursor-not-allowed opacity-50' : ''}`}
+                        ${isSystemDefault ? 'cursor-not-allowed opacity-50' : ''}`}
                     >
                       {c}
                     </button>
                   ))}
                 </div>
-                {!isEditing && (
-                  <p className="text-[10px] text-slate-400 dark:text-white/30 mt-2 italic">
-                    * Os valores serão clonados da tabela padrão {currency} se existir
+                {isEditing && currency !== originalCurrency && (
+                  <p className="text-[10px] text-amber-500 mt-2 italic">
+                    * Atenção: ao mudar a moeda, os valores serão resetados para a tabela padrão {currency}
                   </p>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="p-6 space-y-8">
+          {/* Matriz de Preços */}
+          <div className="p-4 sm:p-6 space-y-8">
             {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
                 {isEditing ? "Carregando dados..." : "Clonando tabela padrão..."}
@@ -394,7 +404,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     Preços para {screenCount} {screenCount === 1 ? 'tela' : 'telas'}
                   </h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {PERIOD_ORDER.map((period) => {
                       const item = items.find(i => i.period === period);
                       if (!item) return null;
@@ -406,13 +416,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                       return (
                         <div 
                           key={period} 
-                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 flex flex-col justify-center h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
+                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                         >
                           <div className="flex justify-between items-center w-full mb-1">
-                            <span className="text-[11px] font-bold text-slate-400 dark:text-white/20">
+                            <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
                               {PERIOD_LABELS[period]}
                             </span>
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                            <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                               {currentCredits} cr
                             </span>
                           </div>
@@ -427,7 +437,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                               value={value}
                               disabled={isSystemDefault}
                               onChange={(e) => handlePriceChange(period, field, e.target.value)}
-                              className="w-full bg-transparent border-none p-0 pl-7 text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                              className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
                               placeholder="0,00"
                             />
                           </div>
@@ -441,10 +451,10 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center transition-colors">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center transition-colors">
           <span className="text-[10px] text-slate-400 italic">
             * {isEditing 
-              ? "Altere o nome e os valores conforme necessário" 
+              ? "Altere o nome, moeda e valores conforme necessário" 
               : "Ajuste os valores clonados da tabela padrão"}
           </span>
           {!isEditing && (
