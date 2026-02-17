@@ -120,41 +120,39 @@ export default function RenewClient() {
       }
 
       try {
-        console.log("🔵 Chamando portal_resolve_token com token:", session.slice(0, 20) + "...");
-        // 1. Validar sessão
-        // 1. Validar sessão (busca direto na tabela de sessões)
-const { data: sessionResult, error: sessionErr } = await supabaseBrowser
-  .from("client_portal_sessions")
-  .select("tenant_id, whatsapp_username")
-  .eq("session_token", session)
-  .gt("expires_at", new Date().toISOString())
-  .limit(1);
+  console.log("🔵 Validando sessão...");
+  
+  // 1. Validar sessão (query direta)
+  const { data: sessionResult, error: sessionErr } = await supabaseBrowser
+    .from("client_portal_sessions")
+    .select("tenant_id, whatsapp_username")
+    .eq("session_token", session)
+    .gt("expires_at", new Date().toISOString())
+    .single();
 
-console.log("🔵 Resultado da query:", { sessionResult, sessionErr });
+  console.log("🔵 Resultado:", { sessionResult, sessionErr });
 
-if (sessionErr) {
-  console.error("❌ Erro na query:", sessionErr);
-  throw new Error("Erro ao validar sessão: " + sessionErr.message);
-}
+  if (sessionErr) {
+    console.error("❌ Erro:", sessionErr);
+    throw new Error("Sessão expirada ou inválida");
+  }
 
-if (!sessionResult || sessionResult.length === 0) {
-  console.error("❌ Sessão não encontrada ou expirada");
-  throw new Error("Sessão expirada ou inválida");
-}
+  if (!sessionResult) {
+    throw new Error("Sessão não encontrada");
+  }
 
-// ✅ Pegar primeiro item do array
-const sess = sessionResult[0];
+  const sess = sessionResult;
 
-if (!sess.tenant_id || !sess.whatsapp_username) {
-  throw new Error("Dados da sessão inválidos");
-}
+  if (!sess.tenant_id || !sess.whatsapp_username) {
+    throw new Error("Dados inválidos");
+  }
 
-console.log("✅ Sessão válida:", sess);
+  console.log("✅ Sessão válida:", sess);
 
-setSessionData({
-  tenant_id: sess.tenant_id,
-  whatsapp_username: sess.whatsapp_username,
-});
+  setSessionData({
+    tenant_id: sess.tenant_id,
+    whatsapp_username: sess.whatsapp_username,
+  });
 
         // 2. Buscar contas do cliente
         const { data: accountsData, error: accountsErr } = await supabaseBrowser
