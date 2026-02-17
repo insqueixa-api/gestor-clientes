@@ -6,7 +6,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type GatewayType = "mercadopago" | "banco_inter" | "wise" | "pix_manual";
+type GatewayType = "mercadopago" | "wise" | "pix_manual";
 
 interface PaymentGateway {
   id: string;
@@ -56,63 +56,24 @@ const GATEWAY_META: GatewayMeta[] = [
     icon: "💳",
     color: "from-blue-500 to-cyan-500",
     fields: [
-  {
-    key: "public_key",
-    label: "Public Key",
-    type: "text",
-    placeholder: "TEST-e3bcb621-b592-41fe-b829...",
-    hint: "Chave pública para uso no frontend (opcional)",
-  },
-  {
-    key: "access_token",
-    label: "Access Token",
-    type: "password",
-    placeholder: "TEST-2503726134717793-021713...",
-    hint: "Token de acesso para chamadas de API (obrigatório)",
-    required: true,
-  },
-],
-  },
-  {
-    type: "banco_inter",
-    label: "Banco Inter",
-    description: "PIX automático via API. Fallback para BRL quando o MP falhar.",
-    currencies: ["BRL"],
-    is_online: true,
-    icon: "🏦",
-    color: "from-orange-500 to-amber-500",
-    fields: [
       {
-        key: "client_id",
-        label: "Client ID",
+        key: "access_token",
+        label: "Access Token",
         type: "password",
-        placeholder: "Client ID da API Inter",
+        placeholder: "APP_USR-...",
+        hint: "Encontre em: Mercado Pago → Credenciais → Credenciais de produção",
         required: true,
       },
       {
-        key: "client_secret",
-        label: "Client Secret",
+        key: "webhook_secret",
+        label: "Webhook Secret",
         type: "password",
-        placeholder: "Client Secret da API Inter",
-        required: true,
-      },
-      {
-        key: "account_id",
-        label: "Número da Conta",
-        type: "text",
-        placeholder: "Ex: 12345678",
-        required: true,
-      },
-      {
-        key: "certificate",
-        label: "Certificado (.pem)",
-        type: "textarea",
-        placeholder: "Cole o conteúdo do certificado aqui",
-        hint: "API Inter requer certificado digital para autenticação",
-        required: true,
+        placeholder: "Chave secreta para validar webhooks",
+        hint: "Opcional — adicione uma chave aleatória para maior segurança",
       },
     ],
   },
+  
   {
     type: "wise",
     label: "Wise",
@@ -123,18 +84,31 @@ const GATEWAY_META: GatewayMeta[] = [
     color: "from-emerald-500 to-teal-500",
     fields: [
       {
-        key: "api_key",
-        label: "API Key",
+        key: "api_token",
+        label: "API Token",
         type: "password",
-        placeholder: "Wise API Key",
-        hint: "Encontre em: Wise → Configurações → API tokens",
+        placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        hint: "Encontre em: Wise Business → Configurações → API tokens",
         required: true,
       },
       {
         key: "profile_id",
         label: "Profile ID",
         type: "text",
-        placeholder: "ID do perfil Wise",
+        placeholder: "12345678",
+        hint: "ID do perfil business (visível na URL após login)",
+        required: true,
+      },
+      {
+        key: "source_currency",
+        label: "Moeda de Origem",
+        type: "select",
+        options: [
+          { value: "BRL", label: "BRL (Real Brasileiro)" },
+          { value: "USD", label: "USD (Dólar Americano)" },
+          { value: "EUR", label: "EUR (Euro)" },
+        ],
+        hint: "Moeda da sua conta Wise",
         required: true,
       },
     ],
@@ -179,7 +153,7 @@ const GATEWAY_META: GatewayMeta[] = [
         key: "bank_name",
         label: "Banco",
         type: "text",
-        placeholder: "Ex: Mercado Pago, Nubank, Itaú...",
+        placeholder: "Ex: Mercado Pago, Wise, Itaú...",
       },
       {
         key: "instructions",
@@ -194,8 +168,8 @@ const GATEWAY_META: GatewayMeta[] = [
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: "Principal",
-  2: "Secundário",
-  3: "Fallback",
+  2: "Fallback",
+  3: "Secundário",
 };
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
@@ -418,9 +392,9 @@ function GatewayModal({
                     onChange={(e) => setPriority(Number(e.target.value))}
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
-<option value={1}>1 — Principal</option>
-<option value={2}>2 — Secundário</option>
-<option value={3}>3 — Fallback</option>
+                    <option value={1}>1 — Principal</option>
+                    <option value={2}>2 — Fallback</option>
+                    <option value={3}>3 — Secundário</option>
                   </select>
                 </div>
 
