@@ -738,6 +738,7 @@ if (c.server_id) {
       // ✅ VARIÁVEIS para dados da API
       let apiVencimento = saoPauloDateTimeToIso(dueDate, dueTime); // inicial
       let apiPassword: string | null = null;
+      let serverName = "Servidor"; // ✅ DECLARAR AQUI
 
       // --- PASSO 1: RENOVAÇÃO AUTOMÁTICA (SE MARCADA) ---
 console.log("🔵 DEBUG Renovação:", {
@@ -832,6 +833,34 @@ if (!apiRes.ok || !apiJson.ok) {
               vencimento: apiVencimento,
               senha_atualizada: !!apiPassword,
             });
+            // ✅ Buscar nome do servidor para o toast
+let serverName = "Servidor";
+// ✅ Buscar nome do servidor
+try {
+  const { data: srvData } = await supabaseBrowser
+    .from("servers")
+    .select("name")
+    .eq("id", clientData.server_id)
+    .single();
+  
+  serverName = srvData?.name || "Servidor";
+} catch {
+  serverName = "Servidor";
+}
+
+console.log("✅ Renovação automática concluída:", {
+  vencimento: apiVencimento,
+  senha_atualizada: !!apiPassword,
+  servidor: serverName,
+});
+
+// ✅ Toast de sucesso da renovação automática
+queueToast(
+  "success",
+  `Cliente renovado no ${serverName}`,
+  "Renovação automática registrada com sucesso.",
+  toastKey
+);
           }
         } catch (apiErr: any) {
   console.error("❌ ERRO COMPLETO:", apiErr);
@@ -891,18 +920,39 @@ if (!apiRes.ok || !apiJson.ok) {
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
       // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
-      if (registerPayment) {
-        setLoadingText("Registrando pagamento...");
-        const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
-          p_tenant_id: tid,
-          p_client_id: clientId,
-          p_months: monthsToRenew,
-          p_status: "PAID",
-          p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
-          p_new_vencimento: apiVencimento, // ✅ Usa vencimento da API
-        });
-        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
-      }
+      // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
+// ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
+if (registerPayment && !renewAutomatic) {
+  setLoadingText("Registrando pagamento...");
+  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+    p_tenant_id: tid,
+    p_client_id: clientId,
+    p_months: monthsToRenew,
+    p_status: "PAID",
+    p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
+    p_new_vencimento: null, // ✅ Deixa null para calcular
+  });
+  if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+}
+
+// ✅ Se automático, só registra LOG e evento manualmente
+if (registerPayment && renewAutomatic) {
+  setLoadingText("Registrando renovação...");
+  
+  // Registrar evento de renovação
+  await supabaseBrowser.from("client_events").insert({
+    tenant_id: tid,
+    client_id: clientId,
+    event_type: "RENEWAL",
+    message: `Renovação automática via ${serverName}. ${monthsToRenew} mês(es). Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR")}`,
+    meta: {
+      months: monthsToRenew,
+      new_vencimento: apiVencimento,
+      automatic: true,
+      server_name: serverName,
+    },
+  });
+}
 
       // --- PASSO 4: ENVIAR WHATSAPP ---
       if (sendWhats && messageContent && messageContent.trim()) {
@@ -936,11 +986,29 @@ if (!apiRes.ok || !apiJson.ok) {
       }
 
       // --- FIM ---
-      setLoadingText("Concluído!");
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 500);
+setLoadingText("Concluído!");
+
+// ✅ Toast final
+if (renewAutomatic) {
+  queueToast(
+    "success",
+    `Cliente renovado no ${serverName}`,
+    "Renovação automática registrada com sucesso.",
+    toastKey
+  );
+} else {
+  queueToast(
+    "success",
+    "Renovação Manual Registrada",
+    "Cliente renovado localmente com sucesso.",
+    toastKey
+  );
+}
+
+setTimeout(() => {
+  onSuccess();
+  onClose();
+}, 500);
 
     } catch (err: any) {
       console.error("CRASH:", err);
