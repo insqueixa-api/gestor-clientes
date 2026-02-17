@@ -139,6 +139,12 @@ export default function RenewClient() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
 const [showOtherPlans, setShowOtherPlans] = useState(false);
 
+// Estados do pagamento
+const [paymentModal, setPaymentModal] = useState(false);
+const [paymentData, setPaymentData] = useState<any>(null);
+const [paymentStatus, setPaymentStatus] = useState<"pending" | "approved" | "rejected">("pending");
+const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
     async function loadData() {
@@ -293,11 +299,360 @@ useEffect(() => {
 }, [selectedAccountId]);
 
   const handleRenew = async () => {
-    if (!selectedAccount || !selectedPrice) return;
+  if (!selectedAccount) return;
 
-    // TODO: Integração com gateway de pagamento (amanhã)
-    alert("Integração com pagamento será implementada em breve!");
+  // Usa plano selecionado nas ofertas, senão usa o plano atual
+  const renewPrice = selectedPrice && selectedPrice.price_amount > 0
+    ? selectedPrice
+    : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+
+  if (!renewPrice || !renewPrice.price_amount) {
+    alert("Erro: valor do plano não encontrado");
+    return;
+  }
+
+  const renewPeriod = selectedPeriod || Object.keys(PERIOD_LABELS).find(
+    (k) => PERIOD_LABELS[k] === selectedAccount.plan_label
+  );
+
+  if (!renewPeriod) return;
+
+  try {
+    setPaymentStatus("pending");
+
+    // Chamar API de criação de pagamento
+    const res = await fetch("/api/client-portal/create-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_token: session,
+        client_id: selectedAccount.id,
+        period: renewPeriod,
+        price_amount: renewPrice.price_amount,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!result.ok) {
+      alert(`Erro ao criar pagamento: ${result.error}`);
+      return;
+    }
+
+    setPaymentData(result);
+    setPaymentModal(true);
+
+    // Se for pagamento online, iniciar polling
+    if (result.payment_method === "online") {
+      startPolling(result.payment_id);
+    }
+
+  } catch (err: any) {
+    console.error("Erro ao renovar:", err);
+    alert("Erro ao processar renovação. Tente novamente.");
+  }
+};
+
+// Polling para verificar status do pagamento
+function startPolling(paymentId: string) {
+  // Limpar intervalo anterior se existir
+  if (pollingInterval) clearInterval(pollingInterval);
+
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch("/api/client-portal/payment-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          payment_id: paymentId,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (result.ok && result.status === "approved") {
+        setPaymentStatus("approved");
+        setPaymentData((prev: any) => ({ ...prev, new_vencimento: result.new_vencimento }));
+        clearInterval(interval);
+        setPollingInterval(null);
+
+        // Aguardar 5s e recarregar a página
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+      } else if (result.status === "rejected" || result.status === "cancelled") {
+        setPaymentStatus("rejected");
+        clearInterval(interval);
+        setPollingInterval(null);
+      }
+    } catch (err) {
+      console.error("Erro ao verificar status:", err);
+    }
+  }, 3000); // A cada 3 segundos
+
+  setPollingInterval(interval);
+}
+
+// Limpar polling ao desmontar
+useEffect(() => {
+  return () => {
+    if (pollingInterval) clearInterval(pollingInterval);
   };
+}, [pollingInterval]);
+
+
+function PaymentModal() {
+  if (!paymentModal || !paymentData) return null;
+
+  const isOnline = paymentData.payment_method === "online";
+  const isManual = paymentData.payment_method === "manual";
+  const isApproved = paymentStatus === "approved";
+  const isRejected = paymentStatus === "rejected";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+        
+        {/* Success */}
+        {isApproved && (
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Pagamento Aprovado! 🎉</h2>
+            <p className="text-slate-600 mb-4">
+              Sua assinatura foi renovada com sucesso.
+            </p>
+            {paymentData.new_vencimento && (
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                <p className="text-sm text-emerald-700 font-medium">
+                  Novo vencimento: {new Date(paymentData.new_vencimento).toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    timeZone: "America/Sao_Paulo",
+                  })}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-4">Atualizando página em 5 segundos...</p>
+          </div>
+        )}
+
+        {/* Rejected */}
+        {isRejected && (
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Pagamento Não Aprovado</h2>
+            <p className="text-slate-600 mb-6">
+              O pagamento foi cancelado ou não foi aprovado.
+            </p>
+            <button
+              onClick={() => {
+                setPaymentModal(false);
+                setPaymentData(null);
+                setPaymentStatus("pending");
+              }}
+              className="px-6 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        )}
+
+        {/* Online - QR Code PIX */}
+        {isOnline && !isApproved && !isRejected && (
+          <>
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-6 text-white text-center">
+              <h2 className="text-xl font-bold mb-1">Pague com PIX</h2>
+              <p className="text-sm text-white/80">{paymentData.gateway_name}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* QR Code */}
+              <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
+                {paymentData.pix_qr_code_base64 ? (
+                  <img
+                    src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`}
+                    alt="QR Code PIX"
+                    className="w-full max-w-[280px] mx-auto"
+                  />
+                ) : (
+                  <div className="w-64 h-64 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
+                    <p className="text-slate-400 text-sm">QR Code não disponível</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Instruções */}
+              <div className="space-y-2 text-sm">
+                <p className="font-bold text-slate-700 flex items-center gap-2">
+                  <span>📱</span> Como pagar:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-6">
+                  <li>Abra o app do seu banco</li>
+                  <li>Escaneie o QR Code</li>
+                  <li>Confirme o pagamento</li>
+                </ol>
+              </div>
+
+              {/* Código Copia e Cola */}
+              {paymentData.pix_qr_code && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Ou copie o código:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={paymentData.pix_qr_code}
+                      readOnly
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 truncate"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(paymentData.pix_qr_code);
+                        alert("Código copiado!");
+                      }}
+                      className="px-4 py-2 bg-blue-500 text-white font-bold text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status */}
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
+                <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-blue-800">Aguardando pagamento...</p>
+                  <p className="text-xs text-blue-600">Detectaremos automaticamente quando você pagar</p>
+                </div>
+              </div>
+
+              {/* Botão Cancelar */}
+              <button
+                onClick={() => {
+                  if (pollingInterval) clearInterval(pollingInterval);
+                  setPaymentModal(false);
+                  setPaymentData(null);
+                  setPaymentStatus("pending");
+                }}
+                className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Manual - PIX Manual */}
+        {isManual && !isApproved && !isRejected && (
+          <>
+            <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-6 text-white text-center">
+              <h2 className="text-xl font-bold mb-1">PIX Manual</h2>
+              <p className="text-sm text-white/80">Pagamento Offline</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Atenção</p>
+                <p className="text-xs text-amber-700">
+                  Nossos gateways automáticos estão temporariamente indisponíveis. Use os dados abaixo para fazer o PIX manualmente.
+                </p>
+              </div>
+
+              {/* Dados do PIX */}
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={paymentData.pix_key}
+                      readOnly
+                      className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono text-slate-800"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(paymentData.pix_key);
+                        alert("Chave copiada!");
+                      }}
+                      className="px-4 py-2 bg-violet-500 text-white font-bold rounded-lg hover:bg-violet-600 transition-colors"
+                    >
+                      📋
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular</p>
+                  <p className="text-sm font-medium text-slate-700">{paymentData.holder_name}</p>
+                </div>
+
+                {paymentData.bank_name && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Banco</p>
+                    <p className="text-sm font-medium text-slate-700">{paymentData.bank_name}</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor</p>
+                  <p className="text-2xl font-bold text-slate-800">
+                    {formatMoney(paymentData.price_amount, paymentData.currency)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Instruções */}
+              {paymentData.instructions && (
+                <div className="p-3 bg-violet-50 border border-violet-200 rounded-xl">
+                  <p className="text-xs text-violet-700">{paymentData.instructions}</p>
+                </div>
+              )}
+
+              {/* Botão WhatsApp */}
+              <a
+                href={`https://wa.me/${(selectedAccount as any).whatsapp_username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] text-white font-bold rounded-xl hover:bg-[#20BA5A] transition-colors"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+                Enviar Comprovante
+              </a>
+
+              <button
+                onClick={() => {
+                  setPaymentModal(false);
+                  setPaymentData(null);
+                }}
+                className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}
 
   // ========= RENDER: LOADING =========
   if (loading) {
@@ -310,6 +665,8 @@ useEffect(() => {
       </div>
     );
   }
+
+
 
   // ========= RENDER: ERROR =========
   if (error) {
@@ -665,6 +1022,8 @@ useEffect(() => {
     </button>
   );
 })()}
+{/* Modal de Pagamento */}
+<PaymentModal />
 
       </div>
     </div>
