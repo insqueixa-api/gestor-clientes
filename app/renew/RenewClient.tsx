@@ -145,47 +145,20 @@ export default function RenewClient() {
     whatsapp_username: sess.whatsapp_username,
   });
 
-        // 2. Buscar contas do cliente
-        const { data: accountsData, error: accountsErr } = await supabaseBrowser
-          .from("clients")
-          .select(`
-            id,
-            display_name,
-            server_username,
-            server_id,
-            servers (name),
-            screens,
-            plan_label,
-            vencimento,
-            price_amount,
-            price_currency,
-            plan_table_id,
-            is_trial,
-            is_archived
-          `)
-          .eq("tenant_id", sess.tenant_id)
-          .eq("whatsapp_username", sess.whatsapp_username)
-          .order("is_trial", { ascending: true })
-          .order("vencimento", { ascending: false });
+        // 2. Buscar contas via API
+const accRes = await fetch("/api/client-portal/get-accounts", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_token: session }),
+});
 
-        if (accountsErr) throw accountsErr;
+const accResult = await accRes.json();
 
-        const mapped: ClientAccount[] = (accountsData || []).map((acc: any) => ({
-          id: acc.id,
-          display_name: acc.display_name || "Sem nome",
-          server_username: acc.server_username || "",
-          server_name: acc.servers?.name || "Servidor",
-          screens: acc.screens || 1,
-          plan_label: acc.plan_label || "Mensal",
-          vencimento: acc.vencimento,
-          price_amount: acc.price_amount || 0,
-          price_currency: acc.price_currency || "BRL",
-          plan_table_id: acc.plan_table_id,
-          is_trial: acc.is_trial || false,
-          is_archived: acc.is_archived || false,
-        }));
+if (!accResult.ok) throw new Error(accResult.error);
 
-        setAccounts(mapped);
+const mapped: ClientAccount[] = accResult.data;
+
+setAccounts(mapped);
 
         // Se só tem 1 conta, seleciona automaticamente
         if (mapped.length === 1) {
