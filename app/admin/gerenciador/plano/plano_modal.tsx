@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-// --- Tipagens ---
 type Price = {
   screens_count: number;
   price_amount: number | null;
@@ -72,11 +71,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Carregar dados iniciais
   useEffect(() => {
     async function loadData() {
       if (isEditing && plan) {
-        // MODO EDIÇÃO: Carrega dados do plano existente
         setName(plan.name);
         setCurrency(plan.currency);
         
@@ -108,7 +105,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               price3: p3?.price_amount?.toString() ?? "",
             };
           });
-          // Ordena conforme PERIOD_ORDER
+          
           const ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
           setItems(ordered);
         }
@@ -119,17 +116,15 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     loadData();
   }, [plan, isEditing]);
 
-  // Quando mudar a moeda no modo criação, busca a tabela padrão e clona
   useEffect(() => {
     async function cloneFromDefault() {
-      if (isEditing) return; // Só no modo criação
+      if (isEditing) return;
       
       setLoading(true);
       const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
 
       try {
-        // Busca tabela padrão da moeda selecionada
         const { data: defaultTable } = await supabase
           .from("plan_tables")
           .select(`
@@ -151,15 +146,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           .single();
 
         if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
-          // Clona os dados da tabela padrão
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
             const p1 = srcItem.prices?.find((p: any) => p.screens_count === 1);
             const p2 = srcItem.prices?.find((p: any) => p.screens_count === 2);
             const p3 = srcItem.prices?.find((p: any) => p.screens_count === 3);
             
             return {
-              itemId: `temp-${srcItem.period}`, // ID temporário
+              itemId: `temp-${srcItem.period}`,
               period: srcItem.period,
               credits: srcItem.credits_base || 0,
               price1: p1?.price_amount?.toString() ?? "",
@@ -168,19 +161,17 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             };
           });
           
-          // Ordena conforme PERIOD_ORDER
           const ordered = PERIOD_ORDER.map(period => clonedItems.find(m => m.period === period)).filter(Boolean) as EditableItem[];
           setItems(ordered);
         } else {
-          // Se não encontrar tabela padrão, cria estrutura vazia
-          const emptyItems: EditableItem[] = PERIOD_ORDER.map((period, idx) => {
+          const emptyItems: EditableItem[] = PERIOD_ORDER.map((period) => {
             const creditsMap: Record<string, number> = {
               MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
             };
             return {
               itemId: `temp-${period}`,
               period,
-              credits: creditsMap[period] || idx + 1,
+              credits: creditsMap[period] || 1,
               price1: "",
               price2: "",
               price3: "",
@@ -216,9 +207,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
     try {
       if (isEditing && plan) {
-        // --- MODO EDIÇÃO ---
-        
-        // 1. Atualiza nome e moeda (se não for sistema default)
         if (!isSystemDefault) {
           await supabase
             .from("plan_tables")
@@ -226,7 +214,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             .eq("id", plan.id);
         }
 
-        // 2. Atualiza preços
         for (const row of items) {
           for (let screen = 1; screen <= 3; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
@@ -238,11 +225,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               .match({ plan_table_item_id: row.itemId, screens_count: screen });
           }
         }
-
       } else {
-        // --- MODO CRIAÇÃO ---
-        
-        // 1. Cria tabela pai
         const { data: tableData, error: tableError } = await supabase
           .from("plan_tables")
           .insert({
@@ -258,7 +241,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         if (tableError) throw tableError;
         const newTableId = tableData.id;
 
-        // 2. Cria itens e preços (mesma lógica do seu NovoPlanoModal original)
         const monthsMap: Record<string, number> = {
           MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
         };
@@ -278,7 +260,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
           if (itemError || !newItem) continue;
 
-          // Insere os 3 preços
           const pricesToInsert = [
             { 
               tenant_id: tenantId, 
@@ -321,7 +302,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         
-        {/* HEADER */}
         <div className="px-6 py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
@@ -360,10 +340,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           </div>
         </div>
 
-        {/* BODY */}
         <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
           
-          {/* Seção de Dados Básicos */}
           <div className="p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -384,7 +362,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                       key={c}
                       type="button"
                       onClick={() => !isEditing && setCurrency(c)}
-                      disabled={isEditing} // Só pode escolher moeda na criação
+                      disabled={isEditing}
                       className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
                         ${currency === c 
                           ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
@@ -404,7 +382,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* Matriz de Preços */}
           <div className="p-6 space-y-8">
             {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
@@ -418,48 +395,45 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                   </h3>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    // Substitua esta parte do map:
-{PERIOD_ORDER.map((period) => {
-  const item = items.find(i => i.period === period);
-  if (!item) return null;
+                    {PERIOD_ORDER.map((period) => {
+                      const item = items.find(i => i.period === period);
+                      if (!item) return null;
 
-  const currentCredits = item.credits * screenCount;
-  
-  // CORREÇÃO: tipagem explícita do field
-  const field = `price${screenCount}` as 'price1' | 'price2' | 'price3';
-  const value = item[field];
+                      const currentCredits = item.credits * screenCount;
+                      const field = `price${screenCount}` as 'price1' | 'price2' | 'price3';
+                      const value = item[field];
 
-  return (
-    <div 
-      key={period} 
-      className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 flex flex-col justify-center h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
-    >
-      <div className="flex justify-between items-center w-full mb-1">
-        <span className="text-[11px] font-bold text-slate-400 dark:text-white/20">
-          {PERIOD_LABELS[period]}
-        </span>
-        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-          {currentCredits} cr
-        </span>
-      </div>
-      
-      <div className="relative">
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
-          {formatCurrency(currency)}
-        </span>
-        <input 
-          type="number" 
-          step="0.01"
-          value={value}
-          disabled={isSystemDefault}
-          onChange={(e) => handlePriceChange(period, field, e.target.value)}
-          className="w-full bg-transparent border-none p-0 pl-7 text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
-          placeholder="0,00"
-        />
-      </div>
-    </div>
-  );
-})}
+                      return (
+                        <div 
+                          key={period} 
+                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 flex flex-col justify-center h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
+                        >
+                          <div className="flex justify-between items-center w-full mb-1">
+                            <span className="text-[11px] font-bold text-slate-400 dark:text-white/20">
+                              {PERIOD_LABELS[period]}
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              {currentCredits} cr
+                            </span>
+                          </div>
+                          
+                          <div className="relative">
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
+                              {formatCurrency(currency)}
+                            </span>
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              value={value}
+                              disabled={isSystemDefault}
+                              onChange={(e) => handlePriceChange(period, field, e.target.value)}
+                              className="w-full bg-transparent border-none p-0 pl-7 text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                              placeholder="0,00"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))
@@ -467,7 +441,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="px-6 py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center transition-colors">
           <span className="text-[10px] text-slate-400 italic">
             * {isEditing 
