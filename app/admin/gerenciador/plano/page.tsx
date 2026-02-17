@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import NovoPlanoModal from "./novo_plano"; // Ajustado para PascalCase
-import EditPlanoModal from "./editar_plano"; // Ajustado para PascalCase
+import PlanoModal from "./plano_modal";
 
 // --- Tipagens (Integrais) ---
 type Price = {
@@ -323,16 +322,21 @@ export default function PlanosPage() {
         </div>
       )}
 
-      {/* Modais */}
-      {isNewOpen && <NovoPlanoModal onClose={() => setIsNewOpen(false)} onSuccess={() => { setIsNewOpen(false); fetchPlano(); }} />}
-
-      {editingPlan && (
-        <EditPlanoModal
-          plan={editingPlan}
-          onClose={() => setEditingPlan(null)}
-          onSuccess={() => { setEditingPlan(null); fetchPlano(); }}
-        />
-      )}
+      {/* Modal Unificado */}
+{(isNewOpen || editingPlan) && (
+  <PlanoModal 
+    plan={editingPlan} // Se null = modo criação, se objeto = modo edição
+    onClose={() => {
+      setIsNewOpen(false);
+      setEditingPlan(null);
+    }}
+    onSuccess={() => {
+      setIsNewOpen(false);
+      setEditingPlan(null);
+      fetchPlano();
+    }}
+  />
+)}
     </div>
   );
 }
