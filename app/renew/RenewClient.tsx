@@ -520,7 +520,7 @@ useEffect(() => {
       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
         Telas
       </label>
-      <div className="text-sm font-bold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-center">
+      <div className="text-sm font-bold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
         {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
       </div>
     </div>
@@ -644,18 +644,27 @@ useEffect(() => {
   </div>
 </div>
 
-        {showOtherPlans && selectedPeriod && PERIOD_LABELS[selectedPeriod] !== selectedAccount.plan_label && (
-          <button
-            onClick={handleRenew}
-            disabled={!selectedPrice || !selectedPrice.price_amount}
-            className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Renovar Agora • {selectedPrice && selectedPrice.price_amount > 0 ? formatMoney(selectedPrice.price_amount, selectedAccount.price_currency) : "—"}
-          </button>
-        )}
+{(() => {
+  // Usa plano selecionado nas ofertas, senão usa o plano atual
+  const renewPrice = selectedPrice && selectedPrice.price_amount > 0
+    ? selectedPrice
+    : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+
+  return (
+    <button
+      onClick={handleRenew}
+      disabled={!renewPrice || !renewPrice.price_amount}
+      className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+    >
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Renovar Agora • {renewPrice && renewPrice.price_amount > 0
+        ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency)
+        : "—"}
+    </button>
+  );
+})()}
 
       </div>
     </div>

@@ -819,15 +819,20 @@ const { error } = await supabaseBrowser
         // Isso cria datas futuras: T+15s, T+35s, T+50s...
         currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
 
-        return {
-          tenant_id: tid,
-          client_id: client.id,
-          automation_id: rule.id, // <--- ✅ ISSO CONECTA O LOG
-          message: tpl.content,
-          status: "SCHEDULED",
-          send_at: currentSendAt.toISOString(), 
-          whatsapp_session: rule.whatsapp_session || "default",
-        };
+return {
+  tenant_id: tid,
+  client_id: client.id,
+  automation_id: rule.id,
+
+  // ✅ ESSENCIAL: liga o job ao template escolhido
+  message_template_id: templateId,
+
+  message: tpl.content,
+  status: "SCHEDULED",
+  send_at: currentSendAt.toISOString(),
+  whatsapp_session: rule.whatsapp_session || "default",
+};
+
       });
 
       // 3. Salva tudo no banco de uma vez

@@ -976,18 +976,17 @@ setLoadingText("Concluído!");
 
 // ✅ Toast final baseado no tipo de operação
 if (renewAutomatic) {
-  // Renovação automática
   const isConversion = Boolean(allowConvertWithoutPayment);
-  const title = isConversion 
+  const title = isConversion
     ? `Cliente convertido e renovado no ${serverName}`
     : `Cliente renovado no ${serverName}`;
-  
-  queueToast("success", title, undefined, toastKey);
-  queueToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.", toastKey);
+  const description = isConversion
+    ? "Conversão e renovação automática registrada com sucesso."
+    : "Renovação automática registrada com sucesso.";
+
+  queueToast("success", title, description, toastKey);
 } else {
-  // Renovação manual
-  queueToast("success", "Renovação Manual Registrada", "Cliente renovado localmente.", toastKey);
-  queueToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.", toastKey);
+  queueToast("success", `Cliente renovado manualmente`, "Renovação manual registrada com sucesso.", toastKey);
 }
 
 setTimeout(() => {
