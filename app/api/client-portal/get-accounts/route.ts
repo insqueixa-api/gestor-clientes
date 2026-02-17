@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
       `)
       .eq("tenant_id", sess.tenant_id)
       .eq("whatsapp_username", sess.whatsapp_username)
-      .order("is_trial", { ascending: true })
-      .order("vencimento", { ascending: false });
+      .order("vencimento", { ascending: true });
 
     if (accErr) {
       return NextResponse.json({ ok: false, error: accErr.message }, { status: 500 });

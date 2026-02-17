@@ -196,30 +196,20 @@ setAccounts(mapped);
       if (!account || !account.plan_table_id) return;
 
       try {
-        const { data, error } = await supabaseBrowser
-          .from("plan_table_items")
-          .select(`
-            period,
-            plan_table_item_prices (
-              screens_count,
-              price_amount
-            )
-          `)
-          .eq("plan_table_id", account.plan_table_id);
+  const res = await fetch("/api/client-portal/get-prices", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_token: session,
+      plan_table_id: account.plan_table_id,
+      screens: account.screens,
+    }),
+  });
 
-        if (error) throw error;
+  const result = await res.json();
+  if (!result.ok) throw new Error(result.error);
 
-        const pricesMap: PlanPrice[] = (data || []).map((item: any) => {
-          const priceObj = item.plan_table_item_prices?.find(
-            (p: any) => p.screens_count === account.screens
-          );
-          return {
-            period: item.period,
-            price_amount: priceObj?.price_amount || 0,
-          };
-        });
-
-        setPrices(pricesMap);
+  setPrices(result.data);
 
         // Define período inicial baseado no plano atual
         const currentPeriod = Object.keys(PERIOD_LABELS).find(
@@ -308,15 +298,15 @@ setAccounts(mapped);
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-8">
         <div className="max-w-2xl mx-auto">
           {/* Header com Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-block bg-white dark:bg-[#161b22] rounded-2xl p-4 shadow-lg mb-4">
-<Image
-  src="/brand/logo-full-light.png"
-  alt="UniGestor"
-  width={140}
-  height={46}
-/>
-            </div>
+          <div className="text-center mb-2">
+  <Image
+    src="/brand/logo-full-light.png"
+    alt="UniGestor"
+    width={130}
+    height={44}
+    className="mx-auto"
+  />
+
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
   Olá, {accounts[0]?.display_name?.split(" ")[0]}! 👋
 </h1>
@@ -398,17 +388,15 @@ setAccounts(mapped);
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header com Logo */}
-        <div className="text-center">
-          <div className="inline-block bg-white dark:bg-[#161b22] rounded-2xl p-4 shadow-lg mb-4">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={120}
-              height={40}
-              className="dark:invert"
-            />
-          </div>
-        </div>
+        <div className="text-center mb-2">
+  <Image
+    src="/brand/logo-full-light.png"
+    alt="UniGestor"
+    width={130}
+    height={44}
+    className="mx-auto"
+  />
+</div>
 
         {/* Saudação */}
 <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-xl overflow-hidden">
