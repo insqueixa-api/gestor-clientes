@@ -97,37 +97,66 @@ export default function PlanosPage() {
     }
   }
 
+  // --- Função de Deletar (Integral) ---
   async function handleDelete(plan: PlanRow) {
   if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
 
+  const supabase = supabaseBrowser;
+  
+  console.group("🔍 DEBUG DELETE");
+  console.log("Tabela a deletar:", plan.id);
+  console.log("Tenant da tabela:", plan.tenant_id);
+
   try {
-    const supabase = supabaseBrowser;
-    console.log("🗑️ Tentando deletar tabela:", plan.id);
+    // 1. Verifica usuário atual
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("👤 Usuário logado:", user?.id || "NENHUM");
     
-    const { error, data, count } = await supabase
+    // 2. Verifica tenant atual
+    const currentTenantId = await getCurrentTenantId();
+    console.log("🏢 Tenant atual:", currentTenantId);
+    console.log("🏢 Tenant da tabela:", plan.tenant_id);
+    console.log("✅ Match?", currentTenantId === plan.tenant_id);
+
+    // 3. Tenta deletar COM select para ver retorno
+    console.log("🗑️ Tentando delete...");
+    const { data, error, status, statusText } = await supabase
       .from("plan_tables")
       .delete()
       .eq("id", plan.id)
-      .select(); // Adiciona .select() para ver o que foi deletado
+      .select();
 
-    console.log("📊 Resposta do delete:", { error, data, count });
+    console.log("📊 Status:", status, statusText);
+    console.log("📊 Data retornada:", data);
+    console.log("📊 Error:", error);
 
     if (error) {
-      console.error("❌ Erro do Supabase:", error);
-      alert(`Erro ao deletar: ${error.message}`);
+      console.error("❌ Erro Supabase:", error);
+      alert(`Erro: ${error.message}\nCódigo: ${error.code}`);
+      console.groupEnd();
       return;
     }
 
-    // Se não retornou dados, nada foi deletado (provavelmente RLS)
+    // 4. Verifica se realmente deletou
     if (!data || data.length === 0) {
-      console.warn("⚠️ Nenhum registro foi deletado. Possível causa: RLS (Row Level Security) ou registro não encontrado.");
-      alert("Não foi possível excluir. Verifique se você tem permissão ou se a tabela existe.");
+      console.warn("⚠️ RLS bloqueou! Nenhum registro deletado.");
+      alert("⚠️ Permissão negada (RLS).\n\nO Supabase não permitiu deletar. Verifique se:\n1. Você está no tenant correto\n2. A policy de DELETE está configurada");
+      console.groupEnd();
       return;
     }
 
-    console.log("✅ Deletado com sucesso:", data);
+    console.log("✅ Deletado com sucesso no banco!");
     
-    // Só remove do estado se realmente deletou no banco
+    // 5. Confirma no banco que sumiu
+    const { data: checkData } = await supabase
+      .from("plan_tables")
+      .select("id")
+      .eq("id", plan.id)
+      .single();
+    
+    console.log("🔍 Verificação pós-delete:", checkData ? "AINDA EXISTE!" : "CONFIRMADO: deletado");
+
+    // Só remove do estado se confirmou
     setPlano((prev) => prev.filter((p) => p.id !== plan.id));
     setExpanded((prev) => {
       const out = { ...prev };
@@ -135,9 +164,12 @@ export default function PlanosPage() {
       return out;
     });
     
+    console.groupEnd();
+
   } catch (err) {
     console.error("💥 Erro catch:", err);
-    alert("Erro inesperado ao excluir.");
+    alert("Erro inesperado");
+    console.groupEnd();
   }
 }
 
