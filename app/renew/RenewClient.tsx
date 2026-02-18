@@ -218,6 +218,8 @@ export default function RenewClient() {
   >("awaiting_payment");
 
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  
+
 
 
   // ========= LOAD SESSION & ACCOUNTS =========

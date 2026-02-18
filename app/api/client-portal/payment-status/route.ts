@@ -257,7 +257,7 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
   method: "POST",
   headers,
   body: JSON.stringify({
-    tenant_id: tenantId, // ✅ só para validar no DB (não vai pra NATV)
+    
     integration_id: integrationId,
     username: String(client.username),
     months,
