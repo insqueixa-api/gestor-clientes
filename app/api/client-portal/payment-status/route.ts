@@ -267,18 +267,25 @@ async function runFulfillment(params: {
     provider === "FAST" ? "/api/integrations/fast/renew-client" : "/api/integrations/natv/renew-client";
 
   const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (internalSecret) headers["x-internal-secret"] = internalSecret;
+if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
 
-  const renewRes = await fetch(`${origin}${renewPath}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      integration_id: integrationId,
-      username: login,
-      months,
-    }),
-  });
+const headers: Record<string, string> = {
+  "Content-Type": "application/json",
+  "x-internal-secret": internalSecret,
+};
+
+const renewRes = await fetch(`${origin}${renewPath}`, {
+  method: "POST",
+  headers,
+  cache: "no-store",
+  body: JSON.stringify({
+    tenant_id: tenantId, // ✅ necessário para internal nas rotas renew
+    integration_id: integrationId,
+    username: login,
+    months,
+  }),
+});
+
 
   const renewJson = await renewRes.json().catch(() => null);
 

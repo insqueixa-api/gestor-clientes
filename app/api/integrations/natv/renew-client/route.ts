@@ -11,8 +11,8 @@ function jsonError(status: number, msg: string) {
 }
 
 function isInternal(req: NextRequest) {
-  const expected = process.env.INTERNAL_API_SECRET || "";
-  const received = req.headers.get("x-internal-secret") || "";
+  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
+  const received = String(req.headers.get("x-internal-secret") || "").trim();
 
   if (!expected || !received) return false;
 
@@ -23,20 +23,22 @@ function isInternal(req: NextRequest) {
   return crypto.timingSafeEqual(a, b);
 }
 
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-const tenant_id = body?.tenant_id; // ✅ só usado quando internal
+const tenant_id = String(body?.tenant_id ?? "").trim(); // ✅ só usado quando internal
+const integration_id = String(body?.integration_id ?? "").trim();
+const username = String(body?.username ?? "").trim();
+const months = Number(body?.months);
 
-const integration_id = body?.integration_id;
-const username = body?.username;
-const months = body?.months;
 
 
     // Validação
-    if (!integration_id || !username || !months) {
-      return jsonError(400, "integration_id, username e months são obrigatórios");
-    }
+if (!integration_id || !username || !Number.isFinite(months)) {
+  return jsonError(400, "integration_id, username e months são obrigatórios");
+}
+
 
     // ✅ Meses permitidos (ajuste para o seu padrão real)
     const validMonths = [1, 2, 3, 6, 12];

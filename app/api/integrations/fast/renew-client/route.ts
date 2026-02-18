@@ -16,8 +16,9 @@ function jsonError(status: number, message: string) {
 }
 
 function isInternal(req: NextRequest) {
-  const expected = process.env.INTERNAL_API_SECRET || "";
-  const received = req.headers.get("x-internal-secret") || "";
+  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
+  const received = String(req.headers.get("x-internal-secret") || "").trim();
+
   if (!expected || !received) return false;
 
   const a = Buffer.from(received);
@@ -27,15 +28,24 @@ function isInternal(req: NextRequest) {
   return crypto.timingSafeEqual(a, b);
 }
 
+
 export async function POST(req: NextRequest) {
   try {
-const body = await req.json().catch(() => ({}));
-const tenant_id = String(body?.tenant_id ?? "").trim(); // ✅ só usado quando internal
+    const body = await req.json().catch(() => ({}));
 
-const integration_id = String(body?.integration_id ?? "").trim();
-const username = String(body?.username ?? "").trim();
-const months = Number(body?.months);
+    // ✅ Gate internal precisa ser calculado ANTES de qualquer uso
+    const internal = isInternal(req);
 
+    // ✅ Se alguém mandou header x-internal-secret, mas não bateu, não deixa cair em auth normal
+    const hasInternalHeader = !!req.headers.get("x-internal-secret");
+    if (hasInternalHeader && !internal) return jsonError(401, "Unauthorized");
+
+    // ✅ tenant_id só é exigido quando internal
+    const tenant_id = String(body?.tenant_id ?? "").trim();
+
+    const integration_id = String(body?.integration_id ?? "").trim();
+    const username = String(body?.username ?? "").trim();
+    const months = Number(body?.months);
 
     // Validação
     if (!integration_id || !username || !Number.isFinite(months)) {
@@ -48,13 +58,11 @@ const months = Number(body?.months);
       return jsonError(400, "months deve ser entre 1 e 12");
     }
 
+    if (internal && !tenant_id) {
+      return jsonError(400, "tenant_id é obrigatório (internal)");
+    }
+
     // ✅ Gate: interno OU usuário autenticado (admin/painel)
-    const internal = isInternal(req);
-if (internal && !tenant_id) {
-  return jsonError(400, "tenant_id é obrigatório (internal)");
-}
-
-
     if (!internal) {
       const supabaseAuth = await createSupabaseServer();
       const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
@@ -69,18 +77,17 @@ if (internal && !tenant_id) {
     });
 
     // 1) Buscar integração (secrets)
-let integQuery = supabase
-  .from("server_integrations")
-  .select("api_token, api_secret, provider, is_active")
-  .eq("id", integration_id);
+    let integQuery = supabase
+      .from("server_integrations")
+      .select("api_token, api_secret, provider, is_active")
+      .eq("id", integration_id);
 
-if (internal) {
-  // ✅ trava cross-tenant quando usa service role
-  integQuery = integQuery.eq("tenant_id", tenant_id);
-}
+    if (internal) {
+      // ✅ trava cross-tenant quando usa service role
+      integQuery = integQuery.eq("tenant_id", tenant_id);
+    }
 
-const { data: integ, error: integErr } = await integQuery.single();
-
+    const { data: integ, error: integErr } = await integQuery.single();
 
     if (integErr) return jsonError(500, "Falha ao buscar integração.");
     if (!integ) return jsonError(404, "Integração não encontrada");
@@ -159,3 +166,4 @@ const { data: integ, error: integErr } = await integQuery.single();
     return jsonError(500, msg);
   }
 }
+
