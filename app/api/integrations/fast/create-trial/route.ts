@@ -1,103 +1,174 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const FAST_BASE_URL = "https://api.painelcliente.com";
+
+function jsonError(status: number, message: string) {
+  return NextResponse.json({ ok: false, error: message }, { status });
+}
+
+function isInternal(req: NextRequest) {
+  const expected = process.env.INTERNAL_API_SECRET || "";
+  const received = req.headers.get("x-internal-secret") || "";
+  if (!expected || !received) return false;
+
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
+}
+
+function looksLikeDuplicateUsername(msg: string) {
+  const s = (msg || "").toLowerCase();
+  return (
+    s.includes("username") ||
+    s.includes("exist") ||
+    s.includes("duplicate") ||
+    s.includes("já cadastrado") ||
+    s.includes("cadastrado")
+  );
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { integration_id, username, password } = body;
+    const body = await req.json().catch(() => ({}));
+    const integration_id = String(body?.integration_id ?? "").trim();
+    const usernameRaw = body?.username;
+    const passwordRaw = body?.password;
 
     if (!integration_id) {
-      return NextResponse.json({ ok: false, error: "integration_id obrigatório" }, { status: 400 });
+      return jsonError(400, "integration_id obrigatório");
     }
 
-    // Criar cliente service_role
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // ✅ Gate: interno OU usuário autenticado (admin/painel)
+    const internal = isInternal(req);
+    if (!internal) {
+      const supabaseAuth = await createSupabaseServer();
+      const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
+      if (authErr || !auth?.user?.id) {
+        return jsonError(401, "Unauthorized");
+      }
+    }
+
+    // ✅ Admin client (service_role) só roda após o gate acima
+    const supabase = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false },
+    });
 
     // Buscar token + secret
     const { data: integ, error: integErr } = await supabase
       .from("server_integrations")
-      .select("api_token, api_secret, provider")
+      .select("api_token, api_secret, provider, is_active")
       .eq("id", integration_id)
       .single();
 
-    if (integErr || !integ) {
-      return NextResponse.json({ ok: false, error: "Integração não encontrada" }, { status: 404 });
+    if (integErr) return jsonError(500, "Falha ao buscar integração.");
+    if (!integ) return jsonError(404, "Integração não encontrada");
+    if (String(integ.provider ?? "").toUpperCase() !== "FAST") {
+      return jsonError(400, "Provider inválido");
+    }
+    if (integ.is_active === false) {
+      return jsonError(400, "Integração está inativa");
     }
 
-    if (integ.provider !== "FAST") {
-      return NextResponse.json({ ok: false, error: "Provider inválido" }, { status: 400 });
-    }
+    const token = String(integ.api_token ?? "").trim();
+    const secret = String(integ.api_secret ?? "").trim();
 
-    const token = integ.api_token;
-    const secret = integ.api_secret;
-
-    if (!secret) {
-      return NextResponse.json({ ok: false, error: "Secret não configurado" }, { status: 400 });
-    }
+    if (!token) return jsonError(400, "Token não configurado");
+    if (!secret) return jsonError(400, "Secret não configurado");
 
     // Retry logic
-    let attemptUsername = username || `trial${Date.now()}`;
-    const attemptPassword = password || Math.random().toString(36).slice(-8);
+    let attemptUsername =
+      (typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : `trial${Date.now()}`;
+
+    const attemptPassword =
+      (typeof passwordRaw === "string" && passwordRaw.trim())
+        ? passwordRaw.trim()
+        : Math.random().toString(36).slice(-8);
+
     let finalData: any = null;
-    let lastError: any = null;
+    let lastErrMsg = "Falha ao criar trial";
 
     for (let attempt = 1; attempt <= 3; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
       try {
-        const res = await fetch(`https://api.painelcliente.com/trial_create/${token}`, {
+        const res = await fetch(`${FAST_BASE_URL}/trial_create/${encodeURIComponent(token)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             secret,
             username: attemptUsername,
             password: attemptPassword,
-            idbouquet: [attemptUsername], // Bouquet = username
+            idbouquet: [attemptUsername], // (mantido igual ao seu)
           }),
-        });
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
 
-        const text = await res.text();
-        let data: any = {};
-        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        const text = await res.text().catch(() => "");
+        let data: any = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
 
-        if (!res.ok || data.result !== true) {
-          const errMsg = (data.mens || data.error || text || "").toLowerCase();
-          if (errMsg.includes("username") || errMsg.includes("exist") || errMsg.includes("duplicate") || errMsg.includes("já cadastrado")) {
+        const ok = res.ok && data?.result === true;
+        if (!ok) {
+          const mens = String(data?.mens || data?.error || text || "Erro na API FAST");
+          lastErrMsg = mens;
+
+          if (looksLikeDuplicateUsername(mens)) {
             const random = Math.floor(Math.random() * 900) + 100;
-            attemptUsername = `${username || "trial"}${random}`;
-            lastError = new Error(`Username já existe (tentativa ${attempt}/3)`);
+            attemptUsername = `${(typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : "trial"}${random}`;
             continue;
           }
 
-          throw new Error(data.mens || data.error || text || "Erro na API FAST");
+          // erro não relacionado a username => não insiste
+          break;
         }
 
-        // Sucesso!
         finalData = data;
         break;
+      } catch (e: any) {
+        clearTimeout(timeout);
+        lastErrMsg =
+          e?.name === "AbortError" ? "Timeout ao chamar FAST." : (e?.message || "Erro ao chamar FAST.");
 
-      } catch (err: any) {
-        lastError = err;
         if (attempt < 3) {
           const random = Math.floor(Math.random() * 900) + 100;
-          attemptUsername = `${username || "trial"}${random}`;
+          attemptUsername = `${(typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : "trial"}${random}`;
         }
       }
     }
 
     if (!finalData) {
-      throw lastError || new Error("Falha após 3 tentativas");
+      // ✅ não expõe body do FAST
+      const msg = looksLikeDuplicateUsername(lastErrMsg)
+        ? "Não foi possível gerar um username disponível (tentativas esgotadas)."
+        : "Falha ao criar trial no FAST.";
+      return jsonError(502, msg);
     }
 
-    // Vencimento (4h a partir de agora)
+    // Vencimento (4h a partir de agora) — (mantido igual ao seu)
     const now = new Date();
-    const exp = new Date(now.getTime() + 4 * 60 * 60 * 1000); // +4h
+    const exp = new Date(now.getTime() + 4 * 60 * 60 * 1000);
     const exp_date = Math.floor(exp.getTime() / 1000);
 
-    // M3U (FAST pode retornar domain no data, ou usar padrão)
-    const domain = finalData.data?.domain || "painel.fast"; // ajustar se souber o padrão
-    const m3u_url = `http://${domain}/get.php?username=${attemptUsername}&password=${attemptPassword}&type=m3u_plus&output=ts`;
+    // M3U (mantido igual ao seu)
+    const domain = String(finalData?.data?.domain || "painel.fast");
+    const m3u_url = `http://${domain}/get.php?username=${encodeURIComponent(attemptUsername)}&password=${encodeURIComponent(
+      attemptPassword
+    )}&type=m3u_plus&output=ts`;
 
     return NextResponse.json({
       ok: true,
@@ -107,12 +178,10 @@ export async function POST(req: NextRequest) {
         exp_date,
         domain,
         m3u_url,
-        owner_credits: null, // FAST não retorna créditos no trial
+        owner_credits: null,
       },
     });
-
-  } catch (err: any) {
-    console.error("Erro create-trial FAST:", err);
-    return NextResponse.json({ ok: false, error: err.message || "Erro desconhecido" }, { status: 500 });
+  } catch {
+    return jsonError(500, "Erro create-trial FAST");
   }
 }

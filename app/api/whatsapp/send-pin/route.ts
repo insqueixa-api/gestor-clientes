@@ -1,53 +1,43 @@
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
 
-// Puxa as configurações que você já tem cadastradas na Vercel
-const baseUrl = process.env.UNIGESTOR_WA_BASE_URL; 
-const token = process.env.UNIGESTOR_WA_TOKEN;
+export const dynamic = "force-dynamic";
 
-const supabase = createClient(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { phone } = await request.json();
+    const body = await req.json().catch(() => ({} as any));
+    const token = String(body?.token ?? body?.t ?? "").trim();
 
-    if (!baseUrl || !token) {
-      return NextResponse.json({ error: "Configuração de WhatsApp ausente" }, { status: 500 });
+    if (!token) {
+      return NextResponse.json({ ok: false, error: "Token não fornecido" }, { status: 400 });
     }
 
-    // 1. Busca o cliente e o PIN no banco
-    const { data: client, error } = await supabase
-      .from("clients")
-      .select("access_pin, whatsapp, name")
-      .eq("whatsapp", phone)
-      .single();
+    // ✅ IMPORTANTÍSSIMO:
+    // Reset do PIN no seu fluxo é por TOKEN (link do WhatsApp), não por telefone.
+    // A RPC é quem resolve o whatsapp/tenant internamente com segurança.
+    const { error } = await supabaseAdmin.rpc("portal_request_pin_reset", { p_token: token });
 
-    if (error || !client) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    // Não vaza motivo exato (evita enumeração / probing)
+    if (error) {
+      return NextResponse.json(
+        { ok: true, message: "Se o link estiver válido, enviaremos instruções no WhatsApp." },
+        { status: 200 }
+      );
     }
 
-    const pinToSend = client.access_pin || client.whatsapp.slice(-4);
-
-    // 2. Dispara o PIN usando a mesma estrutura do seu arquivo de status
-    const vmResponse = await fetch(`${baseUrl}/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        phone: client.whatsapp,
-        message: `*UniGestor*\n\nOlá ${client.name || ''}, seu PIN de acesso é: *${pinToSend}*\n\nAcesse: https://unigestor.net.br`,
-      }),
-    });
-
-    if (!vmResponse.ok) throw new Error("VM recusou o envio");
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json(
+      { ok: true, message: "Se o link estiver válido, enviaremos instruções no WhatsApp." },
+      { status: 200 }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Falha ao enviar PIN" }, { status: 500 });
+    return NextResponse.json(
+      { ok: true, message: "Se o link estiver válido, enviaremos instruções no WhatsApp." },
+      { status: 200 }
+    );
   }
 }

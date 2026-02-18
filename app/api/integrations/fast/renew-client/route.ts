@@ -1,131 +1,146 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import crypto from "crypto";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const FAST_BASE_URL = "https://api.painelcliente.com";
+
+function jsonError(status: number, message: string) {
+  return NextResponse.json({ ok: false, error: message }, { status });
+}
+
+function isInternal(req: NextRequest) {
+  const expected = process.env.INTERNAL_API_SECRET || "";
+  const received = req.headers.get("x-internal-secret") || "";
+  if (!expected || !received) return false;
+
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { integration_id, username, months } = body;
+    const body = await req.json().catch(() => ({}));
+    const integration_id = String(body?.integration_id ?? "").trim();
+    const username = String(body?.username ?? "").trim();
+    const months = Number(body?.months);
 
     // Validação
-    if (!integration_id || !username || !months) {
-      return NextResponse.json(
-        { ok: false, error: "integration_id, username e months são obrigatórios" },
-        { status: 400 }
-      );
+    if (!integration_id || !username || !Number.isFinite(months)) {
+      return jsonError(400, "integration_id, username e months são obrigatórios");
     }
 
-    // Validar months (Fast aceita 1-12)
-    const monthsNum = Number(months);
+    // FAST aceita 1..12
+    const monthsNum = Math.trunc(months);
     if (monthsNum < 1 || monthsNum > 12) {
-      return NextResponse.json(
-        { ok: false, error: "months deve ser entre 1 e 12" },
-        { status: 400 }
-      );
+      return jsonError(400, "months deve ser entre 1 e 12");
     }
 
-    // ✅ CORRIGIDO: Usar Supabase Server
-    const supabase = await createClient();
+    // ✅ Gate: interno OU usuário autenticado (admin/painel)
+    const internal = isInternal(req);
+    if (!internal) {
+      const supabaseAuth = await createSupabaseServer();
+      const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
+      if (authErr || !auth?.user?.id) {
+        return jsonError(401, "Unauthorized");
+      }
+    }
 
-    // 1. Buscar integração
+    // ✅ Admin client (service_role) só roda após passar no gate acima
+    const supabase = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false },
+    });
+
+    // 1) Buscar integração (secrets)
     const { data: integ, error: integErr } = await supabase
       .from("server_integrations")
-      .select("api_token, api_secret, provider")
+      .select("api_token, api_secret, provider, is_active")
       .eq("id", integration_id)
       .single();
 
-    if (integErr || !integ) {
-      console.error("Erro ao buscar integração:", integErr);
-      return NextResponse.json(
-        { ok: false, error: "Integração não encontrada" },
-        { status: 404 }
-      );
-    }
+    if (integErr) return jsonError(500, "Falha ao buscar integração.");
+    if (!integ) return jsonError(404, "Integração não encontrada");
 
-    if (integ.provider !== "FAST") {
-      return NextResponse.json(
-        { ok: false, error: "Integração não é FAST" },
-        { status: 400 }
-      );
-    }
+    const provider = String(integ.provider ?? "").toUpperCase();
+    if (provider !== "FAST") return jsonError(400, "Integração não é FAST");
+    if (integ.is_active === false) return jsonError(400, "Integração está inativa");
 
-    const token = integ.api_token;
-    const secret = integ.api_secret;
+    const token = String(integ.api_token ?? "").trim();
+    const secret = String(integ.api_secret ?? "").trim();
+    if (!token) return jsonError(400, "Token do FAST não cadastrado");
+    if (!secret) return jsonError(400, "Secret Key do FAST não cadastrada");
 
-    // 2. Chamar API FAST (/renew_client/{token})
-    const apiUrl = `https://api.painelcliente.com/renew_client/${token}`;
-    
+    // 2) Chamar FAST (/renew_client/{token})
+    const apiUrl = `${FAST_BASE_URL}/renew_client/${encodeURIComponent(token)}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const apiRes = await fetch(apiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        secret: secret,
-        username: username,
+        secret,
+        username,
         month: monthsNum,
       }),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    // Rate limit específico
+    if (apiRes.status === 429) {
+      return jsonError(429, "Aguarde 1 minuto antes de renovar este usuário novamente");
+    }
+
+    const apiJson = await apiRes.json().catch(() => null);
 
     if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error("FAST API Error:", apiRes.status, errText);
-      
-      // Erro 429: rate limit (1 minuto entre renovações)
-      if (apiRes.status === 429) {
-        return NextResponse.json(
-          { ok: false, error: "Aguarde 1 minuto antes de renovar este usuário novamente" },
-          { status: 429 }
-        );
-      }
-      
-      return NextResponse.json(
-        { ok: false, error: `FAST API retornou erro: ${apiRes.status}` },
-        { status: apiRes.status }
-      );
+      // ✅ Não expõe body do FAST
+      return jsonError(502, "FAST respondeu com erro HTTP.");
     }
-
-    const apiJson = await apiRes.json();
 
     // Verificar se API retornou sucesso
-    if (!apiJson.result) {
-      return NextResponse.json(
-        { ok: false, error: apiJson.mens || "Erro desconhecido na API" },
-        { status: 400 }
-      );
+    if (!apiJson || apiJson?.result !== true) {
+      // ✅ Não expõe mens detalhado do FAST
+      return jsonError(400, "FAST: falha ao renovar o usuário.");
     }
 
-    // 3. Extrair dados da resposta
-    const expDate = apiJson.data?.exp_date; // timestamp Unix
-    const connection = apiJson.data?.connection;
-    const credits = apiJson.data?.credits;
+    // 3) Extrair dados (somente o necessário)
+    const expDate = apiJson?.data?.exp_date; // unix
+    const connection = apiJson?.data?.connection ?? null;
+    const credits = apiJson?.data?.credits ?? null;
 
     if (!expDate) {
-      return NextResponse.json(
-        { ok: false, error: "API não retornou exp_date" },
-        { status: 500 }
-      );
+      return jsonError(500, "API não retornou exp_date");
     }
 
-    // Converter timestamp Unix para ISO
-    const expDateISO = new Date(expDate * 1000).toISOString();
+    const expDateISO = new Date(Number(expDate) * 1000).toISOString();
 
-    // 4. Retornar sucesso
+    // 4) Retornar sucesso (sanitizado)
     return NextResponse.json({
       ok: true,
       data: {
-        username: username,
-        exp_date: expDate,
+        username,
+        exp_date: Number(expDate),
         exp_date_iso: expDateISO,
-        connection: connection || null,
-        credits: credits || null,
+        connection,
+        credits,
       },
     });
-
   } catch (err: any) {
-    console.error("FAST Renew Error:", err);
-    return NextResponse.json(
-      { ok: false, error: err.message || "Erro ao renovar cliente FAST" },
-      { status: 500 }
-    );
+    const msg =
+      err?.name === "AbortError"
+        ? "Timeout ao chamar FAST."
+        : "Erro ao renovar cliente FAST";
+    return jsonError(500, msg);
   }
 }

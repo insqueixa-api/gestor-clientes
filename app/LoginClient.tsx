@@ -12,13 +12,13 @@ const supabase = createClient(
 type Msg = { text: string; type: "error" | "success" };
 
 function formatWhatsApp(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  
-  if (digits.startsWith('55') && digits.length >= 12) {
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.startsWith("55") && digits.length >= 12) {
     const country = digits.slice(0, 2);
     const ddd = digits.slice(2, 4);
     const rest = digits.slice(4);
-    
+
     if (rest.length === 9) {
       return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
     }
@@ -26,15 +26,65 @@ function formatWhatsApp(phone: string): string {
       return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
     }
   }
-  
+
   return phone;
+}
+
+// ========= BLINDAGEM (SEM TOKEN NA URL) =========
+const KEY_LOGIN_TOKEN = "cp_login_token";
+const KEY_SESSION = "cp_session";
+
+function getStored(key: string) {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+function setStored(key: string, v: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, v);
+  } catch {}
+}
+function clearStored(key: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {}
+}
+
+function removeParamFromUrl(param: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.has(param)) {
+      u.searchParams.delete(param);
+      window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+    }
+  } catch {}
 }
 
 export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const token = useMemo(() => (sp.get("t") ?? "").trim(), [sp]);
+  // ✅ token vem da URL OU do sessionStorage, e removemos da URL depois
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromUrl = (sp.get("t") ?? "").trim();
+    const stored = getStored(KEY_LOGIN_TOKEN);
+
+    const t = fromUrl || stored || "";
+    if (t) setStored(KEY_LOGIN_TOKEN, t);
+
+    // ✅ remove o token da URL (evita vazamento)
+    if (fromUrl) removeParamFromUrl("t");
+
+    setToken(t);
+  }, [sp]);
 
   const [whatsapp, setWhatsapp] = useState("");
   const [pin, setPin] = useState("");
@@ -47,7 +97,7 @@ export default function LoginClient() {
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
 
   const canSubmit = useMemo(() => {
-    return token.length > 10 && cleanPhone.length >= 10 && pin.length === 4;
+    return (token ?? "").length > 10 && cleanPhone.length >= 10 && pin.length === 4;
   }, [token, cleanPhone, pin]);
 
   useEffect(() => {
@@ -56,7 +106,11 @@ export default function LoginClient() {
     async function resolveToken() {
       setMsg(null);
 
+      // ✅ aguarda hidratar token
+      if (token === null) return;
+
       if (!token) {
+        clearStored(KEY_LOGIN_TOKEN);
         setWhatsapp("");
         setMsg({ type: "error", text: "Link inválido. Solicite um novo link ao suporte." });
         return;
@@ -69,6 +123,7 @@ export default function LoginClient() {
         if (cancelled) return;
 
         if (error) {
+          clearStored(KEY_LOGIN_TOKEN);
           setMsg({ type: "error", text: "Link inválido ou expirado. Solicite um novo link." });
           setWhatsapp("");
           return;
@@ -76,6 +131,7 @@ export default function LoginClient() {
 
         const row = Array.isArray(data) ? data[0] : null;
         if (!row?.whatsapp_username) {
+          clearStored(KEY_LOGIN_TOKEN);
           setMsg({ type: "error", text: "Link inválido ou expirado. Solicite um novo link." });
           setWhatsapp("");
           return;
@@ -127,8 +183,13 @@ export default function LoginClient() {
         return;
       }
 
-      // ✅ REDIRECIONA PARA /renew APÓS LOGIN
-      router.push(`/renew?session=${encodeURIComponent(sessionToken)}`);
+      // ✅ BLINDADO: guarda sessão e vai pra /renew SEM querystring
+      setStored(KEY_SESSION, String(sessionToken));
+
+      // ✅ opcional (recomendado): remove o login token do storage depois do sucesso
+      clearStored(KEY_LOGIN_TOKEN);
+
+      router.push(`/renew`);
     } catch {
       setMsg({ type: "error", text: "Erro ao acessar. Tente novamente." });
     } finally {
@@ -139,6 +200,8 @@ export default function LoginClient() {
   async function handleEsqueciPin() {
     setMsg(null);
 
+    if (token === null) return;
+
     if (!token) {
       setMsg({ type: "error", text: "Link inválido. Solicite um novo link ao suporte." });
       return;
@@ -146,7 +209,12 @@ export default function LoginClient() {
 
     setLoadingReset(true);
     try {
-      await supabase.rpc("portal_request_pin_reset", { p_token: token });
+      await fetch("/api/portal/request-pin-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+
 
       setMsg({
         type: "success",
@@ -267,7 +335,7 @@ export default function LoginClient() {
                 <button
                   type="button"
                   onClick={handleEsqueciPin}
-                  disabled={loadingReset || loadingResolve || !token}
+                  disabled={loadingReset || loadingResolve || !(token ?? "")}
                   className="w-full text-xs font-bold text-slate-500 dark:text-emerald-500/70 hover:text-emerald-500 uppercase tracking-widest transition-colors py-2 disabled:opacity-60"
                 >
                   {loadingReset ? "Solicitando..." : "Esqueci meu PIN"}

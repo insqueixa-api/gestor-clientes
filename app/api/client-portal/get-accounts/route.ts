@@ -1,17 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
 );
+
+// ✅ Nunca cachear respostas do portal
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
+function normalizeToken(v: unknown) {
+  return String(v ?? "").trim();
+}
+
+function isPlausibleSessionToken(t: string) {
+  if (t.length < 16 || t.length > 256) return false;
+  return /^[a-zA-Z0-9=_\-\.]+$/.test(t);
+}
+
+// ✅ Log “cego”: em produção não imprime detalhes
+function safeServerLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(...args);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { session_token } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const session_token = normalizeToken((body as any)?.session_token);
 
     if (!session_token) {
-      return NextResponse.json({ ok: false, error: "Token não fornecido" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Token não fornecido" },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+
+    // ✅ reduz “lixo” e oráculo
+    if (!isPlausibleSessionToken(session_token)) {
+      return NextResponse.json(
+        { ok: false, error: "Sessão inválida" },
+        { status: 401, headers: NO_STORE_HEADERS }
+      );
     }
 
     // 1. Validar sessão
@@ -23,7 +61,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (sessErr || !sess) {
-      return NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401 });
+      safeServerLog("get-accounts: invalid/expired session");
+      return NextResponse.json(
+        { ok: false, error: "Sessão inválida" },
+        { status: 401, headers: NO_STORE_HEADERS }
+      );
     }
 
     // 2. Buscar contas do cliente
@@ -48,7 +90,12 @@ export async function POST(req: NextRequest) {
       .order("vencimento", { ascending: true });
 
     if (accErr) {
-      return NextResponse.json({ ok: false, error: accErr.message }, { status: 500 });
+      safeServerLog("get-accounts: query error", accErr?.message);
+      // ✅ não vaza schema/colunas
+      return NextResponse.json(
+        { ok: false, error: "Erro interno" },
+        { status: 500, headers: NO_STORE_HEADERS }
+      );
     }
 
     const mapped = (accounts || []).map((acc: any) => ({
@@ -66,9 +113,17 @@ export async function POST(req: NextRequest) {
       is_archived: acc.is_archived || false,
     }));
 
-    return NextResponse.json({ ok: true, data: mapped });
-
+    return NextResponse.json(
+      { ok: true, data: mapped },
+      { status: 200, headers: NO_STORE_HEADERS }
+    );
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    safeServerLog("get-accounts: unexpected error", err?.message);
+
+    // ✅ não vaza detalhe nenhum
+    return NextResponse.json(
+      { ok: false, error: "Erro interno" },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }

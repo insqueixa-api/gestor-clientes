@@ -565,14 +565,15 @@ if (isCron) {
       const sessionUserId = String(job.created_by || "system");
       const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
 
-      console.log("[WA][cron_send]", {
-        jobId: job.id,
-        tenantId: job.tenant_id,
-        recipientType,
-        recipientId,
-        to: wa.phone,
-        createdBy: job.created_by,
-      });
+console.log("[WA][cron_send]", {
+  jobId_suffix: String(job.id || "").slice(-6),
+  tenantId: job.tenant_id,
+  recipientType,
+  recipientId_suffix: recipientId ? String(recipientId).slice(-6) : null,
+  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  createdBy_prefix: job.created_by ? String(job.created_by).slice(0, 8) : null,
+});
+
 
       // ✅ tags
       const vars = buildTemplateVars({
@@ -590,33 +591,35 @@ if (isCron) {
           const createdBy = String((job as any).created_by || "").trim();
 
           const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-            p_tenant_id: String(job.tenant_id),
-            p_whatsapp_username: whatsappUsername,
-            p_created_by: createdBy,
-            p_label: "Cobranca automatica",
-            p_expires_at: expiresAt,
-          });
+  p_tenant_id: String(job.tenant_id),
+  p_whatsapp_username: whatsappUsername,
+  p_created_by: createdBy,
+  p_label: "Cobranca automatica",
+  p_expires_at: expiresAt,
+});
 
-          console.log("[PORTAL][cron_token:v2]", {
-            jobId: job.id,
-            tenantId: job.tenant_id,
-            createdBy,
-            whatsappUsername,
-            tokErr: tokErr?.message ?? null,
-            tokDataType: typeof tokData,
-            tokData,
-          });
+if (tokErr) throw new Error(tokErr.message);
 
-          if (tokErr) throw new Error(tokErr.message);
+const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
-          const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-          const portalToken = rowTok?.token ? String(rowTok.token) : "";
+// ✅ LOG seguro (NÃO vaza token / whatsapp)
+console.log("[PORTAL][cron_token:v2]", {
+  jobId_suffix: String(job.id || "").slice(-6),
+  tenantId: job.tenant_id,
+  createdBy_prefix: createdBy ? String(createdBy).slice(0, 8) : null,
+  phone_suffix: whatsappUsername ? String(whatsappUsername).slice(-4) : null,
+  ok: true,
+  hasToken: !!portalToken,
+  token_suffix: portalToken ? portalToken.slice(-6) : null,
+});
 
-          if (portalToken) {
-            vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
-          } else {
-            console.log("[PORTAL][cron_token:v2] retorno sem token");
-          }
+if (portalToken) {
+  vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
+} else {
+  console.log("[PORTAL][cron_token:v2] retorno sem token");
+}
+
         } else {
           console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
         }

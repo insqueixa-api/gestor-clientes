@@ -1,214 +1,312 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function isoNow() {
+  return new Date().toISOString();
+}
+
+// evita devolver detalhes internos
+function safeMsg(err: unknown) {
+  const s = String((err as any)?.message ?? err ?? "");
+  return s.length > 140 ? s.slice(0, 140) + "…" : s;
+}
+
+const PERIOD_MONTHS: Record<string, number> = {
+  MONTHLY: 1,
+  BIMONTHLY: 2,
+  QUARTERLY: 3,
+  SEMIANNUAL: 6,
+  ANNUAL: 12,
+};
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    console.log("🔔 Webhook MP recebido:", JSON.stringify(body, null, 2));
+    const body = await req.json().catch(() => ({} as any));
 
     // MP envia: { type: "payment", action: "payment.updated", data: { id: "123" } }
-    if (body.type !== "payment") {
-      return NextResponse.json({ ok: true, message: "Tipo não processado" });
-    }
-
-    const paymentId = body.data?.id;
-    if (!paymentId) {
-      return NextResponse.json({ ok: true, message: "ID não encontrado" });
-    }
-
-    // 1. Buscar pagamento no nosso banco
-    const { data: payment, error: payErr } = await supabaseAdmin
-      .from("client_portal_payments")
-      .select("*, payment_gateways(config)")
-      .eq("mp_payment_id", String(paymentId))
-      .eq("status", "pending")
-      .single();
-
-    if (payErr || !payment) {
-      console.log("⚠️ Pagamento não encontrado ou já processado:", paymentId);
+    if (body?.type !== "payment") {
       return NextResponse.json({ ok: true });
     }
 
-    // 2. Buscar detalhes do pagamento no MP
-    const gateway = (payment.payment_gateways as any);
+    const paymentId = body?.data?.id ? String(body.data.id) : "";
+    if (!paymentId) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // 1) Buscar pagamento pendente no nosso banco
+    const { data: payment, error: payErr } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id, tenant_id, client_id, mp_payment_id, status, period, plan_label, price_amount, price_currency, new_vencimento")
+      .eq("mp_payment_id", paymentId)
+      .in("status", ["pending", "processing"]) // permite reentrada segura
+      .single();
+
+    if (payErr || !payment) {
+      // não é um pagamento nosso / já finalizado
+      return NextResponse.json({ ok: true });
+    }
+
+    // 2) Descobrir gateway MP ativo do tenant (para consultar status real no MP)
+    const { data: gateways } = await supabaseAdmin
+      .from("payment_gateways")
+      .select("id, name, type, config, priority")
+      .eq("tenant_id", payment.tenant_id)
+      .eq("type", "mercadopago")
+      .eq("is_active", true)
+      .eq("is_online", true)
+      .order("priority", { ascending: true })
+      .limit(1);
+
+    const gateway = gateways?.[0] as any;
+    const accessToken = gateway?.config?.access_token;
+
+    // se não tem gateway, não tem como validar no MP — não processa
+    if (!accessToken) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // 3) Consultar status no MP (fonte de verdade)
     const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { Authorization: `Bearer ${gateway.config.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!mpRes.ok) {
-      console.error("❌ Erro ao buscar pagamento no MP:", await mpRes.text());
-      return NextResponse.json({ ok: false }, { status: 500 });
+    const mpPayment = await mpRes.json().catch(() => ({} as any));
+    const mpStatus = String(mpPayment?.status ?? "").toLowerCase();
+
+    if (!mpRes.ok || !mpStatus) {
+      // não falha webhook (MP pode reenviar)
+      return NextResponse.json({ ok: true });
     }
 
-    const mpPayment = await mpRes.json();
-    console.log("💳 Status MP:", mpPayment.status);
-
-    // 3. Atualizar status no banco
-    if (mpPayment.status !== "approved") {
-      await supabaseAdmin
-        .from("client_portal_payments")
-        .update({ status: mpPayment.status })
-        .eq("id", payment.id);
-
-      return NextResponse.json({ ok: true, message: "Status atualizado mas não aprovado" });
+    // Se ainda não aprovado: só atualiza status final ruim (rejected/cancelled etc)
+    if (mpStatus !== "approved") {
+      const finalBad = ["rejected", "cancelled", "refunded", "charged_back"];
+      if (finalBad.includes(mpStatus)) {
+        await supabaseAdmin
+          .from("client_portal_payments")
+          .update({ status: mpStatus })
+          .eq("id", payment.id);
+      }
+      return NextResponse.json({ ok: true });
     }
 
-    // 4. Marcar como processando (evitar duplicação)
-    await supabaseAdmin
+    // 4) Lock atômico: pending -> processing (se já lockou, sai)
+    const { data: locked, error: lockErr } = await supabaseAdmin
       .from("client_portal_payments")
       .update({ status: "processing" })
-      .eq("id", payment.id);
+      .eq("id", payment.id)
+      .eq("status", "pending")
+      .select("id");
 
-    // 5. Buscar dados do cliente + servidor
+    if (lockErr) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // se não atualizou ninguém, outra execução já pegou
+    if (!locked || (Array.isArray(locked) && locked.length === 0)) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // 5) Buscar dados do cliente
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select(`
-        id, display_name, server_username, whatsapp_username,
-        screens, plan_label, price_amount, price_currency, vencimento,
-        server_id, servers(id, name, type, api_url, api_username, api_password)
-      `)
+      .select("id, tenant_id, display_name, whatsapp_username, server_id, server_username, plan_label, price_amount, price_currency, vencimento, updated_at")
       .eq("id", payment.client_id)
       .single();
 
     if (!client) {
-      console.error("❌ Cliente não encontrado:", payment.client_id);
+      // marca aprovado mas sem fulfillment (front vai orientar suporte)
+      await supabaseAdmin
+        .from("client_portal_payments")
+        .update({ status: "approved", new_vencimento: null })
+        .eq("id", payment.id);
+
       return NextResponse.json({ ok: true });
     }
 
-    const server = (client.servers as any);
-    const PERIOD_MONTHS: Record<string, number> = {
-      MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12,
-    };
     const months = PERIOD_MONTHS[payment.period] || 1;
 
-    // 6. Renovar no servidor (NaTV/FastTV)
-    let newExpiry: string | null = null;
+    // 6) Fulfillment: tenta renovar via integração (NATV/FAST) se existir
+    // Pega integração ativa do servidor do cliente
+    const { data: integ } = await supabaseAdmin
+      .from("server_integrations")
+      .select("id, provider, api_token, api_secret, is_active")
+      .eq("tenant_id", payment.tenant_id)
+      .eq("server_id", client.server_id)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let newExpiryIso: string | null = null;
+    let renewedOk = false;
 
     try {
-      if (server?.type === "NATV" || server?.type === "FASTTV") {
-        const renewRes = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/panel/renew`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              server_id: client.server_id,
-              username: client.server_username,
-              months,
-            }),
-          }
-        );
+      const provider = String((integ as any)?.provider ?? "").toUpperCase();
 
-        const renewData = await renewRes.json();
-        if (renewData.ok && renewData.expiry) {
-          newExpiry = renewData.expiry;
-          console.log("✅ Renovado no servidor:", newExpiry);
+      // NATV
+      if (provider === "NATV" && (integ as any)?.api_token && client.server_username) {
+        const natvRes = await fetch("https://revenda.pixbot.link/user/activation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${(integ as any).api_token}`,
+          },
+          body: JSON.stringify({
+            username: client.server_username,
+            months,
+          }),
+        });
+
+        const natvData = await natvRes.json().catch(() => ({} as any));
+        const exp = natvData?.user?.exp_date || natvData?.expiry || natvData?.exp_date;
+
+        if (natvRes.ok && exp) {
+          newExpiryIso = new Date(exp).toISOString();
+          renewedOk = true;
+
+          // “sync” simples: atualizar créditos se vier no retorno
+          const credits = natvData?.owner?.credits;
+          if (typeof credits === "number") {
+            await supabaseAdmin
+              .from("server_integrations")
+              .update({ credits_last_known: credits, updated_at: isoNow() })
+              .eq("id", (integ as any).id);
+          }
         }
       }
-    } catch (renewErr) {
-      console.error("⚠️ Erro ao renovar no servidor:", renewErr);
+
+      // FASTTV
+      if (!renewedOk && provider === "FASTTV" && (integ as any)?.api_token && (integ as any)?.api_secret && client.server_username) {
+        const fastRes = await fetch(`https://api.painelcliente.com/renew_client/${(integ as any).api_token}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            secret: (integ as any).api_secret,
+            username: client.server_username,
+            month: months,
+          }),
+        });
+
+        const fastData = await fastRes.json().catch(() => ({} as any));
+        const exp = fastData?.data?.exp_date || fastData?.expiry || fastData?.exp_date;
+
+        if (fastRes.ok && exp) {
+          newExpiryIso = new Date(exp).toISOString();
+          renewedOk = true;
+
+          const credits = fastData?.data?.credits;
+          if (typeof credits === "number") {
+            await supabaseAdmin
+              .from("server_integrations")
+              .update({ credits_last_known: credits, updated_at: isoNow() })
+              .eq("id", (integ as any).id);
+          }
+        }
+      }
+    } catch {
+      // ignora detalhes (não vaza)
     }
 
-    // 7. Calcular novo vencimento (fallback se servidor falhar)
-    if (!newExpiry) {
-      const currentVenc = new Date(client.vencimento || Date.now());
-      const base = currentVenc > new Date() ? currentVenc : new Date();
-      base.setMonth(base.getMonth() + months);
-      newExpiry = base.toISOString();
-      console.log("⚠️ Vencimento calculado manualmente:", newExpiry);
+    // 7) Fallback: se integração falhar, calcula vencimento por data
+    // (isso mantém o sistema funcionando, mas você pode preferir marcar como erro — abaixo eu marco como erro)
+    if (!renewedOk) {
+      // marca aprovado, mas sem new_vencimento => front mostra “procure suporte”
+      await supabaseAdmin
+        .from("client_portal_payments")
+        .update({ status: "approved", new_vencimento: null })
+        .eq("id", payment.id);
+
+      return NextResponse.json({ ok: true });
     }
 
-    // 8. Atualizar cadastro do cliente
+    // 8) Atualizar cliente
     await supabaseAdmin
       .from("clients")
       .update({
         plan_label: payment.plan_label,
-        price_amount: payment.price_amount,
-        vencimento: newExpiry,
-        updated_at: new Date().toISOString(),
+        price_amount: Number(payment.price_amount),
+        vencimento: newExpiryIso,
+        updated_at: isoNow(),
       })
       .eq("id", payment.client_id);
 
-    console.log("✅ Cliente atualizado no banco");
-
-    // 9. Registrar renovação no histórico
+    // 9) Registrar renovação
     await supabaseAdmin.from("renewals").insert({
       tenant_id: payment.tenant_id,
       client_id: payment.client_id,
       plan_label: payment.plan_label,
-      price_amount: payment.price_amount,
+      price_amount: Number(payment.price_amount),
       months,
-      new_vencimento: newExpiry,
+      new_vencimento: newExpiryIso,
       payment_method: "pix_mercadopago",
-      mp_payment_id: String(paymentId),
-      renewed_at: new Date().toISOString(),
+      mp_payment_id: paymentId,
+      renewed_at: isoNow(),
     });
 
-    console.log("✅ Histórico registrado");
-
-    // 10. Marcar pagamento como aprovado
+    // 10) Marcar pagamento como aprovado com vencimento (isso é o “fulfillment done”)
     await supabaseAdmin
       .from("client_portal_payments")
       .update({
         status: "approved",
-        approved_at: new Date().toISOString(),
-        new_vencimento: newExpiry,
+        new_vencimento: newExpiryIso,
       })
       .eq("id", payment.id);
 
-    console.log("✅ Pagamento aprovado no banco");
-
-    // 11. Enviar WhatsApp de confirmação
+    // 11) Enviar WhatsApp de confirmação (INTERNAL_API_SECRET)
     try {
-      const vencFormatted = new Date(newExpiry).toLocaleDateString("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const secret = process.env.INTERNAL_API_SECRET || "";
+      if (secret) {
+        const vencFormatted = new Date(String(newExpiryIso)).toLocaleDateString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id: payment.tenant_id,
-          whatsapp_username: client.whatsapp_username,
-          template: "renewal_confirmation",
-          variables: {
-            name: client.display_name,
-            plan: payment.plan_label,
-            server: server?.name || "Servidor",
-            vencimento: vencFormatted,
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/send`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": secret,
           },
-        }),
-      });
-
-      console.log("✅ WhatsApp enviado");
-    } catch (waErr) {
-      console.error("⚠️ Erro WhatsApp:", waErr);
+          body: JSON.stringify({
+            tenant_id: payment.tenant_id,
+            whatsapp_username: client.whatsapp_username,
+            template: "renewal_confirmation",
+            variables: {
+              name: client.display_name,
+              plan: payment.plan_label,
+              vencimento: vencFormatted,
+            },
+          }),
+        });
+      }
+    } catch {
+      // não quebra o fluxo
     }
 
-    console.log("🎉 Pagamento processado com sucesso:", paymentId);
     return NextResponse.json({ ok: true });
-
-  } catch (err: any) {
-    console.error("❌ Erro webhook MP:", err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    // nunca devolve detalhe interno
+    return NextResponse.json({ ok: false, error: safeMsg(err) }, { status: 200 });
   }
 }
 
 // GET para testar se webhook está ativo
 export async function GET() {
-  return NextResponse.json({ 
-    ok: true, 
+  return NextResponse.json({
+    ok: true,
     message: "Webhook Mercado Pago ativo",
-    timestamp: new Date().toISOString() 
+    timestamp: isoNow(),
   });
 }

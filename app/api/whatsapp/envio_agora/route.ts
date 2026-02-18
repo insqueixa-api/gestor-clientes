@@ -444,13 +444,14 @@ if (!tenantId || !message || !recipientType || !recipientId) {
   const sessionKey = makeSessionKey(tenantId, authedUserId);
 
   // ✅ LOG (ajuste sugerido)
-  console.log("[WA][send_now]", {
-    tenantId,
-    recipientType,
-    recipientId,
-    to: wa.phone,
-    authedUserId,
-  });
+console.log("[WA][send_now]", {
+  tenantId,
+  recipientType,
+  recipientId_suffix: recipientId ? recipientId.slice(-6) : null,
+  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
+});
+
 
   // ✅ monta variáveis e renderiza o texto (agora tudo em SP)
 const vars = buildTemplateVars({
@@ -463,37 +464,35 @@ try {
   const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
   const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // mantém seu padrão
 
-  if (whatsappUsername) {
-    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-      p_tenant_id: tenantId,
-      p_whatsapp_username: whatsappUsername,
-      p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
-      p_label: "Envio manual",
-      p_expires_at: null,
-    });
+  const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+  p_tenant_id: tenantId,
+  p_whatsapp_username: whatsappUsername,
+  p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
+  p_label: "Envio manual",
+  p_expires_at: null,
+});
 
-    console.log("[PORTAL][token:v2]", {
-      tokErr: tokErr?.message ?? null,
-      tokDataType: typeof tokData,
-      tokData,
-      whatsappUsername,
-      tenantId,
-      authedUserId,
-    });
+if (tokErr) throw new Error(tokErr.message);
 
-    if (tokErr) throw new Error(tokErr.message);
+const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
-    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-    const portalToken = rowTok?.token ? String(rowTok.token) : "";
+// ✅ LOG seguro (NÃO vaza token / whatsapp)
+console.log("[PORTAL][token:v2]", {
+  ok: true,
+  hasToken: !!portalToken,
+  token_suffix: portalToken ? portalToken.slice(-6) : null,
+  phone_suffix: whatsappUsername ? whatsappUsername.slice(-4) : null,
+  tenantId,
+  authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
+});
 
-    if (portalToken) {
-      vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
-    } else {
-      console.log("[PORTAL][token:v2] retorno sem token");
-    }
-  } else {
-    console.log("[PORTAL][token:v2] whatsapp_username vazio no destino");
-  }
+if (portalToken) {
+  vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
+} else {
+  console.log("[PORTAL][token:v2] retorno sem token");
+}
+
 } catch (e: any) {
   console.log("[PORTAL][token:v2] falhou", e?.message ?? e);
   // mantém vars.link_pagamento vazio

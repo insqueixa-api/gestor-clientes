@@ -1,30 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import crypto from "crypto";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function jsonError(status: number, msg: string) {
+  return NextResponse.json({ ok: false, error: msg }, { status });
+}
+
+function isInternal(req: NextRequest) {
+  const expected = process.env.INTERNAL_API_SECRET || "";
+  const received = req.headers.get("x-internal-secret") || "";
+
+  if (!expected || !received) return false;
+
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { integration_id, username, months } = body;
+    const body = await req.json().catch(() => null);
+    const integration_id = body?.integration_id;
+    const username = body?.username;
+    const months = body?.months;
 
     // Validação
     if (!integration_id || !username || !months) {
-      return NextResponse.json(
-        { ok: false, error: "integration_id, username e months são obrigatórios" },
-        { status: 400 }
-      );
+      return jsonError(400, "integration_id, username e months são obrigatórios");
     }
 
-    // Validar months permitidos
-    const validMonths = [1, 2, 3, 4, 5, 6, 12];
+    // ✅ Meses permitidos (ajuste para o seu padrão real)
+    const validMonths = [1, 2, 3, 6, 12];
     if (!validMonths.includes(Number(months))) {
-      return NextResponse.json(
-        { ok: false, error: "months deve ser 1, 2, 3, 4, 5, 6 ou 12" },
-        { status: 400 }
-      );
+      return jsonError(400, "months deve ser 1, 2, 3, 6 ou 12");
     }
 
-    // ✅ CORRIGIDO: Usar Supabase Server
-    const supabase = await createClient();
+    const internal = isInternal(req);
+
+    // ✅ Supabase:
+    // - Interno: usa Service Role (não depende de cookie / RLS)
+    // - Não-interno: exige usuário logado (RLS protege)
+    const supabase = internal
+      ? createSupabaseAdmin(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+      : await createSupabaseServer();
+
+    if (!internal) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData?.user) {
+        return jsonError(401, "Unauthorized");
+      }
+    }
 
     // 1. Buscar integração
     const { data: integ, error: integErr } = await supabase
@@ -34,94 +68,72 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (integErr || !integ) {
-      console.error("Erro ao buscar integração:", integErr);
-      return NextResponse.json(
-        { ok: false, error: "Integração não encontrada" },
-        { status: 404 }
-      );
+      // log “cego”
+      console.error("NATV renew: integração não encontrada");
+      return jsonError(404, "Integração não encontrada");
     }
 
     if (integ.provider !== "NATV") {
-      return NextResponse.json(
-        { ok: false, error: "Integração não é NATV" },
-        { status: 400 }
-      );
+      return jsonError(400, "Integração não é NATV");
     }
 
     const token = integ.api_token;
 
     // 2. Chamar API NATV (/user/activation)
     const apiUrl = "https://revenda.pixbot.link/user/activation";
-    
+
     const apiRes = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        username: username,
+        username: String(username),
         months: Number(months),
       }),
     });
 
     if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error("NATV API Error:", apiRes.status, errText);
-      
-      // Erros específicos
+      // ⚠️ NÃO retorna texto cru para o cliente final
+      // log “cego”
+      console.error("NATV renew: apiRes not ok", apiRes.status);
+
       if (apiRes.status === 402) {
-        return NextResponse.json(
-          { ok: false, error: "Créditos insuficientes no servidor" },
-          { status: 402 }
-        );
+        return jsonError(402, "Créditos insuficientes no servidor");
       }
       if (apiRes.status === 404) {
-        return NextResponse.json(
-          { ok: false, error: "Usuário não encontrado no servidor" },
-          { status: 404 }
-        );
+        return jsonError(404, "Usuário não encontrado no servidor");
       }
-      
-      return NextResponse.json(
-        { ok: false, error: `NATV API retornou erro: ${apiRes.status}` },
-        { status: apiRes.status }
-      );
+
+      return jsonError(apiRes.status, "Falha ao renovar no servidor");
     }
 
-    const apiJson = await apiRes.json();
+    const apiJson = await apiRes.json().catch(() => null);
 
-    // 3. Extrair dados da resposta
-    const expDate = apiJson.exp_date; // timestamp Unix
-    const password = apiJson.password;
+    const expDate = apiJson?.exp_date; // timestamp Unix
+    const password = apiJson?.password ?? null;
 
     if (!expDate) {
-      return NextResponse.json(
-        { ok: false, error: "API não retornou exp_date" },
-        { status: 500 }
-      );
+      console.error("NATV renew: exp_date ausente");
+      return jsonError(500, "Falha ao renovar no servidor");
     }
 
-    // Converter timestamp Unix para ISO
-    const expDateISO = new Date(expDate * 1000).toISOString();
+    const expDateISO = new Date(Number(expDate) * 1000).toISOString();
 
-    // 4. Retornar sucesso
     return NextResponse.json({
       ok: true,
       data: {
-        username: username,
-        exp_date: expDate,
+        username: String(username),
+        exp_date: Number(expDate),
         exp_date_iso: expDateISO,
-        password: password || null,
-        credits: apiJson.owner?.credits || null,
+        password: password ? String(password) : null,
+        credits: apiJson?.owner?.credits ?? null,
       },
     });
-
-  } catch (err: any) {
-    console.error("NATV Renew Error:", err);
-    return NextResponse.json(
-      { ok: false, error: err.message || "Erro ao renovar cliente NATV" },
-      { status: 500 }
-    );
+  } catch (err) {
+    // log “cego”
+    console.error("NATV renew: crash");
+    return jsonError(500, "Erro interno");
   }
 }
