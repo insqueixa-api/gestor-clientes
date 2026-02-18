@@ -12,7 +12,9 @@ const NO_STORE_HEADERS = {
 
 // ✅ Log “cego”: em produção não imprime detalhes
 function safeServerLog(...args: any[]) {
-  if (process.env.NODE_ENV !== "production") console.error(...args);
+  // ATENÇÃO: Habilitei o log em produção temporariamente para você monitorar esse pagamento real
+  // Depois você pode voltar para: if (process.env.NODE_ENV !== "production") ...
+  console.error(...args);
 }
 
 function normalizeStr(v: unknown) {
@@ -65,6 +67,7 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
   const { data, error } = await supabaseAdmin
     .from("client_portal_payments")
     .select(
+      // ✅ CORREÇÃO: Adicionado fulfillment_started_at
       "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at"
     )
     .eq("tenant_id", tenantId)
@@ -148,22 +151,24 @@ async function refreshMercadoPagoStatusIfNotApproved(
   }
 }
 
+// ✅ CORREÇÃO: Adicionado parâmetro forceReset para lidar com Zumbis
 async function tryAcquireFulfillmentLock(supabaseAdmin: any, tenantId: string, paymentRowId: string, forceReset = false) {
+  // Atomiza: só 1 request consegue trocar pending/null -> processing
   let query = supabaseAdmin
     .from("client_portal_payments")
     .update({
       fulfillment_status: "processing",
       fulfillment_started_at: new Date().toISOString(),
-      fulfillment_error: null 
+      fulfillment_error: null // limpa erro anterior se houver
     })
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId);
 
   if (!forceReset) {
-    // Modo normal: só pega se estiver null ou pending
+    // Modo normal
     query = query.or("fulfillment_status.is.null,fulfillment_status.eq.pending");
   } else {
-    // Modo recuperação (zumbi): pega especificamente se estiver travado em processing
+    // Modo recuperação de falha (zumbi)
     query = query.eq("fulfillment_status", "processing");
   }
 
@@ -217,21 +222,19 @@ async function runFulfillment(params: {
   const { supabaseAdmin, tenantId, origin, payment } = params;
 
   // 1) Carrega cliente
-const { data: client, error: cErr } = await supabaseAdmin
-  .from("clients")
-  .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency")
-  .eq("tenant_id", tenantId)
-  .eq("id", payment.client_id)
-  .single();
+  const { data: client, error: cErr } = await supabaseAdmin
+    .from("clients")
+    .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency")
+    .eq("tenant_id", tenantId)
+    .eq("id", payment.client_id)
+    .single();
 
-if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
+  if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
 
-const login = String((client as any).server_username || "").trim();
-if (!client.server_id || !login) {
-  throw new Error("Cliente sem server_id/server_username para renovação.");
-}
-
-
+  const login = String((client as any).server_username || "").trim();
+  if (!client.server_id || !login) {
+    throw new Error("Cliente sem server_id/server_username para renovação.");
+  }
 
   // 2) Descobrir integração do servidor
   const { data: srv, error: sErr } = await supabaseAdmin
@@ -257,7 +260,6 @@ if (!client.server_id || !login) {
 
   const provider = String(integ.provider || "").toUpperCase();
   const months = toPeriodMonths(payment.period);
-  
 
   // 3) Chamar renew-client (NaTV/FAST) — usa endpoint interno
   const renewPath =
@@ -267,17 +269,15 @@ if (!client.server_id || !login) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (internalSecret) headers["x-internal-secret"] = internalSecret;
 
-const renewRes = await fetch(`${origin}${renewPath}`, {
-  method: "POST",
-  headers,
-body: JSON.stringify({
-  integration_id: integrationId,
-  username: login,
-  months,
-}),
-
-});
-
+  const renewRes = await fetch(`${origin}${renewPath}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      integration_id: integrationId,
+      username: login,
+      months,
+    }),
+  });
 
   const renewJson = await renewRes.json().catch(() => null);
 
@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Se acabou de virar approved AGORA, apenas garante status pending no banco.
+    // ✅ CORREÇÃO: Se acabou de virar approved AGORA, apenas garante status pending no banco.
     // REMOVEMOS O RETURN para que ele continue descendo e execute a renovação IMEDIATAMENTE.
     if (statusChanged) {
       if (!payment.fulfillment_status) {
