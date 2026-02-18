@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${gateway.config.access_token}`,
-              "X-Idempotency-Key": `${client_id}-${period}-${Date.now()}`,
+              "X-Idempotency-Key": `${sess.tenant_id}-${client_id}-${period}-${Number(price_amount)}`,
+
             },
             body: JSON.stringify({
               transaction_amount: Number(price_amount),
@@ -131,8 +132,10 @@ export async function POST(req: NextRequest) {
           const mpData = await mpResponse.json();
 
           if (mpResponse.ok && mpData.id) {
-            // Salvar pagamento pendente
-            await supabaseAdmin.from("client_portal_payments").insert({
+            // Salvar pagamento pendente (✅ NÃO IGNORAR ERRO)
+          const { data: inserted, error: insErr } = await supabaseAdmin
+            .from("client_portal_payments")
+            .insert({
               tenant_id: sess.tenant_id,
               client_id,
               gateway_id: gateway.id,
@@ -147,94 +150,111 @@ export async function POST(req: NextRequest) {
               pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
               pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
               expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            });
+            })
+            .select("id, mp_payment_id")
+            .single();
 
-            return NextResponse.json({
-              ok: true,
-              payment_method: "online",
-              gateway_name: gateway.name,
-              payment_id: mpData.id,
-              pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
-              pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
-              expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-            });
+          if (insErr || !inserted) {
+            console.error("Erro ao salvar pagamento no banco:", insErr);
+            return NextResponse.json(
+              { ok: false, error: "Pagamento criado no gateway, mas falhou ao salvar no sistema." },
+              { status: 500 }
+            );
+          }
+
+          return NextResponse.json({
+            ok: true,
+            payment_method: "online",
+            gateway_name: gateway.name,
+
+            // ✅ mantém o que você já usa no polling hoje (MP id)
+            payment_id: String(mpData.id),
+
+            // ✅ EXTRA: id interno (opcional, mas ajuda muito)
+            internal_payment_id: inserted.id,
+
+            pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
+            pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
+            expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          });
+
 
 
           }
 
 
-else if (gateway.type === "wise") {
-  // 1. Criar quote (cotação)
-  const quoteRes = await fetch("https://api.transferwise.com/v3/profiles/${gateway.config.profile_id}/quotes", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${gateway.config.api_token}`,
-    },
-    body: JSON.stringify({
-      sourceCurrency: gateway.config.source_currency || "BRL",
-      targetCurrency: currency,
-      sourceAmount: Number(price_amount),
-      targetAmount: null,
-      payOut: "BALANCE",
-    }),
-  });
+        else if (gateway.type === "wise") {
+          // 1. Criar quote (cotação)
+          const quoteRes = await fetch("https://api.transferwise.com/v3/profiles/${gateway.config.profile_id}/quotes", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${gateway.config.api_token}`,
+            },
+            body: JSON.stringify({
+              sourceCurrency: gateway.config.source_currency || "BRL",
+              targetCurrency: currency,
+              sourceAmount: Number(price_amount),
+              targetAmount: null,
+              payOut: "BALANCE",
+            }),
+          });
 
-  if (!quoteRes.ok) {
-    const quoteErr = await quoteRes.text();
-    console.error("Erro Wise Quote:", quoteErr);
-    lastError = "Erro ao criar cotação no Wise";
-    continue;
-  }
+          if (!quoteRes.ok) {
+            const quoteErr = await quoteRes.text();
+            console.error("Erro Wise Quote:", quoteErr);
+            lastError = "Erro ao criar cotação no Wise";
+            continue;
+          }
 
-  const quoteData = await quoteRes.json();
-  const quoteId = quoteData.id;
+          const quoteData = await quoteRes.json();
+          const quoteId = quoteData.id;
 
-  // 2. Criar recipient (destinatário) - neste caso, a própria conta
-  // Nota: Em produção, você precisaria ter destinatários pré-cadastrados
-  // ou criar dinamicamente. Para simplificar, vamos retornar dados para pagamento manual.
+          // 2. Criar recipient (destinatário) - neste caso, a própria conta
+          // Nota: Em produção, você precisaria ter destinatários pré-cadastrados
+          // ou criar dinamicamente. Para simplificar, vamos retornar dados para pagamento manual.
 
-  // Wise não gera PIX/QR Code - é usado para transferências internacionais
-  // O fluxo seria: cliente faz transferência → você confirma manualmente → processa
+          // Wise não gera PIX/QR Code - é usado para transferências internacionais
+          // O fluxo seria: cliente faz transferência → você confirma manualmente → processa
 
-  // Salvar "pagamento" pendente
-  await supabaseAdmin.from("client_portal_payments").insert({
-    tenant_id: sess.tenant_id,
-    client_id,
-    gateway_id: gateway.id,
-    gateway_type: gateway.type,
-    mp_payment_id: quoteId, // Armazenar quote_id
-    session_token,
-    period,
-    plan_label: planLabel,
-    price_amount: Number(price_amount),
-    price_currency: currency,
-    status: "pending",
-    pix_qr_code: null,
-    pix_qr_code_base64: null,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24h
-  });
+          // Salvar "pagamento" pendente
+          await supabaseAdmin.from("client_portal_payments").insert({
+            tenant_id: sess.tenant_id,
+            client_id,
+            gateway_id: gateway.id,
+            gateway_type: gateway.type,
+            mp_payment_id: quoteId, // Armazenar quote_id
+            session_token,
+            period,
+            plan_label: planLabel,
+            price_amount: Number(price_amount),
+            price_currency: currency,
+            status: "pending",
+            pix_qr_code: null,
+            pix_qr_code_base64: null,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24h
+          });
 
-  // Retornar instruções de transferência
-  return NextResponse.json({
-    ok: true,
-    payment_method: "manual", // Wise funciona como manual
-    gateway_name: gateway.name,
-    payment_id: quoteId,
-    instructions: `Transferência via Wise
-    
-Valor: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(price_amount))}
-Taxa estimada: ${new Intl.NumberFormat("en-US", { style: "currency", currency: gateway.config.source_currency }).format(quoteData.fee)}
-Você receberá: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(quoteData.targetAmount)}
+          // Retornar instruções de transferência
+          return NextResponse.json({
+            ok: true,
+            payment_method: "manual", // Wise funciona como manual
+            gateway_name: gateway.name,
+            payment_id: quoteId,
+            instructions: `Transferência via Wise
+            
+            Valor: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(price_amount))}
+            Taxa estimada: ${new Intl.NumberFormat("en-US", { style: "currency", currency: gateway.config.source_currency }).format(quoteData.fee)}
+            Você receberá: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(quoteData.targetAmount)}
 
-Use o ID da cotação para fazer a transferência no app Wise:
-Quote ID: ${quoteId}
+            Use o ID da cotação para fazer a transferência no app Wise:
+            Quote ID: ${quoteId}
 
-Após realizar a transferência, envie o comprovante pelo WhatsApp para confirmar.`,
-    quote_id: quoteId,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  });
-}
+            Após realizar a transferência, envie o comprovante pelo WhatsApp para confirmar.`,
+            quote_id: quoteId,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          });
+        }
 
           lastError = mpData.message || "Erro ao criar pagamento";
         }

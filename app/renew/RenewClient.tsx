@@ -333,18 +333,22 @@ useEffect(() => {
 
     const result = await res.json();
 
-    if (!result.ok) {
-      alert(`Erro ao criar pagamento: ${result.error}`);
-      return;
-    }
+if (!result.ok) {
+  alert(`Erro ao criar pagamento: ${result.error}`);
+  return;
+}
 
-    setPaymentData(result);
-    setPaymentModal(true);
+// ✅ payload real pode estar em result.data
+const payment = result.data ?? result;
 
-    // Se for pagamento online, iniciar polling
-    if (result.payment_method === "online") {
-      startPolling(result.payment_id);
-    }
+setPaymentData(payment);
+setPaymentModal(true);
+
+// ✅ iniciar polling usando o payload real
+if (payment.payment_method === "online" && payment.payment_id) {
+  startPolling(String(payment.payment_id));
+}
+
 
   } catch (err: any) {
     console.error("Erro ao renovar:", err);
@@ -360,31 +364,35 @@ function startPolling(paymentId: string) {
   const interval = setInterval(async () => {
     try {
       const res = await fetch("/api/client-portal/payment-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_token: session,
-          payment_id: paymentId,
-        }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_token: session, payment_id: paymentId }),
+});
 
-      const result = await res.json();
+if (!res.ok) {
+  const txt = await res.text().catch(() => "");
+  console.error("payment-status HTTP error:", res.status);
+  clearInterval(interval);
+  setPollingInterval(null);
+  // opcional: mostrar erro pro usuário
+  // setPaymentStatus("rejected");
+  return;
+}
 
-      if (result.ok && result.status === "approved") {
-        setPaymentStatus("approved");
-        setPaymentData((prev: any) => ({ ...prev, new_vencimento: result.new_vencimento }));
-        clearInterval(interval);
-        setPollingInterval(null);
+const result = await res.json();
 
-        // Aguardar 5s e recarregar a página
-        setTimeout(() => {
-          window.location.reload();
-        }, 5000);
-      } else if (result.status === "rejected" || result.status === "cancelled") {
-        setPaymentStatus("rejected");
-        clearInterval(interval);
-        setPollingInterval(null);
-      }
+if (result.ok && result.status === "approved") {
+  setPaymentStatus("approved");
+  setPaymentData((prev: any) => ({ ...prev, new_vencimento: result.new_vencimento }));
+  clearInterval(interval);
+  setPollingInterval(null);
+  setTimeout(() => window.location.reload(), 5000);
+} else if (result.status === "rejected" || result.status === "cancelled") {
+  setPaymentStatus("rejected");
+  clearInterval(interval);
+  setPollingInterval(null);
+}
+
     } catch (err) {
       console.error("Erro ao verificar status:", err);
     }
