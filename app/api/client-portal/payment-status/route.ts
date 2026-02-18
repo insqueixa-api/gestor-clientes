@@ -152,31 +152,85 @@ async function refreshMercadoPagoStatusIfNotApproved(
 }
 
 // ✅ CORREÇÃO: Adicionado parâmetro forceReset para lidar com Zumbis
-async function tryAcquireFulfillmentLock(supabaseAdmin: any, tenantId: string, paymentRowId: string, forceReset = false) {
-  // Atomiza: só 1 request consegue trocar pending/null -> processing
-  let query = supabaseAdmin
-    .from("client_portal_payments")
-    .update({
-      fulfillment_status: "processing",
-      fulfillment_started_at: new Date().toISOString(),
-      fulfillment_error: null // limpa erro anterior se houver
-    })
-    .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId);
+async function tryAcquireFulfillmentLock(
+  supabaseAdmin: any,
+  tenantId: string,
+  paymentRowId: string
+) {
+  const nowIso = new Date().toISOString();
+  const zombieBeforeIso = new Date(Date.now() - 3 * 60 * 1000).toISOString();
 
-  if (!forceReset) {
-    // Modo normal
-    query = query.or("fulfillment_status.is.null,fulfillment_status.eq.pending");
-  } else {
-    // Modo recuperação de falha (zumbi)
-    query = query.eq("fulfillment_status", "processing");
+  const updatePayload = {
+    fulfillment_status: "processing",
+    fulfillment_started_at: nowIso,
+    fulfillment_error: null,
+  };
+
+  // 1) Tenta adquirir se estiver NULL
+  {
+    const { data, error } = await supabaseAdmin
+      .from("client_portal_payments")
+      .update(updatePayload)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentRowId)
+      .is("fulfillment_status", null)
+      .select("id,fulfillment_status,fulfillment_started_at")
+      .maybeSingle();
+
+    if (error) safeServerLog("tryAcquireFulfillmentLock(null) error:", error.message);
+    if (data) return { acquired: true, mode: "null" };
   }
 
-  const { data, error } = await query.select("id,fulfillment_status").maybeSingle();
+  // 2) Tenta adquirir se estiver PENDING
+  {
+    const { data, error } = await supabaseAdmin
+      .from("client_portal_payments")
+      .update(updatePayload)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentRowId)
+      .eq("fulfillment_status", "pending")
+      .select("id,fulfillment_status,fulfillment_started_at")
+      .maybeSingle();
 
-  if (error || !data) return { acquired: false };
-  return { acquired: true };
+    if (error) safeServerLog("tryAcquireFulfillmentLock(pending) error:", error.message);
+    if (data) return { acquired: true, mode: "pending" };
+  }
+
+  // 3) Recuperação ZUMBI: processing com started_at NULL
+  {
+    const { data, error } = await supabaseAdmin
+      .from("client_portal_payments")
+      .update(updatePayload)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentRowId)
+      .eq("fulfillment_status", "processing")
+      .is("fulfillment_started_at", null)
+      .select("id,fulfillment_status,fulfillment_started_at")
+      .maybeSingle();
+
+    if (error) safeServerLog("tryAcquireFulfillmentLock(zombie:null) error:", error.message);
+    if (data) return { acquired: true, mode: "zombie_null_started_at" };
+  }
+
+  // 4) Recuperação ZUMBI: processing com started_at antigo
+  {
+    const { data, error } = await supabaseAdmin
+      .from("client_portal_payments")
+      .update(updatePayload)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentRowId)
+      .eq("fulfillment_status", "processing")
+      .lte("fulfillment_started_at", zombieBeforeIso)
+      .select("id,fulfillment_status,fulfillment_started_at")
+      .maybeSingle();
+
+    if (error) safeServerLog("tryAcquireFulfillmentLock(zombie:old) error:", error.message);
+    if (data) return { acquired: true, mode: "zombie_old_started_at" };
+  }
+
+  return { acquired: false };
 }
+
 
 async function markFulfillmentDone(
   supabaseAdmin: any,
@@ -497,14 +551,24 @@ export async function POST(req: NextRequest) {
 
     // 7) Tentar adquirir lock e processar
     // Se for zumbi, passamos o flag true para forçar a aquisição mesmo estando 'processing'
-    const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id, isZombie);
+    const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id);
+safeServerLog("lock acquired?", lock);
+
     
-    if (!lock.acquired) {
-      return NextResponse.json(
-        { ok: true, status: "approved", phase: "renewing", fulfillment_status: "processing" },
-        { status: 200, headers: NO_STORE_HEADERS }
-      );
-    }
+if (!lock.acquired) {
+  // Não minta "processing" se não conseguiu setar processing no banco.
+  // Isso evita a UI ficar eternamente em "Processando..." com DB em pending.
+  return NextResponse.json(
+    {
+      ok: true,
+      status: "approved",
+      phase: "renewing",
+      fulfillment_status: fStatus, // aqui será "pending" (ou o valor real)
+    },
+    { status: 200, headers: NO_STORE_HEADERS }
+  );
+}
+
 
     // Executa fulfillment
     try {
