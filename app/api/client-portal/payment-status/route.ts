@@ -65,7 +65,7 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
   const { data, error } = await supabaseAdmin
     .from("client_portal_payments")
     .select(
-      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error"
+      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at"
     )
     .eq("tenant_id", tenantId)
     .eq("mp_payment_id", String(paymentId))
@@ -148,19 +148,26 @@ async function refreshMercadoPagoStatusIfNotApproved(
   }
 }
 
-async function tryAcquireFulfillmentLock(supabaseAdmin: any, tenantId: string, paymentRowId: string) {
-  // Atomiza: só 1 request consegue trocar pending/null -> processing
-  const { data, error } = await supabaseAdmin
+async function tryAcquireFulfillmentLock(supabaseAdmin: any, tenantId: string, paymentRowId: string, forceReset = false) {
+  let query = supabaseAdmin
     .from("client_portal_payments")
     .update({
       fulfillment_status: "processing",
       fulfillment_started_at: new Date().toISOString(),
+      fulfillment_error: null 
     })
     .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId)
-    .or("fulfillment_status.is.null,fulfillment_status.eq.pending")
-    .select("id,fulfillment_status")
-    .maybeSingle();
+    .eq("id", paymentRowId);
+
+  if (!forceReset) {
+    // Modo normal: só pega se estiver null ou pending
+    query = query.or("fulfillment_status.is.null,fulfillment_status.eq.pending");
+  } else {
+    // Modo recuperação (zumbi): pega especificamente se estiver travado em processing
+    query = query.eq("fulfillment_status", "processing");
+  }
+
+  const { data, error } = await query.select("id,fulfillment_status").maybeSingle();
 
   if (error || !data) return { acquired: false };
   return { acquired: true };
@@ -210,15 +217,21 @@ async function runFulfillment(params: {
   const { supabaseAdmin, tenantId, origin, payment } = params;
 
   // 1) Carrega cliente
-  const { data: client, error: cErr } = await supabaseAdmin
-    .from("clients")
-    .select("id,tenant_id,display_name,username,server_id,whatsapp_username,price_currency")
-    .eq("tenant_id", tenantId)
-    .eq("id", payment.client_id)
-    .single();
+const { data: client, error: cErr } = await supabaseAdmin
+  .from("clients")
+  .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency")
+  .eq("tenant_id", tenantId)
+  .eq("id", payment.client_id)
+  .single();
 
-  if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
-  if (!client.server_id || !client.username) throw new Error("Cliente sem server_id/username para renovação.");
+if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
+
+const login = String((client as any).server_username || "").trim();
+if (!client.server_id || !login) {
+  throw new Error("Cliente sem server_id/server_username para renovação.");
+}
+
+
 
   // 2) Descobrir integração do servidor
   const { data: srv, error: sErr } = await supabaseAdmin
@@ -244,6 +257,7 @@ async function runFulfillment(params: {
 
   const provider = String(integ.provider || "").toUpperCase();
   const months = toPeriodMonths(payment.period);
+  
 
   // 3) Chamar renew-client (NaTV/FAST) — usa endpoint interno
   const renewPath =
@@ -256,12 +270,12 @@ async function runFulfillment(params: {
 const renewRes = await fetch(`${origin}${renewPath}`, {
   method: "POST",
   headers,
-  body: JSON.stringify({
-    
-    integration_id: integrationId,
-    username: String(client.username),
-    months,
-  }),
+body: JSON.stringify({
+  integration_id: integrationId,
+  username: login,
+  months,
+}),
+
 });
 
 
@@ -424,9 +438,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Se acabou de virar approved AGORA, devolve rápido pra UI trocar o texto
+    // ✅ Se acabou de virar approved AGORA, apenas garante status pending no banco.
+    // REMOVEMOS O RETURN para que ele continue descendo e execute a renovação IMEDIATAMENTE.
     if (statusChanged) {
-      // opcional: marcar pending se vier null (pra ficar explícito no DB)
       if (!payment.fulfillment_status) {
         await supabaseAdmin
           .from("client_portal_payments")
@@ -435,17 +449,6 @@ export async function POST(req: NextRequest) {
           .eq("id", payment.id)
           .is("fulfillment_status", null);
       }
-
-      return NextResponse.json(
-        {
-          ok: true,
-          status: "approved",
-          phase: "renewing",
-          fulfillment_status: "pending",
-          new_vencimento: payment.new_vencimento ?? null,
-        },
-        { status: 200, headers: NO_STORE_HEADERS }
-      );
     }
 
     // 5) Se fulfillment já terminou
@@ -473,16 +476,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6) Se já está processando, mantém UI em “renovando”
+    // 6) Lógica Zumbi + Se já está processando
+    // Se estiver 'processing' há mais de 3 minutos, consideramos travado (zumbi) e tentamos destravar.
+    let isZombie = false;
     if (fStatus === "processing") {
-      return NextResponse.json(
-        { ok: true, status: "approved", phase: "renewing", fulfillment_status: "processing" },
-        { status: 200, headers: NO_STORE_HEADERS }
-      );
+      const startedAt = payment.fulfillment_started_at ? new Date(payment.fulfillment_started_at).getTime() : 0;
+      
+      if ((Date.now() - startedAt) > 3 * 60 * 1000) {
+        // Travado há mais de 3 min -> tenta recuperar
+        isZombie = true;
+        safeServerLog(`Zumbi detectado no pgto ${payment.id}. Tentando recuperar lock.`);
+      } else {
+        // Ainda está no prazo normal -> apenas informa que está processando
+        return NextResponse.json(
+          { ok: true, status: "approved", phase: "renewing", fulfillment_status: "processing" },
+          { status: 200, headers: NO_STORE_HEADERS }
+        );
+      }
     }
 
     // 7) Tentar adquirir lock e processar
-    const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id);
+    // Se for zumbi, passamos o flag true para forçar a aquisição mesmo estando 'processing'
+    const lock = await tryAcquireFulfillmentLock(supabaseAdmin, tenantId, payment.id, isZombie);
+    
     if (!lock.acquired) {
       return NextResponse.json(
         { ok: true, status: "approved", phase: "renewing", fulfillment_status: "processing" },

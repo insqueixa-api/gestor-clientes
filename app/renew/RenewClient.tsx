@@ -678,34 +678,38 @@ export default function RenewClient() {
 
               <div className="p-6 space-y-4">
                 {/* QR Code */}
-                <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
-                  {paymentData.pix_qr_code_base64 ? (
-                    <img
-                      src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`}
-                      alt="QR Code PIX"
-                      className="w-full max-w-[280px] mx-auto"
-                    />
-                  ) : (
-                    <div className="w-64 h-64 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
-                      <p className="text-slate-400 text-sm">QR Code não disponível</p>
-                    </div>
-                  )}
-                </div>
+                {paymentPhase !== "renewing" && (
+                  <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
+                    {paymentData.pix_qr_code_base64 ? (
+                      <img
+                        src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`}
+                        alt="QR Code PIX"
+                        className="w-full max-w-[280px] mx-auto"
+                      />
+                    ) : (
+                      <div className="w-64 h-64 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
+                        <p className="text-slate-400 text-sm">QR Code não disponível</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Instruções */}
-                <div className="space-y-2 text-sm">
-                  <p className="font-bold text-slate-700 flex items-center gap-2">
-                    <span>📱</span> Como pagar:
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-6">
-                    <li>Abra o app do seu banco</li>
-                    <li>Escaneie o QR Code</li>
-                    <li>Confirme o pagamento</li>
-                  </ol>
-                </div>
+                {paymentPhase !== "renewing" && (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-bold text-slate-700 flex items-center gap-2">
+                      <span>📱</span> Como pagar:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-6">
+                      <li>Abra o app do seu banco</li>
+                      <li>Escaneie o QR Code</li>
+                      <li>Confirme o pagamento</li>
+                    </ol>
+                  </div>
+                )}
 
                 {/* Código Copia e Cola */}
-                {paymentData.pix_qr_code && (
+                {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ou copie o código:</p>
                     <div className="flex gap-2">
@@ -729,35 +733,36 @@ export default function RenewClient() {
                 )}
 
                 {/* Status */}
-<div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
-  <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-  <div className="flex-1">
-    <p className="text-sm font-bold text-blue-800">
-      {paymentPhase === "renewing" ? "Processando renovação..." : "Aguardando pagamento..."}
-    </p>
-    <p className="text-xs text-blue-600">
-      {paymentPhase === "renewing"
-        ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
-        : "Detectaremos automaticamente quando você pagar"}
-    </p>
-  </div>
-</div>
+                <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
+                  <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-blue-800">
+                      {paymentPhase === "renewing" ? "Processando renovação..." : "Aguardando pagamento..."}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      {paymentPhase === "renewing"
+                        ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
+                        : "Detectaremos automaticamente quando você pagar"}
+                    </p>
+                  </div>
+                </div>
 
 
                 {/* Botão Cancelar */}
-                <button
-                  onClick={() => {
-  if (pollingInterval) clearInterval(pollingInterval);
-  setPaymentModal(false);
-  setPaymentData(null);
-  setPaymentStatus("pending");
-  setPaymentPhase("awaiting_payment");
-}}
-
-                  className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  Cancelar
-                </button>
+                {paymentPhase !== "renewing" && (
+                  <button
+                    onClick={() => {
+                      if (pollingInterval) clearInterval(pollingInterval);
+                      setPaymentModal(false);
+                      setPaymentData(null);
+                      setPaymentStatus("pending");
+                      setPaymentPhase("awaiting_payment");
+                    }}
+                    className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </>
           )}
