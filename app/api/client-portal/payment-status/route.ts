@@ -157,79 +157,26 @@ async function tryAcquireFulfillmentLock(
   tenantId: string,
   paymentRowId: string
 ) {
-  const nowIso = new Date().toISOString();
-  const zombieBeforeIso = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin.rpc(
+    "client_portal_try_acquire_fulfillment_lock",
+    {
+      p_tenant_id: tenantId,
+      p_payment_row_id: paymentRowId,
+      p_zombie_seconds: 180,
+    }
+  );
 
-  const updatePayload = {
-    fulfillment_status: "processing",
-    fulfillment_started_at: nowIso,
-    fulfillment_error: null,
-  };
-
-  // 1) Tenta adquirir se estiver NULL
-  {
-    const { data, error } = await supabaseAdmin
-      .from("client_portal_payments")
-      .update(updatePayload)
-      .eq("tenant_id", tenantId)
-      .eq("id", paymentRowId)
-      .is("fulfillment_status", null)
-      .select("id,fulfillment_status,fulfillment_started_at")
-      .maybeSingle();
-
-    if (error) safeServerLog("tryAcquireFulfillmentLock(null) error:", error.message);
-    if (data) return { acquired: true, mode: "null" };
+  if (error) {
+    safeServerLog("tryAcquireFulfillmentLock(rpc) error:", error.message);
+    return { acquired: false, mode: "rpc_error" };
   }
 
-  // 2) Tenta adquirir se estiver PENDING
-  {
-    const { data, error } = await supabaseAdmin
-      .from("client_portal_payments")
-      .update(updatePayload)
-      .eq("tenant_id", tenantId)
-      .eq("id", paymentRowId)
-      .eq("fulfillment_status", "pending")
-      .select("id,fulfillment_status,fulfillment_started_at")
-      .maybeSingle();
-
-    if (error) safeServerLog("tryAcquireFulfillmentLock(pending) error:", error.message);
-    if (data) return { acquired: true, mode: "pending" };
-  }
-
-  // 3) Recuperação ZUMBI: processing com started_at NULL
-  {
-    const { data, error } = await supabaseAdmin
-      .from("client_portal_payments")
-      .update(updatePayload)
-      .eq("tenant_id", tenantId)
-      .eq("id", paymentRowId)
-      .eq("fulfillment_status", "processing")
-      .is("fulfillment_started_at", null)
-      .select("id,fulfillment_status,fulfillment_started_at")
-      .maybeSingle();
-
-    if (error) safeServerLog("tryAcquireFulfillmentLock(zombie:null) error:", error.message);
-    if (data) return { acquired: true, mode: "zombie_null_started_at" };
-  }
-
-  // 4) Recuperação ZUMBI: processing com started_at antigo
-  {
-    const { data, error } = await supabaseAdmin
-      .from("client_portal_payments")
-      .update(updatePayload)
-      .eq("tenant_id", tenantId)
-      .eq("id", paymentRowId)
-      .eq("fulfillment_status", "processing")
-      .lte("fulfillment_started_at", zombieBeforeIso)
-      .select("id,fulfillment_status,fulfillment_started_at")
-      .maybeSingle();
-
-    if (error) safeServerLog("tryAcquireFulfillmentLock(zombie:old) error:", error.message);
-    if (data) return { acquired: true, mode: "zombie_old_started_at" };
-  }
-
-  return { acquired: false };
+  // supabase rpc retorna array
+  const acquired = Array.isArray(data) ? !!data[0]?.acquired : !!(data as any)?.acquired;
+  return { acquired, mode: acquired ? "rpc_acquired" : "rpc_no_match" };
 }
+
+
 
 
 async function markFulfillmentDone(
