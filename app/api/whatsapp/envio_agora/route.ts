@@ -317,21 +317,49 @@ export async function POST(req: Request) {
 
 
 // =========================
-// 1) Autorização: USER
+// 1) Autorização: INTERNAL ou USER
 // =========================
-const token = getBearerToken(req);
+const internal = isInternal(req);
 
-if (!token) {
+// Se alguém mandou x-internal-secret mas está errado -> 401 direto
+const hasInternalHeader = !!req.headers.get("x-internal-secret");
+if (hasInternalHeader && !internal) {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
-const { data, error } = await sb.auth.getUser(token);
+let authedUserId = "";
 
-if (error || !data?.user?.id) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// ✅ INTERNAL: não exige Bearer
+if (internal) {
+  authedUserId = "internal";
+} else {
+  // ✅ USER: exige Bearer
+  const token = getBearerToken(req);
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  authedUserId = data.user.id;
 }
 
-const authedUserId = data.user.id;
+
+function isInternal(req: Request) {
+  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
+  const received = String(req.headers.get("x-internal-secret") || "").trim();
+
+  if (!expected || !received) return false;
+
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
+}
 
 
 // =========================
@@ -349,19 +377,23 @@ const tenantId = String((body as any).tenant_id || "").trim();
 const message = String((body as any).message || "").trim();
 
 
-// =========================
-// 3) Validação de membro do tenant
-// =========================
-const { data: mem, error: memErr } = await sb
-  .from("tenant_members")
-  .select("tenant_id")
-  .eq("tenant_id", tenantId)
-  .eq("user_id", authedUserId)
-  .maybeSingle();
 
-if (memErr || !mem) {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+// =========================
+// 3) Validação de membro do tenant (apenas USER)
+// =========================
+if (!internal) {
+  const { data: mem, error: memErr } = await sb
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", authedUserId)
+    .maybeSingle();
+
+  if (memErr || !mem) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 }
+
 
 
 // =========================
@@ -470,70 +502,73 @@ const vars = buildTemplateVars({
   recipientRow: wa.row,
 });
 
-// ✅ Gera/reutiliza token do portal (v2: NÃO usa auth.uid, valida por created_by)
-try {
-  const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
-  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // mantém seu padrão
+// ✅ Gera/reutiliza token do portal (somente quando for USER)
+// (INTERNAL não precisa disso e pode falhar por não ter created_by real)
+if (!internal) {
+  try {
+    const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
+    const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // mantém seu padrão
 
-  const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-  p_tenant_id: tenantId,
-  p_whatsapp_username: whatsappUsername,
-  p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
-  p_label: "Envio manual",
-  p_expires_at: null,
-});
+    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+      p_tenant_id: tenantId,
+      p_whatsapp_username: whatsappUsername,
+      p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
+      p_label: "Envio manual",
+      p_expires_at: null,
+    });
 
-if (tokErr) throw new Error(tokErr.message);
+    if (tokErr) throw new Error(tokErr.message);
 
-const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-const portalToken = rowTok?.token ? String(rowTok.token) : "";
+    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+    const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
-// ✅ LOG seguro (NÃO vaza token / whatsapp)
-console.log("[PORTAL][token:v2]", {
-  ok: true,
-  hasToken: !!portalToken,
-  token_suffix: portalToken ? portalToken.slice(-6) : null,
-  phone_suffix: whatsappUsername ? whatsappUsername.slice(-4) : null,
-  tenantId,
-  authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
-});
+    // ✅ LOG seguro (NÃO vaza token / whatsapp)
+    console.log("[PORTAL][token:v2]", {
+      ok: true,
+      hasToken: !!portalToken,
+      token_suffix: portalToken ? portalToken.slice(-6) : null,
+      phone_suffix: whatsappUsername ? whatsappUsername.slice(-4) : null,
+      tenantId,
+      authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
+    });
 
-if (portalToken) {
-  const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
-
-} else {
-  console.log("[PORTAL][token:v2] retorno sem token");
+    if (portalToken) {
+      const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+      vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+    } else {
+      console.log("[PORTAL][token:v2] retorno sem token");
+    }
+  } catch (e: any) {
+    console.log("[PORTAL][token:v2] falhou", e?.message ?? e);
+    // mantém vars.link_pagamento vazio
+  }
 }
-
-} catch (e: any) {
-  console.log("[PORTAL][token:v2] falhou", e?.message ?? e);
-  // mantém vars.link_pagamento vazio
-}
-
-
 
 const renderedMessage = renderTemplate(message, vars);
 
+const res = await fetch(`${baseUrl}/send`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${waToken}`,
+    "x-session-key": sessionKey,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  body: JSON.stringify({
+    phone: wa.phone,
+    message: renderedMessage,
+  }),
+});
 
-  const res = await fetch(`${baseUrl}/send`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${waToken}`,
-      "x-session-key": sessionKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      phone: wa.phone,
-      message: renderedMessage,
-    }),
-  });
+const raw = await res.text();
+if (!res.ok) {
+  return NextResponse.json({ error: raw || "Falha ao enviar" }, { status: 502 });
+}
 
-  const raw = await res.text();
-  if (!res.ok) {
-    return NextResponse.json({ error: raw || "Falha ao enviar" }, { status: 502 });
-  }
-
-  return NextResponse.json({ ok: true, to: wa.phone, recipient_type: recipientType, recipient_id: recipientId });
+return NextResponse.json({
+  ok: true,
+  to: wa.phone,
+  recipient_type: recipientType,
+  recipient_id: recipientId,
+});
 }

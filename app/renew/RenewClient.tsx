@@ -403,9 +403,11 @@ export default function RenewClient() {
 
         try {
       // ✅ reset total do modal/fluxo
-      setPaymentStatus("pending");
-      setPaymentPhase("awaiting_payment");
-      setPaymentData(null);
+(window as any).__cp_done_scheduled = false; // ✅ reset do agendamento de reload
+setPaymentStatus("pending");
+setPaymentPhase("awaiting_payment");
+setPaymentData(null);
+
 
       // Chamar API de criação de pagamento
       const res = await fetch("/api/client-portal/create-payment", {
@@ -491,21 +493,26 @@ export default function RenewClient() {
             return;
           }
 
-          if (phaseRaw === "done") {
-            setPaymentPhase("done");
-            setPaymentStatus("approved");
-            setPaymentData((prev: any) => ({
-              ...prev,
-              new_vencimento: result.new_vencimento,
-            }));
+            if (phaseRaw === "done") {
+              // ✅ evita agendar duas vezes se o interval rodar de novo antes de limpar
+              if ((window as any).__cp_done_scheduled) return;
+              (window as any).__cp_done_scheduled = true;
 
-            clearInterval(interval);
-            setPollingInterval(null);
+              setPaymentPhase("done");
+              setPaymentStatus("approved");
+              setPaymentData((prev: any) => ({
+                ...prev,
+                new_vencimento: result.new_vencimento,
+              }));
 
-            // ✅ reload (opcional) depois de mostrar “concluído”
-            setTimeout(() => window.location.reload(), 1500);
-            return;
-          }
+              clearInterval(interval);
+              setPollingInterval(null);
+
+              // ✅ aguarda 5s com a tela "concluído" antes de atualizar a página
+              setTimeout(() => window.location.reload(), 5000);
+              return;
+            }
+
 
           if (phaseRaw === "error") {
             setPaymentPhase("error");
@@ -530,19 +537,26 @@ export default function RenewClient() {
           // Pagamento ok, mas fulfillment ainda rodando -> UI deve mostrar renovando
           setPaymentPhase("renewing");
 
-          if (fulfillment === "done") {
-            setPaymentPhase("done");
-            setPaymentStatus("approved");
-            setPaymentData((prev: any) => ({
-              ...prev,
-              new_vencimento: result.new_vencimento,
-            }));
+if (fulfillment === "done") {
+  // ✅ evita agendar duas vezes
+  if ((window as any).__cp_done_scheduled) return;
+  (window as any).__cp_done_scheduled = true;
 
-            clearInterval(interval);
-            setPollingInterval(null);
-            setTimeout(() => window.location.reload(), 1500);
-            return;
-          }
+  setPaymentPhase("done");
+  setPaymentStatus("approved");
+  setPaymentData((prev: any) => ({
+    ...prev,
+    new_vencimento: result.new_vencimento,
+  }));
+
+  clearInterval(interval);
+  setPollingInterval(null);
+
+  // ✅ aguarda 5s com a tela "concluído" antes de atualizar a página
+  setTimeout(() => window.location.reload(), 5000);
+  return;
+}
+
 
           if (fulfillment === "error") {
             setPaymentPhase("error");
