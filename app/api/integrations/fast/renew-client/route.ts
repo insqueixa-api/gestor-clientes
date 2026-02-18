@@ -29,10 +29,13 @@ function isInternal(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const integration_id = String(body?.integration_id ?? "").trim();
-    const username = String(body?.username ?? "").trim();
-    const months = Number(body?.months);
+const body = await req.json().catch(() => ({}));
+const tenant_id = String(body?.tenant_id ?? "").trim(); // ✅ só usado quando internal
+
+const integration_id = String(body?.integration_id ?? "").trim();
+const username = String(body?.username ?? "").trim();
+const months = Number(body?.months);
+
 
     // Validação
     if (!integration_id || !username || !Number.isFinite(months)) {
@@ -47,6 +50,11 @@ export async function POST(req: NextRequest) {
 
     // ✅ Gate: interno OU usuário autenticado (admin/painel)
     const internal = isInternal(req);
+if (internal && !tenant_id) {
+  return jsonError(400, "tenant_id é obrigatório (internal)");
+}
+
+
     if (!internal) {
       const supabaseAuth = await createSupabaseServer();
       const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
@@ -61,11 +69,18 @@ export async function POST(req: NextRequest) {
     });
 
     // 1) Buscar integração (secrets)
-    const { data: integ, error: integErr } = await supabase
-      .from("server_integrations")
-      .select("api_token, api_secret, provider, is_active")
-      .eq("id", integration_id)
-      .single();
+let integQuery = supabase
+  .from("server_integrations")
+  .select("api_token, api_secret, provider, is_active")
+  .eq("id", integration_id);
+
+if (internal) {
+  // ✅ trava cross-tenant quando usa service role
+  integQuery = integQuery.eq("tenant_id", tenant_id);
+}
+
+const { data: integ, error: integErr } = await integQuery.single();
+
 
     if (integErr) return jsonError(500, "Falha ao buscar integração.");
     if (!integ) return jsonError(404, "Integração não encontrada");

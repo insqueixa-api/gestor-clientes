@@ -297,12 +297,23 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
 }
 
 export async function POST(req: Request) {
-  const baseUrl = process.env.UNIGESTOR_WA_BASE_URL!;
-  const waToken = process.env.UNIGESTOR_WA_TOKEN!;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
+  const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-const sb = createClient(supabaseUrl, serviceKey);
+  if (!baseUrl || !waToken || !supabaseUrl || !serviceKey) {
+    console.log("[WA][send_now] Server misconfigured", {
+      hasBaseUrl: !!baseUrl,
+      hasWaToken: !!waToken,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceKey,
+    });
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const sb = createClient(supabaseUrl, serviceKey);
+
 
 
 // =========================
@@ -488,7 +499,9 @@ console.log("[PORTAL][token:v2]", {
 });
 
 if (portalToken) {
-  vars.link_pagamento = `https://unigestor.net.br?t=${encodeURIComponent(portalToken)}`;
+  const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+
 } else {
   console.log("[PORTAL][token:v2] retorno sem token");
 }

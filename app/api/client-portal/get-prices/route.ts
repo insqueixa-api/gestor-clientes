@@ -3,11 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+function makeSupabaseAdmin() {
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  if (!supabaseUrl || !serviceKey) return null;
+
+  return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+}
+
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -48,9 +52,19 @@ function jsonError(message: string, status: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = makeSupabaseAdmin();
+    if (!supabaseAdmin) {
+      safeServerLog("get-prices: Server misconfigured");
+      return NextResponse.json(
+        { ok: false, error: "Erro interno" },
+        { status: 500, headers: NO_STORE_HEADERS }
+      );
+    }
+
     const body = await req.json().catch(() => ({} as any));
     const session_token = normalizeStr(body?.session_token);
     const client_id = normalizeStr(body?.client_id);
+
 
     if (!session_token || !client_id) {
       return jsonError("Parâmetros incompletos", 400);
@@ -94,25 +108,42 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Buscar tabela de preços do cliente ou fallback para padrão BRL
-    let planTableId = client.plan_table_id;
+let planTableId = client.plan_table_id;
 
-    if (!planTableId) {
-      // Buscar tabela padrão BRL
-      const { data: defaultTable, error: defErr } = await supabaseAdmin
-        .from("plan_tables")
-        .select("id, currency")
-        .eq("tenant_id", sess.tenant_id)
-        .eq("is_system_default", true)
-        .eq("currency", "BRL")
-        .eq("is_active", true)
-        .single();
+// ✅ se veio plan_table_id do cliente, valida que pertence ao mesmo tenant e está ativa
+if (planTableId) {
+  const { data: pt, error: ptErr } = await supabaseAdmin
+    .from("plan_tables")
+    .select("id")
+    .eq("id", planTableId)
+    .eq("tenant_id", sess.tenant_id)
+    .eq("is_active", true)
+    .maybeSingle();
 
-      if (defErr || !defaultTable) {
-        return jsonError("Tabela de preços não encontrada", 404);
-      }
+  if (ptErr || !pt) {
+    // se inválida/inativa/outro tenant, cai no fallback padrão BRL (mantém seu comportamento)
+    planTableId = "";
+  }
+}
 
-      planTableId = defaultTable.id;
-    }
+if (!planTableId) {
+  // Buscar tabela padrão BRL
+  const { data: defaultTable, error: defErr } = await supabaseAdmin
+    .from("plan_tables")
+    .select("id, currency")
+    .eq("tenant_id", sess.tenant_id)
+    .eq("is_system_default", true)
+    .eq("currency", "BRL")
+    .eq("is_active", true)
+    .single();
+
+  if (defErr || !defaultTable) {
+    return jsonError("Tabela de preços não encontrada", 404);
+  }
+
+  planTableId = defaultTable.id;
+}
+
 
     // 4. Buscar preços da tabela
     const { data: priceData, error: pricesErr } = await supabaseAdmin

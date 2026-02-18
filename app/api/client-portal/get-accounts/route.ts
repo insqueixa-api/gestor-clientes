@@ -3,11 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+function makeSupabaseAdmin() {
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  if (!supabaseUrl || !serviceKey) return null;
+
+  return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+}
+
 
 // ✅ Nunca cachear respostas do portal
 const NO_STORE_HEADERS = {
@@ -34,15 +38,26 @@ function safeServerLog(...args: any[]) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = makeSupabaseAdmin();
+    if (!supabaseAdmin) {
+      safeServerLog("get-accounts: Server misconfigured");
+      return NextResponse.json(
+        { ok: false, error: "Erro interno" },
+        { status: 500, headers: NO_STORE_HEADERS }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const session_token = normalizeToken((body as any)?.session_token);
 
-    if (!session_token) {
-      return NextResponse.json(
-        { ok: false, error: "Token não fornecido" },
-        { status: 400, headers: NO_STORE_HEADERS }
-      );
-    }
+
+if (!session_token) {
+  return NextResponse.json(
+    { ok: false, error: "Sessão inválida" },
+    { status: 401, headers: NO_STORE_HEADERS }
+  );
+}
+
 
     // ✅ reduz “lixo” e oráculo
     if (!isPlausibleSessionToken(session_token)) {

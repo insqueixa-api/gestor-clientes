@@ -26,9 +26,12 @@ function isInternal(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    const integration_id = body?.integration_id;
-    const username = body?.username;
-    const months = body?.months;
+const tenant_id = body?.tenant_id; // ✅ só usado quando internal
+
+const integration_id = body?.integration_id;
+const username = body?.username;
+const months = body?.months;
+
 
     // Validação
     if (!integration_id || !username || !months) {
@@ -42,6 +45,10 @@ export async function POST(req: NextRequest) {
     }
 
     const internal = isInternal(req);
+    if (internal && !tenant_id) {
+  return jsonError(400, "tenant_id é obrigatório (internal)");
+}
+
 
     // ✅ Supabase:
     // - Interno: usa Service Role (não depende de cookie / RLS)
@@ -61,11 +68,18 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Buscar integração
-    const { data: integ, error: integErr } = await supabase
-      .from("server_integrations")
-      .select("api_token, provider")
-      .eq("id", integration_id)
-      .single();
+let integQuery = supabase
+  .from("server_integrations")
+  .select("api_token, provider")
+  .eq("id", integration_id);
+
+if (internal) {
+  // ✅ evita cross-tenant quando usa service role
+  integQuery = integQuery.eq("tenant_id", String(tenant_id));
+}
+
+const { data: integ, error: integErr } = await integQuery.single();
+
 
     if (integErr || !integ) {
       // log “cego”

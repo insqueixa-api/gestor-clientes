@@ -74,17 +74,38 @@ export default function LoginClient() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const fromUrl = (sp.get("t") ?? "").trim();
-    const stored = getStored(KEY_LOGIN_TOKEN);
+  const fromQuery = (sp.get("t") ?? "").trim();
 
-    const t = fromUrl || stored || "";
-    if (t) setStored(KEY_LOGIN_TOKEN, t);
+  // ✅ suporta link mais seguro no futuro: /#t=TOKEN (hash não vai pro servidor)
+  let fromHash = "";
+  if (typeof window !== "undefined") {
+    const h = window.location.hash || "";
+    const m = h.match(/(?:^#|[&#])t=([^&]+)/);
+    if (m?.[1]) {
+      try {
+        fromHash = decodeURIComponent(m[1]);
+      } catch {
+        fromHash = m[1];
+      }
+    }
+  }
 
-    // ✅ remove o token da URL (evita vazamento)
-    if (fromUrl) removeParamFromUrl("t");
+  const stored = getStored(KEY_LOGIN_TOKEN);
 
-    setToken(t);
-  }, [sp]);
+  const t = fromQuery || fromHash || stored || "";
+  if (t) setStored(KEY_LOGIN_TOKEN, t);
+
+  // ✅ remove token da querystring
+  if (fromQuery) removeParamFromUrl("t");
+
+  // ✅ remove o hash inteiro (evita token ficar na URL)
+  if (fromHash && typeof window !== "undefined") {
+    window.history.replaceState({}, "", window.location.pathname + window.location.search);
+  }
+
+  setToken(t);
+}, [sp]);
+
 
   const [whatsapp, setWhatsapp] = useState("");
   const [pin, setPin] = useState("");
@@ -209,7 +230,7 @@ export default function LoginClient() {
 
     setLoadingReset(true);
     try {
-      await fetch("/api/portal/request-pin-reset", {
+      await fetch("/api/client-portal/send-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
