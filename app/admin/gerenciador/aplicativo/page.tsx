@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -111,8 +111,6 @@ const costPriority: Record<string, number> = {
   paid: 2,
 };
 
-const { confirm, ConfirmUI } = useConfirm();
-
 const formattedApps = (appsData || [])
   .map((app) => ({
     ...app,
@@ -124,27 +122,25 @@ const formattedApps = (appsData || [])
       (costPriority[a.cost_type ?? "paid"] ?? 99) -
       (costPriority[b.cost_type ?? "paid"] ?? 99);
 
-    // primeiro ordena pelo tipo
     if (costDiff !== 0) return costDiff;
 
-    // depois alfabético (pt-BR bonito)
     return a.name.localeCompare(b.name, "pt-BR", {
       sensitivity: "base",
     });
   });
 
-      setApps(formattedApps);
+setApps(formattedApps);
 
       // 2. Carrega Servidores
-      const { data: srvData } = await supabaseBrowser
-        .from("servers")
-        .select("id, name")
-        .eq("tenant_id", tid)
-        .eq("is_archived", false);
+const { data: srvData, error: srvError } = await supabaseBrowser
+  .from("servers")
+  .select("id, name")
+  .eq("tenant_id", tid)
+  .eq("is_archived", false);
 
-      if (srvData) {
-        setServers(srvData.map((s: any) => ({ id: s.id, name: s.name })));
-      }
+if (srvError) throw srvError;
+
+setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
 
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
@@ -629,8 +625,9 @@ return (
                           value={field.type}
                           onChange={(e) => updateField(field.id, "type", e.target.value as any)}
                         >
-                          <option value="text">Texto</option>
-                          <option value="date">Data</option>
+<option value="text">Texto</option>
+<option value="date">Data</option>
+<option value="link">Link</option>
                         </select>
                       </div>
                       <button 

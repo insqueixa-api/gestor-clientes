@@ -1594,41 +1594,74 @@ if (!apiUrl) {
           apiPayload.screens = Number(screens);
         }
 
-        // 5. Chamar API
+                // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess.session?.access_token || "";
+
         const apiRes = await fetch(apiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(apiPayload),
         });
 
-        const apiJson = await apiRes.json();
-
-        if (!apiRes.ok || !apiJson.ok) {
-          throw new Error(apiJson.error || "Erro na API de integração");
+        const apiText = await apiRes.text();
+        let apiJson: any = null;
+        try {
+          apiJson = apiText ? JSON.parse(apiText) : null;
+        } catch {
+          apiJson = null;
         }
 
-        // 6. Atualizar dados com resposta
-        apiUsername = apiJson.data.username;
-        apiPassword = apiJson.data.password;
-        apiM3uUrl = apiJson.data.m3u_url || "";
+        if (!apiRes.ok || !apiJson?.ok) {
+          throw new Error(apiJson?.error || `Erro na API de integração (HTTP ${apiRes.status})`);
+        }
 
-        // ✅ DEBUG
+        // ✅ Normaliza retorno:
+        // - Alguns endpoints retornam { ok:true, data:{...} }
+        // - O seu ELITE create-trial retorna { ok:true, username, password, ... } (sem data)
+        const apiData =
+          apiJson && typeof apiJson === "object" && apiJson.data && typeof apiJson.data === "object"
+            ? apiJson.data
+            : apiJson;
+
+        // 6) Atualizar dados com resposta (sem quebrar se algum campo não vier)
+        const nextUsername = apiData?.username != null ? String(apiData.username) : "";
+        const nextPassword = apiData?.password != null ? String(apiData.password) : "";
+        const nextM3u =
+          apiData?.m3u_url != null
+            ? String(apiData.m3u_url)
+            : (apiData?.m3uUrl != null ? String(apiData.m3uUrl) : "");
+
+        if (nextUsername) apiUsername = nextUsername;
+        if (nextPassword) apiPassword = nextPassword;
+        if (nextM3u) apiM3uUrl = nextM3u;
+
         console.log("🔵 Dados recebidos da API:", {
           username: apiUsername,
           password: apiPassword,
           m3u_url: apiM3uUrl,
-          exp_date: apiJson.data.exp_date,
+          exp_date: apiData?.exp_date,
         });
 
-        // ✅ ATUALIZAR ESTADO DO MODAL (para refletir na UI imediatamente)
-        setUsername(apiUsername);
-        setPassword(apiPassword);
-        setM3uUrl(apiM3uUrl);
+        // ✅ Reflete na UI imediatamente
+        if (apiUsername) setUsername(apiUsername);
+        if (apiPassword) setPassword(apiPassword);
+        if (apiM3uUrl) setM3uUrl(apiM3uUrl);
 
-        // Converter exp_date (timestamp) para ISO
-        if (apiJson.data.exp_date) {
-          const expDate = new Date(apiJson.data.exp_date * 1000);
-          apiVencimento = expDate.toISOString();
+        // exp_date pode vir em segundos OU ms (blindagem)
+        const expRaw = apiData?.exp_date ?? null;
+        if (expRaw != null) {
+          const n = Number(expRaw);
+          if (Number.isFinite(n) && n > 0) {
+            const ms = n > 1e12 ? n : n * 1000; // se já vier em ms, não multiplica
+            const expDate = new Date(ms);
+            if (Number.isFinite(expDate.getTime())) {
+              apiVencimento = expDate.toISOString();
+            }
+          }
         }
 
         // 7. Sync (atualizar saldo do servidor)
