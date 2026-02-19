@@ -196,7 +196,7 @@ return (
             }}
             className="md:hidden h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap text-xs shrink-0"
           >
-            <span className="text-base leading-none mb-0.5">+</span> Nova
+            <span className="text-base leading-none mb-0.5">+</span> Nova Mensagem
           </button>
         </div>
 
@@ -295,28 +295,30 @@ return (
                     </div>
                   </div>
 
-                  {/* Direita: Ações travadas na mesma linha, ocupando menos espaço */}
+                  {/* Direita: Ações travadas na mesma linha, usando os SVGs do Cliente */}
                   <div className="flex items-center justify-end gap-1.5 shrink-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 transition-colors"
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
                       title="Ver"
                     >
-                      👁️
+                      <IconEye />
                     </button>
+                    
                     <button
                       onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition-colors"
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
                       title="Editar"
                     >
-                      ✏️
+                      <IconEdit />
                     </button>
+
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors"
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
                       title="Excluir"
                     >
-                      🗑️
+                      <IconTrash />
                     </button>
                   </div>
                 </div>
