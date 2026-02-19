@@ -177,7 +177,11 @@ const filteredMessages = useMemo(() => {
 
   const filtered = !q
     ? messages
-    : messages.filter((m) => String(m.name ?? "").toLowerCase().includes(q));
+    : messages.filter((m) => {
+        const name = String(m.name ?? "").toLowerCase();
+        const content = String(m.content ?? "").toLowerCase();
+        return name.includes(q) || content.includes(q);
+      });
 
   // A–Z (case-insensitive / pt-BR)
   return [...filtered].sort((a, b) =>
@@ -186,58 +190,78 @@ const filteredMessages = useMemo(() => {
 }, [messages, search]);
 
 
+
 return (
-  <div className="space-y-4 pt-3 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
-
-
-      {/* TOPO COM BUSCA */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-3 sm:px-0">
-        
-        {/* Linha 1 no Mobile: Título (Esquerda) + Botão Nova (Direita) */}
-        <div className="flex items-center justify-between w-full md:w-auto">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-            Mensagens
-          </h1>
-          <button
-            onClick={() => {
-              setSelectedTemplate(null);
-              setShowEditor(true);
-            }}
-            className="md:hidden h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap text-xs shrink-0"
-          >
-            <span className="text-base leading-none mb-0.5">+</span> Nova Mensagem
-          </button>
-        </div>
-
-        {/* Linha 2 no Mobile: Busca | Linha única no Desktop: Busca + Botão */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-72">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar modelo..."
-              className="w-full h-10 pl-3 pr-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
-          </div>
-          
-          <button
-            onClick={() => {
-              setSelectedTemplate(null);
-              setShowEditor(true);
-            }}
-            className="hidden md:flex h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all items-center gap-2 whitespace-nowrap text-sm shrink-0"
-          >
-            <span className="text-lg leading-none mb-0.5">+</span> Nova Mensagem
-          </button>
-        </div>
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+    {/* Topo (padrão admin) */}
+    <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
+      <div className="min-w-0 text-left">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+          Mensagens
+        </h1>
       </div>
+
+      <div className="flex items-center gap-2 justify-end shrink-0">
+        <button
+          onClick={() => {
+            setSelectedTemplate(null);
+            setShowEditor(true);
+          }}
+          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+        >
+          <span className="text-base md:text-lg leading-none mb-0.5">+</span> Nova Mensagem
+        </button>
+      </div>
+    </div>
+
+    {/* Barra de Busca (padrão admin) */}
+    <div
+      className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-4 md:mb-6 md:sticky md:top-4 z-20"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider">
+        Busca
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar modelo (nome ou conteúdo)..."
+            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+          />
+
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+              title="Limpar busca"
+              aria-label="Limpar busca"
+            >
+              <IconX />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => setSearch("")}
+          className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+        >
+          <IconX /> Limpar
+        </button>
+      </div>
+    </div>
+
 
 
                   {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
-      {loading ? (
-        <div className="text-center py-10 text-slate-400 animate-pulse">Carregando modelos...</div>
-      ) : filteredMessages.length === 0 ? (
+{loading ? (
+  <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-none sm:rounded-xl border border-slate-200 dark:border-white/10 font-medium">
+    Carregando modelos...
+  </div>
+) : filteredMessages.length === 0 ? (
+
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-none sm:rounded-2xl">
           <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
             💬
@@ -253,9 +277,10 @@ return (
               <h2 className="text-sm font-bold text-slate-700 dark:text-white truncate">
                 Lista de Modelos
               </h2>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 bg-white dark:bg-black/20">
-                {filteredMessages.length}
-              </span>
+<span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+  {filteredMessages.length}
+</span>
+
             </div>
             <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
               Selecione para destacar
