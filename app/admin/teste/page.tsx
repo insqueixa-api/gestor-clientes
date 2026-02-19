@@ -769,7 +769,8 @@ return (
 >
 
   {/* Topo (Padronizado) */}
-  <div className="flex items-center justify-between gap-2 pb-0 mb-2">
+  <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0 md:px-4">
+
     <div className="min-w-0 text-left">
       <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
         Gestão de Testes
@@ -805,10 +806,11 @@ return (
   </div>
 
   {/* Barra de Filtros (Padronizada) */}
-  <div
-    className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
-    onClick={(e) => e.stopPropagation()}
-  >
+<div
+  className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+  onClick={(e) => e.stopPropagation()}
+>
+
   <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
     Filtros Rápidos
   </div>
@@ -968,7 +970,7 @@ onClick={(e) => {
       className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
         <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
           Lista de Testes{" "}
           <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
@@ -1626,9 +1628,6 @@ onClick={(e) => {
 
 
 {/* ✅ Spacer do Rodapé (Contrato UI) */}
-      <div className="h-24 md:h-20" />
-
-            {/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
 
       <div className="relative z-[999999]"></div>
