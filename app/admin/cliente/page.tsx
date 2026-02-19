@@ -1426,14 +1426,16 @@ const res = await fetch("/api/whatsapp/envio_programado", {
   
 return (
   <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
     onClick={closeAllPopups}
   >
 
 
 
+
       {/* Topo */}
-<div className="flex items-center justify-between gap-2 pb-0 mb-2">
+<div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+
 
   {/* Título (esquerda) */}
   <div className="min-w-0 text-left">
@@ -1480,9 +1482,10 @@ return (
 
       {/* --- BARRA DE FILTROS COMPLETA --- */}
 <div
-  className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+  className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
   onClick={(e) => e.stopPropagation()}
 >
+
 
 
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
@@ -1712,11 +1715,12 @@ return (
 
       </div>
 
-      {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
-          Carregando dados...
-        </div>
-      )}
+{loading && (
+  <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-none sm:rounded-xl border border-slate-200 dark:border-white/5">
+    Carregando dados...
+  </div>
+)}
+
 
       {!loading && (
         <div
@@ -1724,35 +1728,34 @@ return (
   onClick={(e) => e.stopPropagation()}
 >
 
-          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-  <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
-    Lista de Clientes{" "}
-    <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
-  </div>
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
 
-  <div className="flex items-center justify-end gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
+<div className="text-sm font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap">
+  Lista de Clientes
+  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+    {filtered.length}
+  </span>
+</div>
+
+
+  <div className="flex items-center justify-end gap-2 text-xs text-slate-500 dark:text-white/50 shrink-0">
+
     
     {/* --- 📱 VERSÃO MOBILE: Dropdown de Páginas --- */}
     <div className="md:hidden">
-      <select
-        value={safePage}
-        onChange={(e) => setPage(Number(e.target.value))}
-        className="h-8 pl-3 pr-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none relative z-10"
-        style={{
-           // Seta customizada via CSS inline para garantir visual limpo
-           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-           backgroundPosition: `right 0.5rem center`,
-           backgroundRepeat: `no-repeat`,
-           backgroundSize: `1.5em 1.5em`
-        }}
-      >
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
-          <option key={pNum} value={pNum}>
-            Página {pNum}
-          </option>
-        ))}
-      </select>
-    </div>
+  <select
+    value={safePage}
+    onChange={(e) => setPage(Number(e.target.value))}
+    className="h-10 pl-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 appearance-none"
+  >
+    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
+      <option key={pNum} value={pNum}>
+        Página {pNum}
+      </option>
+    ))}
+  </select>
+</div>
+
 
     {/* --- 💻 VERSÃO DESKTOP: Botões Originais --- */}
     <div className="hidden md:flex items-center gap-3">
