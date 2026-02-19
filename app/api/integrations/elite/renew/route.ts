@@ -116,13 +116,13 @@ export async function POST(req: Request) {
 
     if (error) throw error;
     if (!integ) throw new Error("Integração não encontrada.");
-    if (String(integ.provider).toUpperCase() !== "OFFO") throw new Error("Integração não é OFFO.");
+    if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração inativa.");
 
     const baseUrl = String(integ.api_base_url || "").trim();
     const username = String(integ.api_token || "").trim();
     const password = String(integ.api_secret || "").trim();
-    if (!baseUrl || !username || !password) throw new Error("OFFO exige base_url + usuário + senha.");
+    if (!baseUrl || !username || !password) throw new Error("ELITE exige base_url + usuário + senha.");
 
     const { fc, csrfToken } = await offoLogin(baseUrl, username, password);
     const result = await offoRenewOne(fc, baseUrl, csrfToken, String(provider_user_id));
@@ -135,6 +135,6 @@ export async function POST(req: Request) {
       raw: result,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Falha ao renovar no OFFO." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Falha ao renovar no ELITE." }, { status: 500 });
   }
 }

@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
     if (error) throw error;
     if (!integ) throw new Error("Integração não encontrada.");
-    if (String(integ.provider).toUpperCase() !== "OFFO") throw new Error("Integração não é OFFO.");
+    if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
 
     const username = String(integ.api_token || "").trim();
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     const baseUrl = String(integ.api_base_url || "").trim();
 
     if (!baseUrl || !username || !password) {
-      throw new Error("OFFO exige api_base_url + usuário (api_token) + senha (api_secret).");
+      throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
     }
 
     // tenta logar
@@ -121,8 +121,8 @@ export async function POST(req: Request) {
       } as any)
       .eq("id", integration_id);
 
-    return NextResponse.json({ ok: true, message: "Login OFFO OK. Integração validada." });
+    return NextResponse.json({ ok: true, message: "Login ELITE OK. Integração validada." });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Falha no sync OFFO." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Falha no sync ELITE." }, { status: 500 });
   }
 }

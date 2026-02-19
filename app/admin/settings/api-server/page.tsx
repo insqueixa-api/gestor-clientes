@@ -93,14 +93,15 @@ return u || "--";
 
   async function handleSync(row: IntegrationRow) {
   try {
-    const provider = String(row.provider || "").toUpperCase();
+const provider = String(row.provider || "").toUpperCase();
 
 const url =
   provider === "FAST"
     ? "/api/integrations/fast/sync"
-    : provider === "elite"
+    : provider === "ELITE"
     ? "/api/integrations/elite/sync"
     : "/api/integrations/natv/sync";
+
 
 
     addToast(
