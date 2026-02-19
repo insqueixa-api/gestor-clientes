@@ -178,157 +178,189 @@ const filteredMessages = useMemo(() => {
 
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-4 pt-3 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-    {/* --- TOPO (PADRÃO CLIENTE) --- */}
-    <div className="flex items-center justify-between gap-2 pb-0 mb-2">
-      {/* Título (Esquerda) */}
-      <div className="min-w-0 text-left">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-          Mensagens
-        </h1>
-      </div>
 
-      {/* Ações (Direita) */}
-      <div className="flex items-center gap-2 justify-end shrink-0">
+      {/* TOPO COM BUSCA */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-3 sm:px-0">
         
-        {/* Busca Larga */}
-        <div className="relative w-40 sm:w-64">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar..."
-            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
-              <IconX />
-            </button>
-          )}
+        {/* Linha 1 no Mobile: Título (Esquerda) + Botão Nova (Direita) */}
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+            Mensagens
+          </h1>
+          <button
+            onClick={() => {
+              setSelectedTemplate(null);
+              setShowEditor(true);
+            }}
+            className="md:hidden h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap text-xs shrink-0"
+          >
+            <span className="text-base leading-none mb-0.5">+</span> Nova
+          </button>
         </div>
 
-        {/* Botão Novo (Verde com texto) */}
-        <button
-          onClick={() => {
-            setSelectedTemplate(null);
+        {/* Linha 2 no Mobile: Busca | Linha única no Desktop: Busca + Botão */}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-72">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar modelo..."
+              className="w-full h-10 pl-3 pr-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+          </div>
+          
+          <button
+            onClick={() => {
+              setSelectedTemplate(null);
+              setShowEditor(true);
+            }}
+            className="hidden md:flex h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all items-center gap-2 whitespace-nowrap text-sm shrink-0"
+          >
+            <span className="text-lg leading-none mb-0.5">+</span> Nova Mensagem
+          </button>
+        </div>
+      </div>
+
+
+                  {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
+      {loading ? (
+        <div className="text-center py-10 text-slate-400 animate-pulse">Carregando modelos...</div>
+      ) : filteredMessages.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-none sm:rounded-2xl">
+          <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
+            💬
+          </div>
+          <h3 className="text-lg font-bold text-slate-700 dark:text-white">Nenhum modelo encontrado</h3>
+          <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie um novo modelo ou ajuste sua busca.</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden">
+          {/* Header da lista (padrão cliente) */}
+          <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/60 dark:bg-white/5">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-white truncate">
+                Lista de Modelos
+              </h2>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 bg-white dark:bg-black/20">
+                {filteredMessages.length}
+              </span>
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
+              Selecione para destacar
+            </div>
+          </div>
+
+          {/* GRID: 2 Colunas (Desktop) / 1 Coluna (Mobile) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
+            {filteredMessages.map((msg) => {
+              const isSelected = selectedTemplate?.id === msg.id;
+
+              return (
+                <div
+                  key={msg.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTemplate(msg)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setSelectedTemplate(msg);
+                  }}
+                  className={[
+                    "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-white dark:bg-[#161b22]",
+                    isSelected
+                      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+                      : "hover:bg-slate-50 dark:hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  {/* Esquerda: Nome + Data */}
+                  <div className="min-w-0 flex-1 pr-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={[
+                          "inline-flex w-2 h-2 rounded-full shrink-0",
+                          isSelected ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20",
+                        ].join(" ")}
+                      />
+                      <h3
+                        className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate"
+                        title={msg.name}
+                      >
+                        {msg.name}
+                      </h3>
+                    </div>
+                    <div className="mt-1 text-[10px] sm:text-xs text-slate-500 dark:text-white/50 ml-4">
+                      Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}
+                    </div>
+                  </div>
+
+                  {/* Direita: Ações travadas na mesma linha, ocupando menos espaço */}
+                  <div className="flex items-center justify-end gap-1.5 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 transition-colors"
+                      title="Ver"
+                    >
+                      👁️
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition-colors"
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors"
+                      title="Excluir"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Espaço fixo pós-lista (evita cortar popups/toasts no fim, igual padrão) */}
+      <div className="h-24 md:h-20" />
+
+
+      {/* MODAL EDITOR (CRIAR/EDITAR) */}
+      {showEditor && (
+        <EditorModal
+          templateToEdit={selectedTemplate}
+          onClose={() => setShowEditor(false)}
+          onSuccess={() => {
+            setShowEditor(false);
+            loadMessages();
+            addToast("success", "Salvo", "Modelo salvo com sucesso.");
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+
+      {/* MODAL PREVIEW (VISUALIZAR) */}
+      {showPreview && selectedTemplate && (
+        <PreviewModal
+          template={selectedTemplate}
+          onClose={() => setShowPreview(false)}
+          onEdit={() => {
+            setShowPreview(false);
             setShowEditor(true);
           }}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-        >
-          <span className="text-lg leading-none mb-0.5">+</span> 
-          <span className="hidden sm:inline">Nova Mensagem</span>
-          <span className="sm:hidden">Novo</span>
-        </button>
+        />
+      )}
+
+      <div className="relative z-[999999]">
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
     </div>
-
-    {/* --- LISTA DE MENSAGENS (LINHA ÚNICA) --- */}
-    {loading ? (
-      <div className="p-12 text-center text-slate-400 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5">
-        Carregando modelos...
-      </div>
-    ) : filteredMessages.length === 0 ? (
-      <div className="p-12 text-center bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-300 dark:border-white/10">
-        <div className="text-4xl mb-2">💬</div>
-        <h3 className="text-slate-500 dark:text-white/60 font-bold">Nenhum modelo encontrado</h3>
-      </div>
-    ) : (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden">
-        
-        {/* Cabeçalho da Lista (Opcional, igual Cliente) */}
-        <div className="px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-between text-xs font-bold uppercase text-slate-500 dark:text-white/40">
-           <div>Nome do Modelo</div>
-           <div>Ações</div>
-        </div>
-
-        <div className="divide-y divide-slate-200 dark:divide-white/5">
-          {filteredMessages.map((msg) => (
-            <div 
-              key={msg.id} 
-              className="group flex items-center justify-between p-3 sm:px-5 sm:py-3 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-            >
-              {/* LADO ESQUERDO: Nome e Data */}
-              <div className="flex flex-col min-w-0 pr-3">
-                <span 
-                  className="font-semibold text-slate-700 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors cursor-pointer text-sm sm:text-base"
-                  onClick={() => { setSelectedTemplate(msg); setShowEditor(true); }}
-                >
-                  {msg.name}
-                </span>
-                <span className="text-[10px] sm:text-xs text-slate-400 dark:text-white/40 mt-0.5 font-medium">
-                  Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}
-                </span>
-              </div>
-
-              {/* LADO DIREITO: Botões na mesma linha */}
-              <div className="flex items-center gap-2 shrink-0">
-                
-                {/* Botão Ver (Azul) */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }}
-                  className="p-1.5 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
-                  title="Visualizar"
-                >
-                  <IconEye />
-                </button>
-
-                {/* Botão Editar (Âmbar) */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }}
-                  className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
-                  title="Editar"
-                >
-                  <IconEdit />
-                </button>
-
-                {/* Botão Excluir (Vermelho) */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
-                  className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
-                  title="Excluir"
-                >
-                  <IconTrash />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Espaço fixo no final */}
-    <div className="h-24 md:h-20" />
-
-    {/* MODAIS */}
-    {showEditor && (
-      <EditorModal
-        templateToEdit={selectedTemplate}
-        onClose={() => setShowEditor(false)}
-        onSuccess={() => {
-          setShowEditor(false);
-          loadMessages();
-          addToast("success", "Salvo", "Modelo salvo com sucesso.");
-        }}
-        onError={(msg) => addToast("error", "Erro", msg)}
-      />
-    )}
-
-    {showPreview && selectedTemplate && (
-      <PreviewModal
-        template={selectedTemplate}
-        onClose={() => setShowPreview(false)}
-        onEdit={() => {
-          setShowPreview(false);
-          setShowEditor(true);
-        }}
-      />
-    )}
-
-    <div className="relative z-[999999]">
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
-    </div>
-  </div>
-);
+  );
 }
 
 // ============================================================================
@@ -346,38 +378,43 @@ function PreviewModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
-          <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4">{template.name}</h3>
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-auto max-w-lg bg-white dark:bg-[#161b22] border-0 sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[80vh]">
+        
+        {/* Cabeçalho */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
+          <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4 text-base sm:text-lg">{template.name}</h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-800 dark:hover:text-white transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
-          <div className="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 font-mono leading-relaxed bg-white dark:bg-[#0d1117] p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+        {/* Conteúdo da Mensagem */}
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
+          <div className="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 font-mono leading-relaxed bg-white dark:bg-[#0d1117] p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm min-h-full">
             {template.content}
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-white dark:bg-[#161b22]">
+        {/* Rodapé e Botões */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-white dark:bg-[#161b22] shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors uppercase"
+            className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors uppercase"
           >
             Fechar
           </button>
           <button
             onClick={onEdit}
-            className="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center gap-2"
+            className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
           >
             ✏️ Editar Modelo
           </button>
         </div>
+
       </div>
     </div>,
     document.body
@@ -497,6 +534,7 @@ function EditorModal({
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 {templateToEdit ? "Editar Mensagem" : "Criar Nova Mensagem"}
               </h2>
+
             </div>
           </div>
           <button
@@ -508,7 +546,70 @@ function EditorModal({
         </div>
 
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
-          
+          {/* MOBILE: Variáveis como filtro acima do conteúdo */}
+          <div className="lg:hidden border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#161b22]">
+            <div className="p-4">
+              <button
+                type="button"
+                onClick={() => setMobileTagsOpen((v) => !v)}
+                className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white font-bold text-xs flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  🏷️ Variáveis
+                  <span className="text-[10px] font-semibold text-slate-400 dark:text-white/40">
+                    (toque para {mobileTagsOpen ? "fechar" : "abrir"})
+                  </span>
+                </span>
+                <span className="text-slate-400">{mobileTagsOpen ? "▲" : "▼"}</span>
+              </button>
+
+              {mobileTagsOpen && (
+                <div className="mt-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] overflow-hidden">
+                  <div className="p-3 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+                    <h3 className="text-xs font-bold text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                      🏷️ Variáveis Disponíveis
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-1">Toque para inserir no texto</p>
+
+                    <input
+                      value={mobileTagsQuery}
+                      onChange={(e) => setMobileTagsQuery(e.target.value)}
+                      placeholder="Filtrar (ex: vencimento, pix, primeiro_nome...)"
+                      className="mt-3 w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
+                    {filteredMobileTags.length === 0 ? (
+                      <div className="text-xs text-slate-400 py-6 text-center">Nenhuma variável encontrada.</div>
+                    ) : (
+                      filteredMobileTags.map((tag) => (
+                        <button
+                          key={tag.label}
+                          onClick={() => {
+                            insertTag(tag.label);
+                            setMobileTagsOpen(false);
+                          }}
+                          className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-white/5 hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${tag.color} bg-white dark:bg-[#1c2128]`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-mono text-xs font-bold tracking-tight">{tag.label}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-white/30 font-bold truncate">
+                              {tag.groupTitle}
+                            </span>
+                          </div>
+                          <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
+                            {tag.desc}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Editor */}
           <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-slate-100 dark:border-white/5">
             <div>
@@ -524,57 +625,6 @@ function EditorModal({
               />
             </div>
 
-            {/* --- MOBILE: ACCORDION DE VARIÁVEIS (INSERIDO AQUI) --- */}
-            <div className="lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileTagsOpen(!mobileTagsOpen)}
-                className={`w-full h-10 px-4 rounded-xl border flex items-center justify-between transition-all ${
-                    mobileTagsOpen 
-                    ? "bg-slate-100 dark:bg-white/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400" 
-                    : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white"
-                }`}
-              >
-                <span className="font-bold text-xs flex items-center gap-2">
-                  🏷️ Inserir Variáveis
-                </span>
-                <span className={`text-[10px] transition-transform ${mobileTagsOpen ? "rotate-180" : ""}`}>
-                  ▼
-                </span>
-              </button>
-
-              {/* Conteúdo que abre ao clicar (Acordeão) */}
-              {mobileTagsOpen && (
-                <div className="mt-2 p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 animate-in slide-in-from-top-2 duration-200">
-                  <input
-                    value={mobileTagsQuery}
-                    onChange={(e) => setMobileTagsQuery(e.target.value)}
-                    placeholder="Filtrar variável..."
-                    className="w-full h-9 px-3 mb-2 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 text-xs outline-none focus:border-emerald-500/50"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <div className="max-h-[160px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                    {filteredMobileTags.length === 0 ? (
-                       <div className="text-center py-2 text-xs text-slate-400">Nenhuma variável encontrada.</div>
-                    ) : (
-                       filteredMobileTags.map((tag) => (
-                        <button
-                          key={tag.label}
-                          type="button"
-                          onClick={() => insertTag(tag.label)}
-                          className="w-full text-left px-3 py-2 rounded-md bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 flex items-center justify-between group"
-                        >
-                          <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">{tag.label}</span>
-                          <span className="text-[9px] text-slate-400 truncate ml-2 max-w-[120px]">{tag.desc}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* --- FIM DO MOBILE ACCORDION --- */}
-
             <div className="flex-1 flex flex-col">
               <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
                 Conteúdo da Mensagem
@@ -587,6 +637,7 @@ function EditorModal({
                   placeholder="Olá {primeiro_nome}, sua fatura..."
                   className="w-full h-full min-h-[300px] p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
+
               </div>
             </div>
           </div>
@@ -603,6 +654,7 @@ function EditorModal({
             <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
               {TAG_GROUPS.map((group, idx) => (
                 <div key={idx}>
+                  {/* REMOVIDA CONDICIONAL DE COR - AGORA É PADRÃO */}
                   <h4 className="text-[10px] font-bold text-slate-400 dark:text-white/40 mb-2 uppercase flex items-center gap-2 tracking-wider ml-1">
                     {group.title}
                   </h4>
