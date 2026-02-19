@@ -181,7 +181,7 @@ return (
   {/* Título esquerda */}
   <div className="w-full md:w-auto text-left">
     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-      Central de Mensagens
+      Mensagens
     </h1>
 
   </div>
@@ -544,9 +544,7 @@ function EditorModal({
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 {templateToEdit ? "Editar Mensagem" : "Criar Nova Mensagem"}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-white/60">
-                Configure o modelo utilizando as variáveis dinâmicas.
-              </p>
+
             </div>
           </div>
           <button
@@ -573,23 +571,15 @@ function EditorModal({
                   </span>
                 </span>
                 <span className="text-slate-400">{mobileTagsOpen ? "▲" : "▼"}</span>
-              </button>
-
-              {mobileTagsOpen && (
-                <div className="mt-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] overflow-hidden">
-                  <div className="p-3 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
-                    <h3 className="text-xs font-bold text-slate-600 dark:text-white uppercase tracking-widest flex items-center gap-2">
-                      🏷️ Variáveis Disponíveis
-                    </h3>
-                    <p className="text-[10px] text-slate-400 mt-1">Toque para inserir no texto</p>
-
-                    <input
+                                    <input
                       value={mobileTagsQuery}
                       onChange={(e) => setMobileTagsQuery(e.target.value)}
                       placeholder="Filtrar (ex: vencimento, pix, primeiro_nome...)"
                       className="mt-3 w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors"
                     />
-                  </div>
+              
+
+
 
                   <div className="max-h-[38vh] overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
                     {filteredMobileTags.length === 0 ? (
@@ -617,8 +607,8 @@ function EditorModal({
                       ))
                     )}
                   </div>
-                </div>
-              )}
+
+              </button>
             </div>
           </div>
 
