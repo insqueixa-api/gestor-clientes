@@ -612,9 +612,44 @@ const res = await fetch(`${baseUrl}/send`, {
 });
 
 const raw = await res.text();
+
+// tenta interpretar JSON (se o seu serviço WA devolver JSON)
+let parsed: any = null;
+try {
+  parsed = raw ? JSON.parse(raw) : null;
+} catch {
+  parsed = null;
+}
+
+// ✅ 1) erro HTTP real
 if (!res.ok) {
+  console.log("[WA][vm_send] http_error", {
+    status: res.status,
+    body_preview: String(raw || "").slice(0, 300),
+    to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  });
   return NextResponse.json({ error: raw || "Falha ao enviar" }, { status: 502 });
 }
+
+// ✅ 2) erro “lógico” com HTTP 200 (isso é o que mais acontece nesses serviços)
+const hasLogicalError =
+  (parsed && (parsed.ok === false || !!parsed.error)) ||
+  /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""));
+
+if (hasLogicalError) {
+  console.log("[WA][vm_send] logical_error", {
+    body_preview: String(raw || "").slice(0, 300),
+    to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  });
+  return NextResponse.json({ error: "Falha ao enviar (WA backend)" }, { status: 502 });
+}
+
+// ✅ 3) sucesso real
+console.log("[WA][vm_send] ok", {
+  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  wa_ok: parsed?.ok ?? null,
+  wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null,
+});
 
 return NextResponse.json({
   ok: true,
