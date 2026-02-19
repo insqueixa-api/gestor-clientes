@@ -156,11 +156,24 @@ export default function MessagesPage() {
     }
   }
 
-  // Filtro de Busca
-  const filteredMessages = messages.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()));
+// Filtro + Ordenação (A–Z) — só visual, não muda regra do banco
+const filteredMessages = useMemo(() => {
+  const q = search.trim().toLowerCase();
+
+  const filtered = !q
+    ? messages
+    : messages.filter((m) => String(m.name ?? "").toLowerCase().includes(q));
+
+  // A–Z (case-insensitive / pt-BR)
+  return [...filtered].sort((a, b) =>
+    String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", { sensitivity: "base" })
+  );
+}, [messages, search]);
+
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+
 
       {/* TOPO COM BUSCA */}
 <div className="flex flex-col md:flex-row justify-between items-start gap-3">
@@ -171,9 +184,6 @@ return (
       Central de Mensagens
     </h1>
 
-    <p className="text-slate-500 dark:text-white/60 text-sm mt-1">
-      Gerencie seus modelos de comunicação.
-    </p>
   </div>
 
   {/* Ações direita */}
@@ -207,11 +217,11 @@ return (
 </div>
 
 
-      {/* LISTA DE MENSAGENS (CARDS COMPACTOS) */}
+                  {/* LISTA DE MENSAGENS (LISTA COM SELEÇÃO + AÇÕES À DIREITA) */}
       {loading ? (
         <div className="text-center py-10 text-slate-400 animate-pulse">Carregando modelos...</div>
       ) : filteredMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-2xl">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-none sm:rounded-2xl">
           <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
             💬
           </div>
@@ -219,62 +229,121 @@ return (
           <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie um novo modelo ou ajuste sua busca.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden">
+          {/* Header da lista (padrão cliente) */}
+          <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/60 dark:bg-white/5">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-white truncate">
+                Lista de Modelos
+              </h2>
 
-          {filteredMessages.map((msg) => (
-            // CARD COMPACTO (h-40)
-            <div
-              key={msg.id}
-              className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between h-40 relative overflow-hidden"
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 bg-white dark:bg-black/20">
+                {filteredMessages.length}
+              </span>
 
-            >
-              {/* NOME CENTRALIZADO */}
-              <div className="flex-1 flex items-center justify-center text-center px-4">
-                <h3 className="font-bold text-slate-800 dark:text-white text-base line-clamp-2" title={msg.name}>
-                  {msg.name}
-                </h3>
-              </div>
-
-              {/* BOTÕES DE AÇÃO */}
-              <div className="flex justify-center gap-2 mb-3">
-                <button
-                  onClick={() => {
-                    setSelectedTemplate(msg);
-                    setShowPreview(true);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1"
-                  title="Visualizar Conteúdo"
-                >
-                  👁️ Ver
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedTemplate(msg);
-                    setShowEditor(true);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
-                  title="Editar Modelo"
-                >
-                  ✏️ Editar
-                </button>
-                <button
-                  onClick={() => handleDelete(msg.id)}
-                  className="px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-1"
-                  title="Excluir"
-                >
-                  🗑️ Excluir
-                </button>
-              </div>
-
-              {/* RODAPÉ INFO */}
-              <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex justify-between text-[10px] text-slate-400 dark:text-white/30 uppercase font-bold tracking-wider">
-                <span>{msg.content.length} chars</span>
-                <span>At: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}</span>
-              </div>
+              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 bg-white dark:bg-black/20">
+                A–Z
+              </span>
             </div>
-          ))}
+
+            <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
+              Selecione para destacar
+            </div>
+          </div>
+
+          {/* Linhas */}
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
+            {filteredMessages.map((msg) => {
+              const isSelected = selectedTemplate?.id === msg.id;
+
+              return (
+                <div
+                  key={msg.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTemplate(msg)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setSelectedTemplate(msg);
+                  }}
+                  className={[
+                    "w-full flex flex-col sm:flex-row sm:items-center gap-3 px-3 sm:px-5 py-3 transition-colors cursor-pointer",
+                    isSelected
+                      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
+                      : "hover:bg-slate-50 dark:hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  {/* Esquerda: Nome + meta (sem chars) */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={[
+                          "inline-flex w-2 h-2 rounded-full shrink-0",
+                          isSelected ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20",
+                        ].join(" ")}
+                      />
+                      <h3
+                        className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate"
+                        title={msg.name}
+                      >
+                        {msg.name}
+                      </h3>
+                    </div>
+
+                    <div className="mt-1 text-[11px] sm:text-xs text-slate-500 dark:text-white/50 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                  </div>
+
+                  {/* Direita: Ações (padrão cliente: ícones compactos no mobile, texto no desktop) */}
+                  <div className="flex items-center justify-end gap-2 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTemplate(msg);
+                        setShowPreview(true);
+                      }}
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs font-bold hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                      title="Visualizar Conteúdo"
+                    >
+                      <span>👁️</span>
+                      <span className="hidden sm:inline">Ver</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTemplate(msg);
+                        setShowEditor(true);
+                      }}
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
+                      title="Editar Modelo"
+                    >
+                      <span>✏️</span>
+                      <span className="hidden sm:inline">Editar</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(msg.id);
+                      }}
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
+                      title="Excluir"
+                    >
+                      <span>🗑️</span>
+                      <span className="hidden sm:inline">Excluir</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+
+      {/* Espaço fixo pós-lista (evita cortar popups/toasts no fim, igual padrão) */}
+      <div className="h-24 md:h-20" />
+
 
       {/* MODAL EDITOR (CRIAR/EDITAR) */}
       {showEditor && (
@@ -580,9 +649,7 @@ function EditorModal({
                   placeholder="Olá {primeiro_nome}, sua fatura..."
                   className="w-full h-full min-h-[300px] p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
-                <div className="absolute bottom-4 right-4 text-[10px] text-slate-400 bg-white/80 dark:bg-black/80 px-2 py-1 rounded backdrop-blur-sm border border-slate-200 dark:border-white/10">
-                  {content.length} caracteres
-                </div>
+
               </div>
             </div>
           </div>

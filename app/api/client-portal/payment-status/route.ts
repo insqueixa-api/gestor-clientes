@@ -324,7 +324,7 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
       tenant_id: tenantId,
       client_id: client.id,
       event_type: "RENEWAL",
-      message: `Portal: pagamento aprovado e renovação automática via ${srv.name || provider}.`,
+      message: `Área do cliente: Renovação automática via ${srv.name || provider}.`,
       meta: {
         mp_payment_id: String(payment.mp_payment_id),
         months,
