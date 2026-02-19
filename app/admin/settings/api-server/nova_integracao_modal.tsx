@@ -221,7 +221,7 @@ onChange={(e) => {
             >
               <option value="NATV">NaTV</option>
               <option value="FAST">Fast</option>
-              <option value="ELITE">Elite (Painel)</option>
+              <option value="ELITE">Elite</option>
 
 
             </select>

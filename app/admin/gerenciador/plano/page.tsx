@@ -249,10 +249,6 @@ const { data, error, status, statusText } = await supabase
         {/* Título esquerda */}
         <div className="text-left w-full md:w-auto">
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Tabelas de Preço</h1>
-
-          <p className="text-slate-500 dark:text-white/60 mt-0.5 text-sm font-medium">
-            Gerencie as tabelas de preço padrão e personalizadas.
-          </p>
         </div>
 
         {/* Botão direita */}
