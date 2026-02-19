@@ -314,12 +314,12 @@ function GatewayModal({
               {isEdit ? "Atualize as configurações da integração" : "Configure uma nova forma de recebimento"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
-          >
-            ✕
-          </button>
+<button
+  onClick={onClose}
+  className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+>
+  <IconX />
+</button>
         </div>
 
         {/* BODY */}
@@ -674,21 +674,22 @@ function GatewayCard({
 
         {/* Ações */}
         <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-          <button
-            onClick={onEdit}
-            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-          >
-            ✏️ Editar
-          </button>
+<button
+  onClick={onEdit}
+  className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+>
+  <IconEdit />
+  Editar
+</button>
 
-          <button
-            onClick={onDelete}
-            disabled={isDeleting}
-            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Excluir"
-          >
-            {isDeleting ? "..." : "🗑️"}
-          </button>
+<button
+  onClick={onDelete}
+  disabled={isDeleting}
+  className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+  title="Excluir"
+>
+  {isDeleting ? "..." : <IconTrash />}
+</button>
         </div>
       </div>
     </div>
@@ -799,25 +800,12 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
 
       {/* Templates */}
       <div>
-        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
-          Templates WhatsApp
-        </p>
 
         {manual ? (
           <div className="space-y-2">
-            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">{'{{pix_key}}'}</p>
-              <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70 mt-0.5 truncate">
-                {manual.config?.pix_key || "Chave não configurada"}
-              </p>
-            </div>
+      
 
-            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">{'{{pix_holder}}'}</p>
-              <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70 mt-0.5 truncate">
-                {manual.config?.holder_name || "Titular não configurado"}
-              </p>
-            </div>
+     
           </div>
         ) : (
           <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
@@ -949,13 +937,13 @@ export default function PagamentosPage() {
     return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
       {/* Toast + Confirm (sempre no topo, z alto) */}
-      <div className="relative z-[999999] px-3 sm:px-0">
+      <div className="relative z-[999999] px-3 sm:px-0 md:px-4">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
         {ConfirmUI}
       </div>
 
       {/* HEADER (padrão Clientes/Trials) */}
-      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
           Pagamentos
         </h1>
@@ -973,7 +961,7 @@ export default function PagamentosPage() {
       </div>
 
       {/* CONTEÚDO */}
-      <div className="px-3 sm:px-0 space-y-6">
+      <div className="px-3 sm:px-0 md:px-4 space-y-6">
         {/* Fluxo visual */}
         {!loading && gateways.length > 0 && (
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
@@ -1073,16 +1061,17 @@ export default function PagamentosPage() {
                 <div className="p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {intlGateways.map((g) => (
-                      <GatewayCard
-                        key={g.id}
-                        gateway={g}
-                        onEdit={() => {
-                          setEditingGateway(g);
-                          setModalOpen(true);
-                        }}
-                        onDelete={() => handleDelete(g)}
-                        onToggle={() => handleToggle(g)}
-                      />
+<GatewayCard
+  key={g.id}
+  gateway={g}
+  isDeleting={deleting === g.id}
+  onEdit={() => {
+    setEditingGateway(g);
+    setModalOpen(true);
+  }}
+  onDelete={() => handleDelete(g)}
+  onToggle={() => handleToggle(g)}
+/>
                     ))}
                   </div>
                 </div>
@@ -1109,3 +1098,7 @@ export default function PagamentosPage() {
     </div>
   );
 }
+
+function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
+function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
