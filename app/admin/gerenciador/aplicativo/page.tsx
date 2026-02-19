@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
-import { getCurrentTenantId } from "@/lib/tenant"; 
+import { getCurrentTenantId } from "@/lib/tenant";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- TIPOS ---
 type AppField = {
@@ -70,6 +71,8 @@ export default function AppManagerPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastSeq = useRef(1);
 
+  const { confirm: confirmDialog, ConfirmUI } = useConfirm();
+
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const addToast = (type: "success" | "error", title: string, message?: string) => {
@@ -107,6 +110,8 @@ const costPriority: Record<string, number> = {
   free: 1,
   paid: 2,
 };
+
+const { confirm, ConfirmUI } = useConfirm();
 
 const formattedApps = (appsData || [])
   .map((app) => ({
@@ -278,7 +283,16 @@ try {
   }
 
 async function handleDelete(id: string) {
-  if (!confirm("Tem certeza? Isso pode afetar clientes que usam este app.")) return;
+  const ok = await confirmDialog({
+    tone: "rose",
+    title: "Excluir aplicativo?",
+    subtitle: "Isso pode afetar clientes que usam este app.",
+    details: ["Essa ação não pode ser desfeita."],
+    confirmText: "Excluir",
+    cancelText: "Voltar",
+  });
+
+  if (!ok) return;
 
   try {
     const tid = await getCurrentTenantId();
@@ -291,7 +305,7 @@ async function handleDelete(id: string) {
       .from("apps")
       .delete()
       .eq("id", id)
-      .eq("tenant_id", tid); // ✅ trava por tenant também
+      .eq("tenant_id", tid);
 
     if (error) throw error;
 
@@ -393,37 +407,27 @@ function renderAppCard(app: AppData) {
 
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-      <div className="relative z-[999999]">
+<div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
+  {ConfirmUI}
 </div>
 
 
-      {/* HEADER DA PÁGINA */}
-<div className="flex flex-col sm:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-white/10 animate-in fade-in duration-500">
+      {/* HEADER DA PÁGINA (padrão Clientes) */}
+<div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+  <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+    Aplicativos
+  </h1>
 
-  {/* Título esquerda */}
-  <div className="text-left">
-    <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-      Aplicativos
-    </h1>
-
-    <p className="text-sm text-slate-500 dark:text-white/60 mt-0.5 font-medium">
-      Configure quais aplicativos e campos seus clientes usarão.
-    </p>
-  </div>
-
-  {/* Botão direita */}
-  <div className="w-full sm:w-auto flex justify-end">
-    <button
-      onClick={openNew}
-      className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-    >
-      <span>+</span> Novo Aplicativo
-    </button>
-  </div>
-
+  <button
+    onClick={openNew}
+    className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+  >
+    <span className="text-base leading-none">+</span>
+    Novo Aplicativo
+  </button>
 </div>
 
 
@@ -435,51 +439,81 @@ return (
           Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.
         </div>
       ) : (
-        <div className="space-y-6">
-  {/* PARCERIAS */}
-{groupedApps.partnership.length > 0 && (
-  <div>
-    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
-      Parcerias
-    </div>
+  <div className="space-y-6">
 
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-      {groupedApps.partnership.map((app) => renderAppCard(app))}
-    </div>
+    {/* PARCERIAS */}
+    {groupedApps.partnership.length > 0 && (
+      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Parcerias</h2>
+            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+              {groupedApps.partnership.length}
+            </span>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
+            partnership
+          </span>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {groupedApps.partnership.map((app) => renderAppCard(app))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* GRATUITOS */}
+    {groupedApps.free.length > 0 && (
+      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gratuitos</h2>
+            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+              {groupedApps.free.length}
+            </span>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+            free
+          </span>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {groupedApps.free.map((app) => renderAppCard(app))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* PAGOS */}
+    {groupedApps.paid.length > 0 && (
+      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Pagos</h2>
+            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+              {groupedApps.paid.length}
+            </span>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
+            paid
+          </span>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {groupedApps.paid.map((app) => renderAppCard(app))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* espaço fixo pra não cortar popups */}
+    <div className="h-24 md:h-20" />
   </div>
 )}
-
-
-  {/* GRATUITOS */}
-{groupedApps.free.length > 0 && (
-  <div>
-    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-      Gratuitos
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-      {groupedApps.free.map((app) => renderAppCard(app))}
-    </div>
-  </div>
-)}
-
-
-  {/* PAGOS */}
-{groupedApps.paid.length > 0 && (
-  <div>
-    <div className="mb-2 text-xs font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
-      Pagos
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-      {groupedApps.paid.map((app) => renderAppCard(app))}
-    </div>
-  </div>
-)}
-
-</div>
-
-      )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (

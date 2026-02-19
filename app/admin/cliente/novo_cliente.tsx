@@ -637,6 +637,13 @@ const [sendPaymentMsg, setSendPaymentMsg] = useState(!isTrialMode); // ✅ Clien
 const [sendTrialWhats, setSendTrialWhats] = useState(true);
 // ✅ NOVO: Controle de horas de teste e M3U
 const [testHours, setTestHours] = useState<2 | 4 | 6>(2);
+
+// ✅ NOVO: Provider do painel (pra travar horas por servidor)
+const [trialProvider, setTrialProvider] = useState<
+  "NONE" | "FAST" | "NATV" | "ELITE" | "OTHER"
+>("NONE");
+const [trialHoursLocked, setTrialHoursLocked] = useState(false);
+
 const [m3uUrl, setM3uUrl] = useState("");
 const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
 
@@ -731,64 +738,18 @@ const [messageContent, setMessageContent] = useState("");
     );
   }
 
-// ✅ NOVO: Ajustar horas de teste por provider (SEM alterar registerRenewal aqui)
-useEffect(() => {
-  if (!isTrialMode || !serverId) {
-    setTestHours(2);
-    return;
-  }
-
-  let mounted = true; // ✅ Previne race condition
-
-  (async () => {
-    try {
-      const { data: srv } = await supabaseBrowser
-        .from("servers")
-        .select("panel_integration")
-        .eq("id", serverId)
-        .single();
-
-      if (!mounted) return; // ✅ Componente desmontou
-
-      if (srv?.panel_integration) {
-        const { data: integ } = await supabaseBrowser
-          .from("server_integrations")
-          .select("provider")
-          .eq("id", srv.panel_integration)
-          .single();
-
-        if (!mounted) return;
-
-        const provider = String(integ?.provider || "").toUpperCase();
-
-        if (provider === "FAST") {
-          setTestHours(4); // FAST: 4h fixo
-        } else if (provider === "NATV") {
-          setTestHours(6); // NATV: 6h padrão
-        } else {
-          setTestHours(2); // Sem integração
-        }
-      } else {
-        setTestHours(2); // Sem integração
-      }
-    } catch (e) {
-      console.error("Erro ao ajustar horas:", e);
-      if (mounted) setTestHours(2);
-    }
-  })();
-
-  return () => {
-    mounted = false; // ✅ Cleanup
-  };
-}, [isTrialMode, serverId]);
-
-// ✅ NOVO: Detectar se servidor tem integração + ligar toggle automaticamente
+// ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
 const [hasIntegration, setHasIntegration] = useState(false);
 
 useEffect(() => {
-  if (!isTrialMode || !serverId) {
+  if (!isTrialMode) return;
+
+  if (!serverId) {
     setHasIntegration(false);
-    setRegisterRenewal(false); // ✅ Desliga se não tem servidor
+    setTrialProvider("NONE");
+    setTrialHoursLocked(false);
+    setTestHours(2);
+    setRegisterRenewal(false);
     return;
   }
 
@@ -796,29 +757,72 @@ useEffect(() => {
 
   (async () => {
     try {
-      const { data: srv } = await supabaseBrowser
+      const { data: srv, error: srvErr } = await supabaseBrowser
         .from("servers")
         .select("panel_integration")
         .eq("id", serverId)
         .single();
 
       if (!mounted) return;
+      if (srvErr) throw srvErr;
 
-      const hasInteg = Boolean(srv?.panel_integration);
+      const integrationId = String(srv?.panel_integration || "");
+      const hasInteg = Boolean(integrationId);
+
       setHasIntegration(hasInteg);
-      
-      // ✅ LIGA toggle automaticamente se tem integração
-      if (hasInteg) {
-        setRegisterRenewal(true);
-      } else {
-        setRegisterRenewal(false);
+      setRegisterRenewal(hasInteg); // ✅ no TRIAL, só faz sentido se tiver integração
+
+      if (!hasInteg) {
+        setTrialProvider("NONE");
+        setTrialHoursLocked(false);
+        setTestHours(2);
+        return;
       }
+
+      const { data: integ, error: integErr } = await supabaseBrowser
+        .from("server_integrations")
+        .select("provider")
+        .eq("id", integrationId)
+        .single();
+
+      if (!mounted) return;
+      if (integErr) throw integErr;
+
+      const provider = String(integ?.provider || "").toUpperCase();
+
+      if (provider === "FAST") {
+        setTrialProvider("FAST");
+        setTrialHoursLocked(true);
+        setTestHours(4); // ✅ FAST: travado 4h
+        return;
+      }
+
+      if (provider === "NATV") {
+        setTrialProvider("NATV");
+        setTrialHoursLocked(false);
+        setTestHours(6); // ✅ NATV: padrão 6h (editável)
+        return;
+      }
+
+      if (provider === "ELITE") {
+        setTrialProvider("ELITE");
+        setTrialHoursLocked(true);
+        setTestHours(2); // ✅ ELITE: travado 2h
+        return;
+      }
+
+      setTrialProvider("OTHER");
+      setTrialHoursLocked(false);
+      setTestHours(2);
     } catch (e) {
-      console.error("Erro ao verificar integração:", e);
-      if (mounted) {
-        setHasIntegration(false);
-        setRegisterRenewal(false);
-      }
+      console.error("Erro ao detectar provider/integração:", e);
+      if (!mounted) return;
+
+      setHasIntegration(false);
+      setTrialProvider("NONE");
+      setTrialHoursLocked(false);
+      setTestHours(2);
+      setRegisterRenewal(false);
     }
   })();
 
@@ -841,7 +845,7 @@ useEffect(() => {
 
   setDueDate(dISO);
   setDueTime(tISO);
-}, [testHours, isTrialMode]);
+}, [testHours, isTrialMode, serverId]); // ✅ inclui serverId pra recalcular ao trocar servidor
 
 // ✅ NOVO: Buscar DNSs do servidor selecionado (coluna dns = JSON array)
 useEffect(() => {
@@ -1557,17 +1561,24 @@ try {
   serverName = "Servidor";
 }
 
-        // 3. Montar URL da API
-        let apiUrl = "";
-        if (isTrialMode) {
-          apiUrl = provider === "FAST" 
-            ? "/api/integrations/fast/create-trial" 
-            : "/api/integrations/natv/create-trial";
-        } else {
-          apiUrl = provider === "FAST" 
-            ? "/api/integrations/fast/create-client" 
-            : "/api/integrations/natv/create-client";
-        }
+// 3. Montar URL da API
+let apiUrl = "";
+
+if (isTrialMode) {
+  if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
+  else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
+  else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
+  else apiUrl = "";
+} else {
+  if (provider === "FAST") apiUrl = "/api/integrations/fast/create-client";
+  else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-client";
+  else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-client";
+  else apiUrl = "";
+}
+
+if (!apiUrl) {
+  throw new Error("Provider não suportado para integração automática.");
+}
 
         // 4. Montar payload
         const apiPayload: any = {
@@ -1621,15 +1632,22 @@ try {
         }
 
         // 7. Sync (atualizar saldo do servidor)
-        const syncUrl = provider === "FAST"
-          ? "/api/integrations/fast/sync"
-          : "/api/integrations/natv/sync";
+const syncUrl =
+  provider === "FAST"
+    ? "/api/integrations/fast/sync"
+    : provider === "NATV"
+      ? "/api/integrations/natv/sync"
+      : provider === "ELITE"
+        ? "/api/integrations/elite/sync"
+        : "";
 
-        await fetch(syncUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ integration_id: srv.panel_integration }),
-        });
+if (syncUrl) {
+  await fetch(syncUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ integration_id: srv.panel_integration }),
+  });
+}
 
         // ✅ ENFILEIRAR Toast de sucesso da API
         queueListToast(isTrialMode ? "trial" : "client", {
@@ -1731,8 +1749,11 @@ if (clientId && namePrefix) {
     p_client_id: clientId,
     p_display_name: displayName,
     p_server_id: serverId,
-    p_server_username: username,
-    p_server_password: password?.trim() || "",
+
+    // ✅ NÃO sobrescrever com estado antigo — usa o que veio da API/variáveis finais
+    p_server_username: apiUsername,
+    p_server_password: apiPassword,
+
     p_screens: rpcScreens,
     p_plan_label: rpcPlanLabel,
 
@@ -1741,7 +1762,10 @@ if (clientId && namePrefix) {
 
     p_price_amount: rpcPriceAmount,
     p_price_currency: rpcCurrency as any,
-    p_vencimento: dueISO,
+
+    // ✅ idem — usa vencimento final (pré-API ou pós-API)
+    p_vencimento: apiVencimento,
+
     p_notes: notes || null,
     p_clear_notes: false,
     p_whatsapp_username: whatsappUsername || null,
@@ -2350,20 +2374,35 @@ function handleSave() {
 {isTrialMode && (
   <div className="flex items-center gap-2">
     <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Período:</span>
-    <select 
-      value={testHours} 
-      onChange={(e) => setTestHours(Number(e.target.value) as 2 | 4 | 6)}
-      className="h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
-    >
-      {/* ✅ 2h: desabilitado se Fast */}
-      <option value={2} disabled={testHours === 4 && hasIntegration}>2h</option>
-      
-      {/* ✅ 4h: sempre habilitado */}
+    <select
+  value={testHours}
+  onChange={(e) => setTestHours(Number(e.target.value) as 2 | 4 | 6)}
+  disabled={trialHoursLocked}
+  title={
+    trialProvider === "FAST"
+      ? "FAST: período fixo 4h"
+      : trialProvider === "ELITE"
+        ? "ELITE: período fixo 2h"
+        : trialProvider === "NATV"
+          ? "NATV: padrão 6h (editável)"
+          : "Período do teste"
+  }
+  className={`h-7 w-[70px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+    trialHoursLocked ? "opacity-70 cursor-not-allowed" : "cursor-pointer hover:border-emerald-500/50"
+  }`}
+>
+  {trialProvider === "FAST" ? (
+    <option value={4}>4h</option>
+  ) : trialProvider === "ELITE" ? (
+    <option value={2}>2h</option>
+  ) : (
+    <>
+      <option value={2}>2h</option>
       <option value={4}>4h</option>
-      
-      {/* ✅ 6h: desabilitado se Fast */}
-      <option value={6} disabled={testHours === 4 && hasIntegration}>6h</option>
-    </select>
+      <option value={6}>6h</option>
+    </>
+  )}
+</select>
   </div>
 )}
    </div>
