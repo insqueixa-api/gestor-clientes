@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
+import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -171,6 +173,41 @@ const PRIORITY_LABELS: Record<number, string> = {
   2: "Fallback",
   };
 
+  // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+      {children}
+    </label>
+  );
+}
+
+function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+    />
+  );
+}
+
+function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+    />
+  );
+}
+
+function Textarea({ className = "", ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors resize-none ${className}`}
+    />
+  );
+}
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 
 function GatewayModal({
@@ -183,17 +220,12 @@ function GatewayModal({
   onSave: () => void;
 }) {
   const isEdit = !!gateway;
-  const [selectedType, setSelectedType] = useState<GatewayType | null>(
-    gateway?.type ?? null
-  );
-  const [form, setForm] = useState<Record<string, string>>(
-    gateway?.config ?? {}
-  );
+
+  const [selectedType, setSelectedType] = useState<GatewayType | null>(gateway?.type ?? null);
+  const [form, setForm] = useState<Record<string, string>>(gateway?.config ?? {});
   const [priority, setPriority] = useState(gateway?.priority ?? 1);
   const [isActive, setIsActive] = useState(gateway?.is_active ?? true);
-  const [isManualFallback, setIsManualFallback] = useState(
-    gateway?.is_manual_fallback ?? false
-  );
+  const [isManualFallback, setIsManualFallback] = useState(gateway?.is_manual_fallback ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
@@ -204,7 +236,7 @@ function GatewayModal({
     if (!selectedType || !meta) return;
 
     const missingFields = meta.fields
-      .filter((f) => f.required && !form[f.key]?.trim())
+      .filter((f) => f.required && !String(form[f.key] ?? "").trim())
       .map((f) => f.label);
 
     if (missingFields.length > 0) {
@@ -217,10 +249,12 @@ function GatewayModal({
 
     try {
       const tenantId = await getCurrentTenantId();
+      if (!tenantId) throw new Error("Tenant inválido");
+
       const supabase = supabaseBrowser;
 
-      const payload = {
-        tenant_id: tenantId,
+      // ✅ payload base (SEM tenant_id no UPDATE)
+      const basePayload = {
         name: meta.label,
         type: selectedType,
         currency: meta.currencies,
@@ -235,179 +269,228 @@ function GatewayModal({
       if (isEdit && gateway) {
         const { error: err } = await supabase
           .from("payment_gateways")
-          .update(payload)
-          .eq("id", gateway.id);
+          .update(basePayload)
+          .eq("id", gateway.id)
+          .eq("tenant_id", tenantId);
+
         if (err) throw err;
       } else {
         const { error: err } = await supabase
           .from("payment_gateways")
-          .insert({ ...payload, created_at: new Date().toISOString() });
+          .insert({
+            tenant_id: tenantId,
+            ...basePayload,
+            created_at: new Date().toISOString(),
+          });
+
         if (err) throw err;
       }
 
       onSave();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Erro ao salvar");
+      setError(err?.message ?? "Erro ao salvar");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* HEADER MODAL */}
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">
               {isEdit ? "Atualize as configurações da integração" : "Configure uma nova forma de recebimento"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6 space-y-5">
+        {/* BODY */}
+        <div className="p-6 overflow-y-auto space-y-6">
           {/* Seletor de tipo (só na criação) */}
           {!isEdit && (
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
-                Tipo de Integração
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {GATEWAY_META.map((m) => (
-                  <button
-                    key={m.type}
-                    onClick={() => {
-                      setSelectedType(m.type);
-                      setForm({});
-                    }}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      selectedType === m.type
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{m.icon}</div>
-                    <div className="font-bold text-slate-800 text-sm">{m.label}</div>
-                    <div className="text-xs text-slate-500 mt-0.5 leading-tight">{m.description}</div>
-                    <div className="flex gap-1 mt-2 flex-wrap">
-                      {m.currencies.map((c) => (
-                        <span key={c} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded">
-                          {c}
-                        </span>
-                      ))}
-                      <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${m.is_online ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"}`}>
-                        {m.is_online ? "Online" : "Manual"}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+            <div className="space-y-3">
+              <Label>Tipo de Integração</Label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {GATEWAY_META.map((m) => {
+                  const selected = selectedType === m.type;
+                  return (
+                    <button
+                      key={m.type}
+                      type="button"
+                      onClick={() => {
+                        setSelectedType(m.type);
+                        setForm({});
+                        setError(null);
+                      }}
+                      className={`p-4 rounded-xl border text-left transition-all ${
+                        selected
+                          ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
+                          : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] hover:bg-slate-50 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xl">
+                          {m.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-800 dark:text-white text-sm">
+                            {m.label}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-white/60 mt-0.5 leading-tight">
+                            {m.description}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {m.currencies.map((c) => (
+                              <span
+                                key={c}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                m.is_online
+                                  ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                                  : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
+                              }`}
+                            >
+                              {m.is_online ? "Online" : "Manual"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Campos do gateway selecionado */}
+          {/* Conteúdo do tipo selecionado */}
           {meta && (
             <>
-              <div className={`p-3 rounded-xl bg-gradient-to-r ${meta.color} text-white`}>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{meta.icon}</span>
-                  <div>
-                    <div className="font-bold">{meta.label}</div>
-                    <div className="text-xs text-white/80">{meta.description}</div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl">
+                    {meta.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-800 dark:text-white">{meta.label}</div>
+                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">{meta.description}</div>
+                  </div>
+
+                  <div className="ml-auto flex gap-1.5">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        meta.is_online
+                          ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                          : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
+                      }`}
+                    >
+                      {meta.is_online ? "Online" : "Manual"}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {meta.fields.map((field) => (
-                <div key={field.key}>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    {field.label} {field.required && <span className="text-red-400">*</span>}
-                  </label>
+              {/* Fields */}
+              <div className="space-y-4">
+                {meta.fields.map((field) => (
+                  <div key={field.key}>
+                    <Label>
+                      {field.label} {field.required && <span className="text-rose-500">*</span>}
+                    </Label>
 
-                  {field.type === "select" ? (
-                    <select
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                    >
-                      <option value="">Selecione...</option>
-                      {field.options?.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  ) : field.type === "textarea" ? (
-                    <textarea
-                      rows={3}
-                      value={form[field.key] || ""}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-none"
-                    />
-                  ) : (
-                    <div className="relative">
-                      <input
-                        type={field.type === "password" && !showSecrets[field.key] ? "password" : "text"}
+                    {field.type === "select" ? (
+                      <Select
+                        value={form[field.key] || ""}
+                        onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      >
+                        <option value="">Selecione...</option>
+                        {field.options?.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : field.type === "textarea" ? (
+                      <Textarea
+                        rows={3}
                         value={form[field.key] || ""}
                         onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                         placeholder={field.placeholder}
-                        className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 pr-10"
                       />
-                      {field.type === "password" && (
-                        <button
-                          type="button"
-                          onClick={() => setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                        >
-                          {showSecrets[field.key] ? "🙈" : "👁️"}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          type={field.type === "password" && !showSecrets[field.key] ? "password" : "text"}
+                          value={form[field.key] || ""}
+                          onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          className={field.type === "password" ? "pr-10" : ""}
+                        />
+                        {field.type === "password" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowSecrets((prev) => ({ ...prev, [field.key]: !prev[field.key] }))
+                            }
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
+                            title={showSecrets[field.key] ? "Ocultar" : "Mostrar"}
+                          >
+                            {showSecrets[field.key] ? "🙈" : "👁️"}
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-                  {field.hint && (
-                    <p className="text-[11px] text-slate-400 mt-1">{field.hint}</p>
-                  )}
-                </div>
-              ))}
+                    {field.hint && (
+                      <p className="text-[11px] text-slate-400 dark:text-white/40 mt-1">{field.hint}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
 
-              {/* Configurações extras */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              {/* Extras */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-white/10">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Prioridade
-                  </label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  >
+                  <Label>Prioridade</Label>
+                  <Select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
                     <option value={1}>1 — Principal</option>
                     <option value={2}>2 — Fallback</option>
-                    
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Status
-                  </label>
+                  <Label>Status</Label>
                   <button
                     type="button"
                     onClick={() => setIsActive(!isActive)}
-                    className={`w-full px-3 py-2.5 rounded-lg border-2 text-sm font-bold transition-all ${
+                    className={`w-full h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
                       isActive
-                        ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                        : "border-slate-200 bg-slate-50 text-slate-500"
+                        ? "border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-600 dark:text-white/60"
                     }`}
                   >
                     {isActive ? "✅ Ativo" : "⭕ Inativo"}
@@ -417,20 +500,28 @@ function GatewayModal({
 
               {/* PIX Manual — fallback */}
               {selectedType === "pix_manual" && (
-                <div className="p-3 rounded-xl bg-violet-50 border border-violet-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-violet-800">Usar como Fallback</p>
-                      <p className="text-xs text-violet-600 mt-0.5">
+                <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                        Usar como Fallback
+                      </p>
+                      <p className="text-xs text-violet-600/80 dark:text-violet-300/70 mt-0.5">
                         Exibir ao cliente quando todos os gateways online falharem
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsManualFallback(!isManualFallback)}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${isManualFallback ? "bg-violet-500" : "bg-slate-300"}`}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${
+                        isManualFallback ? "bg-violet-600" : "bg-slate-300 dark:bg-white/20"
+                      }`}
                     >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isManualFallback ? "left-7" : "left-1"}`} />
+                      <span
+                        className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          isManualFallback ? "left-7" : "left-1"
+                        }`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -439,24 +530,24 @@ function GatewayModal({
           )}
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-sm">
               ⚠️ {error}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 bg-slate-50">
+        {/* FOOTER MODAL */}
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-100 transition-colors"
+            className="px-4 py-2 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-sm font-bold transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !selectedType}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-200"
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {saving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Integração"}
           </button>
@@ -473,76 +564,108 @@ function GatewayCard({
   onEdit,
   onDelete,
   onToggle,
+  isDeleting,
 }: {
   gateway: PaymentGateway;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
+  isDeleting?: boolean;
 }) {
   const meta = GATEWAY_META.find((m) => m.type === gateway.type);
   if (!meta) return null;
 
+  const priorityLabel = PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
+
   return (
-    <div className={`bg-white rounded-2xl border-2 shadow-sm transition-all ${gateway.is_active ? "border-slate-200" : "border-slate-100 opacity-60"}`}>
-      {/* Header do card */}
-      <div className={`bg-gradient-to-r ${meta.color} p-4 rounded-t-2xl`}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-2xl">
-              {meta.icon}
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-base">{gateway.name}</h3>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-white/80 text-xs">
-                  {PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`}
-                </span>
-                <span className="text-white/40">•</span>
-                <span className="text-white/80 text-xs">
-                  {gateway.currency.join(", ")}
-                </span>
-              </div>
-            </div>
+    <div
+      className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden transition-opacity ${
+        gateway.is_active ? "" : "opacity-70"
+      }`}
+    >
+      {/* Header */}
+      <div className="px-4 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl shrink-0">
+            {meta.icon}
           </div>
 
-          {/* Toggle ativo/inativo */}
-          <button
-            onClick={onToggle}
-            className={`relative w-11 h-6 rounded-full transition-colors ${gateway.is_active ? "bg-white/30" : "bg-black/20"}`}
-          >
-            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${gateway.is_active ? "left-6" : "left-1"}`} />
-          </button>
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-800 dark:text-white text-sm truncate">
+              {gateway.name}
+            </h3>
+
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10">
+                {priorityLabel}
+              </span>
+
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                  gateway.is_online
+                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                    : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
+                }`}
+              >
+                {gateway.is_online ? "Online" : "Manual"}
+              </span>
+
+              {gateway.is_manual_fallback && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                  Fallback
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Toggle ativo/inativo */}
+        <button
+          onClick={onToggle}
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            gateway.is_active ? "bg-emerald-600" : "bg-slate-300 dark:bg-white/20"
+          }`}
+          title={gateway.is_active ? "Desativar" : "Ativar"}
+        >
+          <span
+            className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+              gateway.is_active ? "left-6" : "left-1"
+            }`}
+          />
+        </button>
       </div>
 
       {/* Body */}
       <div className="p-4 space-y-3">
-        {/* Status badges */}
-        <div className="flex flex-wrap gap-2">
-          <span className={`px-2 py-1 rounded-lg text-xs font-bold ${gateway.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-            {gateway.is_active ? "● Ativo" : "○ Inativo"}
-          </span>
-          <span className={`px-2 py-1 rounded-lg text-xs font-bold ${gateway.is_online ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
-            {gateway.is_online ? "⚡ Online" : "📋 Manual"}
-          </span>
-          {gateway.is_manual_fallback && (
-            <span className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-700">
-              🔄 Fallback
+        {/* Moedas */}
+        <div className="flex flex-wrap gap-1.5">
+          {gateway.currency.map((c) => (
+            <span
+              key={c}
+              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+            >
+              {c}
             </span>
-          )}
+          ))}
         </div>
 
-        {/* Campos configurados (mascara os secrets) */}
+        {/* Campos configurados (mascara secrets) */}
         <div className="space-y-1.5">
           {meta.fields.slice(0, 2).map((field) => {
-            const val = gateway.config[field.key];
+            const val = gateway.config?.[field.key];
             if (!val) return null;
+
+            const raw = String(val);
             const isSecret = field.type === "password";
+            const masked = isSecret ? `${raw.slice(0, 6)}${"•".repeat(10)}` : raw;
+
             return (
-              <div key={field.key} className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 font-medium">{field.label}:</span>
-                <span className="text-slate-600 font-mono">
-                  {isSecret ? `${val.slice(0, 8)}${"•".repeat(8)}` : val}
+              <div key={field.key} className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-slate-400 dark:text-white/40 font-medium truncate">
+                  {field.label}:
+                </span>
+                <span className="text-slate-600 dark:text-white/70 font-mono truncate max-w-[55%]">
+                  {masked}
                 </span>
               </div>
             );
@@ -550,18 +673,21 @@ function GatewayCard({
         </div>
 
         {/* Ações */}
-        <div className="flex gap-2 pt-1 border-t border-slate-100">
+        <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
           <button
             onClick={onEdit}
-            className="flex-1 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors border border-slate-200"
+            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
           >
             ✏️ Editar
           </button>
+
           <button
             onClick={onDelete}
-            className="py-2 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold transition-colors border border-red-100"
+            disabled={isDeleting}
+            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Excluir"
           >
-            🗑️
+            {isDeleting ? "..." : "🗑️"}
           </button>
         </div>
       </div>
@@ -583,106 +709,123 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
   const manual = gateways.find((g) => g.type === "pix_manual" && g.is_active);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-        <span className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center text-xs">🔀</span>
-        Fluxo de Pagamento Atual
-      </h3>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* BRL */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+          Pagamentos BRL
+        </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* BRL */}
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Pagamentos BRL</p>
-          <div className="space-y-1.5">
-            {brlOnline.map((g, i) => {
-              const meta = GATEWAY_META.find((m) => m.type === g.type);
-              return (
-                <div key={g.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-sm">{meta?.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 truncate">{g.name}</p>
-                    <p className="text-[10px] text-slate-400">{i === 0 ? "Principal" : "Fallback"}</p>
-                  </div>
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full shrink-0" />
+        <div className="space-y-2">
+          {brlOnline.map((g, i) => {
+            const meta = GATEWAY_META.find((m) => m.type === g.type);
+            return (
+              <div
+                key={g.id}
+                className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10"
+              >
+                <span className="text-sm">{meta?.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{g.name}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-white/40">{i === 0 ? "Principal" : "Fallback"}</p>
                 </div>
-              );
-            })}
-            {manual && (
-              <>
-                <div className="flex items-center justify-center">
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <span className="w-8 h-px bg-slate-200" />
-                    se falhar
-                    <span className="w-8 h-px bg-slate-200" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-violet-50 border border-violet-100">
-                  <span className="text-sm">📱</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-violet-700 truncate">PIX Manual</p>
-                    <p className="text-[10px] text-violet-400">Fallback offline</p>
-                  </div>
-                  <span className="w-2 h-2 bg-violet-400 rounded-full shrink-0" />
-                </div>
-              </>
-            )}
-            {brlOnline.length === 0 && !manual && (
-              <div className="p-2 rounded-lg bg-red-50 border border-red-100">
-                <p className="text-xs text-red-500 font-medium">⚠️ Nenhum gateway BRL ativo</p>
+                <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />
               </div>
-            )}
-          </div>
-        </div>
+            );
+          })}
 
-        {/* USD/EUR */}
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Pagamentos USD/EUR</p>
-          <div className="space-y-1.5">
-            {intlOnline.map((g) => {
-              const meta = GATEWAY_META.find((m) => m.type === g.type);
-              return (
-                <div key={g.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-sm">{meta?.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 truncate">{g.name}</p>
-                    <p className="text-[10px] text-slate-400">{g.currency.join(", ")}</p>
-                  </div>
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full shrink-0" />
+          {manual && (
+            <>
+              <div className="flex items-center justify-center">
+                <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
+                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
+                  se falhar
+                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
                 </div>
-              );
-            })}
-            {intlOnline.length === 0 && (
-              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                <p className="text-xs text-slate-400">Nenhum gateway internacional</p>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Templates */}
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Templates WhatsApp</p>
-          {manual ? (
-            <div className="space-y-1.5">
-              <div className="p-2 rounded-lg bg-violet-50 border border-violet-100">
-                <p className="text-xs font-bold text-violet-700">{'{{pix_key}}'}</p>
-                <p className="text-[10px] text-violet-500 mt-0.5 truncate">
-                  {manual.config.pix_key || "Chave não configurada"}
-                </p>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                <span className="text-sm">📱</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-violet-700 dark:text-violet-300 truncate">PIX Manual</p>
+                  <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70">Fallback offline</p>
+                </div>
+                <span className="w-2 h-2 bg-violet-500 rounded-full shrink-0" />
               </div>
-              <div className="p-2 rounded-lg bg-violet-50 border border-violet-100">
-                <p className="text-xs font-bold text-violet-700">{'{{pix_holder}}'}</p>
-                <p className="text-[10px] text-violet-500 mt-0.5 truncate">
-                  {manual.config.holder_name || "Titular não configurado"}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-              <p className="text-xs text-slate-400">Adicione PIX Manual para usar nos templates</p>
+            </>
+          )}
+
+          {brlOnline.length === 0 && !manual && (
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+              <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
+                ⚠️ Nenhum gateway BRL ativo
+              </p>
             </div>
           )}
         </div>
+      </div>
+
+      {/* USD/EUR */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+          Pagamentos USD/EUR
+        </p>
+
+        <div className="space-y-2">
+          {intlOnline.map((g) => {
+            const meta = GATEWAY_META.find((m) => m.type === g.type);
+            return (
+              <div
+                key={g.id}
+                className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10"
+              >
+                <span className="text-sm">{meta?.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{g.name}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-white/40">{g.currency.join(", ")}</p>
+                </div>
+                <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />
+              </div>
+            );
+          })}
+
+          {intlOnline.length === 0 && (
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
+              <p className="text-xs text-slate-400 dark:text-white/40">Nenhum gateway internacional</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Templates */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
+          Templates WhatsApp
+        </p>
+
+        {manual ? (
+          <div className="space-y-2">
+            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">{'{{pix_key}}'}</p>
+              <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70 mt-0.5 truncate">
+                {manual.config?.pix_key || "Chave não configurada"}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <p className="text-xs font-bold text-violet-700 dark:text-violet-300">{'{{pix_holder}}'}</p>
+              <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70 mt-0.5 truncate">
+                {manual.config?.holder_name || "Titular não configurado"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
+            <p className="text-xs text-slate-400 dark:text-white/40">
+              Adicione PIX Manual para usar nos templates
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -697,6 +840,21 @@ export default function PagamentosPage() {
   const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+    // --- TOAST + CONFIRM (padrão do admin) ---
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastSeq = useRef(1);
+
+  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+
+  const addToast = (type: "success" | "error", title: string, message?: string) => {
+    const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
+    const durationMs = 5000;
+    setToasts((prev) => [...prev, { id, type, title, message, durationMs }]);
+    setTimeout(() => removeToast(id), durationMs);
+  };
+
+  const { confirm: confirmDialog, ConfirmUI } = useConfirm();
+
   const fetchGateways = useCallback(async () => {
     try {
       const tenantId = await getCurrentTenantId();
@@ -709,8 +867,8 @@ export default function PagamentosPage() {
 
       if (error) throw error;
       setGateways((data as PaymentGateway[]) || []);
-    } catch (err) {
-      console.error("Erro ao carregar gateways:", err);
+    } catch (err: any) {
+      addToast("error", "Erro ao carregar gateways", err?.message ?? "Erro inesperado.");
     } finally {
       setLoading(false);
     }
@@ -721,24 +879,65 @@ export default function PagamentosPage() {
   }, [fetchGateways]);
 
   async function handleToggle(gateway: PaymentGateway) {
-    const { error } = await supabaseBrowser
-      .from("payment_gateways")
-      .update({ is_active: !gateway.is_active, updated_at: new Date().toISOString() })
-      .eq("id", gateway.id);
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) {
+        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        return;
+      }
 
-    if (!error) {
+      const { error } = await supabaseBrowser
+        .from("payment_gateways")
+        .update({ is_active: !gateway.is_active, updated_at: new Date().toISOString() })
+        .eq("id", gateway.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+
       setGateways((prev) =>
         prev.map((g) => (g.id === gateway.id ? { ...g, is_active: !g.is_active } : g))
       );
+    } catch (err: any) {
+      addToast("error", "Erro ao atualizar status", err?.message ?? "Erro inesperado.");
     }
   }
 
   async function handleDelete(gateway: PaymentGateway) {
-    if (!confirm(`Deletar integração "${gateway.name}"?`)) return;
-    setDeleting(gateway.id);
-    await supabaseBrowser.from("payment_gateways").delete().eq("id", gateway.id);
-    setGateways((prev) => prev.filter((g) => g.id !== gateway.id));
-    setDeleting(null);
+    const ok = await confirmDialog({
+      tone: "rose",
+      title: "Excluir integração de pagamento?",
+      subtitle: `Você está prestes a excluir "${gateway.name}".`,
+      details: ["Essa ação não pode ser desfeita."],
+      confirmText: "Excluir",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) {
+        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        return;
+      }
+
+      setDeleting(gateway.id);
+
+      const { error } = await supabaseBrowser
+        .from("payment_gateways")
+        .delete()
+        .eq("id", gateway.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+
+      setGateways((prev) => prev.filter((g) => g.id !== gateway.id));
+      addToast("success", "Removido", "Integração excluída com sucesso.");
+    } catch (err: any) {
+      addToast("error", "Erro ao excluir", err?.message ?? "Erro inesperado.");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   // Agrupar por moeda
@@ -747,51 +946,74 @@ export default function PagamentosPage() {
     (g) => g.currency.includes("USD") || g.currency.includes("EUR")
   );
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
+    return (
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+      {/* Toast + Confirm (sempre no topo, z alto) */}
+      <div className="relative z-[999999] px-3 sm:px-0">
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        {ConfirmUI}
+      </div>
 
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              💳 Integrações de Pagamento
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              Gerencie os gateways de pagamento usados na Área do Cliente
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingGateway(null);
-              setModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-200 hover:from-blue-600 hover:to-indigo-700 transition-all"
-          >
-            <span className="text-base">+</span>
-            Nova Integração
-          </button>
-        </div>
+      {/* HEADER (padrão Clientes/Trials) */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+          Pagamentos
+        </h1>
 
+        <button
+          onClick={() => {
+            setEditingGateway(null);
+            setModalOpen(true);
+          }}
+          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+        >
+          <span className="text-base leading-none">+</span>
+          Nova Integração
+        </button>
+      </div>
+
+      {/* CONTEÚDO */}
+      <div className="px-3 sm:px-0 space-y-6">
         {/* Fluxo visual */}
         {!loading && gateways.length > 0 && (
-          <PaymentFlowDiagram gateways={gateways} />
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+            <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Fluxo de Pagamento Atual</h2>
+                <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+                  {gateways.length}
+                </span>
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
+                fluxo
+              </span>
+            </div>
+
+            <div className="p-3 sm:p-4">
+              <PaymentFlowDiagram gateways={gateways} />
+            </div>
+          </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center py-16 text-slate-400">
+            <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : gateways.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-            <div className="text-5xl mb-4">💳</div>
-            <h3 className="text-lg font-bold text-slate-700 mb-2">Nenhuma integração configurada</h3>
-            <p className="text-slate-500 text-sm mb-6">
-              Configure ao menos um gateway de pagamento para habilitar renovações na Área do Cliente
+          <div className="bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-none sm:rounded-xl p-10 text-center">
+            <div className="text-5xl mb-3">💳</div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
+              Nenhuma integração configurada
+            </h3>
+            <p className="text-slate-500 dark:text-white/60 text-sm mb-6">
+              Configure ao menos um gateway para habilitar renovações na Área do Cliente.
             </p>
             <button
-              onClick={() => setModalOpen(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-200 hover:opacity-90 transition-opacity"
+              onClick={() => {
+                setEditingGateway(null);
+                setModalOpen(true);
+              }}
+              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all"
             >
               + Criar primeira integração
             </button>
@@ -800,51 +1022,75 @@ export default function PagamentosPage() {
           <div className="space-y-6">
             {/* BRL */}
             {brlGateways.length > 0 && (
-              <div>
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <span className="w-5 h-5 bg-slate-200 rounded flex items-center justify-center text-[10px]">R$</span>
-                  Gateways BRL
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {brlGateways.map((g) => (
-                    <GatewayCard
-                      key={g.id}
-                      gateway={g}
-                      onEdit={() => {
-                        setEditingGateway(g);
-                        setModalOpen(true);
-                      }}
-                      onDelete={() => handleDelete(g)}
-                      onToggle={() => handleToggle(g)}
-                    />
-                  ))}
+              <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways BRL</h2>
+                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+                      {brlGateways.length}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
+                    BRL
+                  </span>
+                </div>
+
+                <div className="p-3 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {brlGateways.map((g) => (
+<GatewayCard
+  key={g.id}
+  gateway={g}
+  isDeleting={deleting === g.id}
+  onEdit={() => {
+    setEditingGateway(g);
+    setModalOpen(true);
+  }}
+  onDelete={() => handleDelete(g)}
+  onToggle={() => handleToggle(g)}
+/>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Internacional */}
+            {/* Internacionais */}
             {intlGateways.length > 0 && (
-              <div>
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <span className="w-5 h-5 bg-slate-200 rounded flex items-center justify-center text-[10px]">$€</span>
-                  Gateways Internacionais
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {intlGateways.map((g) => (
-                    <GatewayCard
-                      key={g.id}
-                      gateway={g}
-                      onEdit={() => {
-                        setEditingGateway(g);
-                        setModalOpen(true);
-                      }}
-                      onDelete={() => handleDelete(g)}
-                      onToggle={() => handleToggle(g)}
-                    />
-                  ))}
+              <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+                <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways Internacionais</h2>
+                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+                      {intlGateways.length}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
+                    USD/EUR
+                  </span>
+                </div>
+
+                <div className="p-3 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {intlGateways.map((g) => (
+                      <GatewayCard
+                        key={g.id}
+                        gateway={g}
+                        onEdit={() => {
+                          setEditingGateway(g);
+                          setModalOpen(true);
+                        }}
+                        onDelete={() => handleDelete(g)}
+                        onToggle={() => handleToggle(g)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* espaço fixo pra não cortar popups */}
+            <div className="h-24 md:h-20" />
           </div>
         )}
       </div>

@@ -1525,186 +1525,193 @@ let apiM3uUrl = "";
 let serverName = "Servidor"; // ✅ DECLARAR AQUI (escopo correto)
 
 // ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
+// ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
 if (registerRenewal && serverId) {
-    try {
-      // 1. Buscar integração do servidor
-      const { data: srv, error: srvErr } = await supabaseBrowser
-        .from("servers")
-        .select("panel_integration")
-        .eq("id", serverId)
+  let apiUrl = ""; // ✅ FIX: escopo correto (visível no try e no catch)
+
+  try {
+    // 1. Buscar integração do servidor
+    const { data: srv, error: srvErr } = await supabaseBrowser
+      .from("servers")
+      .select("panel_integration")
+      .eq("id", serverId)
+      .single();
+
+    if (srvErr) throw new Error("Erro ao buscar servidor: " + srvErr.message);
+
+    if (srv?.panel_integration) {
+      // 2. Buscar provider
+      const { data: integ, error: integErr } = await supabaseBrowser
+        .from("server_integrations")
+        .select("provider")
+        .eq("id", srv.panel_integration)
         .single();
 
-      if (srvErr) throw new Error("Erro ao buscar servidor: " + srvErr.message);
+      if (integErr) throw new Error("Erro ao buscar integração: " + integErr.message);
 
-      if (srv?.panel_integration) {
-        // 2. Buscar provider
-        const { data: integ, error: integErr } = await supabaseBrowser
-          .from("server_integrations")
-          .select("provider")
-          .eq("id", srv.panel_integration)
+      const provider = String(integ?.provider || "").toUpperCase();
+
+      // ✅ NOVO: Buscar nome do servidor diretamente do banco
+      try {
+        const { data: srvData } = await supabaseBrowser
+          .from("servers")
+          .select("name")
+          .eq("id", serverId)
           .single();
 
-        if (integErr) throw new Error("Erro ao buscar integração: " + integErr.message);
+        serverName = srvData?.name || "Servidor";
+      } catch {
+        serverName = "Servidor";
+      }
 
-        const provider = String(integ?.provider || "").toUpperCase();
+      // 3. Montar URL da API
+      apiUrl = "";
 
-// ✅ NOVO: Buscar nome do servidor diretamente do banco
-try {
-  const { data: srvData } = await supabaseBrowser
-    .from("servers")
-    .select("name")
-    .eq("id", serverId)
-    .single();
-  
-  serverName = srvData?.name || "Servidor";
-} catch {
-  serverName = "Servidor";
-}
+      if (isTrialMode) {
+        if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
+        else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
+        else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
+        else apiUrl = "";
+      } else {
+        if (provider === "FAST") apiUrl = "/api/integrations/fast/create-client";
+        else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-client";
+        else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-client";
+        else apiUrl = "";
+      }
 
-// 3. Montar URL da API
-let apiUrl = "";
+      if (!apiUrl) {
+        throw new Error("Provider não suportado para integração automática.");
+      }
 
-if (isTrialMode) {
-  if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
-  else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
-  else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
-  else apiUrl = "";
-} else {
-  if (provider === "FAST") apiUrl = "/api/integrations/fast/create-client";
-  else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-client";
-  else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-client";
-  else apiUrl = "";
-}
+      // 4. Montar payload
+      const apiPayload: any = {
+        integration_id: srv.panel_integration,
+        username: apiUsername,
+        password: apiPassword || undefined,
+      };
 
-if (!apiUrl) {
-  throw new Error("Provider não suportado para integração automática.");
-}
+      if (isTrialMode) {
+        apiPayload.hours = testHours;
+      } else {
+        apiPayload.months = PLAN_MONTHS[selectedPlanPeriod] || 1;
+        apiPayload.screens = Number(screens);
+      }
 
-        // 4. Montar payload
-        const apiPayload: any = {
-          integration_id: srv.panel_integration,
-          username: apiUsername,
-          password: apiPassword || undefined,
-        };
+      // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token || "";
 
-        if (isTrialMode) {
-          apiPayload.hours = testHours;
-        } else {
-          apiPayload.months = PLAN_MONTHS[selectedPlanPeriod] || 1;
-          apiPayload.screens = Number(screens);
-        }
+      const apiRes = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(apiPayload),
+      });
 
-                // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
-        const { data: sess } = await supabaseBrowser.auth.getSession();
-        const token = sess.session?.access_token || "";
+      // ✅ parse seguro (evita crash se vier texto/HTML/empty)
+      const apiText = await apiRes.text();
+      let apiJson: any = null;
+      try {
+        apiJson = apiText ? JSON.parse(apiText) : null;
+      } catch {
+        apiJson = null;
+      }
 
-        const apiRes = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(apiPayload),
-        });
+      if (!apiRes.ok || !apiJson?.ok) {
+        throw new Error(apiJson?.error || `Falha integração (HTTP ${apiRes.status})`);
+      }
 
-        const apiText = await apiRes.text();
-        let apiJson: any = null;
-        try {
-          apiJson = apiText ? JSON.parse(apiText) : null;
-        } catch {
-          apiJson = null;
-        }
+      // ✅ Normaliza retorno:
+      // - Alguns endpoints retornam { ok:true, data:{...} }
+      // - O seu ELITE create-trial retorna { ok:true, username, password, ... } (sem data)
+      const apiData =
+        apiJson &&
+        typeof apiJson === "object" &&
+        apiJson.data &&
+        typeof apiJson.data === "object"
+          ? apiJson.data
+          : apiJson;
 
-        if (!apiRes.ok || !apiJson?.ok) {
-          throw new Error(apiJson?.error || `Erro na API de integração (HTTP ${apiRes.status})`);
-        }
+      // 6) Atualizar dados com resposta (sem quebrar se algum campo não vier)
+      const nextUsername = apiData?.username != null ? String(apiData.username) : "";
+      const nextPassword = apiData?.password != null ? String(apiData.password) : "";
+      const nextM3u =
+        apiData?.m3u_url != null
+          ? String(apiData.m3u_url)
+          : apiData?.m3uUrl != null
+            ? String(apiData.m3uUrl)
+            : "";
 
-        // ✅ Normaliza retorno:
-        // - Alguns endpoints retornam { ok:true, data:{...} }
-        // - O seu ELITE create-trial retorna { ok:true, username, password, ... } (sem data)
-        const apiData =
-          apiJson && typeof apiJson === "object" && apiJson.data && typeof apiJson.data === "object"
-            ? apiJson.data
-            : apiJson;
+      if (nextUsername) apiUsername = nextUsername;
+      if (nextPassword) apiPassword = nextPassword;
+      if (nextM3u) apiM3uUrl = nextM3u;
 
-        // 6) Atualizar dados com resposta (sem quebrar se algum campo não vier)
-        const nextUsername = apiData?.username != null ? String(apiData.username) : "";
-        const nextPassword = apiData?.password != null ? String(apiData.password) : "";
-        const nextM3u =
-          apiData?.m3u_url != null
-            ? String(apiData.m3u_url)
-            : (apiData?.m3uUrl != null ? String(apiData.m3uUrl) : "");
+      console.log("🔵 Dados recebidos da API:", {
+        username: apiUsername,
+        password: apiPassword,
+        m3u_url: apiM3uUrl,
+        exp_date: apiData?.exp_date,
+      });
 
-        if (nextUsername) apiUsername = nextUsername;
-        if (nextPassword) apiPassword = nextPassword;
-        if (nextM3u) apiM3uUrl = nextM3u;
+      // ✅ Reflete na UI imediatamente
+      if (apiUsername) setUsername(apiUsername);
+      if (apiPassword) setPassword(apiPassword);
+      if (apiM3uUrl) setM3uUrl(apiM3uUrl);
 
-        console.log("🔵 Dados recebidos da API:", {
-          username: apiUsername,
-          password: apiPassword,
-          m3u_url: apiM3uUrl,
-          exp_date: apiData?.exp_date,
-        });
-
-        // ✅ Reflete na UI imediatamente
-        if (apiUsername) setUsername(apiUsername);
-        if (apiPassword) setPassword(apiPassword);
-        if (apiM3uUrl) setM3uUrl(apiM3uUrl);
-
-        // exp_date pode vir em segundos OU ms (blindagem)
-        const expRaw = apiData?.exp_date ?? null;
-        if (expRaw != null) {
-          const n = Number(expRaw);
-          if (Number.isFinite(n) && n > 0) {
-            const ms = n > 1e12 ? n : n * 1000; // se já vier em ms, não multiplica
-            const expDate = new Date(ms);
-            if (Number.isFinite(expDate.getTime())) {
-              apiVencimento = expDate.toISOString();
-            }
+      // exp_date pode vir em segundos OU ms (blindagem)
+      const expRaw = apiData?.exp_date ?? null;
+      if (expRaw != null) {
+        const n = Number(expRaw);
+        if (Number.isFinite(n) && n > 0) {
+          const ms = n > 1e12 ? n : n * 1000; // se já vier em ms, não multiplica
+          const expDate = new Date(ms);
+          if (Number.isFinite(expDate.getTime())) {
+            apiVencimento = expDate.toISOString();
           }
         }
+      }
 
-        // 7. Sync (atualizar saldo do servidor)
-const syncUrl =
-  provider === "FAST"
-    ? "/api/integrations/fast/sync"
-    : provider === "NATV"
-      ? "/api/integrations/natv/sync"
-      : provider === "ELITE"
-        ? "/api/integrations/elite/sync"
-        : "";
+      // 7. Sync (atualizar saldo do servidor)
+      const syncUrl =
+        provider === "FAST"
+          ? "/api/integrations/fast/sync"
+          : provider === "NATV"
+            ? "/api/integrations/natv/sync"
+            : provider === "ELITE"
+              ? "/api/integrations/elite/sync"
+              : "";
 
-if (syncUrl) {
-  await fetch(syncUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ integration_id: srv.panel_integration }),
-  });
-}
-
-        // ✅ ENFILEIRAR Toast de sucesso da API
-        queueListToast(isTrialMode ? "trial" : "client", {
-          type: "success",
-          title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
-          message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`
+      if (syncUrl) {
+        await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ integration_id: srv.panel_integration }),
         });
       }
 
-      
-      
-      // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
-      
-    } catch (apiErr: any) {
-      console.error("Erro ao chamar API:", apiErr);
-      
-      // ✅ Enfileira toast de API offline (vai aparecer junto com os outros)
+      // ✅ ENFILEIRAR Toast de sucesso da API
       queueListToast(isTrialMode ? "trial" : "client", {
-        type: "error", // ✅ CORRIGIDO
-        title: isTrialMode ? "Teste Manual Criado" : "Cliente Offline",
-        message: "API indisponível. Cadastro salvo apenas localmente (sem sincronizar com servidor)."
+        type: "success",
+        title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
+        message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`,
       });
     }
+
+    // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
+  } catch (apiErr: any) {
+    const msg = String(apiErr?.message || apiErr || "").trim();
+
+    console.error("Erro ao chamar API:", { apiUrl, apiErr, msg });
+
+    queueListToast(isTrialMode ? "trial" : "client", {
+      type: "error",
+      title: isTrialMode ? "Teste Manual Criado" : "Cliente Offline",
+      message: `Integração falhou${msg ? `: ${msg}` : ""}. Cadastro salvo apenas localmente (sem sincronizar com servidor).`,
+    });
   }
+}
 
   // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
   const { data, error } = await supabaseBrowser.rpc("create_client_and_setup", {

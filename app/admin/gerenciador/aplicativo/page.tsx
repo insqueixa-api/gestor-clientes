@@ -52,6 +52,8 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
 // --- PÁGINA ---
 export default function AppManagerPage() {
   const [apps, setApps] = useState<AppData[]>([]);
+  // ✅ Busca (mesmo padrão da tela de Clientes)
+const [search, setSearch] = useState("");
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,6 +113,8 @@ const costPriority: Record<string, number> = {
   paid: 2,
 };
 
+
+
 const formattedApps = (appsData || [])
   .map((app) => ({
     ...app,
@@ -153,12 +157,40 @@ setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
     loadData();
   }, []);
 
-  // ✅ +++ Agrupamento PRO (Parcerias / Gratuitos / Pagos)
-const groupedApps = {
-  partnership: apps.filter((a) => (a.cost_type ?? "paid") === "partnership"),
-  free: apps.filter((a) => (a.cost_type ?? "paid") === "free"),
-  paid: apps.filter((a) => (a.cost_type ?? "paid") === "paid"),
-};
+  // ✅ Busca aplicada (nome / url / campos / servidor parceria)
+  const filteredApps = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return apps;
+
+    return apps.filter((a) => {
+      const name = String(a.name ?? "").toLowerCase();
+      const url = String(a.info_url ?? "").toLowerCase();
+
+      const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
+      const fieldsText = fields
+        .map((f) => `${f.label ?? ""} ${f.type ?? ""}`)
+        .join(" ")
+        .toLowerCase();
+
+      const serverName = a.partner_server_id
+        ? String(servers.find((s) => s.id === a.partner_server_id)?.name ?? "").toLowerCase()
+        : "";
+
+      return (
+        name.includes(q) ||
+        url.includes(q) ||
+        fieldsText.includes(q) ||
+        serverName.includes(q)
+      );
+    });
+  }, [apps, search, servers]);
+
+  // ✅ +++ Agrupamento PRO (Parcerias / Gratuitos / Pagos) — agora usando filteredApps
+  const groupedApps = {
+    partnership: filteredApps.filter((a) => (a.cost_type ?? "paid") === "partnership"),
+    free: filteredApps.filter((a) => (a.cost_type ?? "paid") === "free"),
+    paid: filteredApps.filter((a) => (a.cost_type ?? "paid") === "paid"),
+  };
 
 
   // --- MANIPULAÇÃO DO MODAL ---
@@ -425,14 +457,39 @@ return (
     Novo Aplicativo
   </button>
 </div>
+{/* ✅ BARRA DE BUSCA (padrão Clientes) */}
+<div className="px-3 sm:px-0">
+  <div className="md:p-4 md:bg-white dark:md:bg-[#161b22] md:border md:border-slate-200 dark:md:border-white/10 md:rounded-xl md:sticky md:top-4 z-20">
+    <div className="flex items-center gap-2">
+      <Input
+        placeholder="Buscar aplicativo (nome, url, campos, servidor...)"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
+      {search.trim() ? (
+        <button
+          onClick={() => setSearch("")}
+          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+          title="Limpar busca"
+        >
+          Limpar
+        </button>
+      ) : null}
+    </div>
+  </div>
+</div>
 
       {/* LISTAGEM */}
       {loading ? (
         <div className="text-center py-10 text-slate-400">Carregando aplicativos...</div>
-      ) : apps.length === 0 ? (
+      ) : filteredApps.length === 0 ? (
         <div className="text-center py-10 text-slate-400 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
-          Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.
+          {apps.length === 0
+            ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
+            : search.trim()
+              ? `Nenhum aplicativo encontrado para "${search.trim()}".`
+              : "Nenhum aplicativo para exibir."}
         </div>
       ) : (
   <div className="space-y-6">
