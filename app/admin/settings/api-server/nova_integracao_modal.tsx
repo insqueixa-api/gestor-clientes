@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-export type IntegrationProvider = "NATV" | "FAST";
+export type IntegrationProvider = "NATV" | "FAST" | "ELITE";
 
 
 export type IntegrationEditPayload = {
@@ -36,6 +36,8 @@ const [integrationName, setIntegrationName] = useState(integration?.integration_
 // ✅ agora preenche no edit
 const [apiToken, setApiToken] = useState("");
 const [apiSecret, setApiSecret] = useState("");
+const [apiBaseUrl, setApiBaseUrl] = useState("");
+
 
 const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
 
@@ -53,7 +55,8 @@ useEffect(() => {
 
       const { data, error } = await supabaseBrowser
         .from("server_integrations")
-        .select("api_token, api_secret, provider, integration_name, is_active")
+        .select("api_token, api_secret, api_base_url, provider, integration_name, is_active")
+
         .eq("id", integration.id)
         .single();
 
@@ -69,6 +72,8 @@ useEffect(() => {
 
       setApiToken(data?.api_token ?? "");
       setApiSecret(data?.api_secret ?? "");
+      setApiBaseUrl(data?.api_base_url ?? "");
+
     } catch (e) {
       // não trava o modal
       console.error(e);
@@ -89,15 +94,20 @@ useEffect(() => {
     if (!provider) return false;
     if (!integrationName.trim()) return false;
 
-// ✅ token sempre obrigatório (criar/editar)
 if (!apiToken.trim()) return false;
 
-// ✅ FAST exige secret sempre
+// FAST exige secret
 if (provider === "FAST" && !apiSecret.trim()) return false;
+
+// ELITE exige base_url + senha
+if (provider === "ELITE" && !apiBaseUrl.trim()) return false;
+if (provider === "ELITE" && !apiSecret.trim()) return false;
 
 return true;
 
-    }, [provider, integrationName, apiToken, apiSecret, isEdit]);
+
+    }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl]);
+
 
 
   async function handleSave() {
@@ -109,47 +119,44 @@ return true;
       if (!tenantId) throw new Error("Tenant não encontrado.");
 
       if (!isEdit) {
-        // ✅ INSERT
-const payload: any = {
-  tenant_id: tenantId,
-  provider,
-  integration_name: integrationName.trim(),
-  api_token: apiToken.trim(),
-  is_active: isActive,
-};
+  const tenantId = await getCurrentTenantId();
+  if (!tenantId) throw new Error("Tenant não encontrado.");
 
-if (provider === "FAST") {
-  payload.api_secret = apiSecret.trim();
-} else {
-  payload.api_secret = null; // garante limpeza se trocar provider
+  const payload: any = {
+    tenant_id: tenantId,
+    provider,
+    integration_name: integrationName.trim(),
+    is_active: isActive,
+    api_token: apiToken.trim(), // NATV/Fast = token | ELITE = usuario
+    api_base_url: provider === "ELITE" ? apiBaseUrl.trim() : null,
+    api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
+  };
+
+  const { error } = await supabaseBrowser
+    .from("server_integrations")
+    .insert(payload);
+
+  if (error) throw error;
+
+  onSuccess();
+  return;
 }
 
-const { error } = await supabaseBrowser.from("server_integrations").insert(payload);
 
-        if (error) throw error;
-
-        onSuccess();
-        return;
-      }
-
-      // ✅ UPDATE
       const patch: any = {
   provider,
   integration_name: integrationName.trim(),
   is_active: isActive,
-  api_token: apiToken.trim(), // ✅ agora sempre salva o valor visível
+  api_token: apiToken.trim(),
+  api_base_url: provider === "ELITE" ? apiBaseUrl.trim() : null,
+  api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
 };
-
-if (provider === "FAST") {
-  patch.api_secret = apiSecret.trim();
-} else {
-  patch.api_secret = null; // ✅ se mudou pra NATV, zera secret
-}
 
 const { error } = await supabaseBrowser
   .from("server_integrations")
   .update(patch)
   .eq("id", integration!.id);
+
 
 
       if (error) throw error;
@@ -196,16 +203,26 @@ const { error } = await supabaseBrowser
             </label>
             <select
               value={provider}
-              onChange={(e) => {
+              
+onChange={(e) => {
   const next = e.target.value as IntegrationProvider;
   setProvider(next);
-  if (next !== "FAST") setApiSecret("");
+
+  // base_url só é usado no ELITE
+  if (next !== "ELITE") setApiBaseUrl("");
+
+  // secret só é usado no FAST e no ELITE
+  // então só limpa quando virar NATV
+  if (next === "NATV") setApiSecret("");
 }}
+
 
               className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="NATV">NaTV</option>
-                <option value="FAST">Fast</option>
+              <option value="FAST">Fast</option>
+              <option value="ELITE">Elite (Painel)</option>
+
 
             </select>
           </div>
@@ -248,6 +265,24 @@ const { error } = await supabaseBrowser
           </div>
 
           <div className="space-y-3">
+
+                {provider === "ELITE" && (
+  <div>
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+      Base URL do painel
+    </label>
+    <input
+      value={apiBaseUrl}
+      onChange={(e) => setApiBaseUrl(e.target.value)}
+      placeholder="https://adminx.offo.dad"
+      className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+      disabled={loadingEdit}
+    />
+    <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+      Ex: https://adminx.offo.dad (sem barra no final).
+    </p>
+  </div>
+)}
   <div>
     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
       Token / Chave API
@@ -255,29 +290,35 @@ const { error } = await supabaseBrowser
     <input
       value={apiToken}
       onChange={(e) => setApiToken(e.target.value)}
-      placeholder={provider === "NATV" ? "Bearer token (sem 'Bearer ')" : "Token do Fast"}
+      placeholder={
+  provider === "NATV"
+    ? "Bearer token (sem 'Bearer ')"
+    : provider === "FAST"
+    ? "Token do Fast"
+    : "Usuário do painel (login)"
+}
+
       className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
       disabled={loadingEdit}
     />
   </div>
 
-  {provider === "FAST" && (
-    <div>
-      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-        Secret Key
-      </label>
-      <input
-        value={apiSecret}
-        onChange={(e) => setApiSecret(e.target.value)}
-        placeholder="Secret Key do Fast"
-        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-        disabled={loadingEdit}
-      />
-      <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-        Obrigatório para autenticação do Fast.
-      </p>
-    </div>
-  )}
+{(provider === "FAST" || provider === "ELITE") && (
+  <div>
+    <label className="block text-[10px] font-bold ...">
+      {provider === "ELITE" ? "Senha" : "Secret Key"}
+    </label>
+    <input
+      value={apiSecret}
+      onChange={(e) => setApiSecret(e.target.value)}
+      placeholder={provider === "ELITE" ? "Senha do painel" : "Secret Key do Fast"}
+      className="w-full h-10 rounded-xl ..."
+      disabled={loadingEdit}
+      type={provider === "ELITE" ? "password" : "text"}
+    />
+  </div>
+)}
+
 
   <p className="text-[11px] text-slate-500 dark:text-white/40">
     {loadingEdit ? "Carregando dados da integração..." : "Esse valor fica visível para facilitar manutenção."}

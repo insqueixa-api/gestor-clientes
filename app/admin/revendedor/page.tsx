@@ -29,11 +29,12 @@ type SortDir = "asc" | "desc";
 
 type ScheduledMsg = {
   id: string;
-  client_id: string; // ✅ banco usa client_id
-  send_at: string;   // timestamptz
+  reseller_id: string; // ✅ banco usa reseller_id (revenda)
+  send_at: string;     // timestamptz
   message: string;
   status?: string | null;
 };
+
 
 type MessageTemplate = { id: string; name: string; content: string };
 
@@ -264,62 +265,67 @@ export default function RevendaPage() {
   }
 
   async function loadMessageTemplates(tid: string) {
-    const { data, error } = await supabaseBrowser
-      .from("message_templates")
-      .select("id,name,content")
-      .eq("tenant_id", tid)
-      .order("name", { ascending: true });
+  const { data, error } = await supabaseBrowser
+    .from("message_templates")
+    .select("id,name,content")
+    .eq("tenant_id", tid)
+    .order("name", { ascending: true });
 
-    if (error) {
-      console.error("Erro ao carregar templates:", error);
-      setMessageTemplates([]);
-      return;
-    }
-
-    const mapped = ((data as any[]) || []).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? "Sem nome"),
-      content: String(r.content ?? ""),
-    })) as MessageTemplate[];
-
-    setMessageTemplates(mapped);
+  if (error) {
+    console.error("Erro ao carregar templates:", error);
+    setMessageTemplates([]);
+    return;
   }
+
+  const list: MessageTemplate[] = ((data as any[]) || []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name ?? ""),
+    content: String(r.content ?? ""),
+  }));
+
+  setMessageTemplates(list);
+}
+
 
   async function loadScheduledForResellers(tid: string, resellerIds: string[]) {
-    if (!resellerIds.length) {
-      setScheduledMap({});
-      return;
-    }
-
-    const { data, error } = await supabaseBrowser
-      .from("client_message_jobs")
-      .select("id, client_id, send_at, message, status")
-      .eq("tenant_id", tid)
-      .in("client_id", resellerIds)
-      .in("status", ["SCHEDULED", "QUEUED"])
-      .order("send_at", { ascending: true })
-      .gte("send_at", new Date().toISOString());
-
-    if (error) {
-      console.error("Erro ao carregar agendamentos:", error);
-      setScheduledMap({});
-      return;
-    }
-
-    const map: Record<string, ScheduledMsg[]> = {};
-    for (const row of (data as any[]) || []) {
-      const cid = String((row as any).client_id);
-      if (!map[cid]) map[cid] = [];
-      map[cid].push({
-        id: String((row as any).id),
-        client_id: cid,
-        send_at: String((row as any).send_at),
-        message: String((row as any).message ?? ""),
-        status: (row as any).status ?? null,
-      });
-    }
-    setScheduledMap(map);
+  if (!resellerIds.length) {
+    setScheduledMap({});
+    return;
   }
+
+  const { data, error } = await supabaseBrowser
+    .from("client_message_jobs")
+    .select("id,reseller_id,send_at,message,status")
+    .eq("tenant_id", tid)
+    .in("reseller_id", resellerIds)
+    .in("status", ["SCHEDULED", "QUEUED"])
+    .order("send_at", { ascending: true })
+    .gte("send_at", new Date().toISOString());
+
+  if (error) {
+    console.error("Erro ao carregar agendamentos:", error);
+    setScheduledMap({});
+    return;
+  }
+
+  const map: Record<string, ScheduledMsg[]> = {};
+  for (const row of (data as any[]) || []) {
+    const rid = String((row as any).reseller_id || "");
+    if (!rid) continue;
+
+    if (!map[rid]) map[rid] = [];
+    map[rid].push({
+      id: String((row as any).id),
+      reseller_id: rid,
+      send_at: String((row as any).send_at),
+      message: String((row as any).message ?? ""),
+      status: (row as any).status ?? null,
+    });
+  }
+
+  setScheduledMap(map);
+}
+
 
   async function loadOpenAlertsCountByTarget(
     tid: string,
@@ -827,7 +833,7 @@ export default function RevendaPage() {
 
     let sendAtIso = "";
     try {
-      sendAtIso = localDateTimeToIso(local);
+      const sendAtRaw = scheduleDate.trim(); // ex: "2026-02-19T10:30" (sem TZ)
     } catch (e: any) {
       addToast("error", "Data/hora inválida", e?.message || "Data/hora inválida.");
       return;
@@ -835,15 +841,32 @@ export default function RevendaPage() {
 
     try {
       setScheduling(true);
-      const { error } = await supabaseBrowser.from("client_message_jobs").insert({
-        tenant_id: tenantId,
-        client_id: showScheduleMsg.resellerId,
-        send_at: sendAtIso,
-        message: msg,
-        status: "SCHEDULED",
-      } as any);
+const token = await getToken();
 
-      if (error) throw error;
+const res = await fetch("/api/whatsapp/envio_agendado", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  cache: "no-store",
+  body: JSON.stringify({
+    tenant_id: tenantId,
+    reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
+    message: msg,
+    send_at: sendAtIso,
+    whatsapp_session: "default",
+  }),
+});
+
+const raw = await res.text();
+let json: any = {};
+try { json = raw ? JSON.parse(raw) : {}; } catch {}
+
+if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
+
+// jobId é o uuid retornado (se você quiser logar/debugar)
+
       addToast("success", "Agendado", "Mensagem agendada com sucesso.");
       setShowScheduleMsg({ open: false, resellerId: null, resellerName: undefined });
       setScheduleText("");
@@ -919,13 +942,14 @@ export default function RevendaPage() {
 
   return (
   <div
-    className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
+    className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
     onClick={closeAllPopups}
   >
 
 
   {/* Topo (Contrato UI: mb-2, pt-0) */}
-  <div className="flex items-center justify-between gap-2 pb-0 mb-2">
+  <div className="px-3 sm:px-0 flex items-center justify-between gap-2 pb-0 mb-2">
+
     {/* Título */}
     <div className="min-w-0 text-left">
       <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
@@ -961,7 +985,7 @@ export default function RevendaPage() {
 
       {/* Barra de Filtros */}
       <div
-        className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 sm:px-0 p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
@@ -973,7 +997,7 @@ export default function RevendaPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar..."
-              className="w-full h-10 px-3 bg-white sm:bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
             />
             {search && (
               <button
@@ -1578,7 +1602,8 @@ export default function RevendaPage() {
                     className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20"
                   >
                     {/* Alterado para flex justify-between para acomodar o botão Excluir */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="px-3 sm:px-0 flex items-center justify-between gap-2 mb-2">
+
                       <div className="text-xs font-extrabold text-slate-600 dark:text-white/70 flex items-center gap-2">
                         <IconClock />
                         <span>{new Date(s.send_at).toLocaleString("pt-BR")}</span>

@@ -79,6 +79,7 @@ export default function ApiServerPage() {
     const u = String(p || "").toUpperCase();
 if (u === "NATV") return "NaTV";
 if (u === "FAST") return "Fast";
+if (u === "ELITE") return "Elite";
 return u || "--";
 
   }
@@ -94,10 +95,13 @@ return u || "--";
   try {
     const provider = String(row.provider || "").toUpperCase();
 
-    const url =
-      provider === "FAST"
-        ? "/api/integrations/fast/sync"
-        : "/api/integrations/natv/sync";
+const url =
+  provider === "FAST"
+    ? "/api/integrations/fast/sync"
+    : provider === "elite"
+    ? "/api/integrations/elite/sync"
+    : "/api/integrations/natv/sync";
+
 
     addToast(
       "success",
