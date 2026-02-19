@@ -334,11 +334,12 @@ const handleGlobalPause = async () => {
   return (
   <>
     {/* 🟢 BARRA DE MONITORAMENTO */}
-    <div 
+<div
   onClick={() => setShowModal(true)}
-  className={`mb-4 mx-1 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all relative z-50
-      ${isGlobalPaused ? 'bg-amber-100 border-amber-300' : 'bg-emerald-50 border-emerald-200'}`}
+  className={`mb-4 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all
+    ${isGlobalPaused ? "bg-amber-100 border-amber-300" : "bg-emerald-50 border-emerald-200"}`}
 >
+
     <div className="flex items-center gap-3">
       <div className="relative flex items-center justify-center w-5 h-5">
         {isGlobalPaused ? (
@@ -862,49 +863,62 @@ return {
   const filtered = automations.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-    {/* 👇 COLOQUE AQUI NO TOPO */}
+    {/* Monitor da fila (com padding padrão e SEM z alto) */}
+    <div className="px-3 sm:px-0 md:px-4">
       <GlobalQueueMonitor addToast={addToast} />
-
-
-
-
-      {/* HEADER */}
-<div className="flex flex-col md:flex-row justify-between items-start gap-3">
-
-  {/* Título esquerda */}
-  <div className="text-left">
-    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-      Automação de Cobranças
-    </h1>
-  </div>
-
-  {/* Ações direita */}
-  <div className="flex gap-3 w-full md:w-auto justify-end">
-
-    <div className="relative flex-1 min-w-[180px] md:w-72">
-      <input 
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar regra..."
-        className="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] text-sm outline-none focus:border-emerald-500 transition-colors dark:text-white"
-      />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-        🔍
-      </span>
     </div>
 
-    <button
-      onClick={() => setWizardState({ show: true, editingRule: null })}
-      className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-    >
-      <span className="text-xl leading-none">+</span>
-      Nova Regra
-    </button>
+    {/* Topo (padrão admin) */}
+    <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
+      <div className="min-w-0 text-left">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+          Automação de Cobranças
+        </h1>
+      </div>
 
-  </div>
-</div>
+      <div className="flex items-center gap-2 justify-end shrink-0">
+        <button
+          onClick={() => setWizardState({ show: true, editingRule: null })}
+          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+        >
+          <span className="text-base md:text-lg leading-none mb-0.5">+</span>
+          Nova Regra
+        </button>
+      </div>
+    </div>
+
+    {/* Barra de busca (padrão admin: sticky no desktop) */}
+    <div className="p-0 px-3 sm:px-0 md:px-4">
+      <div className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-3">
+          Busca
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar regra..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+              🔍
+            </span>
+          </div>
+
+          <button
+            onClick={() => setSearch("")}
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+
 
 
       {/* LISTA (GRID 3 COLUNAS) */}
