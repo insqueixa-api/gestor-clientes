@@ -181,6 +181,43 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
+async function fetchPixManualVars(sb: any, tenantId: string): Promise<Record<string, string>> {
+  // defaults (sempre retorna essas chaves, mesmo sem gateway)
+  const out: Record<string, string> = {
+    pix_manual_cnpj: "",
+    pix_manual_cpf: "",
+    pix_manual_email: "",
+    pix_manual_phone: "",
+  };
+
+  const { data, error } = await sb
+    .from("payment_gateways")
+    .select("priority, config, created_at")
+    .eq("tenant_id", tenantId)
+    .eq("type", "pix_manual")
+    .eq("is_active", true)
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  const list = (data || []).map((r: any) => ({
+    priority: r.priority ?? null,
+    pix_key_type: String(r?.config?.pix_key_type ?? "").trim().toLowerCase(), // cnpj/cpf/email/phone/random
+    pix_key: String(r?.config?.pix_key ?? "").trim(),
+  }));
+
+  const pick = (t: string) => list.find((p) => p.pix_key_type === t && p.pix_key);
+
+  out.pix_manual_cnpj = pick("cnpj")?.pix_key || "";
+  out.pix_manual_cpf = pick("cpf")?.pix_key || "";
+  out.pix_manual_email = pick("email")?.pix_key || "";
+  out.pix_manual_phone = pick("phone")?.pix_key || "";
+
+  return out;
+}
+
+
 function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
   const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
@@ -267,9 +304,17 @@ const linkPagamento = "";
 // 💰 Financeiro
 link_pagamento: linkPagamento,
 pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ PIN inicial padrão
-pix_copia_cola: row.pix_code || "",
-chave_pix_manual: row.pix_manual || "",
 valor_fatura: valorFaturaStr,
+
+// ✅ NOVO: moeda do cliente (tem que vir correta da sua view)
+moeda_cliente: String(row.price_currency || "").trim(),
+
+// ✅ NOVO: PIX manual por tipo (vai ser preenchido no POST via payment_gateways)
+pix_manual_cnpj: "",
+pix_manual_cpf: "",
+pix_manual_email: "",
+pix_manual_phone: "",
+
 
 
     // Legado (Para não quebrar o que já existia)
@@ -552,6 +597,25 @@ const vars = buildTemplateVars({
   recipientType,
   recipientRow: wa.row,
 });
+
+// ✅ injeta PIX manual por tipo (payment_gateways)
+try {
+  const pixVars = await fetchPixManualVars(sb, tenantId);
+  Object.assign(vars, pixVars);
+
+  // LOG leve (opcional)
+  console.log("[WA][send_now][pix_manual]", {
+    tenantId,
+    has_cnpj: !!vars.pix_manual_cnpj,
+    has_cpf: !!vars.pix_manual_cpf,
+    has_email: !!vars.pix_manual_email,
+    has_phone: !!vars.pix_manual_phone,
+  });
+} catch (e: any) {
+  console.log("[WA][send_now][pix_manual] falhou", e?.message ?? e);
+  // segue sem pix, mas sem quebrar envio
+}
+
 
 // ✅ Gera/reutiliza token do portal (somente quando for USER)
 // (INTERNAL não precisa disso e pode falhar por não ter created_by real)

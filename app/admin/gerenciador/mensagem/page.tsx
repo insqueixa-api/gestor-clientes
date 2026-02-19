@@ -79,7 +79,7 @@ const TAG_GROUPS = [
     { label: "{valor_fatura}", desc: "Valor da renovação" },
 
     // ✅ NOVO (muito importante)
-    { label: "{moeda_cliente}", desc: "Moeda do cliente (clients.price_currency: BRL/USD/EUR)" },
+    { label: "{moeda_cliente}", desc: "BRL/USD/EUR)" },
 
     // ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
     { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
