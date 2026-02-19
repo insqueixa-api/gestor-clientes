@@ -875,6 +875,7 @@ return (
       <div className="min-w-0 text-left">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
           Automação de Cobranças
+          
         </h1>
       </div>
 

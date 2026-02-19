@@ -19,6 +19,16 @@ function slugify(text: string) {
     .replace(/^_+|_+$/g, "");
 }
 
+function getSyncUrlByProvider(providerRaw: unknown) {
+  const provider = String(providerRaw || "").toUpperCase().trim();
+
+  if (provider === "FAST") return "/api/integrations/fast/sync";
+  if (provider === "NATV") return "/api/integrations/natv/sync";
+  if (provider === "ELITE") return "/api/integrations/elite/sync";
+
+  throw new Error(`Provider não suportado para sync: ${provider || "(vazio)"}`);
+}
+
 type Currency = "BRL" | "USD" | "EUR";
 
 type Props = {
@@ -239,10 +249,8 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           const provider = String(integ?.provider || "").toUpperCase();
 
           // 2) Força um sync antes de aplicar saldo
-          const syncUrl =
-            provider === "FAST"
-              ? "/api/integrations/fast/sync"
-              : "/api/integrations/natv/sync";
+const syncUrl = getSyncUrlByProvider(provider);
+
 
           const syncRes = await fetch(syncUrl, {
             method: "POST",
@@ -322,10 +330,8 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
 
         const provider = String(integ?.provider || "").toUpperCase();
-        const syncUrl =
-          provider === "FAST"
-            ? "/api/integrations/fast/sync"
-            : "/api/integrations/natv/sync";
+const syncUrl = getSyncUrlByProvider(provider);
+
 
         const syncRes = await fetch(syncUrl, {
           method: "POST",

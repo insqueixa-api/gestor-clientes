@@ -449,11 +449,13 @@ if (isCron) {
     const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
 
     // ✅ BUSCA TODOS OS TENANTS QUE TÊM AUTOMAÇÕES ATIVAS
-    const { data: tenants, error: tenantsErr } = await sb
-      .from("billing_automations")
-      .select("tenant_id")
-      .eq("is_active", true)
-      .eq("is_automatic", true);
+const { data: tenants, error: tenantsErr } = await sb
+  .from("billing_automations")
+  .select("tenant_id")
+  .eq("is_active", true)
+  .eq("is_automatic", true)
+  .eq("execution_status", "RUNNING");
+
 
     if (tenantsErr) {
       console.log("[BILLING][get_tenants] erro:", tenantsErr.message);
@@ -498,23 +500,31 @@ if (isCron) {
 
   // ✅ busca jobs prontos para enviar
   const { data: jobs, error: jobsErr } = await sb
-    .from("client_message_jobs")
-    .select(`
-      id,
-      tenant_id,
-      client_id,
-      reseller_id,
-      whatsapp_session,
-      message,
-      send_at,
-      created_by,
-      automation_id,
-      billing_automations ( delay_min )
-    `)
-    .in("status", ["QUEUED", "SCHEDULED"])
-    .lte("send_at", new Date().toISOString())
-    .order("send_at", { ascending: true })
-    .limit(30);
+  .from("client_message_jobs")
+  .select(`
+    id,
+    tenant_id,
+    client_id,
+    reseller_id,
+    whatsapp_session,
+    message,
+    send_at,
+    created_by,
+    automation_id,
+    billing_automations (
+      delay_min,
+      is_active,
+      is_automatic,
+      execution_status,
+      schedule_time
+    )
+  `)
+  .in("status", ["QUEUED", "SCHEDULED"])
+  .lte("send_at", new Date().toISOString())
+  .order("send_at", { ascending: true })
+  .limit(30);
+
+
 
   if (jobsErr) return NextResponse.json({ error: jobsErr.message }, { status: 500 });
   if (!jobs?.length) return NextResponse.json({ ok: true, processed: 0 });
@@ -534,6 +544,39 @@ if (isCron) {
 
       if (lockErr) throw new Error(lockErr.message);
       if (!locked) continue;
+
+      // ✅ BLOQUEIO: não envia job automático se a automação não estiver RUNNING
+const automationConfig = Array.isArray((job as any).billing_automations)
+  ? (job as any).billing_automations[0]
+  : (job as any).billing_automations;
+
+if ((job as any).automation_id && automationConfig) {
+  const aIsActive = automationConfig.is_active === true;
+  const aIsAutomatic = automationConfig.is_automatic === true;
+  const aStatus = String(automationConfig.execution_status || "IDLE").toUpperCase();
+
+  // Se a regra estiver desativada → cancela SEMPRE
+  if (!aIsActive) {
+    await sb
+      .from("client_message_jobs")
+      .update({ status: "CANCELLED", error_message: "Automação desativada (is_active=false)" })
+      .eq("id", job.id);
+    continue;
+  }
+
+  // Se for automático e não estiver RUNNING → cancela
+  if (aIsAutomatic && aStatus !== "RUNNING") {
+    await sb
+      .from("client_message_jobs")
+      .update({
+        status: "CANCELLED",
+        error_message: `Automação não executando (execution_status=${aStatus})`,
+      })
+      .eq("id", job.id);
+    continue;
+  }
+}
+
 
       // resolve destino
       const rawClientId = String((job as any).client_id || "").trim();

@@ -19,6 +19,26 @@ function normalizeBaseUrl(u: string) {
   return s;
 }
 
+/** decodificação simples pro wire:snapshot (vem com &quot; etc) */
+function decodeHtmlEntities(input: string) {
+  return String(input || "")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x0*27;/gi, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function safeJsonParse<T = any>(s: string): T | null {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return null;
+  }
+}
+
 function textFromHtml(html: string) {
   const $ = cheerio.load(html);
   return $("body").text().replace(/\s+/g, " ").trim();
@@ -29,7 +49,6 @@ function parseLooseNumber(input: string): number | null {
   const raw = String(input || "").trim();
   if (!raw) return null;
 
-  // pega só o primeiro bloco numérico "parecido"
   const m = raw.match(/-?\d[\d.,]*/);
   if (!m) return null;
 
@@ -42,17 +61,14 @@ function parseLooseNumber(input: string): number | null {
   if (hasDot && hasComma) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (hasComma && !hasDot) {
-    // "63,0" => "63.0"
     s = s.replace(",", ".");
-  } else {
-    // "63.0" já ok, "1234" ok
   }
 
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
 
-// tenta achar saldo no texto
+// tenta achar saldo no texto (fallback)
 function extractCredits(text: string): number | null {
   const t = text;
 
@@ -75,13 +91,13 @@ function extractCredits(text: string): number | null {
   return null;
 }
 
-// tenta achar owner id no texto
+// tenta achar owner id no texto (fallback)
 function extractOwnerId(text: string): number | null {
   const t = text;
 
   const patterns = [
     /(owner\s*id|id\s*do\s*usu[aá]rio|usu[aá]rio\s*id)\s*[:#]?\s*(\d{1,18})/i,
-    /\bID\b\s*[:#]?\s*(\d{1,18})/i,
+    /\bOwner\b\s*\bID\b\s*[:#]?\s*(\d{1,18})/i,
   ];
 
   for (const re of patterns) {
@@ -93,6 +109,67 @@ function extractOwnerId(text: string): number | null {
     }
   }
   return null;
+}
+
+type EliteParsed = {
+  user_id: number | null;
+  owner_id: number | null;
+  username: string | null;
+  credits: number | null;
+  email: string | null;
+};
+
+/**
+ * ✅ Forma correta: parse do Livewire wire:snapshot
+ * No /user/profile vem `data.state[0]` com { id, owner_id, username, credits, email, ... }
+ */
+function extractEliteFromLivewireSnapshot(html: string): EliteParsed | null {
+  const $ = cheerio.load(html);
+
+  const nodes = $("[wire\\:snapshot]").toArray();
+  for (const n of nodes) {
+    const raw = $(n).attr("wire:snapshot");
+    if (!raw) continue;
+
+    const decoded = decodeHtmlEntities(raw);
+    const snap = safeJsonParse<any>(decoded);
+    if (!snap) continue;
+
+    const u = snap?.data?.state?.[0];
+    if (!u || typeof u !== "object") continue;
+
+    // heurística: precisa ter ao menos 2 desses campos pra considerar "perfil"
+    const hasKey =
+      ("id" in u) || ("owner_id" in u) || ("username" in u) || ("credits" in u) || ("email" in u);
+
+    if (!hasKey) continue;
+
+    const userId = Number.isFinite(Number(u.id)) ? Number(u.id) : null;
+    const ownerId = Number.isFinite(Number(u.owner_id)) ? Number(u.owner_id) : null;
+
+    const username = typeof u.username === "string" ? u.username.trim() : null;
+    const email = typeof u.email === "string" ? u.email.trim() : null;
+
+    // credits às vezes vem number, às vezes string
+    const credits =
+      typeof u.credits === "number"
+        ? u.credits
+        : (typeof u.credits === "string" ? parseLooseNumber(u.credits) : null);
+
+    // se achou algo útil, retorna
+    if (userId != null || ownerId != null || username || credits != null || email) {
+      return { user_id: userId, owner_id: ownerId, username, credits, email };
+    }
+  }
+
+  return null;
+}
+
+/** fallback extra: tenta pegar créditos do topo (#navbarCredits) */
+function extractCreditsFromNavbar(html: string): number | null {
+  const $ = cheerio.load(html);
+  const t = $("#navbarCredits").text().trim();
+  return parseLooseNumber(t);
 }
 
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = "America/Sao_Paulo") {
@@ -195,36 +272,65 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
 
-    const username = String(integ.api_token || "").trim();   // ELITE: usuário
-    const password = String(integ.api_secret || "").trim();  // ELITE: senha
+    const loginUser = String(integ.api_token || "").trim();   // ELITE: usuário/email
+    const loginPass = String(integ.api_secret || "").trim();  // ELITE: senha
     const baseUrl = String(integ.api_base_url || "").trim();
 
-    if (!baseUrl || !username || !password) {
+    if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
     }
 
-    const { fc } = await offoLogin(baseUrl, username, password);
+    const { fc } = await offoLogin(baseUrl, loginUser, loginPass);
 
-    // tenta extrair dados do profile e do log de créditos
-    const profileUrl = `${normalizeBaseUrl(baseUrl)}/user/profile`;
-    const creditsUrl = `${normalizeBaseUrl(baseUrl)}/dashboard/logs-creditos`;
+    const base = normalizeBaseUrl(baseUrl);
+    const profileUrl = `${base}/user/profile`;
+    const creditsUrl = `${base}/dashboard/logs-creditos`;
 
+    // ✅ profile é a fonte principal (tem wire:snapshot com id/owner/credits/username)
     const profileHtml = await fetchHtml(fc, profileUrl, profileUrl);
-    const creditsHtml = await fetchHtml(fc, creditsUrl, profileUrl);
 
+    // tenta via snapshot
+    const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
+
+    // créditos pode vir também pelo topo (navbar) — ainda dentro do /user/profile
+    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
+
+    // fallback secundário: página de logs de crédito (se necessário)
+    let creditsHtml = "";
+    let creditsText = "";
+    if (!fromSnap?.credits && creditsFromNavbar == null) {
+      creditsHtml = await fetchHtml(fc, creditsUrl, profileUrl);
+      creditsText = textFromHtml(creditsHtml);
+    }
+
+    // fallback por texto (último recurso)
     const profileText = textFromHtml(profileHtml);
-    const creditsText = textFromHtml(creditsHtml);
 
-    const ownerId = extractOwnerId(profileText) ?? extractOwnerId(creditsText);
-    const credits = extractCredits(profileText) ?? extractCredits(creditsText);
+    const user_id = fromSnap?.user_id ?? null;
+    const owner_id =
+      fromSnap?.owner_id ??
+      extractOwnerId(profileText) ??
+      (creditsText ? extractOwnerId(creditsText) : null) ??
+      null;
 
-    // monta patch só com o que achou
+    const credits =
+      (fromSnap?.credits ?? null) ??
+      creditsFromNavbar ??
+      extractCredits(profileText) ??
+      (creditsText ? extractCredits(creditsText) : null) ??
+      null;
+
+    const panel_username = fromSnap?.username ?? null;
+    const panel_email = fromSnap?.email ?? null;
+
+    // ✅ Atualiza integração com o que achou
     const patch: any = {
       credits_last_sync_at: new Date().toISOString(),
-      owner_username: username,
+      // melhor guardar o username REAL do painel quando existir; senão cai no login informado
+      owner_username: (panel_username || loginUser),
     };
 
-    if (ownerId != null) patch.owner_id = ownerId;
+    if (owner_id != null) patch.owner_id = owner_id;
     if (credits != null) patch.credits_last_known = credits;
 
     await sb.from("server_integrations").update(patch).eq("id", integration_id);
@@ -232,8 +338,18 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       message: "ELITE OK. Sync atualizado.",
-      owner_id: ownerId ?? null,
-      credits_last_known: credits ?? null,
+      parsed: {
+        user_id,
+        owner_id,
+        username: panel_username,
+        email: panel_email,
+        credits,
+      },
+      saved: {
+        owner_id: owner_id ?? null,
+        owner_username: patch.owner_username,
+        credits_last_known: credits ?? null,
+      },
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Falha no sync ELITE." }, { status: 500 });
