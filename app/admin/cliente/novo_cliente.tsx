@@ -630,7 +630,9 @@ const addToast = (type: "success" | "error" | "warning", title: string, message?
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   });
 
-const [registerRenewal, setRegisterRenewal] = useState(!isTrialMode); // ✅ Cliente: ON por padrão
+// ✅ Cliente: ON por padrão na CRIAÇÃO
+// ✅ EDIÇÃO: NUNCA renova (fica false e o toggle nem aparece)
+const [registerRenewal, setRegisterRenewal] = useState(() => (!isTrialMode && !isEditing));
 const [sendPaymentMsg, setSendPaymentMsg] = useState(!isTrialMode); // ✅ Cliente: ON por padrão
 
 // ✅ TRIAL: envio de mensagem de teste (padrão LIGADO)
@@ -1876,8 +1878,8 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
 
       }
 
-      // RENOVAÇÃO AUTOMÁTICA (SE MARCADA)
-if (!isTrialMode && registerRenewal && clientId) {
+      // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)
+if (!isEditing && !isTrialMode && registerRenewal && clientId) {
   const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
   const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
     p_tenant_id: tid,
@@ -1887,6 +1889,7 @@ if (!isTrialMode && registerRenewal && clientId) {
     p_notes: `Renovado no cadastro. Obs: ${notes || ""}`,
     p_new_vencimento: dueISO,
   });
+
 
   if (renewError) {
     addToast("error", "Falha ao registrar renovação", renewError.message);
@@ -1984,26 +1987,26 @@ function handleSave() {
        return;
     }
 
-    // Se estiver marcada a renovação, ABRE O MODAL
-    if (registerRenewal && !isTrialMode) {
-      const months = PLAN_MONTHS[selectedPlanPeriod] ?? 1;
-      const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
-      
-      const details = [
-          `Cliente: ${name.trim()}`,
-          `Plano: ${PLAN_LABELS[selectedPlanPeriod]} (${months} mês/meses)`,
-          `Telas: ${screens}`,
-          `Valor: ${fmtMoney(currency, rawPlanPrice)}`,
-          `Novo vencimento: ${toBRDate(dueDate)} às ${dueTime}`
-      ];
+    // ✅ Só confirma "cadastro + renovação" quando for CRIAÇÃO (nunca na edição)
+if (!isEditing && registerRenewal && !isTrialMode) {
+  const months = PLAN_MONTHS[selectedPlanPeriod] ?? 1;
+  const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
 
-      setConfirmModal({
-          open: true,
-          title: "Confirmar Cadastro e Renovação",
-          details
-      });
-      return;
-    }
+  const details = [
+    `Cliente: ${name.trim()}`,
+    `Plano: ${PLAN_LABELS[selectedPlanPeriod]} (${months} mês/meses)`,
+    `Telas: ${screens}`,
+    `Valor: ${fmtMoney(currency, rawPlanPrice)}`,
+    `Novo vencimento: ${toBRDate(dueDate)} às ${dueTime}`
+  ];
+
+  setConfirmModal({
+    open: true,
+    title: "Confirmar Cadastro e Renovação",
+    details
+  });
+  return;
+}
 
     // Se não tiver renovação, salva direto
     executeSave();
