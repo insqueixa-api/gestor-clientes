@@ -258,9 +258,11 @@ const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 |
 const linkPagamento = "";
 
 
-  // 4. PREÇO (Mapeado exatamente de price_amount)
-  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
-  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace('.', ',')}` : "";
+// 4. PREÇO (Mapeado exatamente de price_amount)
+// ✅ agora envia só o valor (sem moeda), pois a moeda pode variar (BRL/USD/EUR)
+const priceVal = row.price_amount ? Number(row.price_amount) : 0;
+const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}` : "";
+
 
   // 5. RETORNO DE TODAS AS VARIÁVEIS
   return {

@@ -156,8 +156,15 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   // ✅ link_pagamento será preenchido na hora do envio (manual/cron) via token
   const linkPagamento = "";
 
-  const priceVal = row.price_amount ? Number(row.price_amount) : 0;
-  const valorFaturaStr = priceVal > 0 ? `R$ ${priceVal.toFixed(2).replace(".", ",")}` : "";
+// 4. PREÇO / MOEDA
+const priceVal = row.price_amount ? Number(row.price_amount) : 0;
+
+// ✅ valor_fatura: SOMENTE o valor (sem moeda)
+const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}` : "";
+
+// ✅ moeda_cliente (você disse que já está funcionando no view)
+const moedaCliente = String(row.price_currency || row.currency || "").trim(); // BRL/USD/EUR
+
 
   return {
     saudacao_tempo: saudacaoTempo(now),
@@ -191,11 +198,28 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
 
-    link_pagamento: linkPagamento,
-    pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ NOVO
-    pix_copia_cola: row.pix_code || "",
-    chave_pix_manual: row.pix_manual || "",
-    valor_fatura: valorFaturaStr,
+    // 💰 Financeiro
+link_pagamento: linkPagamento,
+pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ PIN inicial padrão
+
+// ✅ moeda do cliente (view)
+moeda_cliente: moedaCliente,
+
+// (mantém se você ainda usa pix copia e cola automático)
+pix_copia_cola: row.pix_code || "",
+
+// ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
+// OBS: aqui fica vazio e a gente preenche no POST logo depois do buildTemplateVars
+pix_manual_cnpj: "",
+pix_manual_cpf: "",
+pix_manual_email: "",
+pix_manual_phone: "",
+
+// ✅ compat legado (se algum template antigo ainda tiver {chave_pix_manual})
+chave_pix_manual: "",
+
+valor_fatura: valorFaturaStr,
+
 
     nome: displayName,
     tipo_destino: params.recipientType,
@@ -276,6 +300,35 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
   if (lastErr) throw new Error(lastErr.message);
   throw new Error("Revenda não encontrada nas views de revenda");
 }
+
+async function fetchPixManualMap(sb: any, tenantId: string) {
+  const { data, error } = await sb
+    .from("payment_gateways")
+    .select("priority, created_at, config")
+    .eq("tenant_id", tenantId)
+    .eq("type", "pix_manual")
+    .eq("is_active", true)
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  // pega o 1º de cada tipo (pela ordem priority/created_at)
+  const out: Record<string, string> = {};
+
+  for (const g of (data || []) as any[]) {
+    const cfg = (g?.config || {}) as any;
+    const tRaw = String(cfg?.pix_key_type || "").trim().toLowerCase(); // cnpj/cpf/email/phone/random
+    const kRaw = String(cfg?.pix_key || "").trim();
+
+    if (!tRaw || !kRaw) continue;
+
+    if (!out[tRaw]) out[tRaw] = kRaw;
+  }
+
+  return out; // { cnpj: "...", cpf:"...", email:"...", phone:"...", random:"..." }
+}
+
 
 // =========================
 // ✅ NOVO: send_at sempre normalizado para UTC
@@ -586,63 +639,84 @@ console.log("[WA][cron_send]", {
 
 
       // ✅ tags
-      const vars = buildTemplateVars({
-        recipientType,
-        recipientRow: (wa as any).row,
-      });
-
-      // ✅ token v2 (sem auth.uid, valida por created_by)
-      try {
-        const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
-        const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
-
-        if (whatsappUsername) {
-          const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
-          const createdBy = String((job as any).created_by || "").trim();
-
-          const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-  p_tenant_id: String(job.tenant_id),
-  p_whatsapp_username: whatsappUsername,
-  p_created_by: createdBy,
-  p_label: "Cobranca automatica",
-  p_expires_at: expiresAt,
+const vars = buildTemplateVars({
+  recipientType,
+  recipientRow: (wa as any).row,
 });
 
-if (tokErr) throw new Error(tokErr.message);
+// ✅ garante que as chaves existam mesmo se o buildTemplateVars ainda não tiver elas
+(vars as any).pix_manual_cnpj = (vars as any).pix_manual_cnpj ?? "";
+(vars as any).pix_manual_cpf = (vars as any).pix_manual_cpf ?? "";
+(vars as any).pix_manual_email = (vars as any).pix_manual_email ?? "";
+(vars as any).pix_manual_phone = (vars as any).pix_manual_phone ?? "";
 
-const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-const portalToken = rowTok?.token ? String(rowTok.token) : "";
+// ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
+try {
+  const tid = String(job.tenant_id || "").trim();
+  const pix = await fetchPixManualMap(sb, tid);
 
-// ✅ LOG seguro (NÃO vaza token / whatsapp)
-console.log("[PORTAL][cron_token:v2]", {
-  jobId_suffix: String(job.id || "").slice(-6),
-  tenantId: job.tenant_id,
-  createdBy_prefix: createdBy ? String(createdBy).slice(0, 8) : null,
-  phone_suffix: whatsappUsername ? String(whatsappUsername).slice(-4) : null,
-  ok: true,
-  hasToken: !!portalToken,
-  token_suffix: portalToken ? portalToken.slice(-6) : null,
-});
+  (vars as any).pix_manual_cnpj = pix.cnpj || "";
+  (vars as any).pix_manual_cpf = pix.cpf || "";
+  (vars as any).pix_manual_email = pix.email || "";
+  (vars as any).pix_manual_phone = pix.phone || "";
 
-if (portalToken) {
-  const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br")
-    .trim()
-    .replace(/\/+$/, "");
-
-  vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
-} else {
-  console.log("[PORTAL][token:v2] retorno sem token");
+  // ✅ compat (se existir template antigo usando {chave_pix_manual})
+  (vars as any).chave_pix_manual =
+    pix.cnpj || pix.cpf || pix.email || pix.phone || pix.random || "";
+} catch (e: any) {
+  console.log("[WA][pix_manual][cron] falhou", e?.message ?? e);
 }
 
+// ✅ token v2 (sem auth.uid, valida por created_by)
+try {
+  const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
+  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
 
-        } else {
-          console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
-        }
-      } catch (e: any) {
-        console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
-      }
+  if (whatsappUsername) {
+    const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
+    const createdBy = String((job as any).created_by || "").trim();
 
-      const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
+    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+      p_tenant_id: String(job.tenant_id),
+      p_whatsapp_username: whatsappUsername,
+      p_created_by: createdBy,
+      p_label: "Cobranca automatica",
+      p_expires_at: expiresAt,
+    });
+
+    if (tokErr) throw new Error(tokErr.message);
+
+    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+    const portalToken = rowTok?.token ? String(rowTok.token) : "";
+
+    console.log("[PORTAL][cron_token:v2]", {
+      jobId_suffix: String(job.id || "").slice(-6),
+      tenantId: job.tenant_id,
+      createdBy_prefix: createdBy ? String(createdBy).slice(0, 8) : null,
+      phone_suffix: whatsappUsername ? String(whatsappUsername).slice(-4) : null,
+      ok: true,
+      hasToken: !!portalToken,
+      token_suffix: portalToken ? portalToken.slice(-6) : null,
+    });
+
+    if (portalToken) {
+      const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br")
+        .trim()
+        .replace(/\/+$/, "");
+
+      vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+    } else {
+      console.log("[PORTAL][token:v2] retorno sem token");
+    }
+  } else {
+    console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
+  }
+} catch (e: any) {
+  console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
+}
+
+const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
+
 
       const res = await fetch(`${baseUrl}/send`, {
         method: "POST",
