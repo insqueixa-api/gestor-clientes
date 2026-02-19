@@ -345,7 +345,7 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
     safeServerLog("payment-status: failed sync", (e as any)?.message);
   }
 
-  // 7) WhatsApp (best-effort) — ✅ mande o x-internal-secret também (se seu endpoint exigir)
+    // 7) WhatsApp (best-effort) — agora valida resposta e loga erro real
   try {
     const vencBR = fmtBRDateFromISO(expDateISO);
     const msg =
@@ -354,9 +354,13 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
       `📅 Novo vencimento: ${vencBR}\n\n` +
       `Se precisar de ajuda, responda esta mensagem.`;
 
-    await fetch(`${origin}/api/whatsapp/envio_agora`, {
+    const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
       method: "POST",
-      headers,
+      headers: {
+        ...headers, // já tem Content-Type e x-internal-secret
+        Accept: "application/json",
+      },
+      cache: "no-store",
       body: JSON.stringify({
         tenant_id: tenantId,
         client_id: client.id,
@@ -364,9 +368,28 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
         whatsapp_session: "default",
       }),
     });
+
+    const waRaw = await waRes.text();
+
+    if (!waRes.ok) {
+      safeServerLog("[WA][envio_agora] HTTP error", {
+        status: waRes.status,
+        statusText: waRes.statusText,
+        // não vaza telefone nem token; só um pedaço da resposta
+        body_preview: String(waRaw || "").slice(0, 300),
+        tenantId,
+        clientId_suffix: String(client.id).slice(-6),
+      });
+    } else {
+      safeServerLog("[WA][envio_agora] ok", {
+        tenantId,
+        clientId_suffix: String(client.id).slice(-6),
+      });
+    }
   } catch (e) {
-    safeServerLog("payment-status: failed whatsapp", (e as any)?.message);
+    safeServerLog("payment-status: failed whatsapp (exception)", (e as any)?.message);
   }
+
 
   return { expDateISO };
 }

@@ -2,6 +2,64 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
+export const runtime = "nodejs";
+
+function isInternal(req: Request) {
+  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
+  const received = String(req.headers.get("x-internal-secret") || "").trim();
+
+  if (!expected || !received) return false;
+
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function resolveTenantSenderUserId(sb: any, tenantId: string): Promise<string | null> {
+  // 1) tenta owner (se existir coluna role)
+  try {
+    const { data: owner } = await sb
+      .from("tenant_members")
+      .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "owner")
+      .maybeSingle();
+
+    if (owner?.user_id) return String(owner.user_id);
+  } catch {
+    // se não existir coluna role, cai pro fallback abaixo
+  }
+
+  // 2) fallback: primeiro membro do tenant
+let first: any = null;
+
+try {
+  const { data } = await sb
+    .from("tenant_members")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  first = data;
+} catch {
+  const { data } = await sb
+    .from("tenant_members")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .limit(1);
+
+  first = data;
+}
+
+const u = Array.isArray(first) ? first[0]?.user_id : null;
+return u ? String(u) : null;
+
+}
+
+
 export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
@@ -329,11 +387,8 @@ if (hasInternalHeader && !internal) {
 
 let authedUserId = "";
 
-// ✅ INTERNAL: não exige Bearer
-if (internal) {
-  authedUserId = "internal";
-} else {
-  // ✅ USER: exige Bearer
+// ✅ USER: exige Bearer
+if (!internal) {
   const token = getBearerToken(req);
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -346,21 +401,6 @@ if (internal) {
 
   authedUserId = data.user.id;
 }
-
-
-function isInternal(req: Request) {
-  const expected = String(process.env.INTERNAL_API_SECRET || "").trim();
-  const received = String(req.headers.get("x-internal-secret") || "").trim();
-
-  if (!expected || !received) return false;
-
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-
-  return crypto.timingSafeEqual(a, b);
-}
-
 
 // =========================
 // 2) Body
@@ -375,6 +415,17 @@ try {
 
 const tenantId = String((body as any).tenant_id || "").trim();
 const message = String((body as any).message || "").trim();
+
+if (!tenantId || !message) {
+  return NextResponse.json({ error: "tenant_id e message são obrigatórios" }, { status: 400 });
+}
+
+// ✅ INTERNAL: resolve um user_id real do tenant para gerar x-session-key válido
+if (internal) {
+  const senderUserId = await resolveTenantSenderUserId(sb, tenantId);
+  authedUserId = senderUserId || "internal";
+}
+
 
 
 
