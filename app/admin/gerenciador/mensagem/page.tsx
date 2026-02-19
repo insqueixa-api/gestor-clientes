@@ -74,13 +74,22 @@ const TAG_GROUPS = [
   title: "💰 Financeiro",
   color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
   tags: [
-    { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" }, // ✅ Link do token (/renew?t=...)
-    { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" }, // ✅ NOVO: logo após o link
-    { label: "{pix_copia_cola}", desc: "Código Pix (Auto)" },
-    { label: "{chave_pix_manual}", desc: "Chave manual cadastrada" },
+    { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
+    { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
     { label: "{valor_fatura}", desc: "Valor da renovação" },
+
+    // ✅ NOVO (muito importante)
+    { label: "{moeda_cliente}", desc: "Moeda do cliente (clients.price_currency: BRL/USD/EUR)" },
+
+    // ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
+    { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
+    { label: "{pix_manual_cpf}", desc: "Chave PIX (tipo CPF)" },
+    { label: "{pix_manual_email}", desc: "Chave PIX (tipo E-mail)" },
+    { label: "{pix_manual_phone}", desc: "Chave PIX (tipo Telefone)" },
+    
   ],
 },
+
 
 ];
 
@@ -521,13 +530,14 @@ function EditorModal({
 
   if (typeof document === "undefined") return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div
-        className="w-full max-w-6xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
+return createPortal(
+  <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+    <div
+      className="w-full h-full sm:h-auto max-w-6xl bg-white dark:bg-[#161b22] border-0 sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[90vh]"
+      onClick={(e) => e.stopPropagation()}
+    >
+
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl">
               📝
@@ -550,7 +560,7 @@ function EditorModal({
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
           {/* MOBILE: Variáveis como filtro acima do conteúdo */}
           <div className="lg:hidden border-b border-slate-100 dark:border-white/5 bg-white dark:bg-[#161b22]">
-            <div className="p-4">
+            <div className="p-3">
               <button
                 type="button"
                 onClick={() => setMobileTagsOpen((v) => !v)}
@@ -613,7 +623,7 @@ function EditorModal({
           </div>
 
           {/* Editor */}
-          <div className="flex-1 p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-slate-100 dark:border-white/5">
+          <div className="flex-1 p-3 sm:p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar lg:border-r border-slate-100 dark:border-white/5">
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
                 Nome do Modelo (Identificação interna)
@@ -637,7 +647,7 @@ function EditorModal({
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Olá {primeiro_nome}, sua fatura..."
-                  className="w-full h-full min-h-[300px] p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
+                  className="w-full h-full min-h-[300px] p-4 sm:p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
 
               </div>
@@ -680,7 +690,7 @@ function EditorModal({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
           <div className="text-xs text-slate-400 hidden sm:block">
             💡 Dica: Use <strong>{`{saudacao_tempo}`}</strong> para enviar "Bom dia" automático.
           </div>
