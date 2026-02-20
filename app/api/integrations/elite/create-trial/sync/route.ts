@@ -471,7 +471,25 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
       })();
 
     // ✅ 5) Determina o nome de usuário desejado (prioriza o que o front enviou!)
-    const desiredUsername = bodyDesiredUsername ? normalizeUsernameFromNotes(bodyDesiredUsername) : normalizeUsernameFromNotes(notes);
+    let desiredUsername = bodyDesiredUsername ? normalizeUsernameFromNotes(bodyDesiredUsername) : normalizeUsernameFromNotes(notes);
+
+    // ✅ LÓGICA DE BLINDAGEM: Adiciona 3 números e garante mínimo de 12 caracteres
+    if (desiredUsername) {
+      const random3 = Math.floor(100 + Math.random() * 900).toString(); // Gera 3 números aleatórios
+      desiredUsername = `${desiredUsername}${random3}`;
+
+      // Se ainda tiver menos de 12, preenche com mais números até dar 12
+      if (desiredUsername.length < 12) {
+        const paddingNeeded = 12 - desiredUsername.length;
+        const padding = Math.floor(Math.random() * Math.pow(10, paddingNeeded))
+          .toString()
+          .padStart(paddingNeeded, "0");
+        desiredUsername = `${desiredUsername}${padding}`;
+      }
+
+      // Limita a 32 caracteres para não estourar o limite do painel
+      desiredUsername = desiredUsername.slice(0, 32);
+    }
 
     const canRename =
       rename_from_notes &&

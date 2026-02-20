@@ -1759,8 +1759,7 @@ if (nextExternalUserId) {
         exp_date: apiData?.exp_date,
       });
 
-      // ✅ Reflete na UI imediatamente
-      if (apiUsername) setUsername(apiUsername);
+// ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
       if (apiPassword) setPassword(apiPassword);
       if (apiM3uUrl) setM3uUrl(apiM3uUrl);
 
