@@ -115,6 +115,11 @@ export async function POST(req: NextRequest) {
     // Retry logic
     let attemptUsername = baseUser || `trial${Date.now()}`;
 
+    // ✅ BLINDAGEM FAST: Se o nome for muito curto, o painel rejeita, gerando falso loop
+    if (attemptUsername.length < 8) {
+      attemptUsername = `${attemptUsername}${Math.floor(Math.random() * 90000) + 10000}`;
+    }
+
     const attemptPassword =
       (typeof passwordRaw === "string" && passwordRaw.trim())
         ? passwordRaw.trim()
@@ -177,11 +182,11 @@ if (looksLikeDuplicateUsername(mens)) {
       }
     }
 
-    if (!finalData) {
-      // ✅ não expõe body do FAST
+if (!finalData) {
+      // ✅ Expõe o erro REAL do painel para pararmos de adivinhar o que deu errado
       const msg = looksLikeDuplicateUsername(lastErrMsg)
-        ? "Não foi possível gerar um username disponível (tentativas esgotadas)."
-        : "Falha ao criar trial no FAST.";
+        ? `Tentativas esgotadas. Erro do painel: ${lastErrMsg}`
+        : `Falha no FAST. Detalhe: ${lastErrMsg}`;
       return jsonError(502, msg);
     }
 

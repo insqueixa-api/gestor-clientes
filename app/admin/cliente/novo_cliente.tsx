@@ -1648,17 +1648,18 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
       }
 
       // 4. Montar payload
-const apiPayload: any = {
-  integration_id: srv.panel_integration,
-  username: apiUsername,
-  password: apiPassword || undefined,
+      const apiPayload: any = {
+        integration_id: srv.panel_integration,
+        tenant_id: tid, // ✅ INCLUÍDO: O Elite exige o envio explícito do tenant_id
+        username: apiUsername,
+        password: apiPassword || undefined,
 
-  // ✅ NOVO: manda a tecnologia que o usuário escolheu no modal
-  technology: finalTechnology,
+        // ✅ NOVO: manda a tecnologia que o usuário escolheu no modal
+        technology: finalTechnology,
 
-  // ✅ opcional (se você quiser já usar no create-trial sem depender do sync)
-  notes: notes?.trim() ? notes.trim() : null,
-};
+        // ✅ opcional (se você quiser já usar no create-trial sem depender do sync)
+        notes: notes?.trim() ? notes.trim() : null,
+      };
 
       if (isTrialMode) {
         apiPayload.hours = testHours;
