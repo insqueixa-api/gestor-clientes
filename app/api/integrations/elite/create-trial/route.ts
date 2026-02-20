@@ -3,10 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import { CookieJar } from "tough-cookie";
 import fetchCookie from "fetch-cookie";
 import * as cheerio from "cheerio";
-import crypto from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const TZ_SP = "America/Sao_Paulo";
 
 // ----------------- helpers base -----------------
 function mustEnv(name: string) {
@@ -16,7 +17,9 @@ function mustEnv(name: string) {
 }
 
 function normalizeBaseUrl(u: string) {
-  const s = String(u || "").trim().replace(/\/+$/, "");
+  const s = String(u || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(s)) throw new Error("api_base_url inválida (precisa começar com http/https).");
   return s;
 }
@@ -25,36 +28,6 @@ function getBearer(req: Request) {
   const a = req.headers.get("authorization") || "";
   if (a.toLowerCase().startsWith("bearer ")) return a.slice(7).trim();
   return "";
-}
-
-function randDigits(n: number) {
-  let out = "";
-  for (let i = 0; i < n; i++) out += String(crypto.randomInt(0, 10));
-  return out;
-}
-
-function normalizeBaseUsername(v: unknown) {
-  const raw = String(v ?? "").trim();
-  return raw.replace(/[^a-zA-Z0-9]/g, "");
-}
-
-/**
- * Regra:
- * - Se base >= 12: base + 3 números
- * - Se base < 12: completa até 15
- */
-function buildEliteUsername(baseInput: unknown) {
-  const base = normalizeBaseUsername(baseInput);
-
-  // Elite normalmente trabalha com usernames curtos (muito comum limite 15).
-  // Vamos garantir exatamente 15 chars:
-  const targetLen = 15;
-
-  const clipped = base.slice(0, targetLen);
-  const need = targetLen - clipped.length;
-
-  if (need <= 0) return clipped;
-  return clipped + randDigits(need);
 }
 
 async function readSafeBody(res: Response) {
@@ -88,8 +61,122 @@ function looksLikeLoginHtml(text: string) {
   return /\/login\b/i.test(t) && /csrf/i.test(t);
 }
 
+function redactPreview(s: string) {
+  const t = String(s || "");
+  // evita vazar senha em trace/preview por acidente
+  return t
+    .replace(/("password"\s*:\s*")[^"]*(")/gi, '$1***$2')
+    .replace(/("passwordx"\s*:\s*")[^"]*(")/gi, '$1***$2')
+    .slice(0, 250);
+}
+
+// ----------------- vencimento: parse + timezone -----------------
+type DtParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+function parseEliteDateTime(raw: unknown): DtParts | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+
+  // ISO com timezone → deixa o Date lidar
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(s) || /^\d{4}-\d{2}-\d{2}T/.test(s)) return null;
+
+  // dd/mm/yyyy hh:mm(:ss)
+  let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const day = Number(m[1]);
+    const month = Number(m[2]);
+    const year = Number(m[3]);
+    const hour = Number(m[4] ?? 0);
+    const minute = Number(m[5] ?? 0);
+    const second = Number(m[6] ?? 0);
+    return { year, month, day, hour, minute, second };
+  }
+
+  // yyyy-mm-dd hh:mm(:ss)  ou  yyyy-mm-ddThh:mm(:ss)
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    const hour = Number(m[4] ?? 0);
+    const minute = Number(m[5] ?? 0);
+    const second = Number(m[6] ?? 0);
+    return { year, month, day, hour, minute, second };
+  }
+
+  return null;
+}
+
+function zonedTimeToUtcIso(parts: DtParts, timeZone: string) {
+  // truque: começa com um "palpite" em UTC e ajusta pelo offset real do fuso naquele instante
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  function partsFromDate(d: Date) {
+    const p = fmt.formatToParts(d);
+    const get = (t: string) => Number(p.find((x) => x.type === t)?.value);
+    return {
+      year: get("year"),
+      month: get("month"),
+      day: get("day"),
+      hour: get("hour"),
+      minute: get("minute"),
+      second: get("second"),
+    };
+  }
+
+  const desiredAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+
+  let utc = desiredAsUtc; // palpite inicial
+  for (let i = 0; i < 2; i++) {
+    const got = partsFromDate(new Date(utc));
+    const gotAsUtc = Date.UTC(got.year, got.month - 1, got.day, got.hour, got.minute, got.second);
+    const diff = desiredAsUtc - gotAsUtc;
+    utc = utc + diff;
+    if (diff === 0) break;
+  }
+
+  return new Date(utc).toISOString();
+}
+
+function normalizeExpToUtcIso(raw: unknown, timeZone = TZ_SP): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+
+  // ISO com timezone → direto
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(s) || /^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
+
+  // formatos locais (sem timezone) → interpretar como São Paulo e converter
+  const parts = parseEliteDateTime(s);
+  if (parts) return zonedTimeToUtcIso(parts, timeZone);
+
+  // último fallback: tenta Date mesmo assim
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString();
+
+  return null;
+}
+
 // ----------------- login ELITE -----------------
-async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = "America/Sao_Paulo") {
+async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
 
   const jar = new CookieJar();
@@ -178,13 +265,7 @@ async function fetchCsrfFromDashboardIptv(fc: any, baseUrl: string) {
   return csrf;
 }
 
-async function eliteFetch(
-  fc: any,
-  baseUrl: string,
-  pathWithQuery: string,
-  init: RequestInit,
-  csrf?: string
-) {
+async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string) {
   const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
   const refererIptv = `${baseUrl}/dashboard/iptv`;
 
@@ -198,7 +279,6 @@ async function eliteFetch(
   headers.set("pragma", headers.get("pragma") || "no-cache");
 
   if (csrf) {
-    // Browser usa x-csrf-token (igual seu curl)
     headers.set("x-csrf-token", csrf);
   }
 
@@ -207,7 +287,7 @@ async function eliteFetch(
 }
 
 /**
- * ✅ Fallback para descobrir o ID do trial:
+ * ✅ Fallback para descobrir o ID (e também username/senha/vencimento):
  * usa o endpoint server-side do DataTables em /dashboard/iptv?...
  * e filtra por search[value]=trialnotes
  */
@@ -225,7 +305,6 @@ function buildDtQuery(searchValue: string) {
   p.set("order[0][dir]", "desc");
   p.set("order[0][name]", "");
 
-  // colunas (baseado no teu curl — o backend costuma exigir isso)
   const cols = [
     { data: "", name: "", searchable: "false", orderable: "false" },
     { data: "id", name: "", searchable: "true", orderable: "true" },
@@ -298,17 +377,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
     }
 
-    // obs: trialnotes (NOTAS) = o “apelido” pra você achar depois no painel
-    const desiredNotes = String(body?.trialnotes || body?.desired_username || body?.username || "").trim();
-    if (!desiredNotes) {
-      return NextResponse.json({ ok: false, error: "Informe trialnotes (ou desired_username/username)." }, { status: 400 });
+    // ✅ trialnotes (NOTAS) = o “apelido” pra você achar depois no painel
+    // (mantém compatibilidade com payload antigo)
+    const trialNotes = String(body?.trialnotes || body?.desired_username || body?.username || "").trim();
+    if (!trialNotes) {
+      return NextResponse.json(
+        { ok: false, error: "Informe trialnotes (ou desired_username/username)." },
+        { status: 400 }
+      );
     }
-
-    // username final:
-    // - se o user mandou desired_username explícito, usa do jeito que vier
-    // - senão, gera um username “padronizado”
-    const finalUsername =
-      String(body?.desired_username || "").trim() || buildEliteUsername(desiredNotes);
 
     // supabase (service) + valida usuário via JWT do client
     const sb = createClient(
@@ -345,7 +422,7 @@ export async function POST(req: Request) {
     const base = normalizeBaseUrl(baseUrl);
 
     // 1) login
-    const { fc } = await offoLogin(base, loginUser, loginPass);
+    const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
     trace.push({ step: "login", ok: true });
 
     // 2) csrf pós-login (do /dashboard/iptv)
@@ -356,7 +433,7 @@ export async function POST(req: Request) {
     const createForm = new FormData();
     createForm.set("_token", csrf);
     createForm.set("trialx", "1");
-    createForm.set("trialnotes", desiredNotes);
+    createForm.set("trialnotes", trialNotes);
 
     const createRes = await eliteFetch(
       fc,
@@ -366,7 +443,6 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           accept: "application/json",
-          // content-type do FormData o fetch seta sozinho
         },
         body: createForm,
       },
@@ -379,11 +455,10 @@ export async function POST(req: Request) {
       status: createRes.status,
       ct: createRes.headers.get("content-type"),
       finalUrl: (createRes as any)?.url || null,
-      preview: String(createParsed.text || "").slice(0, 250),
+      preview: redactPreview(createParsed.text),
     });
 
     if (!createRes.ok) {
-      // se veio HTML de login, é CSRF/cookie/referer
       const hint = looksLikeLoginHtml(createParsed.text) ? " (parece redirect/login → CSRF/referer)" : "";
       return NextResponse.json(
         {
@@ -396,14 +471,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3.1) tenta id do response (às vezes não vem)
+    // ✅ tenta extrair do retorno do maketrial (alguns painéis devolvem username/senha/vencimento)
     let createdId =
       pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
 
-    // 3.2) fallback: achar pelo datatable (search=value=trialnotes)
+    let serverUsername =
+      pickFirst(createParsed.json, ["username", "data.username", "user.username", "data.user.username"]) ?? null;
+
+    let serverPassword =
+      pickFirst(createParsed.json, ["password", "data.password", "user.password", "data.user.password"]) ?? null;
+
+    let expRaw =
+      pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
+
+    // 3.2) fallback: buscar no DataTables por trialnotes (pega id/username/password/formatted_exp_date)
     let rowFromTable: any = null;
-    if (!createdId) {
-      const table = await findTrialByNotes(fc, base, csrf, desiredNotes);
+    if (!createdId || !serverUsername || !serverPassword || !expRaw) {
+      const table = await findTrialByNotes(fc, base, csrf, trialNotes);
       trace.push({
         step: "datatable_lookup",
         ok: table.ok,
@@ -412,8 +496,18 @@ export async function POST(req: Request) {
 
       if ((table as any).ok && (table as any).found) {
         rowFromTable = (table as any).rows?.[0] || null;
-        const idCandidate = rowFromTable?.id;
-        if (idCandidate) createdId = String(idCandidate);
+
+        if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
+        if (!serverUsername && rowFromTable?.username) serverUsername = String(rowFromTable.username);
+        if (!serverPassword && rowFromTable?.password) serverPassword = String(rowFromTable.password);
+
+        // normalmente vem como "formatted_exp_date" em horário SP
+        if (!expRaw) {
+          expRaw =
+            rowFromTable?.formatted_exp_date ??
+            rowFromTable?.exp_date ??
+            null;
+        }
       }
     }
 
@@ -422,171 +516,100 @@ export async function POST(req: Request) {
         ok: true,
         provider: "ELITE",
         created: true,
-        updated_username: false,
-        username: finalUsername,
+        external_user_id: null,
+        trialnotes: trialNotes,
+        username: serverUsername,
+        server_username: serverUsername,
+        password: serverPassword,
+        server_password: serverPassword,
+        expires_at_raw: expRaw,
+        expires_at_utc: normalizeExpToUtcIso(expRaw, TZ_SP),
         note:
-          "Trial criado, mas não consegui descobrir o ID automaticamente. Me mande o response do maketrial (raw) e/ou o JSON do /dashboard/iptv (datatable) para refinarmos o parse.",
+          "Trial criado, mas não consegui descobrir o ID automaticamente. (Sem ID, não dá pra confirmar detalhes.)",
         trace,
         raw_create: createParsed.json ?? createParsed.text,
       });
     }
 
-    // 4) details (pegar password + bouquets)
-    const detailsRes = await eliteFetch(
-      fc,
-      base,
-      `/api/iptv/${createdId}`,
-      {
-        method: "GET",
-        headers: {
-          accept: "application/json",
+    // 4) details (opcional, mas ajuda a garantir que pegamos user/pass/exp mesmo quando o maketrial não devolve tudo)
+    // Só chama se ainda faltar algo.
+    if (!serverUsername || !serverPassword || !expRaw) {
+      const detailsRes = await eliteFetch(
+        fc,
+        base,
+        `/api/iptv/${createdId}`,
+        {
+          method: "GET",
+          headers: { accept: "application/json" },
         },
-      },
-      csrf
-    );
+        csrf
+      );
 
-    const detailsParsed = await readSafeBody(detailsRes);
-    trace.push({
-      step: "details",
-      status: detailsRes.status,
-      ct: detailsRes.headers.get("content-type"),
-      preview: String(detailsParsed.text || "").slice(0, 250),
-    });
-
-    if (!detailsRes.ok) {
-      return NextResponse.json({
-        ok: true,
-        provider: "ELITE",
-        created: true,
-        updated_username: false,
-        external_user_id: String(createdId),
-        username: finalUsername,
-        note: "Trial criado, mas falhou ao ler detalhes (para aplicar update automático).",
-        trace,
-        details_preview: String(detailsParsed.text || "").slice(0, 900),
+      const detailsParsed = await readSafeBody(detailsRes);
+      trace.push({
+        step: "details",
+        status: detailsRes.status,
+        ct: detailsRes.headers.get("content-type"),
+        preview: redactPreview(detailsParsed.text),
       });
+
+      if (detailsRes.ok) {
+        const details = detailsParsed.json ?? {};
+
+        if (!serverUsername) {
+          serverUsername =
+            pickFirst(details, ["username", "data.username", "user.username", "data.user.username"]) ??
+            serverUsername;
+        }
+
+        if (!serverPassword) {
+          serverPassword =
+            pickFirst(details, ["password", "data.password", "user.password", "data.user.password"]) ??
+            serverPassword;
+        }
+
+        if (!expRaw) {
+          expRaw =
+            pickFirst(details, [
+              "exp_date",
+              "expires_at",
+              "data.exp_date",
+              "data.expires_at",
+              "user.exp_date",
+              "data.user.exp_date",
+              "formatted_exp_date",
+              "data.formatted_exp_date",
+            ]) ?? expRaw;
+        }
+      }
     }
 
-    const details = detailsParsed.json ?? {};
-    const currentPassword =
-      pickFirst(details, ["password", "data.password", "user.password", "data.user.password"]) ??
-      rowFromTable?.password ??
-      "";
+    // ✅ normaliza vencimento: o Elite costuma mandar em horário SP (sem timezone)
+    const expiresAtUtc = normalizeExpToUtcIso(expRaw, TZ_SP);
 
-    const bouquetsRaw =
-      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids"]) ?? [];
+    return NextResponse.json({
+      ok: true,
+      provider: "ELITE",
+      created: true,
 
-    const bouquets: Array<string> = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
+      external_user_id: String(createdId),
 
-    // 5) update username + notes
-const updForm = new FormData();
+      // ✅ o que você enviou (vai pro campo notas no Elite)
+      trialnotes: trialNotes,
 
-// ✅ segurança: mande também o _token no body (muitos backends exigem)
-// (mesmo que o header x-csrf-token exista)
-updForm.set("_token", csrf);
+      // ✅ o que o Elite devolveu (É ISSO QUE VOCÊ VAI GUARDAR NO SEU BANCO)
+      username: serverUsername,
+      server_username: serverUsername,
 
-updForm.set("user_id", String(createdId));
+      password: serverPassword,
+      server_password: serverPassword,
 
-// ✅ alguns painéis aceitam "username", outros "usernamex".
-// Pra não depender de variação, mande os dois:
-updForm.set("username", finalUsername);
-updForm.set("usernamex", finalUsername);
+      // ✅ vencimento pronto pra gravar no Supabase (timestamptz) sem divergência
+      expires_at_raw: expRaw,
+      expires_at_utc: expiresAtUtc,
 
-// idem password
-updForm.set("password", String(currentPassword || ""));
-updForm.set("passwordx", String(currentPassword || ""));
-
-// ✅ notas: você usa trialnotes pra achar no painel.
-// mantenha reseller_notes e também trialnotes (pra garantir que o search volte)
-updForm.set("reseller_notes", desiredNotes);
-updForm.set("trialnotes", desiredNotes);
-
-for (const b of bouquets) {
-  updForm.append("bouquet[]", String(b));
-}
-
-const updRes = await eliteFetch(
-  fc,
-  base,
-  `/api/iptv/update/${createdId}`,
-  {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-    },
-    body: updForm,
-  },
-  csrf
-);
-
-const updParsed = await readSafeBody(updRes);
-trace.push({
-  step: "update",
-  status: updRes.status,
-  ct: updRes.headers.get("content-type"),
-  preview: String(updParsed.text || "").slice(0, 250),
-});
-
-// ❗ NÃO confie só em status 200: pode vir HTML de login/redirect ou JSON de erro
-const updText = String(updParsed.text || "");
-const updLooksLogin = looksLikeLoginHtml(updText) || /<html/i.test(updText);
-
-if (!updRes.ok || updLooksLogin) {
-  return NextResponse.json({
-    ok: true,
-    provider: "ELITE",
-    created: true,
-    updated_username: false,
-    external_user_id: String(createdId),
-    username: finalUsername,
-    server_username: finalUsername,
-    password: String(currentPassword || ""),
-    note: "Trial criado, mas o update de username não confirmou (status/HTML).",
-    trace,
-    update_preview: updText.slice(0, 900),
-    update_json: updParsed.json ?? null,
-  });
-}
-
-// ✅ 5.1) CONFIRMAÇÃO REAL: buscar novamente no DataTables pelo mesmo apelido (notes)
-// e ler o username do row com id = createdId
-let appliedUsername = finalUsername;
-
-const afterTable = await findTrialByNotes(fc, base, csrf, desiredNotes);
-trace.push({
-  step: "datatable_after_update",
-  ok: (afterTable as any).ok,
-  found: (afterTable as any).found,
-});
-
-if ((afterTable as any).ok && (afterTable as any).found) {
-  const rows = (afterTable as any).rows || [];
-  const match = rows.find((r: any) => String(r?.id) === String(createdId)) || rows[0];
-  const u = match?.username;
-  if (u) appliedUsername = String(u);
-}
-
-// ✅ se o Elite não aplicou, a gente devolve updated_username=false (mesmo com 200)
-const didUpdate = appliedUsername === finalUsername;
-
-return NextResponse.json({
-  ok: true,
-  provider: "ELITE",
-  created: true,
-  updated_username: didUpdate,
-  external_user_id: String(createdId),
-
-  // ✅ devolva as duas chaves (muitos fronts usam server_username)
-  username: appliedUsername,
-  server_username: appliedUsername,
-
-  password: String(currentPassword || ""),
-  note: didUpdate ? null : "Elite respondeu OK, mas o username não apareceu aplicado no DataTables.",
-  trace,
-  update_json: updParsed.json ?? null,
-});
-
-    
+      trace,
+    });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || "Unknown error", trace: trace.slice(-8) },
