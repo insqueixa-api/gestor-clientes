@@ -430,27 +430,7 @@ function Switch({
     </div>
   );
 
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative w-12 h-7 rounded-full transition-colors border ${
-          checked
-            ? "bg-emerald-600 border-emerald-600"
-            : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
-        }`}
-        aria-pressed={checked}
-      >
-        <span
-          className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-    </div>
-  );
+  
 }
 
 function PhoneRow({
@@ -1553,18 +1533,8 @@ if (registerRenewal && serverId) {
 
       const provider = String(integ?.provider || "").toUpperCase();
 
-      // ✅ NOVO: Buscar nome do servidor diretamente do banco
-      try {
-        const { data: srvData } = await supabaseBrowser
-          .from("servers")
-          .select("name")
-          .eq("id", serverId)
-          .single();
-
-        serverName = srvData?.name || "Servidor";
-      } catch {
-        serverName = "Servidor";
-      }
+      // ✅ pega do state já carregado (sem query extra)
+serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
 
       // 3. Montar URL da API
       apiUrl = "";
@@ -1600,30 +1570,48 @@ if (registerRenewal && serverId) {
       }
 
       // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
-      const { data: sess } = await supabaseBrowser.auth.getSession();
-      const token = sess.session?.access_token || "";
+      const { data: sess, error: sessErr } = await supabaseBrowser.auth.getSession();
+const token = sess?.session?.access_token;
 
-      const apiRes = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(apiPayload),
-      });
+if (sessErr) throw new Error(`Sessão inválida: ${sessErr.message}`);
+if (!token) throw new Error("Sem sessão ativa. Recarregue a página e faça login novamente.");
 
-      // ✅ parse seguro (evita crash se vier texto/HTML/empty)
-      const apiText = await apiRes.text();
-      let apiJson: any = null;
-      try {
-        apiJson = apiText ? JSON.parse(apiText) : null;
-      } catch {
-        apiJson = null;
-      }
+const apiRes = await fetch(apiUrl, {
+  method: "POST",
+  credentials: "include", // ✅ garante cookies se sua rota usa createRouteHandlerClient
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`, // ✅ sempre manda
+  },
+  body: JSON.stringify(apiPayload),
+});
 
-      if (!apiRes.ok || !apiJson?.ok) {
-        throw new Error(apiJson?.error || `Falha integração (HTTP ${apiRes.status})`);
-      }
+const apiText = await apiRes.text();
+
+// parse seguro
+let apiJson: any = null;
+try {
+  apiJson = apiText ? JSON.parse(apiText) : null;
+} catch {
+  apiJson = null;
+}
+
+// ✅ aceita variações comuns: ok / success / status
+const okFlag =
+  Boolean(apiJson?.ok) ||
+  Boolean(apiJson?.success) ||
+  String(apiJson?.status || "").toLowerCase() === "ok";
+
+// se não ok, tenta extrair erro do JSON, senão usa o texto bruto
+if (!apiRes.ok || !okFlag) {
+  const errMsg =
+    apiJson?.error ||
+    apiJson?.message ||
+    (apiText && apiText.slice(0, 300)) ||
+    `Falha integração (HTTP ${apiRes.status})`;
+
+  throw new Error(errMsg);
+}
 
       // ✅ Normaliza retorno:
       // - Alguns endpoints retornam { ok:true, data:{...} }
@@ -1685,13 +1673,21 @@ if (registerRenewal && serverId) {
               ? "/api/integrations/elite/sync"
               : "";
 
-      if (syncUrl) {
-        await fetch(syncUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ integration_id: srv.panel_integration }),
-        });
-      }
+if (syncUrl) {
+  const syncRes = await fetch(syncUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ integration_id: srv.panel_integration }),
+  });
+
+  if (!syncRes.ok) {
+    const t = await syncRes.text().catch(() => "");
+    console.warn("⚠️ Sync falhou:", syncRes.status, t);
+  }
+}
 
       // ✅ ENFILEIRAR Toast de sucesso da API
       queueListToast(isTrialMode ? "trial" : "client", {
