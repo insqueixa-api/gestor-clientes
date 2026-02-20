@@ -495,27 +495,20 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
     if (canRename) {
       const updForm = new FormData();
 
-      // muitos backends exigem _token também no body
-      updForm.set("_token", csrf);
-
+      // ✅ AJUSTE CRÍTICO: Removidos "_token", "username" e "password". 
+      // O painel Elite exige estritamente apenas os campos abaixo, caso contrário rejeita a edição.
       updForm.set("user_id", String(external_user_id));
-
-      // alguns aceitam "usernamex", outros "username" — manda os dois
       updForm.set("usernamex", desiredUsername);
-      updForm.set("username", desiredUsername);
-
-      // idem password (preservar a atual)
       updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
-      updForm.set("password", String(currentPassword || rowFromTable?.password || ""));
 
-      // não “mudar” a nota: preserva (mas manda pra não apagar)
       if (notes) {
         updForm.set("reseller_notes", notes);
-        updForm.set("trialnotes", notes);
       }
 
       // bouquets (preserva)
-      for (const b of bouquets) updForm.append("bouquet[]", String(b));
+      if (bouquets && bouquets.length > 0) {
+        for (const b of bouquets) updForm.append("bouquet[]", String(b));
+      }
 
       const updRes = await eliteFetch(
         fc,
@@ -613,10 +606,16 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
       expSpText ||
       "";
 
-    const finalExpIso =
-      (finalExpSpText ? parseFormattedBrDateTimeToIso(finalExpSpText, tz) : null) ||
-      expIso ||
-      null;
+    // ✅ AJUSTE DE VENCIMENTO: Tenta capturar o Timestamp Unix absoluto (em segundos) que a API devolve.
+    // Isso evita 100% de erros de fuso horário.
+    let finalExpIso = null;
+    const rawExpDateNum = pickFirst(details2, ["exp_date", "data.exp_date", "user.exp_date"]);
+    
+    if (typeof rawExpDateNum === "number" || (typeof rawExpDateNum === "string" && /^\d{10}$/.test(rawExpDateNum))) {
+      finalExpIso = new Date(Number(rawExpDateNum) * 1000).toISOString();
+    } else {
+      finalExpIso = (finalExpSpText ? parseFormattedBrDateTimeToIso(finalExpSpText, tz) : null) || expIso || null;
+    }
 
     return NextResponse.json({
       ok: true,
