@@ -946,32 +946,32 @@ export default function PagamentosPage() {
     return (
   <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
     {/* Toast + Confirm (sempre no topo, z alto) */}
-    <div className="relative z-[999999] px-3 sm:px-0">
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
-      {ConfirmUI}
-    </div>
+<div className="relative z-[999999] px-3 sm:px-0">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+  {ConfirmUI}
+</div>
 
     {/* HEADER (padrão Clientes/Trials) */}
     <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
-      <div className="min-w-0 text-left">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
-          Pagamentos
-        </h1>
-      </div>
+  <div className="min-w-0">
+    <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+      Pagamentos
+    </h1>
+  </div>
 
-      <div className="flex items-center gap-2 justify-end shrink-0">
-        <button
-          onClick={() => {
-            setEditingGateway(null);
-            setModalOpen(true);
-          }}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-        >
-          <span className="text-base leading-none">+</span>
-          Nova Integração
-        </button>
-      </div>
-    </div>
+  <div className="flex items-center gap-2 justify-end shrink-0">
+    <button
+      onClick={() => {
+        setEditingGateway(null);
+        setModalOpen(true);
+      }}
+      className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+    >
+      <span className="text-base leading-none">+</span>
+      Nova Integração
+    </button>
+  </div>
+</div>
 
     {/* CONTEÚDO */}
     <div className="px-3 sm:px-0 space-y-6">

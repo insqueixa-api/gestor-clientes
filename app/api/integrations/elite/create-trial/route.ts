@@ -8,7 +8,7 @@ import crypto from "crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ----------------- helpers base (iguais ao seu padrão) -----------------
+// ----------------- helpers base -----------------
 function mustEnv(name: string) {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env: ${name}`);
@@ -19,6 +19,14 @@ function normalizeBaseUrl(u: string) {
   const s = String(u || "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(s)) throw new Error("api_base_url inválida (precisa começar com http/https).");
   return s;
+}
+
+function getOrigin(u: string) {
+  try {
+    return new URL(u).origin;
+  } catch {
+    return u;
+  }
 }
 
 function getBearer(req: Request) {
@@ -78,7 +86,51 @@ function pickFirst(obj: any, paths: string[]) {
   return null;
 }
 
-// ----------------- login ELITE (baseado no seu sync) -----------------
+function extractCsrfFromHtml(html: string) {
+  const $ = cheerio.load(html);
+  const formToken = $('input[name="_token"]').attr("value") || "";
+  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
+  const csrf = (metaToken || formToken).trim();
+  return csrf || "";
+}
+
+async function fetchHtml(fc: any, url: string, referer?: string) {
+  const r = await fc(url, {
+    method: "GET",
+    headers: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      "user-agent": "Mozilla/5.0",
+      ...(referer ? { referer } : {}),
+    },
+    redirect: "follow",
+  });
+
+  const text = await r.text();
+  return { ok: r.ok, status: r.status, url: (r as any)?.url || url, text, headers: r.headers };
+}
+
+function looksLikeLogin(html: string) {
+  const t = String(html || "").toLowerCase();
+  return t.includes('name="password"') && t.includes('name="email"') && t.includes("/login");
+}
+
+function looksLikeCsrfExpired(html: string) {
+  const t = String(html || "").toLowerCase();
+  return t.includes("419") || t.includes("page expired") || t.includes("csrf") || t.includes("token mismatch");
+}
+
+async function getCookieValue(jar: CookieJar, url: string, name: string) {
+  const cookies = await new Promise<any[]>((resolve, reject) => {
+    jar.getCookies(url, (err, arr) => (err ? reject(err) : resolve(arr || [])));
+  });
+  const found = cookies.find((c) => String(c.key).toLowerCase() === name.toLowerCase());
+  return found ? String(found.value || "") : "";
+}
+
+// ----------------- login ELITE -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = "America/Sao_Paulo") {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
 
@@ -97,19 +149,16 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
       pragma: "no-cache",
       "user-agent": "Mozilla/5.0",
     },
+    redirect: "follow",
   });
 
-  const html = await r1.text();
-  const $ = cheerio.load(html);
-  const formToken = $('input[name="_token"]').attr("value") || "";
-  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-  const csrfToken = (metaToken || formToken).trim();
-
-  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+  const loginHtml = await r1.text();
+  const csrfLogin = extractCsrfFromHtml(loginHtml);
+  if (!csrfLogin) throw new Error("Não achei CSRF token no HTML de /login.");
 
   // 2) POST /login
   const body = new URLSearchParams();
-  body.set("_token", csrfToken);
+  body.set("_token", csrfLogin);
   body.set("timezone", tz);
   body.set("email", username);
   body.set("password", password);
@@ -119,7 +168,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "content-type": "application/x-www-form-urlencoded",
-      origin: baseUrl,
+      origin: getOrigin(baseUrl),
       referer: loginUrl,
       "cache-control": "no-cache",
       pragma: "no-cache",
@@ -130,28 +179,65 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
   });
 
   const finalUrl = (r2 as any)?.url || "";
-  if (String(finalUrl).includes("/login")) {
+  const postHtml = await r2.text();
+
+  if (String(finalUrl).includes("/login") || looksLikeLogin(postHtml)) {
     throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
   }
 
-  // ✅ retorno: fetch-cookie client + csrf
-  return { fc, baseUrl, csrfToken, tz };
+  // 3) ✅ PRIME autenticado: pega CSRF do layout logado (muito comum ser diferente do login)
+  const dashUrl = `${baseUrl}/dashboard`;
+  const dash = await fetchHtml(fc, dashUrl, dashUrl);
+
+  // se /dashboard redirecionou pra login, o login não “colou”
+  if (String(dash.url).includes("/login") || looksLikeLogin(dash.text)) {
+    throw new Error("Sessão não persistiu após login (dashboard voltou pra login).");
+  }
+
+  const csrfAuth = extractCsrfFromHtml(dash.text) || csrfLogin;
+
+  return {
+    fc,
+    jar,
+    baseUrl,
+    tz,
+    csrfLogin,
+    csrfAuth,
+    dashboardUrl: dash.url || dashUrl,
+  };
 }
 
-async function eliteFetch(fc: any, baseUrl: string, path: string, init: RequestInit, csrf?: string) {
-  const url = baseUrl.replace(/\/+$/, "") + path;
+async function eliteFetch(
+  fc: any,
+  jar: CookieJar,
+  baseUrl: string,
+  path: string,
+  init: RequestInit,
+  csrfMeta?: string,
+  referer?: string
+) {
+  const base = baseUrl.replace(/\/+$/, "");
+  const url = base + path;
+  const origin = getOrigin(base);
 
   const headers = new Headers(init.headers || {});
-  // muitos endpoints respondem JSON mas às vezes vem texto — aceita ambos
   headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
   headers.set("x-requested-with", "XMLHttpRequest");
-  headers.set("origin", baseUrl);
-  headers.set("referer", `${baseUrl}/dashboard`);
+  headers.set("origin", origin);
+  headers.set("referer", referer || `${base}/dashboard`);
 
-  if (csrf) {
-    // ✅ mantém compatível com o que você já tentou
-    headers.set("x-csrf-token", csrf);
-    headers.set("x-xsrf-token", csrf);
+  // ✅ CSRF padrão Laravel: meta token no X-CSRF-TOKEN
+  if (csrfMeta) {
+    headers.set("x-csrf-token", csrfMeta);      // compat
+    headers.set("X-CSRF-TOKEN", csrfMeta);      // padrão
+  }
+
+  // ✅ X-XSRF-TOKEN deve ser o cookie XSRF-TOKEN (geralmente URL-encoded)
+  const xsrfCookie = await getCookieValue(jar, base, "XSRF-TOKEN").catch(() => "");
+  if (xsrfCookie) {
+    const decoded = decodeURIComponent(xsrfCookie);
+    headers.set("x-xsrf-token", decoded);       // compat
+    headers.set("X-XSRF-TOKEN", decoded);       // padrão
   }
 
   const finalInit: RequestInit = { ...init, headers, redirect: "follow" };
@@ -187,7 +273,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
     }
 
-    // ✅ carrega integração do banco (igual ao seu sync)
+    // ✅ carrega integração do banco
     const { data: integ, error } = await sb
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
@@ -199,32 +285,42 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
 
-    const loginUser = String(integ.api_token || "").trim();   // usuário/email
-    const loginPass = String(integ.api_secret || "").trim();  // senha
+    const loginUser = String(integ.api_token || "").trim();
+    const loginPass = String(integ.api_secret || "").trim();
     const baseUrl = String(integ.api_base_url || "").trim();
 
     if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
     }
 
-    // ✅ login real (sem depender de cookie/csrf em ENV)
-    const { fc, baseUrl: base, csrfToken } = await offoLogin(baseUrl, loginUser, loginPass);
+    // ✅ login + csrf autenticado + jar
+    const { fc, jar, baseUrl: base, csrfAuth, dashboardUrl } = await offoLogin(baseUrl, loginUser, loginPass);
 
     // 2) gerar username final
     const finalUsername = buildEliteUsername(desiredBase);
 
-    // 3) maketrial
-    const createForm = new FormData();
-    createForm.set("_token", csrfToken);
-    createForm.set("trialx", "1");
-    createForm.set("trialnotes", finalUsername);
+    // 3) maketrial (URL-ENCODED)
+    const createBody = new URLSearchParams();
+    createBody.set("_token", csrfAuth);
+    createBody.set("trialx", "1");
+    createBody.set("trialnotes", finalUsername);
 
-    const createRes = await eliteFetch(fc, base, "/api/iptv/maketrial", {
-      method: "POST",
-      body: createForm,
-    }, csrfToken);
+    const createRes = await eliteFetch(
+      fc,
+      jar,
+      base,
+      "/api/iptv/maketrial",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" },
+        body: createBody.toString(),
+      },
+      csrfAuth,
+      dashboardUrl
+    );
 
     const createParsed = await readSafeBody(createRes);
+    const createFinalUrl = (createRes as any)?.url || "";
 
     if (!createRes.ok) {
       return NextResponse.json(
@@ -232,16 +328,18 @@ export async function POST(req: Request) {
           ok: false,
           step: "maketrial",
           status: createRes.status,
-          error: "Elite maketrial failed",
-          details_preview: String(createParsed.text || "").slice(0, 900),
+          finalUrl: createFinalUrl,
+          contentType: createRes.headers.get("content-type"),
+          csrf_hint: looksLikeCsrfExpired(createParsed.text) ? "Parece 419/CSRF" : null,
+          login_hint: String(createFinalUrl).includes("/login") || looksLikeLogin(createParsed.text) ? "Voltou pra login" : null,
+          details_preview: String(createParsed.text || "").slice(0, 1200),
         },
         { status: 502 }
       );
     }
 
     const createdId =
-      pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id", "user_id.id"]) ??
-      null;
+      pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id", "user_id.id"]) ?? null;
 
     if (!createdId) {
       return NextResponse.json({
@@ -250,17 +348,24 @@ export async function POST(req: Request) {
         created: true,
         updated_username: false,
         username: finalUsername,
-        note: "Trial criado, mas o endpoint não retornou user_id/id. Me mande o raw_create para eu habilitar um fallback de busca/lista.",
+        note: "Trial criado, mas o endpoint não retornou user_id/id. Me mande o raw_create para eu habilitar fallback de busca/lista.",
         raw_create: createParsed.json ?? createParsed.text,
       });
     }
 
     // 4) details
-    const detailsRes = await eliteFetch(fc, base, `/api/iptv/${createdId}`, {
-      method: "GET",
-    }, csrfToken);
+    const detailsRes = await eliteFetch(
+      fc,
+      jar,
+      base,
+      `/api/iptv/${createdId}`,
+      { method: "GET" },
+      csrfAuth,
+      dashboardUrl
+    );
 
     const detailsParsed = await readSafeBody(detailsRes);
+    const detailsFinalUrl = (detailsRes as any)?.url || "";
 
     if (!detailsRes.ok) {
       return NextResponse.json({
@@ -272,7 +377,8 @@ export async function POST(req: Request) {
         username: finalUsername,
         note: "Trial criado, mas falhou ao ler detalhes para aplicar update automático.",
         details_status: detailsRes.status,
-        details_preview: String(detailsParsed.text || "").slice(0, 900),
+        details_finalUrl: detailsFinalUrl,
+        details_preview: String(detailsParsed.text || "").slice(0, 1200),
       });
     }
 
@@ -281,28 +387,36 @@ export async function POST(req: Request) {
       pickFirst(details, ["password", "data.password", "user.password", "data.user.password"]) ?? "";
 
     const bouquetsRaw =
-      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids"]) ?? [];
+      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids"]) ??
+      [];
 
     const bouquets: Array<string> = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
 
-    // 5) update
-    const updForm = new FormData();
-    updForm.set("_token", csrfToken);
-    updForm.set("user_id", String(createdId));
-    updForm.set("usernamex", finalUsername);
-    updForm.set("passwordx", String(currentPassword));
-    updForm.set("reseller_notes", finalUsername);
+    // 5) update (URL-ENCODED)
+    const updBody = new URLSearchParams();
+    updBody.set("_token", csrfAuth);
+    updBody.set("user_id", String(createdId));
+    updBody.set("usernamex", finalUsername);
+    updBody.set("passwordx", String(currentPassword));
+    updBody.set("reseller_notes", finalUsername);
+    for (const b of bouquets) updBody.append("bouquet[]", String(b));
 
-    for (const b of bouquets) {
-      updForm.append("bouquet[]", String(b));
-    }
-
-    const updRes = await eliteFetch(fc, base, `/api/iptv/update/${createdId}`, {
-      method: "POST",
-      body: updForm,
-    }, csrfToken);
+    const updRes = await eliteFetch(
+      fc,
+      jar,
+      base,
+      `/api/iptv/update/${createdId}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" },
+        body: updBody.toString(),
+      },
+      csrfAuth,
+      dashboardUrl
+    );
 
     const updParsed = await readSafeBody(updRes);
+    const updFinalUrl = (updRes as any)?.url || "";
 
     if (!updRes.ok) {
       return NextResponse.json({
@@ -315,7 +429,8 @@ export async function POST(req: Request) {
         password: String(currentPassword || ""),
         note: "Trial criado, mas falhou ao aplicar update automático do username.",
         update_status: updRes.status,
-        update_preview: String(updParsed.text || "").slice(0, 900),
+        update_finalUrl: updFinalUrl,
+        update_preview: String(updParsed.text || "").slice(0, 1200),
       });
     }
 
