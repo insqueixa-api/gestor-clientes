@@ -581,8 +581,8 @@ useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
-
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(""); // ✅ NOVO: Guarda o texto do passo atual
   const [fetchingAux, setFetchingAux] = useState(true);
 
   // --- TOAST STATE ---
@@ -1444,9 +1444,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
 }
 
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
-  async function executeSave() {
+async function executeSave() {
     setConfirmModal(null); // Fecha o popup se estiver aberto
     setLoading(true);
+    setLoadingStep("Iniciando..."); // ✅
 
     try {
       // Recalcula variáveis necessárias para o envio (garante dados frescos)
@@ -1668,7 +1669,8 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
         apiPayload.screens = Number(screens);
       }
 
-      // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
+// 5) Chamar API (com leitura segura + suporte a formatos diferentes)
+      setLoadingStep("Conectando..."); // ✅
       const { data: sess, error: sessErr } = await supabaseBrowser.auth.getSession();
 const token = sess?.session?.access_token;
 
@@ -1785,8 +1787,9 @@ if (nextExternalUserId) {
           message: `Teste criado no servidor ${serverName}.`,
         });
 
-        // 2) Chamar /elite/create-trial/sync para normalizar username + vencimento
+// 2) Chamar /elite/create-trial/sync para normalizar username + vencimento
         try {
+          setLoadingStep("Sincronizando..."); // ✅
           const syncTrialUrl = "/api/integrations/elite/create-trial/sync";
 
           const syncTrialRes = await fetch(syncTrialUrl, {
@@ -1942,7 +1945,8 @@ body: JSON.stringify({
   }
 }
 
-  // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
+// ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
+  setLoadingStep("Salvando..."); // ✅
   const { data, error } = await supabaseBrowser.rpc("create_client_and_setup", {
     p_tenant_id: tid,
     p_created_by: createdBy,
@@ -2068,10 +2072,10 @@ if (clientId && namePrefix) {
             }));
             await supabaseBrowser.from("client_apps").insert(toInsert);
         }
-        queueListToast(isTrialMode ? "trial" : "client", { type: "success", title: isTrialMode ? "Teste criado" : "Cliente criado", message: "Cadastro realizado com sucesso." });
-        // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
+// ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
 if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && clientId) {
   try {
+    setLoadingStep("WhatsApp..."); // ✅
     const { data: session } = await supabaseBrowser.auth.getSession();
     const token = session.session?.access_token;
 
@@ -3054,9 +3058,20 @@ if (!isEditing && registerRenewal && !isTrialMode) {
             <button
               onClick={handleSave}
               disabled={loading}
-              className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg disabled:opacity-50 transition-all"
+              className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg disabled:opacity-75 disabled:cursor-not-allowed transition-all flex items-center gap-2"
             >
-              {loading ? "..." : isEditing ? "Salvar alterações" : (isTrialMode ? "Criar teste" : "Criar cliente")}
+              {loading && (
+                <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {loading 
+                ? loadingStep || "Processando..." 
+                : isEditing 
+                  ? "Salvar alterações" 
+                  : (isTrialMode ? "Criar teste" : "Criar cliente")
+              }
             </button>
           </div>
         </div>

@@ -202,7 +202,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
 /**
  * ✅ IMPORTANTÍSSIMO:
- * Pega o CSRF dinamicamente do dashboard correto (IPTV ou P2P)
+ * Pega o CSRF dinamicamente (IPTV ou P2P)
  */
 async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: string) {
   const url = `${baseUrl}${dashboardPath}`;
@@ -229,9 +229,9 @@ async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: s
   return csrf;
 }
 
-async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string, refererPath = "/dashboard/iptv") {
+async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string, dashboardPath = "/dashboard/iptv") {
   const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
-  const refererUrl = `${baseUrl}${refererPath}`;
+  const refererUrl = `${baseUrl}${dashboardPath}`;
 
   const headers = new Headers(init.headers || {});
   headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
@@ -434,11 +434,12 @@ export async function POST(req: Request) {
     const details = detailsParsed.json ?? {};
 
     // ✅ No P2P o "username" também pode vir em "name" ou "email". A senha pode vir em "exField2"
+// ✅ No P2P o "username" também pode vir em "name" ou "email". A senha em "exField2"
     const currentUsername =
-      pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ?? "";
+      pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username"]) ?? "";
 
     const currentPassword =
-      pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ?? "";
+      pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password"]) ?? "";
 
     const notesFromDetails =
       pickFirst(details, ["reseller_notes", "trialnotes", "data.reseller_notes", "data.trialnotes", "user.reseller_notes", "user.trialnotes"]) ?? "";
@@ -463,7 +464,7 @@ let bouquetsRaw =
 
     // 4) também tenta pegar o row do DataTables (pra pegar formatted_exp_date e confirmar valores)
     // tenta primeiro pelo próprio ID (muitos painéis retornam o row), senão pelo username atual
-    let rowFromTable: any = null;
+let rowFromTable: any = null;
 
     const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id), dashboardPath);
     trace.push({ step: "datatable_by_id", ok: tableById.ok, count: tableById.rows?.length ?? 0 });
@@ -547,9 +548,9 @@ let bouquetsRaw =
 
       if (isP2P) {
         // ✅ FORMULÁRIO DO P2P
-        updForm.set("id", String(external_user_id)); // P2P usa 'id' em vez de 'user_id'
+        updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("name", desiredUsername); // P2P usa 'name' 
+        updForm.set("name", desiredUsername);
         updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
         
         if (notes) {
@@ -578,7 +579,7 @@ let bouquetsRaw =
       const updRes = await eliteFetch(
         fc,
         base,
-        updateApiPath, // ✅ Dinâmico: /api/p2p/update... ou /api/iptv/update...
+        updateApiPath, // ✅ Dinâmico
         { method: "POST", headers: { accept: "application/json" }, body: updForm },
         csrf,
         dashboardPath
@@ -622,7 +623,6 @@ let bouquetsRaw =
 
       if (afterTable.ok && afterTable.rows?.length) {
         const match = afterTable.rows.find((r: any) => String(r?.id) === String(external_user_id)) || afterTable.rows[0];
-        // ✅ Aceita "username", "name" ou "email" como confirmação
         const updatedName = match?.username || match?.name || match?.email;
         if (updatedName) updatedUsername = String(updatedName);
       }
@@ -634,7 +634,7 @@ let bouquetsRaw =
     const detailsRes2 = await eliteFetch(
       fc,
       base,
-      detailsApiPath, // ✅ Dinâmico: /api/p2p... ou /api/iptv...
+      detailsApiPath, // ✅ Dinâmico
       { method: "GET", headers: { accept: "application/json" } },
       csrf,
       dashboardPath
@@ -649,18 +649,20 @@ let bouquetsRaw =
     });
 
     const details2 = detailsParsed2.json ?? details;
+    
+    // ✅ Extrai nome do P2P ou IPTV
     let finalUsername =
-      safeString(pickFirst(details2, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"])) ||
+      safeString(pickFirst(details2, ["username", "name", "email", "data.username", "data.name", "user.username"])) ||
       safeString(updatedUsername) ||
       safeString(currentUsername);
 
-    // ✅ GARANTIA DO E-MAIL: Se o Elite empurrar "@elite.com", o seu sistema só salva a parte antes do @ para o app!
+    // ✅ GARANTIA DO E-MAIL: Remove a parte do provedor para o seu Gestor receber o nome limpo
     if (finalUsername.includes("@")) {
       finalUsername = finalUsername.split("@")[0];
     }
 
     const finalPassword =
-      safeString(pickFirst(details2, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"])) ||
+      safeString(pickFirst(details2, ["password", "exField2", "data.password", "data.exField2", "user.password"])) ||
       safeString(currentPassword) ||
       safeString(rowFromTable?.password);
 
