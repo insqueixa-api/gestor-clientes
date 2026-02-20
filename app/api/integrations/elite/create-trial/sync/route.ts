@@ -202,10 +202,10 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
 /**
  * ✅ IMPORTANTÍSSIMO:
- * Depois do login, pegue o CSRF de /dashboard/iptv (é o que o browser usa).
+ * Pega o CSRF dinamicamente do dashboard correto (IPTV ou P2P)
  */
-async function fetchCsrfFromDashboardIptv(fc: any, baseUrl: string) {
-  const url = `${baseUrl}/dashboard/iptv`;
+async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: string) {
+  const url = `${baseUrl}${dashboardPath}`;
   const r = await fc(url, {
     method: "GET",
     headers: {
@@ -225,19 +225,19 @@ async function fetchCsrfFromDashboardIptv(fc: any, baseUrl: string) {
   const formToken = $('input[name="_token"]').attr("value") || "";
   const csrf = (metaToken || formToken).trim();
 
-  if (!csrf) throw new Error("Não consegui obter CSRF de /dashboard/iptv após login.");
+  if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login.`);
   return csrf;
 }
 
-async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string) {
+async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string, refererPath = "/dashboard/iptv") {
   const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
-  const refererIptv = `${baseUrl}/dashboard/iptv`;
+  const refererUrl = `${baseUrl}${refererPath}`;
 
   const headers = new Headers(init.headers || {});
   headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
-  headers.set("referer", headers.get("referer") || refererIptv);
+  headers.set("referer", headers.get("referer") || refererUrl);
   headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
@@ -291,14 +291,15 @@ function buildDtQuery(searchValue: string) {
   return p.toString();
 }
 
-async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string) {
+async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string) {
   const qs = buildDtQuery(searchValue);
   const r = await eliteFetch(
     fc,
     baseUrl,
-    `/dashboard/iptv?${qs}`,
+    `${dashboardPath}?${qs}`,
     { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
-    csrf
+    csrf,
+    dashboardPath
   );
 
   const parsed = await readSafeBody(r);
@@ -325,7 +326,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({} as any));
 
-const integration_id = safeString(body?.integration_id);
+    const integration_id = safeString(body?.integration_id);
     const external_user_id = safeString(body?.external_user_id || body?.user_id || body?.elite_user_id);
     const tz = safeString(body?.tz) || TZ_SP;
 
@@ -351,20 +352,35 @@ const integration_id = safeString(body?.integration_id);
 
     // carrega integração do banco
     const { data: integ, error } = await sb
-  .from("server_integrations")
-  .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") // ✅ Removido server_id
-  .eq("id", integration_id)
-  .single();
+      .from("server_integrations")
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") // ✅ Removido server_id
+      .eq("id", integration_id)
+      .single();
 
-if (error) throw error;
-if (!integ) throw new Error("Integração não encontrada.");
+    if (error) throw error;
+    if (!integ) throw new Error("Integração não encontrada.");
 
-const provider = String((integ as any).provider || "").toUpperCase().trim();
-if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
-if (!(integ as any).is_active) throw new Error("Integração está inativa.");
+    const provider = String((integ as any).provider || "").toUpperCase().trim();
+    if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
+    if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-// ✅ Bloco de verificação da tabela 'servers' removido inteiramente
-// O Sync não precisa revalidar a tecnologia, pois o trial já foi criado com sucesso no passo anterior.
+    // ✅ Bloco de verificação da tabela 'servers' removido inteiramente
+    // O Sync não precisa revalidar a tecnologia no banco, pois o front-end envia no body.
+
+    // ✅ VALIDAÇÃO DINÂMICA: IPTV ou P2P (Lendo direto do Body enviado pelo Front)
+    const tech = String(body?.technology || "").trim().toUpperCase();
+    if (tech !== "IPTV" && tech !== "P2P") {
+      return NextResponse.json(
+        { ok: false, error: `Tecnologia '${tech}' não suportada para sincronização neste painel.` },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Variáveis de Roteamento P2P vs IPTV
+    const isP2P = tech === "P2P";
+    const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
+    const updateApiPath = isP2P ? `/api/p2p/update/${external_user_id}` : `/api/iptv/update/${external_user_id}`;
+    const detailsApiPath = isP2P ? `/api/p2p/${external_user_id}` : `/api/iptv/${external_user_id}`;
 
     const loginUser = safeString(integ.api_token); // usuário/email
     const loginPass = safeString(integ.api_secret); // senha
@@ -380,17 +396,18 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
     const { fc } = await offoLogin(base, loginUser, loginPass, tz);
     trace.push({ step: "login", ok: true });
 
-    // 2) csrf pós-login (do /dashboard/iptv)
-    const csrf = await fetchCsrfFromDashboardIptv(fc, base);
-    trace.push({ step: "csrf_dashboard_iptv", ok: true });
+    // 2) csrf pós-login (Dinâmico)
+    const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
+    trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
-    // 3) details by ID (fonte primária)
+    // 3) details by ID (Dinâmico)
     const detailsRes = await eliteFetch(
       fc,
       base,
-      `/api/iptv/${external_user_id}`,
+      detailsApiPath,
       { method: "GET", headers: { accept: "application/json" } },
-      csrf
+      csrf,
+      dashboardPath
     );
 
     const detailsParsed = await readSafeBody(detailsRes);
@@ -416,11 +433,12 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
     const details = detailsParsed.json ?? {};
 
+    // ✅ No P2P o "username" também pode vir em "name" ou "email". A senha pode vir em "exField2"
     const currentUsername =
-      pickFirst(details, ["username", "data.username", "user.username", "data.user.username"]) ?? "";
+      pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ?? "";
 
     const currentPassword =
-      pickFirst(details, ["password", "data.password", "user.password", "data.user.password"]) ?? "";
+      pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ?? "";
 
     const notesFromDetails =
       pickFirst(details, ["reseller_notes", "trialnotes", "data.reseller_notes", "data.trialnotes", "user.reseller_notes", "user.trialnotes"]) ?? "";
@@ -447,12 +465,12 @@ let bouquetsRaw =
     // tenta primeiro pelo próprio ID (muitos painéis retornam o row), senão pelo username atual
     let rowFromTable: any = null;
 
-    const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id));
+    const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id), dashboardPath);
     trace.push({ step: "datatable_by_id", ok: tableById.ok, count: tableById.rows?.length ?? 0 });
     if (tableById.ok && tableById.rows?.length) {
       rowFromTable = tableById.rows.find((r: any) => String(r?.id) === String(external_user_id)) || tableById.rows[0];
     } else if (currentUsername) {
-      const tableByUser = await findRowBySearch(fc, base, csrf, String(currentUsername));
+      const tableByUser = await findRowBySearch(fc, base, csrf, String(currentUsername), dashboardPath);
       trace.push({ step: "datatable_by_username", ok: tableByUser.ok, count: tableByUser.rows?.length ?? 0 });
       if (tableByUser.ok && tableByUser.rows?.length) {
         rowFromTable = tableByUser.rows.find((r: any) => String(r?.id) === String(external_user_id)) || tableByUser.rows[0];
@@ -527,27 +545,43 @@ let bouquetsRaw =
     if (canRename) {
       const updForm = new FormData();
 
-      // ✅ AJUSTE CRÍTICO: Removidos "_token", "username" e "password". 
-      // O painel Elite exige estritamente apenas os campos abaixo, caso contrário rejeita a edição.
-      updForm.set("user_id", String(external_user_id));
-      updForm.set("usernamex", desiredUsername);
-      updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+      if (isP2P) {
+        // ✅ FORMULÁRIO DO P2P
+        updForm.set("id", String(external_user_id)); // P2P usa 'id' em vez de 'user_id'
+        updForm.set("usernamex", desiredUsername);
+        updForm.set("name", desiredUsername); // P2P usa 'name' 
+        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+        
+        if (notes) {
+          updForm.set("reseller_notes", notes);
+        }
 
-      if (notes) {
-        updForm.set("reseller_notes", notes);
-      }
+        // P2P usa pacote no singular (Ex: "1")
+        const p2pPacote = bouquets.length > 0 ? bouquets[0] : "1";
+        updForm.set("pacote", p2pPacote);
 
-      // ✅ Envia os pacotes obrigatoriamente (O Laravel do Elite rejeita a edição se isso não for enviado)
-      for (const b of bouquets) {
-        updForm.append("bouquet[]", String(b));
+      } else {
+        // ✅ FORMULÁRIO DO IPTV
+        updForm.set("user_id", String(external_user_id));
+        updForm.set("usernamex", desiredUsername);
+        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+
+        if (notes) {
+          updForm.set("reseller_notes", notes);
+        }
+
+        for (const b of bouquets) {
+          updForm.append("bouquet[]", String(b));
+        }
       }
 
       const updRes = await eliteFetch(
         fc,
         base,
-        `/api/iptv/update/${external_user_id}`,
+        updateApiPath, // ✅ Dinâmico: /api/p2p/update... ou /api/iptv/update...
         { method: "POST", headers: { accept: "application/json" }, body: updForm },
-        csrf
+        csrf,
+        dashboardPath
       );
 
       const updParsed = await readSafeBody(updRes);
@@ -583,12 +617,14 @@ let bouquetsRaw =
       }
 
       // Confirmação real: re-buscar DataTables pelo desiredUsername e casar pelo id
-      const afterTable = await findRowBySearch(fc, base, csrf, desiredUsername);
+      const afterTable = await findRowBySearch(fc, base, csrf, desiredUsername, dashboardPath);
       trace.push({ step: "datatable_after_update", ok: afterTable.ok, count: afterTable.rows?.length ?? 0 });
 
       if (afterTable.ok && afterTable.rows?.length) {
         const match = afterTable.rows.find((r: any) => String(r?.id) === String(external_user_id)) || afterTable.rows[0];
-        if (match?.username) updatedUsername = String(match.username);
+        // ✅ Aceita "username", "name" ou "email" como confirmação
+        const updatedName = match?.username || match?.name || match?.email;
+        if (updatedName) updatedUsername = String(updatedName);
       }
 
       didUpdate = updatedUsername === desiredUsername;
@@ -598,9 +634,10 @@ let bouquetsRaw =
     const detailsRes2 = await eliteFetch(
       fc,
       base,
-      `/api/iptv/${external_user_id}`,
+      detailsApiPath, // ✅ Dinâmico: /api/p2p... ou /api/iptv...
       { method: "GET", headers: { accept: "application/json" } },
-      csrf
+      csrf,
+      dashboardPath
     );
 
     const detailsParsed2 = await readSafeBody(detailsRes2);
@@ -612,20 +649,25 @@ let bouquetsRaw =
     });
 
     const details2 = detailsParsed2.json ?? details;
-    const finalUsername =
-      safeString(pickFirst(details2, ["username", "data.username", "user.username", "data.user.username"])) ||
+    let finalUsername =
+      safeString(pickFirst(details2, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"])) ||
       safeString(updatedUsername) ||
       safeString(currentUsername);
 
+    // ✅ GARANTIA DO E-MAIL: Se o Elite empurrar "@elite.com", o seu sistema só salva a parte antes do @ para o app!
+    if (finalUsername.includes("@")) {
+      finalUsername = finalUsername.split("@")[0];
+    }
+
     const finalPassword =
-      safeString(pickFirst(details2, ["password", "data.password", "user.password", "data.user.password"])) ||
+      safeString(pickFirst(details2, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"])) ||
       safeString(currentPassword) ||
       safeString(rowFromTable?.password);
 
     // tenta pegar o row novamente (pra pegar formatted_exp_date atualizado)
     let finalRow: any = rowFromTable;
     if (finalUsername) {
-      const t = await findRowBySearch(fc, base, csrf, finalUsername);
+      const t = await findRowBySearch(fc, base, csrf, finalUsername, dashboardPath);
       trace.push({ step: "datatable_final", ok: t.ok, count: t.rows?.length ?? 0 });
       if (t.ok && t.rows?.length) {
         finalRow = t.rows.find((r: any) => String(r?.id) === String(external_user_id)) || t.rows[0];
