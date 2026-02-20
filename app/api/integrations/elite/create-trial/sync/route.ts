@@ -425,9 +425,23 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
     const notesFromDetails =
       pickFirst(details, ["reseller_notes", "trialnotes", "data.reseller_notes", "data.trialnotes", "user.reseller_notes", "user.trialnotes"]) ?? "";
 
-    const bouquetsRaw =
+let bouquetsRaw =
       pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids"]) ?? [];
-    const bouquets: string[] = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
+    
+    // Evita falhas caso o painel retorne os pacotes em string JSON ou objeto em vez de array puro
+    if (typeof bouquetsRaw === 'string') {
+      try { bouquetsRaw = JSON.parse(bouquetsRaw); } catch(e) {}
+    }
+    if (bouquetsRaw && typeof bouquetsRaw === 'object' && !Array.isArray(bouquetsRaw)) {
+      bouquetsRaw = Object.values(bouquetsRaw);
+    }
+
+    let bouquets: string[] = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
+
+    // ✅ BLINDAGEM MÁXIMA: Se não conseguiu ler os pacotes do painel, aplica a GRADE COMPLETA que você capturou
+    if (bouquets.length === 0) {
+      bouquets = ["19", "68", "30", "76", "51", "66", "62", "27", "20", "75"];
+    }
 
     // 4) também tenta pegar o row do DataTables (pra pegar formatted_exp_date e confirmar valores)
     // tenta primeiro pelo próprio ID (muitos painéis retornam o row), senão pelo username atual
@@ -523,9 +537,9 @@ if (!(integ as any).is_active) throw new Error("Integração está inativa.");
         updForm.set("reseller_notes", notes);
       }
 
-      // bouquets (preserva)
-      if (bouquets && bouquets.length > 0) {
-        for (const b of bouquets) updForm.append("bouquet[]", String(b));
+      // ✅ Envia os pacotes obrigatoriamente (O Laravel do Elite rejeita a edição se isso não for enviado)
+      for (const b of bouquets) {
+        updForm.append("bouquet[]", String(b));
       }
 
       const updRes = await eliteFetch(
