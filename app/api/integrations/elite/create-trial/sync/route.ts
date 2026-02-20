@@ -364,9 +364,6 @@ export async function POST(req: Request) {
     if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-    // ✅ Bloco de verificação da tabela 'servers' removido inteiramente
-    // O Sync não precisa revalidar a tecnologia no banco, pois o front-end envia no body.
-
     // ✅ VALIDAÇÃO DINÂMICA: IPTV ou P2P (Lendo direto do Body enviado pelo Front)
     const tech = String(body?.technology || "").trim().toUpperCase();
     if (tech !== "IPTV" && tech !== "P2P") {
@@ -434,7 +431,6 @@ export async function POST(req: Request) {
     const details = detailsParsed.json ?? {};
 
     // ✅ No P2P o "username" também pode vir em "name" ou "email". A senha pode vir em "exField2"
-// ✅ No P2P o "username" também pode vir em "name" ou "email". A senha em "exField2"
     const currentUsername =
       pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username"]) ?? "";
 
@@ -444,8 +440,8 @@ export async function POST(req: Request) {
     const notesFromDetails =
       pickFirst(details, ["reseller_notes", "trialnotes", "data.reseller_notes", "data.trialnotes", "user.reseller_notes", "user.trialnotes"]) ?? "";
 
-let bouquetsRaw =
-      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids"]) ?? [];
+    let bouquetsRaw =
+      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids", "pacote", "data.pacote"]) ?? [];
     
     // Evita falhas caso o painel retorne os pacotes em string JSON ou objeto em vez de array puro
     if (typeof bouquetsRaw === 'string') {
@@ -458,13 +454,13 @@ let bouquetsRaw =
     let bouquets: string[] = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
 
     // ✅ BLINDAGEM MÁXIMA: Se não conseguiu ler os pacotes do painel, aplica a GRADE COMPLETA que você capturou
-    if (bouquets.length === 0) {
+    if (bouquets.length === 0 && !isP2P) {
       bouquets = ["19", "68", "30", "76", "51", "66", "62", "27", "20", "75"];
     }
 
     // 4) também tenta pegar o row do DataTables (pra pegar formatted_exp_date e confirmar valores)
     // tenta primeiro pelo próprio ID (muitos painéis retornam o row), senão pelo username atual
-let rowFromTable: any = null;
+    let rowFromTable: any = null;
 
     const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id), dashboardPath);
     trace.push({ step: "datatable_by_id", ok: tableById.ok, count: tableById.rows?.length ?? 0 });
@@ -558,7 +554,7 @@ let rowFromTable: any = null;
         }
 
         // P2P usa pacote no singular (Ex: "1")
-        const p2pPacote = bouquets.length > 0 ? bouquets[0] : "1";
+        const p2pPacote = (typeof bouquetsRaw === 'string' || typeof bouquetsRaw === 'number') ? String(bouquetsRaw) : (bouquets.length > 0 ? bouquets[0] : "1");
         updForm.set("pacote", p2pPacote);
 
       } else {
@@ -711,7 +707,7 @@ let rowFromTable: any = null;
       // ✅ devolve password atual
       password: finalPassword,
 
-// ✅ devolve vencimento em texto (SP) + ISO (UTC) pronto pra gravar em timestamptz
+      // ✅ devolve vencimento em texto (SP) + ISO (UTC) pronto pra gravar em timestamptz
       expires_at_sp: finalExpSpText || null,
       expires_at_iso: finalExpIso,
       exp_date: finalExpIso, // ✅ ESSENCIAL: O front-end precisa receber essa chave
