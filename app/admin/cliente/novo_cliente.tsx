@@ -1792,14 +1792,20 @@ if (nextExternalUserId) {
           setLoadingStep("Sincronizando..."); // ✅
           const syncTrialUrl = "/api/integrations/elite/create-trial/sync";
 
-          const syncTrialRes = await fetch(syncTrialUrl, {
+const syncTrialRes = await fetch(syncTrialUrl, {
             method: "POST",
             credentials: "include",
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify(apiPayload), // ✅ Passa exatamente a mesma coisa da criação
+            body: JSON.stringify({
+              ...apiPayload, // Mantém integração, notas, etc.
+              external_user_id: apiExternalUserId, // ✅ CRÍTICO: O ID retornado pelo create-trial
+              desired_username: username,          // ✅ O nome que você digitou (ex: MarcioNaTV)
+              username: apiUsername,               // O nome numérico (ex: 199797...)
+              technology: finalTechnology          // ✅ IPTV ou P2P para o roteamento
+            }),
           });
 
           const syncTrialText = await syncTrialRes.text();
