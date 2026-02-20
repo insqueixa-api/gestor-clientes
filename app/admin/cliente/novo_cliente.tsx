@@ -1911,12 +1911,25 @@ body: JSON.stringify({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ integration_id: srv.panel_integration }),
+          body: JSON.stringify({ 
+            integration_id: srv.panel_integration,
+            external_user_id: apiExternalUserId, // ✅ O ID gerado na criação (Ex: 5672425)
+            desired_username: username,          // ✅ O nome "bonito" que você digitou na tela
+            username: apiUsername,               // ✅ O nome "feio" que o painel devolveu primeiro
+            notes: notes?.trim() ? notes.trim() : null,
+            technology: finalTechnology          // ✅ A CHAVE MESTRA: "IPTV" ou "P2P"
+          }),
         });
 
         if (!syncRes.ok) {
           const t = await syncRes.text().catch(() => "");
           console.warn("⚠️ Sync falhou:", syncRes.status, t);
+        } else {
+          // Se o Sync der certo, podemos pegar os dados atualizados para salvar bonito no banco local
+          const syncData = await syncRes.json().catch(() => ({}));
+          if (syncData?.username) apiUsername = syncData.username;
+          if (syncData?.password) apiPassword = syncData.password;
+          if (syncData?.expires_at_iso) apiVencimento = syncData.expires_at_iso;
         }
       }
 
