@@ -246,10 +246,10 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
 /**
  * ✅ IMPORTANTÍSSIMO:
- * Depois do login, pegue o CSRF de /dashboard/iptv (é o que o browser usa).
+ * Pega o CSRF dinamicamente do dashboard correto (IPTV ou P2P)
  */
-async function fetchCsrfFromDashboardIptv(fc: any, baseUrl: string) {
-  const url = `${baseUrl}/dashboard/iptv`;
+async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: string) {
+  const url = `${baseUrl}${dashboardPath}`;
   const r = await fc(url, {
     method: "GET",
     headers: {
@@ -270,20 +270,20 @@ async function fetchCsrfFromDashboardIptv(fc: any, baseUrl: string) {
   const csrf = (metaToken || formToken).trim();
 
   if (!csrf) {
-    throw new Error("Não consegui obter CSRF de /dashboard/iptv após login.");
+    throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login.`);
   }
   return csrf;
 }
 
-async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string) {
+async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string, refererPath = "/dashboard/iptv") {
   const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
-  const refererIptv = `${baseUrl}/dashboard/iptv`;
+  const refererUrl = `${baseUrl}${refererPath}`;
 
   const headers = new Headers(init.headers || {});
   headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
-  headers.set("referer", headers.get("referer") || refererIptv);
+  headers.set("referer", headers.get("referer") || refererUrl);
   headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
@@ -465,13 +465,19 @@ if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
 if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
 // ✅ REGRA: valida a tecnologia recebida diretamente do Frontend
+// ✅ VALIDAÇÃO DINÂMICA: Aceita tanto IPTV quanto P2P
 const reqTech = String(body?.technology || "").trim().toUpperCase();
-if (reqTech !== "IPTV") {
+if (reqTech !== "IPTV" && reqTech !== "P2P") {
   return NextResponse.json(
-    { ok: false, error: `Esta rota só pode ser usada quando a tecnologia escolhida for IPTV. (Recebido do front: ${reqTech || "Nenhuma"})` },
+    { ok: false, error: `Tecnologia '${reqTech}' não suportada para integração automática neste painel.` },
     { status: 400 }
   );
 }
+
+// ✅ Variáveis de Roteamento P2P vs IPTV
+const isP2P = reqTech === "P2P";
+const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
+const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
 
     const loginUser = String(integ.api_token || "").trim();   // usuário/email
     const loginPass = String(integ.api_secret || "").trim();  // senha
@@ -487,20 +493,27 @@ if (reqTech !== "IPTV") {
     const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
     trace.push({ step: "login", ok: true });
 
-    // 2) csrf pós-login (do /dashboard/iptv)
-    const csrf = await fetchCsrfFromDashboardIptv(fc, base);
-    trace.push({ step: "csrf_dashboard_iptv", ok: true });
+    // 2) csrf pós-login (Muda de acordo com a tecnologia)
+    const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
+    trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
     // 3) maketrial (nota)
     const createForm = new FormData();
     createForm.set("_token", csrf);
-    createForm.set("trialx", "1");
+    
+    // ✅ No P2P o parâmetro chama "pacotex", no IPTV chama "trialx"
+    if (isP2P) {
+      createForm.set("pacotex", "1");
+    } else {
+      createForm.set("trialx", "1");
+    }
+    
     createForm.set("trialnotes", trialNotes);
 
     const createRes = await eliteFetch(
       fc,
       base,
-      "/api/iptv/maketrial",
+      createApiPath,
       {
         method: "POST",
         headers: {
@@ -508,7 +521,8 @@ if (reqTech !== "IPTV") {
         },
         body: createForm,
       },
-      csrf
+      csrf,
+      dashboardPath
     );
 
     const createParsed = await readSafeBody(createRes);
@@ -537,11 +551,13 @@ if (reqTech !== "IPTV") {
     let createdId =
       pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
 
+    // ✅ Inclui "name" e "email" para o P2P
     let serverUsername =
-      pickFirst(createParsed.json, ["username", "data.username", "user.username", "data.user.username"]) ?? null;
+      pickFirst(createParsed.json, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ?? null;
 
+    // ✅ Inclui "exField2" para o P2P (geralmente é onde a senha do P2P vem escondida no Elite)
     let serverPassword =
-      pickFirst(createParsed.json, ["password", "data.password", "user.password", "data.user.password"]) ?? null;
+      pickFirst(createParsed.json, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ?? null;
 
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
@@ -593,18 +609,19 @@ if (reqTech !== "IPTV") {
       });
     }
 
-    // 4) details (opcional, mas ajuda a garantir que pegamos user/pass/exp mesmo quando o maketrial não devolve tudo)
-    // Só chama se ainda faltar algo.
+    // 4) details (opcional, mas ajuda a garantir que pegamos user/pass/exp)
     if (!serverUsername || !serverPassword || !expRaw) {
+      const detailsApiPath = isP2P ? `/api/p2p/${createdId}` : `/api/iptv/${createdId}`;
       const detailsRes = await eliteFetch(
         fc,
         base,
-        `/api/iptv/${createdId}`,
+        detailsApiPath,
         {
           method: "GET",
           headers: { accept: "application/json" },
         },
-        csrf
+        csrf,
+        dashboardPath
       );
 
       const detailsParsed = await readSafeBody(detailsRes);
@@ -620,13 +637,13 @@ if (reqTech !== "IPTV") {
 
         if (!serverUsername) {
           serverUsername =
-            pickFirst(details, ["username", "data.username", "user.username", "data.user.username"]) ??
+            pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ??
             serverUsername;
         }
 
         if (!serverPassword) {
           serverPassword =
-            pickFirst(details, ["password", "data.password", "user.password", "data.user.password"]) ??
+            pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ??
             serverPassword;
         }
 
