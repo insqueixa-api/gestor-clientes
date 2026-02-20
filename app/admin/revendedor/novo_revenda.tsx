@@ -400,6 +400,8 @@ if (error) throw new Error(error.message);
 
         {/* BODY */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-white dark:bg-[#161b22]">
+
+          
           
           {submitAttempted && errors.length > 0 && (
             <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-600 dark:text-rose-400 text-xs font-medium animate-in slide-in-from-top-2">
@@ -519,7 +521,7 @@ if (error) throw new Error(error.message);
             onClick={handleSave} 
             disabled={loading} 
             className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50"
-          >
+          > 
             {loading ? "Processando..." : isEditing ? "Salvar alterações" : "Criar revendedor"}
           </button>
         </div>

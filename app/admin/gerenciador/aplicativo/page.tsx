@@ -59,6 +59,45 @@ const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+    // ✅ trava scroll da página por trás quando modal abre (mantém posição e evita “vazar” no mobile)
+  const modalScrollYRef = useRef(0);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    if (typeof window === "undefined") return;
+
+    const body = document.body;
+    const html = document.documentElement;
+
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    modalScrollYRef.current = scrollY;
+
+    // guarda estilos anteriores (pra restaurar certinho)
+    const prevBodyOverflow = body.style.overflow;
+    const prevBodyPosition = body.style.position;
+    const prevBodyTop = body.style.top;
+    const prevBodyWidth = body.style.width;
+    const prevHtmlOverflow = html.style.overflow;
+
+    // trava
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+
+    // cleanup ao fechar
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      body.style.position = prevBodyPosition;
+      body.style.top = prevBodyTop;
+      body.style.width = prevBodyWidth;
+
+      window.scrollTo(0, modalScrollYRef.current || 0);
+    };
+  }, [isModalOpen]);
+
   // Estado do APP em Edição
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
@@ -588,7 +627,10 @@ return (
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
+        <div
+  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+  onClick={() => setIsModalOpen(false)}
+>
           <div className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             
             {/* HEADER MODAL */}
@@ -600,7 +642,10 @@ return (
             </div>
 
             {/* BODY MODAL */}
-            <div className="p-6 overflow-y-auto space-y-6">
+            <div
+  className="p-6 overflow-y-auto space-y-6 overscroll-contain"
+  style={{ WebkitOverflowScrolling: "touch" }}
+>
               
               {/* DADOS BÁSICOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

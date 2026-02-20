@@ -320,6 +320,7 @@ export async function POST(req: Request) {
 
   try {
     const token = getBearer(req);
+    
     if (!token) return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
 
     const body = await req.json().catch(() => ({} as any));

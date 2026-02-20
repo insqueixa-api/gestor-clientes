@@ -112,8 +112,19 @@ function onlyDigits(raw: string) {
 }
 
 function normalizeMacInput(raw: string) {
-  // ✅ apenas o que você pediu: uppercase + remover espaços
-  return String(raw || "").toUpperCase().replace(/\s+/g, "");
+  // ✅ MAC: mantém só HEX, UPPER e formata XX:XX:XX:XX:XX:XX
+  const s = String(raw ?? "").toUpperCase();
+
+  // mantém somente 0-9 e A-F (remove :, -, espaços, etc)
+  const hex = s.replace(/[^0-9A-F]/g, "");
+
+  // MAC padrão = 12 hex (6 bytes)
+  const trimmed = hex.slice(0, 12);
+
+  // quebra em pares (mantém par incompleto enquanto digita)
+  const pairs = trimmed.match(/.{1,2}/g) || [];
+
+  return pairs.join(":");
 }
 
 function normalizeE164(raw: string) {
@@ -525,13 +536,40 @@ function queueListToast(
 }
 
 export default function NovoCliente({ clientToEdit, mode = "client", initialTab, onClose, onSuccess }: Props) {
-  // Bloqueia scroll do fundo
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, []);
+  // ✅ Scroll lock padrão (não deixa “vazar” e restaura posição)
+const modalScrollYRef = useRef(0);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const body = document.body;
+  const html = document.documentElement;
+
+  const scrollY = window.scrollY || window.pageYOffset || 0;
+  modalScrollYRef.current = scrollY;
+
+  const prevBodyOverflow = body.style.overflow;
+  const prevBodyPosition = body.style.position;
+  const prevBodyTop = body.style.top;
+  const prevBodyWidth = body.style.width;
+  const prevHtmlOverflow = html.style.overflow;
+
+  html.style.overflow = "hidden";
+  body.style.overflow = "hidden";
+  body.style.position = "fixed";
+  body.style.top = `-${scrollY}px`;
+  body.style.width = "100%";
+
+  return () => {
+    html.style.overflow = prevHtmlOverflow;
+    body.style.overflow = prevBodyOverflow;
+    body.style.position = prevBodyPosition;
+    body.style.top = prevBodyTop;
+    body.style.width = prevBodyWidth;
+
+    window.scrollTo(0, modalScrollYRef.current || 0);
+  };
+}, []);
   const isEditing = !!clientToEdit;
   const isTrialMode = mode === "trial";
 
@@ -1219,8 +1257,14 @@ if (!nerr) {
 
     const finalKey = idKey || labelKey;
     if (finalKey) {
-  const isMac = /\bmac\b/i.test(labelKey) || /\bmac\b/i.test(idKey);
-  normalizedValues[finalKey] = isMac ? normalizeMacInput(String(v ?? "")) : String(v ?? "");
+const isMac =
+  String(f?.type || "").toUpperCase() === "MAC" ||
+  /\bmac\b/i.test(labelKey) ||
+  /\bmac\b/i.test(idKey);
+
+normalizedValues[finalKey] = isMac
+  ? normalizeMacInput(String(v ?? ""))
+  : String(v ?? "");
 }
   }
 
@@ -1603,11 +1647,17 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
       }
 
       // 4. Montar payload
-      const apiPayload: any = {
-        integration_id: srv.panel_integration,
-        username: apiUsername,
-        password: apiPassword || undefined,
-      };
+const apiPayload: any = {
+  integration_id: srv.panel_integration,
+  username: apiUsername,
+  password: apiPassword || undefined,
+
+  // ✅ NOVO: manda a tecnologia que o usuário escolheu no modal
+  technology: finalTechnology,
+
+  // ✅ opcional (se você quiser já usar no create-trial sem depender do sync)
+  notes: notes?.trim() ? notes.trim() : null,
+};
 
       if (isTrialMode) {
         apiPayload.hours = testHours;
@@ -2198,18 +2248,23 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <>
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      <div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
+  <div className="pointer-events-auto">
+    <ToastNotifications toasts={toasts} removeToast={removeToast} />
+  </div>
+</div>
 
-      <div
-        className="fixed inset-0 z-[99990] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
-        onClick={onClose}
-      >
-        <div
-          className="w-full sm:max-w-3xl max-h-[90vh] sm:max-h-[90vh] bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
-          onClick={(e) => e.stopPropagation()}
-        >
+<div
+  className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+  onClick={onClose}
+>
+<div
+  className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
+  style={{ maxHeight: "90dvh" }}
+  onClick={(e) => e.stopPropagation()}
+>
           {/* HEADER */}
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-white dark:bg-[#161b22]">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
             <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">
               {isEditing ? (isTrialMode ? "Editar teste" : "Editar cliente") : (isTrialMode ? "Novo teste" : "Novo cliente")}
             </h2>
@@ -2246,7 +2301,10 @@ if (!isEditing && registerRenewal && !isTrialMode) {
           </div>
 
           {/* BODY */}
-          <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 bg-white dark:bg-[#161b22] custom-scrollbar">
+          <div
+  className="p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-3 flex-1 min-h-0 bg-white dark:bg-[#161b22] custom-scrollbar"
+  style={{ WebkitOverflowScrolling: "touch" }}
+>
 
             
             {/* TAB: DADOS */}
@@ -2867,7 +2925,10 @@ if (!isEditing && registerRenewal && !isTrialMode) {
   const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
   const label = String(field?.label ?? "").trim();
 
-  const isMacField = /\bmac\b/i.test(label) || /\bmac\b/i.test(fieldKey);
+  const isMacField =
+  String(field?.type || "").toUpperCase() === "MAC" ||
+  /\bmac\b/i.test(label) ||
+  /\bmac\b/i.test(fieldKey);
 
   const safeKey = fieldKey || label || `${app.instanceId}-${Math.random()}`;
 
@@ -2979,7 +3040,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
           </div>
 
           {/* FOOTER */}
-          <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2">
+          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl shrink-0">
             <button
               onClick={onClose}
               type="button"
@@ -3001,8 +3062,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-            <div className="w-full sm:max-w-sm bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 flex flex-col gap-5 animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+            <div
+  className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200"
+  style={{ maxHeight: "90dvh" }}
+>
                 
                 <div className="flex flex-col items-center text-center gap-3">
                     <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-3xl">

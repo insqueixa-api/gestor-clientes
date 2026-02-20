@@ -24,10 +24,20 @@ function normalizeBaseUrl(u: string) {
   return s;
 }
 
+
+
 function getBearer(req: Request) {
   const a = req.headers.get("authorization") || "";
   if (a.toLowerCase().startsWith("bearer ")) return a.slice(7).trim();
   return "";
+}
+
+function getInternalSecret(req: Request) {
+  return String(req.headers.get("x-internal-secret") || "").trim();
+}
+
+function isUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ""));
 }
 
 async function readSafeBody(res: Response) {
@@ -366,48 +376,89 @@ export async function POST(req: Request) {
   const trace: any[] = [];
 
   try {
-    const token = getBearer(req);
-    if (!token) {
-      return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
-    }
+    const internalSecret = getInternalSecret(req);
+const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+const isInternal = !!expectedSecret && internalSecret === expectedSecret;
 
-    const body = await req.json().catch(() => ({} as any));
-    const integration_id = String(body?.integration_id || "").trim();
-    if (!integration_id) {
-      return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
-    }
+const token = getBearer(req);
+if (!isInternal && !token) {
+  return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
+}
 
-    // ✅ trialnotes (NOTAS) = o “apelido” pra você achar depois no painel
-    // (mantém compatibilidade com payload antigo)
-    const trialNotes = String(body?.trialnotes || body?.desired_username || body?.username || "").trim();
-    if (!trialNotes) {
-      return NextResponse.json(
-        { ok: false, error: "Informe trialnotes (ou desired_username/username)." },
-        { status: 400 }
-      );
-    }
+const body = await req.json().catch(() => ({} as any));
+const integration_id = String(body?.integration_id || "").trim();
+if (!integration_id) {
+  return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
+}
+if (!isUuid(integration_id)) {
+  return NextResponse.json({ ok: false, error: "integration_id inválido (não parece UUID)." }, { status: 400 });
+}
 
-    // supabase (service) + valida usuário via JWT do client
-    const sb = createClient(
-      mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
-      mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false } }
+// ✅ trialnotes (NOTAS) = o “apelido” pra você achar depois no painel
+const trialNotes = String(body?.trialnotes || body?.desired_username || body?.username || "").trim();
+if (!trialNotes) {
+  return NextResponse.json(
+    { ok: false, error: "Informe trialnotes (ou desired_username/username)." },
+    { status: 400 }
+  );
+}
+
+// ✅ tenant_id: se vier no JWT (metadata), valida contra o body; se não vier, usa o body
+const tenantIdFromBody = String(body?.tenant_id || "").trim();
+
+// supabase (service)
+const sb = createClient(
+  mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
+  mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  { auth: { persistSession: false } }
+);
+
+let tenantIdFromToken = "";
+let requesterUserId = "";
+
+// ✅ se NÃO for chamada interna, valida bearer e tenta extrair tenant do JWT
+if (!isInternal) {
+  const { data: userRes, error: userErr } = await sb.auth.getUser(token);
+  if (userErr || !userRes?.user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
+  }
+
+  requesterUserId = String(userRes.user.id || "").trim();
+
+  const um: any = (userRes.user.user_metadata as any) || {};
+  const am: any = (userRes.user.app_metadata as any) || {};
+  tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
+
+  // se o token tem tenant e o body também, eles precisam bater
+  if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
+    return NextResponse.json(
+      { ok: false, error: "tenant_id do body não confere com o tenant do usuário." },
+      { status: 403 }
     );
+  }
+}
 
-    const { data: userRes, error: userErr } = await sb.auth.getUser(token);
-    if (userErr || !userRes?.user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
-    }
+const tenantId = tenantIdFromToken || tenantIdFromBody;
+if (!tenantId) {
+  return NextResponse.json(
+    { ok: false, error: "tenant_id obrigatório (envie no body ou garanta tenant_id no JWT metadata)." },
+    { status: 400 }
+  );
+}
+if (!isUuid(tenantId)) {
+  return NextResponse.json({ ok: false, error: "tenant_id inválido (não parece UUID)." }, { status: 400 });
+}
 
-    // carrega integração do banco (inclui server_id pra checar tecnologia)
+// ✅ carrega integração DO TENANT (impede cruzar tenant via integration_id)
 const { data: integ, error } = await sb
   .from("server_integrations")
   .select("id,tenant_id,server_id,provider,is_active,api_token,api_secret,api_base_url")
   .eq("id", integration_id)
+  .eq("tenant_id", tenantId)
   .single();
 
 if (error) throw error;
-if (!integ) throw new Error("Integração não encontrada.");
+if (!integ) throw new Error("Integração não encontrada para este tenant.");
 
 const provider = String((integ as any).provider || "").toUpperCase().trim();
 if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
@@ -424,8 +475,9 @@ if (!serverId) {
 
 const { data: srv, error: srvErr } = await sb
   .from("servers")
-  .select("id,technology")
+  .select("id,tenant_id,technology")
   .eq("id", serverId)
+  .eq("tenant_id", tenantId)
   .single();
 
 if (srvErr) throw srvErr;
@@ -554,7 +606,7 @@ if (tech !== "IPTV") {
         note:
           "Trial criado, mas não consegui descobrir o ID automaticamente. (Sem ID, não dá pra confirmar detalhes.)",
         trace,
-        raw_create: createParsed.json ?? createParsed.text,
+        raw_create_preview: redactPreview(createParsed.text),
       });
     }
 

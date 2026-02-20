@@ -236,13 +236,41 @@
     const [mounted, setMounted] = useState(false);
 
     // ✅ 2. Efeito para TRAVAR O SCROLL da página de fundo
-    useEffect(() => {
-      setMounted(true);
-      document.body.style.overflow = "hidden"; // Trava
-      return () => {
-        document.body.style.overflow = ""; // Destrava ao fechar
-      };
-    }, []);
+const modalScrollYRef = useRef(0);
+
+useEffect(() => {
+  setMounted(true);
+
+  if (typeof window === "undefined") return;
+
+  const body = document.body;
+  const html = document.documentElement;
+
+  const scrollY = window.scrollY || window.pageYOffset || 0;
+  modalScrollYRef.current = scrollY;
+
+  const prevBodyOverflow = body.style.overflow;
+  const prevBodyPosition = body.style.position;
+  const prevBodyTop = body.style.top;
+  const prevBodyWidth = body.style.width;
+  const prevHtmlOverflow = html.style.overflow;
+
+  html.style.overflow = "hidden";
+  body.style.overflow = "hidden";
+  body.style.position = "fixed";
+  body.style.top = `-${scrollY}px`;
+  body.style.width = "100%";
+
+  return () => {
+    html.style.overflow = prevHtmlOverflow;
+    body.style.overflow = prevBodyOverflow;
+    body.style.position = prevBodyPosition;
+    body.style.top = prevBodyTop;
+    body.style.width = prevBodyWidth;
+
+    window.scrollTo(0, modalScrollYRef.current || 0);
+  };
+}, []);
 
     // Estados globais
     const [loading, setLoading] = useState(false);
@@ -1012,16 +1040,17 @@ setTimeout(() => {
         {/* --- MODAL PRINCIPAL --- */}
         <div
           // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
-          className="fixed inset-0 z-[99990] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
           onClick={onClose}
         >
           <div
             // ✅ Ajuste Max Width e Altura
-            className="w-full sm:max-w-xl bg-white dark:bg-[#161b22] border-t sm:border border-slate-200 dark:border-white/10 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh] transition-all animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200"
+            className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
+style={{ maxHeight: "90dvh" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* HEADER (MANTÉM IGUAL) */}
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-white dark:bg-[#161b22]">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
               {/* ... conteúdo do header ... */}
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
@@ -1046,7 +1075,10 @@ setTimeout(() => {
             </div>
 
             {/* BODY - ✅ Espaçamento Reduzido (p-3 sm:p-4) */}
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto custom-scrollbar flex-1">
+            <div
+  className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto overscroll-contain custom-scrollbar flex-1 min-h-0"
+  style={{ WebkitOverflowScrolling: "touch" }}
+>
               
               {/* 1. SEÇÃO VENCIMENTO */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3">
@@ -1254,7 +1286,7 @@ setTimeout(() => {
             </div>
 
             {/* FOOTER */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-end gap-3">
+            <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-end gap-3 rounded-b-xl shrink-0">
               <button
                 onClick={onClose}
                 className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-white dark:hover:bg-white/10 transition-all"
@@ -1287,10 +1319,14 @@ setTimeout(() => {
         {/* ✅ Confirm Dialog Global */}
         {ConfirmUI}
 
-        <ToastNotifications
-          toasts={toasts}
-          removeToast={(id) => setToasts((p) => p.filter((t) => t.id !== id))}
-        />
+<div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
+  <div className="pointer-events-auto">
+    <ToastNotifications
+      toasts={toasts}
+      removeToast={(id) => setToasts((p) => p.filter((t) => t.id !== id))}
+    />
+  </div>
+</div>
       </>,
       document.body // ✅ Alvo do Portal
     );
