@@ -67,7 +67,7 @@ function normalizeUsernameFromNotes(notesRaw: unknown) {
   // remove acentos
   const noDiacritics = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  // remove espaços e caracteres estranhos
+  // remove espaços e caracteres estranhos (Elite geralmente aceita alfanum + _ . -)
   const cleaned = noDiacritics.replace(/\s+/g, "").replace(/[^a-zA-Z0-9_.-]/g, "");
 
   // limites conservadores
@@ -102,9 +102,17 @@ function getPartsInTimeZone(d: Date, tz: string): TZParts {
   };
 }
 
+/**
+ * Converte um "local time" (ex.: 20/02/2026 10:03 no fuso America/Sao_Paulo)
+ * para UTC ms de forma robusta (sem depender de libs externas e funcionando com/sem DST).
+ */
 function zonedLocalToUtcMs(local: { year: number; month: number; day: number; hour: number; minute: number; second?: number }, tz: string) {
   const desiredAsIfUtc = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second ?? 0);
+
+  // palpite inicial: interpretar local como UTC
   let utcMs = desiredAsIfUtc;
+
+  // 2-3 iterações pra convergir mesmo em mudanças de offset (DST)
   for (let i = 0; i < 3; i++) {
     const got = getPartsInTimeZone(new Date(utcMs), tz);
     const gotAsIfUtc = Date.UTC(got.year, got.month - 1, got.day, got.hour, got.minute, got.second);
@@ -112,11 +120,13 @@ function zonedLocalToUtcMs(local: { year: number; month: number; day: number; ho
     utcMs += diff;
     if (Math.abs(diff) < 1000) break;
   }
+
   return utcMs;
 }
 
 function parseFormattedBrDateTimeToIso(spText: unknown, tz = TZ_SP) {
   const s = String(spText ?? "").trim();
+  // esperado: DD/MM/YYYY HH:mm (às vezes pode vir com segundos)
   const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return null;
 
@@ -134,10 +144,13 @@ function parseFormattedBrDateTimeToIso(spText: unknown, tz = TZ_SP) {
 // ----------------- login ELITE -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
+
   const jar = new CookieJar();
   const fc = fetchCookie(fetch, jar);
+
   const loginUrl = `${baseUrl}/login`;
 
+  // 1) GET /login (pegar CSRF)
   const r1 = await fc(loginUrl, {
     method: "GET",
     headers: {
@@ -157,6 +170,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
   if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
 
+  // 2) POST /login
   const body = new URLSearchParams();
   body.set("_token", csrfToken);
   body.set("timezone", tz);
@@ -187,6 +201,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 }
 
 /**
+ * ✅ IMPORTANTÍSSIMO:
  * Pega o CSRF dinamicamente (IPTV ou P2P)
  */
 async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: string) {
@@ -233,8 +248,8 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   return fc(url, finalInit);
 }
 
-// --- DataTables helper ---
-function buildDtQuery(searchValue: string) {
+// --- DataTables helper (AGORA DINÂMICO) ---
+function buildDtQuery(searchValue: string, isP2P: boolean) {
   const p = new URLSearchParams();
 
   p.set("draw", "1");
@@ -243,25 +258,43 @@ function buildDtQuery(searchValue: string) {
   p.set("search[value]", searchValue);
   p.set("search[regex]", "false");
 
+  // order: id desc (coluna 1)
   p.set("order[0][column]", "1");
   p.set("order[0][dir]", "desc");
   p.set("order[0][name]", "");
 
-  const cols = [
-    { data: "", name: "", searchable: "false", orderable: "false" },
-    { data: "id", name: "", searchable: "true", orderable: "true" },
-    { data: "", name: "", searchable: "false", orderable: "false" },
-    { data: "username", name: "", searchable: "true", orderable: "true" },
-    { data: "password", name: "", searchable: "true", orderable: "true" },
-    { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
-    { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
-    { data: "max_connections", name: "", searchable: "true", orderable: "true" },
-    { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
-    { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
-    { data: "is_trial", name: "", searchable: "true", orderable: "true" },
-    { data: "enabled", name: "", searchable: "true", orderable: "true" },
-    { data: "", name: "", searchable: "false", orderable: "false" },
-  ];
+  // ✅ Colunas mudam de acordo com o painel para não quebrar a busca
+  const cols = isP2P
+    ? [
+        { data: "id", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "name", name: "", searchable: "true", orderable: "true" },
+        { data: "email", name: "", searchable: "true", orderable: "true" },
+        { data: "exField2", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "exField4", name: "", searchable: "true", orderable: "true" },
+        { data: "type", name: "", searchable: "true", orderable: "true" },
+        { data: "status", name: "", searchable: "true", orderable: "true" },
+        { data: "action", name: "", searchable: "false", orderable: "false" },
+      ]
+    : [
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "username", name: "", searchable: "true", orderable: "true" },
+        { data: "password", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
+        { data: "max_connections", name: "", searchable: "true", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
+        { data: "is_trial", name: "", searchable: "true", orderable: "true" },
+        { data: "enabled", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+      ];
 
   cols.forEach((c, i) => {
     p.set(`columns[${i}][data]`, c.data);
@@ -275,8 +308,8 @@ function buildDtQuery(searchValue: string) {
   return p.toString();
 }
 
-async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string) {
-  const qs = buildDtQuery(searchValue);
+async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(searchValue, isP2P);
   const r = await eliteFetch(
     fc,
     baseUrl,
@@ -295,7 +328,8 @@ async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchVal
 }
 
 function safeString(v: any) {
-  return String(v ?? "").trim();
+  const s = String(v ?? "").trim();
+  return s;
 }
 
 // ----------------- handler -----------------
@@ -313,14 +347,17 @@ export async function POST(req: Request) {
     const external_user_id = safeString(body?.external_user_id || body?.user_id || body?.elite_user_id);
     const tz = safeString(body?.tz) || TZ_SP;
 
+    // ✅ Pega os dados originais que o front mandou (se existirem)
     const bodyDesiredUsername = safeString(body?.desired_username || body?.username);
     const bodyNotes = safeString(body?.notes);
 
-    const rename_from_notes = body?.rename_from_notes !== false;
+    // por padrão, essa rota é feita pra usar 1x após criar trial
+    const rename_from_notes = body?.rename_from_notes !== false; // default true
 
     if (!integration_id) return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
     if (!external_user_id) return NextResponse.json({ ok: false, error: "external_user_id obrigatório." }, { status: 400 });
 
+    // supabase service + valida usuário via JWT do client
     const sb = createClient(mustEnv("NEXT_PUBLIC_SUPABASE_URL"), mustEnv("SUPABASE_SERVICE_ROLE_KEY"), {
       auth: { persistSession: false },
     });
@@ -330,23 +367,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
     }
 
-    // ✅ VOLTAMOS COM A CONSULTA SEGURA AO BANCO
-    // Isso garante que descobrimos a tecnologia real vinculada à integração, sem depender do Front-end
-    // carrega integração do banco
-    const { data: integ, error } = await sb
+    // ✅ Carrega apenas os dados da integração (Sem tentar adivinhar a tecnologia pelo banco!)
+    const { data: integ, error: integError } = await sb
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") 
       .eq("id", integration_id)
       .single();
 
-    if (error) throw error;
-    if (!integ) throw new Error("Integração não encontrada.");
+    if (integError || !integ) throw new Error("Integração não encontrada.");
 
     const provider = String((integ as any).provider || "").toUpperCase().trim();
     if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-    // ✅ VALIDAÇÃO DINÂMICA: Lendo direto do Body enviado pelo Front-end
+    // ✅ Lendo a tecnologia estritamente do Front-End (A única fonte correta!)
     const tech = String(body?.technology || "").trim().toUpperCase();
     if (tech !== "IPTV" && tech !== "P2P") {
       return NextResponse.json(
@@ -355,7 +389,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Variáveis de Roteamento P2P vs IPTV
+    // ✅ Variáveis Dinâmicas
     const isP2P = tech === "P2P";
     const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
     const updateApiPath = isP2P ? `/api/p2p/update/${external_user_id}` : `/api/iptv/update/${external_user_id}`;
@@ -371,15 +405,15 @@ export async function POST(req: Request) {
 
     const base = normalizeBaseUrl(baseUrl);
 
-    // 1) Login
+    // 1) login
     const { fc } = await offoLogin(base, loginUser, loginPass, tz);
     trace.push({ step: "login", ok: true });
 
-    // 2) Pega o CSRF correto
+    // 2) csrf pós-login
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
     trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
-    // 3) Busca os Detalhes pelo ID
+    // 3) details by ID
     const detailsRes = await eliteFetch(
       fc,
       base,
@@ -412,7 +446,7 @@ export async function POST(req: Request) {
 
     const details = detailsParsed.json ?? {};
 
-    // Lê os campos aceitando os nomes diferentes (username/name/email para P2P)
+    // ✅ Nomes dos campos adaptados para suportar P2P
     const currentUsername =
       pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username"]) ?? "";
 
@@ -422,8 +456,8 @@ export async function POST(req: Request) {
     const notesFromDetails =
       pickFirst(details, ["reseller_notes", "trialnotes", "data.reseller_notes", "data.trialnotes", "user.reseller_notes", "user.trialnotes"]) ?? "";
 
-    // Pega os Pacotes / Bouquets originais
-    let bouquetsRaw = pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids", "pacote", "data.pacote"]);
+    let bouquetsRaw =
+      pickFirst(details, ["bouquet", "bouquets", "bouquet_ids", "data.bouquet", "data.bouquets", "data.bouquet_ids", "pacote", "data.pacote"]) ?? [];
     
     if (typeof bouquetsRaw === 'string') {
       try { bouquetsRaw = JSON.parse(bouquetsRaw); } catch(e) {}
@@ -434,21 +468,20 @@ export async function POST(req: Request) {
 
     let bouquets: string[] = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
 
-    // Se estiver vazio e for IPTV, força a grade completa. Se for P2P, forçaremos pacote "1" mais abaixo.
     if (bouquets.length === 0 && !isP2P) {
       bouquets = ["19", "68", "30", "76", "51", "66", "62", "27", "20", "75"];
     }
 
-    // 4) Tenta pegar a data de expiração (formatted_exp_date) da DataTables
+    // 4) Tenta pegar o row do DataTables
     let rowFromTable: any = null;
 
-    const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id), dashboardPath);
+    const tableById = await findRowBySearch(fc, base, csrf, String(external_user_id), dashboardPath, isP2P);
     trace.push({ step: "datatable_by_id", ok: tableById.ok, count: tableById.rows?.length ?? 0 });
     
     if (tableById.ok && tableById.rows?.length) {
       rowFromTable = tableById.rows.find((r: any) => String(r?.id) === String(external_user_id)) || tableById.rows[0];
     } else if (currentUsername) {
-      const tableByUser = await findRowBySearch(fc, base, csrf, String(currentUsername), dashboardPath);
+      const tableByUser = await findRowBySearch(fc, base, csrf, String(currentUsername), dashboardPath, isP2P);
       trace.push({ step: "datatable_by_username", ok: tableByUser.ok, count: tableByUser.rows?.length ?? 0 });
       if (tableByUser.ok && tableByUser.rows?.length) {
         rowFromTable = tableByUser.rows.find((r: any) => String(r?.id) === String(external_user_id)) || tableByUser.rows[0];
@@ -469,14 +502,15 @@ export async function POST(req: Request) {
     const expIso =
       (expSpText ? parseFormattedBrDateTimeToIso(expSpText, tz) : null) ||
       (() => {
-        const v = pickFirst(details, ["exp_date", "data.exp_date", "user.exp_date", "expires_at", "data.expires_at"]) ?? null;
+        const v =
+          pickFirst(details, ["exp_date", "data.exp_date", "user.exp_date", "expires_at", "data.expires_at"]) ?? null;
         if (!v) return null;
         const d = new Date(String(v));
         if (Number.isNaN(d.getTime())) return null;
         return d.toISOString();
       })();
 
-    // 5) Define o novo nome e cravamos com 12 caracteres (Se for renomear)
+    // 5) Determina o nome
     let desiredUsername = bodyDesiredUsername ? normalizeUsernameFromNotes(bodyDesiredUsername) : normalizeUsernameFromNotes(notes);
 
     if (desiredUsername) {
@@ -485,33 +519,40 @@ export async function POST(req: Request) {
 
       if (desiredUsername.length < 12) {
         const paddingNeeded = 12 - desiredUsername.length;
-        const padding = Math.floor(Math.random() * Math.pow(10, paddingNeeded)).toString().padStart(paddingNeeded, "0");
+        const padding = Math.floor(Math.random() * Math.pow(10, paddingNeeded))
+          .toString()
+          .padStart(paddingNeeded, "0");
         desiredUsername = `${desiredUsername}${padding}`;
       }
+
       desiredUsername = desiredUsername.slice(0, 32);
     }
 
-    const canRename = rename_from_notes && !!desiredUsername && desiredUsername !== String(currentUsername || "").trim();
+    const canRename =
+      rename_from_notes &&
+      !!desiredUsername &&
+      desiredUsername !== String(currentUsername || "").trim();
 
     trace.push({
       step: "plan",
-      isP2P,
       rename_from_notes,
+      notes_preview: notes?.slice(0, 60) || "",
       currentUsername: String(currentUsername || ""),
       desiredUsername,
       canRename,
       expSpText,
+      expIso,
     });
 
     let updatedUsername = String(currentUsername || "");
     let didUpdate = false;
 
-    // A MÁGICA DA ATUALIZAÇÃO (Onde separamos os formulários rigidamente)
+    // ✅ 6) ATUALIZAÇÃO RIGOROSA DE FORMULÁRIOS
     if (canRename) {
       const updForm = new FormData();
 
       if (isP2P) {
-        // FORMULÁRIO DO P2P EXATO
+        // P2P STRICT
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
         updForm.set("name", desiredUsername);
@@ -521,11 +562,11 @@ export async function POST(req: Request) {
           updForm.set("reseller_notes", notes);
         }
 
-        const p2pPacote = (typeof bouquetsRaw === 'string' || typeof bouquetsRaw === 'number') ? String(bouquetsRaw) : "1";
-        updForm.set("pacote", p2pPacote);
+        // P2P não manda Array. Manda variável fixa '1'.
+        updForm.set("pacote", "1");
 
       } else {
-        // FORMULÁRIO DO IPTV EXATO
+        // IPTV STRICT
         updForm.set("user_id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
         updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
@@ -572,12 +613,16 @@ export async function POST(req: Request) {
           password: String(currentPassword || rowFromTable?.password || ""),
           expires_at_sp: expSpText || null,
           expires_at_iso: expIso || null,
-          note: "Update falhou. Mantive sync sem renomear.",
+          note: "Update de username não confirmou. Mantive sync sem renomear.",
           trace,
+          update_preview: updText.slice(0, 900),
+          update_json: updParsed.json ?? null,
         });
       }
 
-      const afterTable = await findRowBySearch(fc, base, csrf, desiredUsername, dashboardPath);
+      const afterTable = await findRowBySearch(fc, base, csrf, desiredUsername, dashboardPath, isP2P);
+      trace.push({ step: "datatable_after_update", ok: afterTable.ok, count: afterTable.rows?.length ?? 0 });
+
       if (afterTable.ok && afterTable.rows?.length) {
         const match = afterTable.rows.find((r: any) => String(r?.id) === String(external_user_id)) || afterTable.rows[0];
         const updatedName = match?.username || match?.name || match?.email;
@@ -587,7 +632,7 @@ export async function POST(req: Request) {
       didUpdate = updatedUsername === desiredUsername;
     }
 
-    // 6) Re-busca para pegar a expiração final 
+    // 7) Re-busca detalhes pós-update
     const detailsRes2 = await eliteFetch(
       fc,
       base,
@@ -598,6 +643,13 @@ export async function POST(req: Request) {
     );
 
     const detailsParsed2 = await readSafeBody(detailsRes2);
+    trace.push({
+      step: "details_after",
+      status: detailsRes2.status,
+      ct: detailsRes2.headers.get("content-type"),
+      preview: String(detailsParsed2.text || "").slice(0, 250),
+    });
+
     const details2 = detailsParsed2.json ?? details;
     
     let finalUsername =
@@ -605,7 +657,7 @@ export async function POST(req: Request) {
       safeString(updatedUsername) ||
       safeString(currentUsername);
 
-    // Remove o '@provedor.com' se o Elite empurrar o P2P como email
+    // ✅ Remove o domínio de e-mail se o P2P retornar assim
     if (finalUsername.includes("@")) {
       finalUsername = finalUsername.split("@")[0];
     }
@@ -617,7 +669,8 @@ export async function POST(req: Request) {
 
     let finalRow: any = rowFromTable;
     if (finalUsername) {
-      const t = await findRowBySearch(fc, base, csrf, finalUsername, dashboardPath);
+      const t = await findRowBySearch(fc, base, csrf, finalUsername, dashboardPath, isP2P);
+      trace.push({ step: "datatable_final", ok: t.ok, count: t.rows?.length ?? 0 });
       if (t.ok && t.rows?.length) {
         finalRow = t.rows.find((r: any) => String(r?.id) === String(external_user_id)) || t.rows[0];
       }
