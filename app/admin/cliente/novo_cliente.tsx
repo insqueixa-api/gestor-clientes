@@ -1586,11 +1586,10 @@ if (m3uUrl && m3uUrl.trim()) {
 
       } else {
   // --- CRIAÇÃO ---
-  
-     
+      
       // ✅ NOVO: Variáveis para dados da API
-      // ✅ Normalização: Remove espaços, acentos e deixa em minúsculo para os painéis aceitarem
-      let apiUsername = username.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      // ✅ Normalização: Remove espaços e acentos, mas MANTÉM maiúsculas e minúsculas
+      let apiUsername = username.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
       let apiPassword = password?.trim() || "";
       let apiVencimento = dueISO;
 let apiM3uUrl = "";

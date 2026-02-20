@@ -107,9 +107,13 @@ export async function POST(req: NextRequest) {
       return jsonError(502, "Falha ao carregar os pacotes (bouquets) do painel Fast. Verifique a comunicação.");
     }
 
+// ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
+    const baseUser = (typeof usernameRaw === "string" && usernameRaw.trim()) 
+      ? usernameRaw.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") 
+      : "";
+
     // Retry logic
-    let attemptUsername =
-      (typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : `trial${Date.now()}`;
+    let attemptUsername = baseUser || `trial${Date.now()}`;
 
     const attemptPassword =
       (typeof passwordRaw === "string" && passwordRaw.trim())
@@ -149,9 +153,9 @@ export async function POST(req: NextRequest) {
           const mens = String(data?.mens || data?.error || text || "Erro na API FAST");
           lastErrMsg = mens;
 
-          if (looksLikeDuplicateUsername(mens)) {
+if (looksLikeDuplicateUsername(mens)) {
             const random = Math.floor(Math.random() * 900) + 100;
-            attemptUsername = `${(typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : "trial"}${random}`;
+            attemptUsername = `${baseUser || "trial"}${random}`;
             continue;
           }
 

@@ -113,9 +113,11 @@ export async function POST(req: NextRequest) {
       return jsonError(404, "Token não encontrado");
     }
 
+// ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
+    let baseUser = username ? String(username).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") : "";
+
     // Retry logic para username
-    let attemptUsername = (username ? String(username) : `client${Date.now()}`).trim();
-    if (!attemptUsername) attemptUsername = `client${Date.now()}`;
+    let attemptUsername = baseUser || `client${Date.now()}`;
 
     // ✅ BLINDAGEM NATV: O username precisa ter entre 8 e 48 caracteres (Documentação)
     if (attemptUsername.length < 8) {
@@ -155,9 +157,9 @@ export async function POST(req: NextRequest) {
           const rawMsg = String(data?.error || data?.message || detailValue || text || "");
           
           // ✅ A API da NATV retorna 505 quando o usuário já existe
-          if (res.status === 505 || looksLikeDuplicateUsername(rawMsg)) {
+if (res.status === 505 || looksLikeDuplicateUsername(rawMsg)) {
             const random = Math.floor(Math.random() * 90000) + 10000;
-            attemptUsername = `${(username || "client").toString().trim().slice(0, 15)}${random}`;
+            attemptUsername = `${(baseUser || "client").slice(0, 15)}${random}`;
             lastError = new Error(`Username já existe (tentativa ${attempt}/3)`);
             continue;
           }

@@ -104,8 +104,11 @@ export async function POST(req: NextRequest) {
     const finalMonths = Math.max(1, Math.min(12, Number(months)));
     const finalConnections = Math.max(1, Number(screens) || 1);
 
+// ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
+    const baseUser = username ? username.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") : "";
+
     // Retry logic (mantém sua lógica)
-    let attemptUsername = username || `client${Date.now()}`;
+    let attemptUsername = baseUser || `client${Date.now()}`;
     const attemptPassword = password || Math.random().toString(36).slice(-8);
 
     let finalData: any = null;
@@ -144,7 +147,7 @@ export async function POST(req: NextRequest) {
             msg.includes("já cadastrado")
           ) {
             const random = Math.floor(Math.random() * 900) + 100;
-            attemptUsername = `${username || "client"}${random}`;
+            attemptUsername = `${baseUser || "client"}${random}`;
             lastError = new Error("Username já existe");
             continue;
           }

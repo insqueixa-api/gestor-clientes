@@ -112,9 +112,11 @@ export async function POST(req: NextRequest) {
       return jsonError(404, "Token não encontrado");
     }
 
-// Retry logic: até 3 tentativas
-    let attemptUsername = (username ? String(username) : `test${Date.now()}`).trim();
-    if (!attemptUsername) attemptUsername = `test${Date.now()}`;
+// ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
+    let baseUser = username ? String(username).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") : "";
+
+    // Retry logic: até 3 tentativas
+    let attemptUsername = baseUser || `test${Date.now()}`;
     
     // ✅ BLINDAGEM NATV: O username precisa ter entre 8 e 48 caracteres (Documentação)
     if (attemptUsername.length < 8) {
@@ -156,7 +158,7 @@ export async function POST(req: NextRequest) {
           if (res.status === 505 || looksLikeDuplicateUsername(rawMsg)) {
             const random = Math.floor(Math.random() * 90000) + 10000;
             // Pega uma base menor e adiciona o randômico para não estourar os 48 caracteres permitidos
-            attemptUsername = `${(username || "test").toString().trim().slice(0, 15)}${random}`;
+            attemptUsername = `${(baseUser || "test").slice(0, 15)}${random}`;
             lastError = new Error(`Username já existe (tentativa ${attempt}/3)`);
             continue;
           }
