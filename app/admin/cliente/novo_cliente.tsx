@@ -1799,13 +1799,7 @@ if (nextExternalUserId) {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-body: JSON.stringify({
-  integration_id: srv.panel_integration,
-  desired_username: username, // ✅ Manda o usuário ORIGINAL digitado na tela!
-  username: apiUsername, // username "feio" que veio do create-trial
-  notes: notes?.trim() ? notes.trim() : null,
-  external_user_id: apiExternalUserId || null,
-}),
+            body: JSON.stringify(apiPayload), // ✅ Passa exatamente a mesma coisa da criação
           });
 
           const syncTrialText = await syncTrialRes.text();

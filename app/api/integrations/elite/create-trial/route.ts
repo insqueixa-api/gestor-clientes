@@ -498,12 +498,20 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
     // 3) maketrial (nota)
+    const reqUsername = String(body?.username || "").trim();
+
     const createForm = new FormData();
     createForm.set("_token", csrf);
     
     // ✅ No P2P o parâmetro chama "pacotex", no IPTV chama "trialx"
     if (isP2P) {
       createForm.set("pacotex", "1");
+      
+      // ✅ ELITE P2P: Força o envio apenas do usuário criado na tela
+      if (reqUsername) {
+        createForm.set("username", reqUsername);
+        createForm.set("email", reqUsername); // Fallback: alguns painéis Elite P2P usam o campo email
+      }
     } else {
       createForm.set("trialx", "1");
     }

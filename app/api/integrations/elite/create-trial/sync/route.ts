@@ -389,7 +389,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Variáveis Dinâmicas
+// ✅ Variáveis Dinâmicas (Endpoint confirmado via CURL manual)
     const isP2P = tech === "P2P";
     const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
     const updateApiPath = isP2P ? `/api/p2p/update/${external_user_id}` : `/api/iptv/update/${external_user_id}`;
@@ -510,21 +510,20 @@ export async function POST(req: Request) {
         return d.toISOString();
       })();
 
-    // 5) Determina o nome
+// 5) Determina o nome
     let desiredUsername = bodyDesiredUsername ? normalizeUsernameFromNotes(bodyDesiredUsername) : normalizeUsernameFromNotes(notes);
 
     if (desiredUsername) {
-      const random3 = Math.floor(100 + Math.random() * 900).toString();
-      desiredUsername = `${desiredUsername}${random3}`;
-
+      // ✅ Se tiver menos de 12 caracteres, completa com números aleatórios
       if (desiredUsername.length < 12) {
         const paddingNeeded = 12 - desiredUsername.length;
-        const padding = Math.floor(Math.random() * Math.pow(10, paddingNeeded))
+        const randomPadding = Math.floor(Math.random() * Math.pow(10, paddingNeeded))
           .toString()
           .padStart(paddingNeeded, "0");
-        desiredUsername = `${desiredUsername}${padding}`;
+        desiredUsername = `${desiredUsername}${randomPadding}`;
       }
 
+      // ✅ Limita ao máximo de 32 caracteres
       desiredUsername = desiredUsername.slice(0, 32);
     }
 
@@ -552,11 +551,17 @@ export async function POST(req: Request) {
       const updForm = new FormData();
 
       if (isP2P) {
-        // P2P STRICT
+        // P2P STRICT (Seguindo exatamente o CURL Chamada 4)
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("name", desiredUsername);
         updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+        updForm.set("name", desiredUsername); // No P2P o 'name' também assume o usuário
+        
+        if (notes) {
+          updForm.set("reseller_notes", notes);
+        }
+
+        updForm.set("pacote", "1");
         
         if (notes) {
           updForm.set("reseller_notes", notes);
