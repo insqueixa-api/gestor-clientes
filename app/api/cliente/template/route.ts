@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
   const s = String(v);
@@ -53,18 +55,19 @@ export async function GET() {
     "IBO Player, XCIPTV",
     "Cliente importado via planilha",
 
-    // ✅ NOVOS (exemplos)
-    "40.00",
-    "Padrao BRL",
-    "http://exemplo.com/lista.m3u",
-    "05/01/2026",
-    "14:30",
+    // ✅ NOVOS (exemplos — pode deixar em branco)
+    "40,00", // Valor Plano (pode ficar vazio)
+    "Padrao BRL", // Tabela Preco (label exato da plan_tables.name — pode ficar vazio)
+    "http://exemplo.com/lista.m3u", // M3U URL (opcional)
+    "05/01/2026", // Data do cadastro (opcional)
+    "14:30", // Cadastro hora (opcional)
   ];
 
   const lines: string[] = [];
   lines.push(headers.map(csvEscape).join(";"));
   lines.push(example.map(csvEscape).join(";"));
 
+  // BOM ajuda o Excel a reconhecer UTF-8
   const csv = "\ufeff" + lines.join("\n");
 
   return new NextResponse(csv, {

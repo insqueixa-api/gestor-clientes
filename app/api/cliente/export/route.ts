@@ -23,12 +23,12 @@ type ExportRow = {
   aplicativos_nome: string;
   obs: string;
 
-  // ✅ NOVOS (igual ao template)
-  valor_plano: string;      // price_amount
-  tabela_preco: string;     // plan_tables.name (LABEL)
+  // ✅ novos
+  valor_plano: string;       // price_amount
+  tabela_preco: string;      // plan_tables.name (label)
   m3u_url: string;
-  cadastro_dia: string;     // created_at
-  cadastro_hora: string;    // created_at
+  cadastro_dia: string;      // created_at (dia)
+  cadastro_hora: string;     // created_at (hora)
 };
 
 function csvEscape(v: unknown): string {
@@ -39,7 +39,6 @@ function csvEscape(v: unknown): string {
 }
 
 function toCsv(rows: ExportRow[]): string {
-  // ✅ HEADERS exatamente como seu template
   const headers = [
     "Saudacao",
     "Nome Completo",
@@ -58,7 +57,7 @@ function toCsv(rows: ExportRow[]): string {
     "Aplicativos nome",
     "Obs",
 
-    // ✅ NOVOS (sempre no final)
+    // ✅ novos (no final)
     "Valor Plano",
     "Tabela Preco",
     "M3U URL",
@@ -125,11 +124,6 @@ function formatDiaHoraBR(iso: string | null | undefined) {
   return { dia, hora };
 }
 
-/**
- * ✅ Segurança: resolve tenant pelo membership.
- * - Se o usuário tiver 1 tenant: usa ele.
- * - Se tiver múltiplos: exige tenant_id na query e valida que pertence ao user.
- */
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
   const { data, error } = await supabase
     .from("tenant_members")
@@ -177,6 +171,7 @@ export async function GET(req: Request) {
 
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
+
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
@@ -185,44 +180,40 @@ export async function GET(req: Request) {
   const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
   if (!resolved.tenant_id) {
     return NextResponse.json(
-      { error: (resolved as any).error, hint: (resolved as any).hint, details: (resolved as any).details },
-      { status: (resolved as any).status || 400 }
+      { error: resolved.error, hint: (resolved as any).hint, details: (resolved as any).details },
+      { status: resolved.status || 400 }
     );
   }
   const tenant_id = resolved.tenant_id;
 
   const scope = (url.searchParams.get("scope") || "clients") as "clients" | "all";
 
-  // 1) Clients
+  // clients
   let q = supabase
     .from("clients")
-    .select(
-      [
-        "id",
-        "tenant_id",
-        "name_prefix",
-        "display_name",
-        "first_name",
-        "last_name",
-        "whatsapp_opt_in",
-        "allow_whatsapp",
-        "whatsapp_username",
-        "server_id",
-        "server_username",
-        "server_password",
-        "technology",
-        "plan_label",
-        "screens",
-        "price_currency",
-        "price_amount",
-        "plan_table_id",
-        "m3u_url",
-        "vencimento",
-        "notes",
-        "is_trial",
-        "created_at",
-      ].join(",")
-    )
+    .select([
+      "id",
+      "name_prefix",
+      "display_name",
+      "first_name",
+      "last_name",
+      "whatsapp_opt_in",
+      "whatsapp_username",
+      "server_id",
+      "server_username",
+      "server_password",
+      "technology",
+      "plan_label",
+      "screens",
+      "price_currency",
+      "price_amount",
+      "plan_table_id",
+      "m3u_url",
+      "vencimento",
+      "notes",
+      "is_trial",
+      "created_at",
+    ].join(","))
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: false });
 
@@ -234,7 +225,7 @@ export async function GET(req: Request) {
   const clientRows = (clients ?? []) as any[];
   const clientIds = clientRows.map((c) => c.id);
 
-  // Sem clientes: CSV só com header
+  // sem clientes
   if (clientIds.length === 0) {
     const csv = toCsv([]);
     const now = new Date();
@@ -253,7 +244,7 @@ export async function GET(req: Request) {
     });
   }
 
-  // 2) Servidores (id -> name)
+  // servers (id -> name)
   const { data: servers, error: sErr } = await supabase
     .from("servers")
     .select("id,name")
@@ -267,14 +258,12 @@ export async function GET(req: Request) {
   }
 
   const serverNameById = new Map<string, string>();
-  for (const s of (servers ?? []) as any[]) {
-    serverNameById.set(String(s.id), String(s.name ?? ""));
-  }
+  for (const s of (servers ?? []) as any[]) serverNameById.set(String(s.id), String(s.name ?? ""));
 
-  // 3) Plan tables (id -> name) ✅ pra exportar label
+  // plan_tables (id -> name) + default por currency (pra preencher quando client.plan_table_id estiver null)
   const { data: planTables, error: ptErr } = await supabase
     .from("plan_tables")
-    .select("id,name")
+    .select("id,name,currency,is_system_default")
     .eq("tenant_id", tenant_id);
 
   if (ptErr) {
@@ -285,21 +274,27 @@ export async function GET(req: Request) {
   }
 
   const planTableNameById = new Map<string, string>();
+  const defaultPlanTableNameByCurrency = new Map<string, string>();
+
   for (const pt of (planTables ?? []) as any[]) {
-    planTableNameById.set(String(pt.id), String(pt.name ?? ""));
+    const id = String(pt.id);
+    const name = String(pt.name ?? "");
+    planTableNameById.set(id, name);
+
+    if (pt.is_system_default) {
+      const cur = String(pt.currency ?? "").toUpperCase();
+      if (cur) defaultPlanTableNameByCurrency.set(cur, name);
+    }
   }
 
-  // 4) Apps por cliente
+  // apps por cliente
   const { data: clientApps, error: aErr } = await supabase
     .from("client_apps")
     .select("client_id, apps(name)")
     .in("client_id", clientIds);
 
   if (aErr) {
-    return NextResponse.json(
-      { error: "export_failed_apps", details: aErr.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "export_failed_apps", details: aErr.message }, { status: 500 });
   }
 
   const appsByClient = new Map<string, string[]>();
@@ -312,7 +307,7 @@ export async function GET(req: Request) {
     appsByClient.set(cid, arr);
   }
 
-  // 5) Telefone principal (best-effort)
+  // telefone principal (best effort)
   const phoneByClient = new Map<string, string>();
   try {
     const { data: phones } = await supabase
@@ -325,16 +320,12 @@ export async function GET(req: Request) {
       const ph = p.phone_e164 ? String(p.phone_e164) : "";
       if (!ph) continue;
 
-      const isPrimary = !!p.is_primary;
-      if (isPrimary || !phoneByClient.has(p.client_id)) {
+      if (p.is_primary || !phoneByClient.has(p.client_id)) {
         phoneByClient.set(p.client_id, ph);
       }
     }
-  } catch {
-    // ignora
-  }
+  } catch {}
 
-  // 6) Montar CSV
   const rows: ExportRow[] = clientRows.map((c) => {
     const nomeCompleto =
       (c.display_name && String(c.display_name).trim()) ||
@@ -346,24 +337,27 @@ export async function GET(req: Request) {
     const apps = appsByClient.get(c.id) ?? [];
     const appsUnique = Array.from(new Set(apps)).join(", ");
 
-    const serverName = serverNameById.get(String(c.server_id)) ?? "";
-    const planTableLabel = c.plan_table_id ? (planTableNameById.get(String(c.plan_table_id)) ?? "") : "";
+    const serverName = serverNameById.get(c.server_id) ?? "";
 
-    const optIn = (c.whatsapp_opt_in ?? c.allow_whatsapp) ? "Sim" : "Não";
+    const cur = String(c.price_currency ?? "BRL").toUpperCase();
+    const planTableLabel =
+      (c.plan_table_id ? planTableNameById.get(String(c.plan_table_id)) : null) ||
+      defaultPlanTableNameByCurrency.get(cur) ||
+      "";
 
     return {
       saudacao: c.name_prefix ?? "",
       nome_completo: nomeCompleto ?? "",
       telefone_principal: phoneByClient.get(c.id) ?? "",
       whatsapp_username: c.whatsapp_username ?? "",
-      aceita_mensagem: optIn,
+      aceita_mensagem: c.whatsapp_opt_in ? "Sim" : "Não",
 
       servidor: serverName,
       usuario: c.server_username ?? "",
       senha: c.server_password ?? "",
       tecnologia: c.technology ?? "",
 
-      currency: c.price_currency ?? "BRL",
+      currency: cur,
       plano: c.plan_label ?? "",
       telas: String(c.screens ?? ""),
 

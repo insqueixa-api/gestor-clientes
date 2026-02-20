@@ -8,9 +8,9 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- TIPOS ---
 type AppField = {
-  id: string;       
-  label: string;    
-  type: "text" | "date" | "link";
+  id: string;
+  label: string;
+  type: "text" | "date" | "link" | "mac";
   placeholder?: string;
 };
 
@@ -224,13 +224,26 @@ setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
   }
 
   // ✅ NOVO: Botão Rápido para Vencimento
-  function addExpirationField() {
-    setFormFields((prev) => [
-      ...prev,
-      { id: globalThis.crypto.randomUUID(), label: "Vencimento", type: "date" },
+  // ✅ NOVO: Botão Rápido para Vencimento
+function addExpirationField() {
+  setFormFields((prev) => [
+    ...prev,
+    { id: globalThis.crypto.randomUUID(), label: "Vencimento", type: "date" },
+  ]);
+}
 
-    ]);
-  }
+// ✅ NOVO: Botão Rápido para MAC
+function addMacField() {
+  setFormFields((prev) => [
+    ...prev,
+    {
+      id: globalThis.crypto.randomUUID(),
+      label: "MAC",
+      type: "mac",
+      placeholder: "00:1A:2B:3C:4D:5E",
+    },
+  ]);
+}
 
   function removeField(id: string) {
     setFormFields((prev) => prev.filter((f) => f.id !== id));
@@ -437,10 +450,15 @@ function renderAppCard(app: AppData) {
 return (
   <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-<div className="relative z-[999999]">
-  <ToastNotifications toasts={toasts} removeToast={removeToast} />
-  {ConfirmUI}
+{/* ✅ Toasts em overlay (não ocupam espaço no topo) */}
+<div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
+  <div className="pointer-events-auto">
+    <ToastNotifications toasts={toasts} removeToast={removeToast} />
+  </div>
 </div>
+
+{/* ✅ ConfirmUI separado (modal/backdrop clicável) */}
+{ConfirmUI}
 
 
       {/* HEADER DA PÁGINA (padrão Clientes) */}
@@ -504,9 +522,9 @@ return (
               {groupedApps.partnership.length}
             </span>
           </div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
-            partnership
-          </span>
+<span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
+  PARCERIA
+</span>
         </div>
 
         <div className="p-3 sm:p-4">
@@ -527,9 +545,9 @@ return (
               {groupedApps.free.length}
             </span>
           </div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-            free
-          </span>
+<span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+  GRÁTIS
+</span>
         </div>
 
         <div className="p-3 sm:p-4">
@@ -550,9 +568,9 @@ return (
               {groupedApps.paid.length}
             </span>
           </div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
-            paid
-          </span>
+<span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
+  PAGO
+</span>
         </div>
 
         <div className="p-3 sm:p-4">
@@ -571,7 +589,7 @@ return (
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
-          <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             
             {/* HEADER MODAL */}
             <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
@@ -620,7 +638,7 @@ return (
                       </Select>
                   </div>
                   <div>
-                      <Label>Aplicativo Gratuíto?</Label>
+                      <Label>Aplicativo Gratuito?</Label>
                       <Select 
                         value={costType} 
                         onChange={(e) => setCostType(e.target.value as any)}
@@ -634,28 +652,37 @@ return (
 
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
-                    Campos Personalizados
-                  </h3>
-                  
-                  {/* ✅ BOTÕES DE ADIÇÃO */}
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={addExpirationField}
-                      className="text-xs px-2 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded font-bold hover:bg-amber-500/20 transition-colors flex items-center gap-1"
-                      title="Adicionar campo de vencimento automaticamente"
-                    >
-                      <span>📅</span> + Vencimento
-                    </button>
-                    <button 
-                      onClick={addField}
-                      className="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded font-bold hover:bg-emerald-500/20 transition-colors"
-                    >
-                      + Campo Livre
-                    </button>
-                  </div>
-                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+  <h3 className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
+    Campos Personalizados
+  </h3>
+
+  {/* ✅ BOTÕES DE ADIÇÃO (mobile quebra linha) */}
+  <div className="flex flex-wrap gap-2 sm:justify-end">
+    <button
+      onClick={addExpirationField}
+      className="text-xs px-2 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded font-bold hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+      title="Adicionar campo de vencimento automaticamente"
+    >
+      <span>📅</span> + Vencimento
+    </button>
+
+    <button
+      onClick={addMacField}
+      className="text-xs px-2 py-1 bg-slate-500/10 text-slate-700 dark:text-white/70 border border-slate-500/20 rounded font-bold hover:bg-slate-500/20 transition-colors flex items-center gap-1"
+      title="Adicionar campo MAC automaticamente"
+    >
+      <span>🧷</span> + MAC
+    </button>
+
+    <button
+      onClick={addField}
+      className="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded font-bold hover:bg-emerald-500/20 transition-colors"
+    >
+      + Campo Livre
+    </button>
+  </div>
+</div>
 
                 <div className="space-y-2">
                   {formFields.length === 0 && (
@@ -665,7 +692,10 @@ return (
                   )}
 
                   {formFields.map((field, index) => (
-                    <div key={field.id} className="flex gap-2 items-center animate-in slide-in-from-left-2 duration-200">
+                    <div
+  key={field.id}
+  className="grid grid-cols-[24px_1fr_40px] sm:grid-cols-[24px_1fr_128px_40px] gap-2 items-center animate-in slide-in-from-left-2 duration-200"
+>
                       <div className="w-6 flex items-center justify-center text-xs text-slate-400 font-mono">
                         #{index + 1}
                       </div>
@@ -676,15 +706,16 @@ return (
                           onChange={(e) => updateField(field.id, "label", e.target.value)}
                         />
                       </div>
-                      <div className="w-32">
-                        <select 
-                          className="w-full h-10 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
-                          value={field.type}
-                          onChange={(e) => updateField(field.id, "type", e.target.value as any)}
-                        >
+                      <div className="col-span-3 sm:col-span-1 sm:col-start-3 w-full">
+  <select
+    className="w-full h-10 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
+    value={field.type}
+    onChange={(e) => updateField(field.id, "type", e.target.value as any)}
+  >
 <option value="text">Texto</option>
 <option value="date">Data</option>
 <option value="link">Link</option>
+<option value="mac">MAC</option>
                         </select>
                       </div>
                       <button 

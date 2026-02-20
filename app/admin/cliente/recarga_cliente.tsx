@@ -1181,36 +1181,34 @@ setTimeout(() => {
               {/* 4. OUTROS + OBS */}
               <div className="space-y-3">
                 {/* ... (Bloco de Tecnologia e Notificação mantém, mas com gap-3 e labels ajustados) ... */}
-                  {/* ✅ TOGGLE RENOVAÇÃO AUTOMÁTICA */}
-{!isFromTrial && (
-  <div 
-    onClick={() => hasIntegration && setRenewAutomatic(!renewAutomatic)}
-    className={`p-3 rounded-xl border transition-all cursor-pointer ${
-      renewAutomatic 
-        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
-        : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
-    } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
-  >
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{renewAutomatic ? "🔄" : "📝"}</span>
-        <div>
-          <span className={`text-xs font-bold block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
-            Renovação Automática
-          </span>
-          <span className="text-[9px] text-slate-400 dark:text-white/40">
-            {hasIntegration ? "Sincronizar com servidor" : "Servidor sem integração"}
-          </span>
-        </div>
+                  {/* ✅ TOGGLE RENOVAÇÃO AUTOMÁTICA (Cliente + Teste) */}
+<div 
+  onClick={() => hasIntegration && setRenewAutomatic(!renewAutomatic)}
+  className={`p-3 rounded-xl border transition-all cursor-pointer ${
+    renewAutomatic 
+      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
+      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+  } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
+>
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{renewAutomatic ? "🔄" : "📝"}</span>
+      <div>
+        <span className={`text-xs font-bold block ${renewAutomatic ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
+          Renovação Automática
+        </span>
+        <span className="text-[9px] text-slate-400 dark:text-white/40">
+          {hasIntegration ? "Sincronizar com servidor" : "Servidor sem integração"}
+        </span>
       </div>
-      <Switch 
-        checked={renewAutomatic} 
-        onChange={(v) => hasIntegration && setRenewAutomatic(v)} 
-        label="" 
-      />
     </div>
+    <Switch 
+      checked={renewAutomatic} 
+      onChange={(v) => hasIntegration && setRenewAutomatic(v)} 
+      label="" 
+    />
   </div>
-)}
+</div>
 
 <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}></div>
 

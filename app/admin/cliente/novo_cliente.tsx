@@ -39,6 +39,9 @@ export type ClientData = {
   // ✅ OPCIONAL (se você trouxer na view/join)
   plan_table_name?: string | null;
 
+  // ✅ NOVO: vínculo com painel (Elite/fast/natv etc.)
+  external_user_id?: string | null;
+
   vencimento?: string; // timestamptz
   apps_names?: string[];
   technology?: string;
@@ -106,6 +109,11 @@ const PLAN_MONTHS: Record<string, number> = {
 // --- HELPERS ---
 function onlyDigits(raw: string) {
   return raw.replace(/\D+/g, "");
+}
+
+function normalizeMacInput(raw: string) {
+  // ✅ apenas o que você pediu: uppercase + remover espaços
+  return String(raw || "").toUpperCase().replace(/\s+/g, "");
 }
 
 function normalizeE164(raw: string) {
@@ -378,7 +386,11 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+};
+
+function Input({ className = "", ...props }: InputProps) {
   return (
     <input
       {...props}
@@ -627,6 +639,10 @@ const [trialProvider, setTrialProvider] = useState<
 const [trialHoursLocked, setTrialHoursLocked] = useState(false);
 
 const [m3uUrl, setM3uUrl] = useState("");
+
+// ✅ NOVO: external_user_id (ID do usuário no painel)
+const [externalUserId, setExternalUserId] = useState<string>("");
+
 const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
 
 // ✅ Templates WhatsApp
@@ -1155,17 +1171,19 @@ if (clientPlanTableId) {
   try {
     if (clientToEdit.id) {
       const { data: nrow, error: nerr } = await supabaseBrowser
-        .from("clients")
-        .select("notes")
-        .eq("tenant_id", tid)
-        .eq("id", clientToEdit.id)
-        .maybeSingle();
+  .from("clients")
+  .select("notes, external_user_id")
+  .eq("tenant_id", tid)
+  .eq("id", clientToEdit.id)
+  .maybeSingle();
 
-      if (!nerr) {
-        setNotes((nrow?.notes || "").toString());
-      } else {
-        setNotes(clientToEdit.notes || "");
-      }
+if (!nerr) {
+  setNotes((nrow?.notes || "").toString());
+  setExternalUserId(String(nrow?.external_user_id || "").trim());
+} else {
+  setNotes(clientToEdit.notes || "");
+  setExternalUserId(String((clientToEdit as any)?.external_user_id || "").trim());
+}
     } else {
       setNotes(clientToEdit.notes || "");
     }
@@ -1183,20 +1201,41 @@ if (clientPlanTableId) {
 
     if (currentApps) {
       const instances = currentApps.map((ca: any) => {
-        const savedValues = ca.field_values || {};
-        const { _config_cost, _config_partner, ...restValues } = savedValues;
+  const savedValues = ca.field_values || {};
+  const { _config_cost, _config_partner, ...restValues } = savedValues;
 
-      return {
-        instanceId: crypto.randomUUID(),
-        app_id: ca.app_id,
-        name: ca.apps?.name || "App Removido",
-        values: restValues,
-        fields_config: Array.isArray(ca.apps?.fields_config) ? ca.apps?.fields_config : [],
-        costType: _config_cost || "paid",
-        partnerServerId: _config_partner || "",
-        is_minimized: true // ✅ Garante que apps já salvos iniciem fechados na edição
-      };
-      });
+  const cfg = Array.isArray(ca.apps?.fields_config) ? ca.apps.fields_config : [];
+
+  // ✅ Normaliza: no state fica sempre por field.id (fallback por label)
+  const normalizedValues: Record<string, string> = {};
+  for (const f of cfg) {
+    const idKey = String(f?.id ?? "").trim();
+    const labelKey = String(f?.label ?? "").trim();
+
+    const v =
+      (idKey && restValues[idKey] != null) ? restValues[idKey] :
+      (labelKey && restValues[labelKey] != null) ? restValues[labelKey] :
+      "";
+
+    const finalKey = idKey || labelKey;
+    if (finalKey) {
+  const isMac = /\bmac\b/i.test(labelKey) || /\bmac\b/i.test(idKey);
+  normalizedValues[finalKey] = isMac ? normalizeMacInput(String(v ?? "")) : String(v ?? "");
+}
+  }
+
+  return {
+    instanceId: crypto.randomUUID(),
+    app_id: ca.app_id,
+    name: ca.apps?.name || "App Removido",
+    values: normalizedValues,
+    fields_config: cfg,
+    costType: _config_cost || "paid",
+    partnerServerId: _config_partner || "",
+    is_minimized: true,
+  };
+});
+setSelectedApps(instances);
       setSelectedApps(instances);
     }
   }
@@ -1353,12 +1392,12 @@ function addAppToClient(app: AppCatalog) {
     }));
   }
 
-  function updateAppFieldValue(instanceId: string, fieldLabel: string, value: string) {
-    setSelectedApps(prev => prev.map(app => {
-      if (app.instanceId !== instanceId) return app;
-      return { ...app, values: { ...app.values, [fieldLabel]: value } };
-    }));
-  }
+function updateAppFieldValue(instanceId: string, fieldKey: string, value: string) {
+  setSelectedApps(prev => prev.map(app => {
+    if (app.instanceId !== instanceId) return app;
+    return { ...app, values: { ...app.values, [fieldKey]: value } };
+  }));
+}
 
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
   async function executeSave() {
@@ -1411,13 +1450,18 @@ function addAppToClient(app: AppCatalog) {
       const { data: userRes } = await supabaseBrowser.auth.getUser();
       const createdBy = userRes?.user?.id;
 
-      const rpcTable = isTrialMode ? (tables.find(t=>t.currency==="BRL"&&t.is_system_default)||tables[0]) : selectedTable;
-      const rpcPeriod = (isTrialMode ? "MONTHLY" : selectedPlanPeriod) as any;
-      const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
-      const priceFromTable = pickPriceFromTable(rpcTable, rpcPeriod, rpcScreens) ?? 0;
-      const rpcPriceAmount = isTrialMode ? Number(priceFromTable) : safeNumberFromMoneyBR(planPrice);
-      const rpcCurrency = isTrialMode ? "BRL" : (currency || "BRL");
-      const rpcPlanLabel = isTrialMode ? PLAN_LABELS["MONTHLY"] : PLAN_LABELS[selectedPlanPeriod];
+      const rpcTable = selectedTable; // ✅ TRIAL agora usa a tabela selecionada no UI
+const rpcPeriod = (isTrialMode ? "MONTHLY" : selectedPlanPeriod) as any;
+const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
+
+// ✅ valor vem da tabela automaticamente via useEffect quando priceTouched=false
+// ✅ e vira override quando você digita (priceTouched=true)
+const rpcPriceAmount = safeNumberFromMoneyBR(planPrice);
+
+// ✅ moeda sempre vem da tabela selecionada (e já é refletida no state via useEffect)
+const rpcCurrency = (currency || "BRL");
+
+const rpcPlanLabel = isTrialMode ? PLAN_LABELS["MONTHLY"] : PLAN_LABELS[selectedPlanPeriod];
 
       let clientId = clientToEdit?.id;
 
@@ -1504,7 +1548,10 @@ let apiUsername = username;
 let apiPassword = password?.trim() || "";
 let apiVencimento = dueISO;
 let apiM3uUrl = "";
+// ✅ NOVO: external_user_id retornado pela integração (ex.: ELITE)
+let apiExternalUserId = "";
 let serverName = "Servidor"; // ✅ DECLARAR AQUI (escopo correto)
+
 
 // ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
 // ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
@@ -1628,15 +1675,30 @@ if (!apiRes.ok || !okFlag) {
       const nextUsername = apiData?.username != null ? String(apiData.username) : "";
       const nextPassword = apiData?.password != null ? String(apiData.password) : "";
       const nextM3u =
-        apiData?.m3u_url != null
-          ? String(apiData.m3u_url)
-          : apiData?.m3uUrl != null
-            ? String(apiData.m3uUrl)
-            : "";
+  apiData?.m3u_url != null
+    ? String(apiData.m3u_url)
+    : apiData?.m3uUrl != null
+      ? String(apiData.m3uUrl)
+      : "";
 
-      if (nextUsername) apiUsername = nextUsername;
-      if (nextPassword) apiPassword = nextPassword;
-      if (nextM3u) apiM3uUrl = nextM3u;
+const nextExternalUserIdRaw =
+  apiData?.external_user_id ??
+  apiData?.externalUserId ??
+  apiData?.external_id ??
+  apiData?.user_id ??
+  apiData?.id ??
+  "";
+
+const nextExternalUserId = String(nextExternalUserIdRaw || "").trim();
+
+if (nextUsername) apiUsername = nextUsername;
+if (nextPassword) apiPassword = nextPassword;
+if (nextM3u) apiM3uUrl = nextM3u;
+
+if (nextExternalUserId) {
+  apiExternalUserId = nextExternalUserId;
+  setExternalUserId(nextExternalUserId); // ✅ reflete na UI/estado
+}
 
       console.log("🔵 Dados recebidos da API:", {
         username: apiUsername,
@@ -1683,11 +1745,12 @@ if (!apiRes.ok || !okFlag) {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
-              integration_id: srv.panel_integration,
-              username: apiUsername, // username "feio" que veio do create-trial
-              notes: notes?.trim() ? notes.trim() : null, // ✅ fonte para normalização
-            }),
+body: JSON.stringify({
+  integration_id: srv.panel_integration,
+  username: apiUsername, // username "feio" que veio do create-trial
+  notes: notes?.trim() ? notes.trim() : null, // ✅ fonte para normalização
+  external_user_id: apiExternalUserId || null, // ✅ NOVO (fonte estável)
+}),
           });
 
           const syncTrialText = await syncTrialRes.text();
@@ -1870,30 +1933,37 @@ console.log("🔵 DEBUG M3U antes de salvar:", {
   finalValue: apiM3uUrl || m3uUrl
 });
 
-if (clientId && (apiM3uUrl || m3uUrl)) {
-  const finalM3u = apiM3uUrl || m3uUrl;
-  console.log("🟢 Salvando M3U no banco:", finalM3u);
-  
-  // ✅ TESTE: Delay de 100ms
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const { data: updateResult, error: m3uErr } = await supabaseBrowser
+// ✅ UPDATE ÚNICO (evita 2 writes): m3u_url + external_user_id
+const finalM3u = (apiM3uUrl || m3uUrl || "").trim();
+const finalExternalUserId = (apiExternalUserId || externalUserId || "").trim();
+
+if (clientId && (finalM3u || finalExternalUserId)) {
+  const patch: any = {};
+  if (finalM3u) patch.m3u_url = finalM3u;
+  if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
+
+  console.log("🟢 Salvando PATCH no banco:", patch);
+
+  // ✅ Delay de segurança (mantém seu padrão)
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const { data: updateResult, error: patchErr } = await supabaseBrowser
     .from("clients")
-    .update({ m3u_url: finalM3u })
+    .update(patch)
     .eq("id", clientId)
     .eq("tenant_id", tid)
     .select();
-  
-  if (m3uErr) {
-    console.error("❌ Erro ao salvar M3U:", m3uErr);
+
+  if (patchErr) {
+    console.error("❌ Erro ao salvar PATCH:", patchErr);
   } else {
-    console.log("✅ M3U salvo com sucesso!", updateResult);
+    console.log("✅ PATCH salvo com sucesso!", updateResult);
   }
 } else {
-  console.warn("⚠️ M3U NÃO salvo. Motivo:", {
+  console.warn("⚠️ PATCH NÃO salvo. Motivo:", {
     temClientId: !!clientId,
-    temApiM3u: !!apiM3uUrl,
-    temM3uManual: !!m3uUrl
+    temM3uFinal: !!finalM3u,
+    temExternalUserId: !!finalExternalUserId,
   });
 }
 
@@ -2450,75 +2520,116 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                    </div>
                 </div>
 
-                {!isTrialMode && (
-                   <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
-                      <div className="flex justify-between items-center gap-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">Tabela:</span>
-                          <select 
-                            value={selectedTableId} 
-                            onChange={(e) => setSelectedTableId(e.target.value)} 
-                            className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
-                          >
-                            {tables.map((t) => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
-                          </select>
-                        </div>
-                      </div>
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+  <div className="flex justify-between items-center gap-3">
+    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
 
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <div className="col-span-2 sm:col-span-1">
-                          <Label>Plano</Label>
-                          <Select
-                            value={selectedPlanPeriod}
-                            onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}
-                          >
-                            {Object.entries(PLAN_LABELS).map(([k, v]) => (
-                              <option key={k} value={k}>
-                                {v}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-slate-400 dark:text-white/40 font-bold hidden sm:inline">
+        Tabela:
+      </span>
 
-                        <div>
-                          <Label>Telas</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={screens}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
-                            }}
-                            onBlur={() => {
-                              if (!screens || Number(screens) < 1) setScreens(1);
-                            }}
-                          />
-                        </div>
+      <select
+        value={selectedTableId}
+        onChange={(e) => setSelectedTableId(e.target.value)}
+        className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
+      >
+        {tables.map((t) => (
+          <option key={t.id} value={t.id}>
+            {formatTableLabel(t)}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
 
-                        <div className="col-span-2 sm:col-span-1">
-                          <Label>Créditos</Label>
-                          <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
-                            {creditsInfo ? creditsInfo.used : "—"}
-                          </div>
-                        </div>
-                      </div>
+  {/* ✅ Só CLIENTE vê Plano / Telas / Créditos */}
+  {!isTrialMode && (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="col-span-2 sm:col-span-1">
+        <Label>Plano</Label>
+        <Select
+          value={selectedPlanPeriod}
+          onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}
+        >
+          {Object.entries(PLAN_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </Select>
+      </div>
 
+      <div>
+        <Label>Telas</Label>
+        <Input
+          type="number"
+          min={1}
+          value={screens}
+          onChange={(e) => {
+            const val = e.target.value;
+            setScreens(val === "" ? ("" as any) : Math.max(1, Number(val)));
+          }}
+          onBlur={() => {
+            if (!screens || Number(screens) < 1) setScreens(1);
+          }}
+        />
+      </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <div><Label>Moeda</Label><div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">{currency}</div></div>
-                        <div className="col-span-2"><Label>Valor</Label><Input value={planPrice} onChange={(e) => { setPlanPrice(e.target.value); setPriceTouched(true); }} placeholder="0,00" className="text-right font-bold tracking-tight text-lg" /></div>
-                      </div>
+      <div className="col-span-2 sm:col-span-1">
+        <Label>Créditos</Label>
+        <div className="h-10 w-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-lg flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
+          {creditsInfo ? creditsInfo.used : "—"}
+        </div>
+      </div>
+    </div>
+  )}
 
-                      {showFx && (
-                        <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
-                          <div><Label>Câmbio</Label><input type="number" step="0.0001" value={Number(fxRate || 0).toFixed(4)} onChange={(e) => setFxRate(Number(e.target.value))} className="w-full h-9 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white" /></div>
-                          <div><Label>Total BRL</Label><div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">{fmtMoney("BRL", totalBrl)}</div></div>
-                        </div>
-                      )}
-                   </div>
-                )}
+  {/* ✅ CLIENTE + TRIAL: sempre mostra Moeda + Valor (com override) */}
+  <div className="grid grid-cols-3 gap-3">
+    <div>
+      <Label>Moeda</Label>
+      <div className="h-10 w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
+        {currency}
+      </div>
+    </div>
+
+    <div className="col-span-2">
+      <Label>Valor</Label>
+      <Input
+        value={planPrice}
+        onChange={(e) => {
+          setPlanPrice(e.target.value);
+          setPriceTouched(true);
+        }}
+        placeholder="0,00"
+        className="text-right font-bold tracking-tight text-lg"
+      />
+    </div>
+  </div>
+
+  {showFx && (
+    <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
+      <div>
+        <Label>Câmbio</Label>
+        <input
+          type="number"
+          step="0.0001"
+          value={Number(fxRate || 0).toFixed(4)}
+          onChange={(e) => setFxRate(Number(e.target.value))}
+          className="w-full h-9 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white"
+        />
+      </div>
+
+      <div>
+        <Label>Total BRL</Label>
+        <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">
+          {fmtMoney("BRL", totalBrl)}
+        </div>
+      </div>
+    </div>
+  )}
+</div>
                 
                 {/* VENCIMENTO */}
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
@@ -2752,18 +2863,46 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                           {/* Campos do App */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {app.fields_config?.length > 0 ? (
-                              app.fields_config.map((field: any) => (
-                                        <div key={field.id}>
-                                          <Label>{field.label}</Label>
-                                          <Input 
-                                            type={field.type === 'date' ? 'date' : 'text'}
-                                            value={app.values[field.label] || ""}
-                                            onChange={(e) => updateAppFieldValue(app.instanceId, field.label, e.target.value)}
-                                            placeholder={`Digite ${field.label}...`}
-                                          />
-                                        </div>
-                                      ))
-                                    ) : (
+  app.fields_config.map((field: any) => {
+  const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
+  const label = String(field?.label ?? "").trim();
+
+  const isMacField = /\bmac\b/i.test(label) || /\bmac\b/i.test(fieldKey);
+
+  const safeKey = fieldKey || label || `${app.instanceId}-${Math.random()}`;
+
+  return (
+    <div key={safeKey}>
+      <Label>{label || "Campo"}</Label>
+
+      <Input
+        type={field?.type === "date" ? "date" : "text"}
+        value={
+          (fieldKey && (app.values as any)?.[fieldKey] != null
+            ? String((app.values as any)[fieldKey])
+            : "") ||
+          (label && (app.values as any)?.[label] != null
+            ? String((app.values as any)[label])
+            : "") ||
+          ""
+        }
+        onChange={(e) => {
+          const raw = e.target.value;
+          const next = isMacField ? normalizeMacInput(raw) : raw;
+
+          const key = String(fieldKey || label || "").trim();
+          if (!key) return;
+
+          updateAppFieldValue(app.instanceId, key, next);
+        }}
+        placeholder={label ? `Digite ${label}...` : "Digite..."}
+        autoCapitalize={isMacField ? "characters" : "none"}
+        spellCheck={false}
+      />
+    </div>
+  );
+})
+) : (
                                       <p className="text-[10px] text-slate-400 italic col-span-2 py-1">
                                         Este aplicativo não requer configuração adicional.
                                       </p>
