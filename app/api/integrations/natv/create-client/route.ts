@@ -56,8 +56,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validação months (mantém teu comportamento: 1..12)
-    const finalMonths = Math.max(1, Math.min(12, Number(months) || 1));
+    // ✅ Validação NATV: Os meses aceitos são estritamente 1, 2, 3, 4, 5, 6 ou 12.
+    let finalMonths = Math.max(1, Math.min(12, Number(months) || 1));
+    if (![1, 2, 3, 4, 5, 6, 12].includes(finalMonths)) {
+      // Se vier um valor quebrado (ex: 7), ajusta para o valor válido mais próximo
+      const allowed = [1, 2, 3, 4, 5, 6, 12];
+      finalMonths = allowed.reduce((prev, curr) => Math.abs(curr - finalMonths) < Math.abs(prev - finalMonths) ? curr : prev);
+    }
 
     // (screens está no payload hoje; não altero a assinatura do endpoint)
     void screens;
@@ -112,6 +117,11 @@ export async function POST(req: NextRequest) {
     let attemptUsername = (username ? String(username) : `client${Date.now()}`).trim();
     if (!attemptUsername) attemptUsername = `client${Date.now()}`;
 
+    // ✅ BLINDAGEM NATV: O username precisa ter entre 8 e 48 caracteres (Documentação)
+    if (attemptUsername.length < 8) {
+      attemptUsername = `${attemptUsername}${Math.floor(Math.random() * 90000) + 10000}`;
+    }
+
     let userId: number | null = null;
     let finalPassword = "";
     let lastError: any = null;
@@ -140,10 +150,14 @@ export async function POST(req: NextRequest) {
         }
 
         if (!res.ok) {
-          const rawMsg = String(data?.error || data?.message || text || "");
-          if (looksLikeDuplicateUsername(rawMsg)) {
-            const random = Math.floor(Math.random() * 900) + 100;
-            attemptUsername = `${(username || "client").toString().trim() || "client"}${random}`;
+          // ✅ NATV devolve a mensagem de erro no campo "detail"
+          const detailValue = typeof data?.detail === "string" ? data.detail : JSON.stringify(data?.detail || "");
+          const rawMsg = String(data?.error || data?.message || detailValue || text || "");
+          
+          // ✅ A API da NATV retorna 505 quando o usuário já existe
+          if (res.status === 505 || looksLikeDuplicateUsername(rawMsg)) {
+            const random = Math.floor(Math.random() * 90000) + 10000;
+            attemptUsername = `${(username || "client").toString().trim().slice(0, 15)}${random}`;
             lastError = new Error(`Username já existe (tentativa ${attempt}/3)`);
             continue;
           }
@@ -151,6 +165,7 @@ export async function POST(req: NextRequest) {
           // ✅ erros sanitizados (não devolve raw da NATV)
           if (res.status === 402) return jsonError(402, "Créditos insuficientes no servidor");
           if (res.status === 404) return jsonError(404, "Endpoint NATV não encontrado");
+          if (res.status === 422) return jsonError(422, "Erro de formatação: nome muito curto ou caracteres inválidos");
 
           return jsonError(502, "Falha ao criar usuário no servidor");
         }
@@ -195,10 +210,11 @@ export async function POST(req: NextRequest) {
       activateData = {};
     }
 
-    if (!activateRes.ok) {
+if (!activateRes.ok) {
       // ✅ erros sanitizados
       if (activateRes.status === 402) return jsonError(402, "Créditos insuficientes no servidor");
       if (activateRes.status === 404) return jsonError(404, "Usuário não encontrado no servidor");
+      if (activateRes.status === 422) return jsonError(422, "A quantidade de meses enviada não é suportada pelo servidor");
       return jsonError(502, "Falha ao ativar usuário no servidor");
     }
 

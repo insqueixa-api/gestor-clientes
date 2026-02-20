@@ -1587,10 +1587,12 @@ if (m3uUrl && m3uUrl.trim()) {
       } else {
   // --- CRIAÇÃO ---
   
-  // ✅ NOVO: Variáveis para dados da API
-let apiUsername = username;
-let apiPassword = password?.trim() || "";
-let apiVencimento = dueISO;
+     
+      // ✅ NOVO: Variáveis para dados da API
+      // ✅ Normalização: Remove espaços, acentos e deixa em minúsculo para os painéis aceitarem
+      let apiUsername = username.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      let apiPassword = password?.trim() || "";
+      let apiVencimento = dueISO;
 let apiM3uUrl = "";
 // ✅ NOVO: external_user_id retornado pela integração (ex.: ELITE)
 let apiExternalUserId = "";
@@ -1797,9 +1799,10 @@ if (nextExternalUserId) {
             },
 body: JSON.stringify({
   integration_id: srv.panel_integration,
+  desired_username: username, // ✅ Manda o usuário ORIGINAL digitado na tela!
   username: apiUsername, // username "feio" que veio do create-trial
-  notes: notes?.trim() ? notes.trim() : null, // ✅ fonte para normalização
-  external_user_id: apiExternalUserId || null, // ✅ NOVO (fonte estável)
+  notes: notes?.trim() ? notes.trim() : null,
+  external_user_id: apiExternalUserId || null,
 }),
           });
 

@@ -112,9 +112,15 @@ export async function POST(req: NextRequest) {
       return jsonError(404, "Token não encontrado");
     }
 
-    // Retry logic: até 3 tentativas
+// Retry logic: até 3 tentativas
     let attemptUsername = (username ? String(username) : `test${Date.now()}`).trim();
     if (!attemptUsername) attemptUsername = `test${Date.now()}`;
+    
+    // ✅ BLINDAGEM NATV: O username precisa ter entre 8 e 48 caracteres (Documentação)
+    if (attemptUsername.length < 8) {
+      // Preenche com números aleatórios se for muito curto
+      attemptUsername = `${attemptUsername}${Math.floor(Math.random() * 90000) + 10000}`;
+    }
 
     let finalData: any = null;
     let lastError: any = null;
@@ -142,10 +148,15 @@ export async function POST(req: NextRequest) {
         }
 
         if (!res.ok) {
-          const rawMsg = String(data?.error || data?.message || text || "");
-          if (looksLikeDuplicateUsername(rawMsg)) {
-            const random = Math.floor(Math.random() * 900) + 100;
-            attemptUsername = `${(username || "test").toString().trim() || "test"}${random}`;
+          // ✅ NATV devolve a mensagem de erro no campo "detail" (pode ser string ou array se for 422)
+          const detailValue = typeof data?.detail === "string" ? data.detail : JSON.stringify(data?.detail || "");
+          const rawMsg = String(data?.error || data?.message || detailValue || text || "");
+          
+          // ✅ A API da NATV especificamente retorna status 505 com detail: "Usuario já existe!"
+          if (res.status === 505 || looksLikeDuplicateUsername(rawMsg)) {
+            const random = Math.floor(Math.random() * 90000) + 10000;
+            // Pega uma base menor e adiciona o randômico para não estourar os 48 caracteres permitidos
+            attemptUsername = `${(username || "test").toString().trim().slice(0, 15)}${random}`;
             lastError = new Error(`Username já existe (tentativa ${attempt}/3)`);
             continue;
           }
@@ -153,6 +164,7 @@ export async function POST(req: NextRequest) {
           // ✅ erro sanitizado (não devolve raw da NATV)
           if (res.status === 402) return jsonError(402, "Créditos insuficientes no servidor");
           if (res.status === 404) return jsonError(404, "Endpoint NATV não encontrado");
+          if (res.status === 422) return jsonError(422, "Erro de formatação: nome muito curto ou com caracteres inválidos");
 
           return jsonError(502, "Falha ao criar teste no servidor");
         }

@@ -394,11 +394,11 @@ if (!isUuid(integration_id)) {
   return NextResponse.json({ ok: false, error: "integration_id inválido (não parece UUID)." }, { status: 400 });
 }
 
-// ✅ trialnotes (NOTAS) = o “apelido” pra você achar depois no painel
-const trialNotes = String(body?.trialnotes || body?.desired_username || body?.username || "").trim();
+// ✅ Pega as observações (notes) e o username enviados diretamente do front
+const trialNotes = String(body?.notes || body?.username || "").trim();
 if (!trialNotes) {
   return NextResponse.json(
-    { ok: false, error: "Informe trialnotes (ou desired_username/username)." },
+    { ok: false, error: "Informe o username ou notes para gerar o trial." },
     { status: 400 }
   );
 }
@@ -464,28 +464,11 @@ const provider = String((integ as any).provider || "").toUpperCase().trim();
 if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
 if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-// ✅ REGRA: só pode rodar trial ELITE se tecnologia do servidor for IPTV
-const serverId = String((integ as any).server_id || "").trim();
-if (!serverId) {
+// ✅ REGRA: valida a tecnologia recebida diretamente do Frontend
+const reqTech = String(body?.technology || "").trim().toUpperCase();
+if (reqTech !== "IPTV") {
   return NextResponse.json(
-    { ok: false, error: "Integração sem server_id: não dá pra validar tecnologia do servidor." },
-    { status: 400 }
-  );
-}
-
-const { data: srv, error: srvErr } = await sb
-  .from("servers")
-  .select("id,tenant_id,technology")
-  .eq("id", serverId)
-  .eq("tenant_id", tenantId)
-  .single();
-
-if (srvErr) throw srvErr;
-
-const tech = String((srv as any)?.technology ?? "").trim().toUpperCase();
-if (tech !== "IPTV") {
-  return NextResponse.json(
-    { ok: false, error: `Esta rota só pode ser usada quando technology=IPTV. (Atual: ${tech || "NULL"})` },
+    { ok: false, error: `Esta rota só pode ser usada quando a tecnologia escolhida for IPTV. (Recebido do front: ${reqTech || "Nenhuma"})` },
     { status: 400 }
   );
 }
@@ -683,9 +666,10 @@ if (tech !== "IPTV") {
       password: serverPassword,
       server_password: serverPassword,
 
-      // ✅ vencimento pronto pra gravar no Supabase (timestamptz) sem divergência
+// ✅ vencimento pronto pra gravar no Supabase (timestamptz) sem divergência
       expires_at_raw: expRaw,
       expires_at_utc: expiresAtUtc,
+      exp_date: expRaw, // ✅ Devolvendo exatamente a chave que o front-end espera ler
 
       trace,
     });

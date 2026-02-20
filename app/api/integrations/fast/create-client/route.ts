@@ -78,6 +78,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Secret não configurado" }, { status: 400 });
     }
 
+    // ✅ NOVO: Buscar todos os pacotes (bouquets) disponíveis no painel
+    let allBouquetIds: number[] = [];
+    try {
+      const bqRes = await fetch(`https://api.painelcliente.com/bouquets/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret }),
+      });
+      const bqText = await bqRes.text().catch(() => "");
+      const bqData = safeJsonParse(bqText);
+      if (bqData?.result === true && Array.isArray(bqData?.data)) {
+        allBouquetIds = bqData.data.map((b: any) => Number(b.id));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar bouquets do Fast (create-client):", err);
+    }
+
+    // Se não conseguiu carregar nenhum pacote, bloqueia a criação
+    if (allBouquetIds.length === 0) {
+      return NextResponse.json({ ok: false, error: "Falha ao carregar os pacotes (bouquets) do painel Fast." }, { status: 502 });
+    }
+
     // Validação (mantém sua lógica)
     const finalMonths = Math.max(1, Math.min(12, Number(months)));
     const finalConnections = Math.max(1, Number(screens) || 1);
@@ -102,7 +124,7 @@ export async function POST(req: NextRequest) {
             secret,
             username: attemptUsername,
             password: attemptPassword,
-            idbouquet: [attemptUsername], // Bouquet = username
+            idbouquet: allBouquetIds, // ✅ Envia o array real de IDs numéricos (Pacote Completo)
             month: finalMonths,
             connections: finalConnections,
           }),

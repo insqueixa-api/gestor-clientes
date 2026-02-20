@@ -325,9 +325,13 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({} as any));
 
-    const integration_id = safeString(body?.integration_id);
+const integration_id = safeString(body?.integration_id);
     const external_user_id = safeString(body?.external_user_id || body?.user_id || body?.elite_user_id);
     const tz = safeString(body?.tz) || TZ_SP;
+
+    // ✅ Pega os dados originais que o front mandou (se existirem)
+    const bodyDesiredUsername = safeString(body?.desired_username || body?.username);
+    const bodyNotes = safeString(body?.notes);
 
     // por padrão, essa rota é feita pra usar 1x após criar trial
     const rename_from_notes = body?.rename_from_notes !== false; // default true
@@ -463,13 +467,14 @@ if (tech !== "IPTV") {
       }
     }
 
-    // fonte “final” das notas (prioriza details, fallback datatable)
+    // ✅ fonte "final" das notas (AGORA prioriza o que veio do front-end)
     const notes =
+      bodyNotes ||
       safeString(notesFromDetails) ||
       safeString(rowFromTable?.reseller_notes) ||
       safeString(rowFromTable?.trialnotes);
 
-    // fonte “final” do vencimento em texto SP (prioriza datatable: formatted_exp_date)
+    // fonte "final" do vencimento em texto SP (prioriza datatable: formatted_exp_date)
     const expSpText =
       safeString(rowFromTable?.formatted_exp_date) ||
       safeString(pickFirst(details, ["formatted_exp_date", "data.formatted_exp_date", "user.formatted_exp_date"])) ||
@@ -487,8 +492,8 @@ if (tech !== "IPTV") {
         return d.toISOString();
       })();
 
-    // 5) renomear username a partir do campo de notas (reseller_notes)
-    const desiredUsername = normalizeUsernameFromNotes(notes);
+    // ✅ 5) Determina o nome de usuário desejado (prioriza o que o front enviou!)
+    const desiredUsername = bodyDesiredUsername ? normalizeUsernameFromNotes(bodyDesiredUsername) : normalizeUsernameFromNotes(notes);
 
     const canRename =
       rename_from_notes &&
@@ -653,9 +658,10 @@ if (tech !== "IPTV") {
       // ✅ devolve password atual
       password: finalPassword,
 
-      // ✅ devolve vencimento em texto (SP) + ISO (UTC) pronto pra gravar em timestamptz
+// ✅ devolve vencimento em texto (SP) + ISO (UTC) pronto pra gravar em timestamptz
       expires_at_sp: finalExpSpText || null,
       expires_at_iso: finalExpIso,
+      exp_date: finalExpIso, // ✅ ESSENCIAL: O front-end precisa receber essa chave
 
       trace,
     });

@@ -85,6 +85,28 @@ export async function POST(req: NextRequest) {
     if (!token) return jsonError(400, "Token não configurado");
     if (!secret) return jsonError(400, "Secret não configurado");
 
+    // ✅ NOVO: Buscar todos os pacotes (bouquets) disponíveis no painel
+    let allBouquetIds: number[] = [];
+    try {
+      const bqRes = await fetch(`${FAST_BASE_URL}/bouquets/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret }),
+      });
+      const bqData = await bqRes.json();
+      if (bqData?.result === true && Array.isArray(bqData?.data)) {
+        // Extrai apenas os números (IDs) de cada pacote
+        allBouquetIds = bqData.data.map((b: any) => Number(b.id));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar bouquets do Fast:", err);
+    }
+
+    // Se não conseguiu carregar nenhum pacote, bloqueia a criação para não dar erro na API deles
+    if (allBouquetIds.length === 0) {
+      return jsonError(502, "Falha ao carregar os pacotes (bouquets) do painel Fast. Verifique a comunicação.");
+    }
+
     // Retry logic
     let attemptUsername =
       (typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : `trial${Date.now()}`;
@@ -109,7 +131,7 @@ export async function POST(req: NextRequest) {
             secret,
             username: attemptUsername,
             password: attemptPassword,
-            idbouquet: [attemptUsername], // (mantido igual ao seu)
+            idbouquet: allBouquetIds, // ✅ Agora envia o array real de IDs dos pacotes (Pacote Completo)
           }),
           signal: controller.signal,
         }).finally(() => clearTimeout(timeout));
