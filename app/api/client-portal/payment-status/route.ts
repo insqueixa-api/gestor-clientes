@@ -223,12 +223,12 @@ async function runFulfillment(params: {
   const { supabaseAdmin, tenantId, origin, payment } = params;
 
   // 1) Carrega cliente
-  const { data: client, error: cErr } = await supabaseAdmin
-    .from("clients")
-    .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency")
-    .eq("tenant_id", tenantId)
-    .eq("id", payment.client_id)
-    .single();
+const { data: client, error: cErr } = await supabaseAdmin
+  .from("clients")
+  .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency,is_trial")
+  .eq("tenant_id", tenantId)
+  .eq("id", payment.client_id)
+  .single();
 
   if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
 
@@ -301,20 +301,25 @@ const renewRes = await fetch(`${origin}${renewPath}`, {
 
   // 4) Atualizar cliente
   const updatePayload: any = {
-    plan_label: payment.plan_label ?? null,
-    price_amount: payment.price_amount ?? null,
-    price_currency: payment.price_currency ?? client.price_currency ?? "BRL",
-    vencimento: expDateISO,
-    updated_at: new Date().toISOString(),
-  };
+  plan_label: payment.plan_label ?? null,
+  price_amount: payment.price_amount ?? null,
+  price_currency: payment.price_currency ?? client.price_currency ?? "BRL",
+  vencimento: expDateISO,
+  updated_at: new Date().toISOString(),
+};
 
-  if (newPassword) updatePayload.server_password = String(newPassword);
+// ✅ se era trial, converte para normal
+if ((client as any)?.is_trial === true) {
+  updatePayload.is_trial = false;
+}
 
-  const { error: upClientErr } = await supabaseAdmin
-    .from("clients")
-    .update(updatePayload)
-    .eq("tenant_id", tenantId)
-    .eq("id", client.id);
+if (newPassword) updatePayload.server_password = String(newPassword);
+
+const { error: upClientErr } = await supabaseAdmin
+  .from("clients")
+  .update(updatePayload)
+  .eq("tenant_id", tenantId)
+  .eq("id", client.id);
 
   if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
 

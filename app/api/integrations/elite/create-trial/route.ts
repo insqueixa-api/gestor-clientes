@@ -45,11 +45,16 @@ function normalizeBaseUsername(v: unknown) {
  */
 function buildEliteUsername(baseInput: unknown) {
   const base = normalizeBaseUsername(baseInput);
-  if (base.length >= 12) return base + randDigits(3);
 
+  // Elite normalmente trabalha com usernames curtos (muito comum limite 15).
+  // Vamos garantir exatamente 15 chars:
   const targetLen = 15;
-  const need = Math.max(0, targetLen - base.length);
-  return base + randDigits(need);
+
+  const clipped = base.slice(0, targetLen);
+  const need = targetLen - clipped.length;
+
+  if (need <= 0) return clipped;
+  return clipped + randDigits(need);
 }
 
 async function readSafeBody(res: Response) {
@@ -473,64 +478,115 @@ export async function POST(req: Request) {
 
     const bouquets: Array<string> = Array.isArray(bouquetsRaw) ? bouquetsRaw.map((x) => String(x)) : [];
 
-    // 5) update username + notes (igual teu curl real: sem _token no body)
-    const updForm = new FormData();
-    updForm.set("user_id", String(createdId));
-    updForm.set("usernamex", finalUsername);
-    updForm.set("passwordx", String(currentPassword || ""));
-    updForm.set("reseller_notes", desiredNotes);
+    // 5) update username + notes
+const updForm = new FormData();
 
-    for (const b of bouquets) {
-      updForm.append("bouquet[]", String(b));
-    }
+// ✅ segurança: mande também o _token no body (muitos backends exigem)
+// (mesmo que o header x-csrf-token exista)
+updForm.set("_token", csrf);
 
-    const updRes = await eliteFetch(
-      fc,
-      base,
-      `/api/iptv/update/${createdId}`,
-      {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-        },
-        body: updForm,
-      },
-      csrf
-    );
+updForm.set("user_id", String(createdId));
 
-    const updParsed = await readSafeBody(updRes);
-    trace.push({
-      step: "update",
-      status: updRes.status,
-      ct: updRes.headers.get("content-type"),
-      preview: String(updParsed.text || "").slice(0, 250),
-    });
+// ✅ alguns painéis aceitam "username", outros "usernamex".
+// Pra não depender de variação, mande os dois:
+updForm.set("username", finalUsername);
+updForm.set("usernamex", finalUsername);
 
-    if (!updRes.ok) {
-      return NextResponse.json({
-        ok: true,
-        provider: "ELITE",
-        created: true,
-        updated_username: false,
-        external_user_id: String(createdId),
-        username: finalUsername,
-        password: String(currentPassword || ""),
-        note: "Trial criado, mas falhou ao aplicar update automático do username.",
-        trace,
-        update_preview: String(updParsed.text || "").slice(0, 900),
-      });
-    }
+// idem password
+updForm.set("password", String(currentPassword || ""));
+updForm.set("passwordx", String(currentPassword || ""));
 
-    return NextResponse.json({
-      ok: true,
-      provider: "ELITE",
-      created: true,
-      updated_username: true,
-      external_user_id: String(createdId),
-      username: finalUsername,
-      password: String(currentPassword || ""),
-      trace,
-    });
+// ✅ notas: você usa trialnotes pra achar no painel.
+// mantenha reseller_notes e também trialnotes (pra garantir que o search volte)
+updForm.set("reseller_notes", desiredNotes);
+updForm.set("trialnotes", desiredNotes);
+
+for (const b of bouquets) {
+  updForm.append("bouquet[]", String(b));
+}
+
+const updRes = await eliteFetch(
+  fc,
+  base,
+  `/api/iptv/update/${createdId}`,
+  {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+    },
+    body: updForm,
+  },
+  csrf
+);
+
+const updParsed = await readSafeBody(updRes);
+trace.push({
+  step: "update",
+  status: updRes.status,
+  ct: updRes.headers.get("content-type"),
+  preview: String(updParsed.text || "").slice(0, 250),
+});
+
+// ❗ NÃO confie só em status 200: pode vir HTML de login/redirect ou JSON de erro
+const updText = String(updParsed.text || "");
+const updLooksLogin = looksLikeLoginHtml(updText) || /<html/i.test(updText);
+
+if (!updRes.ok || updLooksLogin) {
+  return NextResponse.json({
+    ok: true,
+    provider: "ELITE",
+    created: true,
+    updated_username: false,
+    external_user_id: String(createdId),
+    username: finalUsername,
+    server_username: finalUsername,
+    password: String(currentPassword || ""),
+    note: "Trial criado, mas o update de username não confirmou (status/HTML).",
+    trace,
+    update_preview: updText.slice(0, 900),
+    update_json: updParsed.json ?? null,
+  });
+}
+
+// ✅ 5.1) CONFIRMAÇÃO REAL: buscar novamente no DataTables pelo mesmo apelido (notes)
+// e ler o username do row com id = createdId
+let appliedUsername = finalUsername;
+
+const afterTable = await findTrialByNotes(fc, base, csrf, desiredNotes);
+trace.push({
+  step: "datatable_after_update",
+  ok: (afterTable as any).ok,
+  found: (afterTable as any).found,
+});
+
+if ((afterTable as any).ok && (afterTable as any).found) {
+  const rows = (afterTable as any).rows || [];
+  const match = rows.find((r: any) => String(r?.id) === String(createdId)) || rows[0];
+  const u = match?.username;
+  if (u) appliedUsername = String(u);
+}
+
+// ✅ se o Elite não aplicou, a gente devolve updated_username=false (mesmo com 200)
+const didUpdate = appliedUsername === finalUsername;
+
+return NextResponse.json({
+  ok: true,
+  provider: "ELITE",
+  created: true,
+  updated_username: didUpdate,
+  external_user_id: String(createdId),
+
+  // ✅ devolva as duas chaves (muitos fronts usam server_username)
+  username: appliedUsername,
+  server_username: appliedUsername,
+
+  password: String(currentPassword || ""),
+  note: didUpdate ? null : "Elite respondeu OK, mas o username não apareceu aplicado no DataTables.",
+  trace,
+  update_json: updParsed.json ?? null,
+});
+
+    
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: e?.message || "Unknown error", trace: trace.slice(-8) },
