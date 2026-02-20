@@ -452,7 +452,7 @@ if (!isUuid(tenantId)) {
 // ✅ carrega integração DO TENANT (impede cruzar tenant via integration_id)
 const { data: integ, error } = await sb
   .from("server_integrations")
-  .select("id,tenant_id,server_id,provider,is_active,api_token,api_secret,api_base_url")
+  .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") // ✅ Removido o server_id que não existe
   .eq("id", integration_id)
   .eq("tenant_id", tenantId)
   .single();

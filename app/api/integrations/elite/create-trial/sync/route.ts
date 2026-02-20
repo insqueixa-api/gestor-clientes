@@ -352,7 +352,7 @@ const integration_id = safeString(body?.integration_id);
     // carrega integração do banco
     const { data: integ, error } = await sb
   .from("server_integrations")
-  .select("id,tenant_id,server_id,provider,is_active,api_token,api_secret,api_base_url")
+  .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") // ✅ Removido server_id
   .eq("id", integration_id)
   .single();
 
@@ -363,30 +363,8 @@ const provider = String((integ as any).provider || "").toUpperCase().trim();
 if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
 if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-// ✅ REGRA: só pode sync ELITE se tecnologia do servidor for IPTV
-const serverId = String((integ as any).server_id || "").trim();
-if (!serverId) {
-  return NextResponse.json(
-    { ok: false, error: "Integração sem server_id: não dá pra validar tecnologia do servidor." },
-    { status: 400 }
-  );
-}
-
-const { data: srv, error: srvErr } = await sb
-  .from("servers")
-  .select("id,technology")
-  .eq("id", serverId)
-  .single();
-
-if (srvErr) throw srvErr;
-
-const tech = String((srv as any)?.technology ?? "").trim().toUpperCase();
-if (tech !== "IPTV") {
-  return NextResponse.json(
-    { ok: false, error: `Esta rota só pode ser usada quando technology=IPTV. (Atual: ${tech || "NULL"})` },
-    { status: 400 }
-  );
-}
+// ✅ Bloco de verificação da tabela 'servers' removido inteiramente
+// O Sync não precisa revalidar a tecnologia, pois o trial já foi criado com sucesso no passo anterior.
 
     const loginUser = safeString(integ.api_token); // usuário/email
     const loginPass = safeString(integ.api_secret); // senha
