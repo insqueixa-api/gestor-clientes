@@ -22,6 +22,13 @@ type ParsedRow = {
 
   aplicativos_nome: string;
   obs: string;
+
+  // ✅ NOVOS (template)
+  valor_plano_raw: string;     // "Valor Plano"
+  tabela_preco_raw: string;    // "Tabela Preco" (LABEL)
+  m3u_url: string;             // "M3U URL"
+  cadastro_dia: string;        // "Data do cadastro"
+  cadastro_hora: string;       // "Cadastro hora"
 };
 
 function normalizeHeader(h: string) {
@@ -92,7 +99,8 @@ function splitNomeCompleto(full: string): { first_name: string | null; last_name
   return { first_name: first, last_name: last, display_name: name };
 }
 
-function combineVencimento(diaBR: string, hora: string): string | null {
+// ✅ dd/mm/yyyy + hh:mm (hora opcional) -> ISO
+function combineDiaHoraBR(diaBR: string, hora: string): string | null {
   const d = (diaBR || "").trim();
   const h = (hora || "").trim();
   if (!d) return null;
@@ -115,15 +123,10 @@ function combineVencimento(diaBR: string, hora: string): string | null {
   return dt.toISOString();
 }
 
-async function resolveTenantIdFromMember(supabase: any, userId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) return null;
-  return data?.tenant_id ?? null;
+function parseCurrency(raw: string): "BRL" | "USD" | "EUR" {
+  const s = (raw || "").trim().toUpperCase();
+  if (s === "BRL" || s === "USD" || s === "EUR") return s;
+  throw new Error(`Currency inválida: "${raw}". Use BRL, USD ou EUR.`);
 }
 
 function normText(v: any): string {
@@ -135,31 +138,82 @@ function normText(v: any): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function pickFirstExistingField(row: any, keys: string[]): any {
-  for (const k of keys) {
-    if (row && Object.prototype.hasOwnProperty.call(row, k)) return row[k];
+function pickRpcClientId(data: any): string | null {
+  if (!data) return null;
+  if (typeof data === "string") return data;
+  if (Array.isArray(data) && data.length) {
+    const row = data[0];
+    if (row?.id) return row.id;
+    if (row?.client_id) return row.client_id;
   }
-  return undefined;
+  if (data?.id) return data.id;
+  if (data?.client_id) return data.client_id;
+  return null;
+}
+
+function onlyDigits(v: string) {
+  return (v || "").replace(/\D+/g, "");
+}
+
+// ✅ regra simples: se já tem +, mantém; se não, assume BR (+55)
+function toE164Phone(raw: string | null | undefined): string | null {
+  const s = (raw || "").trim();
+  if (!s) return null;
+
+  if (s.startsWith("+")) {
+    const digits = onlyDigits(s);
+    return digits ? `+${digits}` : null;
+  }
+
+  const digits = onlyDigits(s);
+  if (!digits) return null;
+
+  const withDdi = digits.startsWith("55") ? digits : `55${digits}`;
+  return `+${withDdi}`;
+}
+
+function parseMoney(raw: string): number | null {
+  const s0 = (raw || "").trim();
+  if (!s0) return null;
+
+  // tira símbolos comuns e espaços
+  let s = s0.replace(/\s+/g, "");
+  s = s.replace(/[R$\u00A0]/g, "");
+
+  // mantém só dígitos, ponto, vírgula, sinal
+  s = s.replace(/[^0-9,.\-]/g, "");
+
+  if (!s) return null;
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  // "1.234,56" -> remove pontos e troca vírgula por ponto
+  if (hasComma && hasDot) {
+    s = s.replace(/\./g, "").replace(/,/g, ".");
+  } else if (hasComma && !hasDot) {
+    // "1234,56" -> troca vírgula por ponto
+    s = s.replace(/,/g, ".");
+  }
+
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function isUuidLike(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test((v || "").trim());
 }
 
 function mapPlanLabelToPeriod(planLabel: string | null): string | null {
   const s = normText(planLabel);
-
   if (!s) return null;
 
-  // Aceita tanto "Mensal" quanto "MONTHLY"
-  if (s.includes("monthly") || s === "mensal") return "MONTHLY";
-  if (s.includes("bimonthly") || s === "bimestral") return "BIMONTHLY";
-  if (s.includes("quarterly") || s === "trimestral") return "QUARTERLY";
-  if (s.includes("semiannual") || s === "semestral") return "SEMIANNUAL";
-  if (s.includes("annual") || s === "anual") return "ANNUAL";
-
-  // tolerância (caso venha "Mensalidade", "Plano Mensal", etc.)
-  if (s.includes("mens")) return "MONTHLY";
-  if (s.includes("bimes")) return "BIMONTHLY";
-  if (s.includes("trim")) return "QUARTERLY";
-  if (s.includes("semest")) return "SEMIANNUAL";
-  if (s.includes("anua")) return "ANNUAL";
+  if (s.includes("monthly") || s === "mensal" || s.includes("mens")) return "MONTHLY";
+  if (s.includes("bimonthly") || s === "bimestral" || s.includes("bimes")) return "BIMONTHLY";
+  if (s.includes("quarterly") || s === "trimestral" || s.includes("trim")) return "QUARTERLY";
+  if (s.includes("semiannual") || s === "semestral" || s.includes("semest")) return "SEMIANNUAL";
+  if (s.includes("annual") || s === "anual" || s.includes("anua")) return "ANNUAL";
 
   return null;
 }
@@ -182,7 +236,6 @@ function pickPriceLikeRenewal(
   const one = prices.find((p) => Number(p.screens_count) === 1);
   if (one && one.price_amount != null) return Number(one.price_amount) * screens;
 
-  // mesma ideia da sua tela: se existir item mas não tiver preço, retorna 0 (ou null se quiser travar)
   return 0;
 }
 
@@ -191,7 +244,7 @@ async function resolveDefaultPriceAmount(
   args: {
     tenant_id: string;
     plan_table_id: string;
-    plan_label: string | null; // "Mensal" vindo do CSV
+    plan_label: string | null;
     screens: number;
   }
 ): Promise<number | null> {
@@ -204,7 +257,6 @@ async function resolveDefaultPriceAmount(
     );
   }
 
-  // Busca igual sua tela de renovação (itens + prices)
   const { data, error } = await supabase
     .from("plan_tables")
     .select(
@@ -229,76 +281,73 @@ async function resolveDefaultPriceAmount(
   return price === null ? null : Number(price);
 }
 
+/**
+ * ✅ Segurança: resolve tenant pelo membership.
+ * - Se o usuário tiver 1 tenant: usa ele.
+ * - Se tiver múltiplos: exige tenant_id na query e valida que pertence ao user.
+ */
+async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
+  const { data, error } = await supabase
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", userId);
 
-
-
-function parseCurrency(raw: string): "BRL" | "USD" | "EUR" {
-  const s = (raw || "").trim().toUpperCase();
-  if (s === "BRL" || s === "USD" || s === "EUR") return s;
-  throw new Error(`Currency inválida: "${raw}". Use BRL, USD ou EUR.`);
-}
-
-function pickRpcClientId(data: any): string | null {
-  // cobre os retornos mais comuns do PostgREST:
-  // - uuid string
-  // - [{ id: uuid }]
-  // - { id: uuid } / { client_id: uuid }
-  if (!data) return null;
-  if (typeof data === "string") return data;
-  if (Array.isArray(data) && data.length) {
-    const row = data[0];
-    if (row?.id) return row.id;
-    if (row?.client_id) return row.client_id;
-  }
-  if (data?.id) return data.id;
-  if (data?.client_id) return data.client_id;
-  return null;
-}
-
-function onlyDigits(v: string) {
-  return (v || "").replace(/\D+/g, "");
-}
-
-// ✅ regra simples: se já tem +, mantém; se não, assume BR (+55)
-// (mantém seu CSV compatível, sem inventar DDI por tabela)
-function toE164Phone(raw: string | null | undefined): string | null {
-  const s = (raw || "").trim();
-  if (!s) return null;
-
-  if (s.startsWith("+")) {
-    const digits = onlyDigits(s);
-    return digits ? `+${digits}` : null;
+  if (error) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
   }
 
-  const digits = onlyDigits(s);
-  if (!digits) return null;
+  const tenantIds = Array.from(
+    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
+  );
 
-  // se vier com 55 na frente, mantém; se não, prefixa 55
-  const withDdi = digits.startsWith("55") ? digits : `55${digits}`;
-  return `+${withDdi}`;
+  if (tenantIds.length === 0) {
+    return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Seu usuário não está vinculado a um tenant." };
+  }
+
+  if (tenantIds.length === 1) {
+    const only = tenantIds[0];
+    if (tenantFromQuery && tenantFromQuery !== only) {
+      return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+    }
+    return { tenant_id: only, status: 200 };
+  }
+
+  if (!tenantFromQuery) {
+    return {
+      tenant_id: null,
+      status: 400,
+      error: "tenant_required",
+      hint: "Você participa de múltiplos tenants. Informe tenant_id na querystring para importar no tenant desejado.",
+    };
+  }
+
+  if (!tenantIds.includes(tenantFromQuery)) {
+    return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+  }
+
+  return { tenant_id: tenantFromQuery, status: 200 };
 }
-
 
 export async function POST(req: Request) {
   const supabase = await createClient();
 
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
-
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // ✅ created_by sempre vem do user autenticado (sem hardcode)
   const created_by = user.id;
 
-  // ✅ tenant vem do lugar correto (query OU tenant_members)
   const url = new URL(req.url);
   const tenantFromQuery = url.searchParams.get("tenant_id");
-  const tenantFromMember = await resolveTenantIdFromMember(supabase, user.id);
-  const tenant_id = tenantFromQuery || tenantFromMember;
 
-  if (!tenant_id) {
-    return NextResponse.json({ error: "tenant_id_missing" }, { status: 400 });
+  const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
+  if (!resolved.tenant_id) {
+    return NextResponse.json(
+      { error: (resolved as any).error, hint: (resolved as any).hint, details: (resolved as any).details },
+      { status: (resolved as any).status || 400 }
+    );
   }
+  const tenant_id = resolved.tenant_id;
 
   const form = await req.formData();
   const file = form.get("file");
@@ -353,7 +402,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1) Pré-carregar servidores do tenant (resolver por nome)
+  const getCell = (r: string[], key: string) => {
+    const idx = colIndex.get(normalizeHeader(key));
+    return idx === undefined ? "" : (r[idx] ?? "").toString().trim();
+  };
+
+  // 1) Servidores do tenant (resolver por nome)
   const { data: servers, error: sErr } = await supabase
     .from("servers")
     .select("id,name")
@@ -361,7 +415,7 @@ export async function POST(req: Request) {
 
   if (sErr) {
     return NextResponse.json(
-      { error: "servers_lookup_failed", details: sErr.message, hint: "Confirme se a tabela é 'servers'." },
+      { error: "servers_lookup_failed", details: sErr.message },
       { status: 500 }
     );
   }
@@ -376,7 +430,7 @@ export async function POST(req: Request) {
     byServerName.set(name, s.id);
   }
 
-  // 1.1) Pré-carregar plan_tables do tenant (validar default por moeda)
+  // 2) Plan tables do tenant (default por moeda + map por name)
   const { data: planTables, error: ptErr } = await supabase
     .from("plan_tables")
     .select("id,currency,is_system_default,name")
@@ -384,22 +438,37 @@ export async function POST(req: Request) {
 
   if (ptErr) {
     return NextResponse.json(
-      { error: "plan_tables_lookup_failed", details: ptErr.message, hint: "Confirme se a tabela é 'plan_tables'." },
+      { error: "plan_tables_lookup_failed", details: ptErr.message },
       { status: 500 }
     );
   }
 
   const defaultPlanTableIdByCurrency = new Map<"BRL" | "USD" | "EUR", string>();
+  const planTablesByName = new Map<string, Array<{ id: string; currency: "BRL" | "USD" | "EUR" }>>();
+  const planTableById = new Map<string, { id: string; currency: "BRL" | "USD" | "EUR"; name: string }>();
+
   const multipleDefaults: string[] = [];
 
   for (const pt of (planTables ?? []) as any[]) {
     const cur = (pt.currency ?? "").toString().trim().toUpperCase();
     const isDefault = !!pt.is_system_default;
-    if (!isDefault) continue;
 
     if (cur === "BRL" || cur === "USD" || cur === "EUR") {
-      if (defaultPlanTableIdByCurrency.has(cur as any)) multipleDefaults.push(cur);
-      else defaultPlanTableIdByCurrency.set(cur as any, pt.id);
+      const id = String(pt.id);
+      const name = String(pt.name ?? "");
+      planTableById.set(id, { id, currency: cur as any, name });
+
+      const keyName = normText(name);
+      if (keyName) {
+        const arr = planTablesByName.get(keyName) ?? [];
+        arr.push({ id, currency: cur as any });
+        planTablesByName.set(keyName, arr);
+      }
+
+      if (isDefault) {
+        if (defaultPlanTableIdByCurrency.has(cur as any)) multipleDefaults.push(cur);
+        else defaultPlanTableIdByCurrency.set(cur as any, id);
+      }
     }
   }
 
@@ -430,7 +499,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2) Pré-carregar apps catalog
+  // 3) Apps catalog
   const { data: apps, error: aErr } = await supabase
     .from("apps")
     .select("id,name")
@@ -438,7 +507,7 @@ export async function POST(req: Request) {
 
   if (aErr) {
     return NextResponse.json(
-      { error: "apps_lookup_failed", details: aErr.message, hint: "Confirme se existe tabela 'apps' com tenant_id,name." },
+      { error: "apps_lookup_failed", details: aErr.message },
       { status: 500 }
     );
   }
@@ -455,47 +524,55 @@ export async function POST(req: Request) {
   const rowErrors: Array<{ row: number; error: string }> = [];
   const warnings: Array<{ row: number; warning: string }> = [];
 
+  // cache do cálculo de preço padrão (evita bater plan_tables toda hora)
+  const priceCache = new Map<string, number | null>();
+
+  // evita spam se o RPC extra não existir ainda
+  let extrasRpcMissingWarned = false;
+
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const rowNum = i + 2;
 
     try {
-      const get = (key: string) => {
-        const idx = colIndex.get(normalizeHeader(key));
-        return idx === undefined ? "" : (r[idx] ?? "").toString().trim();
-      };
-
       const parsed: ParsedRow = {
-        saudacao: get("Saudação"),
-        nome_completo: get("Nome Completo"),
-        telefone_principal: get("Telefone principal"),
-        whatsapp_username: get("Whatsapp Username"),
-        aceita_mensagem: parseBool(get("Aceita mensagem")),
+        saudacao: getCell(r, "Saudacao"),
+        nome_completo: getCell(r, "Nome Completo"),
+        telefone_principal: getCell(r, "Telefone principal"),
+        whatsapp_username: getCell(r, "Whatsapp Username"),
+        aceita_mensagem: parseBool(getCell(r, "Aceita mensagem")),
 
-        servidor_nome: get("Servidor"),
-        usuario: get("Usuário"),
-        senha: get("Senha"),
-        tecnologia: get("Tecnologia"),
+        servidor_nome: getCell(r, "Servidor"),
+        usuario: getCell(r, "Usuario"),
+        senha: getCell(r, "Senha"),
+        tecnologia: getCell(r, "Tecnologia"),
 
-        currency: parseCurrency(get("Currency") || get("Moeda")),
+        currency: parseCurrency(getCell(r, "Currency") || getCell(r, "Moeda")),
 
-        plano: get("Plano"),
+        plano: getCell(r, "Plano"),
         telas: (() => {
-          const raw = get("Telas");
+          const raw = getCell(r, "Telas");
           const n = Number(raw);
           if (!raw) return null;
           return Number.isFinite(n) && n > 0 ? n : null;
         })(),
 
-        vencimento_dia: get("Vencimento dia"),
-        vencimento_hora: get("Vencimento hora"),
+        vencimento_dia: getCell(r, "Vencimento dia"),
+        vencimento_hora: getCell(r, "Vencimento hora"),
 
-        aplicativos_nome: get("Aplicativos nome"),
-        obs: get("Obs"),
+        aplicativos_nome: getCell(r, "Aplicativos nome"),
+        obs: getCell(r, "Obs"),
+
+        // ✅ NOVOS
+        valor_plano_raw: getCell(r, "Valor Plano"),
+        tabela_preco_raw: getCell(r, "Tabela Preco"),
+        m3u_url: getCell(r, "M3U URL"),
+        cadastro_dia: getCell(r, "Data do cadastro"),
+        cadastro_hora: getCell(r, "Cadastro hora"),
       };
 
       if (!parsed.servidor_nome?.trim()) throw new Error("Servidor vazio (coluna 'Servidor').");
-      if (!parsed.usuario?.trim()) throw new Error("Usuário vazio (coluna 'Usuário').");
+      if (!parsed.usuario?.trim()) throw new Error("Usuário vazio (coluna 'Usuario').");
 
       const serverKey = parsed.servidor_nome.trim().toLowerCase();
       if (duplicates.has(serverKey)) {
@@ -504,13 +581,46 @@ export async function POST(req: Request) {
       const server_id = byServerName.get(serverKey);
       if (!server_id) throw new Error(`Servidor não encontrado no tenant: "${parsed.servidor_nome}".`);
 
-      const vencimentoISO = combineVencimento(parsed.vencimento_dia, parsed.vencimento_hora);
+      const screens = parsed.telas && parsed.telas > 0 ? parsed.telas : 1;
 
-      // ✅ valida default plan table por moeda (sem gravar nada)
-      const defaultPlanTableId = defaultPlanTableIdByCurrency.get(parsed.currency);
-      if (!defaultPlanTableId) {
-        throw new Error(`Não existe plan_table default para ${parsed.currency}.`);
+      // ✅ resolve plan_table_id:
+      // - se vier UUID em "Tabela Preco", aceita
+      // - se vier LABEL, resolve por plan_tables.name (preferindo a mesma currency da linha)
+      // - se vazio, usa default da currency
+      let plan_table_id: string | null = null;
+
+      const rawTabela = (parsed.tabela_preco_raw || "").trim();
+      if (rawTabela) {
+        if (isUuidLike(rawTabela)) {
+          const meta = planTableById.get(rawTabela);
+          if (!meta) throw new Error(`Tabela Preco UUID não existe no tenant: ${rawTabela}`);
+          if (meta.currency !== parsed.currency) {
+            throw new Error(
+              `Tabela Preco (${meta.name}) é ${meta.currency}, mas a linha está Currency=${parsed.currency}.`
+            );
+          }
+          plan_table_id = meta.id;
+        } else {
+          const key = normText(rawTabela);
+          const candidates = planTablesByName.get(key) ?? [];
+          if (!candidates.length) throw new Error(`Tabela Preco não encontrada no tenant: "${rawTabela}".`);
+
+          const sameCur = candidates.find((c) => c.currency === parsed.currency);
+          if (sameCur) plan_table_id = sameCur.id;
+          else if (candidates.length === 1) plan_table_id = candidates[0].id;
+          else {
+            throw new Error(
+              `Tabela Preco "${rawTabela}" é ambígua (existe em múltiplas moedas). Preencha Currency corretamente ou use um nome único por moeda.`
+            );
+          }
+        }
+      } else {
+        plan_table_id = defaultPlanTableIdByCurrency.get(parsed.currency) ?? null;
       }
+
+      if (!plan_table_id) throw new Error(`Não existe plan_table default para ${parsed.currency}.`);
+
+      const vencimentoISO = combineDiaHoraBR(parsed.vencimento_dia, parsed.vencimento_hora);
 
       const nameParts = splitNomeCompleto(parsed.nome_completo);
       if (!nameParts.display_name) throw new Error("Nome Completo vazio.");
@@ -537,7 +647,40 @@ export async function POST(req: Request) {
         });
       }
 
-      // ✅ Upsert lógico: buscar existente (SELECT pode ser permitido; seu erro atual foi no INSERT)
+      // ✅ preço: se vier "Valor Plano", usa; senão calcula pelo plan_table + plano + telas
+      let price_amount: number | null = null;
+      const manualPrice = parseMoney(parsed.valor_plano_raw);
+
+      if (manualPrice !== null) {
+        price_amount = manualPrice;
+      } else {
+        const cacheKey = `${plan_table_id}|${normText(parsed.plano)}|${screens}`;
+        if (priceCache.has(cacheKey)) {
+          price_amount = priceCache.get(cacheKey)!;
+        } else {
+          const computed = await resolveDefaultPriceAmount(supabase, {
+            tenant_id,
+            plan_table_id,
+            plan_label: parsed.plano || null,
+            screens,
+          });
+
+          if (computed === null) {
+            throw new Error(
+              `Preço padrão não encontrado na plan_table (${parsed.currency}) para Plano="${parsed.plano}" e Telas=${screens}.`
+            );
+          }
+
+          priceCache.set(cacheKey, computed);
+          price_amount = computed;
+        }
+      }
+
+      if (price_amount === null) {
+        throw new Error(`Valor Plano inválido: "${parsed.valor_plano_raw}"`);
+      }
+
+      // ✅ upsert lógico: existe?
       const { data: existing, error: exErr } = await supabase
         .from("clients")
         .select("id")
@@ -547,84 +690,54 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (exErr && exErr.code !== "PGRST116") {
-        throw new Error(
-          `Falha ao consultar cliente existente: ${exErr.message}. Se RLS bloqueou SELECT, precisamos trocar por view/RPC de lookup.`
-        );
+        throw new Error(`Falha ao consultar cliente existente: ${exErr.message}`);
       }
 
       let client_id: string | null = existing?.id ?? null;
 
-
-
-const screens = parsed.telas && parsed.telas > 0 ? parsed.telas : 1;
-
-const plan_table_id = defaultPlanTableIdByCurrency.get(parsed.currency);
-if (!plan_table_id) throw new Error(`Não existe plan_table default para ${parsed.currency}.`);
-
-const defaultPriceAmount = await resolveDefaultPriceAmount(supabase, {
-  tenant_id,
-  plan_table_id,
-  plan_label: parsed.plano || null, // "Mensal"
-  screens,
-});
-
-if (defaultPriceAmount === null) {
-  throw new Error(
-    `Preço padrão não encontrado na plan_table default (${parsed.currency}) para Plano="${parsed.plano}" e Telas=${screens}.`
-  );
-}
-
-
-
+      // ✅ cadastro (created_at override) vindo do CSV
+      const cadastroISO = combineDiaHoraBR(parsed.cadastro_dia, parsed.cadastro_hora);
 
       if (!client_id) {
-        // ✅ CREATE via RPC (SECURITY DEFINER)
         const phoneE164 = toE164Phone(parsed.telefone_principal);
 
-const { data: created, error: crErr } = await supabase.rpc("create_client_and_setup", {
-  p_tenant_id: tenant_id,
-  p_created_by: created_by,
+        const { data: created, error: crErr } = await supabase.rpc("create_client_and_setup", {
+          p_tenant_id: tenant_id,
+          p_created_by: created_by,
 
-  p_display_name: nameParts.display_name,
+          p_display_name: nameParts.display_name,
 
-  p_server_id: server_id,
-  p_server_username: parsed.usuario,
-  p_server_password: parsed.senha || null,
+          p_server_id: server_id,
+          p_server_username: parsed.usuario,
+          p_server_password: parsed.senha || null,
 
-  p_screens: screens,
-  p_plan_label: parsed.plano || null,
-  p_price_amount: defaultPriceAmount,
-  p_price_currency: parsed.currency,
+          p_screens: screens,
+          p_plan_label: parsed.plano || null,
+          p_price_amount: price_amount,
+          p_price_currency: parsed.currency,
 
-  p_vencimento: vencimentoISO,
-  p_is_trial: false,
-  p_notes: parsed.obs || null,
+          p_vencimento: vencimentoISO,
+          p_is_trial: false,
+          p_notes: parsed.obs || null,
 
-  // ✅ normalizado
-  p_phone_primary_e164: phoneE164,
+          p_phone_primary_e164: phoneE164,
 
-  p_whatsapp_opt_in: parsed.aceita_mensagem,
-  p_whatsapp_username: parsed.whatsapp_username || null,
+          p_whatsapp_opt_in: parsed.aceita_mensagem,
+          p_whatsapp_username: parsed.whatsapp_username || null,
 
-  // ✅ mantendo sua regra atual: import NÃO seta snooze
-  p_whatsapp_snooze_until: null,
+          p_whatsapp_snooze_until: null,
+          p_clear_whatsapp_snooze_until: true,
 
-  // ✅ OBRIGATÓRIO pra bater a assinatura real do banco
-  p_clear_whatsapp_snooze_until: true,
+          p_app_ids: appIds,
+          p_is_archived: false,
 
-  p_app_ids: appIds,
-  p_is_archived: false,
-
-  // ✅ pode mandar sempre, mas nunca null (pra evitar edge)
-  p_technology: (parsed.tecnologia || "").trim() || "IPTV",
-});
-
+          p_technology: (parsed.tecnologia || "").trim() || "IPTV",
+        });
 
         if (crErr) throw new Error(`create_client_and_setup: ${crErr.message}`);
 
         client_id = pickRpcClientId(created);
 
-        // ✅ fallback se a RPC não retornar id: re-consulta (sem inventar banco)
         if (!client_id) {
           const { data: again, error: againErr } = await supabase
             .from("clients")
@@ -642,72 +755,93 @@ const { data: created, error: crErr } = await supabase.rpc("create_client_and_se
 
         inserted++;
       } else {
-        // ✅ UPDATE via RPC
         const { error: upErr } = await supabase.rpc("update_client", {
-  p_tenant_id: tenant_id,
-  p_client_id: client_id,
+          p_tenant_id: tenant_id,
+          p_client_id: client_id,
 
-  p_display_name: nameParts.display_name,
-  p_name_prefix: parsed.saudacao || null,
+          p_display_name: nameParts.display_name,
+          p_name_prefix: parsed.saudacao || null,
 
-  p_notes: parsed.obs || null,
-  p_clear_notes: false,
+          p_notes: parsed.obs || null,
+          p_clear_notes: false,
 
-  p_server_id: server_id,
-  p_server_username: parsed.usuario,
-  p_server_password: parsed.senha || null,
+          p_server_id: server_id,
+          p_server_username: parsed.usuario,
+          p_server_password: parsed.senha || null,
 
-  p_screens: screens,
-  p_plan_label: parsed.plano || null,
-  p_price_amount: defaultPriceAmount,
-  p_price_currency: parsed.currency,
+          p_screens: screens,
+          p_plan_label: parsed.plano || null,
+          p_price_amount: price_amount,
+          p_price_currency: parsed.currency,
 
-  p_vencimento: vencimentoISO,
-  p_is_trial: false,
+          p_vencimento: vencimentoISO,
+          p_is_trial: false,
 
-  p_whatsapp_opt_in: parsed.aceita_mensagem,
-  p_whatsapp_username: parsed.whatsapp_username || null,
+          p_whatsapp_opt_in: parsed.aceita_mensagem,
+          p_whatsapp_username: parsed.whatsapp_username || null,
 
-  // ✅ mantém: import não seta snooze
-  p_whatsapp_snooze_until: null,
+          p_whatsapp_snooze_until: null,
+          p_clear_whatsapp_snooze_until: true,
 
-  // ✅ OBRIGATÓRIO pra bater a assinatura real do banco
-  p_clear_whatsapp_snooze_until: true,
-
-  p_is_archived: false,
-
-  p_technology: (parsed.tecnologia || "").trim() || "IPTV",
-});
-
+          p_is_archived: false,
+          p_technology: (parsed.tecnologia || "").trim() || "IPTV",
+        });
 
         if (upErr) throw new Error(`update_client: ${upErr.message}`);
         updated++;
       }
 
-      // ✅ Apps via RPC (sincroniza lista inteira)
+      // ✅ Apps via RPC
       {
         const { error: appErr } = await supabase.rpc("set_client_apps", {
           p_tenant_id: tenant_id,
           p_client_id: client_id,
-          p_app_ids: appIds, // pode ser []
+          p_app_ids: appIds,
         });
         if (appErr) throw new Error(`set_client_apps: ${appErr.message}`);
       }
 
-      // ✅ Telefones via RPC (primário; secundários = [])
-const phoneE164 = toE164Phone(parsed.telefone_principal);
-
-if (phoneE164) {
-  const { error: phErr } = await supabase.rpc("set_client_phones", {
-    p_tenant_id: tenant_id,
-    p_client_id: client_id,
-    p_primary_e164: phoneE164,
-    p_secondary_e164: [],
-  });
-
+      // ✅ Telefones via RPC
+      const phoneE164 = toE164Phone(parsed.telefone_principal);
+      if (phoneE164) {
+        const { error: phErr } = await supabase.rpc("set_client_phones", {
+          p_tenant_id: tenant_id,
+          p_client_id: client_id,
+          p_primary_e164: phoneE164,
+          p_secondary_e164: [],
+        });
 
         if (phErr) {
           warnings.push({ row: rowNum, warning: `Telefone não foi importado (set_client_phones): ${phErr.message}` });
+        }
+      }
+
+      // ✅ Extras (plan_table_id, m3u_url, created_at) via RPC extra
+      // Se ainda não existir, vira warning (sem quebrar seu import).
+      {
+        const payload = {
+          p_tenant_id: tenant_id,
+          p_client_id: client_id,
+          p_plan_table_id: plan_table_id,
+          p_m3u_url: (parsed.m3u_url || "").trim() || null,
+          p_created_at: cadastroISO, // pode ser null (se vazio/invalid)
+        };
+
+        const { error: exSetErr } = await supabase.rpc("import_set_client_extras", payload);
+
+        if (exSetErr) {
+          const msg = exSetErr.message || "Falha ao setar extras";
+          if (!extrasRpcMissingWarned && /does not exist|42883/i.test(msg)) {
+            extrasRpcMissingWarned = true;
+            warnings.push({
+              row: rowNum,
+              warning:
+                `RPC import_set_client_extras não existe ainda. Extras (Tabela Preco/M3U/Data do cadastro) não foram aplicados. ` +
+                `Crie o RPC usando o SQL que te enviei.`,
+            });
+          } else if (!/does not exist|42883/i.test(msg)) {
+            warnings.push({ row: rowNum, warning: `Extras não aplicados (import_set_client_extras): ${msg}` });
+          }
         }
       }
     } catch (e: any) {

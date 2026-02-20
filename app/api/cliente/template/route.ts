@@ -8,46 +8,58 @@ function csvEscape(v: unknown): string {
 }
 
 export async function GET() {
-const headers = [
-  "Saudacao",
-  "Nome Completo",
-  "Telefone principal",
-  "Whatsapp Username",
-  "Aceita mensagem",
-  "Servidor",
-  "Usuario",
-  "Senha",
-  "Tecnologia",
-  "Currency",
-  "Plano",
-  "Telas",
-  "Vencimento dia",
-  "Vencimento hora",
-  "Aplicativos nome",
-  "Obs",
-];
+  const headers = [
+    "Saudacao",
+    "Nome Completo",
+    "Telefone principal",
+    "Whatsapp Username",
+    "Aceita mensagem",
+    "Servidor",
+    "Usuario",
+    "Senha",
+    "Tecnologia",
+    "Currency",
+    "Plano",
+    "Telas",
+    "Vencimento dia",
+    "Vencimento hora",
+    "Aplicativos nome",
+    "Obs",
 
+    // ✅ NOVOS (sempre no final)
+    "Valor Plano",
+    "Tabela Preco",
+    "M3U URL",
+    "Data do cadastro",
+    "Cadastro hora",
+  ];
 
   // Linha exemplo (o usuário troca)
-const example = [
-  "Sr",
-  "João Silva",
-  "+5521999999999",
-  "5521999999999",
-  "Sim",
-  "UniTV",
-  "joao.silva",
-  "123456",
-  "IPTV",
-  "BRL",
-  "Mensal",
-  "1",
-  "10/02/2026",
-  "21:00",
-  "IBO Player, XCIPTV",
-  "Cliente importado via planilha",
-];
+  const example = [
+    "Sr",
+    "João Silva",
+    "+5521999999999",
+    "5521999999999",
+    "Sim",
+    "UniTV",
+    "joao.silva",
+    "123456",
+    "IPTV",
+    "BRL",
+    "Mensal",
+    "1",
+    "10/02/2026",
+    "21:00",
+    "IBO Player, XCIPTV",
+    "Cliente importado via planilha",
 
+    // ✅ NOVOS (exemplos)
+    "40.00",
+    "Padrao BRL",
+    "http://exemplo.com/lista.m3u",
+    "05/01/2026",
+    "14:30",
+  ];
 
   const lines: string[] = [];
   lines.push(headers.map(csvEscape).join(";"));

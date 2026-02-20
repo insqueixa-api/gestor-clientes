@@ -22,68 +22,84 @@ type ExportRow = {
 
   aplicativos_nome: string;
   obs: string;
-};
 
+  // ✅ NOVOS (igual ao template)
+  valor_plano: string;      // price_amount
+  tabela_preco: string;     // plan_tables.name (LABEL)
+  m3u_url: string;
+  cadastro_dia: string;     // created_at
+  cadastro_hora: string;    // created_at
+};
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
   const s = String(v);
-  // Excel BR costuma aceitar melhor ; com BOM, mas ainda precisamos escapar.
   if (/[",\n\r;]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
 function toCsv(rows: ExportRow[]): string {
+  // ✅ HEADERS exatamente como seu template
   const headers = [
-  "Saudação",
-  "Nome Completo",
-  "Telefone principal",
-  "Whatsapp Username",
-  "Aceita mensagem",
-  "Servidor",
-  "Usuário",
-  "Senha",
-  "Tecnologia",
-  "Moeda", // BRL | USD | EUR
-  "Plano",
-  "Telas",
-  "Vencimento dia",
-  "Vencimento hora",
-  "Aplicativos nome",
-  "Obs",
-];
+    "Saudacao",
+    "Nome Completo",
+    "Telefone principal",
+    "Whatsapp Username",
+    "Aceita mensagem",
+    "Servidor",
+    "Usuario",
+    "Senha",
+    "Tecnologia",
+    "Currency",
+    "Plano",
+    "Telas",
+    "Vencimento dia",
+    "Vencimento hora",
+    "Aplicativos nome",
+    "Obs",
 
+    // ✅ NOVOS (sempre no final)
+    "Valor Plano",
+    "Tabela Preco",
+    "M3U URL",
+    "Data do cadastro",
+    "Cadastro hora",
+  ];
 
   const lines: string[] = [];
-  lines.push(headers.join(";"));
+  lines.push(headers.map(csvEscape).join(";"));
 
   for (const r of rows) {
     lines.push(
-  [
-    r.saudacao,
-    r.nome_completo,
-    r.telefone_principal,
-    r.whatsapp_username,
-    r.aceita_mensagem,
-    r.servidor,
-    r.usuario,
-    r.senha,
-    r.tecnologia,
-    r.currency,
-    r.plano,
-    r.telas,
-    r.vencimento_dia,
-    r.vencimento_hora,
-    r.aplicativos_nome,
-    r.obs,
-  ]
-    .map(csvEscape)
-    .join(";")
-);
+      [
+        r.saudacao,
+        r.nome_completo,
+        r.telefone_principal,
+        r.whatsapp_username,
+        r.aceita_mensagem,
+        r.servidor,
+        r.usuario,
+        r.senha,
+        r.tecnologia,
+        r.currency,
+        r.plano,
+        r.telas,
+        r.vencimento_dia,
+        r.vencimento_hora,
+        r.aplicativos_nome,
+        r.obs,
 
+        r.valor_plano,
+        r.tabela_preco,
+        r.m3u_url,
+        r.cadastro_dia,
+        r.cadastro_hora,
+      ]
+        .map(csvEscape)
+        .join(";")
+    );
   }
 
-  // BOM ajuda o Excel a reconhecer UTF-8
   return "\ufeff" + lines.join("\n");
 }
 
@@ -92,7 +108,6 @@ function formatDiaHoraBR(iso: string | null | undefined) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return { dia: "", hora: "" };
 
-  // usando TZ do usuário (BR) como padrão do Gestor
   const dia = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit",
@@ -110,15 +125,51 @@ function formatDiaHoraBR(iso: string | null | undefined) {
   return { dia, hora };
 }
 
-async function resolveTenantIdFromMember(supabase: any, userId: string): Promise<string | null> {
+/**
+ * ✅ Segurança: resolve tenant pelo membership.
+ * - Se o usuário tiver 1 tenant: usa ele.
+ * - Se tiver múltiplos: exige tenant_id na query e valida que pertence ao user.
+ */
+async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
   const { data, error } = await supabase
     .from("tenant_members")
     .select("tenant_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+    .eq("user_id", userId);
 
-  if (error) return null;
-  return data?.tenant_id ?? null;
+  if (error) {
+    return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
+  }
+
+  const tenantIds = Array.from(
+    new Set((data ?? []).map((r: any) => String(r.tenant_id || "")).filter(Boolean))
+  );
+
+  if (tenantIds.length === 0) {
+    return { tenant_id: null, status: 400, error: "tenant_id_missing", hint: "Seu usuário não está vinculado a um tenant." };
+  }
+
+  if (tenantIds.length === 1) {
+    const only = tenantIds[0];
+    if (tenantFromQuery && tenantFromQuery !== only) {
+      return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+    }
+    return { tenant_id: only, status: 200 };
+  }
+
+  if (!tenantFromQuery) {
+    return {
+      tenant_id: null,
+      status: 400,
+      error: "tenant_required",
+      hint: "Você participa de múltiplos tenants. Informe tenant_id na querystring para exportar o tenant desejado.",
+    };
+  }
+
+  if (!tenantIds.includes(tenantFromQuery)) {
+    return { tenant_id: null, status: 403, error: "forbidden_tenant", hint: "tenant_id não pertence ao seu usuário." };
+  }
+
+  return { tenant_id: tenantFromQuery, status: 200 };
 }
 
 export async function GET(req: Request) {
@@ -126,71 +177,64 @@ export async function GET(req: Request) {
 
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
-
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
-
-  // Você pode manter tenant_id por querystring, mas agora também resolvemos automaticamente via tenant_members
   const tenantFromQuery = url.searchParams.get("tenant_id");
-  const tenantFromMember = await resolveTenantIdFromMember(supabase, user.id);
-  const tenant_id = tenantFromQuery || tenantFromMember;
 
-  if (!tenant_id) {
+  const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
+  if (!resolved.tenant_id) {
     return NextResponse.json(
-      { error: "tenant_id_missing", hint: "Não encontrei tenant_id (nem querystring nem tenant_members)." },
-      { status: 400 }
+      { error: (resolved as any).error, hint: (resolved as any).hint, details: (resolved as any).details },
+      { status: (resolved as any).status || 400 }
     );
   }
+  const tenant_id = resolved.tenant_id;
 
-  // scope padrão: só clientes (não trial). ?scope=all exporta tudo.
   const scope = (url.searchParams.get("scope") || "clients") as "clients" | "all";
 
-  // 1) Buscar clients (sem IDs no CSV, mas precisamos internamente pra joins)
+  // 1) Clients
   let q = supabase
-  .from("clients")
-  .select(
-  [
-    "id",
-    "tenant_id",
-    "name_prefix",
-    "display_name",
-    "first_name",
-    "last_name",
-    "allow_whatsapp",
-    "whatsapp_username",
-    "server_id",
-    "server_username",
-    "server_password",
-    "technology",
-    "plan_label",
-    "screens",
-    "price_currency",
-    "vencimento",
-    "notes",
-    "is_trial",
-  ].join(",")
-)
-
-
-  .eq("tenant_id", tenant_id)
-  .order("created_at", { ascending: false });
-
+    .from("clients")
+    .select(
+      [
+        "id",
+        "tenant_id",
+        "name_prefix",
+        "display_name",
+        "first_name",
+        "last_name",
+        "whatsapp_opt_in",
+        "allow_whatsapp",
+        "whatsapp_username",
+        "server_id",
+        "server_username",
+        "server_password",
+        "technology",
+        "plan_label",
+        "screens",
+        "price_currency",
+        "price_amount",
+        "plan_table_id",
+        "m3u_url",
+        "vencimento",
+        "notes",
+        "is_trial",
+        "created_at",
+      ].join(",")
+    )
+    .eq("tenant_id", tenant_id)
+    .order("created_at", { ascending: false });
 
   if (scope !== "all") q = q.eq("is_trial", false);
 
   const { data: clients, error: cErr } = await q;
-
-  if (cErr) {
-    return NextResponse.json({ error: "export_failed_clients", details: cErr.message }, { status: 500 });
-  }
+  if (cErr) return NextResponse.json({ error: "export_failed_clients", details: cErr.message }, { status: 500 });
 
   const clientRows = (clients ?? []) as any[];
   const clientIds = clientRows.map((c) => c.id);
 
-  // ✅ sem clientes: exporta CSV só com header
+  // Sem clientes: CSV só com header
   if (clientIds.length === 0) {
     const csv = toCsv([]);
     const now = new Date();
@@ -209,30 +253,43 @@ export async function GET(req: Request) {
     });
   }
 
-
-  // 2) Map de servidores (id -> name)
-  // (Se sua tabela tiver outro nome, me avisa que eu ajusto rapidinho)
+  // 2) Servidores (id -> name)
   const { data: servers, error: sErr } = await supabase
     .from("servers")
     .select("id,name")
     .eq("tenant_id", tenant_id);
 
   if (sErr) {
-    // Não derruba export, mas informa de forma clara
     return NextResponse.json(
-      { error: "export_failed_servers", details: sErr.message, hint: "Confirme se a tabela é 'servers' e tem colunas id,name,tenant_id." },
+      { error: "export_failed_servers", details: sErr.message },
       { status: 500 }
     );
   }
 
   const serverNameById = new Map<string, string>();
   for (const s of (servers ?? []) as any[]) {
-    serverNameById.set(s.id, s.name ?? "");
+    serverNameById.set(String(s.id), String(s.name ?? ""));
   }
 
-  
-  // 3) Apps por cliente: client_apps -> apps (name)
-  // Vamos buscar tudo em lote, depois agrupar.
+  // 3) Plan tables (id -> name) ✅ pra exportar label
+  const { data: planTables, error: ptErr } = await supabase
+    .from("plan_tables")
+    .select("id,name")
+    .eq("tenant_id", tenant_id);
+
+  if (ptErr) {
+    return NextResponse.json(
+      { error: "export_failed_plan_tables", details: ptErr.message },
+      { status: 500 }
+    );
+  }
+
+  const planTableNameById = new Map<string, string>();
+  for (const pt of (planTables ?? []) as any[]) {
+    planTableNameById.set(String(pt.id), String(pt.name ?? ""));
+  }
+
+  // 4) Apps por cliente
   const { data: clientApps, error: aErr } = await supabase
     .from("client_apps")
     .select("client_id, apps(name)")
@@ -240,7 +297,7 @@ export async function GET(req: Request) {
 
   if (aErr) {
     return NextResponse.json(
-      { error: "export_failed_apps", details: aErr.message, hint: "Confirme o relacionamento client_apps.app_id -> apps.id está cadastrado no Supabase." },
+      { error: "export_failed_apps", details: aErr.message },
       { status: 500 }
     );
   }
@@ -255,52 +312,51 @@ export async function GET(req: Request) {
     appsByClient.set(cid, arr);
   }
 
-  // 4) Telefone principal por cliente (best-effort)
-  // Ajuste caso seus nomes sejam diferentes.
+  // 5) Telefone principal (best-effort)
   const phoneByClient = new Map<string, string>();
   try {
     const { data: phones } = await supabase
-  .from("client_phones")
-  .select("client_id, phone_e164, is_primary")
+      .from("client_phones")
+      .select("client_id, phone_e164, is_primary")
+      .in("client_id", clientIds);
 
-  .in("client_id", clientIds);
+    for (const p of (phones ?? []) as any[]) {
+      if (!p.client_id) continue;
+      const ph = p.phone_e164 ? String(p.phone_e164) : "";
+      if (!ph) continue;
 
-  for (const p of (phones ?? []) as any[]) {
-    if (!p.client_id) continue;
-    const ph = p.phone_e164 ? String(p.phone_e164) : "";
-
-    const isPrimary = !!p.is_primary;
-    if (!ph) continue;
-
-    // prioridade pro primário; senão, primeiro encontrado
-    if (isPrimary || !phoneByClient.has(p.client_id)) {
-      phoneByClient.set(p.client_id, ph);
+      const isPrimary = !!p.is_primary;
+      if (isPrimary || !phoneByClient.has(p.client_id)) {
+        phoneByClient.set(p.client_id, ph);
+      }
     }
-  }
-
   } catch {
-    // ignora (best-effort)
+    // ignora
   }
 
-  // 5) Montar CSV final (PT-BR)
+  // 6) Montar CSV
   const rows: ExportRow[] = clientRows.map((c) => {
     const nomeCompleto =
       (c.display_name && String(c.display_name).trim()) ||
       [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
 
-    const { dia, hora } = formatDiaHoraBR(c.vencimento ?? null);
+    const { dia: vencDia, hora: vencHora } = formatDiaHoraBR(c.vencimento ?? null);
+    const { dia: cadDia, hora: cadHora } = formatDiaHoraBR(c.created_at ?? null);
 
     const apps = appsByClient.get(c.id) ?? [];
     const appsUnique = Array.from(new Set(apps)).join(", ");
 
-    const serverName = serverNameById.get(c.server_id) ?? "";
+    const serverName = serverNameById.get(String(c.server_id)) ?? "";
+    const planTableLabel = c.plan_table_id ? (planTableNameById.get(String(c.plan_table_id)) ?? "") : "";
+
+    const optIn = (c.whatsapp_opt_in ?? c.allow_whatsapp) ? "Sim" : "Não";
 
     return {
       saudacao: c.name_prefix ?? "",
       nome_completo: nomeCompleto ?? "",
       telefone_principal: phoneByClient.get(c.id) ?? "",
       whatsapp_username: c.whatsapp_username ?? "",
-      aceita_mensagem: c.allow_whatsapp ? "Sim" : "Não",
+      aceita_mensagem: optIn,
 
       servidor: serverName,
       usuario: c.server_username ?? "",
@@ -308,17 +364,20 @@ export async function GET(req: Request) {
       tecnologia: c.technology ?? "",
 
       currency: c.price_currency ?? "BRL",
-
-
-
       plano: c.plan_label ?? "",
       telas: String(c.screens ?? ""),
 
-      vencimento_dia: dia,
-      vencimento_hora: hora,
+      vencimento_dia: vencDia,
+      vencimento_hora: vencHora,
 
       aplicativos_nome: appsUnique,
       obs: c.notes ?? "",
+
+      valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : String(c.price_amount),
+      tabela_preco: planTableLabel,
+      m3u_url: c.m3u_url ?? "",
+      cadastro_dia: cadDia,
+      cadastro_hora: cadHora,
     };
   });
 
@@ -328,7 +387,6 @@ export async function GET(req: Request) {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
-
   const filename = `clientes_${y}-${m}-${d}.csv`;
 
   return new NextResponse(csv, {

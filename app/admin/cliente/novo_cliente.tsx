@@ -1663,7 +1663,120 @@ if (!apiRes.ok || !okFlag) {
         }
       }
 
-      // 7. Sync (atualizar saldo do servidor)
+            // ✅ 6.1) TRIAL ELITE: Toast "Teste criado" + Sync de normalização (username/vencimento) UMA ÚNICA VEZ
+      if (isTrialMode && provider === "ELITE") {
+        // 1) Toast: teste criado OK (após create-trial)
+        queueListToast("trial", {
+          type: "success",
+          title: "Teste criado",
+          message: `Teste criado no servidor ${serverName}.`,
+        });
+
+        // 2) Chamar /elite/create-trial/sync para normalizar username + vencimento
+        try {
+          const syncTrialUrl = "/api/integrations/elite/create-trial/sync";
+
+          const syncTrialRes = await fetch(syncTrialUrl, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              integration_id: srv.panel_integration,
+              username: apiUsername, // username "feio" que veio do create-trial
+              notes: notes?.trim() ? notes.trim() : null, // ✅ fonte para normalização
+            }),
+          });
+
+          const syncTrialText = await syncTrialRes.text();
+
+          let syncTrialJson: any = null;
+          try {
+            syncTrialJson = syncTrialText ? JSON.parse(syncTrialText) : null;
+          } catch {
+            syncTrialJson = null;
+          }
+
+          const syncOkFlag =
+            Boolean(syncTrialJson?.ok) ||
+            Boolean(syncTrialJson?.success) ||
+            String(syncTrialJson?.status || "").toLowerCase() === "ok";
+
+          if (!syncTrialRes.ok || !syncOkFlag) {
+            const errMsg =
+              syncTrialJson?.error ||
+              syncTrialJson?.message ||
+              (syncTrialText && syncTrialText.slice(0, 300)) ||
+              `Falha sync trial ELITE (HTTP ${syncTrialRes.status})`;
+
+            throw new Error(errMsg);
+          }
+
+          // Aceita { ok:true, data:{...} } ou { ok:true, ... }
+          const syncData =
+            syncTrialJson &&
+            typeof syncTrialJson === "object" &&
+            syncTrialJson.data &&
+            typeof syncTrialJson.data === "object"
+              ? syncTrialJson.data
+              : syncTrialJson;
+
+          // aplica retorno se vier
+          const sUser = syncData?.username != null ? String(syncData.username).trim() : "";
+          const sPass = syncData?.password != null ? String(syncData.password) : "";
+          const sM3u =
+            syncData?.m3u_url != null
+              ? String(syncData.m3u_url)
+              : syncData?.m3uUrl != null
+                ? String(syncData.m3uUrl)
+                : "";
+
+          if (sUser) apiUsername = sUser;
+          if (sPass) apiPassword = sPass;
+          if (sM3u) apiM3uUrl = sM3u;
+
+          // exp_date pode vir em segundos ou ms
+          const exp2 = syncData?.exp_date ?? null;
+          if (exp2 != null) {
+            const n2 = Number(exp2);
+            if (Number.isFinite(n2) && n2 > 0) {
+              const ms2 = n2 > 1e12 ? n2 : n2 * 1000;
+              const dt2 = new Date(ms2);
+              if (Number.isFinite(dt2.getTime())) {
+                apiVencimento = dt2.toISOString();
+
+                // ✅ reflete na UI (opcional, mas ajuda a ver que “corrigiu”)
+                setDueDate(`${dt2.getFullYear()}-${pad2(dt2.getMonth() + 1)}-${pad2(dt2.getDate())}`);
+                setDueTime(`${pad2(dt2.getHours())}:${pad2(dt2.getMinutes())}`);
+              }
+            }
+          }
+
+          // ✅ reflete na UI imediatamente
+          if (apiUsername) setUsername(apiUsername);
+          if (apiPassword) setPassword(apiPassword);
+          if (apiM3uUrl) setM3uUrl(apiM3uUrl);
+
+          // 3) Toast: dados sincronizados OK
+          queueListToast("trial", {
+            type: "success",
+            title: "Dados sincronizados",
+            message: `Dados sincronizados com servidor ${serverName}.`,
+          });
+        } catch (syncErr: any) {
+          const msg = String(syncErr?.message || syncErr || "").trim();
+
+          queueListToast("trial", {
+            type: "error",
+            title: "Falha ao sincronizar",
+            message: `Teste criado, mas a sincronização falhou${msg ? `: ${msg}` : ""}.`,
+          });
+        }
+      }
+
+      // 7) Sync (atualizar saldo do servidor) — mantém como estava
       const syncUrl =
         provider === "FAST"
           ? "/api/integrations/fast/sync"
@@ -1673,28 +1786,31 @@ if (!apiRes.ok || !okFlag) {
               ? "/api/integrations/elite/sync"
               : "";
 
-if (syncUrl) {
-  const syncRes = await fetch(syncUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ integration_id: srv.panel_integration }),
-  });
+      if (syncUrl) {
+        const syncRes = await fetch(syncUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ integration_id: srv.panel_integration }),
+        });
 
-  if (!syncRes.ok) {
-    const t = await syncRes.text().catch(() => "");
-    console.warn("⚠️ Sync falhou:", syncRes.status, t);
-  }
-}
+        if (!syncRes.ok) {
+          const t = await syncRes.text().catch(() => "");
+          console.warn("⚠️ Sync falhou:", syncRes.status, t);
+        }
+      }
 
       // ✅ ENFILEIRAR Toast de sucesso da API
-      queueListToast(isTrialMode ? "trial" : "client", {
-        type: "success",
-        title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
-        message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`,
-      });
+      // (no TRIAL + ELITE, você já terá os 2 toasts: "Teste criado" e "Dados sincronizados")
+      if (!(isTrialMode && provider === "ELITE")) {
+        queueListToast(isTrialMode ? "trial" : "client", {
+          type: "success",
+          title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
+          message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`,
+        });
+      }
     }
 
     // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
