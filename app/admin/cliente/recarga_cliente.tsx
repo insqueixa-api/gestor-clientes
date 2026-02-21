@@ -905,6 +905,12 @@ console.log("✅ Renovação automática concluída:", {
       // --- PASSO 2: ATUALIZAR CLIENTE ---
       setLoadingText("Atualizando cadastro...");
 
+      // ✅ DECISÃO DA DATA: Se for renovação manual COM pagamento, o update_client NÃO pode
+      // alterar a data, senão a RPC de renovação soma duplicado. Mandamos a data original.
+      const dateForUpdate = (registerPayment && !renewAutomatic) 
+          ? clientData?.vencimento 
+          : apiVencimento;
+
       const updatePayload: any = {
         p_tenant_id: tid,
         p_client_id: clientId,
@@ -920,7 +926,7 @@ console.log("✅ Renovação automática concluída:", {
         p_plan_table_id: selectedTableId || null,
         p_price_amount: rawPlanPrice,
         p_price_currency: currency as any,
-        p_vencimento: apiVencimento, // ✅ DA API ou calculado localmente
+        p_vencimento: dateForUpdate, // ✅ Usa a regra definida acima
         p_is_trial: allowConvertWithoutPayment ? false : null,
         p_whatsapp_opt_in: true,
         p_whatsapp_username: null,
@@ -943,10 +949,10 @@ console.log("✅ Renovação automática concluída:", {
           p_months: monthsToRenew,
           p_status: "PAID",
           p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
-          p_new_vencimento: apiVencimento, // ✅ Passa a data exata para evitar que o banco adicione o mês duplicado
+          p_new_vencimento: null, // ✅ Volta para null para a RPC calcular tudo sozinha baseada na data original
         });
-  if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
-}
+        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+      }
 
 // ✅ Se automático, só registra LOG e evento manualmente
 if (registerPayment && renewAutomatic) {
