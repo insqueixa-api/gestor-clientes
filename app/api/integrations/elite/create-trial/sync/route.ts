@@ -597,21 +597,30 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
         ""
       ).trim();
 
-      if (!finalPasswordToUpdate) {
+      // ✅ REGRA DE OURO P2P: Se a senha não for EXATAMENTE 12 números e 2 letras, o Laravel rejeita!
+      if (isP2P && !/^\d{12}[a-z]{2}$/.test(finalPasswordToUpdate)) {
+         finalPasswordToUpdate = generateEliteFallbackPassword();
+         trace.push({ step: "p2p_generated_strict_password", password: finalPasswordToUpdate });
+      } else if (!finalPasswordToUpdate) {
         finalPasswordToUpdate = generateEliteFallbackPassword();
         trace.push({ step: "generated_fallback_password", password: finalPasswordToUpdate });
       }
 
+      // ✅ REGRA DE OURO P2P: Username precisa ter pelo menos 12 caracteres, senão falha
+      if (isP2P && desiredUsername.length < 12) {
+         const pad = 12 - desiredUsername.length;
+         desiredUsername += Math.floor(Math.random() * Math.pow(10, pad)).toString().padStart(pad, "0");
+      }
+
       if (isP2P) {
-        // P2P STRICT (Seguindo exatamente o CURL Chamada 4)
+        // P2P STRICT (Seguindo exatamente o CURL manual do usuário)
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("passwordx", finalPasswordToUpdate); // ✅ Usa a senha garantida
-        updForm.set("name", desiredUsername); // No P2P o 'name' também assume o usuário
+        updForm.set("passwordx", finalPasswordToUpdate); // ✅ Usa a senha validada
+        updForm.set("name", desiredUsername);
         
-        if (notes) {
-          updForm.set("reseller_notes", notes);
-        }
+        // ✅ CRÍTICO: O Laravel do P2P aparentemente EXIGE o reseller_notes. Nunca enviar vazio.
+        updForm.set("reseller_notes", notes ? notes : desiredUsername);
 
         // P2P não manda Array. Manda variável fixa '1'.
         updForm.set("pacote", "1");
@@ -619,7 +628,7 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
         // IPTV STRICT
         updForm.set("user_id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("passwordx", finalPasswordToUpdate); // ✅ Usa a senha garantida
+        updForm.set("passwordx", finalPasswordToUpdate);
 
         if (notes) {
           updForm.set("reseller_notes", notes);
@@ -713,11 +722,11 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
     }
 
 const finalPassword =
+      safeString(finalPasswordToUpdate) || // ✅ Prioridade 1: a senha que o sistema validou/injetou com sucesso
       safeString(pickFirst(details2, ["password", "exField2", "data.password", "data.exField2", "user.password"])) ||
       safeString(currentPassword) ||
       safeString(rowFromTable?.password) ||
-      safeString(bodyPassword) || // ✅ Garante que se o body mandou, nós retornamos
-      safeString(finalPasswordToUpdate); // ✅ Se o gerador de fallback entrou em ação, retornamos ela
+      safeString(bodyPassword);
 
     let finalRow: any = rowFromTable;
     if (finalUsername) {
