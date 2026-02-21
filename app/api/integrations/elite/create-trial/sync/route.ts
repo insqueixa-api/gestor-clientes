@@ -343,19 +343,22 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({} as any));
 
-    const integration_id = safeString(body?.integration_id);
-    const external_user_id = safeString(body?.external_user_id || body?.user_id || body?.elite_user_id);
+    let integration_id = safeString(body?.integration_id);
+    let external_user_id = safeString(body?.external_user_id || body?.user_id || body?.elite_user_id);
+    let tech = String(body?.technology || "").trim().toUpperCase();
+    
     const tz = safeString(body?.tz) || TZ_SP;
 
     // ✅ Pega os dados originais que o front mandou (se existirem)
-    const bodyDesiredUsername = safeString(body?.desired_username || body?.username);
+    const bodyDesiredUsername = safeString(body?.desired_username || body?.username || body?.notes);
     const bodyNotes = safeString(body?.notes);
+    
+    // ✅ Captura campos extras que o front pode enviar para acharmos o cliente no banco
+    const client_id = safeString(body?.client_id || body?.id);
+    const server_username = safeString(body?.server_username);
 
     // por padrão, essa rota é feita pra usar 1x após criar trial
     const rename_from_notes = body?.rename_from_notes !== false; // default true
-
-    if (!integration_id) return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
-    if (!external_user_id) return NextResponse.json({ ok: false, error: "external_user_id obrigatório." }, { status: 400 });
 
     // supabase service + valida usuário via JWT do client
     const sb = createClient(mustEnv("NEXT_PUBLIC_SUPABASE_URL"), mustEnv("SUPABASE_SERVICE_ROLE_KEY"), {
@@ -367,7 +370,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
     }
 
-    // ✅ Carrega apenas os dados da integração (Sem tentar adivinhar a tecnologia pelo banco!)
+    // ✅ Busca o external_user_id no banco se não veio no body
+    if (!external_user_id && (client_id || server_username)) {
+      let query = sb.from("clients").select("external_user_id, server_id, technology");
+      
+      if (client_id) {
+         query = query.eq("id", client_id);
+      } else if (server_username) {
+         query = query.eq("server_username", server_username).order("created_at", { ascending: false }).limit(1);
+      }
+
+      const { data: clientData } = await query.single();
+      if (clientData) {
+         external_user_id = external_user_id || clientData.external_user_id;
+         integration_id = integration_id || clientData.server_id;
+         tech = tech || String(clientData.technology).toUpperCase();
+      }
+    }
+
+    if (!integration_id) return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
+    if (!external_user_id) return NextResponse.json({ ok: false, error: "external_user_id obrigatório (não encontrado no body nem no banco)." }, { status: 400 });
+
+    // ✅ Carrega apenas os dados da integração
     const { data: integ, error: integError } = await sb
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") 
@@ -380,11 +404,9 @@ export async function POST(req: Request) {
     if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!(integ as any).is_active) throw new Error("Integração está inativa.");
 
-    // ✅ Lendo a tecnologia estritamente do Front-End (A única fonte correta!)
-    const tech = String(body?.technology || "").trim().toUpperCase();
     if (tech !== "IPTV" && tech !== "P2P") {
       return NextResponse.json(
-        { ok: false, error: `Tecnologia '${tech}' não suportada. Verifique se o front enviou 'technology' no body do Sync.` },
+        { ok: false, error: `Tecnologia '${tech}' não suportada. Verifique se o front enviou 'technology' no body do Sync ou se existe no banco.` },
         { status: 400 }
       );
     }
@@ -561,15 +583,9 @@ export async function POST(req: Request) {
           updForm.set("reseller_notes", notes);
         }
 
-        updForm.set("pacote", "1");
-        
-        if (notes) {
-          updForm.set("reseller_notes", notes);
-        }
-
         // P2P não manda Array. Manda variável fixa '1'.
         updForm.set("pacote", "1");
-
+      
       } else {
         // IPTV STRICT
         updForm.set("user_id", String(external_user_id));

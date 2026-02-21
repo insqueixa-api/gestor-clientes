@@ -1799,11 +1799,13 @@ const syncTrialRes = await fetch(syncTrialUrl, {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
+body: JSON.stringify({
               ...apiPayload, // Mantém integração, notas, etc.
               external_user_id: apiExternalUserId, // ✅ CRÍTICO: O ID retornado pelo create-trial
               desired_username: username,          // ✅ O nome que você digitou (ex: MarcioNaTV)
               username: apiUsername,               // O nome numérico (ex: 199797...)
+              server_username: apiUsername,        // ✅ NOVO: Chave para o fallback do banco buscar o cliente
+              client_id: clientId,                 // ✅ NOVO: Chave para o fallback do banco buscar o cliente
               technology: finalTechnology          // ✅ IPTV ou P2P para o roteamento
             }),
           });
@@ -1911,11 +1913,13 @@ const syncTrialRes = await fetch(syncTrialUrl, {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ 
+body: JSON.stringify({ 
             integration_id: srv.panel_integration,
             external_user_id: apiExternalUserId, // ✅ O ID gerado na criação (Ex: 5672425)
             desired_username: username,          // ✅ O nome "bonito" que você digitou na tela
             username: apiUsername,               // ✅ O nome "feio" que o painel devolveu primeiro
+            server_username: apiUsername,        // ✅ NOVO: Chave para o fallback do banco buscar o cliente
+            client_id: clientId,                 // ✅ NOVO: Chave para o fallback do banco buscar o cliente
             notes: notes?.trim() ? notes.trim() : null,
             technology: finalTechnology          // ✅ A CHAVE MESTRA: "IPTV" ou "P2P"
           }),
