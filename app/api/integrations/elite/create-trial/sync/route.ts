@@ -137,8 +137,20 @@ function parseFormattedBrDateTimeToIso(spText: unknown, tz = TZ_SP) {
   const minute = Number(m[5]);
   const second = m[6] ? Number(m[6]) : 0;
 
-  const utcMs = zonedLocalToUtcMs({ year, month, day, hour, minute, second }, tz);
+const utcMs = zonedLocalToUtcMs({ year, month, day, hour, minute, second }, tz);
   return new Date(utcMs).toISOString();
+}
+
+// ✅ NOVO: Gera uma senha compatível com o padrão Elite (12 números + 2 letras minúsculas)
+function generateEliteFallbackPassword() {
+  let nums = "";
+  for (let i = 0; i < 12; i++) {
+    nums += Math.floor(Math.random() * 10).toString();
+  }
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const c1 = letters[Math.floor(Math.random() * letters.length)];
+  const c2 = letters[Math.floor(Math.random() * letters.length)];
+  return `${nums}${c1}${c2}`;
 }
 
 // ----------------- login ELITE -----------------
@@ -570,22 +582,31 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
 
     let updatedUsername = String(currentUsername || "");
     let didUpdate = false;
+    let finalPasswordToUpdate = ""; // ✅ Prepara a variável no escopo global
 
     // ✅ 6) ATUALIZAÇÃO RIGOROSA DE FORMULÁRIOS
     if (canRename) {
       const updForm = new FormData();
 
-      // ✅ REFORÇO: Adiciona o Token no body para garantir que o Laravel não bloqueie o P2P
-      if (csrf) updForm.set("_token", csrf);
+      // ✅ Resolve a senha com hierarquia e aplica o Fallback Gerador se tudo falhar
+      finalPasswordToUpdate = String(
+        bodyPassword || 
+        currentPassword || 
+        rowFromTable?.password || 
+        rowFromTable?.exField2 || 
+        ""
+      ).trim();
+
+      if (!finalPasswordToUpdate) {
+        finalPasswordToUpdate = generateEliteFallbackPassword();
+        trace.push({ step: "generated_fallback_password", password: finalPasswordToUpdate });
+      }
 
       if (isP2P) {
         // P2P STRICT (Seguindo exatamente o CURL Chamada 4)
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        
-        // ✅ FIX P2P: Prioridade absoluta para a senha que o front-end enviou (pois a tela não exibe)
-        updForm.set("passwordx", String(bodyPassword || currentPassword || rowFromTable?.password || rowFromTable?.exField2 || ""));
-        
+        updForm.set("passwordx", finalPasswordToUpdate); // ✅ Usa a senha garantida
         updForm.set("name", desiredUsername); // No P2P o 'name' também assume o usuário
         
         if (notes) {
@@ -598,9 +619,7 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
         // IPTV STRICT
         updForm.set("user_id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        
-        // ✅ FIX IPTV: Também usa o bodyPassword como prioridade
-        updForm.set("passwordx", String(bodyPassword || currentPassword || rowFromTable?.password || ""));
+        updForm.set("passwordx", finalPasswordToUpdate); // ✅ Usa a senha garantida
 
         if (notes) {
           updForm.set("reseller_notes", notes);
@@ -693,10 +712,12 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
       finalUsername = finalUsername.split("@")[0];
     }
 
-    const finalPassword =
+const finalPassword =
       safeString(pickFirst(details2, ["password", "exField2", "data.password", "data.exField2", "user.password"])) ||
       safeString(currentPassword) ||
-      safeString(rowFromTable?.password);
+      safeString(rowFromTable?.password) ||
+      safeString(bodyPassword) || // ✅ Garante que se o body mandou, nós retornamos
+      safeString(finalPasswordToUpdate); // ✅ Se o gerador de fallback entrou em ação, retornamos ela
 
     let finalRow: any = rowFromTable;
     if (finalUsername) {
