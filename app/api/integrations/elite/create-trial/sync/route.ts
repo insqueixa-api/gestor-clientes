@@ -572,11 +572,17 @@ export async function POST(req: Request) {
     if (canRename) {
       const updForm = new FormData();
 
+      // ✅ REFORÇO: Adiciona o Token no body para garantir que o Laravel não bloqueie o P2P
+      if (csrf) updForm.set("_token", csrf);
+
       if (isP2P) {
         // P2P STRICT (Seguindo exatamente o CURL Chamada 4)
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+        
+        // ✅ FIX P2P: A senha no DataTables do P2P vem no campo 'exField2'
+        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || rowFromTable?.exField2 || ""));
+        
         updForm.set("name", desiredUsername); // No P2P o 'name' também assume o usuário
         
         if (notes) {
@@ -585,7 +591,6 @@ export async function POST(req: Request) {
 
         // P2P não manda Array. Manda variável fixa '1'.
         updForm.set("pacote", "1");
-      
       } else {
         // IPTV STRICT
         updForm.set("user_id", String(external_user_id));

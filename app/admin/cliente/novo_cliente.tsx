@@ -872,6 +872,7 @@ useEffect(() => {
 // ✅ NOVO: Atualizar vencimento quando mudar período de teste
 useEffect(() => {
   if (!isTrialMode) return;
+  if (isEditing) return; // ✅ TRAVA: Evita recalcular a hora ao abrir um teste existente
 
   const now = new Date();
   const target = new Date(now.getTime() + testHours * 60 * 60 * 1000); // +X horas
