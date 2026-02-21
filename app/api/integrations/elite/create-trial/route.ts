@@ -358,32 +358,17 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(notes, isP2P);
-  const r = await eliteFetch(
-    fc,
-    baseUrl,
-    `${dashboardPath}?${qs}`,
-    {
-      method: "GET",
-      headers: {
-        accept: "application/json, text/javascript, */*; q=0.01",
-      },
-    },
-    csrf,
-    dashboardPath
-  );
+async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(searchValue, isP2P);
+  const r = await eliteFetch(fc, baseUrl, `${dashboardPath}?${qs}`, {
+    method: "GET",
+    headers: { accept: "application/json, text/javascript, */*; q=0.01" },
+  }, csrf, dashboardPath);
 
   const parsed = await readSafeBody(r);
-  if (!r.ok) {
-    return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
-  }
-
+  if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
   const data = parsed.json?.data;
-  if (!Array.isArray(data) || data.length === 0) {
-    return { ok: true, found: false, rows: [] as any[] };
-  }
-
+  if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] as any[] };
   return { ok: true, found: true, rows: data };
 }
 
@@ -586,15 +571,23 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
 
-    // 3.2) fallback: buscar no DataTables por trialnotes (pega id/username/password/formatted_exp_date)
+    // ✅ Se o painel retornou o nome de usuário (ex: 584432167391ww) em vez de ID numérico, nós apagamos para forçar a busca
+    if (isP2P && createdId && !/^\d+$/.test(String(createdId))) {
+       createdId = null; 
+    }
+
+    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
     let rowFromTable: any = null;
     if (!createdId || !serverUsername || !serverPassword || !expRaw) {
-      // ✅ Passando o dashboardPath e isP2P para buscar na tela correta!
-      const table = await findTrialByNotes(fc, base, csrf, trialNotes, dashboardPath, isP2P);
+      // ✅ No P2P é muito mais seguro buscar pelo Nome Numérico (serverUsername) do que pelas Notas
+      const searchTarget = isP2P ? (serverUsername || trialNotes) : trialNotes;
+      
+      const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
       trace.push({
         step: "datatable_lookup",
         ok: table.ok,
         found: (table as any).found,
+        target: searchTarget
       });
 
       if ((table as any).ok && (table as any).found) {
