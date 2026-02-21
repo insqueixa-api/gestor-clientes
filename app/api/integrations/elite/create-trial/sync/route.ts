@@ -350,12 +350,15 @@ export async function POST(req: Request) {
     const tz = safeString(body?.tz) || TZ_SP;
 
     // ✅ Pega os dados originais que o front mandou (se existirem)
-    const bodyDesiredUsername = safeString(body?.desired_username || body?.username || body?.notes);
+const bodyDesiredUsername = safeString(body?.desired_username || body?.username || body?.notes);
     const bodyNotes = safeString(body?.notes);
     
     // ✅ Captura campos extras que o front pode enviar para acharmos o cliente no banco
     const client_id = safeString(body?.client_id || body?.id);
     const server_username = safeString(body?.server_username);
+    
+    // ✅ NOVO: Captura a senha que o front-end acabou de receber na criação
+    const bodyPassword = safeString(body?.password);
 
     // por padrão, essa rota é feita pra usar 1x após criar trial
     const rename_from_notes = body?.rename_from_notes !== false; // default true
@@ -580,8 +583,8 @@ export async function POST(req: Request) {
         updForm.set("id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
         
-        // ✅ FIX P2P: A senha no DataTables do P2P vem no campo 'exField2'
-        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || rowFromTable?.exField2 || ""));
+        // ✅ FIX P2P: Prioridade absoluta para a senha que o front-end enviou (pois a tela não exibe)
+        updForm.set("passwordx", String(bodyPassword || currentPassword || rowFromTable?.password || rowFromTable?.exField2 || ""));
         
         updForm.set("name", desiredUsername); // No P2P o 'name' também assume o usuário
         
@@ -595,7 +598,9 @@ export async function POST(req: Request) {
         // IPTV STRICT
         updForm.set("user_id", String(external_user_id));
         updForm.set("usernamex", desiredUsername);
-        updForm.set("passwordx", String(currentPassword || rowFromTable?.password || ""));
+        
+        // ✅ FIX IPTV: Também usa o bodyPassword como prioridade
+        updForm.set("passwordx", String(bodyPassword || currentPassword || rowFromTable?.password || ""));
 
         if (notes) {
           updForm.set("reseller_notes", notes);
