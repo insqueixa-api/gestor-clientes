@@ -426,11 +426,11 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
       );
     }
 
-// ✅ Variáveis Dinâmicas (Endpoint confirmado via CURL manual)
+// ✅ Variáveis Dinâmicas Iniciais
     const isP2P = tech === "P2P";
     const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
-    let updateApiPath = isP2P ? `/api/p2p/update/${external_user_id}` : `/api/iptv/update/${external_user_id}`;
-    let detailsApiPath = isP2P ? `/api/p2p/${external_user_id}` : `/api/iptv/${external_user_id}`;
+    
+    let real_external_id = external_user_id;
 
     const loginUser = safeString(integ.api_token); // usuário/email
     const loginPass = safeString(integ.api_secret); // senha
@@ -446,36 +446,23 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
     const { fc } = await offoLogin(base, loginUser, loginPass, tz);
     trace.push({ step: "login", ok: true });
 
-// 2) csrf pós-login
+    // 2) csrf pós-login
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
     trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
-    // ✅ RESGATE DE EMERGÊNCIA: Se a etapa de criação não devolveu o ID, buscamos na tabela agora!
-    if (!external_user_id) {
-      const searchTarget = bodyNotes || bodyDesiredUsername || server_username;
-      
-      if (searchTarget) {
-        const emergencyTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
-        trace.push({ step: "emergency_datatable_search", target: searchTarget, found: emergencyTable.rows?.length });
-        
-        if (emergencyTable.ok && emergencyTable.rows?.length > 0) {
-          const row = emergencyTable.rows[0];
-          external_user_id = String(row.id);
-          
-          if (!bodyPassword) {
-            bodyPassword = String(row.password || row.exField2 || "");
-          }
-          
-          // Reconstrói as URLs agora que achamos o ID!
-          updateApiPath = isP2P ? `/api/p2p/update/${external_user_id}` : `/api/iptv/update/${external_user_id}`;
-          detailsApiPath = isP2P ? `/api/p2p/${external_user_id}` : `/api/iptv/${external_user_id}`;
-        }
-      }
+    // ✅ IDENTIFICADOR DE ID FALSO: Se o painel P2P devolveu o Username (com letras) no lugar do ID numérico
+    if (isP2P && (!/^\d+$/.test(real_external_id) || real_external_id.length > 9)) {
+       // Fazemos uma busca silenciosa na tabela procurando esse usuário gerado para pegar o ID real (ex: 210427)
+       const fixTable = await findRowBySearch(fc, base, csrf, real_external_id, dashboardPath, isP2P);
+       if (fixTable.ok && fixTable.rows?.length > 0) {
+           real_external_id = String(fixTable.rows[0].id);
+           trace.push({ step: "id_fixed", old: external_user_id, new: real_external_id });
+       }
     }
 
-    if (!external_user_id) {
-       return NextResponse.json({ ok: false, error: "Falha Crítica: Não foi possível localizar o ID do usuário no painel para aplicar o Sync." }, { status: 400 });
-    }
+    // ✅ Agora montamos as URLs com o ID verdadeiro garantido!
+    const updateApiPath = isP2P ? `/api/p2p/update/${real_external_id}` : `/api/iptv/update/${real_external_id}`;
+    const detailsApiPath = isP2P ? `/api/p2p/${real_external_id}` : `/api/iptv/${real_external_id}`;
 
     // 3) details by ID
     const detailsRes = await eliteFetch(
