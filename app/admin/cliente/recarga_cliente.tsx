@@ -934,18 +934,17 @@ console.log("✅ Renovação automática concluída:", {
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
       // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
-      // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
-// ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
-if (registerPayment && !renewAutomatic) {
-  setLoadingText("Registrando pagamento...");
-  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
-    p_tenant_id: tid,
-    p_client_id: clientId,
-    p_months: monthsToRenew,
-    p_status: "PAID",
-    p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
-    p_new_vencimento: null, // ✅ Deixa null para calcular
-  });
+      // ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
+      if (registerPayment && !renewAutomatic) {
+        setLoadingText("Registrando pagamento...");
+        const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+          p_tenant_id: tid,
+          p_client_id: clientId,
+          p_months: monthsToRenew,
+          p_status: "PAID",
+          p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
+          p_new_vencimento: apiVencimento, // ✅ Passa a data exata para evitar que o banco adicione o mês duplicado
+        });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
 

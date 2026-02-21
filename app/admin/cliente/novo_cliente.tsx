@@ -127,6 +127,9 @@ function normalizeMacInput(raw: string) {
   return pairs.join(":");
 }
 
+
+
+
 function normalizeE164(raw: string) {
   const digits = onlyDigits(raw);
   return digits ? `+${digits}` : "";

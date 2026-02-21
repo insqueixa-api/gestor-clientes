@@ -2174,15 +2174,9 @@ return (
   // ✅ 1) fecha o modal primeiro
   setShowRenew({ open: false, clientId: null, clientName: undefined });
 
-  // ✅ 2) só depois recarrega (garante unmount antes de ligar loading)
+  // ✅ 2) só depois recarrega os dados da tabela
   setTimeout(async () => {
     await loadData();
-
-    // ✅ toasts após refresh
-    setTimeout(() => {
-      addToast("success", "Cliente atualizado", "Cadastro atualizado com sucesso.");
-      addToast("success", "Cliente renovado", "Renovação registrada com sucesso.");
-    }, 150);
   }, 0);
 }}
 

@@ -301,7 +301,7 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
  * usa o endpoint server-side do DataTables em /dashboard/iptv?...
  * e filtra por search[value]=trialnotes
  */
-function buildDtQuery(searchValue: string) {
+function buildDtQuery(searchValue: string, isP2P: boolean) {
   const p = new URLSearchParams();
 
   p.set("draw", "1");
@@ -310,26 +310,41 @@ function buildDtQuery(searchValue: string) {
   p.set("search[value]", searchValue);
   p.set("search[regex]", "false");
 
-  // order: id desc (coluna 1)
   p.set("order[0][column]", "1");
   p.set("order[0][dir]", "desc");
   p.set("order[0][name]", "");
 
-  const cols = [
-    { data: "", name: "", searchable: "false", orderable: "false" },
-    { data: "id", name: "", searchable: "true", orderable: "true" },
-    { data: "", name: "", searchable: "false", orderable: "false" },
-    { data: "username", name: "", searchable: "true", orderable: "true" },
-    { data: "password", name: "", searchable: "true", orderable: "true" },
-    { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
-    { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
-    { data: "max_connections", name: "", searchable: "true", orderable: "true" },
-    { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
-    { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
-    { data: "is_trial", name: "", searchable: "true", orderable: "true" },
-    { data: "enabled", name: "", searchable: "true", orderable: "true" },
-    { data: "", name: "", searchable: "false", orderable: "false" },
-  ];
+  const cols = isP2P
+    ? [
+        { data: "id", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "name", name: "", searchable: "true", orderable: "true" },
+        { data: "email", name: "", searchable: "true", orderable: "true" },
+        { data: "exField2", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "exField4", name: "", searchable: "true", orderable: "true" },
+        { data: "type", name: "", searchable: "true", orderable: "true" },
+        { data: "status", name: "", searchable: "true", orderable: "true" },
+        { data: "action", name: "", searchable: "false", orderable: "false" },
+      ]
+    : [
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "username", name: "", searchable: "true", orderable: "true" },
+        { data: "password", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
+        { data: "max_connections", name: "", searchable: "true", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
+        { data: "is_trial", name: "", searchable: "true", orderable: "true" },
+        { data: "enabled", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+      ];
 
   cols.forEach((c, i) => {
     p.set(`columns[${i}][data]`, c.data);
@@ -343,19 +358,20 @@ function buildDtQuery(searchValue: string) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string) {
-  const qs = buildDtQuery(notes);
+async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(notes, isP2P);
   const r = await eliteFetch(
     fc,
     baseUrl,
-    `/dashboard/iptv?${qs}`,
+    `${dashboardPath}?${qs}`,
     {
       method: "GET",
       headers: {
         accept: "application/json, text/javascript, */*; q=0.01",
       },
     },
-    csrf
+    csrf,
+    dashboardPath
   );
 
   const parsed = await readSafeBody(r);
@@ -573,7 +589,8 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     // 3.2) fallback: buscar no DataTables por trialnotes (pega id/username/password/formatted_exp_date)
     let rowFromTable: any = null;
     if (!createdId || !serverUsername || !serverPassword || !expRaw) {
-      const table = await findTrialByNotes(fc, base, csrf, trialNotes);
+      // ✅ Passando o dashboardPath e isP2P para buscar na tela correta!
+      const table = await findTrialByNotes(fc, base, csrf, trialNotes, dashboardPath, isP2P);
       trace.push({
         step: "datatable_lookup",
         ok: table.ok,
@@ -584,8 +601,14 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
         rowFromTable = (table as any).rows?.[0] || null;
 
         if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
-        if (!serverUsername && rowFromTable?.username) serverUsername = String(rowFromTable.username);
-        if (!serverPassword && rowFromTable?.password) serverPassword = String(rowFromTable.password);
+        
+        // ✅ No P2P, a coluna se chama 'name' e a senha fica no 'exField2'
+        if (!serverUsername && (rowFromTable?.username || rowFromTable?.name)) {
+            serverUsername = String(rowFromTable?.username || rowFromTable?.name);
+        }
+        if (!serverPassword && (rowFromTable?.password || rowFromTable?.exField2)) {
+            serverPassword = String(rowFromTable?.password || rowFromTable?.exField2);
+        }
 
         // normalmente vem como "formatted_exp_date" em horário SP
         if (!expRaw) {
