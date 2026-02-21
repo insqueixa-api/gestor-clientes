@@ -358,12 +358,16 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(searchValue, isP2P);
-  const r = await eliteFetch(fc, baseUrl, `${dashboardPath}?${qs}`, {
-    method: "GET",
-    headers: { accept: "application/json, text/javascript, */*; q=0.01" },
-  }, csrf, dashboardPath);
+async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(notes, isP2P);
+  const r = await eliteFetch(
+    fc,
+    baseUrl,
+    `${dashboardPath}?${qs}`,
+    { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
+    csrf,
+    dashboardPath
+  );
 
   const parsed = await readSafeBody(r);
   if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
@@ -560,20 +564,18 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     let createdId =
       pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
 
-    // ✅ Inclui "name" e "email" para o P2P
     let serverUsername =
       pickFirst(createParsed.json, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ?? null;
 
-    // ✅ Inclui "exField2" para o P2P (geralmente é onde a senha do P2P vem escondida no Elite)
     let serverPassword =
       pickFirst(createParsed.json, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ?? null;
 
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
 
-    // ✅ Se o painel retornou o nome de usuário (ex: 584432167391ww) em vez de ID numérico, nós apagamos para forçar a busca
+    // ✅ FIX CRÍTICO: Se o painel P2P retornar o nome do usuário com letras no lugar do ID numérico, apagamos para forçar a substituição!
     if (isP2P && createdId && !/^\d+$/.test(String(createdId))) {
-       createdId = null; 
+        createdId = null;
     }
 
     // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
@@ -593,6 +595,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       if ((table as any).ok && (table as any).found) {
         rowFromTable = (table as any).rows?.[0] || null;
 
+        // ✅ Como apagamos o createdId falso lá em cima, agora ele vai pegar o verdadeiro da tabela! (Ex: 210626)
         if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
         
         // ✅ No P2P, a coluna se chama 'name' e a senha fica no 'exField2'
