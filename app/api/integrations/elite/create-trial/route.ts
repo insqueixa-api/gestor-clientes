@@ -307,11 +307,8 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   p.set("draw", "1");
   p.set("start", "0");
   p.set("length", "15");
-  
-  // ✅ SE FOR P2P: A busca do painel é bugada, pedimos a lista vazia. 
-  // ✅ SE FOR IPTV: A busca funciona, mandamos o texto normalmente!
+  // ✅ P2P busca vazio (pois é bugado no painel). IPTV busca a palavra normal.
   p.set("search[value]", isP2P ? "" : searchValue);
-  
   p.set("search[regex]", "false");
 
   p.set("order[0][column]", "1");
@@ -362,26 +359,23 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(notes, isP2P);
+async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(targetToMatch, isP2P);
   const r = await eliteFetch(
-    fc,
-    baseUrl,
-    `${dashboardPath}?${qs}`,
+    fc, baseUrl, `${dashboardPath}?${qs}`,
     { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
-    csrf,
-    dashboardPath
+    csrf, dashboardPath
   );
 
   const parsed = await readSafeBody(r);
   if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
   
   const data = parsed.json?.data;
-  if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] as any[] };
+  if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] };
 
-  // ✅ SE FOR P2P: Como trouxemos a lista sem filtro, nós caçamos o cliente aqui no Javascript!
   if (isP2P) {
-    const targetStr = String(notes || "").trim().toLowerCase();
+    // ✅ P2P: Nós mesmos caçamos o cliente na lista retornada
+    const targetStr = String(targetToMatch || "").trim().toLowerCase();
     const match = data.find((r: any) => {
       const fieldsToSearch = [r.username, r.name, r.email, r.reseller_notes, r.trialnotes, r.exField4, r.exField2, r.id];
       return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
@@ -389,11 +383,11 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: s
 
     if (match) return { ok: true, found: true, rows: [match] };
     
-    // Se a busca exata falhar, a linha 0 é o cliente recém-criado
+    // Se não achar nome exato, pega a linha 0 (o recém-criado)
     return { ok: true, found: false, rows: [data[0]] };
   }
 
-  // ✅ SE FOR IPTV: O painel já filtrou perfeitamente e devolveu o cliente exato.
+  // ✅ IPTV: O painel já filtrou, só repassamos
   return { ok: true, found: true, rows: data };
 }
 
@@ -594,15 +588,14 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
 
-    // ✅ FIX CRÍTICO: Se o painel P2P retornar o nome do usuário com letras no lugar do ID numérico, apagamos para forçar a substituição!
+    // ✅ FIX CRÍTICO P2P: Se o painel mandou letras no lugar do ID, apagamos para forçar a busca do ID real
     if (isP2P && createdId && !/^\d+$/.test(String(createdId))) {
         createdId = null;
     }
 
-    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
+    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real
     let rowFromTable: any = null;
     if (!createdId || !serverUsername || !serverPassword || !expRaw) {
-      // ✅ No P2P é muito mais seguro buscar pelo Nome Numérico (serverUsername) do que pelas Notas
       const searchTarget = isP2P ? (serverUsername || trialNotes) : trialNotes;
       
       const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
@@ -613,10 +606,11 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
         target: searchTarget
       });
 
-      if ((table as any).ok && (table as any).found) {
-        rowFromTable = (table as any).rows?.[0] || null;
+      if ((table as any).ok && (table as any).rows?.length > 0) {
+        // ✅ Independente de ter dado match perfeito ou ser fallback (P2P), pegamos a linha
+        rowFromTable = (table as any).found ? (table as any).rows[0] : (table as any).rows[0];
 
-        // ✅ Como apagamos o createdId falso lá em cima, agora ele vai pegar o verdadeiro da tabela! (Ex: 210626)
+        // ✅ Agora sim o createdId recebe o número limpo (Ex: 210626)
         if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
         
         // ✅ No P2P, a coluna se chama 'name' e a senha fica no 'exField2'
