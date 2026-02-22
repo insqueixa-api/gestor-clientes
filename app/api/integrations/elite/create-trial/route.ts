@@ -308,8 +308,12 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   p.set("start", "0");
   p.set("length", "15");
   
-  // ✅ O PULO DO GATO: P2P manda vazio. IPTV manda o texto da busca (searchValue)!
-  p.set("search[value]", isP2P ? "" : searchValue);
+  // ✅ PULO DO GATO: Separação absoluta das buscas.
+  if (isP2P) {
+    p.set("search[value]", ""); // A mágica do P2P
+  } else {
+    p.set("search[value]", searchValue); // A mágica do IPTV
+  }
   
   p.set("search[regex]", "false");
   p.set("order[0][column]", "1");
@@ -361,7 +365,8 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
 }
 
 async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(targetToMatch, isP2P);
+  const qs = buildDtQuery(targetToMatch, isP2P); // Passamos sempre, o buildDtQuery resolve se usa ou não
+  
   const r = await eliteFetch(
     fc,
     baseUrl,
@@ -377,8 +382,8 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
   const data = parsed.json?.data;
   if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] };
 
-  // ✅ P2P caça na lista retornada
   if (isP2P) {
+    // ✅ Cópia exata do seu P2P funcionando
     const targetStr = String(targetToMatch || "").trim().toLowerCase();
     const match = data.find((r: any) => {
        const fieldsToSearch = [
@@ -389,15 +394,12 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
     });
 
     if (match) return { ok: true, found: true, rows: [match] };
-    
-    // Se não achar nome exato, pega a linha 0 (o recém-criado)
-    return { ok: true, found: false, rows: [data[0]] };
+    return { ok: true, found: false, rows: [data[0]] }; // Se falhar, pega a linha 0
+  } else {
+    // ✅ Cópia exata do seu IPTV funcionando
+    return { ok: true, found: true, rows: data };
   }
-
-  // ✅ IPTV confia 100% no filtro do servidor deles
-  return { ok: true, found: true, rows: data };
 }
-
 // ----------------- handler -----------------
 export async function POST(req: Request) {
   const trace: any[] = [];
@@ -582,7 +584,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       );
     }
 
-    // ✅ tenta extrair do retorno do maketrial (alguns painéis devolvem username/senha/vencimento)
+    // ✅ tenta extrair do retorno do maketrial
     let createdId =
       pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
 
@@ -595,21 +597,22 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
 
-    // ✅ IDENTIFICADOR: Descobre se o painel mandou aquele usuário com letras no lugar do ID numérico
+    // ✅ CÓPIA DO P2P: Se o painel P2P retornar o nome com letras no lugar do ID numérico, apagamos para forçar a substituição!
+    if (isP2P && createdId && !/^\d+$/.test(String(createdId))) {
+        createdId = null;
+    }
+
+    let rowFromTable: any = null;
     const isFakeId = isP2P && createdId && !/^\d+$/.test(String(createdId));
 
-    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
-    let rowFromTable: any = null;
-    
     if (!createdId || !serverUsername || !serverPassword || !expRaw || isFakeId) {
       
-      // ✅ A SOLUÇÃO MÁGICA DOS ALVOS DE BUSCA:
-      // Se for IPTV, sempre busca pela Nota (pois o painel deles filtra assim)
-      let searchTarget = trialNotes;
-      
-      // Se for P2P, a gente busca pelo ID falso (que é o nome de usuário gerado) ou a nota
+      // ✅ CÓPIA FIEL DOS SEUS ALVOS DE BUSCA:
+      let searchTarget = "";
       if (isP2P) {
           searchTarget = isFakeId ? String(createdId) : String(serverUsername || trialNotes);
+      } else {
+          searchTarget = String(trialNotes);
       }
       
       const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
@@ -621,16 +624,13 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
         target: searchTarget
       });
 
+      // ✅ CÓPIA DO SEU BLOCO P2P/IPTV
       if ((table as any).ok && (table as any).rows?.length > 0) {
-        // Pega a linha exata que o sistema encontrou
+        
         rowFromTable = (table as any).found ? (table as any).rows[0] : (table as any).rows[0];
 
-        // ✅ FORÇA a substituição do ID! (Sai a sujeira, entra o ID numérico)
-        if (!createdId || isFakeId) {
-            createdId = String(rowFromTable.id);
-        }
+        if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
         
-        // Pega os dados exatos do P2P/IPTV
         if (!serverUsername && (rowFromTable?.username || rowFromTable?.name)) {
             serverUsername = String(rowFromTable?.username || rowFromTable?.name);
         }
