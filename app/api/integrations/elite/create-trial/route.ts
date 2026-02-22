@@ -301,14 +301,13 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
  * usa o endpoint server-side do DataTables em /dashboard/iptv?...
  * e filtra por search[value]=trialnotes
  */
-function buildDtQuery(isP2P: boolean) {
+function buildDtQuery(searchValue: string, isP2P: boolean) {
   const p = new URLSearchParams();
 
   p.set("draw", "1");
   p.set("start", "0");
   p.set("length", "15");
-  // ✅ A MÁGICA AQUI: Nunca mandamos palavra de busca para o painel, pois a busca deles é bugada!
-  p.set("search[value]", ""); 
+  p.set("search[value]", searchValue);
   p.set("search[regex]", "false");
 
   p.set("order[0][column]", "1");
@@ -359,43 +358,22 @@ function buildDtQuery(isP2P: boolean) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(isP2P);
+async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: string, dashboardPath: string, isP2P: boolean) {
+  const qs = buildDtQuery(notes, isP2P);
   const r = await eliteFetch(
     fc,
     baseUrl,
     `${dashboardPath}?${qs}`,
-    {
-      method: "GET",
-      headers: { accept: "application/json, text/javascript, */*; q=0.01" },
-    },
+    { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
     csrf,
     dashboardPath
   );
 
   const parsed = await readSafeBody(r);
   if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
-  
   const data = parsed.json?.data;
-  if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] };
-
-  // ✅ Busca manual via JavaScript para ignorar a pesquisa falha do Laravel
-  const targetStr = String(targetToMatch || "").trim().toLowerCase();
-  
-  const match = data.find((r: any) => {
-     const fieldsToSearch = [
-        r.username, r.name, r.email, r.reseller_notes, r.trialnotes, 
-        r.exField4, r.exField2, r.id
-     ];
-     return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
-  });
-
-  if (match) {
-     return { ok: true, found: true, rows: [match] };
-  }
-
-  // Se não achar o texto exato, a linha 0 é 99% de chance de ser o nosso, pois acabamos de criar!
-  return { ok: true, found: false, rows: data }; 
+  if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] as any[] };
+  return { ok: true, found: true, rows: data };
 }
 
 // ----------------- handler -----------------
@@ -601,15 +579,10 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     }
 
     // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
-    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real
     let rowFromTable: any = null;
-    
-    const isFakeId = isP2P && createdId && !/^\d+$/.test(String(createdId));
-
-    if (!createdId || !serverUsername || !serverPassword || !expRaw || isFakeId) {
-      
-      // ✅ Se o painel devolveu aquele ID cheio de letras (ex: 584432ww), caçamos ele na tabela!
-      const searchTarget = isFakeId ? createdId : (serverUsername || trialNotes);
+    if (!createdId || !serverUsername || !serverPassword || !expRaw) {
+      // ✅ No P2P é muito mais seguro buscar pelo Nome Numérico (serverUsername) do que pelas Notas
+      const searchTarget = isP2P ? (serverUsername || trialNotes) : trialNotes;
       
       const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
       trace.push({
@@ -619,22 +592,16 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
         target: searchTarget
       });
 
-      if ((table as any).ok && (table as any).rows?.length > 0) {
-        // Se achou correspondência exata, usa ela. Senão pega a linha 0 (a última criada)
-        rowFromTable = (table as any).found ? (table as any).rows[0] : (table as any).rows[0];
+      if ((table as any).ok && (table as any).found) {
+        rowFromTable = (table as any).rows?.[0] || null;
 
-        // ✅ FORÇA a substituição do ID! (Sai o '584432ww', entra o '210742')
-        createdId = String(rowFromTable.id);
+        // ✅ Como apagamos o createdId falso lá em cima, agora ele vai pegar o verdadeiro da tabela! (Ex: 210626)
+        if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
         
-        // Pega os dados exatos do P2P
+        // ✅ No P2P, a coluna se chama 'name' e a senha fica no 'exField2'
         if (!serverUsername && (rowFromTable?.username || rowFromTable?.name)) {
-          serverUsername = String(rowFromTable?.username || rowFromTable?.name);
+            serverUsername = String(rowFromTable?.username || rowFromTable?.name);
         }
-        if (!serverPassword && (rowFromTable?.password || rowFromTable?.exField2)) {
-          serverPassword = String(rowFromTable?.password || rowFromTable?.exField2);
-        }
-
-        // normalmente vem como "formatted_exp_date" em horário SP
         if (!serverPassword && (rowFromTable?.password || rowFromTable?.exField2)) {
             serverPassword = String(rowFromTable?.password || rowFromTable?.exField2);
         }
