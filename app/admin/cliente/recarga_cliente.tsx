@@ -13,6 +13,7 @@
     id: string;
     display_name: string | null;
     username: string | null;
+    external_user_id?: string | null; // ✅ ADICIONADO PARA A ELITE
     server_id: string | null;
     server_name: string | null;
 
@@ -625,6 +626,14 @@ if (c.server_id) {
 
     if (!isFromTrial) return;
 
+// ✅ TRAVA DO PLANO ANUAL: Se o servidor tem integração, o máximo é 6 meses (Semestral)
+  useEffect(() => {
+    if (hasIntegration && selectedPlanPeriod === "ANNUAL") {
+      setSelectedPlanPeriod("SEMIANNUAL");
+      addToast("success", "Plano ajustado", "Servidores com integração permitem no máximo 6 meses.");
+    }
+  }, [hasIntegration, selectedPlanPeriod]);
+
     // quando desliga "Registrar pagamento", auto-desliga Whats
     if (!registerPayment) {
       setSendWhats(false);
@@ -805,9 +814,12 @@ if (renewAutomatic && clientData?.server_id) {
             const provider = String(integ?.provider || "").toUpperCase();
 
             // 1.3. Montar URL da API
-            const apiUrl = provider === "FAST"
-              ? "/api/integrations/fast/renew-client"
-              : "/api/integrations/natv/renew-client";
+            let apiUrl = "";
+            if (provider === "FAST") apiUrl = "/api/integrations/fast/renew-client";
+            else if (provider === "NATV") apiUrl = "/api/integrations/natv/renew-client";
+            else if (provider === "ELITE") apiUrl = "/api/integrations/elite/renew"; // ✅ NOVA ROTA ELITE
+            
+            if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
 
             // 1.4. Chamar API
 console.log("🔵 Chamando API:", apiUrl, {
@@ -822,6 +834,9 @@ const apiRes = await fetch(apiUrl, {
   body: JSON.stringify({
     integration_id: srv.panel_integration,
     username: clientData.username,
+    // ✅ Para Elite, mandamos o external_user_id (se tiver) e a tecnologia atual
+    external_user_id: clientData.external_user_id || clientData.username, 
+    technology: finalTechnology,
     months: monthsToRenew,
   }),
 });
@@ -838,18 +853,21 @@ if (!apiRes.ok || !apiJson.ok) {
 }
 
             // 1.5. Atualizar com dados da API
-            const expDateISO = apiJson.data.exp_date_iso;
-            apiVencimento = expDateISO;
+            const expDateISO = apiJson.data?.exp_date_iso;
+            if (expDateISO) {
+                apiVencimento = expDateISO; // ✅ Se a API devolver a data exata (Fast/NaTV), usa ela. 
+            } // Senão (Elite), mantém o "apiVencimento" perfeitamente calculado pelo seu front-end!
 
-            // NATV: atualiza senha / FAST: mantém
-            if (provider === "NATV" && apiJson.data.password) {
+            // NATV: atualiza senha / FAST/ELITE: mantém intacta
+            if (provider === "NATV" && apiJson.data?.password) {
               apiPassword = apiJson.data.password;
             }
 
             // 1.6. Sync créditos
-            const syncUrl = provider === "FAST"
-              ? "/api/integrations/fast/sync"
-              : "/api/integrations/natv/sync";
+            let syncUrl = "";
+            if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
+            else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
+            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; // ✅ SYNC ELITE
 
             await fetch(syncUrl, {
               method: "POST",
@@ -1133,10 +1151,17 @@ style={{ maxHeight: "90dvh" }}
 
                   {/* GRID DE PLANOS */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div className="col-span-2 sm:col-span-1">
+<div className="col-span-2 sm:col-span-1">
                           <Label>Período</Label>
                           <Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value)}>
-                            {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                            {Object.entries(PLAN_LABELS)
+                              .filter(([k]) => {
+                                // ✅ TRAVA NA UI: Se tem integração, esconde a opção Anual
+                                if (hasIntegration && k === "ANNUAL") return false;
+                                return true;
+                              })
+                              .map(([k, v]) => <option key={k} value={k}>{v}</option>)
+                            }
                           </Select>
                       </div>
                       <div>
