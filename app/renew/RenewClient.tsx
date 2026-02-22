@@ -206,6 +206,23 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
 
+  // -------------------------------------------------------------------------
+  // INÍCIO DO ESTADO DE BUSCA (Movido para o topo para respeitar as regras do React)
+  // -------------------------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredAccounts = useMemo(() => {
+    if (!searchQuery.trim()) return accounts;
+    const lowerQuery = searchQuery.toLowerCase();
+    return accounts.filter(
+      (a) =>
+        (a.display_name || "").toLowerCase().includes(lowerQuery) ||
+        (a.server_username || "").toLowerCase().includes(lowerQuery) ||
+        (a.server_name || "").toLowerCase().includes(lowerQuery)
+    );
+  }, [accounts, searchQuery]);
+  // -------------------------------------------------------------------------
+
   // ✅ O Backend agora é inteligente e já manda a lista certa (com ou sem Anual)
   const availablePrices = prices;
 
@@ -916,26 +933,7 @@ if (fulfillment === "done") {
 
   // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
-    // ----------------------------------------------------------------------------------------------------
-    // INÍCIO DO CÓDIGO DE BUSCA
-    // Quando for para produção, você pode deletar toda essa variável 'searchQuery' e 'filteredAccounts'
-    // ----------------------------------------------------------------------------------------------------
-    const [searchQuery, setSearchQuery] = useState("");
-
-    const filteredAccounts = useMemo(() => {
-      if (!searchQuery.trim()) return accounts;
-      const lowerQuery = searchQuery.toLowerCase();
-      return accounts.filter(
-        (a) =>
-          a.display_name.toLowerCase().includes(lowerQuery) ||
-          a.server_username.toLowerCase().includes(lowerQuery) ||
-          a.server_name.toLowerCase().includes(lowerQuery)
-      );
-    }, [accounts, searchQuery]);
-    // ----------------------------------------------------------------------------------------------------
-    // TÉRMINO DO CÓDIGO DE BUSCA
-    // ----------------------------------------------------------------------------------------------------
-
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-12">
         <div className="max-w-2xl mx-auto">
