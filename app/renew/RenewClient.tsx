@@ -206,10 +206,8 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
 
-  // ✅ TRAVA ABSOLUTA: Remove o plano Anual da lista para todos os clientes
-  const availablePrices = useMemo(() => {
-    return prices.filter((p) => p.period !== "ANNUAL");
-  }, [prices]);
+  // ✅ O Backend agora é inteligente e já manda a lista certa (com ou sem Anual)
+  const availablePrices = prices;
 
   
   // Estados do pagamento

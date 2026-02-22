@@ -329,8 +329,9 @@ useEffect(() => {
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [messageContent, setMessageContent] = useState("");
 
-    // ✅ NOVO: Renovação Automática
+// ✅ NOVO: Renovação Automática
 const [hasIntegration, setHasIntegration] = useState(false);
+const [isEliteProvider, setIsEliteProvider] = useState(false); // ✅ Sabe se a integração é Elite
 const [renewAutomatic, setRenewAutomatic] = useState(false);
 
     // Hook de Confirmação
@@ -414,9 +415,23 @@ if (c.server_id) {
     const hasInteg = Boolean(srv?.panel_integration);
     setHasIntegration(hasInteg);
     setRenewAutomatic(hasInteg); // Liga automaticamente se tem integração
+
+    // ✅ Descobre se é Elite para poder travar o plano Anual
+    if (hasInteg) {
+      const { data: integ } = await supabaseBrowser
+        .from("server_integrations")
+        .select("provider")
+        .eq("id", srv.panel_integration)
+        .single();
+      
+      setIsEliteProvider(integ?.provider?.toUpperCase() === "ELITE");
+    } else {
+      setIsEliteProvider(false);
+    }
   } catch (e) {
     console.error("Erro ao verificar integração:", e);
     setHasIntegration(false);
+    setIsEliteProvider(false);
     setRenewAutomatic(false);
   }
 }
@@ -679,13 +694,13 @@ if (c.server_id) {
       setTotalBrl(currency === "BRL" ? rawVal : rawVal * (Number(fxRate) || 0));
     }, [planPrice, fxRate, currency]);
 
-    // ✅ TRAVA DO PLANO ANUAL (Colocado no local seguro, junto com os outros Hooks)
+    // ✅ TRAVA DO PLANO ANUAL APENAS PARA ELITE
     useEffect(() => {
-      if (hasIntegration && selectedPlanPeriod === "ANNUAL") {
+      if (isEliteProvider && selectedPlanPeriod === "ANNUAL") {
         setSelectedPlanPeriod("SEMIANNUAL");
-        addToast("success", "Plano ajustado", "Servidores com integração permitem no máximo 6 meses.");
+        addToast("success", "Plano ajustado", "A integração Elite permite no máximo 6 meses.");
       }
-    }, [hasIntegration, selectedPlanPeriod]);
+    }, [isEliteProvider, selectedPlanPeriod]);
 
     const creditsInfo = useMemo(() => {
       return pickCreditsUsed(selectedTable, selectedPlanPeriod, screens);
@@ -1158,8 +1173,8 @@ style={{ maxHeight: "90dvh" }}
                           <Select value={selectedPlanPeriod} onChange={(e) => setSelectedPlanPeriod(e.target.value)}>
                             {Object.entries(PLAN_LABELS)
                               .filter(([k]) => {
-                                // ✅ TRAVA NA UI: Se tem integração, esconde a opção Anual
-                                if (hasIntegration && k === "ANNUAL") return false;
+                                // ✅ TRAVA NA UI: Se for Elite, esconde a opção Anual
+                                if (isEliteProvider && k === "ANNUAL") return false;
                                 return true;
                               })
                               .map(([k, v]) => <option key={k} value={k}>{v}</option>)

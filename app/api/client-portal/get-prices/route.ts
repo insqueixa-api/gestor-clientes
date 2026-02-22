@@ -96,7 +96,8 @@ export async function POST(req: NextRequest) {
     // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
-      .select("screens, plan_label, price_amount, price_currency, plan_table_id, whatsapp_username")
+      // ✅ ADICIONAMOS O server_id PARA DESCOBRIR A INTEGRAÇÃO
+      .select("screens, plan_label, price_amount, price_currency, plan_table_id, whatsapp_username, server_id")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
       .eq("whatsapp_username", sess.whatsapp_username)
@@ -186,14 +187,27 @@ if (!planTableId) {
       };
     });
 
-    // 6. Ordenar por período
+// 6. Descobrir se é Elite para aplicar a trava
+    let isElite = false;
+    if (client.server_id) {
+      const { data: srv } = await supabaseAdmin.from("servers").select("panel_integration").eq("id", client.server_id).single();
+      if (srv?.panel_integration) {
+        const { data: integ } = await supabaseAdmin.from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
+        if (integ?.provider?.toUpperCase() === "ELITE") isElite = true;
+      }
+    }
+
+    // 7. Ordenar por período e TRAVAR O ANUAL (SÓ PARA ELITE)
     const ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
     prices.sort((a, b) => ORDER.indexOf(a.period) - ORDER.indexOf(b.period));
+
+    // ✅ TRAVA INTELIGENTE: Remove o 'ANNUAL' SÓ se for ELITE
+    const safePrices = isElite ? prices.filter((p: any) => p.period !== "ANNUAL") : prices;
 
     return NextResponse.json(
       {
         ok: true,
-        data: prices,
+        data: safePrices, 
         currency: client.price_currency || "BRL",
       },
       { status: 200, headers: NO_STORE_HEADERS }

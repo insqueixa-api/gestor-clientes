@@ -222,10 +222,11 @@ async function runFulfillment(params: {
 }) {
   const { supabaseAdmin, tenantId, origin, payment } = params;
 
-  // 1) Carrega cliente
+// 1) Carrega cliente
 const { data: client, error: cErr } = await supabaseAdmin
   .from("clients")
-  .select("id,tenant_id,display_name,server_username,server_id,whatsapp_username,price_currency,is_trial")
+  // ✅ ADICIONADO: external_user_id e technology para a Elite
+  .select("id,tenant_id,display_name,server_username,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial")
   .eq("tenant_id", tenantId)
   .eq("id", payment.client_id)
   .single();
@@ -262,29 +263,40 @@ const { data: client, error: cErr } = await supabaseAdmin
   const provider = String(integ.provider || "").toUpperCase();
   const months = toPeriodMonths(payment.period);
 
-  // 3) Chamar renew-client (NaTV/FAST) — usa endpoint interno
-  const renewPath =
-    provider === "FAST" ? "/api/integrations/fast/renew-client" : "/api/integrations/natv/renew-client";
+  // 3) Chamar renew-client (NaTV/FAST/ELITE) — usa endpoint interno
+  let renewPath = "";
+  if (provider === "FAST") renewPath = "/api/integrations/fast/renew-client";
+  else if (provider === "NATV") renewPath = "/api/integrations/natv/renew-client";
+  else if (provider === "ELITE") renewPath = "/api/integrations/elite/renew"; // ✅ ROTA DA ELITE
+  else throw new Error(`Provedor não suportado: ${provider}`);
 
   const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
+  if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
 
-const headers: Record<string, string> = {
-  "Content-Type": "application/json",
-  "x-internal-secret": internalSecret,
-};
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-internal-secret": internalSecret,
+  };
 
-const renewRes = await fetch(`${origin}${renewPath}`, {
-  method: "POST",
-  headers,
-  cache: "no-store",
-  body: JSON.stringify({
-    tenant_id: tenantId, // ✅ necessário para internal nas rotas renew
+  const payload: any = {
+    tenant_id: tenantId,
     integration_id: integrationId,
     username: login,
     months,
-  }),
-});
+  };
+
+  // ✅ Para a Elite, injetamos a tecnologia e o ID numérico que puxamos no passo 1
+  if (provider === "ELITE") {
+    payload.external_user_id = client.external_user_id || login;
+    payload.technology = client.technology || "IPTV";
+  }
+
+  const renewRes = await fetch(`${origin}${renewPath}`, {
+    method: "POST",
+    headers,
+    cache: "no-store",
+    body: JSON.stringify(payload),
+  });
 
 
   const renewJson = await renewRes.json().catch(() => null);
@@ -344,8 +356,14 @@ const { error: upClientErr } = await supabaseAdmin
 
   // 6) Sync (best-effort)
   try {
-    const syncPath = provider === "FAST" ? "/api/integrations/fast/sync" : "/api/integrations/natv/sync";
-    await fetch(`${origin}${syncPath}`, { method: "POST", headers, body: JSON.stringify({ integration_id: integrationId }) });
+    let syncPath = "";
+    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
+    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
+    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync"; // ✅ SYNC DA ELITE
+    
+    if (syncPath) {
+      await fetch(`${origin}${syncPath}`, { method: "POST", headers, body: JSON.stringify({ integration_id: integrationId }) });
+    }
   } catch (e) {
     safeServerLog("payment-status: failed sync", (e as any)?.message);
   }

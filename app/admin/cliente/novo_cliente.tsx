@@ -779,6 +779,7 @@ const [messageContent, setMessageContent] = useState("");
 
 // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
 const [hasIntegration, setHasIntegration] = useState(false);
+const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
 
 useEffect(() => {
   if (!isTrialMode) return;
@@ -809,7 +810,13 @@ useEffect(() => {
       const hasInteg = Boolean(integrationId);
 
       setHasIntegration(hasInteg);
-      setRegisterRenewal(hasInteg); // ✅ no TRIAL, só faz sentido se tiver integração
+      setSyncWithServer(hasInteg); // ✅ Liga o sync da API automaticamente se tiver integração
+      
+      if (isTrialMode) {
+          setRegisterRenewal(false); 
+      } else {
+          setRegisterRenewal(hasInteg); // ✅ Liga o registro financeiro para clientes
+      }
 
       if (!hasInteg) {
         setTrialProvider("NONE");
@@ -1319,24 +1326,15 @@ setSelectedApps(instances);
 
     // ======= REGRAS =======
 
+  // ✅ TRAVA DO PLANO ANUAL PARA ELITE
   useEffect(() => {
-    // ✅ Esse useEffect é SÓ para CLIENTE (não teste)
-    if (isTrialMode) return;
-
-    const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
-
-    if (registerRenewal) {
-      const base = new Date();
-      const target = new Date(base);
-      target.setMonth(target.getMonth() + monthsToAdd);
-
-      const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
-      setDueDate(dISO);
+    if (trialProvider === "ELITE" && selectedPlanPeriod === "ANNUAL") {
+      setSelectedPlanPeriod("SEMIANNUAL");
+      addToast("warning", "Limite", "A Elite permite recargas de no máximo 6 meses.");
     }
-  }, [selectedPlanPeriod, registerRenewal, isTrialMode]);
+  }, [trialProvider, selectedPlanPeriod]);
 
-  // 1) Se mudar a estrutura (Telas, Tabela, Periodo), reseta o override
-  // ✅ mas só DEPOIS do prefill inicial terminar (senão apaga override ao abrir edição)
+  // 1) Se mudar a estrutura...
   useEffect(() => {
     if (!didInitRef.current) return;
     setPriceTouched(false);
@@ -1603,10 +1601,9 @@ let apiExternalUserId = "";
 let serverName = "Servidor"; // ✅ DECLARAR AQUI (escopo correto)
 
 
-// ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
-// ✅ NOVO: Se marcou "Registrar Renovação" E tem servidor, chama API
-if (registerRenewal && serverId) {
-  let apiUrl = ""; // ✅ FIX: escopo correto (visível no try e no catch)
+// ✅ NOVO: Se marcou "Sincronizar com Servidor" E tem servidor, chama API
+      if (syncWithServer && serverId) {
+        let apiUrl = ""; // ✅ FIX: escopo correto (visível no try e no catch)
 
   try {
     // 1. Buscar integração do servidor
@@ -2637,7 +2634,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
           value={selectedPlanPeriod}
           onChange={(e) => setSelectedPlanPeriod(e.target.value as any)}
         >
-          {Object.entries(PLAN_LABELS).map(([k, v]) => (
+          {Object.entries(PLAN_LABELS).filter(([k]) => {
+              // ✅ Esconde a opção se for Elite
+              if (trialProvider === "ELITE" && k === "ANNUAL") return false;
+              return true;
+            }).map(([k, v]) => (
             <option key={k} value={k}>
               {v}
             </option>
@@ -2768,29 +2769,79 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       </div>
                    </div>
 {!isEditing && (
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-    
-    {/* ✅ COLUNA 1: Toggle Teste Automático / Registrar Renovação */}
-    <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 flex items-center justify-between gap-3">
-      <span className="text-xs text-slate-600 dark:text-white/70">
-        {isTrialMode ? "Teste automático" : "Registrar renovação"}
-      </span>
-      
-      {/* ✅ Toggle Teste Automático / Registrar Renovação */}
-<Switch 
-  checked={registerRenewal} 
-  onChange={(v) => { 
-    setRegisterRenewal(v); 
-    if (!isTrialMode && v) setSendPaymentMsg(true); 
-    else if (!isTrialMode) setSendPaymentMsg(false); 
-  }} 
-  label="" 
-  disabled={isTrialMode && !hasIntegration} // ✅ Desabilita teste sem integração
-/>
-    </div>
+                      <div className="space-y-3 pt-1">
+                        
+                        {/* ROW 1: TOGGLES (Lado a Lado) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          
+                          {/* TOGGLE 1: API SYNC (Criação/Teste Automático) */}
+                          <div 
+                            onClick={() => hasIntegration && setSyncWithServer(!syncWithServer)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                              syncWithServer 
+                                ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
+                                : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                            } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">☁️</span>
+                                <div>
+                                  <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
+                                    {isTrialMode ? "Teste Automático" : "Sincronizar Painel"}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                    {hasIntegration ? "Criar direto no servidor" : "Servidor sem integração"}
+                                  </span>
+                                </div>
+                              </div>
+                              <Switch checked={syncWithServer} onChange={(v) => hasIntegration && setSyncWithServer(v)} label="" />
+                            </div>
+                          </div>
 
-    {/* ✅ COLUNA 2: Mensagem WhatsApp */}
-    {isTrialMode ? (
+                          {/* TOGGLE 2: FINANCEIRO (SÓ CLIENTE) */}
+                          {!isTrialMode ? (
+                            <div 
+                              onClick={() => {
+                                const next = !registerRenewal;
+                                setRegisterRenewal(next);
+                                setSendPaymentMsg(next);
+                              }}
+                              className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                                registerRenewal 
+                                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
+                                  : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">💰</span>
+                                  <div>
+                                    <span className={`text-xs font-bold block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
+                                      Registrar Financeiro
+                                    </span>
+                                    <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                      Gera log de pagamento local
+                                    </span>
+                                  </div>
+                                </div>
+                                <Switch 
+                                  checked={registerRenewal} 
+                                  onChange={(v) => { 
+                                    setRegisterRenewal(v);
+                                    setSendPaymentMsg(v);
+                                  }} 
+                                  label="" 
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="hidden sm:block"></div>
+                          )}
+                        </div>
+
+                        {/* ROW 2: WHATSAPP */}
+                        {isTrialMode ? (
       // TESTE: Card de mensagem de teste
       <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
         <div
