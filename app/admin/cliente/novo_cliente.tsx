@@ -1328,6 +1328,22 @@ setSelectedApps(instances);
 
     // ======= REGRAS =======
 
+// ✅ TRAVA DE TECNOLOGIA POR PROVEDOR
+  useEffect(() => {
+    if (trialProvider === "FAST" || trialProvider === "NATV") {
+      if (technology !== "IPTV") {
+        setTechnology("IPTV");
+        setCustomTechnology("");
+      }
+    } else if (trialProvider === "ELITE") {
+      if (technology !== "IPTV" && technology !== "P2P") {
+        setTechnology("IPTV");
+        setCustomTechnology("");
+        addToast("warning", "Tecnologia ajustada", "O Elite só aceita IPTV ou P2P.");
+      }
+    }
+  }, [trialProvider, technology]);
+
   // ✅ TRAVA DO PLANO ANUAL PARA ELITE
   useEffect(() => {
     if (trialProvider === "ELITE" && selectedPlanPeriod === "ANNUAL") {
@@ -2521,15 +2537,31 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                           setTechnology(val);
                                      }
                                 }} 
-                                className="h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all"
+                                disabled={trialProvider === "FAST" || trialProvider === "NATV"}
+                                className={`h-8 w-[100px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none transition-all ${
+                                  (trialProvider === "FAST" || trialProvider === "NATV") 
+                                    ? "opacity-60 cursor-not-allowed" 
+                                    : "cursor-pointer hover:border-emerald-500/50"
+                                }`}
                             >
-                                <option value="IPTV">IPTV</option>
-                                <option value="P2P">P2P</option>
-                                <option value="OTT">OTT</option>
-                                {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && (
-                                    <option value={technology}>{technology}</option>
+                                {trialProvider === "FAST" || trialProvider === "NATV" ? (
+                                    <option value="IPTV">IPTV</option>
+                                ) : trialProvider === "ELITE" ? (
+                                    <>
+                                      <option value="IPTV">IPTV</option>
+                                      <option value="P2P">P2P</option>
+                                    </>
+                                ) : (
+                                    <>
+                                      <option value="IPTV">IPTV</option>
+                                      <option value="P2P">P2P</option>
+                                      <option value="OTT">OTT</option>
+                                      {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && (
+                                          <option value={technology}>{technology}</option>
+                                      )}
+                                      <option value="Personalizado">Outro...</option>
+                                    </>
                                 )}
-                                <option value="Personalizado">Outro...</option>
                             </select>
                         )}
                       </div>

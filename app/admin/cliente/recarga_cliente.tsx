@@ -331,7 +331,8 @@ useEffect(() => {
 
 // ✅ NOVO: Renovação Automática
 const [hasIntegration, setHasIntegration] = useState(false);
-const [isEliteProvider, setIsEliteProvider] = useState(false); // ✅ Sabe se a integração é Elite
+const [isEliteProvider, setIsEliteProvider] = useState(false); 
+const [integrationProvider, setIntegrationProvider] = useState("NONE"); // ✅ Sabe O QUAL É a integração
 const [renewAutomatic, setRenewAutomatic] = useState(false);
 
     // Hook de Confirmação
@@ -416,7 +417,7 @@ if (c.server_id) {
     setHasIntegration(hasInteg);
     setRenewAutomatic(hasInteg); // Liga automaticamente se tem integração
 
-    // ✅ Descobre se é Elite para poder travar o plano Anual
+// ✅ Descobre o provedor para travar planos e tecnologia
     if (hasInteg) {
       const { data: integ } = await supabaseBrowser
         .from("server_integrations")
@@ -424,8 +425,11 @@ if (c.server_id) {
         .eq("id", srv.panel_integration)
         .single();
       
-      setIsEliteProvider(integ?.provider?.toUpperCase() === "ELITE");
+      const prov = String(integ?.provider || "").toUpperCase();
+      setIntegrationProvider(prov);
+      setIsEliteProvider(prov === "ELITE");
     } else {
+      setIntegrationProvider("NONE");
       setIsEliteProvider(false);
     }
   } catch (e) {
@@ -693,6 +697,22 @@ if (c.server_id) {
       const rawVal = safeNumberFromMoneyBR(planPrice);
       setTotalBrl(currency === "BRL" ? rawVal : rawVal * (Number(fxRate) || 0));
     }, [planPrice, fxRate, currency]);
+
+    // ✅ TRAVA DE TECNOLOGIA POR PROVEDOR
+    useEffect(() => {
+      if (integrationProvider === "FAST" || integrationProvider === "NATV") {
+        if (technology !== "IPTV") {
+          setTechnology("IPTV");
+          setCustomTechnology("");
+        }
+      } else if (integrationProvider === "ELITE") {
+        if (technology !== "IPTV" && technology !== "P2P") {
+          setTechnology("IPTV");
+          setCustomTechnology("");
+          addToast("success", "Tecnologia ajustada", "O Elite só aceita IPTV ou P2P.");
+        }
+      }
+    }, [integrationProvider, technology]);
 
     // ✅ TRAVA DO PLANO ANUAL APENAS PARA ELITE
     useEffect(() => {
@@ -1293,15 +1313,36 @@ style={{ maxHeight: "90dvh" }}
 
                   <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}>
                       {/* ... (Inputs de Tecnologia e Toggle Notification igual ao código original, apenas mantenha dentro desse padding reduzido) ... */}
-                      <div>
+<div>
                           <Label>Tecnologia</Label>
                           {technology === "Personalizado" ? (
-                              <div className="flex gap-1"><Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." /><button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button></div>
+                              <div className="flex gap-1">
+                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." />
+                                <button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
+                              </div>
                           ) : (
-                              <Select value={technology} onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}>
-                                  <option value="IPTV">IPTV</option><option value="P2P">P2P</option><option value="OTT">OTT</option>
-                                  {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && <option value={technology}>{technology}</option>}
-                                  <option value="Personalizado">Outro...</option>
+                              <Select 
+                                value={technology} 
+                                onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}
+                                disabled={integrationProvider === "FAST" || integrationProvider === "NATV"}
+                                className={integrationProvider === "FAST" || integrationProvider === "NATV" ? "opacity-60 cursor-not-allowed" : ""}
+                              >
+                                {integrationProvider === "FAST" || integrationProvider === "NATV" ? (
+                                    <option value="IPTV">IPTV</option>
+                                ) : integrationProvider === "ELITE" ? (
+                                    <>
+                                      <option value="IPTV">IPTV</option>
+                                      <option value="P2P">P2P</option>
+                                    </>
+                                ) : (
+                                    <>
+                                      <option value="IPTV">IPTV</option>
+                                      <option value="P2P">P2P</option>
+                                      <option value="OTT">OTT</option>
+                                      {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && <option value={technology}>{technology}</option>}
+                                      <option value="Personalizado">Outro...</option>
+                                    </>
+                                )}
                               </Select>
                           )}
                       </div>
