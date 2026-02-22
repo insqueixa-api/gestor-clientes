@@ -958,7 +958,7 @@ if (fulfillment === "done") {
           {/* INÍCIO DO HTML DA BUSCA */}
           {/* Pode deletar esta div inteira quando for remover a funcionalidade de busca */}
           {/* ---------------------------------------------------------------------------------------------------- */}
-          {accounts.length > 5 && (
+          {accounts.length > 3 && (
             <div className="mb-6 relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
               <input
