@@ -626,14 +626,6 @@ if (c.server_id) {
 
     if (!isFromTrial) return;
 
-// ✅ TRAVA DO PLANO ANUAL: Se o servidor tem integração, o máximo é 6 meses (Semestral)
-  useEffect(() => {
-    if (hasIntegration && selectedPlanPeriod === "ANNUAL") {
-      setSelectedPlanPeriod("SEMIANNUAL");
-      addToast("success", "Plano ajustado", "Servidores com integração permitem no máximo 6 meses.");
-    }
-  }, [hasIntegration, selectedPlanPeriod]);
-
     // quando desliga "Registrar pagamento", auto-desliga Whats
     if (!registerPayment) {
       setSendWhats(false);
@@ -681,11 +673,19 @@ if (c.server_id) {
       tableChangedByUserRef.current = false;
     }, [selectedTableId]);
 
-    // Total BRL
+// Total BRL
     useEffect(() => {
       const rawVal = safeNumberFromMoneyBR(planPrice);
       setTotalBrl(currency === "BRL" ? rawVal : rawVal * (Number(fxRate) || 0));
     }, [planPrice, fxRate, currency]);
+
+    // ✅ TRAVA DO PLANO ANUAL (Colocado no local seguro, junto com os outros Hooks)
+    useEffect(() => {
+      if (hasIntegration && selectedPlanPeriod === "ANNUAL") {
+        setSelectedPlanPeriod("SEMIANNUAL");
+        addToast("success", "Plano ajustado", "Servidores com integração permitem no máximo 6 meses.");
+      }
+    }, [hasIntegration, selectedPlanPeriod]);
 
     const creditsInfo = useMemo(() => {
       return pickCreditsUsed(selectedTable, selectedPlanPeriod, screens);
@@ -867,13 +867,15 @@ if (!apiRes.ok || !apiJson.ok) {
             let syncUrl = "";
             if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
             else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
-            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; // ✅ SYNC ELITE
-
-            await fetch(syncUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ integration_id: srv.panel_integration }),
-            });
+            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; // ✅ ELITE AQUI
+            
+            if (syncUrl) {
+              await fetch(syncUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ integration_id: srv.panel_integration }),
+              });
+            }
 
             // ✅ Buscar nome do servidor
 try {
