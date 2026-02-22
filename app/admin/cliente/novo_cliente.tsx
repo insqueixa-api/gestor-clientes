@@ -782,14 +782,15 @@ const [hasIntegration, setHasIntegration] = useState(false);
 const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
 
 useEffect(() => {
-  if (!isTrialMode) return;
+  // ❌ REMOVIDO: if (!isTrialMode) return; (Isso estava matando o modal de clientes)
 
   if (!serverId) {
     setHasIntegration(false);
+    setSyncWithServer(false);
     setTrialProvider("NONE");
     setTrialHoursLocked(false);
-    setTestHours(2);
-    setRegisterRenewal(false);
+    if (isTrialMode) setTestHours(2);
+    if (!isTrialMode) setRegisterRenewal(false);
     return;
   }
 
@@ -810,18 +811,18 @@ useEffect(() => {
       const hasInteg = Boolean(integrationId);
 
       setHasIntegration(hasInteg);
-      setSyncWithServer(hasInteg); // ✅ Liga o sync da API automaticamente se tiver integração
-      
+      setSyncWithServer(hasInteg);
+
       if (isTrialMode) {
-          setRegisterRenewal(false); 
+        setRegisterRenewal(false);
       } else {
-          setRegisterRenewal(hasInteg); // ✅ Liga o registro financeiro para clientes
+        setRegisterRenewal(hasInteg);
       }
 
       if (!hasInteg) {
         setTrialProvider("NONE");
         setTrialHoursLocked(false);
-        setTestHours(2);
+        if (isTrialMode) setTestHours(2);
         return;
       }
 
@@ -839,36 +840,37 @@ useEffect(() => {
       if (provider === "FAST") {
         setTrialProvider("FAST");
         setTrialHoursLocked(true);
-        setTestHours(4); // ✅ FAST: travado 4h
+        if (isTrialMode) setTestHours(4);
         return;
       }
 
       if (provider === "NATV") {
         setTrialProvider("NATV");
         setTrialHoursLocked(false);
-        setTestHours(6); // ✅ NATV: padrão 6h (editável)
+        if (isTrialMode) setTestHours(6);
         return;
       }
 
       if (provider === "ELITE") {
         setTrialProvider("ELITE");
         setTrialHoursLocked(true);
-        setTestHours(2); // ✅ ELITE: travado 2h
+        if (isTrialMode) setTestHours(2);
         return;
       }
 
       setTrialProvider("OTHER");
       setTrialHoursLocked(false);
-      setTestHours(2);
+      if (isTrialMode) setTestHours(2);
     } catch (e) {
       console.error("Erro ao detectar provider/integração:", e);
       if (!mounted) return;
 
       setHasIntegration(false);
+      setSyncWithServer(false);
       setTrialProvider("NONE");
       setTrialHoursLocked(false);
-      setTestHours(2);
-      setRegisterRenewal(false);
+      if (isTrialMode) setTestHours(2);
+      if (!isTrialMode) setRegisterRenewal(false);
     }
   })();
 
@@ -2769,170 +2771,158 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       </div>
                    </div>
 {!isEditing && (
-                      <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 items-start">
                         
-                        {/* ROW 1: TOGGLES (Lado a Lado) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* === COLUNA ESQUERDA: Integração e Financeiro === */}
+                        <div className="space-y-3">
                           
-                          {/* TOGGLE 1: API SYNC (Criação/Teste Automático) */}
+                          {/* 1. Sincronizar com Painel */}
                           <div 
                             onClick={() => hasIntegration && setSyncWithServer(!syncWithServer)}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                               syncWithServer 
                                 ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
                                 : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
                             } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">☁️</span>
-                                <div>
-                                  <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
-                                    {isTrialMode ? "Teste Automático" : "Sincronizar Painel"}
-                                  </span>
-                                  <span className="text-[9px] text-slate-400 dark:text-white/40">
-                                    {hasIntegration ? "Criar direto no servidor" : "Servidor sem integração"}
-                                  </span>
-                                </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">☁️</span>
+                              <div>
+                                <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
+                                  {isTrialMode ? "Teste Automático" : "Sincronizar Painel"}
+                                </span>
+                                <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                  {hasIntegration ? "Criar direto no servidor" : "Sem integração"}
+                                </span>
                               </div>
-                              <Switch checked={syncWithServer} onChange={(v) => hasIntegration && setSyncWithServer(v)} label="" />
                             </div>
+                            <Switch checked={syncWithServer} onChange={(v) => hasIntegration && setSyncWithServer(v)} label="" />
                           </div>
 
-                          {/* TOGGLE 2: FINANCEIRO (SÓ CLIENTE) */}
-                          {!isTrialMode ? (
+                          {/* 2. Registrar Financeiro (SÓ PARA CLIENTE) */}
+                          {!isTrialMode && (
                             <div 
                               onClick={() => {
                                 const next = !registerRenewal;
                                 setRegisterRenewal(next);
                                 setSendPaymentMsg(next);
                               }}
-                              className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                              className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                                 registerRenewal 
                                   ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" 
                                   : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg">💰</span>
-                                  <div>
-                                    <span className={`text-xs font-bold block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
-                                      Registrar Financeiro
-                                    </span>
-                                    <span className="text-[9px] text-slate-400 dark:text-white/40">
-                                      Gera log de pagamento local
-                                    </span>
-                                  </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">💰</span>
+                                <div>
+                                  <span className={`text-xs font-bold block ${registerRenewal ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
+                                    Registrar Financeiro
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                    Gera log de pagamento local
+                                  </span>
                                 </div>
-                                <Switch 
-                                  checked={registerRenewal} 
-                                  onChange={(v) => { 
-                                    setRegisterRenewal(v);
-                                    setSendPaymentMsg(v);
-                                  }} 
-                                  label="" 
-                                />
                               </div>
+                              <Switch 
+                                checked={registerRenewal} 
+                                onChange={(v) => { 
+                                  setRegisterRenewal(v);
+                                  setSendPaymentMsg(v);
+                                }} 
+                                label="" 
+                              />
                             </div>
-                          ) : (
-                            <div className="hidden sm:block"></div>
                           )}
                         </div>
 
-                        {/* ROW 2: WHATSAPP */}
-                        {isTrialMode ? (
-      // TESTE: Card de mensagem de teste
-      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
-        <div
-          onClick={() => setSendTrialWhats(!sendTrialWhats)}
-          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
-        >
-          <span className="text-xs font-bold text-slate-600 dark:text-white/70">
-            Enviar msg teste?
-          </span>
-          <Switch checked={sendTrialWhats} onChange={setSendTrialWhats} label="" />
-        </div>
+                        {/* === COLUNA DIREITA: WhatsApp === */}
+                        <div className="space-y-3">
+                          {isTrialMode ? (
+                            // WHATSAPP TESTE
+                            <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-3">
+                              <div className={`grid grid-cols-1 ${sendTrialWhats ? 'sm:grid-cols-2' : ''} gap-3 items-center`}>
+                                <div
+                                  onClick={() => setSendTrialWhats(!sendTrialWhats)}
+                                  className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+                                >
+                                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                                    Enviar msg teste?
+                                  </span>
+                                  <Switch checked={sendTrialWhats} onChange={setSendTrialWhats} label="" />
+                                </div>
 
-        {sendTrialWhats && (
-          <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
-            <div>
-              <Label>Modelo</Label>
-              <Select
-                value={selectedTemplateId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedTemplateId(id);
-                  const tpl = templates.find((t) => t.id === id);
-                  setMessageContent(tpl?.content || "");
-                }}
-              >
-                <option value="">-- Personalizado --</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
+                                {sendTrialWhats && (
+                                  <div className="animate-in fade-in zoom-in duration-200">
+                                    <Select
+                                      value={selectedTemplateId}
+                                      onChange={(e) => {
+                                        const id = e.target.value;
+                                        setSelectedTemplateId(id);
+                                        const tpl = templates.find((t) => t.id === id);
+                                        setMessageContent(tpl?.content || "");
+                                      }}
+                                      className="h-10"
+                                    >
+                                      <option value="">-- Personalizado --</option>
+                                      {templates.map((t) => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                      ))}
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
 
-            {selectedTemplateId === "" && (
-              <div>
-                <Label>Mensagem</Label>
-                <textarea
-                  value={messageContent}
-                  onChange={(e) => setMessageContent(e.target.value)}
-                  className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
-                  placeholder="Digite a mensagem de teste..."
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    ) : (
-      // CLIENTE: Card de mensagem de pagamento
-      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
-        <div
-          onClick={() => setSendPaymentMsg(!sendPaymentMsg)}
-          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
-        >
-          <span className="text-xs font-bold text-slate-600 dark:text-white/70">
-            Enviar msg pagto?
-          </span>
-          <Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" />
-        </div>
+                              {sendTrialWhats && selectedTemplateId === "" && (
+                                <div className="animate-in fade-in zoom-in duration-200">
+                                  <textarea
+                                    value={messageContent}
+                                    onChange={(e) => setMessageContent(e.target.value)}
+                                    className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                                    placeholder="Digite a mensagem de teste..."
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // WHATSAPP CLIENTE
+                            <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-3">
+                              <div className={`grid grid-cols-1 ${sendPaymentMsg ? 'sm:grid-cols-2' : ''} gap-3 items-center`}>
+                                <div
+                                  onClick={() => setSendPaymentMsg(!sendPaymentMsg)}
+                                  className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between gap-3"
+                                >
+                                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                                    Enviar msg pagto?
+                                  </span>
+                                  <Switch checked={sendPaymentMsg} onChange={setSendPaymentMsg} label="" />
+                                </div>
 
-        {sendPaymentMsg && (
-  <div className="grid grid-cols-1 gap-2 animate-in fade-in zoom-in duration-200">
-    <div>
-      <Label>Modelo</Label>
-      <Select
-        value={selectedTemplateId}
-        onChange={(e) => {
-          const id = e.target.value;
-          setSelectedTemplateId(id);
-          const tpl = templates.find((t) => t.id === id);
-          setMessageContent(tpl?.content || "");
-        }}
-      >
-        <option value="">-- Selecione um modelo --</option>
-        {templates.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </Select>
-    </div>
-    
-    
-  </div>
-)}
-      </div>
-    )}
-
-  </div>
-)}
+                                {sendPaymentMsg && (
+                                  <div className="animate-in fade-in zoom-in duration-200">
+                                    <Select
+                                      value={selectedTemplateId}
+                                      onChange={(e) => {
+                                        const id = e.target.value;
+                                        setSelectedTemplateId(id);
+                                        const tpl = templates.find((t) => t.id === id);
+                                        setMessageContent(tpl?.content || "");
+                                      }}
+                                      className="h-10"
+                                    >
+                                      <option value="">-- Selecione um modelo --</option>
+                                      {templates.map((t) => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                      ))}
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
