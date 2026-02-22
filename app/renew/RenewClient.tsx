@@ -1086,12 +1086,16 @@ if (fulfillment === "done") {
           </div>
 
           <div className="p-4 space-y-3">
-            {/* Plano Atual */}
+{/* Plano Atual */}
             {(() => {
+              // ✅ Tenta achar o plano atual. Se o backend cortou (ex: Anual na Elite), ele ignora para não quebrar.
               const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
               
+              // Se o plano atual não estiver disponível para renovação (ex: Elite cortou o anual), não renderiza o botão "Atual" vazio.
+              if (!currentPrice) return null;
+
               // Verifica se o selecionado é o plano atual
-              const isSelected = currentPrice && selectedPeriod === currentPrice.period;
+              const isSelected = selectedPeriod === currentPrice.period;
 
               return (
                 <button
@@ -1170,11 +1174,19 @@ if (fulfillment === "done") {
                     const months = PERIOD_MONTHS[price.period];
                     const currentMonthlyEquiv = (() => {
                       const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+                      
+                      // ✅ Se o plano atual não existe mais (ex: era Anual e foi travado), 
+                      // comparamos com o plano MENSAL padrão (se existir) para gerar o selo de desconto.
+                      if (!currentPrice) {
+                         const baseMonthly = availablePrices.find(p => p.period === "MONTHLY");
+                         return baseMonthly ? baseMonthly.price_amount : 0;
+                      }
+
                       const currentMonths =
                         PERIOD_MONTHS[
                           Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"
                         ] || 1;
-                      return currentPrice ? currentPrice.price_amount / currentMonths : 0;
+                      return currentPrice.price_amount / currentMonths;
                     })();
 
                     const thisMonthlyEquiv = price.price_amount / months;

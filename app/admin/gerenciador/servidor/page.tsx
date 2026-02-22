@@ -260,16 +260,27 @@ export default function AdminServersPage() {
 
     try {
       const provider = String(server.panel_integration_provider || "").toUpperCase();
-      const url = provider === "FAST"
-        ? "/api/integrations/fast/sync"
-        : "/api/integrations/natv/sync";
+      
+      // ✅ Roteamento Dinâmico para Fast, NaTV e Elite
+      let url = "";
+      if (provider === "FAST") url = "/api/integrations/fast/sync";
+      else if (provider === "NATV") url = "/api/integrations/natv/sync";
+      else if (provider === "ELITE") url = "/api/integrations/elite/sync";
+      
+      if (!url) {
+        throw new Error(`Provedor não suportado para sincronização: ${provider}`);
+      }
 
       addToast("success", "Sincronizando", `Atualizando saldo da integração ${server.panel_integration_name}...`);
 
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ integration_id: server.panel_integration }),
+        // ✅ INCLUI O TENANT_ID AQUI para evitar erro de segurança na nova API da Elite
+        body: JSON.stringify({ 
+          integration_id: server.panel_integration,
+          tenant_id: server.tenant_id 
+        }),
       });
 
       const json = await res.json().catch(() => ({}));

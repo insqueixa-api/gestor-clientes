@@ -55,6 +55,97 @@ function redactPreview(s: string) {
   return t.replace(/("password"\s*:\s*")[^"]*(")/gi, '$1***$2').slice(0, 250);
 }
 
+// ----------------- DATATABLES HELPER (CAÇADOR DE ID) -----------------
+function buildDtQuery(searchValue: string, isP2P: boolean) {
+  const p = new URLSearchParams();
+
+  p.set("draw", "1");
+  p.set("start", "0");
+  p.set("length", "15");
+  p.set("search[value]", searchValue);
+  p.set("search[regex]", "false");
+
+  p.set("order[0][column]", "1");
+  p.set("order[0][dir]", "desc");
+  p.set("order[0][name]", "");
+
+  const cols = isP2P
+    ? [
+        { data: "id", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "name", name: "", searchable: "true", orderable: "true" },
+        { data: "email", name: "", searchable: "true", orderable: "true" },
+        { data: "exField2", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "exField4", name: "", searchable: "true", orderable: "true" },
+        { data: "type", name: "", searchable: "true", orderable: "true" },
+        { data: "status", name: "", searchable: "true", orderable: "true" },
+        { data: "action", name: "", searchable: "false", orderable: "false" },
+      ]
+    : [
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "id", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+        { data: "username", name: "", searchable: "true", orderable: "true" },
+        { data: "password", name: "", searchable: "true", orderable: "true" },
+        { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
+        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
+        { data: "max_connections", name: "", searchable: "true", orderable: "true" },
+        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
+        { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
+        { data: "is_trial", name: "", searchable: "true", orderable: "true" },
+        { data: "enabled", name: "", searchable: "true", orderable: "true" },
+        { data: "", name: "", searchable: "false", orderable: "false" },
+      ];
+
+  cols.forEach((c, i) => {
+    p.set(`columns[${i}][data]`, c.data);
+    p.set(`columns[${i}][name]`, c.name);
+    p.set(`columns[${i}][searchable]`, c.searchable);
+    p.set(`columns[${i}][orderable]`, c.orderable);
+    p.set(`columns[${i}][search][value]`, "");
+    p.set(`columns[${i}][search][regex]`, "false");
+  });
+
+  return p.toString();
+}
+
+async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string, isP2P: boolean) {
+  // P2P Text Search workaround (mandamos busca vazia e filtramos no JS)
+  const isP2PTextSearch = isP2P && !/^\d+$/.test(searchValue);
+  const qs = buildDtQuery(isP2PTextSearch ? "" : searchValue, isP2P);
+  
+  const r = await eliteFetch(
+    fc,
+    baseUrl,
+    `${dashboardPath}?${qs}`,
+    { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
+    csrf,
+    dashboardPath
+  );
+
+  const parsed = await readSafeBody(r);
+  if (!r.ok) return { ok: false, status: r.status, rows: [] as any[], raw: parsed.text?.slice(0, 900) || "" };
+
+  const data = parsed.json?.data;
+  if (!Array.isArray(data)) return { ok: true, rows: [] as any[] };
+
+  if (isP2PTextSearch) {
+      const targetStr = String(searchValue || "").trim().toLowerCase();
+      const match = data.find((r: any) => {
+         const fieldsToSearch = [r.username, r.name, r.email, r.reseller_notes, r.trialnotes, r.exField4, r.exField2, r.id];
+         return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
+      });
+      if (match) return { ok: true, rows: [match] };
+      return { ok: true, rows: [] as any[] };
+  }
+
+  return { ok: true, rows: data as any[] };
+}
+
 // ----------------- LOGIN E CONEXÃO ELITE -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
@@ -174,19 +265,22 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({} as any));
     const integration_id = String(body?.integration_id || "").trim();
-    const external_user_id = String(body?.external_user_id || "").trim();
-    const months = String(body?.months || "1").trim(); // Padrão é 1 mês
+    let external_user_id = String(body?.external_user_id || "").trim();
+    const username = String(body?.username || "").trim(); // Fundamental se o external estiver vazio
+    const months = String(body?.months || "1").trim(); 
     
-    // Suporta IPTV e P2P
     const reqTech = String(body?.technology || "IPTV").trim().toUpperCase();
 
-    if (!integration_id || !external_user_id) {
-      return NextResponse.json({ ok: false, error: "integration_id e external_user_id são obrigatórios." }, { status: 400 });
+    if (!integration_id) {
+      return NextResponse.json({ ok: false, error: "integration_id é obrigatório." }, { status: 400 });
+    }
+
+    if (!external_user_id && !username) {
+        return NextResponse.json({ ok: false, error: "Informe o external_user_id ou o username para renovar." }, { status: 400 });
     }
 
     const tenantIdFromBody = String(body?.tenant_id || "").trim();
 
-    // supabase (service)
     const sb = createClient(
       mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
       mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -211,7 +305,7 @@ export async function POST(req: Request) {
 
     const tenantId = tenantIdFromToken || tenantIdFromBody;
 
-    // ✅ Carrega a integração Elite
+    // Carrega a integração Elite
     const { data: integ, error } = await sb
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
@@ -238,14 +332,57 @@ export async function POST(req: Request) {
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
     trace.push({ step: "csrf_dashboard", ok: true });
 
-    // 3) RENOVAÇÃO (Endpoint Dinâmico baseado na tecnologia)
+    // =========================================================================
+    // 3) CAÇADOR DE ID (Caso tenha vindo do cadastro Offline)
+    // =========================================================================
+    if (!external_user_id || !/^\d+$/.test(external_user_id) || external_user_id.length > 9) {
+       const searchTarget = username || external_user_id;
+       trace.push({ step: "hunting_real_id", target: searchTarget });
+       
+       const fixTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+       if (fixTable.ok && fixTable.rows?.length > 0) {
+           external_user_id = String(fixTable.rows[0].id);
+           trace.push({ step: "id_fixed", new_id: external_user_id });
+           
+           // Background Patch para salvar no banco o ID encontrado (Usa IIFE assíncrona para não quebrar o TS)
+           if (tenantId) {
+             (async () => {
+               const { error } = await sb.from("clients")
+                 .update({ external_user_id: external_user_id })
+                 .eq("tenant_id", tenantId)
+                 .eq("server_username", searchTarget)
+                 .is("external_user_id", null);
+               if (error) console.log("Erro no background patch:", error.message);
+             })();
+           }
+       } else {
+           throw new Error(`Não foi possível encontrar o ID do usuário '${searchTarget}' no painel. Verifique se ele realmente existe lá.`);
+       }
+    }
+
+    // =========================================================================
+    // 4) RENOVAÇÃO FINAL COM PAYLOAD CORRETO (DINÂMICO PARA IPTV OU P2P)
+    // =========================================================================
     const renewApiPath = isP2P ? `/api/p2p/renewmulti/${external_user_id}` : `/api/iptv/renewmulti/${external_user_id}`;
     
-    // ✅ Formato exato do CURL: JSON payload
-    const payload = JSON.stringify({
-      user_id: external_user_id,
-      months: months
-    });
+    let payloadBody;
+    let contentType;
+
+    if (isP2P) {
+      // 🟢 P2P EXIGE URL ENCODED (Igual ao seu CURL novo)
+      const params = new URLSearchParams();
+      params.set("user_id", external_user_id);
+      params.set("months", months);
+      payloadBody = params.toString();
+      contentType = "application/x-www-form-urlencoded; charset=UTF-8";
+    } else {
+      // 🔵 IPTV EXIGE JSON (Mantendo EXATAMENTE o fluxo antigo que já funcionava)
+      payloadBody = JSON.stringify({
+        user_id: external_user_id,
+        months: months
+      });
+      contentType = "application/json";
+    }
 
     const renewRes = await eliteFetch(
       fc,
@@ -255,10 +392,10 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           "accept": "*/*",
-          "content-type": "application/json",
+          "content-type": contentType, // ✅ Usa o cabeçalho correto da tecnologia
           "timezone": TZ_SP
         },
-        body: payload,
+        body: payloadBody, // ✅ Envia formulário ou JSON dependendo da tecnologia
       },
       csrf,
       dashboardPath

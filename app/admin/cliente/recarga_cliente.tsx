@@ -856,24 +856,32 @@ if (renewAutomatic && clientData?.server_id) {
             if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
 
             // 1.4. Chamar API
-console.log("🔵 Chamando API:", apiUrl, {
-  integration_id: srv.panel_integration,
-  username: clientData.username,
-  months: monthsToRenew,
-});
+            console.log("🔵 Chamando API:", apiUrl, {
+              integration_id: srv.panel_integration,
+              username: clientData.username,
+              months: monthsToRenew,
+            });
 
-const apiRes = await fetch(apiUrl, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    integration_id: srv.panel_integration,
-    username: clientData.username,
-    // ✅ Para Elite, mandamos o external_user_id (se tiver) e a tecnologia atual
-    external_user_id: clientData.external_user_id || clientData.username, 
-    technology: finalTechnology,
-    months: monthsToRenew,
-  }),
-});
+            // ✅ Pegamos o Token da sua sessão logada para não dar 401 Unauthorized
+            const { data: userSess } = await supabaseBrowser.auth.getSession();
+            const token = userSess?.session?.access_token;
+
+            const apiRes = await fetch(apiUrl, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}) // ✅ Envia o crachá
+              },
+              body: JSON.stringify({
+                tenant_id: tid, // ✅ Envia o Tenant
+                integration_id: srv.panel_integration,
+                username: clientData.username,
+                // Manda o ID se tiver, senão manda o nome pro backend caçar!
+                external_user_id: clientData.external_user_id || clientData.username, 
+                technology: finalTechnology,
+                months: monthsToRenew,
+              }),
+            });
 
 console.log("🔵 API Response Status:", apiRes.status, apiRes.ok);
 
@@ -901,16 +909,18 @@ if (!apiRes.ok || !apiJson.ok) {
             let syncUrl = "";
             if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
             else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
-            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; // ✅ ELITE AQUI
+            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; 
             
             if (syncUrl) {
               await fetch(syncUrl, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ integration_id: srv.panel_integration }),
+                headers: { 
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}) // ✅ Crachá aqui também!
+                },
+                body: JSON.stringify({ integration_id: srv.panel_integration, tenant_id: tid }),
               });
             }
-
             // ✅ Buscar nome do servidor
 try {
   const { data: srvData } = await supabaseBrowser

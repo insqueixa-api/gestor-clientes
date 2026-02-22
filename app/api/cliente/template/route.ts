@@ -28,10 +28,11 @@ export async function GET() {
     "Aplicativos nome",
     "Obs",
 
-    // ✅ NOVOS (sempre no final)
+// ✅ NOVOS (sempre no final)
     "Valor Plano",
     "Tabela Preco",
     "M3U URL",
+    "ID Externo", // ✅ NOVO
     "Data do cadastro",
     "Cadastro hora",
   ];
@@ -55,10 +56,11 @@ export async function GET() {
     "IBO Player, XCIPTV",
     "Cliente importado via planilha",
 
-    // ✅ NOVOS (exemplos — pode deixar em branco)
+// ✅ NOVOS (exemplos — pode deixar em branco)
     "40,00", // Valor Plano (pode ficar vazio)
     "Padrao BRL", // Tabela Preco (label exato da plan_tables.name — pode ficar vazio)
     "http://exemplo.com/lista.m3u", // M3U URL (opcional)
+    "199200", // ID Externo (ID do cliente no painel - opcional) // ✅ NOVO
     "05/01/2026", // Data do cadastro (opcional)
     "14:30", // Cadastro hora (opcional)
   ];

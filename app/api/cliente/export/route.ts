@@ -23,10 +23,12 @@ type ExportRow = {
   aplicativos_nome: string;
   obs: string;
 
-  // ✅ novos
+  
+// ✅ novos
   valor_plano: string;       // price_amount
   tabela_preco: string;      // plan_tables.name (label)
   m3u_url: string;
+  external_user_id: string;  // ✅ NOVO AQUI
   cadastro_dia: string;      // created_at (dia)
   cadastro_hora: string;     // created_at (hora)
 };
@@ -61,6 +63,7 @@ function toCsv(rows: ExportRow[]): string {
     "Valor Plano",
     "Tabela Preco",
     "M3U URL",
+    "ID Externo", // ✅ NOVO TÍTULO AQUI
     "Data do cadastro",
     "Cadastro hora",
   ];
@@ -71,7 +74,7 @@ function toCsv(rows: ExportRow[]): string {
   for (const r of rows) {
     lines.push(
       [
-        r.saudacao,
+r.saudacao,
         r.nome_completo,
         r.telefone_principal,
         r.whatsapp_username,
@@ -91,6 +94,7 @@ function toCsv(rows: ExportRow[]): string {
         r.valor_plano,
         r.tabela_preco,
         r.m3u_url,
+        r.external_user_id, // ✅ NOVA VARIÁVEL MAPEADA AQUI
         r.cadastro_dia,
         r.cadastro_hora,
       ]
@@ -189,6 +193,7 @@ export async function GET(req: Request) {
   const scope = (url.searchParams.get("scope") || "clients") as "clients" | "all";
 
   // clients
+  // clients
   let q = supabase
     .from("clients")
     .select([
@@ -209,6 +214,7 @@ export async function GET(req: Request) {
       "price_amount",
       "plan_table_id",
       "m3u_url",
+      "external_user_id", // ✅ COLOCAR AQUI PARA PUXAR DO BANCO
       "vencimento",
       "notes",
       "is_trial",
@@ -367,9 +373,10 @@ export async function GET(req: Request) {
       aplicativos_nome: appsUnique,
       obs: c.notes ?? "",
 
-      valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : String(c.price_amount),
+valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : String(c.price_amount),
       tabela_preco: planTableLabel,
       m3u_url: c.m3u_url ?? "",
+      external_user_id: c.external_user_id ?? "", // ✅ MAPEAMENTO FINAL AQUI
       cadastro_dia: cadDia,
       cadastro_hora: cadHora,
     };

@@ -25,10 +25,11 @@ type ParsedRow = {
   aplicativos_nome: string;
   obs: string;
 
-  // ✅ NOVOS
+// ✅ NOVOS
   valor_plano_raw: string;     // "Valor Plano" (opcional: se vazio, calcula)
   tabela_preco_label: string;  // "Tabela Preco" (opcional: se vazio, usa default por moeda)
   m3u_url: string;             // "M3U URL" (opcional)
+  external_user_id: string;    // "ID Externo" (opcional) // ✅ NOVO
   cadastro_dia: string;        // "Data do cadastro" (opcional)
   cadastro_hora: string;       // "Cadastro hora" (opcional)
 };
@@ -419,10 +420,11 @@ export async function POST(req: Request) {
     "vencimento hora",
     "aplicativos nome",
     "obs",
-    // novos (sempre no final no seu template)
+// novos (sempre no final no seu template)
     "valor plano",
     "tabela preco",
     "m3u url",
+    "id externo", // ✅ NOVO (Lembre-se do normalize: letras minúsculas sem acento)
     "data do cadastro",
     "cadastro hora",
   ];
@@ -583,10 +585,11 @@ export async function POST(req: Request) {
         aplicativos_nome: get("Aplicativos nome"),
         obs: get("Obs"),
 
-        // ✅ novos
+// ✅ novos
         valor_plano_raw: get("Valor Plano"),
         tabela_preco_label: get("Tabela Preco"),
         m3u_url: get("M3U URL"),
+        external_user_id: get("ID Externo") || get("ID_Externo") || get("External ID"), // ✅ NOVO
         cadastro_dia: get("Data do cadastro"),
         cadastro_hora: get("Cadastro hora"),
       };
@@ -827,6 +830,19 @@ export async function POST(req: Request) {
         if (ex2Err) {
           // não quebra import inteiro: vira warning
           warnings.push({ row: rowNum, warning: `Extras não aplicados (import_set_client_extras): ${ex2Err.message}` });
+        }
+        
+        // ✅ ATUALIZAR EXTERNAL_USER_ID SE EXISTIR
+        if (parsed.external_user_id?.trim()) {
+           const { error: extErr } = await supabase
+             .from("clients")
+             .update({ external_user_id: parsed.external_user_id.trim() })
+             .eq("id", client_id)
+             .eq("tenant_id", tenant_id);
+             
+           if (extErr) {
+             warnings.push({ row: rowNum, warning: `ID Externo não aplicado: ${extErr.message}` });
+           }
         }
       }
 
