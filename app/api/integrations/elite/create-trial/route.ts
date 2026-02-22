@@ -307,7 +307,11 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   p.set("draw", "1");
   p.set("start", "0");
   p.set("length", "15");
-  p.set("search[value]", searchValue);
+  
+  // ✅ SE FOR P2P: A busca do painel é bugada, pedimos a lista vazia. 
+  // ✅ SE FOR IPTV: A busca funciona, mandamos o texto normalmente!
+  p.set("search[value]", isP2P ? "" : searchValue);
+  
   p.set("search[regex]", "false");
 
   p.set("order[0][column]", "1");
@@ -371,8 +375,25 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, notes: s
 
   const parsed = await readSafeBody(r);
   if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
+  
   const data = parsed.json?.data;
   if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] as any[] };
+
+  // ✅ SE FOR P2P: Como trouxemos a lista sem filtro, nós caçamos o cliente aqui no Javascript!
+  if (isP2P) {
+    const targetStr = String(notes || "").trim().toLowerCase();
+    const match = data.find((r: any) => {
+      const fieldsToSearch = [r.username, r.name, r.email, r.reseller_notes, r.trialnotes, r.exField4, r.exField2, r.id];
+      return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
+    });
+
+    if (match) return { ok: true, found: true, rows: [match] };
+    
+    // Se a busca exata falhar, a linha 0 é o cliente recém-criado
+    return { ok: true, found: false, rows: [data[0]] };
+  }
+
+  // ✅ SE FOR IPTV: O painel já filtrou perfeitamente e devolveu o cliente exato.
   return { ok: true, found: true, rows: data };
 }
 
