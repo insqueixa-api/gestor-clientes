@@ -15,6 +15,16 @@ export type IntegrationEditPayload = {
   is_active: boolean | null;
 };
 
+// ✅ Helper para limpar e normalizar a URL antes de salvar
+function normalizeApiUrl(url: string) {
+  if (!url) return "";
+  let s = url.trim().replace(/\/+$/, ""); // Remove barras duplas e barras no final
+  if (s && !s.startsWith("http")) {
+    s = "https://" + s; // Força ter o protocolo
+  }
+  return s;
+}
+
 export default function NovaIntegracaoModal({
   integration,
   onClose,
@@ -127,8 +137,9 @@ return true;
     provider,
     integration_name: integrationName.trim(),
     is_active: isActive,
-    api_token: apiToken.trim(), // NATV/Fast = token | ELITE = usuario
-    api_base_url: provider === "ELITE" ? apiBaseUrl.trim() : null,
+    api_token: apiToken.trim(), 
+    // ✅ Agora ele passa pelo filtro e salva redondinho
+    api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
     api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
   };
 
@@ -143,14 +154,15 @@ return true;
 }
 
 
-      const patch: any = {
-  provider,
-  integration_name: integrationName.trim(),
-  is_active: isActive,
-  api_token: apiToken.trim(),
-  api_base_url: provider === "ELITE" ? apiBaseUrl.trim() : null,
-  api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
-};
+  const patch: any = {
+    provider,
+    integration_name: integrationName.trim(),
+    is_active: isActive,
+    api_token: apiToken.trim(),
+    // ✅ Aplicando no Update também
+    api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
+    api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
+  };
 
 const { error } = await supabaseBrowser
   .from("server_integrations")
@@ -266,7 +278,7 @@ onChange={(e) => {
 
           <div className="space-y-3">
 
-                {provider === "ELITE" && (
+  {provider === "ELITE" && (
   <div>
     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
       Base URL do painel
@@ -274,12 +286,12 @@ onChange={(e) => {
     <input
       value={apiBaseUrl}
       onChange={(e) => setApiBaseUrl(e.target.value)}
-      placeholder="https://adminx.offo.dad"
+      placeholder="Ex: https://painel.com"
       className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
       disabled={loadingEdit}
     />
     <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-      Ex: https://adminx.offo.dad (sem barra no final).
+      A URL será formatada e salva automaticamente sem a barra final.
     </p>
   </div>
 )}

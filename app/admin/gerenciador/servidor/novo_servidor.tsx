@@ -66,6 +66,16 @@ function Select({ children, className = "", ...props }: React.SelectHTMLAttribut
   );
 }
 
+// ✅ Helper para limpar e normalizar a URL antes de salvar na Integração
+function normalizeApiUrl(url: string) {
+  if (!url) return "";
+  let s = url.trim().replace(/\/+$/, ""); // Remove barras duplicadas ou no final
+  if (s && !s.startsWith("http")) {
+    s = "https://" + s; // Força ter o protocolo
+  }
+  return s;
+}
+
 export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
   const isEditing = !!server;
   const [saving, setSaving] = useState(false);
