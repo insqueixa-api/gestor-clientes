@@ -399,10 +399,10 @@ const [scheduleDate, setScheduleDate] = useState("");
         .select("field_values")
         .eq("client_id", clientId)
         .eq("app_id", found.id)
-        .maybeSingle();
+        .limit(1); // ✅ CORREÇÃO: Pega o primeiro e não quebra se tiver vários
 
-      if (!r.error && r.data?.field_values) {
-        values = r.data.field_values as any;
+      if (!r.error && r.data && r.data.length > 0) {
+        values = r.data[0].field_values as any;
       }
     } catch (e) {
       console.error("Falha ao buscar client_apps.field_values:", e);

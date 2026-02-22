@@ -1432,11 +1432,11 @@ function addAppToClient(app: AppCatalog) {
       instanceId: crypto.randomUUID(),
       app_id: app.id,
       name: app.name,
-      fields_config: Array.isArray(app.fields_config) ? app.fields_config : [], // ✅ Blindagem contra erro
+      fields_config: Array.isArray(app.fields_config) ? app.fields_config : [], 
       values: {},
-      costType: "paid", // Padrão: Pago
+      costType: "paid", 
       partnerServerId: "",
-      is_minimized: true // ✅ Inicia minimizado para não ocupar tela
+      is_minimized: false // ✅ AGORA O APP NOVO JÁ NASCE ABERTO PRA DIGITAR O MAC
     };
     setSelectedApps(prev => [...prev, newInstance]);
     setShowAppSelector(false);
@@ -3048,7 +3048,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                           {/* Campos do App */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {app.fields_config?.length > 0 ? (
-  app.fields_config.map((field: any) => {
+  // ✅ Adicionamos o "index: number" aqui
+  app.fields_config.map((field: any, index: number) => {
   const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
   const label = String(field?.label ?? "").trim();
 
@@ -3057,7 +3058,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
   /\bmac\b/i.test(label) ||
   /\bmac\b/i.test(fieldKey);
 
-  const safeKey = fieldKey || label || `${app.instanceId}-${Math.random()}`;
+  // ✅ Trocamos Math.random() por index para não perder o foco
+  const safeKey = fieldKey || label || `${app.instanceId}-${index}`;
 
   return (
     <div key={safeKey}>

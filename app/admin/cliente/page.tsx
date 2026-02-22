@@ -735,11 +735,12 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
       .eq("tenant_id", tenantId)
       .eq("client_id", clientId)
       .eq("app_id", String(app.id))
-      .maybeSingle();
+      .limit(1); // ✅ CORREÇÃO: Limita a 1 registro em vez de exigir que seja único
 
     if (error) throw error;
 
-    const fieldValues = (data as any)?.field_values || {};
+    // Pega o primeiro registro encontrado (se existir)
+    const fieldValues = data && data.length > 0 ? data[0].field_values || {} : {};
 
     const next: Record<string, string> = {};
     const fields = Array.isArray(app.fields_config) ? app.fields_config : [];

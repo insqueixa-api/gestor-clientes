@@ -357,19 +357,21 @@ plan_table_name: finalTableName ?? null,
         server_password: row.server_password ?? null,
       };
 
-      // ✅ BUSCA REAL: Vencimento dos Apps (Chave: "Vencimento")
+      // ✅ BUSCA REAL: Vencimento dos Apps (Suportando múltiplas instâncias)
       const { data: appsData } = await supabaseBrowser
         .from("client_apps")
-        .select("field_values, apps (name)")
+        .select("id, field_values, apps (name)") // ✅ ADICIONADO 'id' para ter uma chave única real
         .eq("client_id", mapped.id);
 
       if (appsData) {
         (mapped as any).apps_details = appsData.map((item: any) => {
            const vals = item.field_values || {};
-           // A chave exata no seu banco é "Vencimento"
-           const expiration = vals["Vencimento"] || vals["vencimento"] || null;
+           
+           // ✅ Busca chaves com fallback para case-insensitive
+           const expiration = vals["Vencimento"] || vals["vencimento"] || vals["VENCIMENTO"] || null;
            
            return {
+             id: item.id, // ID Único da Instância
              name: item.apps?.name || "App",
              expiration: expiration
            };
@@ -412,6 +414,8 @@ plan_table_name: finalTableName ?? null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
+
+  
   async function handleArchiveToggle() {
   if (!client) return;
 
@@ -458,6 +462,46 @@ plan_table_name: finalTableName ?? null,
   }
 }
 
+const handleDeleteForever = async () => {
+    if (!client) return; // ✅ Removida a dependência da variável externa tenantId
+
+    if (!client.client_is_archived) {
+      addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente um cliente que está na Lixeira.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Excluir definitivamente?",
+      subtitle: "Isso vai remover o cliente e TODOS os seus registros (pagamentos, alertas, histórico).",
+      tone: "rose",
+      confirmText: "Excluir definitivo",
+      cancelText: "Voltar",
+      details: [
+        `Cliente: ${client.client_name}`,
+        "Ação irreversível",
+      ],
+    });
+    
+    if (!ok) return;
+
+    try {
+      const tid = await getCurrentTenantId(); // ✅ Puxa o ID na hora, como no handleArchiveToggle
+      if (!tid) throw new Error("Tenant não encontrado");
+
+      const { error } = await supabaseBrowser.rpc("delete_client_forever", {
+        p_tenant_id: tid, // ✅ Usa a constante local
+        p_client_id: client.id,
+      });
+
+      if (error) throw error;
+
+      // ✅ Joga de volta pra listagem geral de clientes (já que ele não existe mais)
+      window.location.href = "/admin/cliente"; 
+    } catch (e: any) {
+      console.error(e);
+      addToast("error", "Erro ao excluir", e.message);
+    }
+  };
 
   // ✅ NOVO: Intercepta o clique no botão Renovar
   const handleRenewClick = () => {
@@ -510,6 +554,18 @@ plan_table_name: finalTableName ?? null,
         >
           Voltar
         </Link>
+
+{/* ✅ Botão Excluir Definitivamente (Só aparece se estiver arquivado) */}
+        {client.client_is_archived && (
+          <button
+            onClick={handleDeleteForever}
+            className="h-9 sm:h-9 px-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 font-bold text-xs hover:bg-red-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+            title="Excluir para sempre"
+          >
+            <IconTrash />
+            <span className="hidden sm:inline">Excluir para sempre</span>
+          </button>
+        )}
 
         {/* Botão Arquivar (Icone no Mobile, Texto no Desktop) */}
         <button
@@ -575,11 +631,11 @@ plan_table_name: finalTableName ?? null,
                 </span>
               </div>
 
-              {/* LISTA DE APPS (Com Vencimento Real do Banco) */}
+              {/* LISTA DE APPS (Com Vencimento Real do Banco - Suportando Múltiplos) */}
               {(client as any).apps_details && (client as any).apps_details.length > 0 && (
                  <div className="space-y-3 pt-1">
-                    {(client as any).apps_details.map((app: any, idx: number) => (
-                       <div key={idx} className="flex justify-between items-center">
+                    {(client as any).apps_details.map((app: any) => (
+                       <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
                           <span className="text-slate-500 dark:text-white/40 font-medium">{app.name}</span>
                           <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
                              {app.expiration 
