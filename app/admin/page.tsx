@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "@/app/admin/simplebarchart";
 import type { ReactNode } from "react";
-import Link from "next/link"; // <--- ADICIONAR ISSO
+import Link from "next/link";
+import { EyeToggle } from "@/app/admin/eye-toggle";
+
 export const dynamic = "force-dynamic";
 
 /* =====================
@@ -357,14 +359,17 @@ const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().m
   }));
 
 return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
+  <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-0">
-
+      
+      <div className="flex flex-wrap items-start justify-between gap-3 px-3 sm:px-0">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <EyeToggle />
+          </div>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Visão Geral - {monthLabelPtBr()}
           </p>
         </div>
@@ -548,7 +553,7 @@ return (
 
             </div>
           </div>
-          <div className="w-full">
+          <div className="sv w-full">
 <SimpleBarChart
   data={chartRegsData}
   colorClass="from-emerald-400 to-emerald-600 ring-emerald-500"
@@ -573,7 +578,7 @@ return (
 
             </div>
           </div>
-          <div className="w-full">
+          <div className="sv w-full">
             <SimpleBarChart
               data={chartPaymentsData}
               colorClass="from-sky-400 to-blue-600 ring-blue-500"
@@ -688,7 +693,7 @@ function MetricCardView({
         {/* Ícone discreto indicando link */}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
-      <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
+      <div className="sv p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
         <div className="min-w-0 flex-1">
           <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
             {leftLabel}
@@ -710,8 +715,8 @@ function MetricCardView({
         )}
       </div>
 
-      {footer && (
-        <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
+{footer && (
+        <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
           {footer}
         </div>
       )}
@@ -745,7 +750,7 @@ function BarCard({ title, items }: { title: string; items: BarItem[] }) {
       <h3 className="text-base sm:text-lg font-bold mb-4">{title}</h3>
 
 
-      <div className="space-y-4">
+      <div className="sv space-y-4">
         {items.map((item) => (
           <div key={item.label}>
             <div className="flex justify-between text-xs mb-1 font-medium">

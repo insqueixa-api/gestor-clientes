@@ -40,3 +40,15 @@ body {
   /* Transição suave ao trocar o tema */
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* ── Dashboard: ocultar valores ─────────────────────────── */
+#dashboard-values .sv {
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+#dashboard-values[data-values-hidden="true"] .sv {
+  filter: blur(10px);
+  opacity: 0.45;
+  user-select: none;
+  pointer-events: none;
+}
