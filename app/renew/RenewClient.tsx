@@ -202,9 +202,14 @@ export default function RenewClient() {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [prices, setPrices] = useState<PlanPrice[]>([]);
+const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
+
+  // ✅ TRAVA ABSOLUTA: Remove o plano Anual da lista para todos os clientes
+  const availablePrices = useMemo(() => {
+    return prices.filter((p) => p.period !== "ANNUAL");
+  }, [prices]);
 
   
   // Estados do pagamento
@@ -334,13 +339,13 @@ export default function RenewClient() {
   );
 
   const selectedPrice = useMemo(
-    () => prices.find((p) => p.period === selectedPeriod),
-    [prices, selectedPeriod]
+    () => availablePrices.find((p) => p.period === selectedPeriod),
+    [availablePrices, selectedPeriod]
   );
 
   const monthlyPrice = useMemo(
-    () => prices.find((p) => p.period === "MONTHLY"),
-    [prices]
+    () => availablePrices.find((p) => p.period === "MONTHLY"),
+    [availablePrices]
   );
 
   const discount = useMemo(() => {
@@ -388,7 +393,7 @@ export default function RenewClient() {
     const renewPrice =
       selectedPrice && selectedPrice.price_amount > 0
         ? selectedPrice
-        : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+        : availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
 
     if (!renewPrice || !renewPrice.price_amount) {
       alert("Erro: valor do plano não encontrado");
@@ -1085,7 +1090,7 @@ if (fulfillment === "done") {
           <div className="p-4 space-y-3">
             {/* Plano Atual */}
             {(() => {
-              const currentPrice = prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+              const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
               
               // Verifica se o selecionado é o plano atual
               const isSelected = currentPrice && selectedPeriod === currentPrice.period;
@@ -1140,7 +1145,7 @@ if (fulfillment === "done") {
             })()}
 
             {/* Botão Ofertas */}
-            {prices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
+            {availablePrices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
                 className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-orange-200"
@@ -1161,12 +1166,12 @@ if (fulfillment === "done") {
             {showOtherPlans && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Planos Disponíveis</p>
-                {prices
+                {availablePrices
                   .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
                   .map((price) => {
                     const months = PERIOD_MONTHS[price.period];
                     const currentMonthlyEquiv = (() => {
-                      const currentPrice = prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+                      const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
                       const currentMonths =
                         PERIOD_MONTHS[
                           Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"
