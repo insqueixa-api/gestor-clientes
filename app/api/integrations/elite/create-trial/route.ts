@@ -307,10 +307,11 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   p.set("draw", "1");
   p.set("start", "0");
   p.set("length", "15");
-  // ✅ P2P busca vazio (pois é bugado no painel). IPTV busca a palavra normal.
+  
+  // ✅ O PULO DO GATO: P2P manda vazio. IPTV manda o texto da busca (searchValue)!
   p.set("search[value]", isP2P ? "" : searchValue);
+  
   p.set("search[regex]", "false");
-
   p.set("order[0][column]", "1");
   p.set("order[0][dir]", "desc");
   p.set("order[0][name]", "");
@@ -362,9 +363,12 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
 async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
   const qs = buildDtQuery(targetToMatch, isP2P);
   const r = await eliteFetch(
-    fc, baseUrl, `${dashboardPath}?${qs}`,
+    fc,
+    baseUrl,
+    `${dashboardPath}?${qs}`,
     { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
-    csrf, dashboardPath
+    csrf,
+    dashboardPath
   );
 
   const parsed = await readSafeBody(r);
@@ -373,12 +377,15 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
   const data = parsed.json?.data;
   if (!Array.isArray(data) || data.length === 0) return { ok: true, found: false, rows: [] };
 
+  // ✅ P2P caça na lista retornada
   if (isP2P) {
-    // ✅ P2P: Nós mesmos caçamos o cliente na lista retornada
     const targetStr = String(targetToMatch || "").trim().toLowerCase();
     const match = data.find((r: any) => {
-      const fieldsToSearch = [r.username, r.name, r.email, r.reseller_notes, r.trialnotes, r.exField4, r.exField2, r.id];
-      return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
+       const fieldsToSearch = [
+          r.username, r.name, r.email, r.reseller_notes, r.trialnotes, 
+          r.exField4, r.exField2, r.id
+       ];
+       return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
     });
 
     if (match) return { ok: true, found: true, rows: [match] };
@@ -387,7 +394,7 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
     return { ok: true, found: false, rows: [data[0]] };
   }
 
-  // ✅ IPTV: O painel já filtrou, só repassamos
+  // ✅ IPTV confia 100% no filtro do servidor deles
   return { ok: true, found: true, rows: data };
 }
 
@@ -588,17 +595,25 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
     let expRaw =
       pickFirst(createParsed.json, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date"]) ?? null;
 
-    // ✅ FIX CRÍTICO P2P: Se o painel mandou letras no lugar do ID, apagamos para forçar a busca do ID real
-    if (isP2P && createdId && !/^\d+$/.test(String(createdId))) {
-        createdId = null;
-    }
+    // ✅ IDENTIFICADOR: Descobre se o painel mandou aquele usuário com letras no lugar do ID numérico
+    const isFakeId = isP2P && createdId && !/^\d+$/.test(String(createdId));
 
-    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real
+    // 3.2) fallback: buscar no DataTables para pegar o ID numérico real e a senha (exField2 no P2P)
     let rowFromTable: any = null;
-    if (!createdId || !serverUsername || !serverPassword || !expRaw) {
-      const searchTarget = isP2P ? (serverUsername || trialNotes) : trialNotes;
+    
+    if (!createdId || !serverUsername || !serverPassword || !expRaw || isFakeId) {
+      
+      // ✅ A SOLUÇÃO MÁGICA DOS ALVOS DE BUSCA:
+      // Se for IPTV, sempre busca pela Nota (pois o painel deles filtra assim)
+      let searchTarget = trialNotes;
+      
+      // Se for P2P, a gente busca pelo ID falso (que é o nome de usuário gerado) ou a nota
+      if (isP2P) {
+          searchTarget = isFakeId ? String(createdId) : String(serverUsername || trialNotes);
+      }
       
       const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+      
       trace.push({
         step: "datatable_lookup",
         ok: table.ok,
@@ -607,21 +622,21 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       });
 
       if ((table as any).ok && (table as any).rows?.length > 0) {
-        // ✅ Independente de ter dado match perfeito ou ser fallback (P2P), pegamos a linha
+        // Pega a linha exata que o sistema encontrou
         rowFromTable = (table as any).found ? (table as any).rows[0] : (table as any).rows[0];
 
-        // ✅ Agora sim o createdId recebe o número limpo (Ex: 210626)
-        if (!createdId && rowFromTable?.id) createdId = String(rowFromTable.id);
+        // ✅ FORÇA a substituição do ID! (Sai a sujeira, entra o ID numérico)
+        if (!createdId || isFakeId) {
+            createdId = String(rowFromTable.id);
+        }
         
-        // ✅ No P2P, a coluna se chama 'name' e a senha fica no 'exField2'
+        // Pega os dados exatos do P2P/IPTV
         if (!serverUsername && (rowFromTable?.username || rowFromTable?.name)) {
             serverUsername = String(rowFromTable?.username || rowFromTable?.name);
         }
         if (!serverPassword && (rowFromTable?.password || rowFromTable?.exField2)) {
             serverPassword = String(rowFromTable?.password || rowFromTable?.exField2);
         }
-
-        // normalmente vem como "formatted_exp_date" em horário SP
         if (!expRaw) {
           expRaw =
             rowFromTable?.formatted_exp_date ??
@@ -631,7 +646,8 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       }
     }
 
-    if (!createdId) {
+    // Se no final de tudo o ID não existiu ou continuou sendo fake (com letras), bloqueamos o fluxo ruim.
+    if (!createdId || (isP2P && !/^\d+$/.test(String(createdId)))) {
       return NextResponse.json({
         ok: true,
         provider: "ELITE",
@@ -644,8 +660,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
         server_password: serverPassword,
         expires_at_raw: expRaw,
         expires_at_utc: normalizeExpToUtcIso(expRaw, TZ_SP),
-        note:
-          "Trial criado, mas não consegui descobrir o ID automaticamente. (Sem ID, não dá pra confirmar detalhes.)",
+        note: "Trial criado, mas não consegui descobrir o ID numérico automaticamente.",
         trace,
         raw_create_preview: redactPreview(createParsed.text),
       });
