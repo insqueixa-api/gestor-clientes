@@ -331,8 +331,8 @@ useEffect(() => {
 
 // ✅ NOVO: Renovação Automática
 const [hasIntegration, setHasIntegration] = useState(false);
-const [isEliteProvider, setIsEliteProvider] = useState(false); 
-const [integrationProvider, setIntegrationProvider] = useState("NONE"); // ✅ Sabe O QUAL É a integração
+const [isEliteProvider, setIsEliteProvider] = useState(false);
+const [integrationProvider, setIntegrationProvider] = useState("NONE"); // ✅ NOVO
 const [renewAutomatic, setRenewAutomatic] = useState(false);
 
     // Hook de Confirmação
@@ -404,7 +404,7 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
   // ✅ Prefill Observações (agora certo)
   setObs(cFixed.notes || "");
 
-  // ✅ NOVO: Detectar se servidor tem integração
+  // ✅ NOVO: Detectar se servidor tem integração e QUAL O PROVEDOR
 if (c.server_id) {
   try {
     const { data: srv } = await supabaseBrowser
@@ -415,9 +415,8 @@ if (c.server_id) {
 
     const hasInteg = Boolean(srv?.panel_integration);
     setHasIntegration(hasInteg);
-    setRenewAutomatic(hasInteg); // Liga automaticamente se tem integração
+    setRenewAutomatic(hasInteg);
 
-// ✅ Descobre o provedor para travar planos e tecnologia
     if (hasInteg) {
       const { data: integ } = await supabaseBrowser
         .from("server_integrations")
@@ -435,8 +434,9 @@ if (c.server_id) {
   } catch (e) {
     console.error("Erro ao verificar integração:", e);
     setHasIntegration(false);
-    setIsEliteProvider(false);
     setRenewAutomatic(false);
+    setIntegrationProvider("NONE");
+    setIsEliteProvider(false);
   }
 }
 
@@ -698,7 +698,7 @@ if (c.server_id) {
       setTotalBrl(currency === "BRL" ? rawVal : rawVal * (Number(fxRate) || 0));
     }, [planPrice, fxRate, currency]);
 
-    // ✅ TRAVA DE TECNOLOGIA POR PROVEDOR
+    // ✅ TRAVA DE TECNOLOGIA POR PROVEDOR (Evita envios errados para API)
     useEffect(() => {
       if (integrationProvider === "FAST" || integrationProvider === "NATV") {
         if (technology !== "IPTV") {
@@ -709,7 +709,6 @@ if (c.server_id) {
         if (technology !== "IPTV" && technology !== "P2P") {
           setTechnology("IPTV");
           setCustomTechnology("");
-          addToast("success", "Tecnologia ajustada", "O Elite só aceita IPTV ou P2P.");
         }
       }
     }, [integrationProvider, technology]);
@@ -1317,15 +1316,15 @@ style={{ maxHeight: "90dvh" }}
                           <Label>Tecnologia</Label>
                           {technology === "Personalizado" ? (
                               <div className="flex gap-1">
-                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." />
-                                <button onClick={() => setTechnology("IPTV")} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
+                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." autoFocus />
+                                <button onClick={() => { setTechnology("IPTV"); setCustomTechnology(""); }} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
                               </div>
                           ) : (
                               <Select 
                                 value={technology} 
                                 onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}
                                 disabled={integrationProvider === "FAST" || integrationProvider === "NATV"}
-                                className={integrationProvider === "FAST" || integrationProvider === "NATV" ? "opacity-60 cursor-not-allowed" : ""}
+                                className={integrationProvider === "FAST" || integrationProvider === "NATV" ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
                               >
                                 {integrationProvider === "FAST" || integrationProvider === "NATV" ? (
                                     <option value="IPTV">IPTV</option>
