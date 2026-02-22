@@ -916,56 +916,122 @@ if (fulfillment === "done") {
 
   // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Header com Logo */}
-          <div className="text-center mb-2">
-            <Image src="/brand/logo-full-light.png" alt="UniGestor" width={130} height={44} className="mx-auto" />
+    // ----------------------------------------------------------------------------------------------------
+    // INÍCIO DO CÓDIGO DE BUSCA
+    // Quando for para produção, você pode deletar toda essa variável 'searchQuery' e 'filteredAccounts'
+    // ----------------------------------------------------------------------------------------------------
+    const [searchQuery, setSearchQuery] = useState("");
 
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+    const filteredAccounts = useMemo(() => {
+      if (!searchQuery.trim()) return accounts;
+      const lowerQuery = searchQuery.toLowerCase();
+      return accounts.filter(
+        (a) =>
+          a.display_name.toLowerCase().includes(lowerQuery) ||
+          a.server_username.toLowerCase().includes(lowerQuery) ||
+          a.server_name.toLowerCase().includes(lowerQuery)
+      );
+    }, [accounts, searchQuery]);
+    // ----------------------------------------------------------------------------------------------------
+    // TÉRMINO DO CÓDIGO DE BUSCA
+    // ----------------------------------------------------------------------------------------------------
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-12">
+        <div className="max-w-2xl mx-auto">
+          
+          {/* Header com Logo - COM MAIS ESPAÇAMENTO */}
+          <div className="text-center mb-8">
+            {/* Margem inferior da logo aumentada para 'mb-6' */}
+            <div className="mb-6 flex justify-center">
+              <Image src="/brand/logo-full-light.png" alt="UniGestor" width={160} height={54} className="mx-auto drop-shadow-md" />
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">
               Olá, {accounts[0]?.display_name?.split(" ")[0]}! 👋
             </h1>
-            <p className="text-lg font-medium text-slate-600 dark:text-white/70 mb-1">{getGreeting()}!</p>
-            <p className="text-slate-500 dark:text-white/50 text-sm">Selecione a conta que deseja gerenciar</p>
+            <p className="text-lg font-medium text-blue-600 dark:text-blue-400 mb-2">{getGreeting()}!</p>
+            <p className="text-slate-500 dark:text-white/60 text-sm">Selecione a conta que deseja gerenciar abaixo.</p>
           </div>
 
-          {/* Lista de Contas */}
-          <div className="space-y-3">
-            {accounts.map((account) => {
-              const time = getTimeRemaining(account.vencimento);
-              return (
+          {/* ---------------------------------------------------------------------------------------------------- */}
+          {/* INÍCIO DO HTML DA BUSCA */}
+          {/* Pode deletar esta div inteira quando for remover a funcionalidade de busca */}
+          {/* ---------------------------------------------------------------------------------------------------- */}
+          {accounts.length > 5 && (
+            <div className="mb-6 relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
+              <input
+                type="text"
+                placeholder="Buscar conta por nome ou usuário..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 pl-12 pr-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+              />
+              {searchQuery && (
                 <button
-                  key={account.id}
-                  onClick={() => handleSelectAccount(account.id)}
-                  className="w-full bg-white dark:bg-[#161b22] rounded-xl p-4 border-2 border-slate-200 dark:border-white/10 hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-lg hover:shadow-xl group"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="text-left flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-slate-800 dark:text-white">{account.display_name}</h3>
-                        {account.is_trial && (
-                          <span className="px-2 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-xs font-bold rounded">
-                            TESTE
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-500 dark:text-white/50">
-                        {account.server_name} • {account.screens} tela{account.screens > 1 ? "s" : ""}
-                      </p>
-                      <p className="text-xs text-slate-400 dark:text-white/40 mt-1">{account.server_username}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-bold mb-1 ${time?.expired ? "text-red-500" : "text-emerald-500"}`}>
-                        {time?.text}
-                      </div>
-                      <div className="text-xs text-slate-400 dark:text-white/40">{account.plan_label}</div>
-                    </div>
-                  </div>
+                  ✕
                 </button>
-              );
-            })}
+              )}
+            </div>
+          )}
+          {/* ---------------------------------------------------------------------------------------------------- */}
+          {/* TÉRMINO DO HTML DA BUSCA */}
+          {/* ---------------------------------------------------------------------------------------------------- */}
+
+          {/* Lista de Contas */}
+          <div className="space-y-4">
+            {filteredAccounts.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-300 dark:border-white/10">
+                Nenhuma conta encontrada com esse nome.
+              </div>
+            ) : (
+              filteredAccounts.map((account) => {
+                const time = getTimeRemaining(account.vencimento);
+                return (
+                  <button
+                    key={account.id}
+                    onClick={() => handleSelectAccount(account.id)}
+                    className="w-full text-left bg-white dark:bg-[#161b22] rounded-2xl p-5 border-2 border-transparent hover:border-blue-500 dark:border-white/5 dark:hover:border-blue-500 transition-all shadow-md hover:shadow-xl group"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">
+                            {account.display_name}
+                          </h3>
+                          {account.is_trial && (
+                            <span className="shrink-0 px-2 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold rounded uppercase tracking-wider">
+                              TESTE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-slate-500 dark:text-white/60 mb-1 truncate">
+                          {account.server_name} <span className="mx-1 opacity-50">•</span> {account.screens} tela{account.screens > 1 ? "s" : ""}
+                        </p>
+                        <p className="text-xs font-mono text-slate-400 dark:text-white/40 truncate">
+                          {account.server_username}
+                        </p>
+                      </div>
+                      
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-bold mb-1.5 ${time?.expired ? "text-rose-500" : "text-emerald-500"}`}>
+                          {time?.text}
+                        </div>
+                        <div className="inline-block px-2.5 py-1 bg-slate-50 dark:bg-black/20 rounded-md text-xs font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider border border-slate-100 dark:border-white/5">
+                          {account.plan_label}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
+
         </div>
       </div>
     );
