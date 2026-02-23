@@ -933,75 +933,100 @@ if (fulfillment === "done") {
 
  // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
-    
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
         
-        {/* --- TOPO FIXO (Padrão do Sistema) --- */}
-        <div className="sticky top-0 z-50 bg-[#161b22] border-b border-white/10 shadow-lg px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image src="/brand/logo-full-light.png" alt="UniGestor" width={110} height={36} className="drop-shadow-md" />
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:block text-right">
-              <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold">Logado como</p>
-              <p className="text-sm font-bold text-white truncate max-w-[150px]">{accounts[0]?.display_name}</p>
+        {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
+        <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
+          <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+            
+            {/* Logo Responsiva */}
+            <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
+              <Image
+                src="/brand/logo-gestor-celular.png"
+                alt="Gestor"
+                width={44}
+                height={44}
+                className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
+              <Image
+                src="/brand/logo-gestor.png"
+                alt="Gestor"
+                width={160}
+                height={40}
+                className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+                draggable={false}
+                priority
+              />
+              {/* Usuário Logado */}
+              <div className="min-w-0 flex flex-col justify-center">
+                <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 transition-colors">
+                  Logado como
+                </div>
+                <div className="text-xs font-bold text-white truncate max-w-[140px] sm:max-w-66 tracking-tight uppercase">
+                  {accounts[0]?.display_name}
+                </div>
+              </div>
             </div>
-            
-            {sessionData?.whatsapp_username && (
-              <a 
-                href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#25D366] hover:scale-110 transition-transform"
-                title="Suporte via WhatsApp"
+
+            <div className="flex-1" />
+
+            {/* Ações (Direita) */}
+            <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+              {sessionData?.whatsapp_username && (
+                <a 
+                  href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#25D366] hover:scale-110 transition-transform"
+                  title="Suporte via WhatsApp"
+                >
+                  <IconWhatsapp />
+                </a>
+              )}
+              
+              <button 
+                onClick={() => { clearStoredSession(); window.location.reload(); }}
+                className="text-white/50 hover:text-rose-500 transition-colors"
+                title="Sair"
               >
-                <IconWhatsapp />
-              </a>
-            )}
-            
-            <button 
-              onClick={() => { clearStoredSession(); window.location.reload(); }}
-              className="text-white/50 hover:text-rose-500 transition-colors"
-              title="Sair"
-            >
-              <IconLogout />
-            </button>
+                <IconLogout />
+              </button>
+            </div>
+
           </div>
         </div>
 
+        {/* --- CORPO DA PÁGINA --- */}
         <div className="max-w-2xl mx-auto p-4 py-6">
-          
           <div className="mb-6">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-              {getGreeting()}, {accounts[0]?.display_name?.split(" ")[0]}! 👋
+              {getGreeting()}! 👋
             </h1>
             <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Qual conta você deseja gerenciar hoje?</p>
           </div>
 
-          {/* ---------------------------------------------------------------------------------------------------- */}
-          {/* INÍCIO DO HTML DA BUSCA */}
+          {/* Busca (Opcional) */}
           {accounts.length > 3 && (
             <div className="mb-6 relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
               <input
                 type="text"
-                placeholder="Buscar conta por nome ou usuário..."
+                placeholder="Buscar conta..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-12 pl-12 pr-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
               />
             </div>
           )}
-          {/* TÉRMINO DO HTML DA BUSCA */}
-          {/* ---------------------------------------------------------------------------------------------------- */}
 
-          {/* Lista de Contas (NOVO LAYOUT 3 LINHAS) */}
+          {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
           <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
               <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
-                Nenhuma conta encontrada com esse nome.
+                Nenhuma conta encontrada.
               </div>
             ) : (
               filteredAccounts.map((account) => {
@@ -1012,7 +1037,7 @@ if (fulfillment === "done") {
                     onClick={() => handleSelectAccount(account.id)}
                     className="w-full text-left bg-white dark:bg-[#161b22] rounded-xl p-4 border border-slate-200 hover:border-blue-500 dark:border-white/10 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
-                    {/* Linha 1: Nome + Username */}
+                    {/* Linha 1: Nome (Esq) | Username (Dir, preservando maiúsculas/minúsculas) */}
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-base font-bold text-slate-800 dark:text-white truncate pr-2 flex items-center gap-2">
                         {account.display_name}
@@ -1022,13 +1047,13 @@ if (fulfillment === "done") {
                           </span>
                         )}
                       </h3>
-                      {/* Usuário com a mesma fonte da badge de plano (uppercase tracking-wider) */}
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded">
+                      {/* Usuário sem uppercase, usando fonte mono para clareza */}
+                      <span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70 shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
                         {account.server_username}
                       </span>
                     </div>
 
-                    {/* Linha 2: Servidor/Telas + Plano */}
+                    {/* Linha 2: Servidor + Telas (Esq) | Plano (Dir) */}
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
                         {account.server_name} <span className="mx-1 opacity-50">•</span> {account.screens} tela{account.screens > 1 ? "s" : ""}
@@ -1038,13 +1063,13 @@ if (fulfillment === "done") {
                       </div>
                     </div>
 
-                    {/* Linha 3: Vencimento Centralizado */}
+                    {/* Linha 3: Vencimento (Centralizado) */}
                     <div className={`w-full text-center py-2 rounded-lg border ${
                       time?.expired 
                         ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400" 
                         : "bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
                     }`}>
-                      <span className="text-sm font-bold block">{time?.text}</span>
+                      <span className="text-sm font-bold block tracking-tight">{time?.text}</span>
                     </div>
                   </button>
                 );
@@ -1073,51 +1098,80 @@ if (fulfillment === "done") {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
       
-      {/* --- TOPO FIXO (Padrão do Sistema) --- */}
-      <div className="sticky top-0 z-50 bg-[#161b22] border-b border-white/10 shadow-lg px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSelectedAccountId(null)}
-            className="w-8 h-8 flex items-center justify-center bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
-            title="Voltar"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <Image src="/brand/logo-full-light.png" alt="UniGestor" width={110} height={36} className="drop-shadow-md" />
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:block text-right">
-            <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold">Logado como</p>
-            <p className="text-sm font-bold text-white truncate max-w-[150px]">{selectedAccount.display_name}</p>
-          </div>
+      {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
+      <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
           
-          {sessionData?.whatsapp_username && (
-            <a 
-              href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#25D366] hover:scale-110 transition-transform"
-              title="Suporte via WhatsApp"
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Botão de Voltar para a Tela 1 */}
+            <button
+              onClick={() => setSelectedAccountId(null)}
+              className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors shrink-0"
+              title="Voltar"
             >
-              <IconWhatsapp />
-            </a>
-          )}
-          
-          <button 
-            onClick={() => { clearStoredSession(); window.location.reload(); }}
-            className="text-white/50 hover:text-rose-500 transition-colors"
-            title="Sair"
-          >
-            <IconLogout />
-          </button>
+              <span className="text-lg leading-none mt-[-2px]">←</span>
+            </button>
+            
+            <Image
+              src="/brand/logo-gestor-celular.png"
+              alt="Gestor"
+              width={44}
+              height={44}
+              className="h-10 w-10 select-none object-contain sm:hidden"
+              draggable={false}
+              priority
+            />
+            <Image
+              src="/brand/logo-gestor.png"
+              alt="Gestor"
+              width={160}
+              height={40}
+              className="hidden sm:block h-10 w-auto select-none object-contain"
+              draggable={false}
+              priority
+            />
+            <div className="min-w-0 flex flex-col justify-center">
+              <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
+                Logado como
+              </div>
+              <div className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-66 tracking-tight uppercase">
+                {selectedAccount.display_name}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Ações */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            {sessionData?.whatsapp_username && (
+              <a 
+                href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#25D366] hover:scale-110 transition-transform"
+                title="Suporte via WhatsApp"
+              >
+                <IconWhatsapp />
+              </a>
+            )}
+            
+            <button 
+              onClick={() => { clearStoredSession(); window.location.reload(); }}
+              className="text-white/50 hover:text-rose-500 transition-colors"
+              title="Sair"
+            >
+              <IconLogout />
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* --- CORPO DA PÁGINA --- */}
       <div className="max-w-2xl mx-auto space-y-4 p-4 pt-6">
         
-        {/* Vencimento Centralizado no Topo (Substitui o Card Azul) */}
-        <div className={`w-full text-center py-4 rounded-xl border-2 shadow-sm animate-in fade-in zoom-in duration-500 ${
+        {/* Vencimento Centralizado (Substitui Card Azul) */}
+        <div className={`w-full text-center py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired 
               ? "bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" 
               : selectedAccount.is_trial
@@ -1126,7 +1180,6 @@ if (fulfillment === "done") {
           }`}>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Status da Assinatura</p>
             <div className="flex items-center justify-center gap-2">
-               {/* Bolinha pulsante */}
                <span className={`w-3 h-3 rounded-full animate-pulse ${
                  timeRemaining?.expired ? "bg-rose-500" : selectedAccount.is_trial ? "bg-sky-500" : "bg-emerald-500"
                }`} />
@@ -1143,9 +1196,7 @@ if (fulfillment === "done") {
           <div className="bg-slate-50 dark:bg-white/5 px-4 py-3 border-b border-slate-200 dark:border-white/10">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">📺 Dados de Acesso</h2>
           </div>
-
           <div className="p-4 space-y-3">
-            {/* Linha 1: Usuário + Servidor */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Usuário</label>
@@ -1160,8 +1211,6 @@ if (fulfillment === "done") {
                 </div>
               </div>
             </div>
-
-            {/* Linha 2: Vencimento Exato + Telas */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento em</label>
@@ -1190,17 +1239,12 @@ if (fulfillment === "done") {
             {(() => {
               const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
               if (!currentPrice) return null;
-
-              // Verifica se o plano atual está selecionado (ou se ele fechou a aba com outro selecionado, ele sai do estilo "ativo")
               const isSelected = selectedPeriod === currentPrice.period;
-
               return (
                 <button
                   onClick={() => currentPrice && setSelectedPeriod(currentPrice.period)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" 
-                      : "border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/50"
+                    isSelected ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -1224,7 +1268,7 @@ if (fulfillment === "done") {
               );
             })()}
 
-            {/* ✅ SEGREDO: Mostra a oferta selecionada (se não for a atual) e se a sanfona estiver fechada! */}
+            {/* ✅ PLANO ESCOLHIDO (Se não for o Atual e a sanfona estiver FECHADA) */}
             {(() => {
                 const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
                 const isSelectedNotCurrent = selectedPeriod !== currentPrice?.period;
@@ -1232,7 +1276,7 @@ if (fulfillment === "done") {
                 if (!showOtherPlans && isSelectedNotCurrent && selectedPrice) {
                     return (
                         <button
-                          onClick={() => setShowOtherPlans(true)} // Ao clicar, reabre a sanfona
+                          onClick={() => setShowOtherPlans(true)}
                           className="w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 transition-all animate-in slide-in-from-top-2"
                         >
                           <div className="flex items-center justify-between">
@@ -1258,23 +1302,18 @@ if (fulfillment === "done") {
                 return null;
             })()}
 
-            {/* Botão Ofertas */}
+            {/* Botão para Mostrar/Esconder as Ofertas */}
             {availablePrices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
                 className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 text-slate-600 dark:text-white/70 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
               >
                 🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
-                <svg
-                  className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <svg className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
             )}
 
-            {/* Planos Disponíveis (expandível) */}
+            {/* Expansível de Ofertas */}
             {showOtherPlans && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
                 <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider px-1">Todas as Opções</p>
@@ -1337,6 +1376,7 @@ if (fulfillment === "done") {
           </div>
         </div>
 
+        {/* Botão Concluir */}
         {(() => {
           const renewPrice = selectedPrice && selectedPrice.price_amount > 0 ? selectedPrice : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
 
@@ -1360,5 +1400,19 @@ if (fulfillment === "done") {
 
 // --- ÍCONES ---
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
-function IconWhatsapp() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>; }
-function IconLogout() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>; }
+function IconWhatsapp() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  );
+}
+function IconLogout() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
