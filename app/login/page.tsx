@@ -61,7 +61,7 @@ const [msg, setMsg] = useState<string | null>(null);
       : "Acesse o painel gerenciador.";
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -79,15 +79,18 @@ const [msg, setMsg] = useState<string | null>(null);
       </div>
 
       {/* Card */}
-      <div className="relative z-10 w-full max-w-md">
+      {/* ✅ Reduzido o max-width no mobile para ficar mais elegante */}
+      <div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
         <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
           {/* Header */}
-          <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 text-center">
+          {/* ✅ Ajuste do pt-5 para a logo ficar mais próxima do topo no mobile */}
+          <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
+              {/* ✅ Logo levemente menor no mobile (h-9) */}
               <img
                 src="/brand/logo-full-light.png"
                 alt="UniGestor"
-                className="h-10 w-auto select-none"
+                className="h-9 sm:h-10 w-auto select-none"
                 draggable={false}
               />
             </div>
@@ -138,9 +141,9 @@ const [msg, setMsg] = useState<string | null>(null);
           </div>
 
         {/* Form */}
-          <div className="px-5 sm:px-8 pt-5 pb-6">
+          <div className="px-5 sm:px-8 pt-4 sm:pt-5 pb-4 sm:pb-6">
             {mode === "login" ? (
-              <form action={formAction} className="space-y-4">
+              <form action={formAction} className="space-y-3 sm:space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
                     E-mail
@@ -204,7 +207,7 @@ const [msg, setMsg] = useState<string | null>(null);
                 )}
               </form>
             ) : (
-              <form onSubmit={onReset} className="space-y-4">
+              <form onSubmit={onReset} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-white/80">
                     E-mail
@@ -241,7 +244,8 @@ const [msg, setMsg] = useState<string | null>(null);
             )}
 
             {/* Rodapé mínimo */}
-            <div className="mt-6 text-center text-xs text-white/70">
+            {/* ✅ Subiu um pouco no celular */}
+            <div className="mt-4 sm:mt-6 text-center text-[10px] sm:text-xs text-white/70">
               <span className="inline-block rounded-full bg-black/20 px-3 py-1">
                 UniGestor © {new Date().getFullYear()}
               </span>
@@ -250,7 +254,8 @@ const [msg, setMsg] = useState<string | null>(null);
         </div>
 
         {/* Hint de segurança */}
-        <div className="mt-5 text-center text-xs text-white/70">
+        {/* ✅ Subiu e ficou um pouco mais discreto */}
+        <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
           Acesso protegido • Use seu e-mail cadastrado
         </div>
       </div>
