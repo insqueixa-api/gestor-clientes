@@ -160,7 +160,7 @@ export default function LoginPage() {
                   </label>
                   <input
                     name="password"
-                    type="password"
+                    type="tel"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
