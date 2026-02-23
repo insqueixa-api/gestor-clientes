@@ -1004,35 +1004,70 @@ console.log("✅ Renovação automática concluída:", {
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
       // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
-      // ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
-      if (registerPayment && !renewAutomatic) {
-        setLoadingText("Registrando pagamento...");
-        const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
-          p_tenant_id: tid,
-          p_client_id: clientId,
-          p_months: monthsToRenew,
-          p_status: "PAID",
-          p_notes: `Renovado via Painel. Obs: ${obs || ""}`,
-          p_new_vencimento: null, // ✅ Volta para null para a RPC calcular tudo sozinha baseada na data original
-        });
-        if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
-      }
+// ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
+if (registerPayment && !renewAutomatic) {
+  setLoadingText("Registrando pagamento...");
+
+  // ✅ Monta DE / PARA para o log
+  const oldVenc = clientData?.vencimento
+    ? new Date(clientData.vencimento).toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : "—";
+
+  const newVencISO = saoPauloDateTimeToIso(dueDate, dueTime);
+  const newVenc = new Date(newVencISO).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+    p_tenant_id: tid,
+    p_client_id: clientId,
+    p_months: monthsToRenew,
+    p_status: "PAID",
+    p_notes: obs || null,
+    p_new_vencimento: null,
+    p_message: `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)} · De: ${oldVenc} → Para: ${newVenc}`,
+  });
+  if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+}
 
 // ✅ Se automático, só registra LOG e evento manualmente
 if (registerPayment && renewAutomatic) {
   setLoadingText("Registrando renovação...");
-  
-  // Registrar evento de renovação
+
+  // ✅ Monta DE / PARA para o log
+  const oldVenc = clientData?.vencimento
+    ? new Date(clientData.vencimento).toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : "—";
+
+  const newVenc = new Date(apiVencimento).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
   await supabaseBrowser.from("client_events").insert({
     tenant_id: tid,
     client_id: clientId,
     event_type: "RENEWAL",
-    message: `Renovação automática via ${serverName}. ${monthsToRenew} mês(es). Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR")}`,
+    message: `Renovação automática via ${serverName} (${integrationProvider}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · De: ${oldVenc} → Para: ${newVenc}`,
     meta: {
       months: monthsToRenew,
+      screens: screens,
+      old_vencimento: clientData?.vencimento,
       new_vencimento: apiVencimento,
       automatic: true,
       server_name: serverName,
+      provider: integrationProvider,
     },
   });
 }

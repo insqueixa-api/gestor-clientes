@@ -164,13 +164,15 @@ const supabase = supabaseBrowser;
       estimatedProfit,
       cliente: { 
           consumed: clientCredits, 
-          revenue: clientRevenue, 
-          profit: clientRevenue - (clientCredits * unitCostBase) 
+          revenue: clientRevenue,
+          cost: clientCredits * unitCostBase,
+          profit: clientRevenue - (clientCredits * unitCostBase),
       },
       resellers: { 
           consumed: resellerCredits, 
-          revenue: resellerRevenue, 
-          profit: resellerRevenue - (resellerCredits * unitCostBase) 
+          revenue: resellerRevenue,
+          cost: resellerCredits * unitCostBase,
+          profit: resellerRevenue - (resellerCredits * unitCostBase),
       }
     };
   }, [movements, server]);
@@ -290,6 +292,7 @@ const supabase = supabaseBrowser;
                  </div>
                  <div className="grid grid-cols-3 gap-4">
                     <DetailStat label="Receita" value={fmtMoney(metrics.cliente.revenue)} />
+                    <DetailStat label="Custo" value={fmtMoney(metrics.cliente.cost)} valueColor="text-rose-500 dark:text-rose-400" />
                     <DetailStat label="Lucro" value={fmtMoney(metrics.cliente.profit)} valueColor="text-emerald-600 dark:text-emerald-400" />
                  </div>
               </div>
@@ -301,13 +304,14 @@ const supabase = supabaseBrowser;
                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                  Métricas de revendas
               </div>
-              <div className="p-5 space-y-6">
+<div className="p-5 space-y-6">
                  <div className="grid grid-cols-2 gap-4 border-b border-slate-100 dark:border-white/5 pb-6">
                     <DetailStat label="Total revendas" value={fmtInt(resellerCount)} />
                     <DetailStat label="Consumo" value={fmtInt(metrics.resellers.consumed) + " cr"} />
                  </div>
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-3 gap-4">
                     <DetailStat label="Receita" value={fmtMoney(metrics.resellers.revenue)} />
+                    <DetailStat label="Custo" value={fmtMoney(metrics.resellers.cost)} valueColor="text-rose-500 dark:text-rose-400" />
                     <DetailStat label="Lucro" value={fmtMoney(metrics.resellers.profit)} valueColor="text-emerald-600 dark:text-emerald-400" />
                  </div>
               </div>

@@ -2017,6 +2017,32 @@ body: JSON.stringify({
 
 clientId = data;
 
+// ✅ Log de criação no client_events
+if (clientId) {
+  const isAutomatic = syncWithServer && hasIntegration;
+  const creationMsg = isTrialMode
+    ? isAutomatic
+      ? `Teste criado automaticamente via ${serverName} (${trialProvider}) · Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : `Teste criado manualmente · Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+    : isAutomatic
+      ? `Cliente criado automaticamente via ${serverName} (${trialProvider}) · Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : `Cliente criado manualmente · Vencimento: ${new Date(apiVencimento).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+
+  await supabaseBrowser.from("client_events").insert({
+    tenant_id: tid,
+    client_id: clientId,
+    event_type: isTrialMode ? "TRIAL_CREATED" : "CLIENT_CREATED",
+    message: creationMsg,
+    meta: {
+      automatic: isAutomatic,
+      provider: trialProvider,
+      server_name: serverName,
+      new_vencimento: apiVencimento,
+      ...(isTrialMode ? { trial_hours: testHours } : { screens: rpcScreens, months: PLAN_MONTHS[selectedPlanPeriod] }),
+    },
+  });
+}
+
 // ✅ ATUALIZAR M3U_URL (API ou manual)
 console.log("🔵 DEBUG M3U antes de salvar:", {
   clientId,
@@ -2155,13 +2181,28 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
       // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)
 if (!isEditing && !isTrialMode && registerRenewal && clientId) {
   const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
+
+  // ✅ DE/PARA — no cadastro não há vencimento anterior
+  const newVenc = new Date(dueISO).toLocaleString("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit", month: "2-digit", year: "numeric",
+  hour: "2-digit", minute: "2-digit",
+});
+
+const renewServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+const isAutomatic = syncWithServer && hasIntegration;
+const renewMsg = isAutomatic ?
+  `Renovação automática no cadastro via ${renewServerName} (${trialProvider}) · ${monthsToRenew} mês(es) · ${rpcScreens} tela(s) · ${fmtMoney(rpcCurrency, rpcPriceAmount)} · De: — → Para: ${newVenc}` :
+  `Renovação manual no cadastro · ${monthsToRenew} mês(es) · ${rpcScreens} tela(s) · ${fmtMoney(rpcCurrency, rpcPriceAmount)} · De: — → Para: ${newVenc}`;
+
   const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
     p_tenant_id: tid,
     p_client_id: clientId,
     p_months: monthsToRenew,
     p_status: "PAID",
-    p_notes: `Renovado no cadastro. Obs: ${notes || ""}`,
+    p_notes: notes || null,
     p_new_vencimento: dueISO,
+    p_message: renewMsg,  // ✅ NOVO
   });
 
 

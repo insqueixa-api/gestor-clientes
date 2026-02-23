@@ -662,16 +662,16 @@ const totalInvested = useMemo(() => {
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
-                            Compra de Créditos 
-                          </div>
+  💳 Compra de Créditos
+</div>
 
-                          {/* LINHA 2 — TEXTO COMPLETO (UMA LINHA) */}
-                          <div className="mt-1 text-xs font-medium text-slate-400 dark:text-white tracking-tight">
-                            Servidor: {serverName}  (
-                            {num(h.qty_credits)} Créditos | 
-                            Unit: {fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))}  | 
-                            Total: {fmtBRL(total)})
-                          </div>
+<div className="mt-1 text-xs font-medium text-slate-500 dark:text-white/60 tracking-tight">
+  {h.notes
+    ? h.notes
+    : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`
+  }
+</div>
+
                         </div>
 
                         <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">

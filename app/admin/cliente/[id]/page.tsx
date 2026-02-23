@@ -541,6 +541,16 @@ const handleDeleteForever = async () => {
     );
   }
 
+const EVENT_LABELS: Record<string, string> = {
+  RENEWAL:          "💰 Renovação",
+  CLIENT_CREATED:   "🆕 Cliente criado",
+  TRIAL_CREATED:    "🧪 Teste criado",
+  CLIENT_ARCHIVED:  "📦 Arquivado",
+  CLIENT_RESTORED:  "♻️ Restaurado",
+  TRIAL_CONVERTED:  "✨ Convertido",
+  RENEWAL_DEBIT:    "🔄 Débito de renovação",
+};
+
   if (loading) return <div className="p-10 text-center text-slate-400 dark:text-white/20 animate-pulse font-medium">Carregando...</div>;
   if (!client) return <div className="p-10 text-center text-rose-500 font-bold">Cliente não encontrado.</div>;
 
@@ -825,7 +835,9 @@ const handleDeleteForever = async () => {
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
                     <div>
-                      <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Evento</div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
+  {EVENT_LABELS[item.event_type] ?? item.event_type}
+</div>
                       <div className="text-xs text-slate-500 dark:text-white/50 mt-1.5 leading-relaxed">
                         {item.message || (item.meta ? JSON.stringify(item.meta) : "")}
 

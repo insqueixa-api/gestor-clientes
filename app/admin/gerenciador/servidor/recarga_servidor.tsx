@@ -91,18 +91,31 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
       const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
       
+      const oldCredits = Number(server.credits_available || 0);
+      const addedCredits = Number(qty);
+
+      const fmtNote = (newBalance: number) => [
+        `[${paymentMethod}]`,
+        `${addedCredits} créditos`,
+        currency !== "BRL" ? `· Câmbio: ${Number(fxRate).toFixed(4)}` : null,
+        `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(unitCost))}`,
+        `· Total: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalBrl)}`,
+        `· De: ${oldCredits} → Para: ${newBalance}`,
+        notes.trim() ? `· ${notes.trim()}` : null,
+      ].filter(Boolean).join(" ");
+
       // ✅ Se TEM integração → salva log + sync
       if (hasIntegration) {
         // 1) Salva log financeiro (sem mexer no saldo)
         const { error: logErr } = await supabase.rpc("log_server_credit_purchase_only", {
           p_tenant_id: tenantId,
           p_server_id: server.id,
-          p_credits_qty: Number(qty),
+          p_credits_qty: addedCredits,
           p_unit_price: Number(unitCost),
           p_purchase_currency: currency,
           p_total_amount_brl: totalBrl,
           p_fx_rate_to_brl: Number(fxRate),
-          p_notes: `[${paymentMethod}] ${notes}`,
+          p_notes: fmtNote(oldCredits + addedCredits), // saldo estimado; sync vai sobrescrever
         });
 
         if (logErr) throw logErr;
@@ -133,13 +146,14 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
       const { error } = await supabase.rpc("topup_server_credits_and_log", {
         p_tenant_id: tenantId,
         p_server_id: server.id,
-        p_credits_qty: Number(qty),
+        p_credits_qty: addedCredits,
         p_unit_price: Number(unitCost),
         p_purchase_currency: currency,
         p_total_amount_brl: totalBrl,
         p_fx_rate_to_brl: Number(fxRate),
-        p_notes: `[${paymentMethod}] ${notes}`,
+        p_notes: fmtNote(oldCredits + addedCredits),
       });
+
 
       if (error) throw error;
 

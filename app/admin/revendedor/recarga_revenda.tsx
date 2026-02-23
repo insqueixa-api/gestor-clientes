@@ -388,16 +388,25 @@ export default function QuickRechargeModal({
       const hasIntegration = Boolean(serverData?.panel_integration);
 
       // 2) Prepara payload base
-      const payload = {
-        p_tenant_id: tenantId,
-        p_server_id: selectedLink.server_id,
-        p_reseller_server_id: selectedResellerServerId,
-        p_credits_sold: qty,
-        p_unit_price: unitCurrency,
-        p_sale_currency: currency as any,
-        p_total_amount_brl: totalBRL,
-        p_notes: (notes || "").trim() || null,
-      };
+const autoNote = [
+  `Venda revenda · ${resellerName}`,
+  `${qty} créditos`,
+  `Unit: ${fmtMoney(currency, unitCurrency)}`,
+  currency !== "BRL" ? `Câmbio: ${Number(fxRate).toFixed(4)}` : null,
+  `Total: ${fmtMoney("BRL", totalBRL)}`,
+  notes.trim() ? `Obs: ${notes.trim()}` : null,
+].filter(Boolean).join(" · ");
+
+const payload = {
+  p_tenant_id: tenantId,
+  p_server_id: selectedLink.server_id,
+  p_reseller_server_id: selectedResellerServerId,
+  p_credits_sold: qty,
+  p_unit_price: unitCurrency,
+  p_sale_currency: currency as any,
+  p_total_amount_brl: totalBRL,
+  p_notes: autoNote,
+};
 
       if (hasIntegration) {
         // 3A) Servidor COM integração → salva log + sync

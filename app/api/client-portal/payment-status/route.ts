@@ -337,17 +337,33 @@ const { error: upClientErr } = await supabaseAdmin
 
   // 5) Log (best-effort)
   try {
+    const fmtDate = (iso: string) => {
+      try {
+        return new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        }).format(new Date(iso));
+      } catch { return iso; }
+    };
+
+    const oldVenc = (client as any).vencimento ? fmtDate(String((client as any).vencimento)) : "—";
+    const newVenc = fmtDate(expDateISO);
+    const monthsLabel = months === 1 ? "1 mês" : `${months} meses`;
+
     await supabaseAdmin.from("client_events").insert({
       tenant_id: tenantId,
       client_id: client.id,
       event_type: "RENEWAL",
-      message: `Área do cliente: Renovação automática via ${srv.name || provider}.`,
+      message: `Renovação via Portal · ${monthsLabel} · ${srv.name || provider} · De: ${oldVenc} → Para: ${newVenc}`,
       meta: {
         mp_payment_id: String(payment.mp_payment_id),
         months,
         provider,
         server_name: srv.name || null,
+        old_vencimento: (client as any).vencimento || null,
         new_vencimento: expDateISO,
+        source: "client_portal",
       },
     });
   } catch (e) {
@@ -368,14 +384,26 @@ const { error: upClientErr } = await supabaseAdmin
     safeServerLog("payment-status: failed sync", (e as any)?.message);
   }
 
-    // 7) WhatsApp (best-effort) — agora valida resposta e loga erro real
+    // 7) WhatsApp (best-effort) — usa template "Pagamento Realizado" salvo no banco
   try {
-    const vencBR = fmtBRDateFromISO(expDateISO);
-    const msg =
-      `✅ Pagamento confirmado!\n` +
-      `Sua assinatura foi renovada com sucesso.\n` +
-      `📅 Novo vencimento: ${vencBR}\n\n` +
-      `Se precisar de ajuda, responda esta mensagem.`;
+    // ✅ Busca template "pagamento" do tenant
+    let msg = "";
+    try {
+      const { data: tmpl } = await supabaseAdmin
+        .from("message_templates")
+        .select("content")
+        .eq("tenant_id", tenantId)
+        .or("name.ilike.%pagamento%,name.ilike.%pago%,name.ilike.%realizado%")
+        .order("name", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      msg = String(tmpl?.content || "").trim();
+    } catch (e) {
+      safeServerLog("payment-status: failed to fetch message template", (e as any)?.message);
+    }
+
+    if (!msg) throw new Error("Template de pagamento não encontrado.");
 
     const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
       method: "POST",
