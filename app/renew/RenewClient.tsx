@@ -199,7 +199,8 @@ export default function RenewClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [adminWhatsapp, setAdminWhatsapp] = useState<string | null>(null); // ✅ NOVO: WhatsApp do Admin
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 const [prices, setPrices] = useState<PlanPrice[]>([]);
@@ -277,6 +278,30 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
           tenant_id: sess.tenant_id,
           whatsapp_username: sess.whatsapp_username,
         });
+
+        // ✅ BUSCAR O WHATSAPP DO ADMIN (DONO DO SISTEMA) NO BANCO
+        try {
+          const { data: memberData } = await supabaseBrowser
+            .from("tenant_members")
+            .select("user_id")
+            .eq("tenant_id", sess.tenant_id)
+            .eq("role", "owner")
+            .limit(1);
+
+          if (memberData && memberData.length > 0) {
+            const { data: profileData } = await supabaseBrowser
+              .from("profiles")
+              .select("whatsapp_username")
+              .eq("id", memberData[0].user_id)
+              .limit(1);
+
+            if (profileData && profileData.length > 0 && profileData[0].whatsapp_username) {
+              setAdminWhatsapp(profileData[0].whatsapp_username);
+            }
+          }
+        } catch (e) {
+          console.error("Não foi possível buscar o WhatsApp do admin:", e);
+        }
 
         // 2. Buscar contas via API
         const accRes = await fetch("/api/client-portal/get-accounts", {
@@ -975,10 +1000,10 @@ if (fulfillment === "done") {
 
             {/* Ações (Direita) */}
             <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-              {/* ✅ Suporte do Sistema (Abre conversa com o Admin/Tenant) */}
-            {sessionData?.whatsapp_username && (
+              {/* ✅ Suporte do Sistema (Abre conversa com o Admin) */}
+            {adminWhatsapp && (
               <a 
-                href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}?text=Olá,%20preciso%20de%20ajuda%20com%20minha%20assinatura!`}
+                href={`https://wa.me/${adminWhatsapp.replace(/\D/g, "")}?text=Olá,%20preciso%20de%20ajuda%20com%20minha%20assinatura!`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 text-[#25D366] hover:opacity-80 transition-opacity"
@@ -988,7 +1013,7 @@ if (fulfillment === "done") {
                 <div className="hidden sm:flex flex-col">
                    <span className="text-[9px] uppercase tracking-wider text-white/50 leading-none">Suporte</span>
                    <span className="text-xs font-bold tracking-wide leading-none mt-0.5">
-                     {sessionData.whatsapp_username}
+                     {adminWhatsapp}
                    </span>
                 </div>
               </a>
