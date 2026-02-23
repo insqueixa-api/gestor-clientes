@@ -13,7 +13,7 @@ import type { ServerRow } from "../page";
 type MovementRow = {
   id: string;
   happened_at: string;
-  kind: "PURCHASE" | "DIRECT_SALE" | "RESELLER_SALE" | "CLIENT_USAGE";
+  kind: "PURCHASE" | "RESELLER_SALE";
   qty_credits: number;
   total_brl: number;
   unit_price: number;
@@ -138,18 +138,19 @@ const supabase = supabaseBrowser;
 
   // --- Métricas Calculadas ---
   const metrics = useMemo(() => {
-    const sales = movements.filter(m => m.kind === 'DIRECT_SALE' || m.kind === 'RESELLER_SALE');
+    const sales = movements.filter(m => m.kind === 'RESELLER_SALE');
     const purchases = movements.filter(m => m.kind === 'PURCHASE');
 
     const totalRevenue = sales.reduce((acc, m) => acc + (m.total_brl || 0), 0);
     const totalRestockCost = purchases.reduce((acc, m) => acc + (m.total_brl || 0), 0);
     const creditsSold = sales.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
     
-    const unitCostBase = server?.credit_unit_cost_brl ?? server?.default_credit_unit_price ?? 0; 
+    const unitCostBase = Number(server?.credit_unit_cost_brl ?? 0);
     
     const estimatedProfit = totalRevenue - (creditsSold * unitCostBase);
 
-    const clientMoves = movements.filter(m => m.kind === 'DIRECT_SALE');
+// DIRECT_SALE não existe na vw_server_movements — vendas diretas a clientes não geram movimentação de servidor
+    const clientMoves: MovementRow[] = [];
     const clientRevenue = clientMoves.reduce((acc, m) => acc + (m.total_brl || 0), 0);
     const clientCredits = clientMoves.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
 
@@ -344,10 +345,10 @@ const supabase = supabaseBrowser;
                       <td className="px-5 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm ${
                            m.kind === 'PURCHASE' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 
-                           m.kind === 'CLIENT_USAGE' ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' :
+                           
                            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                         }`}>
-                          {m.kind === 'PURCHASE' ? 'Recarga' : m.kind === 'DIRECT_SALE' ? 'venda cliente' : m.kind === 'RESELLER_SALE' ? 'venda revenda' : 'consumo cliente'}
+                          {m.kind === 'PURCHASE' ? 'Recarga' : m.kind === 'RESELLER_SALE' ? 'Venda revenda' : m.kind}
                         </span>
                       </td>
                       <td className="px-5 py-3 font-bold text-center group-hover:text-emerald-500 transition-colors">{m.qty_credits}</td>
