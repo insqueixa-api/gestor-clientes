@@ -3,6 +3,7 @@
 import { useMemo, useState, useActionState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { loginAction, type LoginState } from "./actions";
+import { Turnstile } from '@marsidev/react-turnstile'; // ✅ Import do Turnstile adicionado
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +19,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [msg, setMsg] = useState<string | null>(null);
+const [msg, setMsg] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null); // ✅ Novo Estado do Turnstile
 
   const initialState: LoginState = {};
   const [state, formAction, pending] = useActionState(loginAction, initialState);
@@ -26,8 +28,8 @@ export default function LoginPage() {
   const canSubmit = useMemo(() => {
     if (!isLikelyEmail(email)) return false;
     if (mode === "reset") return true;
-    return password.length >= 6;
-  }, [email, password, mode]);
+    return password.length >= 6 && turnstileToken !== null; // ✅ Exige o token do Turnstile
+  }, [email, password, mode, turnstileToken]);
 
   async function onReset(e: React.FormEvent) {
     e.preventDefault();
@@ -59,7 +61,7 @@ export default function LoginPage() {
       : "Acesse o painel gerenciador.";
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-6 py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
       {/* Fundo com gradiente + glow */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
@@ -78,19 +80,19 @@ export default function LoginPage() {
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10">
+        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
           {/* Header */}
-          <div className="px-8 pt-8 pb-6 text-center">
+          <div className="px-5 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
               <img
                 src="/brand/logo-full-light.png"
                 alt="UniGestor"
-                className="h-12 w-auto select-none"
+                className="h-10 w-auto select-none"
                 draggable={false}
               />
             </div>
 
-            <h1 className="mt-5 text-2xl font-semibold text-slate-800 dark:text-white">
+            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white">
               {title}
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
@@ -98,8 +100,8 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="px-8">
+        {/* Tabs */}
+          <div className="px-5 sm:px-8">
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-black/20">
               <button
                 type="button"
@@ -135,8 +137,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Form */}
-          <div className="px-8 pt-6 pb-8">
+        {/* Form */}
+          <div className="px-5 sm:px-8 pt-5 pb-6">
             {mode === "login" ? (
               <form action={formAction} className="space-y-4">
                 <div>
@@ -167,6 +169,18 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
+                </div>
+
+                {/* === VALIDADOR HUMANO CLOUDFLARE === */}
+                <div className="flex justify-center pt-2">
+                  <Turnstile 
+                    siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onError={() => setTurnstileToken(null)}
+                    onExpire={() => setTurnstileToken(null)}
+                  />
+                  {/* O input oculto envia o token para a Server Action capturar com formData.get('cf-turnstile-response') */}
+                  <input type="hidden" name="cf-turnstile-response" value={turnstileToken || ""} />
                 </div>
 
                 <button
