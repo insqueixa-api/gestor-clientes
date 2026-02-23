@@ -164,10 +164,11 @@ type ClientDetail = {
   m3u_url: string | null;
   
 
-  // extras úteis para o modal editar
+// extras úteis para o modal editar
   server_password?: string | null;
 
-  
+  // ✅ NOVO
+  created_at: string | null;
 };
 
 type TimelineItem = {
@@ -270,16 +271,20 @@ let finalTableName: string | null = null;
 // ✅ M3U
 let dbM3uUrl: string | null = null;
 
+// ✅ Data de Cadastro
+let dbCreatedAt: string | null = null;
+
 try {
   // 1) pega ID da tabela e notes direto da tabela clients
   const c = await supabaseBrowser
   .from("clients")
-  .select("plan_table_id, notes, price_currency, m3u_url")
+  .select("plan_table_id, notes, price_currency, m3u_url, created_at") // ✅ ADICIONADO created_at
   .eq("tenant_id", tid)
   .eq("id", clientIdSafe)
   .maybeSingle();
 
 if (!c.error && c.data) {
+  dbCreatedAt = (c.data as any).created_at ?? null; // ✅ SALVA A DATA
   dbPlanTableId = (c.data as any).plan_table_id ?? null;
 
   const n = (c.data as any).notes;
@@ -351,10 +356,11 @@ plan_table_name: finalTableName ?? null,
 
         notes: (dbNotes ?? row.notes ?? "") as any,
 
-  // ✅ M3U vindo da fonte da verdade (clients)
+// ✅ M3U vindo da fonte da verdade (clients)
   m3u_url: dbM3uUrl ?? null,
 
         server_password: row.server_password ?? null,
+        created_at: dbCreatedAt ?? (row as any).created_at ?? null, // ✅ ADICIONADO AQUI
       };
 
       // ✅ BUSCA REAL: Vencimento dos Apps (Suportando múltiplas instâncias e IDs dinâmicos)
@@ -718,6 +724,15 @@ const handleDeleteForever = async () => {
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">Contatos e observações</h3>
 
             <div className="space-y-3 text-sm">
+              {/* ✅ INÍCIO: DATA DO CADASTRO */}
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
+                <span className="text-slate-500 dark:text-white/40 font-medium">Data do Cadastro</span>
+                <span className="font-mono text-slate-800 dark:text-white text-right">
+                  {client.created_at ? new Date(client.created_at).toLocaleDateString("pt-BR") : "—"}
+                </span>
+              </div>
+              {/* ✅ FIM: DATA DO CADASTRO */}
+
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
                 <span className="text-slate-500 dark:text-white/40 font-medium">Nome do Cliente</span>
                 <span className="font-bold text-slate-800 dark:text-white text-right">{client.client_name}</span>
