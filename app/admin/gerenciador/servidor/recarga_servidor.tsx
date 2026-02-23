@@ -122,14 +122,23 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
 
         // 2) Sincroniza saldo real do painel
         const provider = String(server.panel_integration_provider || "").toUpperCase();
-        const syncUrl = provider === "FAST"
-          ? "/api/integrations/fast/sync"
-          : "/api/integrations/natv/sync";
+        
+        let syncUrl = "";
+        if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
+        else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
+        else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync";
+
+        if (!syncUrl) {
+          throw new Error(`Provedor não suportado para sincronização: ${provider}`);
+        }
 
         const syncRes = await fetch(syncUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ integration_id: server.panel_integration }),
+          body: JSON.stringify({ 
+            integration_id: server.panel_integration,
+            tenant_id: tenantId // ✅ Passando o tenant_id, assim como na lista de servidores
+          }),
         });
 
         const syncJson = await syncRes.json().catch(() => ({}));

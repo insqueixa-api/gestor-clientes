@@ -68,7 +68,25 @@ const supabase = supabaseBrowser;
           .single();
 
         if (sErr) throw sErr;
-        setServer(sData as ServerRow);
+        
+        let serverObj = { ...sData } as any;
+
+        // ✅ Busca os dados da integração para injetar no objeto (necessário para o modal)
+        if (serverObj.panel_integration) {
+          const { data: integData } = await supabase
+            .from("vw_server_integrations")
+            .select("integration_name, provider, is_active")
+            .eq("id", serverObj.panel_integration)
+            .maybeSingle();
+
+          if (integData) {
+            serverObj.panel_integration_name = integData.integration_name;
+            serverObj.panel_integration_provider = integData.provider;
+            serverObj.panel_integration_active = integData.is_active;
+          }
+        }
+
+        setServer(serverObj as ServerRow);
 
         // 2. Movimentações
         const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).toISOString();
