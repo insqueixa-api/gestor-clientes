@@ -77,12 +77,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ✅ BUSCA O WHATSAPP DO DONO DO SISTEMA COM PERMISSÃO DE ADMIN (Bypassa o RLS)
+    let admin_whatsapp = null;
+    try {
+      const { data: memberData } = await supabaseAdmin
+        .from("tenant_members")
+        .select("user_id")
+        .eq("tenant_id", data.tenant_id)
+        .eq("role", "owner")
+        .limit(1);
+
+      if (memberData && memberData.length > 0) {
+        const { data: profileData } = await supabaseAdmin
+          .from("profiles")
+          .select("whatsapp_username")
+          .eq("id", memberData[0].user_id)
+          .limit(1);
+
+        if (profileData && profileData.length > 0) {
+          admin_whatsapp = profileData[0].whatsapp_username;
+        }
+      }
+    } catch (e) {
+      safeServerLog("validate-session: falha ao buscar whatsapp do admin");
+    }
+
     return NextResponse.json(
       {
         ok: true,
         data: {
           tenant_id: data.tenant_id,
           whatsapp_username: data.whatsapp_username,
+          admin_whatsapp: admin_whatsapp, // ✅ Devolve para o Frontend
         },
       },
       { status: 200, headers: NO_STORE_HEADERS }
