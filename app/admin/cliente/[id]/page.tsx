@@ -181,7 +181,7 @@ type TimelineItem = {
 
 export default function ClientDetailsPage() {
 const params = useParams();
-const { confirm } = useConfirm();
+const { confirm, ConfirmUI } = useConfirm(); // ✅ ADICIONADO ConfirmUI
 
 // ✅ aceita /[id] ou /[client_id] ou /[clientId] ou /[clienteId]
 const p = params as any;
@@ -357,21 +357,35 @@ plan_table_name: finalTableName ?? null,
         server_password: row.server_password ?? null,
       };
 
-      // ✅ BUSCA REAL: Vencimento dos Apps (Suportando múltiplas instâncias)
+      // ✅ BUSCA REAL: Vencimento dos Apps (Suportando múltiplas instâncias e IDs dinâmicos)
       const { data: appsData } = await supabaseBrowser
         .from("client_apps")
-        .select("id, field_values, apps (name)") // ✅ ADICIONADO 'id' para ter uma chave única real
+        .select("id, field_values, apps (name, fields_config)") // ✅ Puxa a config para descobrir o ID do campo data
         .eq("client_id", mapped.id);
 
       if (appsData) {
         (mapped as any).apps_details = appsData.map((item: any) => {
            const vals = item.field_values || {};
+           const config = item.apps?.fields_config || [];
            
-           // ✅ Busca chaves com fallback para case-insensitive
-           const expiration = vals["Vencimento"] || vals["vencimento"] || vals["VENCIMENTO"] || null;
+           let expiration = vals["Vencimento"] || vals["vencimento"] || vals["VENCIMENTO"] || null;
+
+           // 1. Se não achou pelo nome fixo, procura qual campo na configuração é do tipo "date"
+           if (!expiration) {
+              const dateField = config.find((f: any) => f.type === 'date' || /vencimento/i.test(f.label));
+              if (dateField) {
+                 expiration = vals[dateField.id] || vals[dateField.label] || null;
+              }
+           }
+           
+           // 2. Fallback extremo: procura qualquer valor salvo que tenha formato de data (YYYY-MM-DD)
+           if (!expiration) {
+              const possibleDate = Object.values(vals).find(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v));
+              if (possibleDate) expiration = possibleDate;
+           }
            
            return {
-             id: item.id, // ID Único da Instância
+             id: item.id, 
              name: item.apps?.name || "App",
              expiration: expiration
            };
@@ -813,7 +827,8 @@ const handleDeleteForever = async () => {
         </div>
       </div>
 
-      {/* --- MODAIS --- */}
+{/* --- MODAIS --- */}
+      {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
 
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (

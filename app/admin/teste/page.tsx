@@ -374,7 +374,8 @@ const [scheduleDate, setScheduleDate] = useState("");
     }
   }
 
-  async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string) {
+  // ✅ Adicionado o 'instanceIndex' na assinatura da função
+  async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string, instanceIndex: number = 0) {
     const raw = String(appNameOrId || "").trim();
     if (!raw) return;
 
@@ -398,11 +399,16 @@ const [scheduleDate, setScheduleDate] = useState("");
         .from("client_apps")
         .select("field_values")
         .eq("client_id", clientId)
-        .eq("app_id", found.id)
-        .limit(1); // ✅ CORREÇÃO: Pega o primeiro e não quebra se tiver vários
+        .eq("app_id", found.id);
+        // ❌ REMOVIDO o .limit(1) para trazer todas as instâncias do cliente
 
-      if (!r.error && r.data && r.data.length > 0) {
-        values = r.data[0].field_values as any;
+      // ✅ Pega a instância correta pelo índice (ou a primeira como fallback)
+      if (!r.error && r.data) {
+        if (r.data.length > instanceIndex) {
+          values = r.data[instanceIndex].field_values as any;
+        } else if (r.data.length > 0) {
+          values = r.data[0].field_values as any;
+        }
       }
     } catch (e) {
       console.error("Falha ao buscar client_apps.field_values:", e);
@@ -1097,7 +1103,8 @@ onClick={(e) => {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openAppConfigModal(r.id, r.name, name);
+                                      // ✅ Passando o 'idx' (instanceIndex) para abrir os dados corretos!
+                                      openAppConfigModal(r.id, r.name, name, idx); 
                                     }}
                                     className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                                     title="Ver configuração do app"

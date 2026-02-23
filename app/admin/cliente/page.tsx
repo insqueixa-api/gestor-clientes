@@ -698,7 +698,8 @@ function isUuidLike(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
-async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string) {
+// ✅ Adicionado o 'instanceIndex' na assinatura da função
+async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string, instanceIndex: number = 0) {
   if (!tenantId) return;
 
   const key = String(appNameOrId ?? "").trim();
@@ -734,13 +735,13 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
       .select("field_values")
       .eq("tenant_id", tenantId)
       .eq("client_id", clientId)
-      .eq("app_id", String(app.id))
-      .limit(1); // ✅ CORREÇÃO: Limita a 1 registro em vez de exigir que seja único
+      .eq("app_id", String(app.id));
+      // ❌ REMOVIDO o .maybeSingle() daqui!
 
     if (error) throw error;
 
-    // Pega o primeiro registro encontrado (se existir)
-    const fieldValues = data && data.length > 0 ? data[0].field_values || {} : {};
+    // ✅ Pega o app certo baseado na ordem (Sala = 0, Quarto = 1)
+    const fieldValues = data && data.length > instanceIndex ? data[instanceIndex].field_values || {} : (data?.[0]?.field_values || {});
 
     const next: Record<string, string> = {};
     const fields = Array.isArray(app.fields_config) ? app.fields_config : [];
@@ -1984,17 +1985,15 @@ return (
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
                           <button
-                          key={i}
+                          key={`${app}-${i}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openAppConfigModal(r.id, r.name, app);
+                            openAppConfigModal(r.id, r.name, app, i); // ✅ Passando a letra 'i' aqui!
                           }}
                           className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
                         >
                           {app}
                         </button>
-
-
                             ))
                           ) : (
                             <span className="text-slate-300 dark:text-white/10 text-xs">—</span>
