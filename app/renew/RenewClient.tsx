@@ -975,17 +975,24 @@ if (fulfillment === "done") {
 
             {/* Ações (Direita) */}
             <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-              {sessionData?.whatsapp_username && (
-                <a 
-                  href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[#25D366] hover:scale-110 transition-transform"
-                  title="Suporte via WhatsApp"
-                >
-                  <IconWhatsapp />
-                </a>
-              )}
+              {/* ✅ Suporte do Sistema (Abre conversa com o Admin/Tenant) */}
+            {sessionData?.whatsapp_username && (
+              <a 
+                href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}?text=Olá,%20preciso%20de%20ajuda%20com%20minha%20assinatura!`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-[#25D366] hover:opacity-80 transition-opacity"
+                title="Fale com o Suporte"
+              >
+                <IconWhatsapp />
+                <div className="hidden sm:flex flex-col">
+                   <span className="text-[9px] uppercase tracking-wider text-white/50 leading-none">Suporte</span>
+                   <span className="text-xs font-bold tracking-wide leading-none mt-0.5">
+                     {sessionData.whatsapp_username}
+                   </span>
+                </div>
+              </a>
+            )}
               
               <button 
                 onClick={() => { clearStoredSession(); window.location.reload(); }}
@@ -1286,7 +1293,7 @@ if (fulfillment === "done") {
                                   <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
                                 </div>
                                 <span className="font-bold text-slate-800 dark:text-white">
-                                  {PERIOD_LABELS[selectedPrice.period]} <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400 uppercase tracking-wider ml-1">(Oferta Escolhida)</span>
+                                  {PERIOD_LABELS[selectedPrice.period]} <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400 tracking-wider ml-1">(Selecionado)</span>
                                 </span>
                               </div>
                             </div>
