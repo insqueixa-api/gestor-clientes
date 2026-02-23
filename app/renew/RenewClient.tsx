@@ -945,7 +945,7 @@ if (fulfillment === "done") {
         
         {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
         <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-          <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+          <div className="max-w-2xl max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
             
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
