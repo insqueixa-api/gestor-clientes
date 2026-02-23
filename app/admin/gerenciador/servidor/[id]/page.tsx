@@ -145,7 +145,7 @@ const supabase = supabaseBrowser;
     const totalRestockCost = purchases.reduce((acc, m) => acc + (m.total_brl || 0), 0);
     const creditsSold = sales.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
     
-    const unitCostBase = Number(server?.credit_unit_cost_brl ?? 0);
+    const unitCostBase = Number(server?.avg_credit_cost_brl ?? 0);
     
     const estimatedProfit = totalRevenue - (creditsSold * unitCostBase);
 
