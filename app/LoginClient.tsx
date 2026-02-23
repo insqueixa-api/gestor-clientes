@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -113,13 +114,15 @@ export default function LoginClient() {
 
   const [loadingResolve, setLoadingResolve] = useState(false);
   const [loadingLogin, setLoadingLogin] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [loadingReset, setLoadingReset] = useState(false);
 
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
 
-  const canSubmit = useMemo(() => {
-    return (token ?? "").length > 10 && cleanPhone.length >= 10 && pin.length === 4;
-  }, [token, cleanPhone, pin]);
+const canSubmit = useMemo(() => {
+    // ✅ Agora ele só libera o botão se tiver o token do Cloudflare também
+    return (token ?? "").length > 10 && cleanPhone.length >= 10 && pin.length === 4 && turnstileToken !== null;
+  }, [token, cleanPhone, pin, turnstileToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,21 +276,21 @@ export default function LoginClient() {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-3xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
-          <div className="px-6 sm:px-8 pt-9 pb-6 text-center">
+        <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
+          <div className="px-5 sm:px-6 pt-6 pb-4 text-center">
             <div className="flex items-center justify-center">
-              <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-11 w-auto select-none" />
+              <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-9 w-auto select-none" />
             </div>
-            <h1 className="mt-6 text-2xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">
+            <h1 className="mt-4 text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">
               Área do Cliente
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
+            <p className="mt-1 text-xs text-slate-500 dark:text-white/60">
               Renovação automática da sua assinatura!
             </p>
           </div>
 
-          <div className="px-6 sm:px-8 pb-10">
-            <form onSubmit={handleAcesso} className="space-y-5">
+          <div className="px-5 sm:px-6 pb-6">
+            <form onSubmit={handleAcesso} autoComplete="off" className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 ml-1">
                   Seu WhatsApp
@@ -298,8 +301,11 @@ export default function LoginClient() {
                     type="text"
                     value={formatWhatsApp(whatsapp)}
                     readOnly
+                    autoComplete="off"
+                    data-1p-ignore="true" 
+                    data-lpignore="true"
                     placeholder={loadingResolve ? "Validando link..." : "—"}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center font-bold text-lg text-slate-900 outline-none transition
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-bold text-base text-slate-900 outline-none transition
                       focus:ring-2 focus:ring-emerald-500/60
                       dark:border-white/10 dark:bg-black/40 dark:text-white"
                   />
@@ -322,12 +328,16 @@ export default function LoginClient() {
                 <input
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  type="password"
+                  type="tel"
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
                   maxLength={4}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   placeholder="••••"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center text-2xl tracking-[0.5em]
+                  style={{ WebkitTextSecurity: "disc" } as any}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xl tracking-[0.5em]
                     text-slate-900 outline-none transition focus:ring-2 focus:ring-emerald-500/60
                     dark:border-white/10 dark:bg-black/40 dark:text-white"
                 />
@@ -340,11 +350,23 @@ export default function LoginClient() {
                 )}
               </div>
 
+{/* === VALIDADOR HUMANO CLOUDFLARE === */}
+              <div className="flex justify-center pt-2">
+                <Turnstile 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+              </div>
+
+
               <div className="space-y-3">
-                <button
+                
+<button
                   type="submit"
                   disabled={!canSubmit || loadingResolve || loadingLogin}
-                  className={`w-full rounded-2xl py-4 font-bold text-lg transition shadow-lg ${
+                  className={`w-full rounded-xl py-3 font-bold text-base transition shadow-lg ${
                     !canSubmit || loadingResolve || loadingLogin
                       ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/10"
                       : "bg-emerald-600 text-white hover:bg-emerald-500 active:scale-95 shadow-emerald-500/20"
