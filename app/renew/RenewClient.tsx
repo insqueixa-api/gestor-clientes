@@ -931,31 +931,57 @@ if (fulfillment === "done") {
     );
   }
 
-  // ========= RENDER: ACCOUNT SELECTOR =========
+ // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0a0f1a] dark:via-[#0d1321] dark:to-[#0f1629] p-4 py-12">
-        <div className="max-w-2xl mx-auto">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+        
+        {/* --- TOPO FIXO (Padrão do Sistema) --- */}
+        <div className="sticky top-0 z-50 bg-[#161b22] border-b border-white/10 shadow-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image src="/brand/logo-full-light.png" alt="UniGestor" width={110} height={36} className="drop-shadow-md" />
+          </div>
           
-          {/* Header com Logo - COM MAIS ESPAÇAMENTO */}
-          <div className="text-center mb-8">
-            {/* Margem inferior da logo aumentada para 'mb-6' */}
-            <div className="mb-6 flex justify-center">
-              <Image src="/brand/logo-full-light.png" alt="UniGestor" width={160} height={54} className="mx-auto drop-shadow-md" />
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:block text-right">
+              <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold">Logado como</p>
+              <p className="text-sm font-bold text-white truncate max-w-[150px]">{accounts[0]?.display_name}</p>
             </div>
+            
+            {sessionData?.whatsapp_username && (
+              <a 
+                href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#25D366] hover:scale-110 transition-transform"
+                title="Suporte via WhatsApp"
+              >
+                <IconWhatsapp />
+              </a>
+            )}
+            
+            <button 
+              onClick={() => { clearStoredSession(); window.location.reload(); }}
+              className="text-white/50 hover:text-rose-500 transition-colors"
+              title="Sair"
+            >
+              <IconLogout />
+            </button>
+          </div>
+        </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2 tracking-tight">
-              Olá, {accounts[0]?.display_name?.split(" ")[0]}! 👋
+        <div className="max-w-2xl mx-auto p-4 py-6">
+          
+          <div className="mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+              {getGreeting()}, {accounts[0]?.display_name?.split(" ")[0]}! 👋
             </h1>
-            <p className="text-lg font-medium text-blue-600 dark:text-blue-400 mb-2">{getGreeting()}!</p>
-            <p className="text-slate-500 dark:text-white/60 text-sm">Selecione a conta que deseja gerenciar abaixo.</p>
+            <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Qual conta você deseja gerenciar hoje?</p>
           </div>
 
           {/* ---------------------------------------------------------------------------------------------------- */}
           {/* INÍCIO DO HTML DA BUSCA */}
-          {/* Pode deletar esta div inteira quando for remover a funcionalidade de busca */}
-          {/* ---------------------------------------------------------------------------------------------------- */}
           {accounts.length > 3 && (
             <div className="mb-6 relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
@@ -964,26 +990,17 @@ if (fulfillment === "done") {
                 placeholder="Buscar conta por nome ou usuário..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-14 pl-12 pr-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                className="w-full h-12 pl-12 pr-4 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
               />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
-                >
-                  ✕
-                </button>
-              )}
             </div>
           )}
-          {/* ---------------------------------------------------------------------------------------------------- */}
           {/* TÉRMINO DO HTML DA BUSCA */}
           {/* ---------------------------------------------------------------------------------------------------- */}
 
-          {/* Lista de Contas */}
+          {/* Lista de Contas (NOVO LAYOUT 3 LINHAS) */}
           <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-300 dark:border-white/10">
+              <div className="text-center py-8 text-slate-400 bg-white/50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
                 Nenhuma conta encontrada com esse nome.
               </div>
             ) : (
@@ -993,43 +1010,47 @@ if (fulfillment === "done") {
                   <button
                     key={account.id}
                     onClick={() => handleSelectAccount(account.id)}
-                    className="w-full text-left bg-white dark:bg-[#161b22] rounded-2xl p-5 border-2 border-transparent hover:border-blue-500 dark:border-white/5 dark:hover:border-blue-500 transition-all shadow-md hover:shadow-xl group"
+                    className="w-full text-left bg-white dark:bg-[#161b22] rounded-xl p-4 border border-slate-200 hover:border-blue-500 dark:border-white/10 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">
-                            {account.display_name}
-                          </h3>
-                          {account.is_trial && (
-                            <span className="shrink-0 px-2 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[10px] font-bold rounded uppercase tracking-wider">
-                              TESTE
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-slate-500 dark:text-white/60 mb-1 truncate">
-                          {account.server_name} <span className="mx-1 opacity-50">•</span> {account.screens} tela{account.screens > 1 ? "s" : ""}
-                        </p>
-                        <p className="text-xs font-mono text-slate-400 dark:text-white/40 truncate">
-                          {account.server_username}
-                        </p>
+                    {/* Linha 1: Nome + Username */}
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white truncate pr-2 flex items-center gap-2">
+                        {account.display_name}
+                        {account.is_trial && (
+                          <span className="px-1.5 py-0.5 bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[9px] font-bold rounded uppercase tracking-wider">
+                            TESTE
+                          </span>
+                        )}
+                      </h3>
+                      {/* Usuário com a mesma fonte da badge de plano (uppercase tracking-wider) */}
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded">
+                        {account.server_username}
+                      </span>
+                    </div>
+
+                    {/* Linha 2: Servidor/Telas + Plano */}
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
+                        {account.server_name} <span className="mx-1 opacity-50">•</span> {account.screens} tela{account.screens > 1 ? "s" : ""}
+                      </p>
+                      <div className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
+                        {account.plan_label}
                       </div>
-                      
-                      <div className="text-right shrink-0">
-                        <div className={`text-sm font-bold mb-1.5 ${time?.expired ? "text-rose-500" : "text-emerald-500"}`}>
-                          {time?.text}
-                        </div>
-                        <div className="inline-block px-2.5 py-1 bg-slate-50 dark:bg-black/20 rounded-md text-xs font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider border border-slate-100 dark:border-white/5">
-                          {account.plan_label}
-                        </div>
-                      </div>
+                    </div>
+
+                    {/* Linha 3: Vencimento Centralizado */}
+                    <div className={`w-full text-center py-2 rounded-lg border ${
+                      time?.expired 
+                        ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400" 
+                        : "bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+                    }`}>
+                      <span className="text-sm font-bold block">{time?.text}</span>
                     </div>
                   </button>
                 );
               })
             )}
           </div>
-
         </div>
       </div>
     );
@@ -1050,92 +1071,107 @@ if (fulfillment === "done") {
   if (!selectedAccount) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-4 px-0 sm:px-4">
-        {/* Header com Logo */}
-        <div className="text-center mb-6">
-          <Image src="/brand/logo-full-light.png" alt="UniGestor" width={130} height={44} className="mx-auto" />
-        </div>
-
-        {/* Saudação */}
-        <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-xl overflow-hidden">
-          {/* Decoração de fundo */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8" />
-
-          <div className="relative">
-            <p className="text-blue-200 text-sm font-medium mb-1">{getGreeting()}! 👋</p>
-            <h1 className="text-2xl font-bold mb-3">{selectedAccount.display_name}</h1>
-
-            {/* Status badge */}
-            <div className="flex justify-center">
-              {timeRemaining?.expired ? (
-                <div className="inline-flex items-center gap-2 bg-red-500/30 border border-red-400/30 px-3 py-1.5 rounded-lg">
-                  <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
-                  <span className="text-sm font-bold text-red-100">{timeRemaining.text}</span>
-                </div>
-              ) : selectedAccount.is_trial ? (
-                <div className="inline-flex items-center gap-2 bg-sky-500/30 border border-sky-400/30 px-3 py-1.5 rounded-lg">
-                  <span className="w-2 h-2 bg-sky-300 rounded-full animate-pulse" />
-                  <span className="text-sm font-bold text-sky-100">Período de Teste — {timeRemaining?.text}</span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-2 bg-emerald-500/30 border border-emerald-400/30 px-3 py-1.5 rounded-lg">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full" />
-                  <span className="text-sm font-bold text-emerald-100">{timeRemaining?.text}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Botão Voltar (se tem múltiplas contas) */}
-        {accounts.length > 1 && (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+      
+      {/* --- TOPO FIXO (Padrão do Sistema) --- */}
+      <div className="sticky top-0 z-50 bg-[#161b22] border-b border-white/10 shadow-lg px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setSelectedAccountId(null)}
-            className="flex items-center gap-2 text-sm text-slate-600 dark:text-white/60 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="w-8 h-8 flex items-center justify-center bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
+            title="Voltar"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Trocar de conta
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
-        )}
+          <Image src="/brand/logo-full-light.png" alt="UniGestor" width={110} height={36} className="drop-shadow-md" />
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:block text-right">
+            <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold">Logado como</p>
+            <p className="text-sm font-bold text-white truncate max-w-[150px]">{selectedAccount.display_name}</p>
+          </div>
+          
+          {sessionData?.whatsapp_username && (
+            <a 
+              href={`https://wa.me/${sessionData.whatsapp_username.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#25D366] hover:scale-110 transition-transform"
+              title="Suporte via WhatsApp"
+            >
+              <IconWhatsapp />
+            </a>
+          )}
+          
+          <button 
+            onClick={() => { clearStoredSession(); window.location.reload(); }}
+            className="text-white/50 hover:text-rose-500 transition-colors"
+            title="Sair"
+          >
+            <IconLogout />
+          </button>
+        </div>
+      </div>
 
-        {/* Card de Dados */}
-        <div className="bg-white dark:bg-[#161b22] rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-white/5 dark:to-blue-500/5 px-6 py-4 border-b border-slate-200 dark:border-white/10">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">📺 Dados de Acesso</h2>
+      <div className="max-w-2xl mx-auto space-y-4 p-4 pt-6">
+        
+        {/* Vencimento Centralizado no Topo (Substitui o Card Azul) */}
+        <div className={`w-full text-center py-4 rounded-xl border-2 shadow-sm animate-in fade-in zoom-in duration-500 ${
+            timeRemaining?.expired 
+              ? "bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" 
+              : selectedAccount.is_trial
+                ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30"
+                : "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30"
+          }`}>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Status da Assinatura</p>
+            <div className="flex items-center justify-center gap-2">
+               {/* Bolinha pulsante */}
+               <span className={`w-3 h-3 rounded-full animate-pulse ${
+                 timeRemaining?.expired ? "bg-rose-500" : selectedAccount.is_trial ? "bg-sky-500" : "bg-emerald-500"
+               }`} />
+               <span className={`text-lg sm:text-xl font-black tracking-tight ${
+                 timeRemaining?.expired ? "text-rose-600 dark:text-rose-400" : selectedAccount.is_trial ? "text-sky-600 dark:text-sky-400" : "text-emerald-600 dark:text-emerald-400"
+               }`}>
+                 {selectedAccount.is_trial && "Teste • "}{timeRemaining?.text}
+               </span>
+            </div>
+        </div>
+
+        {/* Card de Dados de Acesso */}
+        <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
+          <div className="bg-slate-50 dark:bg-white/5 px-4 py-3 border-b border-slate-200 dark:border-white/10">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">📺 Dados de Acesso</h2>
           </div>
 
-          <div className="p-3 space-y-2">
-            {/* Linha 1: Usuário (grande) + Servidor (pequeno) */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
+          <div className="p-4 space-y-3">
+            {/* Linha 1: Usuário + Servidor */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Usuário</label>
-                <div className="text-sm font-mono text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">
+                <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
                   {selectedAccount.server_username}
                 </div>
               </div>
-              <div className="col-span-1">
+              <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Servidor</label>
-                <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">
+                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
                   {selectedAccount.server_name}
                 </div>
               </div>
             </div>
 
-            {/* Linha 2: Vencimento (grande) + Telas (pequeno) */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento</label>
-                <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+            {/* Linha 2: Vencimento Exato + Telas */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento em</label>
+                <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
                   {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
-              <div className="col-span-1">
+              <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Telas</label>
-                <div className="text-sm font-bold text-slate-800 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
                   {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
               </div>
@@ -1144,21 +1180,18 @@ if (fulfillment === "done") {
         </div>
 
         {/* Seção de Planos */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 border-b border-slate-200">
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">💰 Planos</h2>
+        <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
+          <div className="bg-slate-50 dark:bg-white/5 px-4 py-3 border-b border-slate-200 dark:border-white/10">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">💰 Escolha o Plano</h2>
           </div>
 
           <div className="p-4 space-y-3">
-{/* Plano Atual */}
+            {/* Plano Atual */}
             {(() => {
-              // ✅ Tenta achar o plano atual. Se o backend cortou (ex: Anual na Elite), ele ignora para não quebrar.
               const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
-              
-              // Se o plano atual não estiver disponível para renovação (ex: Elite cortou o anual), não renderiza o botão "Atual" vazio.
               if (!currentPrice) return null;
 
-              // Verifica se o selecionado é o plano atual
+              // Verifica se o plano atual está selecionado (ou se ele fechou a aba com outro selecionado, ele sai do estilo "ativo")
               const isSelected = selectedPeriod === currentPrice.period;
 
               return (
@@ -1166,43 +1199,24 @@ if (fulfillment === "done") {
                   onClick={() => currentPrice && setSelectedPeriod(currentPrice.period)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                     isSelected
-                      ? "border-blue-500 bg-blue-50" // Selecionado: Azul forte
-                      : "border-slate-200 hover:border-blue-300" // Não selecionado: Cinza com hover azul
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" 
+                      : "border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* BOLINHA DE SELEÇÃO (Igual às ofertas) */}
-                        <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            isSelected ? "border-blue-500 bg-blue-500" : "border-slate-300"
-                          }`}
-                        >
-                          {isSelected && (
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-blue-500 bg-blue-500" : "border-slate-300 dark:border-white/30"}`}>
+                          {isSelected && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
                         </div>
-
-                        {/* Texto do Plano */}
-                        <span className="font-bold text-slate-800">
-                          {selectedAccount.plan_label} <span className="text-xs font-normal text-blue-600 uppercase tracking-wider ml-1">(Atual)</span>
+                        <span className="font-bold text-slate-800 dark:text-white">
+                          {selectedAccount.plan_label} <span className="text-xs font-normal text-blue-600 dark:text-blue-400 uppercase tracking-wider ml-1">(Atual)</span>
                         </span>
                       </div>
                     </div>
-
-                    {/* Preço */}
                     <div className="text-right ml-2">
-                      <div className={`text-lg font-bold ${isSelected ? "text-blue-600" : "text-slate-500"}`}>
-                        {currentPrice && currentPrice.price_amount > 0
-                          ? formatMoney(currentPrice.price_amount, selectedAccount.price_currency)
-                          : "—"}
+                      <div className={`text-lg font-bold ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-white/60"}`}>
+                        {currentPrice.price_amount > 0 ? formatMoney(currentPrice.price_amount, selectedAccount.price_currency) : "—"}
                       </div>
                     </div>
                   </div>
@@ -1210,18 +1224,50 @@ if (fulfillment === "done") {
               );
             })()}
 
+            {/* ✅ SEGREDO: Mostra a oferta selecionada (se não for a atual) e se a sanfona estiver fechada! */}
+            {(() => {
+                const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+                const isSelectedNotCurrent = selectedPeriod !== currentPrice?.period;
+                
+                if (!showOtherPlans && isSelectedNotCurrent && selectedPrice) {
+                    return (
+                        <button
+                          onClick={() => setShowOtherPlans(true)} // Ao clicar, reabre a sanfona
+                          className="w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 transition-all animate-in slide-in-from-top-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="w-5 h-5 rounded-full border-2 border-emerald-500 bg-emerald-500 flex items-center justify-center shrink-0">
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                </div>
+                                <span className="font-bold text-slate-800 dark:text-white">
+                                  {PERIOD_LABELS[selectedPrice.period]} <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400 uppercase tracking-wider ml-1">(Oferta Escolhida)</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right ml-2">
+                              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                                {selectedPrice.price_amount > 0 ? formatMoney(selectedPrice.price_amount, selectedAccount.price_currency) : "—"}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                    );
+                }
+                return null;
+            })()}
+
             {/* Botão Ofertas */}
             {availablePrices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
               <button
                 onClick={() => setShowOtherPlans(!showOtherPlans)}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-orange-200"
+                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 text-slate-600 dark:text-white/70 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
               >
-                🏷️ {showOtherPlans ? "Fechar Ofertas" : "Ver Ofertas Disponíveis"}
+                🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Ver Mais Ofertas"}
                 <svg
                   className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -1230,34 +1276,24 @@ if (fulfillment === "done") {
 
             {/* Planos Disponíveis (expandível) */}
             {showOtherPlans && (
-              <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Planos Disponíveis</p>
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider px-1">Todas as Opções</p>
                 {availablePrices
                   .filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label)
                   .map((price) => {
                     const months = PERIOD_MONTHS[price.period];
                     const currentMonthlyEquiv = (() => {
                       const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
-                      
-                      // ✅ Se o plano atual não existe mais (ex: era Anual e foi travado), 
-                      // comparamos com o plano MENSAL padrão (se existir) para gerar o selo de desconto.
                       if (!currentPrice) {
                          const baseMonthly = availablePrices.find(p => p.period === "MONTHLY");
                          return baseMonthly ? baseMonthly.price_amount : 0;
                       }
-
-                      const currentMonths =
-                        PERIOD_MONTHS[
-                          Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"
-                        ] || 1;
+                      const currentMonths = PERIOD_MONTHS[Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"] || 1;
                       return currentPrice.price_amount / currentMonths;
                     })();
 
                     const thisMonthlyEquiv = price.price_amount / months;
-                    const diffPercent =
-                      currentMonthlyEquiv > 0
-                        ? Math.round(((thisMonthlyEquiv - currentMonthlyEquiv) / currentMonthlyEquiv) * 100 * 10) / 10
-                        : 0;
+                    const diffPercent = currentMonthlyEquiv > 0 ? Math.round(((thisMonthlyEquiv - currentMonthlyEquiv) / currentMonthlyEquiv) * 100 * 10) / 10 : 0;
 
                     const isSelected = selectedPeriod === price.period;
                     const isCheaper = diffPercent < 0;
@@ -1267,46 +1303,28 @@ if (fulfillment === "done") {
                         key={price.period}
                         onClick={() => setSelectedPeriod(price.period)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          isSelected ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:border-emerald-300"
+                          isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/50"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                  isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300"
-                                }`}
-                              >
-                                {isSelected && (
-                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                )}
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-slate-300 dark:border-white/30"}`}>
+                                {isSelected && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
                               </div>
-                              <span className="font-bold text-slate-800">{PERIOD_LABELS[price.period]}</span>
+                              <span className="font-bold text-slate-800 dark:text-white">{PERIOD_LABELS[price.period]}</span>
                               {diffPercent !== 0 && price.price_amount > 0 && (
-                                <span
-                                  className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                                    isCheaper ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"
-                                  }`}
-                                >
-                                  {isCheaper ? `${Math.abs(diffPercent)}% mais barato/mês` : `+${diffPercent}% por mês`}
+                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${isCheaper ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400"}`}>
+                                  {isCheaper ? `${Math.abs(diffPercent)}% off` : `+${diffPercent}%`}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500 mt-1 ml-7">
-                              {price.price_amount > 0
-                                ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês`
-                                : "—"}
+                            <p className="text-xs text-slate-500 dark:text-white/50 mt-1 ml-7">
+                              {price.price_amount > 0 ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês` : "—"}
                             </p>
                           </div>
                           <div className="text-right ml-2">
-                            <div className="text-lg font-bold text-slate-800">
+                            <div className="text-lg font-bold text-slate-800 dark:text-white">
                               {price.price_amount > 0 ? formatMoney(price.price_amount, selectedAccount.price_currency) : "—"}
                             </div>
                           </div>
@@ -1320,23 +1338,15 @@ if (fulfillment === "done") {
         </div>
 
         {(() => {
-          // Usa plano selecionado nas ofertas, senão usa o plano atual
-          const renewPrice =
-            selectedPrice && selectedPrice.price_amount > 0
-              ? selectedPrice
-              : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
+          const renewPrice = selectedPrice && selectedPrice.price_amount > 0 ? selectedPrice : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
 
           return (
             <button
               onClick={handleRenew}
               disabled={!renewPrice || !renewPrice.price_amount}
-              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg mt-2"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Renovar Agora •{" "}
-              {renewPrice && renewPrice.price_amount > 0 ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency) : "—"}
+              💸 Concluir Renovação • {renewPrice && renewPrice.price_amount > 0 ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency) : "—"}
             </button>
           );
         })()}
@@ -1347,3 +1357,8 @@ if (fulfillment === "done") {
     </div>
   );
 }
+
+// --- ÍCONES ---
+function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function IconWhatsapp() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>; }
+function IconLogout() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>; }
