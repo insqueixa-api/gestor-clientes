@@ -1014,8 +1014,8 @@ if (fulfillment === "done") {
         </div>
 
         {/* --- CORPO DA PÁGINA --- */}
-        <div className="max-w-2xl mx-auto p-4 py-6">
-          <div className="mb-6">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+          <div className="mb-4 sm:mb-6">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
               {getGreeting()}! 👋
             </h1>
@@ -1024,7 +1024,7 @@ if (fulfillment === "done") {
 
           {/* Busca (Opcional) */}
           {accounts.length > 3 && (
-            <div className="mb-6 relative">
+            <div className="mb-4 sm:mb-6 relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">🔍</span>
               <input
                 type="text"
@@ -1188,11 +1188,11 @@ if (fulfillment === "done") {
         </div>
       </div>
 
-      {/* --- CORPO DA PÁGINA --- */}
-      <div className="max-w-2xl mx-auto space-y-4 p-4 pt-6">
+{/* --- CORPO DA PÁGINA --- */}
+      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 px-3 sm:px-4 py-4 sm:py-6">
         
         {/* Vencimento Centralizado (Substitui Card Azul) */}
-        <div className={`w-full text-center py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
+        <div className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired 
               ? "bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" 
               : selectedAccount.is_trial
@@ -1214,10 +1214,10 @@ if (fulfillment === "done") {
 
         {/* Card de Dados de Acesso */}
         <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-4 py-3 border-b border-slate-200 dark:border-white/10">
+          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/10">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">📺 Dados de Acesso</h2>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="p-3 sm:p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Usuário</label>
@@ -1249,13 +1249,13 @@ if (fulfillment === "done") {
           </div>
         </div>
 
-        {/* Seção de Planos */}
+{/* Seção de Planos */}
         <div className="bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div className="bg-slate-50 dark:bg-white/5 px-4 py-3 border-b border-slate-200 dark:border-white/10">
+          <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/10">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">💰 Escolha o Plano</h2>
           </div>
 
-          <div className="p-4 space-y-3">
+          <div className="p-3 sm:p-4 space-y-3">
             {/* Plano Atual */}
             {(() => {
               const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
@@ -1405,7 +1405,7 @@ if (fulfillment === "done") {
             <button
               onClick={handleRenew}
               disabled={!renewPrice || !renewPrice.price_amount}
-              className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg mt-2"
+              className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-lg mt-2"
             >
               💸 Concluir Renovação • {renewPrice && renewPrice.price_amount > 0 ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency) : "—"}
             </button>

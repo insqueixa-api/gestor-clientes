@@ -261,7 +261,7 @@ const canSubmit = useMemo(() => {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10 bg-slate-50">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -275,10 +275,10 @@ const canSubmit = useMemo(() => {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
+<div className="relative z-10 w-full max-w-[420px] sm:max-w-md">
         <div className="rounded-2xl border border-white/20 bg-white/85 backdrop-blur-xl shadow-2xl dark:bg-[#161b22]/80 dark:border-white/10 overflow-hidden">
-          {/* pt-4 (celular) / pt-6 (pc) */}
-          <div className="px-5 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 text-center">
+          {/* Reduzido de pt-4 para pt-5 para a logo ficar mais colada em cima */}
+          <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4 text-center">
             <div className="flex items-center justify-center">
               <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-9 w-auto select-none" />
             </div>
@@ -290,9 +290,9 @@ const canSubmit = useMemo(() => {
             </p>
           </div>
 
-        {/* pb-4 (celular) / pb-6 (pc) */}
+{/* pb-4 (celular) / pb-6 (pc) */}
           <div className="px-5 sm:px-6 pb-4 sm:pb-6">
-            <form onSubmit={handleAcesso} autoComplete="off" className="space-y-4">
+            <form onSubmit={handleAcesso} autoComplete="off" className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 ml-1">
                   Seu WhatsApp
@@ -394,9 +394,9 @@ const canSubmit = useMemo(() => {
               )}
             </form>
 
-          {/* mt-5 (celular) / mt-8 (pc) */}
-            <div className="mt-5 sm:mt-8 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/30 bg-black/10 dark:bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+{/* Otimizado o espaço no rodapé */}
+            <div className="mt-4 sm:mt-6 text-center">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/30 bg-black/10 dark:bg-white/5 px-4 py-1 sm:py-1.5 rounded-full border border-white/5">
                 Conexão Criptografada
               </span>
             </div>
