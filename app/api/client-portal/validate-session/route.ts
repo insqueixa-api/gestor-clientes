@@ -80,11 +80,12 @@ export async function POST(req: NextRequest) {
     // ✅ BUSCA O WHATSAPP DO DONO DO SISTEMA COM PERMISSÃO DE ADMIN (Bypassa o RLS)
     let admin_whatsapp = null;
     try {
+// ✅ Aceita ADMIN, admin ou owner
       const { data: memberData } = await supabaseAdmin
         .from("tenant_members")
         .select("user_id")
         .eq("tenant_id", data.tenant_id)
-        .eq("role", "owner")
+        .in("role", ["ADMIN", "admin", "owner"]) // ✅ CORREÇÃO À PROVA DE BALAS
         .limit(1);
 
       if (memberData && memberData.length > 0) {
