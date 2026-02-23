@@ -7,6 +7,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import RecargaServidorModal from "../recarga_servidor"; 
 import type { ServerRow } from "../page"; 
+import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 
 // --- Tipagens ---
 
@@ -47,8 +48,21 @@ const serverIdSafe = (serverId ?? "").trim();
   // Filtros
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Controle do Modal de Recarga
+// Controle do Modal de Recarga
   const [isRecargaOpen, setIsRecargaOpen] = useState(false);
+
+  // Toast
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  
+  function addToast(type: "success" | "error", title: string, message?: string) {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(() => removeToast(id), 5000);
+  }
+
+  function removeToast(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
 
   async function loadData() {
       setLoading(true);
@@ -384,17 +398,23 @@ const supabase = supabaseBrowser;
 
       </div>
 
-      {/* MODAL DE RECARGA */}
+{/* MODAL DE RECARGA */}
       {isRecargaOpen && server && (
         <RecargaServidorModal 
             server={server}
             onClose={() => setIsRecargaOpen(false)}
             onSuccess={() => {
                 setIsRecargaOpen(false);
+                addToast("success", "Recarga realizada", "Créditos adicionados com sucesso.");
                 loadData(); 
             }}
         />
       )}
+
+      {/* RENDERIZAR TOASTS */}
+      <div className="relative z-[999999]">
+        <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      </div>
 
     </div>
   );
