@@ -335,7 +335,7 @@ const { error: upClientErr } = await supabaseAdmin
 
   if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
 
-  // 5) Log (best-effort)
+  // 5a) Log (best-effort)
   try {
     const fmtDate = (iso: string) => {
       try {
@@ -369,6 +369,27 @@ const { error: upClientErr } = await supabaseAdmin
   } catch (e) {
     safeServerLog("payment-status: failed to insert client_events", (e as any)?.message);
   }
+
+  // 5b) Registra em client_renewals para o dashboard (best-effort)
+try {
+  await supabaseAdmin.from("client_renewals").insert({
+    tenant_id: tenantId,
+    client_id: client.id,
+    server_id: client.server_id,
+    months,
+    screens: (client as any).screens ?? 1,
+    currency: (payment.price_currency ?? client.price_currency ?? "BRL"),
+    unit_price: payment.price_amount ?? null,
+    total_amount: payment.price_amount != null ? Number(payment.price_amount) * months : null,
+    credits_per_month: 0,  // já foi debitado pela integração
+    credits_used: 0,
+    status: "PAID",
+    notes: `Portal · ${provider} · ${String(payment.mp_payment_id)}`,
+  });
+} catch (e) {
+  safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
+}
+
 
   // 6) Sync (best-effort)
   try {

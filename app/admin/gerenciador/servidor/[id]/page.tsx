@@ -42,8 +42,9 @@ const serverIdSafe = (serverId ?? "").trim();
   const [movements, setMovements] = useState<MovementRow[]>([]);
   
   // Stats
-  const [clientStats, setClientStats] = useState<ClientStats>({ total: 0, active: 0, inactive: 0 });
-  const [resellerCount, setResellerCount] = useState(0);
+const [clientStats, setClientStats] = useState<ClientStats>({ total: 0, active: 0, inactive: 0 });
+const [resellerCount, setResellerCount] = useState(0);
+const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
   // Filtros
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -129,6 +130,18 @@ const supabase = supabaseBrowser;
             setMovements([]); 
         }
 
+        // 2b. Renovações de clientes deste servidor no mês
+        const { data: renewalsData } = await supabase
+          .from("client_renewals")
+          .select("months, screens, unit_price, total_amount, currency, credits_used")
+          .eq("tenant_id", tenantId)
+          .eq("server_id", serverId)
+          .gte("created_at", startOfMonth)
+          .lte("created_at", endOfMonth)
+          .eq("status", "PAID");
+
+        setClientRenewals(renewalsData || []);
+
         // 3. Stats Clientes
         const { count: totalClients } = await supabase
           .from("vw_clients_list")
@@ -177,18 +190,21 @@ const supabase = supabaseBrowser;
     const totalRestockCost = purchases.reduce((acc, m) => acc + (m.total_brl || 0), 0);
     const creditsSold = sales.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
     
-    const unitCostBase = Number(server?.avg_credit_cost_brl ?? 0);
-    
-    const estimatedProfit = totalRevenue - (creditsSold * unitCostBase);
+const unitCostBase = Number(server?.avg_credit_cost_brl ?? 0);
 
-// DIRECT_SALE não existe na vw_server_movements — vendas diretas a clientes não geram movimentação de servidor
-    const clientMoves: MovementRow[] = [];
-    const clientRevenue = clientMoves.reduce((acc, m) => acc + (m.total_brl || 0), 0);
-    const clientCredits = clientMoves.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
+// Receita e créditos de clientes vêm do client_renewals
+const clientRevenue = clientRenewals.reduce((acc, r) => {
+  const amt = r.total_amount ?? (Number(r.unit_price || 0) * Number(r.months || 1));
+  return acc + (Number(amt) || 0);
+}, 0);
+const clientCredits = clientRenewals.reduce((acc, r) => acc + (Number(r.credits_used) || 0), 0);
 
-    const resellerMoves = movements.filter(m => m.kind === 'RESELLER_SALE');
-    const resellerRevenue = resellerMoves.reduce((acc, m) => acc + (m.total_brl || 0), 0);
-    const resellerCredits = resellerMoves.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
+const resellerMoves = movements.filter(m => m.kind === 'RESELLER_SALE');
+const resellerRevenue = resellerMoves.reduce((acc, m) => acc + (m.total_brl || 0), 0);
+const resellerCredits = resellerMoves.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
+
+const estimatedProfit = (clientRevenue + resellerRevenue) - (totalRestockCost);
+
 
     return {
       revenue: totalRevenue, 
@@ -208,7 +224,7 @@ const supabase = supabaseBrowser;
           profit: resellerRevenue - (resellerCredits * unitCostBase),
       }
     };
-  }, [movements, server]);
+  }, [movements, server, clientRenewals]);
 
   const handlePrevMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; });
   const handleNextMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; });

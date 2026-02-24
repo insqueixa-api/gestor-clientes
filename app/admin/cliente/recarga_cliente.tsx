@@ -1032,15 +1032,16 @@ if (registerPayment && !renewAutomatic) {
     p_notes: obs || null,
     p_new_vencimento: null,
     p_message: `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)} · De: ${oldVenc} → Para: ${newVenc}`,
+    p_unit_price: rawPlanPrice,         // ✅ NOVO
+    p_total_amount: totalBrl,           // ✅ NOVO (já calculado no state)
   });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
 
-// ✅ Se automático, só registra LOG e evento manualmente
+// ✅ Se automático, registra LOG + client_renewals
 if (registerPayment && renewAutomatic) {
   setLoadingText("Registrando renovação...");
 
-  // ✅ Monta DE / PARA para o log
   const oldVenc = clientData?.vencimento
     ? new Date(clientData.vencimento).toLocaleString("pt-BR", {
         timeZone: "America/Sao_Paulo",
@@ -1055,21 +1056,19 @@ if (registerPayment && renewAutomatic) {
     hour: "2-digit", minute: "2-digit",
   });
 
-  await supabaseBrowser.from("client_events").insert({
-    tenant_id: tid,
-    client_id: clientId,
-    event_type: "RENEWAL",
-    message: `Renovação automática via ${serverName} (${integrationProvider}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · De: ${oldVenc} → Para: ${newVenc}`,
-    meta: {
-      months: monthsToRenew,
-      screens: screens,
-      old_vencimento: clientData?.vencimento,
-      new_vencimento: apiVencimento,
-      automatic: true,
-      server_name: serverName,
-      provider: integrationProvider,
-    },
+  // ✅ NOVO: registra em client_renewals igual ao manual
+  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+    p_tenant_id: tid,
+    p_client_id: clientId,
+    p_months: monthsToRenew,
+    p_status: "PAID",
+    p_notes: obs || null,
+    p_new_vencimento: apiVencimento,
+    p_message: `Renovação automática via ${serverName} (${integrationProvider}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)} · De: ${oldVenc} → Para: ${newVenc}`,
+    p_unit_price: rawPlanPrice,
+    p_total_amount: totalBrl,
   });
+  if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
 
       // --- PASSO 4: ENVIAR WHATSAPP ---
