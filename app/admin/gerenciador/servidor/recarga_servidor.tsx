@@ -29,9 +29,11 @@ type Props = {
   server: ServerRow; 
   onClose: () => void;
   onSuccess: () => void;
+  onError?: (msg: string) => void; // ✅ Adicionado
 };
 
-export default function RecargaServidorModal({ server, onClose, onSuccess }: Props) {
+// 👇 Aqui faltava colocar o onError junto com os outros!
+export default function RecargaServidorModal({ server, onClose, onSuccess, onError }: Props) {
   const [saving, setSaving] = useState(false);
   
   // ✅ Detecta se tem integração
@@ -83,8 +85,13 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
     fetchFx();
   }, [currency]);
 
-  async function handleSave() {
-    if (!qty || Number(qty) <= 0) return alert("Quantidade inválida");
+async function handleSave() {
+    if (!qty || Number(qty) <= 0) {
+      if (onError) {
+        onError("A quantidade de créditos é inválida.");
+      }
+      return;
+    }
     setSaving(true);
 
     try {
@@ -146,7 +153,7 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
           throw new Error("Log salvo, mas falhou ao sincronizar saldo: " + (syncJson?.error || ""));
         }
 
-        alert("✅ Compra registrada e saldo sincronizado!");
+        // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");
         onSuccess();
         return;
       }
@@ -169,7 +176,9 @@ export default function RecargaServidorModal({ server, onClose, onSuccess }: Pro
       onSuccess();
     } catch (error: any) {
       console.error("Erro na recarga:", error);
-      alert("Erro ao recarregar: " + error.message);
+      if (onError) {
+        onError(error.message);
+      }
     } finally {
       setSaving(false);
     }

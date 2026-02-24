@@ -710,7 +710,7 @@ export default function AdminServersPage() {
           />
         )}
 
-        {isRecargaOpen && rechargingServer && (
+{isRecargaOpen && rechargingServer && (
           <RecargaServidorModal
             server={rechargingServer}
             onClose={() => setIsRecargaOpen(false)}
@@ -719,6 +719,7 @@ export default function AdminServersPage() {
               addToast("success", "Recarga realizada", "Créditos adicionados com sucesso.");
               fetchServers();
             }}
+            onError={(msg) => addToast("error", "Erro na recarga", msg)} // ✅ Adicionado
           />
         )}
         

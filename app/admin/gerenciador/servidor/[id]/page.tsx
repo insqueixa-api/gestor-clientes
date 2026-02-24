@@ -408,6 +408,7 @@ const supabase = supabaseBrowser;
                 addToast("success", "Recarga realizada", "Créditos adicionados com sucesso.");
                 loadData(); 
             }}
+            onError={(msg) => addToast("error", "Erro na recarga", msg)} // ✅ Adicionado
         />
       )}
 
