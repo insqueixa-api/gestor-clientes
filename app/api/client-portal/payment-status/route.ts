@@ -355,7 +355,8 @@ const { error: upClientErr } = await supabaseAdmin
       tenant_id: tenantId,
       client_id: client.id,
       event_type: "RENEWAL",
-      message: `Renovação via Portal · ${monthsLabel} · ${srv.name || provider} · De: ${oldVenc} → Para: ${newVenc}`,
+      // ✅ Mensagem clara e padronizada para a Timeline do cliente
+      message: `Renovação via Portal do Cliente · ${monthsLabel} · ${srv.name || provider} · De: ${oldVenc} → Para: ${newVenc}`,
       meta: {
         mp_payment_id: String(payment.mp_payment_id),
         months,
@@ -371,24 +372,28 @@ const { error: upClientErr } = await supabaseAdmin
   }
 
   // 5b) Registra em client_renewals para o dashboard (best-effort)
-try {
-  await supabaseAdmin.from("client_renewals").insert({
-    tenant_id: tenantId,
-    client_id: client.id,
-    server_id: client.server_id,
-    months,
-    screens: (client as any).screens ?? 1,
-    currency: (payment.price_currency ?? client.price_currency ?? "BRL"),
-    unit_price: payment.price_amount ?? null,
-    total_amount: payment.price_amount != null ? Number(payment.price_amount) * months : null,
-    credits_per_month: 0,  // já foi debitado pela integração
-    credits_used: 0,
-    status: "PAID",
-    notes: `Portal · ${provider} · ${String(payment.mp_payment_id)}`,
-  });
-} catch (e) {
-  safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
-}
+  try {
+    // ✅ Calcula o rateio corretamente, sem multiplicar o total final
+    const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
+    const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+
+    await supabaseAdmin.from("client_renewals").insert({
+      tenant_id: tenantId,
+      client_id: client.id,
+      server_id: client.server_id,
+      months,
+      screens: (client as any).screens ?? 1,
+      currency: (payment.price_currency ?? client.price_currency ?? "BRL"),
+      unit_price: unitPrice,           // ✅ Preço rateado por mês
+      total_amount: totalPaid,         // ✅ Valor cheio correto que vai pro Dashboard
+      credits_per_month: 0, 
+      credits_used: 0,
+      status: "PAID",
+      notes: `Renovação Automática (Portal do Cliente) · Transação MP: ${String(payment.mp_payment_id)}`, // ✅ Nota no Extrato
+    });
+  } catch (e) {
+    safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
+  }
 
 
   // 6) Sync (best-effort)

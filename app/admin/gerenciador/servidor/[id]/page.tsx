@@ -14,7 +14,7 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 type MovementRow = {
   id: string;
   happened_at: string;
-  kind: "PURCHASE" | "RESELLER_SALE";
+  kind: "PURCHASE" | "RESELLER_SALE" | "CLIENT_RENEWAL"; // ✅ Adicionado tipo do cliente
   qty_credits: number;
   total_brl: number;
   unit_price: number;
@@ -133,7 +133,8 @@ const supabase = supabaseBrowser;
         // 2b. Renovações de clientes deste servidor no mês
         const { data: renewalsData } = await supabase
           .from("client_renewals")
-          .select("months, screens, unit_price, total_amount, currency, credits_used")
+          // ✅ Trouxe ID, Data e Observações (notes) para montar a tabela
+          .select("id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes")
           .eq("tenant_id", tenantId)
           .eq("server_id", serverId)
           .gte("created_at", startOfMonth)
@@ -141,6 +142,28 @@ const supabase = supabaseBrowser;
           .eq("status", "PAID");
 
         setClientRenewals(renewalsData || []);
+
+        // ✅ Transforma os logs de clientes no mesmo formato das movimentações e une tudo
+        const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => ({
+          id: r.id,
+          happened_at: r.created_at,
+          kind: "CLIENT_RENEWAL",
+          qty_credits: Number(r.credits_used || 0),
+          total_brl: Number(r.total_amount || 0), // ✅ Sempre BRL (já ajustamos isso no banco)
+          unit_price: Number(r.unit_price || 0),
+          label: r.notes || "Assinatura Cliente"
+        }));
+
+        // Junta as movimentações de painel com as de clientes e ordena da mais nova pra mais velha
+        const allMoves = [...(movData || []), ...mappedRenewals].sort((a, b) => 
+          new Date(b.happened_at).getTime() - new Date(a.happened_at).getTime()
+        );
+
+        if (allMoves.length > 0) {
+            setMovements(allMoves as MovementRow[]);
+        } else {
+            setMovements([]); 
+        }
 
         // 3. Stats Clientes
         const { count: totalClients } = await supabase
@@ -183,28 +206,26 @@ const supabase = supabaseBrowser;
 
   // --- Métricas Calculadas ---
   const metrics = useMemo(() => {
-    const sales = movements.filter(m => m.kind === 'RESELLER_SALE');
+    // ✅ Agora o "movements" tem tudo, então filtramos a partir dele
+    const salesReseller = movements.filter(m => m.kind === 'RESELLER_SALE');
+    const salesClient = movements.filter(m => m.kind === 'CLIENT_RENEWAL');
     const purchases = movements.filter(m => m.kind === 'PURCHASE');
 
-    const totalRevenue = sales.reduce((acc, m) => acc + (m.total_brl || 0), 0);
+    const resellerRevenue = salesReseller.reduce((acc, m) => acc + (m.total_brl || 0), 0);
+    const resellerCredits = salesReseller.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
+
+    const clientRevenue = salesClient.reduce((acc, m) => acc + (m.total_brl || 0), 0);
+    const clientCredits = salesClient.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
+
+    // ✅ Faturamento Total agora inclui revenda + cliente
+    const totalRevenue = clientRevenue + resellerRevenue; 
     const totalRestockCost = purchases.reduce((acc, m) => acc + (m.total_brl || 0), 0);
-    const creditsSold = sales.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
     
-const unitCostBase = Number(server?.avg_credit_cost_brl ?? 0);
-
-// Receita e créditos de clientes vêm do client_renewals
-const clientRevenue = clientRenewals.reduce((acc, r) => {
-  const amt = r.total_amount ?? (Number(r.unit_price || 0) * Number(r.months || 1));
-  return acc + (Number(amt) || 0);
-}, 0);
-const clientCredits = clientRenewals.reduce((acc, r) => acc + (Number(r.credits_used) || 0), 0);
-
-const resellerMoves = movements.filter(m => m.kind === 'RESELLER_SALE');
-const resellerRevenue = resellerMoves.reduce((acc, m) => acc + (m.total_brl || 0), 0);
-const resellerCredits = resellerMoves.reduce((acc, m) => acc + (m.qty_credits || 0), 0);
-
-const estimatedProfit = (clientRevenue + resellerRevenue) - (totalRestockCost);
-
+    // ✅ Total de créditos vendidos (revenda + cliente)
+    const creditsSold = resellerCredits + clientCredits; 
+    
+    const unitCostBase = Number(server?.avg_credit_cost_brl ?? 0);
+    const estimatedProfit = totalRevenue - totalRestockCost; // Lucro Operacional Financeiro
 
     return {
       revenue: totalRevenue, 
@@ -224,7 +245,7 @@ const estimatedProfit = (clientRevenue + resellerRevenue) - (totalRestockCost);
           profit: resellerRevenue - (resellerCredits * unitCostBase),
       }
     };
-  }, [movements, server, clientRenewals]);
+  }, [movements, server]);
 
   const handlePrevMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; });
   const handleNextMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; });
@@ -393,10 +414,10 @@ const estimatedProfit = (clientRevenue + resellerRevenue) - (totalRestockCost);
                       <td className="px-5 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm ${
                            m.kind === 'PURCHASE' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 
-                           
+                           m.kind === 'RESELLER_SALE' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' :
                            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                         }`}>
-                          {m.kind === 'PURCHASE' ? 'Recarga' : m.kind === 'RESELLER_SALE' ? 'Venda revenda' : m.kind}
+                          {m.kind === 'PURCHASE' ? 'Recarga' : m.kind === 'RESELLER_SALE' ? 'Revenda' : 'Cliente'}
                         </span>
                       </td>
                       <td className="px-5 py-3 font-bold text-center group-hover:text-emerald-500 transition-colors">{m.qty_credits}</td>

@@ -1032,8 +1032,8 @@ if (registerPayment && !renewAutomatic) {
     p_notes: obs || null,
     p_new_vencimento: null,
     p_message: `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)} · De: ${oldVenc} → Para: ${newVenc}`,
-    p_unit_price: rawPlanPrice,         // ✅ NOVO
-    p_total_amount: totalBrl,           // ✅ NOVO (já calculado no state)
+    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)), // ✅ Unitário real em BRL
+    p_total_amount: totalBrl, // ✅ Total final em BRL
   });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
@@ -1065,8 +1065,8 @@ if (registerPayment && renewAutomatic) {
     p_notes: obs || null,
     p_new_vencimento: apiVencimento,
     p_message: `Renovação automática via ${serverName} (${integrationProvider}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)} · De: ${oldVenc} → Para: ${newVenc}`,
-    p_unit_price: rawPlanPrice,
-    p_total_amount: totalBrl,
+    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)), // ✅ Unitário real em BRL
+    p_total_amount: totalBrl, // ✅ Total final em BRL
   });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }

@@ -2195,14 +2195,16 @@ const renewMsg = isAutomatic ?
   `Renovação automática no cadastro via ${renewServerName} (${trialProvider}) · ${monthsToRenew} mês(es) · ${rpcScreens} tela(s) · ${fmtMoney(rpcCurrency, rpcPriceAmount)} · De: — → Para: ${newVenc}` :
   `Renovação manual no cadastro · ${monthsToRenew} mês(es) · ${rpcScreens} tela(s) · ${fmtMoney(rpcCurrency, rpcPriceAmount)} · De: — → Para: ${newVenc}`;
 
-  const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
+const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
     p_tenant_id: tid,
     p_client_id: clientId,
     p_months: monthsToRenew,
     p_status: "PAID",
     p_notes: notes || null,
     p_new_vencimento: dueISO,
-    p_message: renewMsg,  // ✅ NOVO
+    p_message: renewMsg,
+    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)), // ✅ Unitário real em BRL
+    p_total_amount: totalBrl, // ✅ Total final financeiro cravado em BRL
   });
 
 
