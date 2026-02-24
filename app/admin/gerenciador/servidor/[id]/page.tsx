@@ -46,8 +46,12 @@ const [clientStats, setClientStats] = useState<ClientStats>({ total: 0, active: 
 const [resellerCount, setResellerCount] = useState(0);
 const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
-  // Filtros
+// Filtros
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // ✅ NOVO: Estados para os Filtros da Tabela
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterKind, setFilterKind] = useState("ALL");
 
 // Controle do Modal de Recarga
   const [isRecargaOpen, setIsRecargaOpen] = useState(false);
@@ -133,8 +137,11 @@ const supabase = supabaseBrowser;
         // 2b. Renovações de clientes deste servidor no mês
         const { data: renewalsData } = await supabase
           .from("client_renewals")
-          // ✅ Trouxe ID, Data e Observações (notes) para montar a tabela
-          .select("id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes")
+          // ✅ AGORA TRAZ O CLIENTE JUNTO (display_name e server_username)
+          .select(`
+            id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes,
+            clients (display_name, server_username)
+          `)
           .eq("tenant_id", tenantId)
           .eq("server_id", serverId)
           .gte("created_at", startOfMonth)
@@ -143,16 +150,27 @@ const supabase = supabaseBrowser;
 
         setClientRenewals(renewalsData || []);
 
-        // ✅ Transforma os logs de clientes no mesmo formato das movimentações e une tudo
-        const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => ({
-          id: r.id,
-          happened_at: r.created_at,
-          kind: "CLIENT_RENEWAL",
-          qty_credits: Number(r.credits_used || 0),
-          total_brl: Number(r.total_amount || 0), // ✅ Sempre BRL (já ajustamos isso no banco)
-          unit_price: Number(r.unit_price || 0),
-          label: r.notes || "Assinatura Cliente"
-        }));
+        // ✅ Transforma os logs e monta a string rica com o Username
+        const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => {
+          const clientName = r.clients?.display_name || "Cliente";
+          const userName = r.clients?.server_username ? `(${r.clients.server_username})` : "";
+          
+          // Formata: "Márcio (marcio123) · 1 mês(es) · 2 tela(s)"
+          let generatedLabel = `${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
+          
+          // Se tiver notas (Ex: "Portal do Cliente" ou "PIX manual"), adiciona ao final
+          if (r.notes) generatedLabel += ` · ${r.notes}`;
+
+          return {
+            id: r.id,
+            happened_at: r.created_at,
+            kind: "CLIENT_RENEWAL",
+            qty_credits: Number(r.credits_used || 0),
+            total_brl: Number(r.total_amount || 0),
+            unit_price: Number(r.unit_price || 0),
+            label: generatedLabel
+          };
+        });
 
         // Junta as movimentações de painel com as de clientes e ordena da mais nova pra mais velha
         const allMoves = [...(movData || []), ...mappedRenewals].sort((a, b) => 
@@ -246,6 +264,25 @@ const supabase = supabaseBrowser;
       }
     };
   }, [movements, server]);
+
+  // ✅ NOVO: Lógica de filtro da tabela (Não afeta os cards financeiros)
+  const filteredMovements = useMemo(() => {
+    return movements.filter(m => {
+      // 1. Filtro por Tipo
+      if (filterKind !== "ALL" && m.kind !== filterKind) return false;
+      
+      // 2. Filtro por Texto (Nome, Username, Obs, Valor ou Data)
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchLabel = m.label?.toLowerCase().includes(term);
+        const matchDate = fmtDate(m.happened_at).includes(term);
+        const matchValue = m.total_brl !== null && fmtMoney(m.total_brl).toLowerCase().includes(term);
+        
+        if (!matchLabel && !matchDate && !matchValue) return false;
+      }
+      return true;
+    });
+  }, [movements, searchTerm, filterKind]);
 
   const handlePrevMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d; });
   const handleNextMonth = () => setSelectedDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d; });
@@ -390,9 +427,38 @@ const supabase = supabaseBrowser;
 
         {/* BLOCO 4: MOVIMENTAÇÕES (TABELA) */}
         <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-sm transition-colors">
-          <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
-            <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">Movimentações de {formatMonth(selectedDate)}</span>
+          
+          {/* HEADER DA TABELA COM FILTROS */}
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-white/5">
+            <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight shrink-0">
+              Movimentações de {formatMonth(selectedDate)}
+            </span>
+            
+            {/* Controles de Filtro */}
+            <div className="flex w-full sm:w-auto items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+                <input 
+                  type="text" 
+                  placeholder="Buscar cliente, obs, data..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full h-9 pl-8 pr-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+              <select 
+                value={filterKind}
+                onChange={e => setFilterKind(e.target.value)}
+                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+              >
+                <option value="ALL">Todos os Tipos</option>
+                <option value="CLIENT_RENEWAL">Clientes</option>
+                <option value="RESELLER_SALE">Revendas</option>
+                <option value="PURCHASE">Recargas</option>
+              </select>
+            </div>
           </div>
+
           <div className="overflow-x-auto max-h-[400px]">
             <table className="w-full text-sm text-left relative border-collapse">
               <thead className="bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-white/40 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10 backdrop-blur-md">
@@ -401,18 +467,18 @@ const supabase = supabaseBrowser;
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Tipo</th>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider text-center">Qtd.</th>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Valor (brl)</th>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Observações</th>
+                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Descrição / Cliente</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {movements.length === 0 ? (
-                  <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-400 dark:text-white/20 italic">Nenhuma movimentação identificada neste período.</td></tr>
+                {filteredMovements.length === 0 ? (
+                  <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-400 dark:text-white/20 italic">Nenhum registro encontrado.</td></tr>
                 ) : (
-                  movements.map((m) => (
+                  filteredMovements.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-700 dark:text-white/80 group">
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">{fmtDate(m.happened_at)}</td>
                       <td className="px-5 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm ${
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm whitespace-nowrap ${
                            m.kind === 'PURCHASE' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 
                            m.kind === 'RESELLER_SALE' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' :
                            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
@@ -424,7 +490,14 @@ const supabase = supabaseBrowser;
                       <td className="px-5 py-3 font-mono font-bold">
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : '--'}
                       </td>
-                      <td className="px-5 py-3 text-xs opacity-50 truncate max-w-[200px] italic">{m.label}</td>
+                      {/* ✅ Nova formatação da Descrição */}
+                      <td className="px-5 py-3 text-xs leading-relaxed max-w-[300px]">
+                        {m.kind === 'CLIENT_RENEWAL' ? (
+                          <span className="font-medium text-slate-800 dark:text-slate-200">{m.label}</span>
+                        ) : (
+                          <span className="opacity-70 italic">{m.label}</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
