@@ -169,9 +169,9 @@ export function SimpleBarChart({
     setTooltipPos({ x: t.clientX - rect.left, y: t.clientY - rect.top });
   };
 
-  const TIP_W = 200;
+  const TIP_W = 280;
   const tipLeft = Math.min(Math.max(tooltipPos.x - TIP_W / 2, 6), (chartRef.current?.clientWidth ?? 800) - TIP_W - 6);
-  const tipTop  = tooltipPos.y - 66;
+  const tipTop  = tooltipPos.y - 90;
 
   return (
     <div className="w-full select-none">
@@ -277,7 +277,7 @@ export function SimpleBarChart({
               boxShadow:isDark?"0 8px 24px rgba(0,0,0,.5)":"0 4px 16px rgba(0,0,0,.12)",
             }}>
               <div className="font-semibold truncate" style={{ fontSize:"11px", color:acc }}>{hoveredItem.tooltipTitle}</div>
-              <div className="truncate mt-0.5" style={{ fontSize:"12px", color:tipText }}>{hoveredItem.tooltipContent}</div>
+              <div className="mt-0.5"  style={{ fontSize:"12px", color:tipText }}>{hoveredItem.tooltipContent}</div>
             </div>
             <div style={{
               position:"absolute", bottom:tipTop<0?"auto":"-5px", top:tipTop<0?"-5px":"auto",

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "@/app/admin/simplebarchart";
-import { RankingCard } from "@/app/admin/rankingcard";
+import { RankingCard } from "@/app/admin/ranking-card";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { EyeToggle } from "@/app/admin/eye-toggle";

@@ -101,15 +101,18 @@ async function handleSave() {
       const oldCredits = Number(server.credits_available || 0);
       const addedCredits = Number(qty);
 
-      const fmtNote = (newBalance: number) => [
+      // ✅ Removemos o 'De -> Para' daqui
+      const fmtNote = () => [
         `[${paymentMethod}]`,
         `${addedCredits} créditos`,
         currency !== "BRL" ? `· Câmbio: ${Number(fxRate).toFixed(4)}` : null,
         `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(unitCost))}`,
         `· Total: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalBrl)}`,
-        `· De: ${oldCredits} → Para: ${newBalance}`,
         notes.trim() ? `· ${notes.trim()}` : null,
       ].filter(Boolean).join(" ");
+
+      // ✅ Blindagem: o custo unitário que vai pro banco calcular o "Custo Médio" PRECISA ser em BRL
+      const unitCostBrl = Number(unitCost) * (Number(fxRate) || 1);
 
       // ✅ Se TEM integração → salva log + sync
       if (hasIntegration) {
@@ -118,11 +121,11 @@ async function handleSave() {
           p_tenant_id: tenantId,
           p_server_id: server.id,
           p_credits_qty: addedCredits,
-          p_unit_price: Number(unitCost),
+          p_unit_price: unitCostBrl, // ✅ Unitário cravado em Reais (BRL)
           p_purchase_currency: currency,
           p_total_amount_brl: totalBrl,
           p_fx_rate_to_brl: Number(fxRate),
-          p_notes: fmtNote(oldCredits + addedCredits), // saldo estimado; sync vai sobrescrever
+          p_notes: fmtNote(), // ✅ Log formatado lindão sem "De: Para:"
         });
 
         if (logErr) throw logErr;
@@ -163,11 +166,11 @@ async function handleSave() {
         p_tenant_id: tenantId,
         p_server_id: server.id,
         p_credits_qty: addedCredits,
-        p_unit_price: Number(unitCost),
+        p_unit_price: unitCostBrl, // ✅ Unitário cravado em Reais (BRL)
         p_purchase_currency: currency,
         p_total_amount_brl: totalBrl,
         p_fx_rate_to_brl: Number(fxRate),
-        p_notes: fmtNote(oldCredits + addedCredits),
+        p_notes: fmtNote(), // ✅ Log formatado lindão sem "De: Para:"
       });
 
 
