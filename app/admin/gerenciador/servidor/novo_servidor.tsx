@@ -407,16 +407,18 @@ const syncUrl = getSyncUrlByProvider(provider);
             }
 
             const totalAmountBrl = initialCredits * initialUnitPrice * fxRateToBrl;
+            // ✅ Garante que o unitário enviado para o log financeiro do banco também está em BRL
+            const unitPriceBrl = initialUnitPrice * fxRateToBrl; 
 
             const { error: topupErr } = await supabase.rpc("topup_server_credits_and_log", {
               p_tenant_id: tenantId,
               p_server_id: serverId,
               p_credits_qty: initialCredits,
-              p_unit_price: initialUnitPrice,
+              p_unit_price: unitPriceBrl, // ✅ Unitário blindado em Reais
               p_purchase_currency: safeCurrency,
               p_total_amount_brl: totalAmountBrl,
               p_fx_rate_to_brl: fxRateToBrl,
-              p_notes: "Saldo inicial (criação do servidor)",
+              p_notes: "Saldo inicial", // ✅ Log limpo sem o "De: xx -> Para: yy"
             });
 
             if (topupErr) {

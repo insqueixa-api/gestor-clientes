@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SimpleBarChart } from "@/app/admin/simplebarchart";
+import { RankingCard } from "@/app/admin/rankingcard";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { EyeToggle } from "@/app/admin/eye-toggle";
@@ -593,10 +594,10 @@ return (
       </div>
 
       {/* RANKINGS */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-        <BarCard title="Top Servidores (Mês Atual)" items={topServersItems} />
-        <BarCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} />
-      </div>
+<div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+  <RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" />
+  <RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" />
+</div>
     </div>
   );
 }
@@ -741,33 +742,4 @@ function MetricCardView({
   return <div className={baseClass}>{content}</div>;
 }
 
-function BarCard({ title, items }: { title: string; items: BarItem[] }) {
-  const max = Math.max(...items.map((i) => i.value), 1);
 
-  return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-
-      <h3 className="text-base sm:text-lg font-bold mb-4">{title}</h3>
-
-
-      <div className="sv space-y-4">
-        {items.map((item) => (
-          <div key={item.label}>
-            <div className="flex justify-between text-xs mb-1 font-medium">
-              <span>{item.label}</span>
-              <span>{fmtInt(item.value)}</span>
-            </div>
-            <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-sky-500 rounded-full"
-                style={{ width: `${(item.value / max) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-
-        {items.length === 0 && <div className="text-zinc-400 text-sm">Sem dados.</div>}
-      </div>
-    </div>
-  );
-}
