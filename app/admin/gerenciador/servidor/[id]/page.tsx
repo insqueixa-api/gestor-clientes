@@ -150,16 +150,24 @@ const supabase = supabaseBrowser;
 
         setClientRenewals(renewalsData || []);
 
-        // ✅ Transforma os logs e monta a string rica com o Username
+        // ✅ Transforma os logs e monta a string rica com o Username e o Tipo
         const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => {
           const clientName = r.clients?.display_name || "Cliente";
           const userName = r.clients?.server_username ? `(${r.clients.server_username})` : "";
-          
-          // Formata: "Márcio (marcio123) · 1 mês(es) · 2 tela(s)"
-          let generatedLabel = `${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
-          
-          // Se tiver notas (Ex: "Portal do Cliente" ou "PIX manual"), adiciona ao final
-          if (r.notes) generatedLabel += ` · ${r.notes}`;
+          const rawNotes = String(r.notes || "").toLowerCase();
+
+          // Descobre o tipo de renovação baseando-se no que a API gravou no "notes"
+          let tipoRenovacao = "Renovação via painel"; // fallback
+          if (rawNotes.includes("portal")) {
+            tipoRenovacao = "Renovação via Portal do Cliente";
+          } else if (rawNotes.includes("automática") || rawNotes.includes("automatica")) {
+            tipoRenovacao = "Renovação Automática";
+          } else if (rawNotes.includes("manual")) {
+            tipoRenovacao = "Renovação Manual";
+          }
+
+          // Formata: "Renovação via Portal do Cliente · Márcio (marcio123) · 1 mês(es) · 2 tela(s)"
+          const generatedLabel = `${tipoRenovacao} · ${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
 
           return {
             id: r.id,
@@ -265,7 +273,7 @@ const supabase = supabaseBrowser;
     };
   }, [movements, server]);
 
-  // ✅ NOVO: Lógica de filtro da tabela (Não afeta os cards financeiros)
+  // ✅ NOVO: Lógica de filtro da tabela blindada contra nulos
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
       // 1. Filtro por Tipo
@@ -273,10 +281,15 @@ const supabase = supabaseBrowser;
       
       // 2. Filtro por Texto (Nome, Username, Obs, Valor ou Data)
       if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const matchLabel = m.label?.toLowerCase().includes(term);
-        const matchDate = fmtDate(m.happened_at).includes(term);
-        const matchValue = m.total_brl !== null && fmtMoney(m.total_brl).toLowerCase().includes(term);
+        const term = String(searchTerm).toLowerCase().trim();
+        // Fallbacks seguros para evitar a quebra "toLowerCase is not a function"
+        const safeLabel = String(m.label || "").toLowerCase();
+        const safeDate = String(fmtDate(m.happened_at) || "").toLowerCase();
+        const safeValue = m.total_brl != null ? String(fmtMoney(m.total_brl)).toLowerCase() : "";
+        
+        const matchLabel = safeLabel.includes(term);
+        const matchDate = safeDate.includes(term);
+        const matchValue = safeValue.includes(term);
         
         if (!matchLabel && !matchDate && !matchValue) return false;
       }
