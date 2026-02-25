@@ -273,29 +273,48 @@ const supabase = supabaseBrowser;
     };
   }, [movements, server]);
 
-  // ✅ NOVO: Lógica de filtro da tabela blindada contra nulos
-  // ✅ Lógica de filtro da tabela (Totalmente blindada contra crashes)
+  // ✅ Lógica de filtro da tabela super blindada e com sub-tipos de clientes
   const filteredMovements = useMemo(() => {
     if (!movements) return [];
     
     return movements.filter(m => {
-      // 1. Filtro por Tipo
-      if (filterKind !== "ALL" && m.kind !== filterKind) return false;
+      // 1. Filtro por Tipo (Dropdown)
+      if (filterKind !== "ALL") {
+        if (filterKind === "RESELLER_SALE" && m.kind !== "RESELLER_SALE") return false;
+        if (filterKind === "PURCHASE" && m.kind !== "PURCHASE") return false;
+        
+        // Sub-filtros para Clientes
+        if (filterKind.startsWith("CLIENT_RENEWAL")) {
+          if (m.kind !== "CLIENT_RENEWAL") return false;
+          
+          const lbl = String(m.label || "").toLowerCase();
+          if (filterKind === "CLIENT_RENEWAL_AUTO" && !lbl.includes("automática") && !lbl.includes("automatica")) return false;
+          if (filterKind === "CLIENT_RENEWAL_MANUAL" && !lbl.includes("manual") && !lbl.includes("painel")) return false;
+          if (filterKind === "CLIENT_RENEWAL_PORTAL" && !lbl.includes("portal")) return false;
+        }
+      }
       
-      // 2. Filtro por Texto (Nome, Username, Obs, Valor ou Data)
+      // 2. Filtro por Busca Escrita (Texto)
       if (searchTerm) {
         const term = searchTerm.toLowerCase().trim();
         
+        // Verifica o nome/descrição (Garantido que nunca quebra)
+        const safeLabel = String(m?.label || "").toLowerCase();
+        let matchDate = false;
+        let matchValue = false;
+        
+        // Tenta formatar a data para ver se o que foi digitado bate com a data
         try {
-          const safeLabel = String(m?.label || "").toLowerCase();
-          const safeDate = m?.happened_at ? String(fmtDate(m.happened_at)).toLowerCase() : "";
-          const safeValue = m?.total_brl != null ? String(fmtMoney(Number(m.total_brl))).toLowerCase() : "";
-          
-          if (!safeLabel.includes(term) && !safeDate.includes(term) && !safeValue.includes(term)) {
-            return false;
-          }
-        } catch (error) {
-          // Se qualquer formatação falhar (dado corrompido no banco), ignora o erro e esconde a linha na busca
+          if (m?.happened_at) matchDate = String(fmtDate(m.happened_at)).toLowerCase().includes(term);
+        } catch (e) {}
+        
+        // Tenta formatar o valor para ver se o que foi digitado bate com o valor
+        try {
+          if (m?.total_brl != null) matchValue = String(fmtMoney(Number(m.total_brl))).toLowerCase().includes(term);
+        } catch (e) {}
+        
+        // Se nenhum dos 3 bater, esconde a linha
+        if (!safeLabel.includes(term) && !matchDate && !matchValue) {
           return false;
         }
       }
@@ -471,9 +490,16 @@ const supabase = supabaseBrowser;
                 className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
-                <option value="CLIENT_RENEWAL">Clientes</option>
-                <option value="RESELLER_SALE">Revendas</option>
-                <option value="PURCHASE">Recargas</option>
+                <optgroup label="Clientes">
+                  <option value="CLIENT_RENEWAL">Todos de Clientes</option>
+                  <option value="CLIENT_RENEWAL_AUTO">↳ Automáticas</option>
+                  <option value="CLIENT_RENEWAL_PORTAL">↳ Via Portal</option>
+                  <option value="CLIENT_RENEWAL_MANUAL">↳ Manuais</option>
+                </optgroup>
+                <optgroup label="Outros">
+                  <option value="RESELLER_SALE">Vendas Revendas</option>
+                  <option value="PURCHASE">Recargas Servidor</option>
+                </optgroup>
               </select>
             </div>
           </div>
