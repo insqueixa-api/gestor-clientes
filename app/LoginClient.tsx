@@ -189,18 +189,20 @@ const canSubmit = useMemo(() => {
 
     setLoadingLogin(true);
     try {
-      const { data, error } = await supabase.rpc("portal_start_session", {
-        p_token: token,
-        p_pin: pin,
+      const res = await fetch("/api/client-portal/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, pin, cfToken: turnstileToken }),
       });
 
-      if (error) {
+      const data = await res.json();
+
+      if (!res.ok) {
         setMsg({ type: "error", text: "PIN incorreto. Tente novamente." });
         return;
       }
 
-      const row = Array.isArray(data) ? data[0] : null;
-      const sessionToken = row?.session_token;
+      const sessionToken = data?.session_token;
 
       if (!sessionToken) {
         setMsg({ type: "error", text: "Não foi possível iniciar a sessão. Tente novamente." });
@@ -210,7 +212,7 @@ const canSubmit = useMemo(() => {
       // ✅ BLINDADO: guarda sessão e vai pra /renew SEM querystring
       setStored(KEY_SESSION, String(sessionToken));
 
-      // ✅ opcional (recomendado): remove o login token do storage depois do sucesso
+      // ✅ remove o login token do storage depois do sucesso
       clearStored(KEY_LOGIN_TOKEN);
 
       router.push(`/renew`);
