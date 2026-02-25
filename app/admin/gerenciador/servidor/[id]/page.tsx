@@ -161,29 +161,33 @@ const supabase = supabaseBrowser;
           clientsData?.forEach(c => { clientsMap[c.id] = c; });
         }
 
-        // Transforma os logs lendo a nota completa que gravamos agora no Passo 1
+        // Transforma os logs criando um padrão absoluto para a tabela
         const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => {
           const clientInfo = clientsMap[r.client_id] || {};
           const clientName = clientInfo.display_name || "Cliente Desconhecido";
           const userName = clientInfo.server_username ? `(${clientInfo.server_username})` : "";
           
-          const rawNotes = String(r.notes || "");
-          const rawNotesLower = rawNotes.toLowerCase();
-
+          const rawNotes = String(r.notes || "").trim();
+          
           let generatedLabel = "";
 
-          // Se a nota já foi gravada com a mensagem linda pelo banco (novo padrão que injetamos), usamos ela
-          if (rawNotesLower.includes("renovação") || rawNotesLower.includes("renovacao")) {
+          // ✅ 1. Se já vier completo do Portal (começando com a palavra Renovação), usamos 100% igual.
+          if (rawNotes.startsWith("Renovação") || rawNotes.startsWith("Renovacao")) {
             generatedLabel = rawNotes;
-          } else {
-            // Se for um log mais antigo, fazemos o fallback clássico
-            let tipoRenovacao = "Renovação via painel";
-            if (rawNotesLower.includes("portal")) tipoRenovacao = "Renovação via Portal do Cliente";
-            else if (rawNotesLower.includes("automática") || rawNotesLower.includes("automatica")) tipoRenovacao = "Renovação Automática";
-            else if (rawNotesLower.includes("manual")) tipoRenovacao = "Renovação Manual";
+          } 
+          // ✅ 2. Se for uma recarga feita pelo seu Painel (onde notes é apenas a observação do cliente)
+          else {
+            const formattedMoney = new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: r.currency || "BRL",
+            }).format(Number(r.total_amount || 0));
 
-            generatedLabel = `${tipoRenovacao} · ${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
-            if (rawNotes) generatedLabel += ` · Obs: ${rawNotes}`;
+            generatedLabel = `Renovação via Painel · ${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s) · ${formattedMoney}`;
+            
+            // Se você digitou alguma observação no modal, ela entra aqui no finalzinho
+            if (rawNotes) {
+              generatedLabel += ` · Obs: ${rawNotes}`;
+            }
           }
 
           return {

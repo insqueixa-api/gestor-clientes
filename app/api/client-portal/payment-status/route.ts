@@ -335,16 +335,27 @@ const { error: upClientErr } = await supabaseAdmin
 
   if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
 
-  // 5a) Log (best-effort)
-  try {
-    const monthsLabel = months === 1 ? "1 mês" : `${months} meses`;
+  // --- PREPARANDO VARIÁVEIS PARA OS LOGS ---
+  const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
+  const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
+  const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+  const qtyScreens = Number((client as any).screens ?? 1);
+  const clientName = String((client as any).display_name || "Cliente").trim();
+  
+  // ✅ Formata a moeda exatamente igual ao modal do painel (Ex: R$ 30,00)
+  const formattedMoney = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: safeCurrency,
+  }).format(totalPaid);
 
+  // 5a) Log na Linha do Tempo do Cliente (Limpo, sem o próprio nome e sem servidor)
+  try {
     await supabaseAdmin.from("client_events").insert({
       tenant_id: tenantId,
       client_id: client.id,
       event_type: "RENEWAL",
-      // ✅ "De -> Para" REMOVIDO! Estética limpa.
-      message: `Renovação via Portal do Cliente · ${monthsLabel} · ${srv.name || provider}`,
+      // Ex: Renovação via Portal do Cliente · 1 mês(es) · 2 tela(s) · R$ 30,00
+      message: `Renovação via Portal do Cliente · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney}`,
       meta: {
         mp_payment_id: String(payment.mp_payment_id),
         months,
@@ -358,13 +369,8 @@ const { error: upClientErr } = await supabaseAdmin
     safeServerLog("payment-status: failed to insert client_events", (e as any)?.message);
   }
 
-  // 5b) Registra em client_renewals para o dashboard
+  // 5b) Registra em client_renewals para o Dashboard (Com nome do cliente para a view do Admin)
   try {
-    const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
-    const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
-    const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
-    const qtyScreens = Number((client as any).screens ?? 1);
-
     const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
       tenant_id: tenantId,
       client_id: client.id,
@@ -374,10 +380,11 @@ const { error: upClientErr } = await supabaseAdmin
       currency: safeCurrency, 
       unit_price: unitPrice,
       total_amount: totalPaid,
-      credits_per_month: 1, // ✅ O custo base do servidor é sempre 1 por mês
-      credits_used: months * qtyScreens, // ✅ O desconto no preço não altera o custo de créditos (ex: 12 meses x 2 telas = 24 créditos)
+      credits_per_month: 1, 
+      credits_used: months * qtyScreens,
       status: "PAID",
-      notes: `Renovação Automática (Portal) · MP: ${String(payment.mp_payment_id)}`,
+      // Ex: Renovação via Portal do Cliente · Rebecca (RebeccaVida) · 1 mês(es) · 2 tela(s) · R$ 30,00 · MP: 12345
+      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
     });
 
     if (renErr) {
