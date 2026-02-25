@@ -119,7 +119,7 @@ export function RankingCard({
           )}
         </div>
         <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${c.rankBg} ${c.rank}`}>
-          Top {topN}
+          Top {items.length}
         </span>
       </div>
 
