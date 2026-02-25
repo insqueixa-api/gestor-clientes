@@ -162,10 +162,12 @@ if (!verifyMpWebhook(req, paymentId)) {
       return NextResponse.json({ ok: true });
     }
 
+    
+    
     // 5) Buscar dados do cliente
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("id, tenant_id, display_name, whatsapp_username, server_id, server_username, plan_label, price_amount, price_currency, vencimento, updated_at")
+      .select("id")
       .eq("id", payment.client_id)
       .single();
 
@@ -175,177 +177,21 @@ if (!verifyMpWebhook(req, paymentId)) {
         .from("client_portal_payments")
         .update({ status: "approved", new_vencimento: null })
         .eq("id", payment.id);
-
       return NextResponse.json({ ok: true });
     }
 
-    const months = PERIOD_MONTHS[payment.period] || 1;
-
-    // 6) Fulfillment: tenta renovar via integração (NATV/FAST) se existir
-    // Pega integração ativa do servidor do cliente
-    const { data: integ } = await supabaseAdmin
-      .from("server_integrations")
-      .select("id, provider, api_token, api_secret, is_active")
-      .eq("tenant_id", payment.tenant_id)
-      .eq("server_id", client.server_id)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let newExpiryIso: string | null = null;
-    let renewedOk = false;
-
-    try {
-      const provider = String((integ as any)?.provider ?? "").toUpperCase();
-
-      // NATV
-      if (provider === "NATV" && (integ as any)?.api_token && client.server_username) {
-        const natvRes = await fetch("https://revenda.pixbot.link/user/activation", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${(integ as any).api_token}`,
-          },
-          body: JSON.stringify({
-            username: client.server_username,
-            months,
-          }),
-        });
-
-        const natvData = await natvRes.json().catch(() => ({} as any));
-        const exp = natvData?.user?.exp_date || natvData?.expiry || natvData?.exp_date;
-
-        if (natvRes.ok && exp) {
-          newExpiryIso = new Date(exp).toISOString();
-          renewedOk = true;
-
-          // “sync” simples: atualizar créditos se vier no retorno
-          const credits = natvData?.owner?.credits;
-          if (typeof credits === "number") {
-            await supabaseAdmin
-              .from("server_integrations")
-              .update({ credits_last_known: credits, updated_at: isoNow() })
-              .eq("id", (integ as any).id);
-          }
-        }
-      }
-
-      // FASTTV
-      if (!renewedOk && provider === "FASTTV" && (integ as any)?.api_token && (integ as any)?.api_secret && client.server_username) {
-        const fastRes = await fetch(`https://api.painelcliente.com/renew_client/${(integ as any).api_token}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            secret: (integ as any).api_secret,
-            username: client.server_username,
-            month: months,
-          }),
-        });
-
-        const fastData = await fastRes.json().catch(() => ({} as any));
-        const exp = fastData?.data?.exp_date || fastData?.expiry || fastData?.exp_date;
-
-        if (fastRes.ok && exp) {
-          newExpiryIso = new Date(exp).toISOString();
-          renewedOk = true;
-
-          const credits = fastData?.data?.credits;
-          if (typeof credits === "number") {
-            await supabaseAdmin
-              .from("server_integrations")
-              .update({ credits_last_known: credits, updated_at: isoNow() })
-              .eq("id", (integ as any).id);
-          }
-        }
-      }
-    } catch {
-      // ignora detalhes (não vaza)
-    }
-
-    // 7) Fallback: se integração falhar, calcula vencimento por data
-    // (isso mantém o sistema funcionando, mas você pode preferir marcar como erro — abaixo eu marco como erro)
-    if (!renewedOk) {
-      // marca aprovado, mas sem new_vencimento => front mostra “procure suporte”
-      await supabaseAdmin
-        .from("client_portal_payments")
-        .update({ status: "approved", new_vencimento: null })
-        .eq("id", payment.id);
-
-      return NextResponse.json({ ok: true });
-    }
-
-    // 8) Atualizar cliente
-    await supabaseAdmin
-      .from("clients")
-      .update({
-        plan_label: payment.plan_label,
-        price_amount: Number(payment.price_amount),
-        vencimento: newExpiryIso,
-        updated_at: isoNow(),
-      })
-      .eq("id", payment.client_id);
-
-    // 9) Registrar renovação
-    await supabaseAdmin.from("renewals").insert({
-      tenant_id: payment.tenant_id,
-      client_id: payment.client_id,
-      plan_label: payment.plan_label,
-      price_amount: Number(payment.price_amount),
-      months,
-      new_vencimento: newExpiryIso,
-      payment_method: "pix_mercadopago",
-      mp_payment_id: paymentId,
-      renewed_at: isoNow(),
-    });
-
-    // 10) Marcar pagamento como aprovado com vencimento (isso é o “fulfillment done”)
+    // ✅ O Webhook DEVE apenas atualizar o status do pagamento para APPROVED.
+    // Ele NUNCA deve acionar a API da NaTV/FAST aqui, senão dá duplicidade com o payment-status!
     await supabaseAdmin
       .from("client_portal_payments")
       .update({
-        status: "approved",
-        new_vencimento: newExpiryIso,
+        status: "approved"
+        // NÃO definimos fulfillment_status aqui. Ele continua "pending" para o sistema processar.
       })
       .eq("id", payment.id);
 
-    // 11) Enviar WhatsApp de confirmação (INTERNAL_API_SECRET)
-    try {
-      const secret = process.env.INTERNAL_API_SECRET || "";
-      if (secret) {
-        const vencFormatted = new Date(String(newExpiryIso)).toLocaleDateString("pt-BR", {
-          timeZone: "America/Sao_Paulo",
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/send`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-secret": secret,
-          },
-          body: JSON.stringify({
-            tenant_id: payment.tenant_id,
-            whatsapp_username: client.whatsapp_username,
-            template: "renewal_confirmation",
-            variables: {
-              name: client.display_name,
-              plan: payment.plan_label,
-              vencimento: vencFormatted,
-            },
-          }),
-        });
-      }
-    } catch {
-      // não quebra o fluxo
-    }
-
     return NextResponse.json({ ok: true });
   } catch (err) {
-    // nunca devolve detalhe interno
     return NextResponse.json({ ok: false, error: safeMsg(err) }, { status: 200 });
   }
 }

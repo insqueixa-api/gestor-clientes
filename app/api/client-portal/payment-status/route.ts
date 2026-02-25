@@ -372,10 +372,13 @@ const { error: upClientErr } = await supabaseAdmin
   }
 
   // 5b) Registra em client_renewals para o dashboard (best-effort)
+  // 5b) Registra em client_renewals para o dashboard
   try {
-    // ✅ Calcula o rateio corretamente, sem multiplicar o total final
     const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
     const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+    
+    // ✅ BLINDAGEM: Garante que a moeda será aceita pelo banco (ex: "BRL")
+    const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
 
     await supabaseAdmin.from("client_renewals").insert({
       tenant_id: tenantId,
@@ -383,13 +386,13 @@ const { error: upClientErr } = await supabaseAdmin
       server_id: client.server_id,
       months,
       screens: (client as any).screens ?? 1,
-      currency: (payment.price_currency ?? client.price_currency ?? "BRL"),
-      unit_price: unitPrice,           // ✅ Preço rateado por mês
-      total_amount: totalPaid,         // ✅ Valor cheio correto que vai pro Dashboard
+      currency: safeCurrency, 
+      unit_price: unitPrice,
+      total_amount: totalPaid,
       credits_per_month: 0, 
       credits_used: 0,
       status: "PAID",
-      notes: `Renovação Automática (Portal do Cliente) · Transação MP: ${String(payment.mp_payment_id)}`, // ✅ Nota no Extrato
+      notes: `Renovação Automática (Portal do Cliente) · MP: ${String(payment.mp_payment_id)}`,
     });
   } catch (e) {
     safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
