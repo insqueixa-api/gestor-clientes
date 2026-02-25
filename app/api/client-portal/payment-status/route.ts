@@ -363,24 +363,23 @@ const { error: upClientErr } = await supabaseAdmin
     const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
     const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
     const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
+    const qtyScreens = Number((client as any).screens ?? 1);
 
     const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
       tenant_id: tenantId,
       client_id: client.id,
       server_id: client.server_id,
       months,
-      screens: (client as any).screens ?? 1,
+      screens: qtyScreens,
       currency: safeCurrency, 
       unit_price: unitPrice,
       total_amount: totalPaid,
-      credits_per_month: 0, 
-      credits_used: 0,
+      credits_per_month: 1, // ✅ O custo base do servidor é sempre 1 por mês
+      credits_used: months * qtyScreens, // ✅ O desconto no preço não altera o custo de créditos (ex: 12 meses x 2 telas = 24 créditos)
       status: "PAID",
       notes: `Renovação Automática (Portal) · MP: ${String(payment.mp_payment_id)}`,
     });
 
-    // 🚨 ARMADILHA DE FANTASMA: Se o Supabase falhar ao gravar no financeiro, 
-    // ele vai dedurar o erro lá na timeline do cliente para você ler!
     if (renErr) {
       await supabaseAdmin.from("client_events").insert({
         tenant_id: tenantId,
