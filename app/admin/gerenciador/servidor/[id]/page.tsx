@@ -134,40 +134,57 @@ const supabase = supabaseBrowser;
             setMovements([]); 
         }
 
-        // 2b. Renovações de clientes deste servidor no mês
-        const { data: renewalsData } = await supabase
+        // 2b. Renovações de clientes deste servidor no mês (Sem JOIN problemático)
+        const { data: renewalsData, error: renErr } = await supabase
           .from("client_renewals")
-          // ✅ AGORA TRAZ O CLIENTE JUNTO (display_name e server_username)
-          .select(`
-            id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes,
-            clients (display_name, server_username)
-          `)
+          .select("id, client_id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes")
           .eq("tenant_id", tenantId)
           .eq("server_id", serverId)
           .gte("created_at", startOfMonth)
           .lte("created_at", endOfMonth)
           .eq("status", "PAID");
 
+        if (renErr) console.error("Erro ao buscar client_renewals:", renErr);
+
         setClientRenewals(renewalsData || []);
 
-        // ✅ Transforma os logs e monta a string rica com o Username e o Tipo
+        // Busca o nome dos clientes em uma requisição separada e blindada
+        const clientIds = [...new Set((renewalsData || []).map((r: any) => r.client_id).filter(Boolean))];
+        const clientsMap: Record<string, any> = {};
+        
+        if (clientIds.length > 0) {
+          const { data: clientsData } = await supabase
+            .from("clients")
+            .select("id, display_name, server_username")
+            .in("id", clientIds);
+            
+          clientsData?.forEach(c => { clientsMap[c.id] = c; });
+        }
+
+        // Transforma os logs lendo a nota completa que gravamos agora no Passo 1
         const mappedRenewals: MovementRow[] = (renewalsData || []).map((r: any) => {
-          const clientName = r.clients?.display_name || "Cliente";
-          const userName = r.clients?.server_username ? `(${r.clients.server_username})` : "";
-          const rawNotes = String(r.notes || "").toLowerCase();
+          const clientInfo = clientsMap[r.client_id] || {};
+          const clientName = clientInfo.display_name || "Cliente Desconhecido";
+          const userName = clientInfo.server_username ? `(${clientInfo.server_username})` : "";
+          
+          const rawNotes = String(r.notes || "");
+          const rawNotesLower = rawNotes.toLowerCase();
 
-          // Descobre o tipo de renovação baseando-se no que a API gravou no "notes"
-          let tipoRenovacao = "Renovação via painel"; // fallback
-          if (rawNotes.includes("portal")) {
-            tipoRenovacao = "Renovação via Portal do Cliente";
-          } else if (rawNotes.includes("automática") || rawNotes.includes("automatica")) {
-            tipoRenovacao = "Renovação Automática";
-          } else if (rawNotes.includes("manual")) {
-            tipoRenovacao = "Renovação Manual";
+          let generatedLabel = "";
+
+          // Se a nota já foi gravada com a mensagem linda pelo banco (novo padrão que injetamos), usamos ela
+          if (rawNotesLower.includes("renovação") || rawNotesLower.includes("renovacao")) {
+            generatedLabel = rawNotes;
+          } else {
+            // Se for um log mais antigo, fazemos o fallback clássico
+            let tipoRenovacao = "Renovação via painel";
+            if (rawNotesLower.includes("portal")) tipoRenovacao = "Renovação via Portal do Cliente";
+            else if (rawNotesLower.includes("automática") || rawNotesLower.includes("automatica")) tipoRenovacao = "Renovação Automática";
+            else if (rawNotesLower.includes("manual")) tipoRenovacao = "Renovação Manual";
+
+            generatedLabel = `${tipoRenovacao} · ${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
+            if (rawNotes) generatedLabel += ` · Obs: ${rawNotes}`;
           }
-
-          // Formata: "Renovação via Portal do Cliente · Márcio (marcio123) · 1 mês(es) · 2 tela(s)"
-          const generatedLabel = `${tipoRenovacao} · ${clientName} ${userName} · ${r.months} mês(es) · ${r.screens} tela(s)`;
 
           return {
             id: r.id,
@@ -180,7 +197,7 @@ const supabase = supabaseBrowser;
           };
         });
 
-        // Junta as movimentações de painel com as de clientes e ordena da mais nova pra mais velha
+        // Junta as movimentações de painel com as de clientes
         const allMoves = [...(movData || []), ...mappedRenewals].sort((a, b) => 
           new Date(b.happened_at).getTime() - new Date(a.happened_at).getTime()
         );
