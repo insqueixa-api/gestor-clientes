@@ -337,32 +337,19 @@ const { error: upClientErr } = await supabaseAdmin
 
   // 5a) Log (best-effort)
   try {
-    const fmtDate = (iso: string) => {
-      try {
-        return new Intl.DateTimeFormat("pt-BR", {
-          timeZone: "America/Sao_Paulo",
-          day: "2-digit", month: "2-digit", year: "numeric",
-          hour: "2-digit", minute: "2-digit",
-        }).format(new Date(iso));
-      } catch { return iso; }
-    };
-
-    const oldVenc = (client as any).vencimento ? fmtDate(String((client as any).vencimento)) : "—";
-    const newVenc = fmtDate(expDateISO);
     const monthsLabel = months === 1 ? "1 mês" : `${months} meses`;
 
     await supabaseAdmin.from("client_events").insert({
       tenant_id: tenantId,
       client_id: client.id,
       event_type: "RENEWAL",
-      // ✅ Mensagem clara e padronizada para a Timeline do cliente
-      message: `Renovação via Portal do Cliente · ${monthsLabel} · ${srv.name || provider} · De: ${oldVenc} → Para: ${newVenc}`,
+      // ✅ "De -> Para" REMOVIDO! Estética limpa.
+      message: `Renovação via Portal do Cliente · ${monthsLabel} · ${srv.name || provider}`,
       meta: {
         mp_payment_id: String(payment.mp_payment_id),
         months,
         provider,
         server_name: srv.name || null,
-        old_vencimento: (client as any).vencimento || null,
         new_vencimento: expDateISO,
         source: "client_portal",
       },
@@ -371,16 +358,13 @@ const { error: upClientErr } = await supabaseAdmin
     safeServerLog("payment-status: failed to insert client_events", (e as any)?.message);
   }
 
-  // 5b) Registra em client_renewals para o dashboard (best-effort)
   // 5b) Registra em client_renewals para o dashboard
   try {
     const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
     const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
-    
-    // ✅ BLINDAGEM: Garante que a moeda será aceita pelo banco (ex: "BRL")
     const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
 
-    await supabaseAdmin.from("client_renewals").insert({
+    const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
       tenant_id: tenantId,
       client_id: client.id,
       server_id: client.server_id,
@@ -392,8 +376,19 @@ const { error: upClientErr } = await supabaseAdmin
       credits_per_month: 0, 
       credits_used: 0,
       status: "PAID",
-      notes: `Renovação Automática (Portal do Cliente) · MP: ${String(payment.mp_payment_id)}`,
+      notes: `Renovação Automática (Portal) · MP: ${String(payment.mp_payment_id)}`,
     });
+
+    // 🚨 ARMADILHA DE FANTASMA: Se o Supabase falhar ao gravar no financeiro, 
+    // ele vai dedurar o erro lá na timeline do cliente para você ler!
+    if (renErr) {
+      await supabaseAdmin.from("client_events").insert({
+        tenant_id: tenantId,
+        client_id: client.id,
+        event_type: "SYSTEM",
+        message: `[ERRO FINANCEIRO] Falha ao registrar renovação no Servidor: ${renErr.message}`
+      });
+    }
   } catch (e) {
     safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
   }
