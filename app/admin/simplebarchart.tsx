@@ -14,6 +14,8 @@ interface SimpleBarChartProps {
   data: SimpleBarChartDatum[];
   mode?: "count" | "currency";
   colorVar?: "blue" | "emerald" | "violet" | "rose" | "amber";
+  /** @deprecated Usar colorVar no lugar. Mantido para retrocompatibilidade. */
+  colorClass?: string;
   label?: string;
   heightClass?: string;
 }
@@ -75,13 +77,24 @@ const palettes = {
   },
 };
 
+/* ── Mapeamento retrocompatível colorClass → colorVar ── */
+function inferColorVar(colorClass?: string): keyof typeof palettes {
+  if (!colorClass) return "blue";
+  if (colorClass.includes("emerald") || colorClass.includes("green"))               return "emerald";
+  if (colorClass.includes("violet") || colorClass.includes("purple") || colorClass.includes("indigo")) return "violet";
+  if (colorClass.includes("rose")   || colorClass.includes("red")    || colorClass.includes("pink"))   return "rose";
+  if (colorClass.includes("amber")  || colorClass.includes("yellow") || colorClass.includes("orange")) return "amber";
+  return "blue";
+}
+
 /* ══════════════════════════════════════════════
    COMPONENTE PRINCIPAL
 ══════════════════════════════════════════════ */
 export function SimpleBarChart({
   data,
   mode = "count",
-  colorVar = "blue",
+  colorVar,
+  colorClass,
   label,
   heightClass = "h-56",
 }: SimpleBarChartProps) {
@@ -89,7 +102,9 @@ export function SimpleBarChart({
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const palette = palettes[colorVar];
+  // colorVar tem prioridade; se não informado, tenta inferir pelo colorClass legado
+  const resolvedColorVar = colorVar ?? inferColorVar(colorClass);
+  const palette = palettes[resolvedColorVar];
 
   const { maxNice, ticks } = useMemo(() => {
     const rawMax = Math.max(...data.map((d) => d.value), 0);
