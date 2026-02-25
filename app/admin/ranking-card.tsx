@@ -20,10 +20,10 @@ interface RankingCardProps {
   subtitle?: string;
   items: BarItem[];
   accentColor?: AccentColor;
-  valueLabel?: string; // ex: "clientes", "apps"
+  valueLabel?: string;
   formatValue?: (v: number) => string;
+  topN?: number;  // 👈 novo
 }
-
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
 const accents: Record<AccentColor, {
@@ -101,12 +101,7 @@ const accents: Record<AccentColor, {
 const medals = ["🥇", "🥈", "🥉"];
 
 export function RankingCard({
-  title,
-  subtitle,
-  items,
-  accentColor = "sky",
-  valueLabel,
-  formatValue = fmtInt,
+  title, subtitle, items, accentColor = "sky", valueLabel, formatValue = fmtInt, topN = 5,
 }: RankingCardProps) {
   const c = accents[accentColor];
   const max = Math.max(...items.map((i) => i.value), 1);
@@ -124,7 +119,7 @@ export function RankingCard({
           )}
         </div>
         <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${c.rankBg} ${c.rank}`}>
-          Top {items.length}
+          Top {topN}
         </span>
       </div>
 
