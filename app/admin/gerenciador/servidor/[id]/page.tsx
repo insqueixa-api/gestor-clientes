@@ -274,24 +274,30 @@ const supabase = supabaseBrowser;
   }, [movements, server]);
 
   // ✅ NOVO: Lógica de filtro da tabela blindada contra nulos
+  // ✅ Lógica de filtro da tabela (Totalmente blindada contra crashes)
   const filteredMovements = useMemo(() => {
+    if (!movements) return [];
+    
     return movements.filter(m => {
       // 1. Filtro por Tipo
       if (filterKind !== "ALL" && m.kind !== filterKind) return false;
       
       // 2. Filtro por Texto (Nome, Username, Obs, Valor ou Data)
       if (searchTerm) {
-        const term = String(searchTerm).toLowerCase().trim();
-        // Fallbacks seguros para evitar a quebra "toLowerCase is not a function"
-        const safeLabel = String(m.label || "").toLowerCase();
-        const safeDate = String(fmtDate(m.happened_at) || "").toLowerCase();
-        const safeValue = m.total_brl != null ? String(fmtMoney(m.total_brl)).toLowerCase() : "";
+        const term = searchTerm.toLowerCase().trim();
         
-        const matchLabel = safeLabel.includes(term);
-        const matchDate = safeDate.includes(term);
-        const matchValue = safeValue.includes(term);
-        
-        if (!matchLabel && !matchDate && !matchValue) return false;
+        try {
+          const safeLabel = String(m?.label || "").toLowerCase();
+          const safeDate = m?.happened_at ? String(fmtDate(m.happened_at)).toLowerCase() : "";
+          const safeValue = m?.total_brl != null ? String(fmtMoney(Number(m.total_brl))).toLowerCase() : "";
+          
+          if (!safeLabel.includes(term) && !safeDate.includes(term) && !safeValue.includes(term)) {
+            return false;
+          }
+        } catch (error) {
+          // Se qualquer formatação falhar (dado corrompido no banco), ignora o erro e esconde a linha na busca
+          return false;
+        }
       }
       return true;
     });
