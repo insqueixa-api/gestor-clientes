@@ -619,6 +619,7 @@ useEffect(() => {
   const [whatsUserTouched, setWhatsUserTouched] = useState(false);
 
   // NOVO: Contato Secundário
+  const [showSecondary, setShowSecondary] = useState(false);
   const [secondarySalutation, setSecondarySalutation] = useState<string>("");
   const [secondaryName, setSecondaryName] = useState("");
   const [secondaryPhoneRaw, setSecondaryPhoneRaw] = useState("");
@@ -1104,6 +1105,11 @@ if (clientPlanTableId) {
 
   setSecondaryName(clientToEdit.secondary_display_name || "");
   setSecondarySalutation(clientToEdit.secondary_name_prefix || "");
+
+  if (clientToEdit.secondary_display_name || clientToEdit.secondary_phone_e164 || clientToEdit.secondary_whatsapp_username) {
+    setShowSecondary(true);
+  }
+
   if (clientToEdit.secondary_phone_e164) {
     const { ddi, national } = splitE164(clientToEdit.secondary_phone_e164);
     setSecondaryCountryLabel(ddiMeta(ddi).label);
@@ -3602,68 +3608,100 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 
-                {/* CONTATO SECUNDÁRIO */}
-                <div className="pt-2 mt-4 border-t border-slate-200 dark:border-white/10 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário (Opcional)</h3>
-                  
-                  {/* Saudação + Nome Secundário */}
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="col-span-1">
-                      <Label>Saudação</Label>
-                      <Select value={secondarySalutation} onChange={(e) => setSecondarySalutation(e.target.value)}>
-                        <option value=""> </option>
-                        <option value="Sr.">Sr.</option>
-                        <option value="Sra.">Sra.</option>
-                        <option value="Dr.">Dr.</option>
-                        <option value="Dra.">Dra.</option>
-                        <option value="Dna.">Dna.</option>
-                      </Select>
-                    </div>
-                    <div className="col-span-3">
-                      <Label>Nome do contato</Label>
-                      <Input value={secondaryName} onChange={(e) => setSecondaryName(e.target.value)} />
-                    </div>
+                {/* CONTATO SECUNDÁRIO (TOGGLE) */}
+                {!showSecondary ? (
+                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-white/10 flex justify-between items-center">
+                    <Label> </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowSecondary(true)}
+                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                    >
+                      + ADD CONTATO SECUNDÁRIO
+                    </button>
                   </div>
-
-                  {/* Telefone + WhatsUser Secundário */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <PhoneRow
-                      label="Telefone secundário"
-                      countryLabel={secondaryCountryLabel}
-                      rawValue={secondaryPhoneRaw}
-                      onRawChange={setSecondaryPhoneRaw}
-                      onDone={handleDoneSecondary}
-                    />
-
-                    <div>
-                      <Label>WhatsApp username</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
-                        <Input
-                          className="pl-8 pr-10"
-                          value={secondaryWhatsappUsername}
-                          onChange={(e) => {
-                            setSecondaryWhatsappUsername(e.target.value);
-                            setSecondaryWhatsUserTouched(true);
-                          }}
-                          placeholder="username"
-                        />
-                        {secondaryWhatsappUsername && (
-                          <a
-                            href={`https://wa.me/${secondaryWhatsappUsername}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
-                            title="Abrir conversa"
-                          >
-                            <IconChat />
-                          </a>
-                        )}
+                ) : (
+                  <div className="pt-2 mt-4 border-t border-slate-200 dark:border-white/10 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecondary(false);
+                          setSecondaryName("");
+                          setSecondarySalutation("");
+                          setSecondaryPhoneRaw("");
+                          setSecondaryWhatsappUsername("");
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded text-rose-500 hover:bg-rose-500/10 font-bold transition-colors"
+                        title="Remover Contato Secundário"
+                      >
+                        REMOVER
+                      </button>
+                    </div>
+                    
+                    {/* Saudação + Nome Secundário */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="col-span-1">
+                        <Label>Saudação</Label>
+                        <Select value={secondarySalutation} onChange={(e) => setSecondarySalutation(e.target.value)}>
+                          <option value=""> </option>
+                          <option value="Sr.">Sr.</option>
+                          <option value="Sra.">Sra.</option>
+                          <option value="Dr.">Dr.</option>
+                          <option value="Dra.">Dra.</option>
+                          <option value="Dna.">Dna.</option>
+                        </Select>
+                      </div>
+                      <div className="col-span-3">
+                        <Label>Nome do contato</Label>
+                        <Input value={secondaryName} onChange={(e) => setSecondaryName(e.target.value)} />
                       </div>
                     </div>
+
+                    {/* Telefone + WhatsUser Secundário */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <PhoneRow
+                        label="Telefone secundário"
+                        countryLabel={secondaryCountryLabel}
+                        rawValue={secondaryPhoneRaw}
+                        onRawChange={setSecondaryPhoneRaw}
+                        onDone={handleDoneSecondary}
+                      />
+
+                      <div>
+                        <Label>WhatsApp username</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+                          <Input
+                            className="pl-8 pr-10"
+                            value={secondaryWhatsappUsername}
+                            onChange={(e) => {
+                              setSecondaryWhatsappUsername(e.target.value);
+                              setSecondaryWhatsUserTouched(true);
+                            }}
+                            placeholder="username"
+                          />
+                          {secondaryWhatsappUsername && (
+                            <a
+                              href={`https://wa.me/${secondaryWhatsappUsername}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                              title="Abrir conversa"
+                            >
+                              <IconChat />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DIVISOR PARA SEPARAR DO RESTANTE */}
+                    <div className="pt-2 pb-1 border-b border-slate-200 dark:border-white/10"></div>
                   </div>
-                </div>
+                )}
 
 
 
