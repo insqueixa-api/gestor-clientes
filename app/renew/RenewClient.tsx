@@ -440,7 +440,7 @@ setPaymentData(null);
           session_token: session,
           client_id: selectedAccount.id,
           period: renewPeriod,
-          price_amount: renewPrice.price_amount,
+          
         }),
         cache: "no-store",
       });

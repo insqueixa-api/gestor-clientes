@@ -12,9 +12,9 @@ const NO_STORE_HEADERS = {
 
 // ✅ Log “cego”: em produção não imprime detalhes
 function safeServerLog(...args: any[]) {
-  // ATENÇÃO: Habilitei o log em produção temporariamente para você monitorar esse pagamento real
-  // Depois você pode voltar para: if (process.env.NODE_ENV !== "production") ...
-  console.error(...args);
+  if (process.env.NODE_ENV !== "production") {
+    console.error(...args);
+  }
 }
 
 function normalizeStr(v: unknown) {
