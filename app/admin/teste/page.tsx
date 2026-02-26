@@ -43,10 +43,13 @@ type VwClientRow = {
 
   whatsapp_e164: string | null;
 
-  whatsapp_username: string | null;
-  whatsapp_extra: string[] | null;
+whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
   dont_message_until: string | null;
+  secondary_display_name?: string | null;
+  secondary_name_prefix?: string | null;
+  secondary_phone_e164?: string | null;
+  secondary_whatsapp_username?: string | null;
 
   apps_names: string[] | null;
 
@@ -74,11 +77,14 @@ type TrialRow = {
 
   // para editar
   server_id: string;
-  whatsapp: string;
+whatsapp: string;
   whatsapp_username?: string;
-  whatsapp_extra?: string[];
   whatsapp_opt_in?: boolean;
   dont_message_until?: string;
+  secondary_display_name?: string;
+  secondary_name_prefix?: string;
+  secondary_phone_e164?: string;
+  secondary_whatsapp_username?: string;
   server_password?: string;
   m3u_url?: string; // ✅ ADICIONAR
   vencimento?: string;
@@ -553,9 +559,12 @@ const mapped: TrialRow[] = typed.map((r) => {
   server_id: String(r.server_id ?? ""),
   whatsapp: String(r.whatsapp_e164 ?? ""),
   whatsapp_username: r.whatsapp_username ?? undefined,
-  whatsapp_extra: r.whatsapp_extra ?? undefined,
   whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
   dont_message_until: r.dont_message_until ?? undefined,
+  secondary_display_name: r.secondary_display_name ?? undefined,
+  secondary_name_prefix: r.secondary_name_prefix ?? undefined,
+  secondary_phone_e164: r.secondary_phone_e164 ?? undefined,
+  secondary_whatsapp_username: r.secondary_whatsapp_username ?? undefined,
   server_password: (r.server_password ?? undefined) as any,
   m3u_url: r.m3u_url || undefined, // ✅ ADICIONAR
   vencimento: r.vencimento ?? undefined,
@@ -675,12 +684,14 @@ useEffect(() => {
       server_id: r.server_id,
       screens: 1,
 
-      whatsapp_e164: r.whatsapp,
+whatsapp_e164: r.whatsapp,
       whatsapp_username: r.whatsapp_username,
-      whatsapp_extra: r.whatsapp_extra,
-
       whatsapp_opt_in: r.whatsapp_opt_in,
       dont_message_until: r.dont_message_until,
+      secondary_display_name: r.secondary_display_name,
+      secondary_name_prefix: r.secondary_name_prefix,
+      secondary_phone_e164: r.secondary_phone_e164,
+      secondary_whatsapp_username: r.secondary_whatsapp_username,
 
       server_password: r.server_password,
       m3u_url: r.m3u_url, // ✅ ADICIONAR
