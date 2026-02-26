@@ -10,7 +10,9 @@ export async function logoutAction(): Promise<void> {
 
   // Mesmo se der erro, a gente força ir pro /login (sessão local vai cair)
   if (error) {
-    console.warn("[logout] signOut error:", error.message);
+    if (process.env.NODE_ENV !== "production") {
+  console.warn("[logout] signOut error:", error.message);
+}
   }
 
   redirect("/login");
