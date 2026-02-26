@@ -595,8 +595,8 @@ return (
 
       {/* RANKINGS */}
 <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-  <RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" />
-  <RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" />
+  <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
+  <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>
     </div>
   );
