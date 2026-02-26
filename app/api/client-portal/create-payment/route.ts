@@ -105,14 +105,13 @@ if (!session_token || !client_id || !period) {
     }
 
     // 2) Buscar dados do cliente
-    // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão
+    // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão (Principal ou Secundário)
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
-      .select("id, display_name, whatsapp_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
-
+      .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
-      .eq("whatsapp_username", sess.whatsapp_username)
+      .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
       .single();
 
     if (clientErr || !client) {
@@ -122,7 +121,13 @@ if (!session_token || !client_id || !period) {
 
 const planLabel = PERIOD_LABELS[period] || period;
 const serverName = (client.servers as any)?.name || "Servidor";
-const displayName = client.display_name || "Cliente";
+
+// ✅ Se for a Tatiana logada, pega o nome dela pro PIX
+const isSecondary = client.secondary_whatsapp_username === sess.whatsapp_username;
+const displayName = isSecondary 
+  ? (client.secondary_display_name || "Cliente") 
+  : (client.display_name || "Cliente");
+  
 let currency = String(client.price_currency || "BRL").trim() || "BRL";
 
 

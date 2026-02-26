@@ -89,6 +89,9 @@ if (!session_token) {
       .select(`
         id,
         display_name,
+        secondary_display_name,
+        whatsapp_username,
+        secondary_whatsapp_username,
         server_username,
         screens,
         plan_label,
@@ -101,7 +104,7 @@ if (!session_token) {
         servers (name)
       `)
       .eq("tenant_id", sess.tenant_id)
-      .eq("whatsapp_username", sess.whatsapp_username)
+      .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
       .order("vencimento", { ascending: true });
 
     if (accErr) {
@@ -113,20 +116,26 @@ if (!session_token) {
       );
     }
 
-    const mapped = (accounts || []).map((acc: any) => ({
-      id: acc.id,
-      display_name: acc.display_name || "Sem nome",
-      server_username: acc.server_username || "",
-      server_name: acc.servers?.name || "Servidor",
-      screens: acc.screens || 1,
-      plan_label: acc.plan_label || "Mensal",
-      vencimento: acc.vencimento,
-      price_amount: acc.price_amount || 0,
-      price_currency: acc.price_currency || "BRL",
-      plan_table_id: acc.plan_table_id,
-      is_trial: acc.is_trial || false,
-      is_archived: acc.is_archived || false,
-    }));
+    const mapped = (accounts || []).map((acc: any) => {
+      // ✅ Descobre se quem está logado agora é o contato secundário
+      const isSecondary = acc.secondary_whatsapp_username === sess.whatsapp_username;
+      
+      return {
+        id: acc.id,
+        // ✅ Mostra o nome correto de quem logou
+        display_name: isSecondary ? (acc.secondary_display_name || "Sem nome") : (acc.display_name || "Sem nome"),
+        server_username: acc.server_username || "",
+        server_name: acc.servers?.name || "Servidor",
+        screens: acc.screens || 1,
+        plan_label: acc.plan_label || "Mensal",
+        vencimento: acc.vencimento,
+        price_amount: acc.price_amount || 0,
+        price_currency: acc.price_currency || "BRL",
+        plan_table_id: acc.plan_table_id,
+        is_trial: acc.is_trial || false,
+        is_archived: acc.is_archived || false,
+      };
+    });
 
     return NextResponse.json(
       { ok: true, data: mapped },

@@ -89,7 +89,7 @@ async function paymentBelongsToWhatsapp(
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("id", clientId)
-    .eq("whatsapp_username", whatsapp)
+    .or(`whatsapp_username.eq.${whatsapp},secondary_whatsapp_username.eq.${whatsapp}`)
     .maybeSingle();
 
   if (error) return false;

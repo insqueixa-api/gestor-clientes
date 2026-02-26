@@ -130,16 +130,21 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date();
   const row = params.recipientRow || {};
 
-  // 1. DADOS BÁSICOS (Lógica Estrita)
-  const displayName = String(row.client_name || row.name || "").trim();
+  // 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
+  const displayName = params.isSecondary
+    ? String(row.secondary_display_name || "").trim()
+    : String(row.client_name || row.name || "").trim();
+
   const primeiroNome = displayName.split(" ")[0] || "";
 
-  // Prefixo/Saudação: Apenas o que está no campo. Sem fallback para nome.
-  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  const namePrefix = params.isSecondary
+    ? String(row.secondary_name_prefix || "").trim()
+    : String(row.name_prefix || row.saudacao || "").trim();
+    
   const saudacao = namePrefix ? namePrefix : "";
 
   // 2. DATAS
@@ -157,7 +162,12 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   }
 
   const appUrl = "https://unigestor.net.br";
-  const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+  
+  // Pega o telefone correto para o PIN inicial e link
+  const rawPhone = params.isSecondary 
+    ? (row.secondary_whatsapp_username || "") 
+    : (row.whatsapp_username || row.whatsapp_e164 || "");
+  const cleanPhone = normalizeToPhone(rawPhone);
 
   // ✅ link_pagamento será preenchido na hora do envio (manual/cron) via token
   const linkPagamento = "";
@@ -260,7 +270,6 @@ type ScheduleBody = {
 };
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
-  // ✅ SEMPRE pega da view consolidada
   const { data, error } = await sb
     .from("vw_clients_list")
     .select("*")
@@ -271,12 +280,18 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Cliente não encontrado na vw_clients_list");
 
-  const phone = normalizeToPhone(data.whatsapp_username);
+  const phones = [];
+  const phoneMain = normalizeToPhone(data.whatsapp_username);
+  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
+
+  const phoneSec = normalizeToPhone(data.secondary_whatsapp_username);
+  if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
+
   return {
-    phone,
+    phones, // Lista de contatos da conta
     whatsapp_opt_in: data.whatsapp_opt_in === true,
     dont_message_until: data.dont_message_until as string | null,
-    row: data, // ✅ para variáveis
+    row: data,
   };
 }
 
@@ -292,10 +307,10 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
       continue;
     }
 
-    if (data) {
+if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
       return {
-        phone,
+        phones: phone ? [{ number: phone, is_secondary: false }] : [],
         whatsapp_opt_in: (data as any).whatsapp_opt_in === true,
         dont_message_until: ((data as any).whatsapp_snooze_until as string | null) ?? null,
         row: data, // ✅ para variáveis
@@ -614,209 +629,110 @@ if ((job as any).automation_id && automationConfig) {
           : await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
 
       // ✅ validações
-      if (!wa.phone) {
-        await sb
-          .from("client_message_jobs")
-          .update({
-            status: "FAILED",
-            error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username`,
-          })
-          .eq("id", job.id);
+      if (!wa.phones || wa.phones.length === 0) {
+        await sb.from("client_message_jobs").update({ status: "FAILED", error_message: "Conta sem whatsapp_username" }).eq("id", job.id);
         continue;
       }
 
       if (!wa.whatsapp_opt_in) {
-        await sb
-          .from("client_message_jobs")
-          .update({
-            status: "FAILED",
-            error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não opt-in`,
-          })
-          .eq("id", job.id);
+        await sb.from("client_message_jobs").update({ status: "FAILED", error_message: "Conta não opt-in" }).eq("id", job.id);
         continue;
       }
 
       if (wa.dont_message_until) {
         const until = new Date(wa.dont_message_until);
-
-        if (isNaN(until.getTime())) {
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa (data inválida): ${String(
-                wa.dont_message_until
-              )}`,
-            })
-            .eq("id", job.id);
-          continue;
-        }
-
-        if (until > new Date()) {
-          const formattedSP = new Intl.DateTimeFormat("pt-BR", {
-            timeZone: TZ_SP,
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }).format(until);
-
-          await sb
-            .from("client_message_jobs")
-            .update({
-              status: "FAILED",
-              error_message: `${recipientType === "reseller" ? "Revenda" : "Cliente"} em pausa até ${formattedSP}`,
-            })
-            .eq("id", job.id);
+        if (!isNaN(until.getTime()) && until > new Date()) {
+          await sb.from("client_message_jobs").update({ status: "FAILED", error_message: `Conta em pausa até ${wa.dont_message_until}` }).eq("id", job.id);
           continue;
         }
       }
 
       const sessionUserId = String(job.created_by || "system");
       const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
+      
+      let successCount = 0;
+      let lastError = "";
 
-safeServerLog("[WA][cron_send]", {
-  jobId_suffix: String(job.id || "").slice(-6),
-  tenantId: job.tenant_id,
-  recipientType,
-  recipientId_suffix: recipientId ? String(recipientId).slice(-6) : null,
-  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
-  createdBy_prefix: job.created_by ? String(job.created_by).slice(0, 8) : null,
-});
+      // Puxa PIX manual uma vez
+      let pixVars: Record<string, string> = { pix_manual_cnpj: "", pix_manual_cpf: "", pix_manual_email: "", pix_manual_phone: "", chave_pix_manual: "" };
+      try {
+        const pix = await fetchPixManualMap(sb, String(job.tenant_id));
+        pixVars.pix_manual_cnpj = pix.cnpj || "";
+        pixVars.pix_manual_cpf = pix.cpf || "";
+        pixVars.pix_manual_email = pix.email || "";
+        pixVars.pix_manual_phone = pix.phone || "";
+        pixVars.chave_pix_manual = pix.cnpj || pix.cpf || pix.email || pix.phone || pix.random || "";
+      } catch (e) {}
 
+      // ✅ Loop de envios para os contatos vinculados à conta
+      for (const contact of wa.phones) {
+        const vars = buildTemplateVars({
+          recipientType,
+          recipientRow: wa.row,
+          isSecondary: contact.is_secondary,
+        });
+        Object.assign(vars, pixVars);
 
-      // ✅ tags
-const vars = buildTemplateVars({
-  recipientType,
-  recipientRow: (wa as any).row,
-});
+        // Gera token exclusivo do contato atual no loop
+        try {
+          if (contact.number) {
+            const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString();
+            const createdBy = String(job.created_by || "").trim();
+            const { data: tokData } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+              p_tenant_id: String(job.tenant_id),
+              p_whatsapp_username: contact.number,
+              p_created_by: createdBy,
+              p_label: contact.is_secondary ? "Cobranca automatica Secundario" : "Cobranca automatica",
+              p_expires_at: expiresAt,
+            });
+            const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+            const portalToken = rowTok?.token ? String(rowTok.token) : "";
+            if (portalToken) {
+              const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").trim().replace(/\/+$/, "");
+              vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+            }
+          }
+        } catch (e) {}
 
-// ✅ garante que as chaves existam mesmo se o buildTemplateVars ainda não tiver elas
-(vars as any).pix_manual_cnpj = (vars as any).pix_manual_cnpj ?? "";
-(vars as any).pix_manual_cpf = (vars as any).pix_manual_cpf ?? "";
-(vars as any).pix_manual_email = (vars as any).pix_manual_email ?? "";
-(vars as any).pix_manual_phone = (vars as any).pix_manual_phone ?? "";
+        const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
-// ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
-try {
-  const tid = String(job.tenant_id || "").trim();
-  const pix = await fetchPixManualMap(sb, tid);
+        const res = await fetch(`${baseUrl}/send`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${waToken}`,
+            "x-session-key": sessionKey,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ phone: contact.number, message: renderedMessage }),
+        });
 
-  (vars as any).pix_manual_cnpj = pix.cnpj || "";
-  (vars as any).pix_manual_cpf = pix.cpf || "";
-  (vars as any).pix_manual_email = pix.email || "";
-  (vars as any).pix_manual_phone = pix.phone || "";
+        if (!res.ok) {
+           lastError = await res.text();
+        } else {
+           successCount++;
+        }
+      }
 
-  // ✅ compat (se existir template antigo usando {chave_pix_manual})
-  (vars as any).chave_pix_manual =
-    pix.cnpj || pix.cpf || pix.email || pix.phone || pix.random || "";
-} catch (e: any) {
-  safeServerLog("[WA][pix_manual][cron] falhou", e?.message ?? e);
-}
-
-// ✅ token v2 (sem auth.uid, valida por created_by)
-try {
-  const whatsappUsernameRaw = String((wa as any).row?.whatsapp_username ?? "").trim();
-  const whatsappUsername = normalizeToPhone(whatsappUsernameRaw);
-
-  if (whatsappUsername) {
-    const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString(); // 30 dias
-    const createdBy = String((job as any).created_by || "").trim();
-
-    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-      p_tenant_id: String(job.tenant_id),
-      p_whatsapp_username: whatsappUsername,
-      p_created_by: createdBy,
-      p_label: "Cobranca automatica",
-      p_expires_at: expiresAt,
-    });
-
-    if (tokErr) throw new Error(tokErr.message);
-
-    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-    const portalToken = rowTok?.token ? String(rowTok.token) : "";
-
-    safeServerLog("[PORTAL][cron_token:v2]", {
-      jobId_suffix: String(job.id || "").slice(-6),
-      tenantId: job.tenant_id,
-      createdBy_prefix: createdBy ? String(createdBy).slice(0, 8) : null,
-      phone_suffix: whatsappUsername ? String(whatsappUsername).slice(-4) : null,
-      ok: true,
-      hasToken: !!portalToken,
-      token_suffix: portalToken ? portalToken.slice(-6) : null,
-    });
-
-    if (portalToken) {
-const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br")
-  .trim()
-  .replace(/\/+$/, "");
-
-      vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
-    } else {
-      safeServerLog("[PORTAL][token:v2] retorno sem token");
-    }
-  } else {
-    safeServerLog("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
-  }
-} catch (e: any) {
-  safeServerLog("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
-}
-
-const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
-
-
-      const res = await fetch(`${baseUrl}/send`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${waToken}`,
-          "x-session-key": sessionKey,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          phone: wa.phone,
-          message: renderedMessage,
-        }),
-      });
-
-      const raw = await res.text();
-      if (!res.ok) {
-        await sb
-          .from("client_message_jobs")
-          .update({
-            status: "FAILED",
-            error_message: raw.slice(0, 500),
-          })
-          .eq("id", job.id);
+      if (successCount === 0) {
+        await sb.from("client_message_jobs").update({ status: "FAILED", error_message: String(lastError).slice(0, 500) }).eq("id", job.id);
         continue;
       }
 
-      await sb
-        .from("client_message_jobs")
-        .update({
-          status: "SENT",
-          sent_at: new Date().toISOString(),
-          error_message: null,
-        })
-        .eq("id", job.id);
+      await sb.from("client_message_jobs").update({ status: "SENT", sent_at: new Date().toISOString(), error_message: null }).eq("id", job.id);
 
-      // ✅ billing_logs (mantido como você já tinha)
+      // ✅ Grava o Log do disparo
       if ((job as any).automation_id) {
         const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
-
-        const logRes = await sb.from("billing_logs").insert({
+        await sb.from("billing_logs").insert({
           tenant_id: job.tenant_id,
           automation_id: (job as any).automation_id,
           client_id: job.client_id || null,
           client_name: cName,
-          client_whatsapp: wa.phone,
+          client_whatsapp: wa.phones.map(p => p.number).join(", "),
           status: "SENT",
           sent_at: new Date().toISOString(),
         });
-
-        if (logRes.error) console.error("Erro ao salvar Log:", logRes.error);
       }
 
       processed++;
@@ -913,11 +829,11 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
     return NextResponse.json({ error: e?.message || "send_at inválido" }, { status: 400 });
   }
 
-  // ✅ validações iguais ao dispatch (mantidas)
+  // ✅ validações iguais ao dispatch
   const wa =
     recipientType === "reseller" ? await fetchResellerWhatsApp(sb, tenantId, recipientId) : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
-  if (!wa.phone) {
+  if (!wa.phones || wa.phones.length === 0) {
     return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` }, { status: 400 });
   }
 
@@ -927,26 +843,8 @@ const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
   if (wa.dont_message_until) {
     const until = new Date(wa.dont_message_until);
-
-    if (isNaN(until.getTime())) {
-      return NextResponse.json(
-        { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não quer receber mensagens (data inválida): ${wa.dont_message_until}` },
-        { status: 409 }
-      );
-    }
-
-    if (until > new Date()) {
-      const formatted = new Intl.DateTimeFormat("pt-BR", {
-        timeZone: TZ_SP,
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(until);
-
-      return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não quer receber mensagens até: ${formatted}` }, { status: 409 });
+    if (!isNaN(until.getTime()) && until > new Date()) {
+      return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não quer receber mensagens (em pausa)` }, { status: 409 });
     }
   }
 

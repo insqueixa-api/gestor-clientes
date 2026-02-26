@@ -93,14 +93,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Buscar dados do cliente
-    // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão
+    // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão (Principal ou Secundário)
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
       // ✅ ADICIONAMOS O server_id PARA DESCOBRIR A INTEGRAÇÃO
-      .select("screens, plan_label, price_amount, price_currency, plan_table_id, whatsapp_username, server_id")
+      .select("screens, plan_label, price_amount, price_currency, plan_table_id, whatsapp_username, secondary_whatsapp_username, server_id")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
-      .eq("whatsapp_username", sess.whatsapp_username)
+      .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
       .single();
 
     if (clientErr || !client) {
