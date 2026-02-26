@@ -1088,9 +1088,9 @@ if (isTrialMode && defaultBRL) {
   setTestHours(2);
 }
 
-        // ===== PREFILL EDIÇÃO =====
-if (clientToEdit) {
-  setName((clientToEdit.client_name || "").trim());
+// ===== PREFILL EDIÇÃO =====
+        if (clientToEdit) {
+          setName(String(clientToEdit.client_name || "").trim());
 
   // ✅ TABELA DO CLIENTE (prefill)
   // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
@@ -1115,12 +1115,12 @@ if (clientPlanTableId) {
     setCustomTechnology(tec);
   }
 
-  setUsername(clientToEdit.username || "");
-  setPassword(clientToEdit.server_password || "");
-  // ✅ M3U URL
-  setM3uUrl(clientToEdit.m3u_url || "");
+  setUsername(String(clientToEdit.username || ""));
+          setPassword(String(clientToEdit.server_password || ""));
+          // ✅ M3U URL
+          setM3uUrl(String(clientToEdit.m3u_url || ""));
 
-  setSalutation(clientToEdit.name_prefix || "");
+          setSalutation(String(clientToEdit.name_prefix || ""));
 
   // Telefones Principais
   const primaryPhone = clientToEdit.phone_e164 || clientToEdit.whatsapp_e164;
@@ -1504,7 +1504,7 @@ async function executeSave() {
       const finalSecSalutation = hasSecondary && secSalutation.trim() ? secSalutation.trim() : null;
       const finalSecWhatsapp = hasSecondary && secWhatsappUsername.trim() ? secWhatsappUsername.trim() : null;
 
-        const rawSnooze = (dontMessageUntil || "").trim();
+        const rawSnooze = String(dontMessageUntil || "").trim();
         const parsedSnoozeISO = rawSnooze ? localDateTimeToISO(rawSnooze) : null;
 
         const hasFutureSnooze = (() => {
@@ -1521,11 +1521,11 @@ async function executeSave() {
       const dueLocal = new Date(`${dueDate}T${dueTime}:00`);
       const dueISO = dueLocal.toISOString();
       
-      const displayName = name.trim();
-      const namePrefix = salutation?.trim() ? salutation.trim() : null;
+      const displayName = String(name).trim();
+      const namePrefix = String(salutation || "").trim() ? String(salutation).trim() : null;
 
       let finalTechnology = technology;
-      if (technology === "Personalizado") finalTechnology = customTechnology.trim();
+      if (technology === "Personalizado") finalTechnology = String(customTechnology).trim();
 
       // Dados do RPC
       const { data: userRes } = await supabaseBrowser.auth.getUser();
@@ -1621,8 +1621,8 @@ if (m3uUrl && m3uUrl.trim()) {
       
       // ✅ NOVO: Variáveis para dados da API
       // ✅ Normalização: Remove espaços e acentos, mas MANTÉM maiúsculas e minúsculas
-      let apiUsername = username.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
-      let apiPassword = password?.trim() || "";
+      let apiUsername = String(username).trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
+      let apiPassword = String(password || "").trim();
       let apiVencimento = dueISO;
 let apiM3uUrl = "";
 // ✅ NOVO: external_user_id retornado pela integração (ex.: ELITE)
@@ -2242,10 +2242,10 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
 
 // ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
 function generateM3uUrl() {
-  if (!username.trim()) {
-    addToast("warning", "Atenção", "Preencha o usuário primeiro.");
-    return;
-  }
+  if (!String(username).trim()) {
+    addToast("warning", "Atenção", "Preencha o usuário primeiro.");
+    return;
+  }
 
   if (serverDomains.length === 0) {
     addToast("warning", "Sem Domínios", "Este servidor não possui domínios configurados.");
@@ -2259,8 +2259,8 @@ function generateM3uUrl() {
   const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
   // Gera URL
-  const user = username.trim();
-  const pass = password.trim();
+const user = String(username).trim();
+  const pass = String(password).trim();
   const url = `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
   
   setM3uUrl(url);
@@ -2269,22 +2269,22 @@ function generateM3uUrl() {
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
   function handleSave() {
-    // Validação reforçada
-    if (!name.trim() || !username.trim() || !serverId || !primaryPhoneRaw.trim() || !whatsappUsername.trim()) {
-      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp do titular.");
-      return;
-    }
+    // Validação reforçada
+    if (!String(name).trim() || !String(username).trim() || !serverId || !String(primaryPhoneRaw).trim() || !String(whatsappUsername).trim()) {
+      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp do titular.");
+      return;
+    }
 
-    // Validação reforçada Secundário
-    if (hasSecondary && (!secName.trim() || !secPhoneRaw.trim() || !secWhatsappUsername.trim())) {
-      addToast("error", "Contato Secundário", "Preencha Nome, Telefone e WhatsApp do contato secundário (ou clique em Remover).");
-      return;
-    }
-    
-    if (technology === "Personalizado" && !customTechnology.trim()) {
+    // Validação reforçada Secundário
+    if (hasSecondary && (!String(secName).trim() || !String(secPhoneRaw).trim() || !String(secWhatsappUsername).trim())) {
+      addToast("error", "Contato Secundário", "Preencha Nome, Telefone e WhatsApp do contato secundário (ou clique em Remover).");
+      return;
+    }
+    
+    if (technology === "Personalizado" && !String(customTechnology).trim()) {
        addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome da tecnologia.");
        return;
-    }
+    }
 
     // Só confirma "cadastro + renovação" quando for CRIAÇÃO
     if (!isEditing && registerRenewal && !isTrialMode) {
