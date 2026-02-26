@@ -121,6 +121,21 @@ export async function loginAction(
     if (!email) return { error: "Informe o e-mail." };
     if (!password || password.length < 6) return { error: "Informe uma senha válida." };
 
+    // ✅ Validar Turnstile server-side
+    const cfToken = String(formData.get("cf-turnstile-response") ?? "").trim();
+    if (!cfToken) return { error: "Verificação de segurança necessária." };
+
+    const turnstileSecret = String(process.env.TURNSTILE_SECRET_KEY ?? "").trim();
+    if (turnstileSecret) {
+      const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret: turnstileSecret, response: cfToken }).toString(),
+      });
+      const verifyJson = await verifyRes.json().catch(() => ({} as any));
+      if (!verifyJson?.success) return { error: "Verificação de segurança falhou. Tente novamente." };
+    }
+
     const supabase = await createClient();
 
     const { error } = await supabase.auth.signInWithPassword({

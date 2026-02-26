@@ -56,11 +56,9 @@ if (user && url.pathname === '/login') {
 
   // B. Se já estiver logado e tentar acessar a raiz / ou o /admin (estando na tela de login)
   // Redireciona para o Dashboard interno
-  if (user && url.pathname === '/admin') {
-     // Aqui você redireciona para a página interna do seu dashboard
-     
-     
-  }
+if (user && url.pathname === '/login') {
+  return NextResponse.redirect(new URL('/admin', request.url));
+}
 
   return response;
 }

@@ -254,16 +254,18 @@ export async function POST(req: Request) {
     const internalSecret = String(req.headers.get("x-internal-secret") || "").trim();
     const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
 
-    if (!expectedSecret) {
-      return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500 });
-    }
-
     const a = Buffer.from(internalSecret);
     const b = Buffer.from(expectedSecret);
-    const isInternal = a.length === b.length && crypto.timingSafeEqual(a, b);
+    const isInternal = !!expectedSecret && a.length === b.length && crypto.timingSafeEqual(a, b);
 
     if (!isInternal) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      // Tenta autenticar como usuário logado
+      const { createClient } = await import("@/lib/supabase/server");
+      const supabaseAuth = await createClient();
+      const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
+      if (authErr || !auth?.user?.id) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
     }
 
     const { integration_id } = await req.json().catch(() => ({}));
