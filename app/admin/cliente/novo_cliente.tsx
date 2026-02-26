@@ -1478,6 +1478,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }));
 }
 
+
+
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
 async function executeSave() {
     setConfirmModal(null); // Fecha o popup se estiver aberto
@@ -1547,39 +1549,39 @@ const rpcPlanLabel = isTrialMode ? PLAN_LABELS["MONTHLY"] : PLAN_LABELS[selected
       // === BLOCO ORIGINAL DE GRAVAÇÃO ===
       if (isEditing && clientId) {
         // --- ATUALIZAÇÃO ---
-        const { error } = await supabaseBrowser.rpc("update_client", {
-          p_tenant_id: tid,
-          p_client_id: clientId,
-          p_display_name: displayName,
-          p_name_prefix: namePrefix,
-          p_phone_e164: finalPrimaryE164,
-          p_secondary_display_name: finalSecName,
-          p_secondary_name_prefix: finalSecSalutation,
-          p_secondary_phone_e164: finalSecE164,
-          p_secondary_whatsapp_username: finalSecWhatsapp,
-          p_clear_secondary: !hasSecondary,
-          p_server_id: serverId,
-          p_server_username: username,
-          p_server_password: password?.trim() || "",
-          p_screens: rpcScreens,
-          p_plan_label: rpcPlanLabel,
-          p_plan_table_id: selectedTableId || null,
-          p_price_amount: rpcPriceAmount,
-          p_price_currency: rpcCurrency as any,
-          p_vencimento: dueISO,
-          p_notes: notes?.trim() ? notes.trim() : null,
-          p_clear_notes: Boolean(isEditing && !notes?.trim()),
-          p_whatsapp_username: whatsappUsername || null,
-          p_whatsapp_opt_in: Boolean(whatsappOptIn),
-          p_whatsapp_snooze_until: snoozeISO,
-          p_clear_whatsapp_snooze_until: clearSnooze,
-          p_is_trial: isTrialMode,
-          p_technology: finalTechnology,
-        });
+        const { error: updateError } = await supabaseBrowser.rpc("update_client", {
+          p_tenant_id: tid,
+          p_client_id: clientId,
+          p_display_name: displayName,
+          p_name_prefix: namePrefix,
+          p_phone_e164: finalPrimaryE164,
+          p_secondary_display_name: finalSecName,
+          p_secondary_name_prefix: finalSecSalutation,
+          p_secondary_phone_e164: finalSecE164,
+          p_secondary_whatsapp_username: finalSecWhatsapp,
+          p_clear_secondary: !hasSecondary,
+          p_server_id: serverId,
+          p_server_username: username,
+          p_server_password: password?.trim() || "",
+          p_screens: rpcScreens,
+          p_plan_label: rpcPlanLabel,
+          p_plan_table_id: selectedTableId || null,
+          p_price_amount: rpcPriceAmount,
+          p_price_currency: rpcCurrency as any,
+          p_vencimento: dueISO,
+          p_notes: notes?.trim() ? notes.trim() : null,
+          p_clear_notes: Boolean(isEditing && !notes?.trim()),
+          p_whatsapp_username: whatsappUsername || null,
+          p_whatsapp_opt_in: Boolean(whatsappOptIn),
+          p_whatsapp_snooze_until: snoozeISO,
+          p_clear_whatsapp_snooze_until: clearSnooze,
+          p_is_trial: isTrialMode,
+          p_technology: finalTechnology,
+        });
 
-        if (error) {
-          addToast("error", "Erro ao atualizar", error.message);
-          throw error;
+        if (updateError) {
+          addToast("error", "Erro ao atualizar", updateError.message);
+          throw updateError;
         }
 
         // ✅ ATUALIZAR M3U_URL (também na edição)
@@ -2240,52 +2242,52 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
 
 // ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
 function generateM3uUrl() {
-  if (!username.trim()) {
-    addToast("warning", "Atenção", "Preencha o usuário primeiro.");
-    return;
-  }
+  if (!username.trim()) {
+    addToast("warning", "Atenção", "Preencha o usuário primeiro.");
+    return;
+  }
 
-  if (serverDomains.length === 0) {
-    addToast("warning", "Sem Domínios", "Este servidor não possui domínios configurados.");
-    return;
-  }
+  if (serverDomains.length === 0) {
+    addToast("warning", "Sem Domínios", "Este servidor não possui domínios configurados.");
+    return;
+  }
 
-  // Escolhe domínio aleatório
-  const randomDomain = serverDomains[Math.floor(Math.random() * serverDomains.length)];
-  
-  // Remove protocolo se houver
-  const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  
-  // Gera URL
-  const user = username.trim();
-  const pass = password?.trim() || "";
-  const url = `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
-  
-  setM3uUrl(url);
-  addToast("success", "Link Gerado!", "M3U URL atualizado com sucesso.");
+  // Escolhe domínio aleatório
+  const randomDomain = serverDomains[Math.floor(Math.random() * serverDomains.length)];
+  
+  // Remove protocolo se houver
+  const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  
+  // Gera URL
+  const user = username.trim();
+  const pass = password.trim();
+  const url = `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+  
+  setM3uUrl(url);
+  addToast("success", "Link Gerado!", "M3U URL atualizado com sucesso.");
 }
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
-function handleSave() {
-    // Validação reforçada Principal
+  function handleSave() {
+    // Validação reforçada
     if (!name.trim() || !username.trim() || !serverId || !primaryPhoneRaw.trim() || !whatsappUsername.trim()) {
       addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp do titular.");
       return;
     }
 
-    // Validação reforçada Secundário
-    if (hasSecondary && (!secName.trim() || !secPhoneRaw.trim() || !secWhatsappUsername.trim())) {
-      addToast("error", "Contato Secundário", "Preencha Nome, Telefone e WhatsApp do contato secundário (ou clique em Remover).");
-      return;
-    }
+    // Validação reforçada Secundário
+    if (hasSecondary && (!secName.trim() || !secPhoneRaw.trim() || !secWhatsappUsername.trim())) {
+      addToast("error", "Contato Secundário", "Preencha Nome, Telefone e WhatsApp do contato secundário (ou clique em Remover).");
+      return;
+    }
     
     if (technology === "Personalizado" && !customTechnology.trim()) {
-       addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome da tecnologia.");
-       return;
+       addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome da tecnologia.");
+       return;
     }
 
-    // ✅ Só confirma "cadastro + renovação" quando for CRIAÇÃO (nunca na edição)
-if (!isEditing && registerRenewal && !isTrialMode) {
+    // Só confirma "cadastro + renovação" quando for CRIAÇÃO
+    if (!isEditing && registerRenewal && !isTrialMode) {
   const months = PLAN_MONTHS[selectedPlanPeriod] ?? 1;
   const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
 
@@ -2435,94 +2437,94 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 </div>
 
                 {/* Contato Secundário */}
-                <div className="pt-2 border-t border-slate-200 dark:border-white/10">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário</span>
-                    {!hasSecondary ? (
-                      <button
-                        type="button"
-                        onClick={() => setHasSecondary(true)}
-                        className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                      >
-                        + ADD SECUNDÁRIO
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHasSecondary(false);
-                          setSecName("");
-                          setSecSalutation("");
-                          setSecPhoneRaw("");
-                          setSecWhatsappUsername("");
-                        }}
-                        className="text-[10px] px-2 py-0.5 bg-rose-500/10 rounded text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
-                      >
-                        - REMOVER
-                      </button>
-                    )}
-                  </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário</span>
+                    {!hasSecondary ? (
+                      <button
+                        type="button"
+                        onClick={() => setHasSecondary(true)}
+                        className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                      >
+                        + ADD SECUNDÁRIO
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasSecondary(false);
+                          setSecName("");
+                          setSecSalutation("");
+                          setSecPhoneRaw("");
+                          setSecWhatsappUsername("");
+                        }}
+                        className="text-[10px] px-2 py-0.5 bg-rose-500/10 rounded text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                      >
+                        - REMOVER
+                      </button>
+                    )}
+                  </div>
 
-                  {hasSecondary && (
-                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="col-span-1">
-                          <Label>Saudação</Label>
-                          <Select value={secSalutation} onChange={(e) => setSecSalutation(e.target.value)}>
-                            <option value=""> </option>
-                            <option value="Sr.">Sr.</option>
-                            <option value="Sra.">Sra.</option>
-                            <option value="Dr.">Dr.</option>
-                            <option value="Dra.">Dra.</option>
-                            <option value="Dna.">Dna.</option>
-                          </Select>
-                        </div>
-                        <div className="col-span-3">
-                          <Label>Nome *</Label>
-                          <Input value={secName} onChange={(e) => setSecName(e.target.value)} placeholder="Nome do contato secundário" />
-                        </div>
-                      </div>
+                  {hasSecondary && (
+                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="col-span-1">
+                          <Label>Saudação</Label>
+                          <Select value={secSalutation} onChange={(e) => setSecSalutation(e.target.value)}>
+                            <option value=""> </option>
+                            <option value="Sr.">Sr.</option>
+                            <option value="Sra.">Sra.</option>
+                            <option value="Dr.">Dr.</option>
+                            <option value="Dra.">Dra.</option>
+                            <option value="Dna.">Dna.</option>
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Nome *</Label>
+                          <Input value={secName} onChange={(e) => setSecName(e.target.value)} placeholder="Nome do contato secundário" />
+                        </div>
+                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <PhoneRow
-                          label="Telefone"
-                          countryLabel={secCountryLabel}
-                          rawValue={secPhoneRaw}
-                          onRawChange={setSecPhoneRaw}
-                          onDone={handleDoneSecondary}
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <PhoneRow
+                          label="Telefone"
+                          countryLabel={secCountryLabel}
+                          rawValue={secPhoneRaw}
+                          onRawChange={setSecPhoneRaw}
+                          onDone={handleDoneSecondary}
+                        />
 
-                        <div>
-                          <Label>WhatsApp username</Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
-                            <Input
-                              className="pl-8 pr-10"
-                              value={secWhatsappUsername}
-                              onChange={(e) => {
-                                setSecWhatsappUsername(e.target.value);
-                                setSecWhatsUserTouched(true);
-                              }}
-                              placeholder="username"
-                            />
-                            {secWhatsappUsername && (
-                              <a
-                                href={`https://wa.me/${secWhatsappUsername}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
-                                title="Abrir conversa"
-                              >
-                                <IconChat />
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                        <div>
+                          <Label>WhatsApp username</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+                            <Input
+                              className="pl-8 pr-10"
+                              value={secWhatsappUsername}
+                              onChange={(e) => {
+                                setSecWhatsappUsername(e.target.value);
+                                setSecWhatsUserTouched(true);
+                              }}
+                              placeholder="username"
+                            />
+                            {secWhatsappUsername && (
+                              <a
+                                href={`https://wa.me/${secWhatsappUsername}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                                title="Abrir conversa"
+                              >
+                                <IconChat />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2560,7 +2562,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
                 </div>
 
-                {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
+                {/* ✅ CAMPO DE OBSERVAÇÕES */}
                 <div>
                    <Label>Observações Internas</Label>
                    <textarea
