@@ -13,14 +13,20 @@ type SelectOption = {
 };
 
 export type ClientData = {
-  id?: string;
-  client_name: string;
-  username: string;
-  server_password?: string;
+  id?: string;
+  client_name: string;
+  name_prefix?: string;
+  username: string;
+  server_password?: string;
 
-  whatsapp_e164?: string;
-  whatsapp_username?: string;
-  whatsapp_extra?: string[];
+  phone_e164?: string;
+  whatsapp_e164?: string; // Mantido fallback para views antigas
+  whatsapp_username?: string;
+
+  secondary_display_name?: string;
+  secondary_name_prefix?: string;
+  secondary_phone_e164?: string;
+  secondary_whatsapp_username?: string;
   whatsapp_opt_in?: boolean;
   dont_message_until?: string;
 
@@ -628,11 +634,18 @@ const addToast = (type: "success" | "error" | "warning", title: string, message?
   const [primaryCountryLabel, setPrimaryCountryLabel] = useState<string>(ddiMeta("55").label);
 
   const [whatsappUsername, setWhatsappUsername] = useState("");
-  const [whatsUserTouched, setWhatsUserTouched] = useState(false);
+  const [whatsUserTouched, setWhatsUserTouched] = useState(false);
 
-  const [extras, setExtras] = useState<{ id: number; raw: string; countryLabel: string }[]>([]);
+  // --- CONTATO SECUNDÁRIO ---
+  const [hasSecondary, setHasSecondary] = useState(false);
+  const [secSalutation, setSecSalutation] = useState<string>("");
+  const [secName, setSecName] = useState("");
+  const [secPhoneRaw, setSecPhoneRaw] = useState("");
+  const [secCountryLabel, setSecCountryLabel] = useState<string>(ddiMeta("55").label);
+  const [secWhatsappUsername, setSecWhatsappUsername] = useState("");
+  const [secWhatsUserTouched, setSecWhatsUserTouched] = useState(false);
 
-  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [dontMessageUntil, setDontMessageUntil] = useState<string>("");
 
   // --- PAGAMENTO (TAB 2) ---
@@ -763,19 +776,14 @@ const [messageContent, setMessageContent] = useState("");
     }
   }
 
-  function handleDoneExtra(id: number) {
-    setExtras((prev) =>
-      prev.map((x) => {
-        if (x.id !== id) return x;
-        const norm = applyPhoneNormalization(x.raw);
-        return {
-          ...x,
-          countryLabel: norm.countryLabel,
-          raw: norm.formattedNational || norm.nationalDigits || x.raw,
-        };
-      })
-    );
-  }
+  function handleDoneSecondary() {
+    const norm = applyPhoneNormalization(secPhoneRaw);
+    setSecCountryLabel(norm.countryLabel);
+    setSecPhoneRaw(norm.formattedNational || norm.nationalDigits || secPhoneRaw);
+    if (!secWhatsUserTouched) {
+      setSecWhatsappUsername(onlyDigits(norm.e164));
+    }
+  }
 
 // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
 const [hasIntegration, setHasIntegration] = useState(false);
@@ -1112,29 +1120,36 @@ if (clientPlanTableId) {
   // ✅ M3U URL
   setM3uUrl(clientToEdit.m3u_url || "");
 
-  // Telefones
-  if (clientToEdit.whatsapp_e164) {
-    const { ddi, national } = splitE164(clientToEdit.whatsapp_e164);
-    setPrimaryCountryLabel(ddiMeta(ddi).label);
-    setPrimaryPhoneRaw(formatNational(ddi, national) || national);
-    if (!whatsUserTouched) {
-      setWhatsappUsername(
-        clientToEdit.whatsapp_username || onlyDigits(clientToEdit.whatsapp_e164)
-      );
-    }
+  setSalutation(clientToEdit.name_prefix || "");
+
+  // Telefones Principais
+  const primaryPhone = clientToEdit.phone_e164 || clientToEdit.whatsapp_e164;
+  if (primaryPhone) {
+    const { ddi, national } = splitE164(primaryPhone);
+    setPrimaryCountryLabel(ddiMeta(ddi).label);
+    setPrimaryPhoneRaw(formatNational(ddi, national) || national);
   }
 
-  if (Array.isArray(clientToEdit.whatsapp_extra)) {
-    setExtras(
-      clientToEdit.whatsapp_extra.map((ph, i) => {
-        const { ddi, national } = splitE164(ph);
-        return {
-          id: i + 1,
-          raw: formatNational(ddi, national) || national,
-          countryLabel: ddiMeta(ddi).label,
-        };
-      })
-    );
+  if (!whatsUserTouched) {
+    setWhatsappUsername(clientToEdit.whatsapp_username || "");
+  }
+
+  // Telefone Secundário
+  if (clientToEdit.secondary_phone_e164 || clientToEdit.secondary_display_name) {
+    setHasSecondary(true);
+    setSecName(clientToEdit.secondary_display_name || "");
+    setSecSalutation(clientToEdit.secondary_name_prefix || "");
+    
+    if (clientToEdit.secondary_phone_e164) {
+      const { ddi, national } = splitE164(clientToEdit.secondary_phone_e164);
+      setSecCountryLabel(ddiMeta(ddi).label);
+      setSecPhoneRaw(formatNational(ddi, national) || national);
+    }
+    
+    if (clientToEdit.secondary_whatsapp_username) {
+      setSecWhatsappUsername(clientToEdit.secondary_whatsapp_username);
+      setSecWhatsUserTouched(true);
+    }
   }
 
   setServerId(clientToEdit.server_id || "");
@@ -1474,19 +1489,18 @@ async function executeSave() {
       const tid = await getCurrentTenantId();
       
       const rawPrimaryDigits = onlyDigits(primaryPhoneRaw);
-      const ddi = inferDDIFromDigits(rawPrimaryDigits);
-      const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
-      const finalPrimaryE164 = rawPrimaryDigits ? `+${ddi}${nationalDigits}` : "";
+      const ddi = inferDDIFromDigits(rawPrimaryDigits);
+      const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
+      const finalPrimaryE164 = rawPrimaryDigits ? `+${ddi}${nationalDigits}` : "";
 
-      const finalExtrasE164 = extras
-        .map((e) => {
-          const d = onlyDigits(e.raw);
-          if (!d) return "";
-          const ddi2 = inferDDIFromDigits(d);
-          const nat2 = d.startsWith(ddi2) ? d.slice(ddi2.length) : d;
-          return `+${ddi2}${nat2}`;
-        })
-        .filter((x) => x.length > 8);
+      const rawSecDigits = onlyDigits(secPhoneRaw);
+      const ddiSec = inferDDIFromDigits(rawSecDigits);
+      const nationalSec = rawSecDigits.startsWith(ddiSec) ? rawSecDigits.slice(ddiSec.length) : rawSecDigits;
+      
+      const finalSecE164 = hasSecondary && rawSecDigits ? `+${ddiSec}${nationalSec}` : null;
+      const finalSecName = hasSecondary && secName.trim() ? secName.trim() : null;
+      const finalSecSalutation = hasSecondary && secSalutation.trim() ? secSalutation.trim() : null;
+      const finalSecWhatsapp = hasSecondary && secWhatsappUsername.trim() ? secWhatsappUsername.trim() : null;
 
         const rawSnooze = (dontMessageUntil || "").trim();
         const parsedSnoozeISO = rawSnooze ? localDateTimeToISO(rawSnooze) : null;
@@ -1531,49 +1545,44 @@ const rpcPlanLabel = isTrialMode ? PLAN_LABELS["MONTHLY"] : PLAN_LABELS[selected
       let clientId = clientToEdit?.id;
 
       // === BLOCO ORIGINAL DE GRAVAÇÃO ===
-      if (isEditing && clientId) {
-        // --- ATUALIZAÇÃO ---
-const { error } = await supabaseBrowser.rpc("update_client", {
-  p_tenant_id: tid,
-  p_client_id: clientId,
-  p_display_name: displayName,
-  p_server_id: serverId,
-  p_server_username: username,
-  p_server_password: password?.trim() || "",
-  p_screens: rpcScreens,
-  p_plan_label: rpcPlanLabel,
-  p_plan_table_id: selectedTableId || null, // ✅ Garante envio explícito do ID da tabela
-  p_price_amount: rpcPriceAmount,
-  p_price_currency: rpcCurrency as any,
-  p_vencimento: dueISO,
-  p_notes: notes?.trim() ? notes.trim() : null,
-  p_clear_notes: Boolean(isEditing && !notes?.trim()),
-
-  p_whatsapp_username: whatsappUsername || null,
-  p_whatsapp_opt_in: Boolean(whatsappOptIn),
-  p_whatsapp_snooze_until: snoozeISO,
-  p_clear_whatsapp_snooze_until: clearSnooze, // ✅ NOVO
-  p_is_trial: isTrialMode,
-  p_name_prefix: namePrefix,
-  p_technology: finalTechnology,
-  
-});
-
-
-        if (error) {
-          addToast("error", "Erro ao atualizar", error.message);
-          throw error;
-        }
-
-        // Atualiza Telefones
-        await supabaseBrowser.rpc("set_client_phones", {
+      if (isEditing && clientId) {
+        // --- ATUALIZAÇÃO ---
+        const { error } = await supabaseBrowser.rpc("update_client", {
           p_tenant_id: tid,
           p_client_id: clientId,
-          p_primary_e164: finalPrimaryE164,
-          p_secondary_e164: finalExtrasE164,
+          p_display_name: displayName,
+          p_name_prefix: namePrefix,
+          p_phone_e164: finalPrimaryE164,
+          p_secondary_display_name: finalSecName,
+          p_secondary_name_prefix: finalSecSalutation,
+          p_secondary_phone_e164: finalSecE164,
+          p_secondary_whatsapp_username: finalSecWhatsapp,
+          p_clear_secondary: !hasSecondary,
+          p_server_id: serverId,
+          p_server_username: username,
+          p_server_password: password?.trim() || "",
+          p_screens: rpcScreens,
+          p_plan_label: rpcPlanLabel,
+          p_plan_table_id: selectedTableId || null,
+          p_price_amount: rpcPriceAmount,
+          p_price_currency: rpcCurrency as any,
+          p_vencimento: dueISO,
+          p_notes: notes?.trim() ? notes.trim() : null,
+          p_clear_notes: Boolean(isEditing && !notes?.trim()),
+          p_whatsapp_username: whatsappUsername || null,
+          p_whatsapp_opt_in: Boolean(whatsappOptIn),
+          p_whatsapp_snooze_until: snoozeISO,
+          p_clear_whatsapp_snooze_until: clearSnooze,
+          p_is_trial: isTrialMode,
+          p_technology: finalTechnology,
         });
 
-        // ✅ ATUALIZAR M3U_URL (também na edição)
+        if (error) {
+          addToast("error", "Erro ao atualizar", error.message);
+          throw error;
+        }
+
+        // ✅ ATUALIZAR M3U_URL (também na edição)
 if (m3uUrl && m3uUrl.trim()) {
   console.log("🟢 [EDIÇÃO] Atualizando M3U:", m3uUrl);
   
@@ -1984,29 +1993,34 @@ body: JSON.stringify({
 // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
   setLoadingStep("Salvando..."); // ✅
   const { data, error } = await supabaseBrowser.rpc("create_client_and_setup", {
-    p_tenant_id: tid,
-    p_created_by: createdBy,
-    p_display_name: displayName,
-    p_server_id: serverId,
-    p_server_username: apiUsername,  // ✅ DA API
-    p_server_password: apiPassword,  // ✅ DA API
-    p_screens: rpcScreens,
-    p_plan_label: rpcPlanLabel,
-    p_plan_table_id: selectedTableId || null,
-    p_price_amount: rpcPriceAmount,
-    p_price_currency: rpcCurrency as any,
-    p_vencimento: apiVencimento,  // ✅ DA API
-    p_phone_primary_e164: finalPrimaryE164,
-    p_whatsapp_username: whatsappUsername || null,
-    p_whatsapp_opt_in: Boolean(whatsappOptIn),
-    p_whatsapp_snooze_until: snoozeISO,
-    p_clear_whatsapp_snooze_until: clearSnooze,
-    p_notes: notes || null,
-    p_app_ids: [],
-    p_is_trial: isTrialMode,
-    p_is_archived: false,
-    p_technology: finalTechnology,
-  });
+    p_tenant_id: tid,
+    p_created_by: createdBy,
+    p_display_name: displayName,
+    p_name_prefix: namePrefix,
+    p_phone_e164: finalPrimaryE164,
+    p_secondary_display_name: finalSecName,
+    p_secondary_name_prefix: finalSecSalutation,
+    p_secondary_phone_e164: finalSecE164,
+    p_secondary_whatsapp_username: finalSecWhatsapp,
+    p_server_id: serverId,
+    p_server_username: apiUsername,
+    p_server_password: apiPassword,
+    p_screens: rpcScreens,
+    p_plan_label: rpcPlanLabel,
+    p_plan_table_id: selectedTableId || null,
+    p_price_amount: rpcPriceAmount,
+    p_price_currency: rpcCurrency as any,
+    p_vencimento: apiVencimento,
+    p_whatsapp_username: whatsappUsername || null,
+    p_whatsapp_opt_in: Boolean(whatsappOptIn),
+    p_whatsapp_snooze_until: snoozeISO,
+    p_clear_whatsapp_snooze_until: clearSnooze,
+    p_notes: notes || null,
+    p_app_ids: [],
+    p_is_trial: isTrialMode,
+    p_is_archived: false,
+    p_technology: finalTechnology,
+  });
 
   if (error) {
     addToast("error", "Erro ao criar cliente", error.message);
@@ -2085,47 +2099,7 @@ if (clientId && (finalM3u || finalExternalUserId)) {
   });
 }
 
-if (clientId && namePrefix) {
-  await supabaseBrowser.rpc("update_client", {
-    p_tenant_id: tid,
-    p_client_id: clientId,
-    p_display_name: displayName,
-    p_server_id: serverId,
 
-    // ✅ NÃO sobrescrever com estado antigo — usa o que veio da API/variáveis finais
-    p_server_username: apiUsername,
-    p_server_password: apiPassword,
-
-    p_screens: rpcScreens,
-    p_plan_label: rpcPlanLabel,
-
-    // ✅ CRÍTICO: não deixar a tabela “voltar pro padrão”
-    p_plan_table_id: selectedTableId || null,
-
-    p_price_amount: rpcPriceAmount,
-    p_price_currency: rpcCurrency as any,
-
-    // ✅ idem — usa vencimento final (pré-API ou pós-API)
-    p_vencimento: apiVencimento,
-
-    p_notes: notes || null,
-    p_clear_notes: false,
-    p_whatsapp_username: whatsappUsername || null,
-    p_whatsapp_opt_in: Boolean(whatsappOptIn),
-    p_whatsapp_snooze_until: snoozeISO,
-    p_clear_whatsapp_snooze_until: clearSnooze,
-    p_is_trial: isTrialMode,
-    p_name_prefix: namePrefix,
-
-    // ✅ mantém tecnologia estável (evita regressão silenciosa)
-    p_technology: finalTechnology,
-  });
-}
-
-
-        if (finalExtrasE164.length > 0 && clientId) {
-          await supabaseBrowser.rpc("set_client_phones", { p_tenant_id: tid, p_client_id: clientId, p_primary_e164: finalPrimaryE164, p_secondary_e164: finalExtrasE164 });
-        }
 
         if (selectedApps.length > 0 && clientId) {
             const toInsert = selectedApps.map(app => ({
@@ -2293,16 +2267,22 @@ function generateM3uUrl() {
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
 function handleSave() {
-    // Validação reforçada
-    if (!name.trim() || !username.trim() || !serverId || !primaryPhoneRaw.trim() || !whatsappUsername.trim()) {
-      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp.");
+    // Validação reforçada Principal
+    if (!name.trim() || !username.trim() || !serverId || !primaryPhoneRaw.trim() || !whatsappUsername.trim()) {
+      addToast("error", "Campos obrigatórios", "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp do titular.");
+      return;
+    }
+
+    // Validação reforçada Secundário
+    if (hasSecondary && (!secName.trim() || !secPhoneRaw.trim() || !secWhatsappUsername.trim())) {
+      addToast("error", "Contato Secundário", "Preencha Nome, Telefone e WhatsApp do contato secundário (ou clique em Remover).");
       return;
     }
-    
-    if (technology === "Personalizado" && !customTechnology.trim()) {
-       addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome da tecnologia.");
-       return;
-    }
+    
+    if (technology === "Personalizado" && !customTechnology.trim()) {
+       addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome da tecnologia.");
+       return;
+    }
 
     // ✅ Só confirma "cadastro + renovação" quando for CRIAÇÃO (nunca na edição)
 if (!isEditing && registerRenewal && !isTrialMode) {
@@ -2454,40 +2434,95 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
                 </div>
 
-                {/* Telefones adicionais */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label> </Label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExtras((prev) => [
-                          ...prev,
-                          { id: Date.now() + Math.floor(Math.random() * 100000), raw: "", countryLabel: "—" },
-                        ])
-                      }
-                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                    >
-                      + ADD TELEFONE
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {extras.map((ex) => (
-                      <PhoneRow
-                        key={ex.id}
-                        label="Telefone adicional"
-                        countryLabel={ex.countryLabel}
-                        rawValue={ex.raw}
-                        onRawChange={(v) =>
-                          setExtras((prev) => prev.map((x) => (x.id === ex.id ? { ...x, raw: v } : x)))
-                        }
-                        onDone={() => handleDoneExtra(ex.id)}
-                        showRemove
-                        onRemove={() => setExtras((prev) => prev.filter((x) => x.id !== ex.id))}
-                      />
-                    ))}
-                  </div>
-                </div>
+                {/* Contato Secundário */}
+                <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contato Secundário</span>
+                    {!hasSecondary ? (
+                      <button
+                        type="button"
+                        onClick={() => setHasSecondary(true)}
+                        className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                      >
+                        + ADD SECUNDÁRIO
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasSecondary(false);
+                          setSecName("");
+                          setSecSalutation("");
+                          setSecPhoneRaw("");
+                          setSecWhatsappUsername("");
+                        }}
+                        className="text-[10px] px-2 py-0.5 bg-rose-500/10 rounded text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                      >
+                        - REMOVER
+                      </button>
+                    )}
+                  </div>
+
+                  {hasSecondary && (
+                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="col-span-1">
+                          <Label>Saudação</Label>
+                          <Select value={secSalutation} onChange={(e) => setSecSalutation(e.target.value)}>
+                            <option value=""> </option>
+                            <option value="Sr.">Sr.</option>
+                            <option value="Sra.">Sra.</option>
+                            <option value="Dr.">Dr.</option>
+                            <option value="Dra.">Dra.</option>
+                            <option value="Dna.">Dna.</option>
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          <Label>Nome *</Label>
+                          <Input value={secName} onChange={(e) => setSecName(e.target.value)} placeholder="Nome do contato secundário" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <PhoneRow
+                          label="Telefone"
+                          countryLabel={secCountryLabel}
+                          rawValue={secPhoneRaw}
+                          onRawChange={setSecPhoneRaw}
+                          onDone={handleDoneSecondary}
+                        />
+
+                        <div>
+                          <Label>WhatsApp username</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+                            <Input
+                              className="pl-8 pr-10"
+                              value={secWhatsappUsername}
+                              onChange={(e) => {
+                                setSecWhatsappUsername(e.target.value);
+                                setSecWhatsUserTouched(true);
+                              }}
+                              placeholder="username"
+                            />
+                            {secWhatsappUsername && (
+                              <a
+                                href={`https://wa.me/${secWhatsappUsername}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                                title="Abrir conversa"
+                              >
+                                <IconChat />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
