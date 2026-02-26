@@ -220,22 +220,23 @@ const supabase = supabaseBrowser;
         }
 
         // 3. Stats Clientes
-        const { count: totalClients } = await supabase
-          .from("vw_clients_list")
-          .select("*", { count: 'exact', head: true })
-          .eq("server_id", serverId);
-          
         const { count: activeClients } = await supabase
-          .from("vw_clients_list")
-          .select("*", { count: 'exact', head: true })
-          .eq("server_id", serverId)
-          .eq("computed_status", "ACTIVE");
+  .from("vw_clients_list_active")
+  .select("*", { count: 'exact', head: true })
+  .eq("server_id", serverId);
 
-        setClientStats({
-          total: totalClients || 0,
-          active: activeClients || 0,
-          inactive: (totalClients || 0) - (activeClients || 0)
-        });
+const { count: archivedClients } = await supabase
+  .from("vw_clients_list_archived")
+  .select("*", { count: 'exact', head: true })
+  .eq("server_id", serverId);
+
+const totalClients = (activeClients || 0) + (archivedClients || 0);
+
+setClientStats({
+  total: totalClients,
+  active: activeClients || 0,
+  inactive: totalClients - (activeClients || 0)
+});
 
         // 4. Stats Revendas
         const { count: totalResellers } = await supabase
