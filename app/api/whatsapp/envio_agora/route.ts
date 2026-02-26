@@ -263,7 +263,7 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   // 3. O LINK ENCURTADO E SEGURO (Fixo no domínio de produção)
   const appUrl = "https://unigestor.net.br";
   
-  // Pega o telefone correto para o PIN inicial
+  // Pega o telefone correto para o PIN inicial e link
   const rawPhone = params.isSecondary 
     ? (row.secondary_whatsapp_username || "") 
     : (row.whatsapp_username || row.whatsapp_e164 || "");
@@ -378,33 +378,19 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
 
   if (!rowData) throw new Error("Cliente não encontrado nas views");
 
-  const recipients = [];
-
-  // Contato Principal
+  const phones = [];
   const phoneMain = normalizeToPhone(rowData.whatsapp_username);
-  if (phoneMain) {
-    recipients.push({
-      phone: phoneMain,
-      whatsapp_opt_in: rowData.whatsapp_opt_in === true,
-      dont_message_until: rowData.dont_message_until ?? null,
-      is_secondary: false,
-      row: rowData,
-    });
-  }
+  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
 
-  // Contato Secundário
   const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username);
-  if (phoneSec) {
-    recipients.push({
-      phone: phoneSec,
-      whatsapp_opt_in: rowData.whatsapp_opt_in === true, 
-      dont_message_until: rowData.dont_message_until ?? null,
-      is_secondary: true,
-      row: rowData,
-    });
-  }
+  if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
 
-  return recipients;
+  return {
+    phones, // Agora retorna uma lista de telefones atrelados a essa conta
+    whatsapp_opt_in: rowData.whatsapp_opt_in === true,
+    dont_message_until: rowData.dont_message_until ?? null,
+    row: rowData,
+  };
 }
 
 async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string) {
@@ -424,15 +410,14 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
       continue;
     }
 
-    if (data) {
+if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
-      return [{
-        phone,
+      return {
+        phones: phone ? [{ number: phone, is_secondary: false }] : [],
         whatsapp_opt_in: (data as any).whatsapp_opt_in === true,
         dont_message_until: ((data as any).whatsapp_snooze_until as string | null) ?? null,
-        is_secondary: false,
         row: data, // ✅ para variáveis
-      }];
+      };
     }
   }
 
@@ -570,78 +555,112 @@ if (!tenantId || !message || !recipientType || !recipientId) {
 }
 
 
-  // ✅ pega SEMPRE do destino certo (Agora retorna um ARRAY)
-  const recipientsArray =
+  // ✅ pega SEMPRE do destino certo
+  const wa =
     recipientType === "reseller"
       ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
       : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
-  if (!recipientsArray || recipientsArray.length === 0) {
+  // Validação 1: Conta sem números salvos
+  if (!wa.phones || wa.phones.length === 0) {
     return NextResponse.json(
       { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` },
       { status: 400 }
     );
   }
 
-  const sessionKey = makeSessionKey(tenantId, authedUserId);
-  const results = [];
+  // Validação 2: Opt-in (Se for falso, BLOQUEIA TUDO para ambos, retorna 400)
+  if (!wa.whatsapp_opt_in) {
+    return NextResponse.json(
+      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` },
+      { status: 400 }
+    );
+  }
 
-  // Busca chaves PIX fora do loop
+  // Validação 3: Snooze (Se for verdadeiro, BLOQUEIA TUDO para ambos, retorna 409)
+  if (wa.dont_message_until) {
+    const until = new Date(wa.dont_message_until);
+
+    if (isNaN(until.getTime())) {
+      return NextResponse.json(
+        { error: `Cliente não quer receber mensagens (data inválida): ${wa.dont_message_until}` },
+        { status: 409 }
+      );
+    }
+
+    if (until > new Date()) {
+      const formatted = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: TZ_SP,
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(until);
+
+      return NextResponse.json(
+        { error: `Cliente não quer receber mensagens até: ${formatted}` },
+        { status: 409 }
+      );
+    }
+  }
+
+  const sessionKey = makeSessionKey(tenantId, authedUserId);
+
+  safeServerLog("[WA][send_now]", {
+    tenantId,
+    recipientType,
+    recipientId_suffix: recipientId ? recipientId.slice(-6) : null,
+    authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
+    total_contacts: wa.phones.length,
+  });
+
+  // Puxa as variáveis de PIX uma única vez para a conta
   let pixVars: Record<string, string> = {};
   try {
     pixVars = await fetchPixManualVars(sb, tenantId);
-  } catch (e) {}
+  } catch (e: any) {
+    safeServerLog("[WA][send_now][pix_manual] falhou", e?.message ?? e);
+  }
+
+  const results = [];
 
   // ==========================================
-  // LOOP DE ENVIO (Principal e depois Secundário)
+  // LOOP DE DISPARO 
+  // O cadastro passou nos bloqueios? Agora dispara para o(s) número(s) atrelado(s) a ele.
   // ==========================================
-  for (const wa of recipientsArray) {
-    if (!wa.whatsapp_opt_in) {
-      results.push({ phone: wa.phone, error: "Não permite receber mensagens", status: 400 });
-      continue;
-    }
-
-    if (wa.dont_message_until) {
-      const until = new Date(wa.dont_message_until);
-      if (!isNaN(until.getTime()) && until > new Date()) {
-        results.push({ phone: wa.phone, error: "Snooze ativo", status: 409 });
-        continue;
-      }
-    }
-
-    // ✅ Monta as variáveis passando a flag isSecondary
+  for (const contact of wa.phones) {
     const vars = buildTemplateVars({
       recipientType,
       recipientRow: wa.row,
-      isSecondary: wa.is_secondary,
+      isSecondary: contact.is_secondary,
     });
     Object.assign(vars, pixVars);
 
-    // ✅ Token V2 (Link Único exclusivo para o número atual do loop)
     if (!internal) {
       try {
         const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
           p_tenant_id: tenantId,
-          p_whatsapp_username: wa.phone, 
+          p_whatsapp_username: contact.number, 
           p_created_by: authedUserId,
-          p_label: wa.is_secondary ? "Envio manual Secundário" : "Envio manual",
+          p_label: contact.is_secondary ? "Envio manual Secundário" : "Envio manual",
           p_expires_at: null,
         });
 
         if (!tokErr) {
           const rowTok = Array.isArray(tokData) ? tokData[0] : null;
           const portalToken = rowTok?.token ? String(rowTok.token) : "";
+          
+          safeServerLog("[PORTAL][token:v2]", { ok: true, hasToken: !!portalToken, token_suffix: portalToken ? portalToken.slice(-6) : null });
+
           if (portalToken) {
             const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
             vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
           }
         }
-      } catch (e) {}
+      } catch (e: any) {
+        safeServerLog("[PORTAL][token:v2] falhou", e?.message ?? e);
+      }
     }
 
     const renderedMessage = renderTemplate(message, vars);
 
-    // Disparo
     try {
       const res = await fetch(`${baseUrl}/send`, {
         method: "POST",
@@ -651,29 +670,35 @@ if (!tenantId || !message || !recipientType || !recipientId) {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ phone: wa.phone, message: renderedMessage }),
+        body: JSON.stringify({
+          phone: contact.number,
+          message: renderedMessage,
+        }),
       });
 
       const raw = await res.text();
       let parsed: any = null;
-      try { parsed = JSON.parse(raw); } catch {}
+      try { parsed = raw ? JSON.parse(raw) : null; } catch {}
 
       if (!res.ok) {
-        results.push({ phone: wa.phone, error: "HTTP Error", status: 502 });
+        safeServerLog("[WA][vm_send] http_error", { status: res.status, to_suffix: contact.number.slice(-4) });
+        results.push({ phone: contact.number, error: raw || "Falha ao enviar", status: 502 });
       } else if ((parsed && (parsed.ok === false || !!parsed.error)) || /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""))) {
-        results.push({ phone: wa.phone, error: "Erro Lógico WA", status: 502 });
+        safeServerLog("[WA][vm_send] logical_error", { to_suffix: contact.number.slice(-4) });
+        results.push({ phone: contact.number, error: "Falha ao enviar (WA backend)", status: 502 });
       } else {
-        results.push({ phone: wa.phone, ok: true, status: 200, wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null });
+        safeServerLog("[WA][vm_send] ok", { to_suffix: contact.number.slice(-4), wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null });
+        results.push({ phone: contact.number, ok: true, status: 200 });
       }
     } catch (err: any) {
-      results.push({ phone: wa.phone, error: err.message, status: 500 });
+      results.push({ phone: contact.number, error: err?.message, status: 500 });
     }
   }
 
-  // Se tudo falhar
+  // Mantendo o mesmo padrão de erro 502 global se todos os números falharam
   const allFailed = results.length > 0 && results.every(r => r.status !== 200);
   if (allFailed) {
-    return NextResponse.json({ error: "Falha ao enviar", details: results }, { status: 502 });
+    return NextResponse.json({ error: "Falha ao enviar" }, { status: 502 });
   }
 
   return NextResponse.json({
