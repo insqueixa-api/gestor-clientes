@@ -6,6 +6,12 @@ import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function safeServerLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(...args);
+  }
+}
+
 const NATV_BASE = "https://revenda.pixbot.link";
 
 type NatvOwner = { id: number; username: string; credits: number };
@@ -67,6 +73,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const integration_id = String(body?.integration_id ?? "").trim();
+const tenant_id = String(body?.tenant_id ?? "").trim();
 
     if (!integration_id) {
       return jsonError(400, "integration_id é obrigatório.");
@@ -78,14 +85,17 @@ export async function POST(req: NextRequest) {
     let token: string | null = null;
 
     if (internal) {
-      const { data: integ, error: integErr } = await supabase
-        .from("server_integrations")
-        .select("api_token, provider")
-        .eq("id", integration_id)
-        .single();
+  if (!tenant_id) return jsonError(400, "tenant_id é obrigatório (internal)");
+
+  const { data: integ, error: integErr } = await supabase
+    .from("server_integrations")
+    .select("api_token, provider")
+    .eq("id", integration_id)
+    .eq("tenant_id", tenant_id)
+    .single();
 
       if (integErr || !integ) {
-        console.error("NATV sync: integração não encontrada");
+        safeServerLog("NATV sync: integração não encontrada");
         return jsonError(404, "Integração não encontrada");
       }
 
@@ -100,7 +110,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (tokenErr) {
-        console.error("NATV sync: falha RPC token");
+        safeServerLog("NATV sync: falha RPC token");
         return jsonError(500, "Falha ao sincronizar.");
       }
 
@@ -114,7 +124,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (integ2Err || !integ2) {
-        console.error("NATV sync: integração não encontrada (provider)");
+        safeServerLog("NATV sync: integração não encontrada (provider)");
         return jsonError(404, "Integração não encontrada");
       }
       if (integ2.provider !== "NATV") {
@@ -123,7 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!token) {
-      console.error("NATV sync: token ausente");
+      safeServerLog("NATV sync: token ausente");
       return jsonError(404, "Token não encontrado.");
     }
 
@@ -136,7 +146,7 @@ export async function POST(req: NextRequest) {
     // 1) teste rápido
     const testRes = await fetch(`${NATV_BASE}/test`, { method: "GET", headers });
     if (!testRes.ok) {
-      console.error("NATV sync: /test falhou", testRes.status);
+      safeServerLog("NATV sync: /test falhou", testRes.status);
       return jsonError(502, "Falha ao validar token no servidor.");
     }
 
@@ -148,7 +158,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!searchRes.ok) {
-      console.error("NATV sync: /user/search falhou", searchRes.status);
+      safeServerLog("NATV sync: /user/search falhou", searchRes.status);
       return jsonError(502, "Falha ao sincronizar saldo no servidor.");
     }
 
@@ -172,7 +182,7 @@ export async function POST(req: NextRequest) {
       .eq("id", integration_id);
 
     if (upErr) {
-      console.error("NATV sync: falha update server_integrations");
+      safeServerLog("NATV sync: falha update server_integrations");
       return jsonError(500, "Falha ao salvar sincronização.");
     }
 
@@ -186,7 +196,7 @@ export async function POST(req: NextRequest) {
         : "Token validado. Não encontrei usuários para inferir owner/saldo ainda.",
     });
   } catch {
-    console.error("NATV sync: crash");
+    safeServerLog("NATV sync: crash");
     return jsonError(500, "Erro interno");
   }
 }

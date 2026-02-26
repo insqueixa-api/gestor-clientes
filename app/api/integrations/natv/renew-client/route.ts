@@ -6,6 +6,13 @@ import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Adiciona no topo do arquivo
+function safeServerLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(...args);
+  }
+}
+
 function jsonError(status: number, msg: string) {
   return NextResponse.json({ ok: false, error: msg }, { status });
 }
@@ -85,7 +92,7 @@ const { data: integ, error: integErr } = await integQuery.single();
 
     if (integErr || !integ) {
       // log “cego”
-      console.error("NATV renew: integração não encontrada");
+      safeServerLog("NATV renew: integração não encontrada");
       return jsonError(404, "Integração não encontrada");
     }
 
@@ -113,7 +120,7 @@ const { data: integ, error: integErr } = await integQuery.single();
     if (!apiRes.ok) {
       // ⚠️ NÃO retorna texto cru para o cliente final
       // log “cego”
-      console.error("NATV renew: apiRes not ok", apiRes.status);
+      safeServerLog("NATV renew: apiRes not ok", apiRes.status);
 
       if (apiRes.status === 402) {
         return jsonError(402, "Créditos insuficientes no servidor");
@@ -131,7 +138,7 @@ const { data: integ, error: integErr } = await integQuery.single();
     const password = apiJson?.password ?? null;
 
     if (!expDate) {
-      console.error("NATV renew: exp_date ausente");
+      safeServerLog("NATV renew: exp_date ausente");
       return jsonError(500, "Falha ao renovar no servidor");
     }
 
@@ -149,7 +156,7 @@ const { data: integ, error: integErr } = await integQuery.single();
     });
   } catch (err) {
     // log “cego”
-    console.error("NATV renew: crash");
+    safeServerLog("NATV renew: crash");
     return jsonError(500, "Erro interno");
   }
 }

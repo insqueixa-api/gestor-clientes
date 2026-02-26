@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { CookieJar } from "tough-cookie";
 import fetchCookie from "fetch-cookie";
 import * as cheerio from "cheerio";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -250,13 +251,21 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
 }
 
 // ----------------- HANDLER PRINCIPAL -----------------
+function isInternalCheck(secret: string, expected: string): boolean {
+  if (!secret || !expected) return false;
+  const a = Buffer.from(secret);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 export async function POST(req: Request) {
   const trace: any[] = [];
 
   try {
     const internalSecret = getInternalSecret(req);
     const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-    const isInternal = !!expectedSecret && internalSecret === expectedSecret;
+    const isInternal = isInternalCheck(internalSecret, expectedSecret);
 
     const token = getBearer(req);
     if (!isInternal && !token) {
@@ -419,9 +428,6 @@ export async function POST(req: Request) {
     });
 
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Unknown error", trace },
-      { status: 500 }
-    );
+return NextResponse.json({ ok: false, error: "Erro ao renovar. Procure o suporte." }, { status: 500 });
   }
 }
