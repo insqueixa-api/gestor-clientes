@@ -225,18 +225,22 @@ async function fetchPixManualVars(sb: any, tenantId: string): Promise<Record<str
 }
 
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
 
-  // 1. DADOS BÁSICOS (Mapeados exatamente da sua vw_clients_list_active)
-  const displayName = String(row.client_name || row.name || "").trim();
+  // 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
+  const displayName = params.isSecondary
+    ? String(row.secondary_display_name || "").trim()
+    : String(row.client_name || row.name || "").trim();
+
   const primeiroNome = displayName.split(" ")[0] || "";
 
-  // Prefixo/Saudação: Apenas o que está no campo. Sem fallback para nome.
-  const namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  const namePrefix = params.isSecondary
+    ? String(row.secondary_name_prefix || "").trim()
+    : String(row.name_prefix || row.saudacao || "").trim();
+    
   const saudacao = namePrefix ? namePrefix : "";
-
 
   // 2. DATAS
   const createdAt = safeDate(row.created_at);
@@ -257,8 +261,13 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   }
 
   // 3. O LINK ENCURTADO E SEGURO (Fixo no domínio de produção)
-const appUrl = "https://unigestor.net.br";
-const cleanPhone = normalizeToPhone(row.whatsapp_username || row.whatsapp_e164 || "");
+  const appUrl = "https://unigestor.net.br";
+  
+  // Pega o telefone correto para o PIN inicial
+  const rawPhone = params.isSecondary 
+    ? (row.secondary_whatsapp_username || "") 
+    : (row.whatsapp_username || row.whatsapp_e164 || "");
+  const cleanPhone = normalizeToPhone(rawPhone);
 
 // ✅ link_pagamento agora será /renew?t=TOKEN (gerado mais abaixo no POST)
 // aqui fica apenas um placeholder seguro (evita quebrar se o token falhar)
@@ -356,24 +365,46 @@ type SendNowBody = {
 };
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
-  const { data, error } = await sb
-    .from("vw_clients_list")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", clientId)
-    .maybeSingle();
+  let rowData: any = null;
+  const tryViews = ["vw_clients_list_active", "vw_clients_list_archived"];
 
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Cliente não encontrado na vw_clients_list");
+  for (const view of tryViews) {
+    const { data } = await sb.from(view).select("*").eq("tenant_id", tenantId).eq("id", clientId).maybeSingle();
+    if (data) {
+      rowData = data;
+      break;
+    }
+  }
 
-  const phone = normalizeToPhone((data as any).whatsapp_username);
+  if (!rowData) throw new Error("Cliente não encontrado nas views");
 
-  return {
-    phone,
-    whatsapp_opt_in: (data as any).whatsapp_opt_in === true,
-    dont_message_until: ((data as any).dont_message_until as string | null) ?? null,
-    row: data, // ✅ para variáveis
-  };
+  const recipients = [];
+
+  // Contato Principal
+  const phoneMain = normalizeToPhone(rowData.whatsapp_username);
+  if (phoneMain) {
+    recipients.push({
+      phone: phoneMain,
+      whatsapp_opt_in: rowData.whatsapp_opt_in === true,
+      dont_message_until: rowData.dont_message_until ?? null,
+      is_secondary: false,
+      row: rowData,
+    });
+  }
+
+  // Contato Secundário
+  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username);
+  if (phoneSec) {
+    recipients.push({
+      phone: phoneSec,
+      whatsapp_opt_in: rowData.whatsapp_opt_in === true, 
+      dont_message_until: rowData.dont_message_until ?? null,
+      is_secondary: true,
+      row: rowData,
+    });
+  }
+
+  return recipients;
 }
 
 async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string) {
@@ -395,12 +426,13 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
 
     if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
-      return {
+      return [{
         phone,
         whatsapp_opt_in: (data as any).whatsapp_opt_in === true,
         dont_message_until: ((data as any).whatsapp_snooze_until as string | null) ?? null,
+        is_secondary: false,
         row: data, // ✅ para variáveis
-      };
+      }];
     }
   }
 
@@ -538,196 +570,116 @@ if (!tenantId || !message || !recipientType || !recipientId) {
 }
 
 
-  // ✅ pega SEMPRE do destino certo
-  const wa =
+  // ✅ pega SEMPRE do destino certo (Agora retorna um ARRAY)
+  const recipientsArray =
     recipientType === "reseller"
       ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
       : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
-  if (!wa.phone) {
+  if (!recipientsArray || recipientsArray.length === 0) {
     return NextResponse.json(
       { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` },
       { status: 400 }
     );
   }
 
-  if (!wa.whatsapp_opt_in) {
-    return NextResponse.json(
-      { error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} não permite receber mensagens` },
-      { status: 400 }
-    );
-  }
-
-  if (wa.dont_message_until) {
-    const until = new Date(wa.dont_message_until);
-
-    // Se a data for inválida, bloqueia mesmo assim (melhor do que deixar passar lixo)
-    if (isNaN(until.getTime())) {
-      return NextResponse.json(
-        { error: `Cliente não quer receber mensagens (data inválida): ${wa.dont_message_until}` },
-        { status: 409 }
-      );
-    }
-
-    // Só bloqueia se a pausa estiver no FUTURO
-    if (until > new Date()) {
-      const formatted = new Intl.DateTimeFormat("pt-BR", {
-        timeZone: TZ_SP,
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(until);
-
-      return NextResponse.json(
-        { error: `Cliente não quer receber mensagens até: ${formatted}` },
-        { status: 409 }
-      );
-    }
-  }
-
-  // ✅ sessionKey é do usuário logado (não influencia destino)
   const sessionKey = makeSessionKey(tenantId, authedUserId);
+  const results = [];
 
-  // ✅ LOG (ajuste sugerido)
-safeServerLog("[WA][send_now]", {
-  tenantId,
-  recipientType,
-  recipientId_suffix: recipientId ? recipientId.slice(-6) : null,
-  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
-  authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
-});
-
-
-  // ✅ monta variáveis e renderiza o texto (agora tudo em SP)
-const vars = buildTemplateVars({
-  recipientType,
-  recipientRow: wa.row,
-});
-
-// ✅ injeta PIX manual por tipo (payment_gateways)
-try {
-  const pixVars = await fetchPixManualVars(sb, tenantId);
-  Object.assign(vars, pixVars);
-
-  // LOG leve (opcional)
-  safeServerLog("[WA][send_now][pix_manual]", {
-    tenantId,
-    has_cnpj: !!vars.pix_manual_cnpj,
-    has_cpf: !!vars.pix_manual_cpf,
-    has_email: !!vars.pix_manual_email,
-    has_phone: !!vars.pix_manual_phone,
-  });
-} catch (e: any) {
-  safeServerLog("[WA][send_now][pix_manual] falhou", e?.message ?? e);
-  // segue sem pix, mas sem quebrar envio
-}
-
-
-// ✅ Gera/reutiliza token do portal (somente quando for USER)
-// (INTERNAL não precisa disso e pode falhar por não ter created_by real)
-if (!internal) {
+  // Busca chaves PIX fora do loop
+  let pixVars: Record<string, string> = {};
   try {
-    const whatsappUsernameRaw = String((wa.row as any)?.whatsapp_username ?? "").trim();
-    const whatsappUsername = normalizeToPhone(whatsappUsernameRaw); // mantém seu padrão
+    pixVars = await fetchPixManualVars(sb, tenantId);
+  } catch (e) {}
 
-    const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-      p_tenant_id: tenantId,
-      p_whatsapp_username: whatsappUsername,
-      p_created_by: authedUserId, // ✅ ESSENCIAL (substitui auth.uid)
-      p_label: "Envio manual",
-      p_expires_at: null,
-    });
-
-    if (tokErr) throw new Error(tokErr.message);
-
-    const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-    const portalToken = rowTok?.token ? String(rowTok.token) : "";
-
-    // ✅ LOG seguro (NÃO vaza token / whatsapp)
-    safeServerLog("[PORTAL][token:v2]", {
-      ok: true,
-      hasToken: !!portalToken,
-      token_suffix: portalToken ? portalToken.slice(-6) : null,
-      phone_suffix: whatsappUsername ? whatsappUsername.slice(-4) : null,
-      tenantId,
-      authedUserId_prefix: authedUserId ? String(authedUserId).slice(0, 8) : null,
-    });
-
-    if (portalToken) {
-const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
-    } else {
-      safeServerLog("[PORTAL][token:v2] retorno sem token");
+  // ==========================================
+  // LOOP DE ENVIO (Principal e depois Secundário)
+  // ==========================================
+  for (const wa of recipientsArray) {
+    if (!wa.whatsapp_opt_in) {
+      results.push({ phone: wa.phone, error: "Não permite receber mensagens", status: 400 });
+      continue;
     }
-  } catch (e: any) {
-    safeServerLog("[PORTAL][token:v2] falhou", e?.message ?? e);
-    // mantém vars.link_pagamento vazio
+
+    if (wa.dont_message_until) {
+      const until = new Date(wa.dont_message_until);
+      if (!isNaN(until.getTime()) && until > new Date()) {
+        results.push({ phone: wa.phone, error: "Snooze ativo", status: 409 });
+        continue;
+      }
+    }
+
+    // ✅ Monta as variáveis passando a flag isSecondary
+    const vars = buildTemplateVars({
+      recipientType,
+      recipientRow: wa.row,
+      isSecondary: wa.is_secondary,
+    });
+    Object.assign(vars, pixVars);
+
+    // ✅ Token V2 (Link Único exclusivo para o número atual do loop)
+    if (!internal) {
+      try {
+        const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+          p_tenant_id: tenantId,
+          p_whatsapp_username: wa.phone, 
+          p_created_by: authedUserId,
+          p_label: wa.is_secondary ? "Envio manual Secundário" : "Envio manual",
+          p_expires_at: null,
+        });
+
+        if (!tokErr) {
+          const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+          const portalToken = rowTok?.token ? String(rowTok.token) : "";
+          if (portalToken) {
+            const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+            vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const renderedMessage = renderTemplate(message, vars);
+
+    // Disparo
+    try {
+      const res = await fetch(`${baseUrl}/send`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${waToken}`,
+          "x-session-key": sessionKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ phone: wa.phone, message: renderedMessage }),
+      });
+
+      const raw = await res.text();
+      let parsed: any = null;
+      try { parsed = JSON.parse(raw); } catch {}
+
+      if (!res.ok) {
+        results.push({ phone: wa.phone, error: "HTTP Error", status: 502 });
+      } else if ((parsed && (parsed.ok === false || !!parsed.error)) || /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""))) {
+        results.push({ phone: wa.phone, error: "Erro Lógico WA", status: 502 });
+      } else {
+        results.push({ phone: wa.phone, ok: true, status: 200, wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null });
+      }
+    } catch (err: any) {
+      results.push({ phone: wa.phone, error: err.message, status: 500 });
+    }
   }
-}
 
-const renderedMessage = renderTemplate(message, vars);
+  // Se tudo falhar
+  const allFailed = results.length > 0 && results.every(r => r.status !== 200);
+  if (allFailed) {
+    return NextResponse.json({ error: "Falha ao enviar", details: results }, { status: 502 });
+  }
 
-const res = await fetch(`${baseUrl}/send`, {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${waToken}`,
-    "x-session-key": sessionKey,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
-  body: JSON.stringify({
-    phone: wa.phone,
-    message: renderedMessage,
-  }),
-});
-
-const raw = await res.text();
-
-// tenta interpretar JSON (se o seu serviço WA devolver JSON)
-let parsed: any = null;
-try {
-  parsed = raw ? JSON.parse(raw) : null;
-} catch {
-  parsed = null;
-}
-
-// ✅ 1) erro HTTP real
-if (!res.ok) {
-  safeServerLog("[WA][vm_send] http_error", {
-    status: res.status,
-    body_preview: String(raw || "").slice(0, 300),
-    to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
+  return NextResponse.json({
+    ok: true,
+    recipient_type: recipientType,
+    recipient_id: recipientId,
+    disparos: results,
   });
-  return NextResponse.json({ error: raw || "Falha ao enviar" }, { status: 502 });
-}
-
-// ✅ 2) erro “lógico” com HTTP 200 (isso é o que mais acontece nesses serviços)
-const hasLogicalError =
-  (parsed && (parsed.ok === false || !!parsed.error)) ||
-  /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""));
-
-if (hasLogicalError) {
-  safeServerLog("[WA][vm_send] logical_error", {
-    body_preview: String(raw || "").slice(0, 300),
-    to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
-  });
-  return NextResponse.json({ error: "Falha ao enviar (WA backend)" }, { status: 502 });
-}
-
-// ✅ 3) sucesso real
-safeServerLog("[WA][vm_send] ok", {
-  to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
-  wa_ok: parsed?.ok ?? null,
-  wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null,
-});
-
-return NextResponse.json({
-  ok: true,
-  to: wa.phone,
-  recipient_type: recipientType,
-  recipient_id: recipientId,
-});
 }
