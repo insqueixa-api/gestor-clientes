@@ -103,51 +103,74 @@ export default function AdminServersPage() {
       const supabase = supabaseBrowser;
       const targetServerView = showArchived ? "vw_servers_archived" : "vw_servers_active";
 
+      // 1. Preparar todas as consultas (Promises)
       const serversPromise = supabase
         .from(targetServerView)
         .select("*")
         .eq("tenant_id", tenantId)
         .order("name", { ascending: true });
 
-      const clientsPromise = supabase
-        .from("vw_clients_list")
-        .select("server_id, computed_status, client_is_archived")
+      // ✅ Usando a nova view de Clientes Ativos (Traz ACTIVE e OVERDUE)
+      const clientsActivePromise = supabase
+        .from("vw_clients_list_active")
+        .select("server_id, computed_status")
         .eq("tenant_id", tenantId);
 
-      const trialClientsPromise = supabase
-        .from("clients")
-        .select("server_id, is_archived")
-        .eq("tenant_id", tenantId)
-        .eq("is_trial", true)
-        .eq("is_archived", false);
+      // ✅ Usando a nova view de Clientes Arquivados (Apenas para somar no total)
+      const clientsArchivedPromise = supabase
+        .from("vw_clients_list_archived")
+        .select("server_id")
+        .eq("tenant_id", tenantId);
 
-            const resellersPromise = supabase.from("reseller_servers").select("server_id");
+      // ✅ Usando a nova view de Testes Ativos
+      const trialsActivePromise = supabase
+        .from("vw_trials_list_active")
+        .select("server_id")
+        .eq("tenant_id", tenantId);
 
-      // ✅ NOVO: busca integrações para resolver nome/provider na UI
+      const resellersPromise = supabase
+        .from("reseller_servers")
+        .select("server_id");
+
       const integrationsPromise = supabase
         .from("vw_server_integrations")
         .select("id,integration_name,provider,is_active")
         .eq("tenant_id", tenantId);
 
-      const [serversRes, clientsRes, trialClientsRes, resellersRes, integrationsRes] =
-        await Promise.all([
-          serversPromise,
-          clientsPromise,
-          trialClientsPromise,
-          resellersPromise,
-          integrationsPromise,
-        ]);
+      // 2. Executar TODAS as buscas simultaneamente no banco
+      const [
+        serversRes,
+        clientsActiveRes,
+        clientsArchivedRes,
+        trialsActiveRes,
+        resellersRes,
+        integrationsRes
+      ] = await Promise.all([
+        serversPromise,
+        clientsActivePromise,
+        clientsArchivedPromise,
+        trialsActivePromise,
+        resellersPromise,
+        integrationsPromise
+      ]);
 
+      // 3. Tratar erros
       if (serversRes.error) throw serversRes.error;
-      if (clientsRes.error) throw clientsRes.error;
-      if (trialClientsRes.error) throw trialClientsRes.error;
+      if (clientsActiveRes.error) throw clientsActiveRes.error;
+      if (clientsArchivedRes.error) throw clientsArchivedRes.error;
+      if (trialsActiveRes.error) throw trialsActiveRes.error;
       if (resellersRes.error) throw resellersRes.error;
-
-      // ✅ NOVO: valida + cria map id -> (name/provider/active)
       if (integrationsRes.error) throw integrationsRes.error;
 
-      const rawIntegrations = (integrationsRes.data as any[]) || [];
+      // 4. Extrair os dados brutos
+      const rawServers = serversRes.data || [];
+      const rawClientsActive = clientsActiveRes.data || [];
+      const rawClientsArchived = clientsArchivedRes.data || [];
+      const rawTrialsActive = trialsActiveRes.data || [];
+      const rawResellers = resellersRes.data || [];
+      const rawIntegrations = integrationsRes.data || [];
 
+      // 5. Mapear Integrações
       const integrationMap = new Map<
         string,
         { name: string | null; provider: string | null; active: boolean | null }
@@ -161,11 +184,7 @@ export default function AdminServersPage() {
         });
       });
 
-      const rawServers = (serversRes.data as any[]) || [];
-      const rawClients = (clientsRes.data as ClientLight[]) || [];
-      const rawTrialClients = (trialClientsRes.data as TrialClientLight[]) || [];
-      const rawResellers = (resellersRes.data as ResellerLinkView[]) || [];
-
+      // 6. Criar o Mapa de Estatísticas (INICIALIZAR ZERADO)
       const statsMap = new Map<
         string,
         { total: number; active: number; inactive: number; trial: number; resellers: number }
@@ -175,55 +194,53 @@ export default function AdminServersPage() {
         statsMap.set(s.id, { total: 0, active: 0, inactive: 0, trial: 0, resellers: 0 });
       });
 
-      rawClients.forEach((c) => {
+      // 7. Contabilizar Clientes Ativos / Vencidos
+      rawClientsActive.forEach((c) => {
         if (!c.server_id || !statsMap.has(c.server_id)) return;
-        if (c.client_is_archived) return;
-
         const st = statsMap.get(c.server_id)!;
         const status = (c.computed_status || "").toUpperCase();
-        if (status === "TRIAL") return;
-
+        
         st.total++;
         if (status === "ACTIVE") st.active++;
         else if (status === "OVERDUE") st.inactive++;
       });
 
-      rawTrialClients.forEach((t) => {
+      // 8. Contabilizar Clientes Arquivados (Somam apenas no "Total")
+      rawClientsArchived.forEach((c) => {
+        if (!c.server_id || !statsMap.has(c.server_id)) return;
+        statsMap.get(c.server_id)!.total++;
+      });
+
+      // 9. Contabilizar Testes Ativos
+      rawTrialsActive.forEach((t) => {
         if (!t.server_id || !statsMap.has(t.server_id)) return;
-        if (t.is_archived) return;
         statsMap.get(t.server_id)!.trial++;
       });
 
+      // 10. Contabilizar Revendas
       rawResellers.forEach((r) => {
         if (!r.server_id || !statsMap.has(r.server_id)) return;
         statsMap.get(r.server_id)!.resellers++;
       });
 
-      // ✅ ALTERADO: mergedServers agora resolve o nome da integração
-      const mergedServers: ServerRow[] = rawServers.map((s) => {
-        const integId = s.panel_integration ? String(s.panel_integration) : null;
-        const integ = integId ? integrationMap.get(integId) : null;
-
+      // 11. Unir tudo e montar o objeto final (mergedServers)
+      const mergedServers = rawServers.map((s) => {
         return {
           ...s,
-          panel_integration_name: integ?.name ?? null,
-          panel_integration_provider: integ?.provider ?? null,
-          panel_integration_active: integ?.active ?? null,
-          stats:
-            statsMap.get(s.id) || { total: 0, active: 0, inactive: 0, trial: 0, resellers: 0 },
+          stats: statsMap.get(s.id),
+          integration_details: s.panel_integration ? integrationMap.get(s.panel_integration) : null,
         };
       });
 
+      // ✅ Salva no state da página
       setServers(mergedServers);
 
-    } catch (error: any) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error("Erro ao carregar dados:", error);
-  }
-  addToast("error", "Erro ao carregar", error.message);
-} finally {
-  setLoading(false);
-}
+    } catch (error) {
+      console.error("Erro ao buscar servidores:", error);
+      // addToast("error", "Erro", "Não foi possível carregar os servidores."); (Opcional se você tiver Toast aqui)
+    } finally {
+      setLoading(false);
+    }
   }
 
   // --- ACTIONS ---
