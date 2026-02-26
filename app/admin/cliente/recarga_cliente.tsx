@@ -346,22 +346,33 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
       try {
         const tid = await getCurrentTenantId();
 
-          // 1) Cliente
-          const { data: client, error: cErr } = await supabaseBrowser
-            .from("vw_clients_list")
-            .select("*")
+          // 1) Cliente (Busca direta na tabela para contornar a view excluída)
+          const { data: rawClient, error: cErr } = await supabaseBrowser
+            .from("clients")
+            .select("*, servers(name)")
             .eq("id", clientId)
             .single();
 
           if (!alive) return;
 
-          if (cErr || !client) {
+          if (cErr || !rawClient) {
             console.error("❌ Erro carregando cliente:", cErr);
             onClose();
             return;
           }
 
-  const c = client as ClientFromView;
+  // Simula o formato da view antiga para não quebrar nada no seu código
+  const client = {
+    ...rawClient,
+    display_name: rawClient.display_name,
+    username: rawClient.server_username,
+    server_name: rawClient.servers?.name || null,
+    plan_name: rawClient.plan_label,
+    whatsapp: rawClient.phone_e164,
+    computed_status: rawClient.is_archived ? "ARCHIVED" : (rawClient.is_trial ? "TRIAL" : "ACTIVE")
+  };
+
+  const c = client as unknown as ClientFromView;
 
   // ✅ Fonte da verdade: clients (notes + tabela + moeda)
   let dbNotes: string | null = null;
