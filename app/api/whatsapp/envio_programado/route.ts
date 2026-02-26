@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
+function safeServerLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(...args);
+  }
+}
+
 export const dynamic = "force-dynamic";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -389,7 +395,7 @@ export async function POST(req: Request) {
   const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!baseUrl || !waToken || !supabaseUrl || !serviceKey) {
-    console.log("[WA][scheduled] Server misconfigured", {
+    safeServerLog("[WA][scheduled] Server misconfigured", {
       hasBaseUrl: !!baseUrl,
       hasWaToken: !!waToken,
       hasSupabaseUrl: !!supabaseUrl,
@@ -458,13 +464,13 @@ const { data: tenants, error: tenantsErr } = await sb
 
 
     if (tenantsErr) {
-      console.log("[BILLING][get_tenants] erro:", tenantsErr.message);
+      safeServerLog("[BILLING][get_tenants] erro:", tenantsErr.message);
     }
 
     // Remove duplicatas (um tenant pode ter várias automações)
     const uniqueTenants = [...new Set((tenants || []).map(t => t.tenant_id))];
 
-    console.log("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
+    safeServerLog("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
 
     // ✅ PROCESSA CADA TENANT
     let totalJobsCreated = 0;
@@ -477,7 +483,7 @@ const { data: tenants, error: tenantsErr } = await sb
       const jobsCreated = enqData ?? 0;
       totalJobsCreated += jobsCreated;
 
-      console.log("[BILLING][enqueue_scheduled]", {
+      safeServerLog("[BILLING][enqueue_scheduled]", {
         tenantId,
         fireDate,
         ok: !enqErr,
@@ -486,9 +492,9 @@ const { data: tenants, error: tenantsErr } = await sb
       });
     }
 
-    console.log("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
+    safeServerLog("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
   } catch (e: any) {
-    console.log("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
+    safeServerLog("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
   }
 
   // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
@@ -671,7 +677,7 @@ if ((job as any).automation_id && automationConfig) {
       const sessionUserId = String(job.created_by || "system");
       const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
 
-console.log("[WA][cron_send]", {
+safeServerLog("[WA][cron_send]", {
   jobId_suffix: String(job.id || "").slice(-6),
   tenantId: job.tenant_id,
   recipientType,
@@ -707,7 +713,7 @@ try {
   (vars as any).chave_pix_manual =
     pix.cnpj || pix.cpf || pix.email || pix.phone || pix.random || "";
 } catch (e: any) {
-  console.log("[WA][pix_manual][cron] falhou", e?.message ?? e);
+  safeServerLog("[WA][pix_manual][cron] falhou", e?.message ?? e);
 }
 
 // ✅ token v2 (sem auth.uid, valida por created_by)
@@ -732,7 +738,7 @@ try {
     const rowTok = Array.isArray(tokData) ? tokData[0] : null;
     const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
-    console.log("[PORTAL][cron_token:v2]", {
+    safeServerLog("[PORTAL][cron_token:v2]", {
       jobId_suffix: String(job.id || "").slice(-6),
       tenantId: job.tenant_id,
       createdBy_prefix: createdBy ? String(createdBy).slice(0, 8) : null,
@@ -743,19 +749,19 @@ try {
     });
 
     if (portalToken) {
-      const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br")
-        .trim()
-        .replace(/\/+$/, "");
+const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br")
+  .trim()
+  .replace(/\/+$/, "");
 
       vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
     } else {
-      console.log("[PORTAL][token:v2] retorno sem token");
+      safeServerLog("[PORTAL][token:v2] retorno sem token");
     }
   } else {
-    console.log("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
+    safeServerLog("[PORTAL][cron_token:v2] whatsapp_username vazio no destino");
   }
 } catch (e: any) {
-  console.log("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
+  safeServerLog("[PORTAL][cron_token:v2] falhou", e?.message ?? e);
 }
 
 const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
@@ -974,7 +980,15 @@ if (mtid) insertPayload.message_template_id = mtid;
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET || null;
   const bearer = getBearerToken(req);
-  const isCron = !!cronSecret && !!bearer && bearer === cronSecret;
+  function isCronAuth(bearer: string | null, secret: string | null): boolean {
+  if (!bearer || !secret) return false;
+  const a = Buffer.from(bearer);
+  const b = Buffer.from(secret);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+const isCron = isCronAuth(bearer, cronSecret);
 
   if (!isCron) {
     return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });

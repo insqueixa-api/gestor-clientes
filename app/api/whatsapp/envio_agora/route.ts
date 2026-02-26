@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
+// Adiciona no topo junto com as outras funções
+function safeServerLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(...args);
+  }
+}
+
 export const runtime = "nodejs";
 
 function isInternal(req: Request) {
@@ -408,7 +415,7 @@ export async function POST(req: Request) {
   const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!baseUrl || !waToken || !supabaseUrl || !serviceKey) {
-    console.log("[WA][send_now] Server misconfigured", {
+    safeServerLog("[WA][send_now] Server misconfigured", {
       hasBaseUrl: !!baseUrl,
       hasWaToken: !!waToken,
       hasSupabaseUrl: !!supabaseUrl,
@@ -585,7 +592,7 @@ if (!tenantId || !message || !recipientType || !recipientId) {
   const sessionKey = makeSessionKey(tenantId, authedUserId);
 
   // ✅ LOG (ajuste sugerido)
-console.log("[WA][send_now]", {
+safeServerLog("[WA][send_now]", {
   tenantId,
   recipientType,
   recipientId_suffix: recipientId ? recipientId.slice(-6) : null,
@@ -606,7 +613,7 @@ try {
   Object.assign(vars, pixVars);
 
   // LOG leve (opcional)
-  console.log("[WA][send_now][pix_manual]", {
+  safeServerLog("[WA][send_now][pix_manual]", {
     tenantId,
     has_cnpj: !!vars.pix_manual_cnpj,
     has_cpf: !!vars.pix_manual_cpf,
@@ -614,7 +621,7 @@ try {
     has_phone: !!vars.pix_manual_phone,
   });
 } catch (e: any) {
-  console.log("[WA][send_now][pix_manual] falhou", e?.message ?? e);
+  safeServerLog("[WA][send_now][pix_manual] falhou", e?.message ?? e);
   // segue sem pix, mas sem quebrar envio
 }
 
@@ -640,7 +647,7 @@ if (!internal) {
     const portalToken = rowTok?.token ? String(rowTok.token) : "";
 
     // ✅ LOG seguro (NÃO vaza token / whatsapp)
-    console.log("[PORTAL][token:v2]", {
+    safeServerLog("[PORTAL][token:v2]", {
       ok: true,
       hasToken: !!portalToken,
       token_suffix: portalToken ? portalToken.slice(-6) : null,
@@ -650,13 +657,13 @@ if (!internal) {
     });
 
     if (portalToken) {
-      const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-      vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
     } else {
-      console.log("[PORTAL][token:v2] retorno sem token");
+      safeServerLog("[PORTAL][token:v2] retorno sem token");
     }
   } catch (e: any) {
-    console.log("[PORTAL][token:v2] falhou", e?.message ?? e);
+    safeServerLog("[PORTAL][token:v2] falhou", e?.message ?? e);
     // mantém vars.link_pagamento vazio
   }
 }
@@ -689,7 +696,7 @@ try {
 
 // ✅ 1) erro HTTP real
 if (!res.ok) {
-  console.log("[WA][vm_send] http_error", {
+  safeServerLog("[WA][vm_send] http_error", {
     status: res.status,
     body_preview: String(raw || "").slice(0, 300),
     to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
@@ -703,7 +710,7 @@ const hasLogicalError =
   /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""));
 
 if (hasLogicalError) {
-  console.log("[WA][vm_send] logical_error", {
+  safeServerLog("[WA][vm_send] logical_error", {
     body_preview: String(raw || "").slice(0, 300),
     to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
   });
@@ -711,7 +718,7 @@ if (hasLogicalError) {
 }
 
 // ✅ 3) sucesso real
-console.log("[WA][vm_send] ok", {
+safeServerLog("[WA][vm_send] ok", {
   to_suffix: wa.phone ? String(wa.phone).slice(-4) : null,
   wa_ok: parsed?.ok ?? null,
   wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null,
