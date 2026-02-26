@@ -71,6 +71,13 @@ const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
   async function loadData() {
       setLoading(true);
+
+      // ✅ Validação UUID antes de qualquer query
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!serverIdSafe || !uuidRegex.test(serverIdSafe)) {
+    setLoading(false);
+    return;
+  }
       
       try {
 const tenantId = await getCurrentTenantId();
@@ -130,7 +137,7 @@ const supabase = supabaseBrowser;
         if (!movErr && movData) {
             setMovements(movData as any[]);
         } else {
-            console.error("Erro movimentos:", movErr);
+            if (process.env.NODE_ENV !== "production") console.error("Erro movimentos:", movErr);
             setMovements([]); 
         }
 
@@ -144,7 +151,7 @@ const supabase = supabaseBrowser;
           .lte("created_at", endOfMonth)
           .eq("status", "PAID");
 
-        if (renErr) console.error("Erro ao buscar client_renewals:", renErr);
+        if (process.env.NODE_ENV !== "production") if (renErr) console.error("Erro ao buscar client_renewals:", renErr);
 
         setClientRenewals(renewalsData || []);
 
@@ -239,7 +246,7 @@ const supabase = supabaseBrowser;
         setResellerCount(totalResellers || 0);
 
       } catch (error) {
-        console.error("Erro ao carregar detalhes:", error);
+        if (process.env.NODE_ENV !== "production") console.error("Erro ao carregar detalhes:", error);
       } finally {
         setLoading(false);
       }

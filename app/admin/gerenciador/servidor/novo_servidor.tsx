@@ -265,7 +265,7 @@ const syncUrl = getSyncUrlByProvider(provider);
           const syncRes = await fetch(syncUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ integration_id: integration }),
+            body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),
           });
 
           const syncJson = await syncRes.json().catch(() => ({}));
@@ -346,7 +346,7 @@ const syncUrl = getSyncUrlByProvider(provider);
         const syncRes = await fetch(syncUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ integration_id: integration }),
+          body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),
         });
 
         const syncJson = await syncRes.json().catch(() => ({}));
@@ -431,9 +431,9 @@ const syncUrl = getSyncUrlByProvider(provider);
 
       setSaving(false);
       onSuccess();
-    } catch (error: any) {
-      console.error(error);
-      alert(`Erro ao salvar: ${error?.message || "Erro desconhecido"}`);
+} catch (error: any) {
+  if (process.env.NODE_ENV !== "production") console.error(error);
+  alert(`Erro ao salvar: ${error?.message || "Erro desconhecido"}`);
       setSaving(false);
     }
   }

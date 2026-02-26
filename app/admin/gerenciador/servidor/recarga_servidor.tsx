@@ -79,7 +79,7 @@ export default function RecargaServidorModal({ server, onClose, onSuccess, onErr
                 if (currency === 'EUR') setFxRate(data.eur_to_brl?.toString() || "1");
             }
         } catch (err) {
-            console.error("Erro ao buscar cambio", err);
+            if (process.env.NODE_ENV !== "production") console.error("Erro ao buscar cambio", err);
         }
     }
     fetchFx();
@@ -178,7 +178,7 @@ async function handleSave() {
 
       onSuccess();
     } catch (error: any) {
-      console.error("Erro na recarga:", error);
+      if (process.env.NODE_ENV !== "production") console.error("Erro na recarga:", error);
       if (onError) {
         onError(error.message);
       }
