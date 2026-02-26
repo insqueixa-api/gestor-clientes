@@ -114,8 +114,11 @@ type VwClientRow = {
 
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
-  whatsapp_extra: string[] | null;
   whatsapp_opt_in: boolean | null;
+  secondary_display_name?: string | null;
+  secondary_name_prefix?: string | null;
+  secondary_phone_e164?: string | null;
+  secondary_whatsapp_username?: string | null;
   dont_message_until: string | null;
 
   apps_names: string[] | null;
@@ -151,20 +154,24 @@ type ClientDetail = {
 
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
-  whatsapp_extra: string[] | null;
   whatsapp_opt_in: boolean | null;
   dont_message_until: string | null;
+
+  // ✅ NOVOS CAMPOS SECUNDÁRIOS ADICIONADOS AQUI
+  secondary_display_name?: string | null;
+  secondary_name_prefix?: string | null;
+  secondary_phone_e164?: string | null;
+  secondary_whatsapp_username?: string | null;
 
   apps_names: string[] | null;
   alerts_open: number;
 
   notes: string | null;
 
-    // ✅ M3U
+  // ✅ M3U
   m3u_url: string | null;
   
-
-// extras úteis para o modal editar
+  // extras úteis para o modal editar
   server_password?: string | null;
 
   // ✅ NOVO
@@ -347,7 +354,6 @@ plan_table_name: finalTableName ?? null,
 
         whatsapp_e164: row.whatsapp_e164 ?? null,
         whatsapp_username: row.whatsapp_username ?? null,
-        whatsapp_extra: row.whatsapp_extra ?? null,
         whatsapp_opt_in: typeof row.whatsapp_opt_in === "boolean" ? row.whatsapp_opt_in : true,
         dont_message_until: row.dont_message_until ?? null,
 
@@ -906,8 +912,11 @@ const EVENT_LABELS: Record<string, string> = {
 
             whatsapp_e164: client.whatsapp_e164 ?? undefined,
             whatsapp_username: client.whatsapp_username ?? undefined,
-            whatsapp_extra: client.whatsapp_extra ?? undefined,
             whatsapp_opt_in: client.whatsapp_opt_in ?? true,
+            secondary_display_name: client.secondary_display_name ?? undefined,
+            secondary_name_prefix: client.secondary_name_prefix ?? undefined,
+            secondary_phone_e164: client.secondary_phone_e164 ?? undefined,
+            secondary_whatsapp_username: client.secondary_whatsapp_username ?? undefined,
             dont_message_until: client.dont_message_until ?? undefined,
 
             server_id: client.server_id,

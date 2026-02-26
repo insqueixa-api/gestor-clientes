@@ -90,10 +90,13 @@ type VwClientRow = {
   
   technology: string | null; // ✅ NOVO CAMPO
 
-  whatsapp_e164: string | null;
+whatsapp_e164: string | null;
   whatsapp_username: string | null;
-  whatsapp_extra: string[] | null;
   whatsapp_opt_in: boolean | null;
+  secondary_display_name?: string | null;
+  secondary_name_prefix?: string | null;
+  secondary_phone_e164?: string | null;
+  secondary_whatsapp_username?: string | null;
   dont_message_until: string | null; // whatsapp_snooze_until mapeado na view
 
   apps_names: string[] | null; // View retorna array de texto
@@ -145,11 +148,14 @@ type ClientRow = {
   // ✅ ADICIONADO: Guarda o ID da tabela
   plan_table_id?: string;
   technology_edit: string; // ✅ Para passar pro modal
-  whatsapp: string;
+whatsapp: string;
   whatsapp_username?: string;
   server_password?: string; // CORRIGIDO
   price_amount?: number;
-  whatsapp_extra?: string[];
+  secondary_display_name?: string;
+  secondary_name_prefix?: string;
+  secondary_phone_e164?: string;
+  secondary_whatsapp_username?: string;
   expires_at?: string; // Data YYYY-MM-DD para o input
   rawVencimento?: string | null; // ✅ NOVO: Timestamp original completo
   whatsapp_opt_in?: boolean;
@@ -638,7 +644,11 @@ if (appsData) {
         whatsapp_username: r.whatsapp_username ?? undefined,
         server_password: r.server_password ?? undefined,
         price_amount: r.price_amount ?? undefined,
-        whatsapp_extra: r.whatsapp_extra ?? undefined,
+        
+        secondary_display_name: (r as any).secondary_display_name ?? undefined,
+        secondary_name_prefix: (r as any).secondary_name_prefix ?? undefined,
+        secondary_phone_e164: (r as any).secondary_phone_e164 ?? undefined,
+        secondary_whatsapp_username: (r as any).secondary_whatsapp_username ?? undefined,
 
         expires_at: r.vencimento ? r.vencimento.split("T")[0] : undefined,
         rawVencimento: r.vencimento,
@@ -1042,11 +1052,14 @@ if (!error && data) {
     technology: r.technology_edit,
     
 
-    whatsapp_e164: r.whatsapp,
+whatsapp_e164: r.whatsapp,
     whatsapp_username: r.whatsapp_username,
-    whatsapp_extra: r.whatsapp_extra,
-
     whatsapp_opt_in: r.whatsapp_opt_in,
+    
+    secondary_display_name: r.secondary_display_name,
+    secondary_name_prefix: r.secondary_name_prefix,
+    secondary_phone_e164: r.secondary_phone_e164,
+    secondary_whatsapp_username: r.secondary_whatsapp_username,
     dont_message_until: r.dont_message_until,
 
     server_password: r.server_password,

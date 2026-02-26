@@ -387,477 +387,234 @@ function pickCreditsUsed(table: PlanTable | null, period: string, screens: numbe
 }
 
 // --- UI helpers ---
-
 function Label({ children }: { children: React.ReactNode }) {
 
   return (
-
     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-
       {children}
-
     </label>
-
   );
-
 }
-
-
 
 type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
-
 };
 
-
-
 function Input({ className = "", ...props }: InputProps) {
-
   return (
-
     <input
-
       {...props}
-
       className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
-
     />
-
   );
-
 }
-
-
 
 function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-
   return (
-
     <select
-
       {...props}
-
       className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
-
     />
-
   );
-
 }
 
-
-
 function Switch({
-
   checked,
-
   onChange,
-
   label,
-
   disabled = false, // ✅ NOVO
-
 }: {
-
   checked: boolean;
-
   onChange: (v: boolean) => void;
-
   label: string;
-
   disabled?: boolean; // ✅ NOVO
-
 }) {
 
   return (
-
     <div className="flex items-center justify-between gap-3">
-
       <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>
-
       <button
-
         type="button"
-
         onClick={() => !disabled && onChange(!checked)} // ✅ NOVO
-
         disabled={disabled} // ✅ NOVO
-
         className={`relative w-12 h-7 rounded-full transition-colors border ${
-
           checked
-
             ? "bg-emerald-600 border-emerald-600"
-
             : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"
-
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`} // ✅ NOVO
-
         aria-pressed={checked}
-
       >
-
         <span
-
           className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${
-
             checked ? "translate-x-5" : "translate-x-0"
-
           }`}
-
         />
-
       </button>
-
     </div>
-
   );
-
-
-
-  
-
 }
-
 
 
 function PhoneRow({
-
   label,
-
   countryLabel,
-
   rawValue,
-
   onRawChange,
-
   onDone,
-
   onRemove,
-
   showRemove,
-
 }: {
-
   label: string;
-
   countryLabel: string;
-
   rawValue: string;
-
   onRawChange: (v: string) => void;
-
   onDone: () => void;
-
   onRemove?: () => void;
-
   showRemove?: boolean;
-
 }) {
 
   return (
-
     <div>
-
       <Label>{label}</Label>
-
       <div className="flex gap-2">
-
         <div className="h-10 min-w-[160px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white">
-
           {countryLabel || "—"}
-
         </div>
 
-
-
         <div className="relative flex-1">
-
           <Input
-
             value={rawValue}
-
             onChange={(e) => onRawChange(e.target.value)}
-
             placeholder="Telefone"
-
             className="pr-12"
-
           />
 
           <button
-
             type="button"
-
             onClick={onDone}
-
             className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center"
-
             title="Normalizar"
-
           >
-
             ✓
-
           </button>
-
         </div>
 
-
-
         {showRemove && onRemove && (
-
           <button
-
             type="button"
-
             onClick={onRemove}
-
             className="h-10 px-3 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10"
-
             title="Remover"
-
           >
-
             ✕
-
           </button>
-
         )}
-
       </div>
-
     </div>
-
   );
-
 }
 
-
-
 function queueListToast(
-
   mode: "client" | "trial",
-
   toast: { type: "success" | "error"; title: string; message?: string }
-
 ) {
 
   try {
-
     if (typeof window === "undefined") return;
-
-
-
     const key = mode === "trial" ? "trials_list_toasts" : "clients_list_toasts";
-
     const raw = window.sessionStorage.getItem(key);
-
     const arr = raw ? (JSON.parse(raw) as any[]) : [];
-
     arr.push({
-
       type: toast.type,
-
       title: toast.title,
-
       message: toast.message,
-
       ts: Date.now(),
-
     });
 
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-
   } catch {
-
     // silencioso
-
   }
-
 }
 
-
-
 export default function NovoCliente({ clientToEdit, mode = "client", initialTab, onClose, onSuccess }: Props) {
-
   // ✅ Scroll lock padrão (não deixa “vazar” e restaura posição)
-
 const modalScrollYRef = useRef(0);
 
-
-
 useEffect(() => {
-
   if (typeof window === "undefined") return;
-
-
-
   const body = document.body;
-
   const html = document.documentElement;
-
-
-
   const scrollY = window.scrollY || window.pageYOffset || 0;
-
   modalScrollYRef.current = scrollY;
-
-
-
   const prevBodyOverflow = body.style.overflow;
-
   const prevBodyPosition = body.style.position;
-
   const prevBodyTop = body.style.top;
-
   const prevBodyWidth = body.style.width;
-
   const prevHtmlOverflow = html.style.overflow;
-
-
-
   html.style.overflow = "hidden";
-
   body.style.overflow = "hidden";
-
   body.style.position = "fixed";
-
   body.style.top = `-${scrollY}px`;
-
   body.style.width = "100%";
 
-
-
   return () => {
-
     html.style.overflow = prevHtmlOverflow;
-
     body.style.overflow = prevBodyOverflow;
-
     body.style.position = prevBodyPosition;
-
     body.style.top = prevBodyTop;
-
     body.style.width = prevBodyWidth;
-
-
-
     window.scrollTo(0, modalScrollYRef.current || 0);
-
   };
-
 }, []);
-
   const isEditing = !!clientToEdit;
-
   const isTrialMode = mode === "trial";
+  const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(initialTab || "dados");
 
-
-
-
-
-    const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(initialTab || "dados");
-
-
-
-      useEffect(() => {
-
+    useEffect(() => {
     if (!initialTab) return;
-
     setActiveTab(initialTab);
-
   }, [initialTab]);
 
-
-
   const [loading, setLoading] = useState(false);
-
   const [loadingStep, setLoadingStep] = useState(""); // ✅ NOVO: Guarda o texto do passo atual
-
   const [fetchingAux, setFetchingAux] = useState(true);
 
-
-
   // --- TOAST STATE ---
-
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
   const TOAST_DURATION = 5000;
-
   const toastSeq = useRef(1);
 
-
-
     // ✅ trava para não resetar override durante o prefill inicial
-
   const didInitRef = useRef(false);
-
-
-
-const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
-
+  const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
   const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
 
   setToasts((prev) => [
-
     ...prev,
-
     { id, type, title, message, durationMs: TOAST_DURATION },
-
   ]);
-
 };
-
-
 
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
-
-
   // --- AUX ---
-
   const [servers, setServers] = useState<SelectOption[]>([]);
-
   const [allApps, setAllApps] = useState<SelectOption[]>([]);
 
-
-
   // plan tables
-
   const [tables, setTables] = useState<PlanTable[]>([]);
-
   const [selectedTableId, setSelectedTableId] = useState<string>("");
-
-
-
   const selectedTable = useMemo(() => {
-
     return tables.find((t) => t.id === selectedTableId) || null;
-
   }, [tables, selectedTableId]);
 
-
-
   // --- DADOS (TAB 1) ---
-
   const [salutation, setSalutation] = useState<string>("");
-
   const [name, setName] = useState("");
-
-
-
   const [createdAt, setCreatedAt] = useState<string>(() => getLocalISOString());
-
-
-
   const [primaryPhoneRaw, setPrimaryPhoneRaw] = useState("");
-
   const [primaryCountryLabel, setPrimaryCountryLabel] = useState<string>(ddiMeta("55").label);
-
-
-
   const [whatsappUsername, setWhatsappUsername] = useState("");
   const [whatsUserTouched, setWhatsUserTouched] = useState(false);
 
@@ -868,268 +625,139 @@ const addToast = (type: "success" | "error" | "warning", title: string, message?
   const [secondaryCountryLabel, setSecondaryCountryLabel] = useState<string>(ddiMeta("55").label);
   const [secondaryWhatsappUsername, setSecondaryWhatsappUsername] = useState("");
   const [secondaryWhatsUserTouched, setSecondaryWhatsUserTouched] = useState(false);
-
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
-
   const [dontMessageUntil, setDontMessageUntil] = useState<string>("");
 
-
-
   // --- PAGAMENTO (TAB 2) ---
-
   const [serverId, setServerId] = useState("");
-
   const [username, setUsername] = useState("");
-
   const [password, setPassword] = useState("");
 
-
-
   // ✅ NOVO: Tecnologia
-
   const [technology, setTechnology] = useState("IPTV");
-
   const [customTechnology, setCustomTechnology] = useState("");
-
-
-
   const [selectedPlanPeriod, setSelectedPlanPeriod] = useState<keyof typeof PLAN_LABELS>("MONTHLY");
-
   const [screens, setScreens] = useState(1);
-
-
-
   const [currency, setCurrency] = useState<Currency>("BRL");
-
   const [planPrice, setPlanPrice] = useState("0,00");
-
   const [priceTouched, setPriceTouched] = useState(false);
-
-
 
   // ✅ VENCIMENTO DATA + HORA
 
   // Inicialização para NOVO CLIENTE: Data de hoje e HORA ATUAL DO SISTEMA
-
   const [dueDate, setDueDate] = useState<string>(() => {
-
     const d = new Date();
-
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-
   });
 
   const [dueTime, setDueTime] = useState(() => {
-
     const d = new Date();
-
     // Inicia com a hora atual (ex: 16:20) em vez de 23:59 fixo
-
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-
   });
 
 
-
 // ✅ Cliente: ON por padrão na CRIAÇÃO
-
 // ✅ EDIÇÃO: NUNCA renova (fica false e o toggle nem aparece)
 
 const [registerRenewal, setRegisterRenewal] = useState(() => (!isTrialMode && !isEditing));
-
 const [sendPaymentMsg, setSendPaymentMsg] = useState(!isTrialMode); // ✅ Cliente: ON por padrão
 
-
-
 // ✅ TRIAL: envio de mensagem de teste (padrão LIGADO)
-
 const [sendTrialWhats, setSendTrialWhats] = useState(true);
 
 // ✅ NOVO: Controle de horas de teste e M3U
-
 const [testHours, setTestHours] = useState<2 | 4 | 6>(2);
 
-
-
 // ✅ NOVO: Provider do painel (pra travar horas por servidor)
-
 const [trialProvider, setTrialProvider] = useState<
-
   "NONE" | "FAST" | "NATV" | "ELITE" | "OTHER"
-
 >("NONE");
-
 const [trialHoursLocked, setTrialHoursLocked] = useState(false);
-
-
 
 const [m3uUrl, setM3uUrl] = useState("");
 
-
-
 // ✅ NOVO: external_user_id (ID do usuário no painel)
-
 const [externalUserId, setExternalUserId] = useState<string>("");
-
-
-
 const [serverDomains, setServerDomains] = useState<string[]>([]); // ✅ NOVO
 
-
-
 // ✅ Templates WhatsApp
-
 const [templates, setTemplates] = useState<MessageTemplate[]>([]);
-
 const [selectedTemplateId, setSelectedTemplateId] = useState("");
-
 const [messageContent, setMessageContent] = useState("");
 
-
-
-
-
   useEffect(() => {
-
     if (isEditing) return;
-
     if (registerRenewal) {
-
       setSendPaymentMsg(true);
-
     } else {
-
       setSendPaymentMsg(false);
-
     }
-
   }, [registerRenewal, isEditing]);
 
-
-
   const [fxRate, setFxRate] = useState<number>(1);
-
   const [totalBrl, setTotalBrl] = useState<number>(0);
 
-
-
   // ✅ NOVO: Controle do Popup de Confirmação Bonito
-
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; details: string[] } | null>(null);
 
-
-
   // --- TIPOS PARA APPS DINÂMICOS ---
-
   type AppCatalog = { id: string; name: string; fields_config: any[]; info_url: string | null };
-
   type SelectedAppInstance = { 
-
   instanceId: string; 
-
   app_id: string; 
-
   name: string; 
-
   values: Record<string, string>; 
-
   fields_config: any[];
 
   // ✅ Novos campos de controle por instância
-
   costType: "paid" | "free" | "partnership";
-
   partnerServerId: string;
-
   is_minimized?: boolean; // ✅ NOVO
-
 };
 
-
-
 // --- ESTADOS ---
-
   const [catalog, setCatalog] = useState<AppCatalog[]>([]);
-
   const [selectedApps, setSelectedApps] = useState<SelectedAppInstance[]>([]);
-
   const [showAppSelector, setShowAppSelector] = useState(false);
-
   const [appSearch, setAppSearch] = useState(""); // ✅ NOVO: Controle da busca
-
   const [notes, setNotes] = useState("");
 
-
-
   // ===== NORMALIZAÇÃO TELEFONE =====
-
   function applyPhoneNormalization(rawInput: string) {
-
     const rawDigits = onlyDigits(rawInput);
-
     if (!rawDigits) {
-
       return {
-
         countryLabel: "—",
-
         e164: "",
-
         nationalDigits: "",
-
         formattedNational: "",
-
       };
-
     }
 
-
-
     const ddi = inferDDIFromDigits(rawDigits);
-
     const meta = ddiMeta(ddi);
-
     const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
-
     const formattedNational = formatNational(ddi, nationalDigits);
-
     const e164 = `+${ddi}${nationalDigits}`;
 
-
-
     return {
-
       countryLabel: meta.label,
-
       e164,
-
       nationalDigits,
-
       formattedNational,
-
     };
-
   }
 
-
-
   function handleDonePrimary() {
-
     const norm = applyPhoneNormalization(primaryPhoneRaw);
-
     setPrimaryCountryLabel(norm.countryLabel);
-
     setPrimaryPhoneRaw(norm.formattedNational || norm.nationalDigits || primaryPhoneRaw);
 
     if (!whatsUserTouched) {
-
       setWhatsappUsername(onlyDigits(norm.e164));
-
     }
-
   }
-
-
 
   function handleDoneSecondary() {
     const norm = applyPhoneNormalization(secondaryPhoneRaw);
@@ -1140,705 +768,342 @@ const [messageContent, setMessageContent] = useState("");
     }
   }
 
-
-
 // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
-
 const [hasIntegration, setHasIntegration] = useState(false);
-
 const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
 
-
-
 useEffect(() => {
-
-  // ❌ REMOVIDO: if (!isTrialMode) return; (Isso estava matando o modal de clientes)
-
-
-
   if (!serverId) {
-
     setHasIntegration(false);
-
     setSyncWithServer(false);
-
     setTrialProvider("NONE");
-
     setTrialHoursLocked(false);
-
     if (isTrialMode) setTestHours(2);
-
     if (!isTrialMode) setRegisterRenewal(false);
-
     return;
-
   }
 
-
-
   let mounted = true;
-
-
-
   (async () => {
-
     try {
-
       const { data: srv, error: srvErr } = await supabaseBrowser
-
         .from("servers")
-
         .select("panel_integration")
-
         .eq("id", serverId)
-
         .single();
 
-
-
       if (!mounted) return;
-
       if (srvErr) throw srvErr;
-
-
-
       const integrationId = String(srv?.panel_integration || "");
-
       const hasInteg = Boolean(integrationId);
-
-
-
       setHasIntegration(hasInteg);
-
       setSyncWithServer(hasInteg);
 
-
-
       if (isTrialMode) {
-
         setRegisterRenewal(false);
 
       } else {
-
         setRegisterRenewal(hasInteg);
-
       }
-
-
 
       if (!hasInteg) {
-
         setTrialProvider("NONE");
-
         setTrialHoursLocked(false);
-
         if (isTrialMode) setTestHours(2);
-
         return;
-
       }
-
-
 
       const { data: integ, error: integErr } = await supabaseBrowser
-
         .from("server_integrations")
-
         .select("provider")
-
         .eq("id", integrationId)
-
         .single();
 
-
-
       if (!mounted) return;
-
       if (integErr) throw integErr;
-
-
-
       const provider = String(integ?.provider || "").toUpperCase();
 
-
-
       if (provider === "FAST") {
-
         setTrialProvider("FAST");
-
         setTrialHoursLocked(true);
-
         if (isTrialMode) setTestHours(4);
-
         return;
-
       }
-
-
 
       if (provider === "NATV") {
-
         setTrialProvider("NATV");
-
         setTrialHoursLocked(false);
-
         if (isTrialMode) setTestHours(6);
-
         return;
-
       }
-
-
 
       if (provider === "ELITE") {
-
         setTrialProvider("ELITE");
-
         setTrialHoursLocked(true);
-
         if (isTrialMode) setTestHours(2);
-
         return;
-
       }
 
-
-
       setTrialProvider("OTHER");
-
       setTrialHoursLocked(false);
-
       if (isTrialMode) setTestHours(2);
 
     } catch (e) {
-
       console.error("Erro ao detectar provider/integração:", e);
-
       if (!mounted) return;
-
-
-
       setHasIntegration(false);
-
       setSyncWithServer(false);
-
       setTrialProvider("NONE");
-
       setTrialHoursLocked(false);
-
+ 
       if (isTrialMode) setTestHours(2);
-
       if (!isTrialMode) setRegisterRenewal(false);
-
     }
-
   })();
 
-
-
   return () => {
-
     mounted = false;
-
   };
-
 }, [isTrialMode, serverId]);
 
 
-
-
-
   // ======= LOAD AUX + EDIT PREFILL =======
-
 // ✅ NOVO: Atualizar vencimento quando mudar período de teste
-
 useEffect(() => {
-
   if (!isTrialMode) return;
-
   if (isEditing) return; // ✅ TRAVA: Evita recalcular a hora ao abrir um teste existente
-
-
-
   const now = new Date();
-
   const target = new Date(now.getTime() + testHours * 60 * 60 * 1000); // +X horas
-
-
-
   const dISO = `${target.getFullYear()}-${pad2(target.getMonth() + 1)}-${pad2(target.getDate())}`;
-
   const tISO = `${pad2(target.getHours())}:${pad2(target.getMinutes())}`;
 
-
-
   setDueDate(dISO);
-
   setDueTime(tISO);
-
 }, [testHours, isTrialMode, serverId]); // ✅ inclui serverId pra recalcular ao trocar servidor
-
-
 
 // ✅ NOVO: Buscar DNSs do servidor selecionado (coluna dns = JSON array)
 
 useEffect(() => {
-
   if (!serverId) {
-
     setServerDomains([]);
-
     return;
-
   }
 
-
-
   (async () => {
-
     try {
-
       const { data: srv } = await supabaseBrowser
-
         .from("servers")
-
         .select("dns")
-
         .eq("id", serverId)
-
         .single();
-
-
-
       if (!srv || !srv.dns) {
-
         setServerDomains([]);
-
         return;
-
       }
 
-
-
       // dns é um array JSON
-
       const domains = Array.isArray(srv.dns) 
-
         ? srv.dns.filter((d: any) => d && String(d).trim().length > 0)
-
         : [];
-
-
-
       setServerDomains(domains);
 
     } catch (e) {
-
       console.error("Erro ao buscar domínios:", e);
-
       setServerDomains([]);
-
     }
-
   })();
-
 }, [serverId]);
 
-
-
   useEffect(() => {
-
     let alive = true;
-
-
-
     async function load() {
-
       try {
-
         const tid = await getCurrentTenantId();
 
-
-
         // 1. Servidores
-
         const srvRes = await supabaseBrowser
-
           .from("servers")
-
           .select("id, name")
-
           .eq("tenant_id", tid)
-
           .eq("is_archived", false);
 
-
-
         // 2. Apps (Catálogo Completo com Configuração)
-
         // Buscamos apenas na tabela 'apps' nova que configuramos
-
         const { data: appsData, error: appsErr } = await supabaseBrowser
-
           .from("apps")
-
           .select("id, name, fields_config, info_url")
-
           .eq("tenant_id", tid)
-
           .eq("is_active", true);
-
-
-
         if (appsErr) {
-
           console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
-
         }
 
-
-
         // 3. Tabelas de Preço
-
         const tRes = await supabaseBrowser
-
           .from("plan_tables")
-
           .select(
-
             `id, name, currency, is_system_default,
-
              items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`
-
           )
-
           .eq("tenant_id", tid)
-
           .eq("is_active", true);
-
-
-
         if (!alive) return;
 
-
-
         // ✅ 4) Templates (para mensagem automática / teste)
-
-const { data: tmplData, error: tmplErr } = await supabaseBrowser
-
+  const { data: tmplData, error: tmplErr } = await supabaseBrowser
   .from("message_templates")
-
   .select("id, name, content")
-
   .eq("tenant_id", tid)
-
   .order("name", { ascending: true });
-
-
-
 if (!alive) return;
 
-
-
 if (tmplErr) {
-
   console.warn("Erro ao carregar templates:", tmplErr.message);
-
 } else {
-
   const list = (tmplData || []) as MessageTemplate[];
-
   setTemplates(list);
 
-
-
   // ✅ TRIAL: por padrão liga envio e seleciona template "Teste..."
-
 if (isTrialMode) {
-
   setSendTrialWhats(true);
-
-
-
   const defaultTpl =
-
     list.find((t) => (t.name || "").trim().toLowerCase().startsWith("teste")) ||
-
     list.find((t) => (t.name || "").toLowerCase().includes("teste")) ||
-
     null;
 
-
-
   if (defaultTpl) {
-
     setSelectedTemplateId(defaultTpl.id);
-
     setMessageContent(defaultTpl.content || "");
-
   } else {
-
     setSelectedTemplateId("");
-
     setMessageContent("");
-
   }
-
 }
-
 
 
 // ✅ CLIENTE: por padrão liga envio e seleciona template "Pagamento"
 
 if (!isTrialMode) {
-
   setSendPaymentMsg(true);
-
-
-
   const defaultTpl =
-
     list.find((t) => (t.name || "").trim().toLowerCase().includes("pagamento")) ||
-
     list.find((t) => (t.name || "").toLowerCase().includes("pago")) ||
-
     null;
 
-
-
   if (defaultTpl) {
-
     setSelectedTemplateId(defaultTpl.id);
-
     setMessageContent(defaultTpl.content || "");
-
   } else {
-
     setSelectedTemplateId("");
-
     setMessageContent("");
-
   }
-
 }
-
 }
-
-
-
-
 
         // Setters de Auxiliares
-
         if (srvRes.data) {
-
           setServers(srvRes.data.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
-
         }
-
-
 
         if (appsData) {
-
           // Guardamos o catálogo completo para usar no seletor
-
           setCatalog(appsData);
-
           // Opcional: Se ainda usa allApps para algo legado, pode manter, senão pode ignorar
-
           setAllApps(appsData.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
-
         }
-
-
 
         const allTables = (tRes.data || []) as unknown as PlanTable[];
-
         setTables(allTables);
 
-
-
         // Define Tabela Padrão (BRL)
-
         const defaultBRL =
-
           allTables.find((t) => t.currency === "BRL" && t.is_system_default) ||
-
           allTables.find((t) => t.currency === "BRL") ||
-
           allTables[0];
 
-
-
         // ✅ 1) define qual tabela deve ficar selecionada
-
         // ✅ prioridade absoluta: tabela do cliente (se existir/ativa)
-
         const clientTableId = (clientToEdit as any)?.plan_table_id || "";
-
         const clientTableExists = clientTableId ? allTables.some((t) => t.id === clientTableId) : false;
-
-
-
         let initialTableId = clientTableExists
-
           ? clientTableId
-
           : (defaultBRL?.id || allTables[0]?.id || "");
 
-
-
-
-
         // ✅ aplica a seleção inicial
-
         if (initialTableId) {
-
           setSelectedTableId(initialTableId);
-
-
-
           const t0 = allTables.find((t) => t.id === initialTableId) || defaultBRL || null;
-
           if (t0) {
-
             setCurrency(t0.currency || "BRL");
 
-
-
             // preço inicial só “auto” se o usuário não tiver sobrescrito
-
             // (na edição, seu priceTouched vira true se tiver price_amount)
-
             const p = pickPriceFromTable(t0, "MONTHLY", 1);
-
             setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-
             setPriceTouched(false);
-
           }
-
         }
 
-
-
 if (isTrialMode && defaultBRL) {
-
   setSelectedTableId(defaultBRL.id);
-
   setCurrency("BRL");
-
   setSelectedPlanPeriod("MONTHLY");
-
   setScreens(1);
-
   const p = pickPriceFromTable(defaultBRL, "MONTHLY", 1);
-
   setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-
   setPriceTouched(false);
 
-  
-
   // ✅ NOVO: Definir horas padrão (será ajustado quando selecionar servidor)
-
   setTestHours(2);
-
 }
-
-
 
         // ===== PREFILL EDIÇÃO =====
 
 if (clientToEdit) {
-
   setName((clientToEdit.client_name || "").trim());
 
-
-
   // ✅ TABELA DO CLIENTE (prefill)
-
   // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
-
   const clientPlanTableId = (clientToEdit as any)?.plan_table_id || null;
-
 if (clientPlanTableId) {
-
   const exists = allTables.some((t) => t.id === clientPlanTableId);
-
   if (exists) {
-
     setSelectedTableId(clientPlanTableId);
-
     const tSel = allTables.find((t) => t.id === clientPlanTableId) || null;
-
     if (tSel) setCurrency(tSel.currency || "BRL");
-
   }
-
 }
 
-
-
-
-
   // Tecnologia
-
   const tec = clientToEdit.technology || "IPTV";
-
   if (["IPTV", "P2P", "OTT"].includes(tec)) {
-
     setTechnology(tec);
-
     setCustomTechnology("");
-
   } else {
-
     setTechnology("Personalizado");
-
     setCustomTechnology(tec);
-
   }
 
-
-
   setUsername(clientToEdit.username || "");
-
   setPassword(clientToEdit.server_password || "");
 
   // ✅ M3U URL
-
   setM3uUrl(clientToEdit.m3u_url || "");
 
-
-
   // Telefones
-
   if (clientToEdit.whatsapp_e164) {
-
     const { ddi, national } = splitE164(clientToEdit.whatsapp_e164);
-
     setPrimaryCountryLabel(ddiMeta(ddi).label);
-
     setPrimaryPhoneRaw(formatNational(ddi, national) || national);
-
     if (!whatsUserTouched) {
-
       setWhatsappUsername(
-
         clientToEdit.whatsapp_username || onlyDigits(clientToEdit.whatsapp_e164)
-
       );
-
     }
-
   }
-
-
 
   setSecondaryName(clientToEdit.secondary_display_name || "");
   setSecondarySalutation(clientToEdit.secondary_name_prefix || "");
-
   if (clientToEdit.secondary_phone_e164) {
     const { ddi, national } = splitE164(clientToEdit.secondary_phone_e164);
     setSecondaryCountryLabel(ddiMeta(ddi).label);
@@ -1852,218 +1117,110 @@ if (clientPlanTableId) {
     setSecondaryWhatsappUsername(clientToEdit.secondary_whatsapp_username);
   }
 
-
-
   setServerId(clientToEdit.server_id || "");
-
   setScreens(clientToEdit.screens || 1);
-
-
 
   // Plano e Preço
 
   const pName = (clientToEdit.plan_name || "").toUpperCase();
-
   let foundPeriod: keyof typeof PLAN_LABELS = "MONTHLY";
-
   if (pName.includes("ANUAL")) foundPeriod = "ANNUAL";
-
   else if (pName.includes("SEMESTRAL")) foundPeriod = "SEMIANNUAL";
-
   else if (pName.includes("TRIMESTRAL")) foundPeriod = "QUARTERLY";
-
   else if (pName.includes("BIMESTRAL")) foundPeriod = "BIMONTHLY";
-
   setSelectedPlanPeriod(foundPeriod);
 
-
-
   // ✅ Se tiver override de preço, mantém como estava
-
   if (clientToEdit.price_amount != null) {
-
     setPlanPrice(Number(clientToEdit.price_amount).toFixed(2).replace(".", ","));
-
     setPriceTouched(true);
-
     } else {
 
     // ✅ Se NÃO tiver override, recalcula pelo preço da TABELA DO CLIENTE
-
     // ⚠️ IMPORTANTE: aqui ainda estamos dentro do load() — use allTables (local), não `tables` (state)
-
     const currentTableId =
-
       clientPlanTableId && allTables.some((t) => t.id === clientPlanTableId)
-
         ? clientPlanTableId
-
         : (initialTableId || "");
-
-
-
-
-
     const tSel = allTables.find((t) => t.id === currentTableId) || null;
-
     if (tSel) {
-
       const pAuto = pickPriceFromTable(tSel, foundPeriod, clientToEdit.screens || 1);
-
       setPlanPrice(Number(pAuto || 0).toFixed(2).replace(".", ","));
-
       setPriceTouched(false);
-
       setCurrency(tSel.currency || "BRL");
-
     }
-
   }
-
-
-
-
 
   // Câmbio
-
   if (clientToEdit.price_currency) {
-
     const ccy = clientToEdit.price_currency as Currency;
-
     if (ccy !== "BRL") {
-
       const { data: fx, error: fxErr } = await supabaseBrowser
-
         .from("tenant_fx_rates")
-
         .select("usd_to_brl, eur_to_brl, as_of_date")
-
         .eq("tenant_id", tid)
-
         .order("as_of_date", { ascending: false })
-
         .limit(1)
-
         .maybeSingle();
 
-
-
       if (fxErr) {
-
         console.error("tenant_fx_rates error:", fxErr);
-
         setFxRate(5);
-
       } else {
-
         const rate =
-
           ccy === "USD"
-
             ? Number(fx?.usd_to_brl || 5)
-
             : Number(fx?.eur_to_brl || 5);
-
         setFxRate(rate);
-
       }
-
     } else {
-
       setFxRate(1);
-
     }
-
   }
-
-
 
   // Data Vencimento
-
   if (clientToEdit.vencimento) {
-
     const dt = new Date(clientToEdit.vencimento);
-
     const dISO = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
-
     const tISO = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
-
     setDueDate(dISO);
-
     setDueTime(tISO);
-
   }
-
-
 
   setWhatsappOptIn(clientToEdit.whatsapp_opt_in ?? true);
 
-
-
   if (clientToEdit.dont_message_until) {
-
     const v = isoToLocalDateTimeInputValue(clientToEdit.dont_message_until);
-
     setDontMessageUntil(v);
-
   } else {
-
     setDontMessageUntil("");
-
   }
-
-
 
   setNotes(clientToEdit.notes || "");  // ✅ OBSERVAÇÕES: não confiar no clientToEdit vindo da view/lista
 
   // (muitas views não trazem notes, aí parece que "sumiu")
-
   try {
-
     if (clientToEdit.id) {
-
       const { data: nrow, error: nerr } = await supabaseBrowser
-
   .from("clients")
-
   .select("notes, external_user_id")
-
   .eq("tenant_id", tid)
-
   .eq("id", clientToEdit.id)
-
   .maybeSingle();
 
-
-
 if (!nerr) {
-
   setNotes((nrow?.notes || "").toString());
-
   setExternalUserId(String(nrow?.external_user_id || "").trim());
-
 } else {
-
   setNotes(clientToEdit.notes || "");
-
   setExternalUserId(String((clientToEdit as any)?.external_user_id || "").trim());
-
 }
-
     } else {
-
       setNotes(clientToEdit.notes || "");
-
     }
-
   } catch {
-
     setNotes(clientToEdit.notes || "");
-
   }
-
-
-
 
 
   // ✅ CARREGAMENTO DE APPS (NOVA LÓGICA)
