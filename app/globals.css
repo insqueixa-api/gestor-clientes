@@ -1,26 +1,19 @@
 @import "tailwindcss";
 
-/* Define o comportamento do modo dark */
 @variant dark (&:where(.dark, .dark *));
 
-/* === MODO CLARO (LIGHT) === */
+/* === MODO CLARO === */
 :root {
-  --background: #ffffff;  /* Branco puro (Padrão limpo) */
-  --foreground: #09090b;  /* Zinc 950 (Quase preto, muito legível) */
-  
+  --background: #ffffff;
+  --foreground: #09090b;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* === MODO ESCURO (DARK) === */
+/* === MODO ESCURO === */
 :root.dark {
-  /* O SEGREDOD: Zinc 950. É profundo, elegante e neutro. */
-  --background: #18181b;  
-  
-  /* Se achar o de cima muito escuro, tente este (Cinza Carvão): */
-  /* --background: #121212; */
-
-  --foreground: #fafafa;  /* Zinc 50 (Quase branco, brilha menos) */
+  --background: #18181b;
+  --foreground: #fafafa;
 }
 
 /* Conecta ao Tailwind */
@@ -36,12 +29,10 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  
-  /* Transição suave ao trocar o tema */
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ── Dashboard: ocultar valores ─────────────────────────── */
+/* ── Dashboard: ocultar valores ── */
 #dashboard-values .sv {
   transition: filter 0.25s ease, opacity 0.25s ease;
 }
