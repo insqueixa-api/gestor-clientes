@@ -217,11 +217,13 @@ export default function AdminServersPage() {
       setServers(mergedServers);
 
     } catch (error: any) {
-      console.error("Erro ao carregar dados:", error);
-      addToast("error", "Erro ao carregar", error.message);
-    } finally {
-      setLoading(false);
-    }
+  if (process.env.NODE_ENV !== "production") {
+    console.error("Erro ao carregar dados:", error);
+  }
+  addToast("error", "Erro ao carregar", error.message);
+} finally {
+  setLoading(false);
+}
   }
 
   // --- ACTIONS ---
@@ -326,11 +328,10 @@ export default function AdminServersPage() {
         return;
       }
 
-      const { error } = await supabaseBrowser.rpc("delete_server_hard", {
-        p_tenant_id: tenantId,
-        p_server_id: server.id,
-        p_created_by: userId,
-      });
+const { error } = await supabaseBrowser.rpc("delete_archived_server", {
+  p_tenant_id: tenantId,
+  p_server_id: server.id,
+});
 
       if (error) throw error;
 
