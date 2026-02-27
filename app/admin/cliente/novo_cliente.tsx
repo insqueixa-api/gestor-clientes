@@ -798,7 +798,14 @@ useEffect(() => {
       const integrationId = String(srv?.panel_integration || "");
       const hasInteg = Boolean(integrationId);
       setHasIntegration(hasInteg);
-      setSyncWithServer(hasInteg);
+
+      // ✅ SE FOR CRIAÇÃO DE CLIENTE, FORÇA OFFLINE (syncWithServer = false)
+      // SE FOR TESTE OU EDIÇÃO, MANTÉM A LÓGICA ORIGINAL
+      if (!isEditing && !isTrialMode) {
+          setSyncWithServer(false);
+      } else {
+          setSyncWithServer(hasInteg);
+      }
 
       if (isTrialMode) {
         setRegisterRenewal(false);
@@ -4531,54 +4538,32 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             
 
                             {/* LINHA 1: Toggles Lado a Lado */}
-
                             <div className="grid grid-cols-1 gap-3">
-
-                              {/* Sincronizar Painel */}
-
-                              <div 
-
-                                onClick={() => hasIntegration && setSyncWithServer(!syncWithServer)}
-
-                                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-
-                                  syncWithServer 
-
-                                    ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
-
-                                    : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
-
-                                } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
-
-                              >
-
-                                <div className="flex items-center gap-2">
-
-                                  <span className="text-lg">☁️</span>
-
-                                  <div>
-
-                                    <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
-
-                                      Sincronizar Painel
-
-                                    </span>
-
-                                    <span className="text-[9px] text-slate-400 dark:text-white/40">
-
-                                      {hasIntegration ? "Criar no servidor" : "Sem integração"}
-
-                                    </span>
-
+                              
+                              {/* ✅ Sincronizar Painel (Oculto na criação de Novo Cliente) */}
+                              {(isEditing || isTrialMode) && (
+                                <div 
+                                  onClick={() => hasIntegration && setSyncWithServer(!syncWithServer)}
+                                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                    syncWithServer 
+                                      ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20" 
+                                      : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                  } ${!hasIntegration ? "opacity-50 cursor-not-allowed" : ""}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">☁️</span>
+                                    <div>
+                                      <span className={`text-xs font-bold block ${syncWithServer ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
+                                        Sincronizar Painel
+                                      </span>
+                                      <span className="text-[9px] text-slate-400 dark:text-white/40">
+                                        {hasIntegration ? "Criar no servidor" : "Sem integração"}
+                                      </span>
+                                    </div>
                                   </div>
-
+                                  <Switch checked={syncWithServer} onChange={(v) => hasIntegration && setSyncWithServer(v)} label="" />
                                 </div>
-
-                                <Switch checked={syncWithServer} onChange={(v) => hasIntegration && setSyncWithServer(v)} label="" />
-
-                              </div>
-
-
+                              )}
 
                               {/* Registrar Financeiro */}
 
