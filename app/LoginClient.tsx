@@ -379,14 +379,6 @@ const canSubmit = useMemo(() => {
                   {loadingLogin ? "Acessando..." : "Acessar Área do Cliente"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleEsqueciPin}
-                  disabled={loadingReset || loadingResolve || !(token ?? "")}
-                  className="w-full text-xs font-bold text-slate-500 dark:text-emerald-500/70 hover:text-emerald-500 uppercase tracking-widest transition-colors py-2 disabled:opacity-60"
-                >
-                  {loadingReset ? "Solicitando..." : "Esqueci meu PIN"}
-                </button>
               </div>
 
               {msg && (
