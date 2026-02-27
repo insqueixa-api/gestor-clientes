@@ -1935,11 +1935,14 @@ return (
 <Td align="center">
   {(() => {
     const diff = getDiffDays(r.dueISODate);
-    
-    // ✅ CORREÇÃO: Força o tipo 'string' para aceitar qualquer texto
     let label: string = r.status; 
 
-    if (r.status !== "Arquivado" && r.status !== "Teste") {
+    if (r.status === "Arquivado") {
+        // ✅ NOVO: Exibe os dias de atraso mesmo estando na lixeira
+        if (diff === -1) label = "Arquivado (Venceu Ontem)";
+        else if (diff === -2) label = "Arquivado (Há 2 dias)";
+        else if (diff < -2) label = `Arquivado (Há ${Math.abs(diff)} dias)`;
+    } else if (r.status !== "Teste") {
         if (diff === -1) label = "Venceu Ontem";
         else if (diff === -2) label = "Venceu há 2 dias";
         else if (diff < -2) label = `Venceu há ${Math.abs(diff)} dias`;
@@ -1947,8 +1950,7 @@ return (
         else if (diff === 1) label = "Vence Amanhã";
         else if (diff === 2) label = "Vence em 2 dias";
         else if (diff > 2) label = `Vence em ${Math.abs(diff)} dias`;
-    
-      }
+    }
 
     // Lógica de Cor
     let colorTone: "green" | "red" | "amber" | "blue" = "blue";
@@ -1958,6 +1960,8 @@ return (
         if (diff === 0) colorTone = "amber";
         else if (diff > 0) colorTone = "green"; 
         else colorTone = "green";
+    } else if (r.status === "Arquivado") {
+        colorTone = "red"; // ✅ Coloquei "red" para destacar o perigo da exclusão, mas pode mudar para "blue" se preferir neutro
     } else {
         colorTone = "blue";
     }
