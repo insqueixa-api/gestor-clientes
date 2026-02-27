@@ -13,6 +13,12 @@ import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation"; // <--- NOVO
 
+if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+  window.console.log = () => {};
+  window.console.warn = () => {};
+  window.console.error = () => {};
+}
+
 // Helper para calcular diferença de dias (Fuso SP)
 function getDiffDays(isoDateTarget: string) {
   if (!isoDateTarget || isoDateTarget === "9999-12-31") return 9999;
@@ -504,11 +510,11 @@ useEffect(() => {
 
 
 
-  if (error) {
-    console.error("Erro ao carregar agendamentos:", error);
-    setScheduledMap({});
-    return;
-  }
+if (error) {
+      addToast("error", "Falha de conexão", "Não foi possível carregar a lista de clientes.");
+      setRows([]);
+      return;
+    }
 
   const map: Record<string, ScheduledMsg[]> = {};
   for (const row of (data as any[]) || []) {
@@ -1126,10 +1132,8 @@ if (!ok) return;
 
       addToast("success", goingToArchive ? "Cliente arquivado" : "Cliente restaurado");
       loadData();
-    } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message || "Erro desconhecido";
-      console.error(e);
-      addToast("error", "Falha ao atualizar cliente", msg);
+} catch (e: unknown) {
+      addToast("error", "Ação não permitida", "Não foi possível alterar o estado do cliente.");
     }
   };
 
@@ -1167,9 +1171,8 @@ if (!ok) return;
 
       addToast("success", "Excluído", "Cliente removido definitivamente.");
       loadData();
-    } catch (e: any) {
-      console.error(e);
-      addToast("error", "Falha ao excluir", e?.message || "Erro desconhecido");
+} catch (e: any) {
+      addToast("error", "Ação não permitida", "Não foi possível excluir o cliente.");
     }
   };
 
@@ -1325,11 +1328,9 @@ body: JSON.stringify({
 
     setShowSendNow({ open: false, clientId: null });
     setMessageText("");
-  } catch (e: any) {
-    // Abort é ok silencioso
+} catch (e: any) {
     if (e?.name !== "AbortError") {
-      console.error("Erro ao enviar mensagem:", e);
-      addToast("error", "Erro ao enviar mensagem", e?.message || "Falha desconhecida");
+      addToast("error", "Falha no Envio", "O servidor recusou o envio da mensagem.");
     }
 } finally {
   setSendingNow(false);
@@ -1409,9 +1410,8 @@ body: JSON.stringify({
     setScheduleDate("");
 
     await loadScheduledForClients(tenantId, rows.map((x) => x.id));
-  } catch (e: any) {
-    console.error("Erro ao agendar:", e);
-    addToast("error", "Erro ao agendar", e?.message || "Falha desconhecida");
+} catch (e: any) {
+    addToast("error", "Falha no Agendamento", "Não foi possível registrar a mensagem na fila.");
   } finally {
     setScheduling(false);
   }

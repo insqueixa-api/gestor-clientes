@@ -240,15 +240,6 @@ export default async function AdminDashboardPage() {
       .limit(5),
   ]);
 
-// Fallback de UI (não é cálculo de negócio)
-if (kpisRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] kpis error:", kpisRes.error.message);
-if (dueRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] due error:", dueRes.error.message);
-if (financeRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] finance error:", financeRes.error.message);
-if (regsRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] regs error:", regsRes.error.message);
-if (paymentsRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] payments error:", paymentsRes.error.message);
-if (topServersRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] top servers error:", topServersRes.error.message);
-if (topAppsRes.error && process.env.NODE_ENV !== "production") console.warn("[dashboard] top apps error:", topAppsRes.error.message);
-
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
 
