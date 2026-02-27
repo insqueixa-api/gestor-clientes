@@ -66,40 +66,45 @@ if (!supabaseAdmin) {
     }
 
     // 2. DISPARO DE WHATSAPP
-    const resData = Array.isArray(resetResult) ? resetResult[0] : resetResult;
-    const tid = resData?.tenant_id;
-    const cid = resData?.client_id;
+    const resData = Array.isArray(resetResult) ? resetResult[0] : resetResult;
+    const tid = resData?.tenant_id;
+    const cid = resData?.client_id;
+    const novoPin = resData?.new_pin; // ✅ 1. Extrai o novo PIN gerado pelo banco
 
-    if (tid && cid) {
-      try {
-        const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-        const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+    if (tid && cid && novoPin) { // ✅ 2. Valida se o PIN realmente existe
+      try {
+        const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+        const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
 
-        // Busca o template "Reset Portal" para pegar o PIN novo gerado
-        const { data: tmpl } = await supabaseAdmin
-          .from("message_templates")
-          .select("content")
-          .eq("tenant_id", tid)
-          .ilike("name", "%Reset Portal%")
-          .maybeSingle();
+        // Busca o template "Reset Portal" para pegar o PIN novo gerado
+        const { data: tmpl } = await supabaseAdmin
+          .from("message_templates")
+          .select("content")
+          .eq("tenant_id", tid)
+          .ilike("name", "%Reset Portal%")
+          .maybeSingle();
 
-        if (tmpl?.content) {
-          // Chama a sua API de envio agora (ela cuidará de gerar o token e preencher as variáveis)
-          await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json", 
-                "x-internal-secret": internalSecret 
-            },
-            body: JSON.stringify({
-              tenant_id: tid,
-              recipient_id: cid,
-              recipient_type: "client",
-              message: tmpl.content
-            })
-          });
-          safeServerLog("[PORTAL][pin_reset] Disparo via WhatsApp solicitado.");
-        }
+        if (tmpl?.content) {
+          // ✅ 3. Substitui a variável do PIN no template. 
+          // Ajuste "{{pin}}" se você cadastrou diferente no Gestor (ex: "{{senha}}")
+          const mensagemPronta = tmpl.content.replace(/\{\{pin\}\}/gi, novoPin);
+
+          // Chama a sua API de envio agora
+          await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json", 
+                "x-internal-secret": internalSecret 
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              recipient_id: cid,
+              recipient_type: "client",
+              message: mensagemPronta // ✅ 4. Envia a mensagem final já com o PIN embutido
+            })
+          });
+          safeServerLog("[PORTAL][pin_reset] Disparo via WhatsApp solicitado com sucesso. PIN atualizado.");
+        }
       } catch (waErr: any) {
         safeServerLog("[PORTAL][pin_reset] Erro ao disparar WhatsApp:", waErr.message);
       }
