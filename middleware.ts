@@ -45,20 +45,17 @@ export async function middleware(request: NextRequest) {
   // --- REGRAS DE PROTEÇÃO ATUALIZADAS ---
 
   // A. Proteção da nova pasta admin (antigo /admin)
-// ✅ correto
-if (!user && url.pathname.startsWith('/admin')) {
-  return NextResponse.redirect(new URL('/login', request.url));
-}
+// --- REGRAS DE PROTEÇÃO ATUALIZADAS ---
 
-if (user && url.pathname === '/login') {
-  return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-}
+  // A. Se NÃO estiver logado e tentar acessar o painel -> Vai pro login
+  if (!user && url.pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-  // B. Se já estiver logado e tentar acessar a raiz / ou o /admin (estando na tela de login)
-  // Redireciona para o Dashboard interno
-if (user && url.pathname === '/login') {
-  return NextResponse.redirect(new URL('/admin', request.url));
-}
+  // B. Se JÁ ESTIVER logado e tentar acessar a raiz ou login -> Vai pro dashboard
+  if (user && (url.pathname === '/login' || url.pathname === '/')) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+  }
 
   return response;
 }

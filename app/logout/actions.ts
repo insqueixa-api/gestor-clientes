@@ -6,14 +6,9 @@ import { redirect } from "next/navigation";
 export async function logoutAction(): Promise<void> {
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signOut();
+  // Faz o signout no servidor
+  await supabase.auth.signOut({ scope: 'local' });
 
-  // Mesmo se der erro, a gente força ir pro /login (sessão local vai cair)
-  if (error) {
-    if (process.env.NODE_ENV !== "production") {
-  console.warn("[logout] signOut error:", error.message);
-}
-  }
-
+  // Redireciona imediatamente sem deixar rastros no console
   redirect("/login");
 }
