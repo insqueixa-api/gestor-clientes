@@ -1937,31 +1937,34 @@ return (
     const diff = getDiffDays(r.dueISODate);
     let label: string = r.status; 
 
+    // 1. A sua regra exata de cálculo de dias
+    let textDiff = "";
+    if (diff < -2) textDiff = `Venceu há ${Math.abs(diff)} dias`;
+    else if (diff === -2) textDiff = "Venceu há 2 dias";
+    else if (diff === -1) textDiff = "Venceu Ontem";
+    else if (diff === 0) textDiff = "Vence Hoje";
+    else if (diff === 1) textDiff = "Vence Amanhã";
+    else if (diff === 2) textDiff = "Vence em 2 dias";
+    else if (diff > 2) textDiff = `Vence em ${Math.abs(diff)} dias`;
+
+    // 2. Aplicação do texto
     if (r.status === "Arquivado") {
-        // ✅ NOVO: Exibe os dias de atraso mesmo estando na lixeira
-        if (diff === -1) label = "Arquivado (Venceu Ontem)";
-        else if (diff === -2) label = "Arquivado (Há 2 dias)";
-        else if (diff < -2) label = `Arquivado (Há ${Math.abs(diff)} dias)`;
+        // Ex: Lixeira (Venceu há 36 dias)
+        label = textDiff ? `Lixeira (${textDiff})` : "Lixeira";
     } else if (r.status !== "Teste") {
-        if (diff === -1) label = "Venceu Ontem";
-        else if (diff === -2) label = "Venceu há 2 dias";
-        else if (diff < -2) label = `Venceu há ${Math.abs(diff)} dias`;
-        else if (diff === 0) label = "Vence Hoje";
-        else if (diff === 1) label = "Vence Amanhã";
-        else if (diff === 2) label = "Vence em 2 dias";
-        else if (diff > 2) label = `Vence em ${Math.abs(diff)} dias`;
+        label = textDiff || label;
     }
 
-    // Lógica de Cor
+    // 3. Lógica de Cor
     let colorTone: "green" | "red" | "amber" | "blue" = "blue";
     
-    if (r.status === "Vencido") colorTone = "red";
-    else if (r.status === "Ativo") {
+    if (r.status === "Vencido") {
+        colorTone = "red";
+    } else if (r.status === "Ativo") {
         if (diff === 0) colorTone = "amber";
-        else if (diff > 0) colorTone = "green"; 
         else colorTone = "green";
     } else if (r.status === "Arquivado") {
-        colorTone = "red"; // ✅ Coloquei "red" para destacar o perigo da exclusão, mas pode mudar para "blue" se preferir neutro
+        colorTone = "red"; // Mantém vermelho para alerta de exclusão
     } else {
         colorTone = "blue";
     }
