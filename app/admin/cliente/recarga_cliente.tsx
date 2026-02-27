@@ -1049,16 +1049,20 @@ if (registerPayment && !renewAutomatic) {
     hour: "2-digit", minute: "2-digit",
   });
 
+// ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
+  const clientMessageManual = `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+  const serverNotesManual = `Renovação manual via painel · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+
   const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
     p_tenant_id: tid,
     p_client_id: clientId,
     p_months: monthsToRenew,
     p_status: "PAID",
-    p_notes: obs || null,
+    p_notes: serverNotesManual, // ✅ Vai para a view do SERVIDOR (Com nome e obs)
     p_new_vencimento: null,
-    p_message: `Renovação manual via painel: ${serverName} · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`,
-    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)), // ✅ Unitário real em BRL
-    p_total_amount: totalBrl, // ✅ Total final em BRL
+    p_message: clientMessageManual, // ✅ Vai para a linha do tempo do CLIENTE (Sem nome)
+    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)),
+    p_total_amount: totalBrl,
   });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
@@ -1081,17 +1085,21 @@ if (registerPayment && renewAutomatic) {
     hour: "2-digit", minute: "2-digit",
   });
 
+// ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
+  const clientMessageAuto = `Renovação automática via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+  const serverNotesAuto = `Renovação automática via painel · ${nameToSend} (${clientData?.username || "-"}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
+
   // ✅ NOVO: registra em client_renewals igual ao manual
   const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", {
     p_tenant_id: tid,
     p_client_id: clientId,
     p_months: monthsToRenew,
     p_status: "PAID",
-    p_notes: obs || null,
+    p_notes: serverNotesAuto, // ✅ Vai para a view do SERVIDOR (Com nome e obs)
     p_new_vencimento: apiVencimento,
-    p_message: `Renovação automática via painel: ${serverName} (${integrationProvider}) · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`,
-    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)), // ✅ Unitário real em BRL
-    p_total_amount: totalBrl, // ✅ Total final em BRL
+    p_message: clientMessageAuto, // ✅ Vai para a linha do tempo do CLIENTE (Sem nome)
+    p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)),
+    p_total_amount: totalBrl,
   });
   if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
 }
