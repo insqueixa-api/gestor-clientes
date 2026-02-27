@@ -223,10 +223,11 @@ async function runFulfillment(params: {
   const { supabaseAdmin, tenantId, origin, payment } = params;
 
 // 1) Carrega cliente
+// 1) Carrega cliente
 const { data: client, error: cErr } = await supabaseAdmin
   .from("clients")
-  // ✅ ADICIONADO: external_user_id e technology para a Elite
-  .select("id,tenant_id,display_name,server_username,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial")
+  // ✅ ADICIONADO: server_password, necessário para o Sync da Elite funcionar
+  .select("id,tenant_id,display_name,server_username,server_password,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial")
   .eq("tenant_id", tenantId)
   .eq("id", payment.client_id)
   .single();
@@ -298,7 +299,6 @@ const { data: client, error: cErr } = await supabaseAdmin
     body: JSON.stringify(payload),
   });
 
-
   const renewJson = await renewRes.json().catch(() => null);
 
   if (!renewRes.ok || !renewJson?.ok) {
@@ -306,10 +306,87 @@ const { data: client, error: cErr } = await supabaseAdmin
     throw new Error(msg);
   }
 
-  const expDateISO = renewJson?.data?.exp_date_iso;
-  if (!expDateISO) throw new Error("Integração não retornou exp_date_iso.");
+  // 1. Tenta apanhar a data diretamente da renovação (Fast/NaTV fazem isso)
+  let expDateISO = renewJson?.data?.exp_date_iso;
+  let newPassword = provider === "NATV" ? (renewJson?.data?.password ?? null) : null;
 
-  const newPassword = provider === "NATV" ? (renewJson?.data?.password ?? null) : null;
+  // 2. ✅ SEGUNDA CHANCE (Para a Elite): Se a renovação deu OK mas não veio data,
+  // chamamos a sua Rota de Sync para buscar a data REAL raspando a tela da Elite.
+  if (!expDateISO && provider === "ELITE") {
+    safeServerLog("[PAYMENT] Elite não retornou data. Iniciando Sync de resgate...");
+    
+    const syncRes = await fetch(`${origin}/api/integrations/elite/create-trial/sync`, {
+      method: "POST",
+      headers, // Usa os mesmos headers (com o x-internal-secret)
+      body: JSON.stringify({
+        integration_id: integrationId,
+        external_user_id: client.external_user_id,
+        username: login,
+        technology: client.technology,
+        password: client.server_password, // Envia a palavra-passe atual
+        rename_from_notes: false // Crucial: apenas ler os dados, sem renomear
+      }),
+    });
+
+    const syncJson = await syncRes.json().catch(() => null);
+
+    if (syncRes.ok && syncJson?.ok) {
+      expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
+      // Se for P2P e o Sync tiver resgatado/gerado uma nova palavra-passe, atualizamos aqui!
+      if (syncJson.password) {
+          newPassword = syncJson.password;
+      }
+      safeServerLog("[PAYMENT] Data resgatada com sucesso via Sync Elite:", expDateISO);
+    }
+  }
+
+  // 3. Validação Final: Se mesmo depois do Sync a data não existir, bloqueia.
+  if (!expDateISO) {
+    throw new Error(`Renovado no provedor ${provider}, mas a nova data de vencimento não foi encontrada após tentativa de sincronização.`);
+  }
+
+  // ====================================================================
+  // ✅ BUSCADOR DA VERDADE (SYNC PÓS-RENOVAÇÃO)
+  // Se a integração (como Elite) não devolver a data na resposta da renovação,
+  // nós chamamos a rota de Sync da Conta para raspar a tela e trazer a data real!
+  // ====================================================================
+  if (!expDateISO) {
+    let accountSyncPath = "";
+    if (provider === "ELITE") accountSyncPath = "/api/integrations/elite/create-trial/sync";
+    
+    if (accountSyncPath) {
+      const syncRes = await fetch(`${origin}${accountSyncPath}`, {
+        method: "POST",
+        headers,
+        cache: "no-store",
+        body: JSON.stringify({
+          integration_id: integrationId,
+          external_user_id: client.external_user_id,
+          username: login,
+          technology: client.technology,
+          password: client.server_password, // Envia a senha para manter compatibilidade com IPTV
+          rename_from_notes: false // Não queremos renomear ninguem, só queremos a data
+        }),
+      });
+
+      const syncJson = await syncRes.json().catch(() => null);
+
+      if (syncRes.ok && syncJson?.ok) {
+        // Pega a data absoluta da tela da Elite!
+        expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
+        
+        // Se a Elite tiver gerado uma senha nova no processo (P2P), a gente captura!
+        if (syncJson.password) {
+            newPassword = syncJson.password;
+        }
+      }
+    }
+  }
+
+  // Se depois de tudo isso, a data ainda não existir, aí sim temos um problema grave.
+  if (!expDateISO) {
+      throw new Error(`Renovado no provedor ${provider}, mas falha ao obter a nova data de vencimento pelo Sync.`);
+  }
 
   // 4) Atualizar cliente
   const updatePayload: any = {

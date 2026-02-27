@@ -135,9 +135,10 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   const row = params.recipientRow || {};
 
   // 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
+  // ✅ Adicionado fallback para 'display_name' (usado nas Revendas)
   const displayName = params.isSecondary
     ? String(row.secondary_display_name || "").trim()
-    : String(row.client_name || row.name || "").trim();
+    : String(row.display_name || row.client_name || row.name || "").trim();
 
   const primeiroNome = displayName.split(" ")[0] || "";
 
@@ -270,28 +271,33 @@ type ScheduleBody = {
 };
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
-  const { data, error } = await sb
-    .from("vw_clients_list")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", clientId)
-    .maybeSingle();
+  let rowData: any = null;
+  const tryViews = ["vw_clients_list_active", "vw_clients_list_archived"];
 
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Cliente não encontrado na vw_clients_list");
+  for (const view of tryViews) {
+    const { data } = await sb.from(view).select("*").eq("tenant_id", tenantId).eq("id", clientId).maybeSingle();
+    if (data) {
+      rowData = data;
+      break;
+    }
+  }
+
+  if (!rowData) throw new Error("Cliente não encontrado nas views");
 
   const phones = [];
-  const phoneMain = normalizeToPhone(data.whatsapp_username);
+  // ✅ Busca o número nas colunas alternativas (Testes rápidos salvam no e164)
+  const phoneMain = normalizeToPhone(rowData.whatsapp_username || rowData.whatsapp_e164 || rowData.phone_e164);
   if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
 
-  const phoneSec = normalizeToPhone(data.secondary_whatsapp_username);
+  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
   if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
 
   return {
-    phones, // Lista de contatos da conta
-    whatsapp_opt_in: data.whatsapp_opt_in === true,
-    dont_message_until: data.dont_message_until as string | null,
-    row: data,
+    phones, 
+    // ✅ Se for null (teste rápido), assume true para não travar o agendamento
+    whatsapp_opt_in: rowData.whatsapp_opt_in !== false,
+    dont_message_until: rowData.dont_message_until ?? null,
+    row: rowData,
   };
 }
 
@@ -796,15 +802,15 @@ if ((job as any).automation_id && automationConfig) {
 
   const rawClientId = String((body as any).client_id || "").trim();
   const rawResellerId = String((body as any).reseller_id || "").trim();
+  const rawTestId = String((body as any).test_id || "").trim(); // ✅ Adicionado
   const rawRecipientId = String((body as any).recipient_id || "").trim();
   const rawRecipientType = String((body as any).recipient_type || "").trim();
 
   let recipientType: "client" | "reseller" | null = null;
   let recipientId = "";
 
-  // prioridade: recipient_id+type > reseller_id > client_id
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
-    recipientType = rawRecipientType as any;
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
     recipientId = rawRecipientId;
   } else if (rawResellerId) {
     recipientType = "reseller";
@@ -812,6 +818,10 @@ if ((job as any).automation_id && automationConfig) {
   } else if (rawClientId) {
     recipientType = "client";
     recipientId = rawClientId;
+  } else if (rawTestId) {
+    // ✅ Testes moram na view de clientes, então tratamos como client
+    recipientType = "client";
+    recipientId = rawTestId;
   }
 
   if (!tenantId || !message || !sendAtRaw || !recipientType || !recipientId) {

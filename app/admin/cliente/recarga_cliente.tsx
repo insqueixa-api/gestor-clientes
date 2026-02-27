@@ -273,11 +273,15 @@ useEffect(() => {
   };
 }, []);
 
-    // Estados globais
+// Estados globais
     const [loading, setLoading] = useState(false);
     // ✅ NOVO: Texto dinâmico para feedback sequencial no botão
     const [loadingText, setLoadingText] = useState("Processando..."); 
     const [fetching, setFetching] = useState(true);
+    
+    // ✅ TRANCA SÍNCRONA ANTI-DUPLO CLIQUE
+    const isSavingRef = useRef(false);
+    const isCheckingRef = useRef(false);
 
     // Toast Local
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -743,16 +747,20 @@ if (c.server_id) {
     // 1. Valida e Abre o Popup
     const handlePreCheck = async () => {
 
-      if (loading || !clientData) return;
+      // ✅ TRANCA 1: Aborta se já estiver a abrir o popup ou a salvar
+      if (loading || isCheckingRef.current || isSavingRef.current || !clientData) return;
+      isCheckingRef.current = true;
 
       // Validação Tecnologia
       if (technology === "Personalizado" && !customTechnology.trim()) {
           addToast("error", "Tecnologia", "Para 'Personalizado', digite o nome.");
+          isCheckingRef.current = false; // destranca
           return;
       }
 
       if (!clientData.server_id) {
         addToast("error", "Erro", "Cliente está sem servidor vinculado.");
+        isCheckingRef.current = false; // destranca
         return;
       }
 
@@ -762,49 +770,54 @@ if (c.server_id) {
       const isPaymentFlow = Boolean(registerPayment);
 
       // Monta o resumo para o popup
-  const details: string[] = [];
+      const details: string[] = [];
 
-  const nameToShow = clientData?.display_name || clientName || "—";
+      const nameToShow = clientData?.display_name || clientName || "—";
 
-  // ✅ NOVO: cliente primeiro (igual você quer no popup)
-  details.push(`Cliente: ${nameToShow}`);
+      // ✅ NOVO: cliente primeiro (igual você quer no popup)
+      details.push(`Cliente: ${nameToShow}`);
 
-  details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
-  details.push(`Telas: ${screens}`);
-  details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
+      details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
+      details.push(`Telas: ${screens}`);
+      details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
 
-  if (isFromTrial && !isPaymentFlow) {
-    details.push(`Tipo: Conversão (Sem pagamento)`);
-  } else {
-    details.push(`Valor: ${fmtMoney(currency, rawPlanPrice)}`);
-    if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
-  }
+      if (isFromTrial && !isPaymentFlow) {
+        details.push(`Tipo: Conversão (Sem pagamento)`);
+      } else {
+        details.push(`Valor: ${fmtMoney(currency, rawPlanPrice)}`);
+        if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
+      }
 
-  // Abre o Modal Bonito
-  const ok = await confirm({
-    // ✅ NOVO: deixa o título com o nome também (fica bem claro)
-    title:
-      isFromTrial && !isPaymentFlow
-        ? `Converter Cliente — ${nameToShow}`
-        : `Confirmar Renovação — ${nameToShow}`,
-    subtitle: "Confira os dados antes de salvar.",
-    tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
-    icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
-    details,
-    confirmText: "Confirmar",
-    cancelText: "Voltar",
-  });
+      // Abre o Modal Bonito
+      const ok = await confirm({
+        // ✅ NOVO: deixa o título com o nome também (fica bem claro)
+        title:
+          isFromTrial && !isPaymentFlow
+            ? `Converter Cliente — ${nameToShow}`
+            : `Confirmar Renovação — ${nameToShow}`,
+        subtitle: "Confira os dados antes de salvar.",
+        tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
+        icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
+        details,
+        confirmText: "Confirmar",
+        cancelText: "Voltar",
+      });
 
+      if (!ok) {
+        isCheckingRef.current = false; // destranca ao cancelar
+        return;
+      }
 
-  if (!ok) return;
-
-  await executeSave();
-
+      await executeSave();
+      isCheckingRef.current = false; // destranca ao terminar
     };
 
     // 2. Executa a Gravação (Chamado pelo botão "Confirmar" do popup)
   const executeSave = async () => {
-    if (loading) return;
+    // ✅ TRANCA 2: Aborta imediatamente se já iniciou a gravação
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
     setLoading(true);
     setLoadingText("Salvando dados...");
 
@@ -980,11 +993,12 @@ console.log("✅ Renovação automática concluída:", {
       // --- PASSO 2: ATUALIZAR CLIENTE ---
       setLoadingText("Atualizando cadastro...");
 
-      // ✅ DECISÃO DA DATA: Se for renovação manual COM pagamento, o update_client NÃO pode
-      // alterar a data, senão a RPC de renovação soma duplicado. Mandamos a data original.
-      const dateForUpdate = (registerPayment && !renewAutomatic) 
-          ? clientData?.vencimento 
-          : apiVencimento;
+// ✅ DECISÃO DA DATA: Se for QUALQUER tipo de renovação (manual ou automática)
+      // o update_client NUNCA pode alterar a data. O update_client é apenas para notas, planos e tecnologia.
+      // A data deve ser alterada APENAS pela RPC renew_client_and_log.
+      const dateForUpdate = registerPayment 
+          ? clientData?.vencimento // Mantém a data antiga para o banco não dar "choque"
+          : apiVencimento;         // Se não for registar pagamento (só converter o trial), aí sim envia a nova.
 
       const updatePayload: any = {
         p_tenant_id: tid,
@@ -1140,6 +1154,7 @@ setTimeout(() => {
       console.error("CRASH:", err);
       addToast("error", "Erro ao salvar", err.message || "Falha desconhecida");
       setLoading(false);
+      isSavingRef.current = false; // ✅ Destranca se der erro para permitir tentar novamente
     }
   };
 

@@ -229,10 +229,11 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
 
-  // 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
+// 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
+  // ✅ Adicionado fallback para 'display_name' (usado nas Revendas)
   const displayName = params.isSecondary
     ? String(row.secondary_display_name || "").trim()
-    : String(row.client_name || row.name || "").trim();
+    : String(row.display_name || row.client_name || row.name || "").trim();
 
   const primeiroNome = displayName.split(" ")[0] || "";
 
@@ -379,15 +380,17 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
   if (!rowData) throw new Error("Cliente não encontrado nas views");
 
   const phones = [];
-  const phoneMain = normalizeToPhone(rowData.whatsapp_username);
+  // ✅ Busca o número nas colunas alternativas (Testes rápidos salvam no e164)
+  const phoneMain = normalizeToPhone(rowData.whatsapp_username || rowData.whatsapp_e164 || rowData.phone_e164);
   if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
 
-  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username);
+  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
   if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
 
   return {
-    phones, // Agora retorna uma lista de telefones atrelados a essa conta
-    whatsapp_opt_in: rowData.whatsapp_opt_in === true,
+    phones, 
+    // ✅ Se for null (teste rápido), assume true para não travar o envio
+    whatsapp_opt_in: rowData.whatsapp_opt_in !== false,
     dont_message_until: rowData.dont_message_until ?? null,
     row: rowData,
   };
@@ -528,24 +531,28 @@ if (!internal) {
 // 3) padrão: recipient_id + recipient_type
 
 const rawClientId = String((body as any).client_id || "").trim();
-const rawResellerId = String((body as any).reseller_id || "").trim();
-const rawRecipientId = String((body as any).recipient_id || "").trim();
-const rawRecipientType = String((body as any).recipient_type || "").trim();
+  const rawResellerId = String((body as any).reseller_id || "").trim();
+  const rawTestId = String((body as any).test_id || "").trim(); // ✅ Adicionado
+  const rawRecipientId = String((body as any).recipient_id || "").trim();
+  const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-let recipientType: "client" | "reseller" | null = null;
-let recipientId = "";
+  let recipientType: "client" | "reseller" | null = null;
+  let recipientId = "";
 
-// prioridade: recipient_id+type > reseller_id > client_id
-if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller")) {
-  recipientType = rawRecipientType as any;
-  recipientId = rawRecipientId;
-} else if (rawResellerId) {
-  recipientType = "reseller";
-  recipientId = rawResellerId;
-} else if (rawClientId) {
-  recipientType = "client";
-  recipientId = rawClientId;
-}
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
+    recipientId = rawRecipientId;
+  } else if (rawResellerId) {
+    recipientType = "reseller";
+    recipientId = rawResellerId;
+  } else if (rawClientId) {
+    recipientType = "client";
+    recipientId = rawClientId;
+  } else if (rawTestId) {
+    // ✅ Testes moram na view de clientes, então tratamos como client
+    recipientType = "client";
+    recipientId = rawTestId;
+  }
 
 if (!tenantId || !message || !recipientType || !recipientId) {
   return NextResponse.json(
@@ -633,30 +640,49 @@ if (!tenantId || !message || !recipientType || !recipientId) {
     });
     Object.assign(vars, pixVars);
 
-    if (!internal) {
-      try {
-        const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-          p_tenant_id: tenantId,
-          p_whatsapp_username: contact.number, 
-          p_created_by: authedUserId,
-          p_label: contact.is_secondary ? "Envio manual Secundário" : "Envio manual",
-          p_expires_at: null,
-        });
-
-        if (!tokErr) {
-          const rowTok = Array.isArray(tokData) ? tokData[0] : null;
-          const portalToken = rowTok?.token ? String(rowTok.token) : "";
-          
-          safeServerLog("[PORTAL][token:v2]", { ok: true, hasToken: !!portalToken, token_suffix: portalToken ? portalToken.slice(-6) : null });
-
-          if (portalToken) {
-            const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-            vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
-          }
+    // ✅ 1. CORREÇÃO DO PIN: Tenta pegar o PIN real do banco (ignora os 4 últimos dígitos se a senha tiver sido alterada)
+    try {
+      const realPin = wa.row?.portal_pin; 
+      if (realPin) {
+        vars.pin_cliente = realPin;
+      } else if (wa.row?.id) {
+        // Busca de segurança direto na tabela caso a view não traga o portal_pin
+        const { data: pinData } = await sb.from("clients").select("portal_pin").eq("id", wa.row.id).single();
+        if (pinData?.portal_pin) {
+          vars.pin_cliente = pinData.portal_pin;
         }
-      } catch (e: any) {
-        safeServerLog("[PORTAL][token:v2] falhou", e?.message ?? e);
       }
+    } catch(e) {}
+
+    // ✅ 2. CORREÇÃO DO LINK: O "if (!internal)" foi REMOVIDO para gerar o link também nas automações/webhook!
+    try {
+      // Se for internal (automático), authedUserId é vazio, então mandamos explícito NULL para não dar erro de formato UUID no banco.
+      const safeUserId = authedUserId ? authedUserId : null;
+      const actionLabel = internal ? "Envio automático" : "Envio manual";
+
+      const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
+        p_tenant_id: tenantId,
+        p_whatsapp_username: contact.number, 
+        p_created_by: safeUserId, // Protegido contra string vazia
+        p_label: contact.is_secondary ? `${actionLabel} Secundário` : actionLabel,
+        p_expires_at: null,
+      });
+
+      if (!tokErr) {
+        const rowTok = Array.isArray(tokData) ? tokData[0] : null;
+        const portalToken = rowTok?.token ? String(rowTok.token) : "";
+        
+        safeServerLog("[PORTAL][token:v2]", { ok: true, hasToken: !!portalToken, token_suffix: portalToken ? portalToken.slice(-6) : null });
+
+        if (portalToken) {
+          const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+          vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+        }
+      } else {
+        safeServerLog("[PORTAL][token:v2] erro rpc", tokErr.message);
+      }
+    } catch (e: any) {
+      safeServerLog("[PORTAL][token:v2] falhou", e?.message ?? e);
     }
 
     const renderedMessage = renderTemplate(message, vars);
