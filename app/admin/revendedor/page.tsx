@@ -787,12 +787,13 @@ export default function RevendaPage() {
         },
         cache: "no-store",
         signal: controller.signal,
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          reseller_id: showSendNow.resellerId,
-          message: msg,
-          whatsapp_session: "default",
-        }),
+body: JSON.stringify({
+   tenant_id: tenantId,
+   reseller_id: showSendNow.resellerId,
+   message: msg,
+   whatsapp_session: "default",
+   message_template_id: selectedTemplateNowId, // ✅ NOME CORRETO AQUI
+ }),
       });
 
       const raw = await res.text();
@@ -851,12 +852,13 @@ const res = await fetch("/api/whatsapp/envio_agendado", {
   },
   cache: "no-store",
   body: JSON.stringify({
-    tenant_id: tenantId,
-    reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
-    message: msg,
-    send_at: sendAtIso,
-    whatsapp_session: "default",
-  }),
+   tenant_id: tenantId,
+   reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
+   message: msg,
+   send_at: sendAtIso,
+   whatsapp_session: "default",
+   message_template_id: selectedTemplateScheduleId, // ✅ NOME CORRETO AQUI
+ }),
 });
 
 const raw = await res.text();

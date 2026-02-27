@@ -1305,12 +1305,13 @@ const res = await fetch("/api/whatsapp/envio_agora", {
   },
   cache: "no-store",
   signal: controller.signal,
-  body: JSON.stringify({
-    tenant_id: tenantId,
-    client_id: showSendNow.clientId,
-    message: msg,
-    whatsapp_session: "default", // pode manter, o back ignora
-  }),
+body: JSON.stringify({
+   tenant_id: tenantId,
+   client_id: showSendNow.clientId,
+   message: msg,
+   whatsapp_session: "default", 
+   message_template_id: selectedTemplateNowId, // ✅ ESTE É O NOME CERTO
+}),
 });
 
 
@@ -1384,13 +1385,14 @@ const res = await fetch("/api/whatsapp/envio_programado", {
     Authorization: `Bearer ${token}`,
   },
   cache: "no-store",
-  body: JSON.stringify({
-    tenant_id: tenantId,
-    client_id: showScheduleMsg.clientId,
-    message: msg,
-    send_at: sendAtIso,
-    whatsapp_session: "default",
-  }),
+body: JSON.stringify({
+   tenant_id: tenantId,
+   client_id: showScheduleMsg.clientId,
+   message: msg,
+   send_at: sendAtIso,
+   whatsapp_session: "default",
+   message_template_id: selectedTemplateScheduleId, // ✅ ESTE É O NOME CERTO
+}),
 });
 
 
