@@ -348,7 +348,7 @@ const canSubmit = useMemo(() => {
 
                 {!!pinHint && (
                   <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-white/50 text-center">
-                    Dica: PIN inicial costuma ser os últimos 4 dígitos do WhatsApp:{" "}
+                    PIN: Digite os últimos 4 dígitos do WhatsApp:{" "}
                     <span className="font-extrabold">{pinHint}</span>
                   </p>
                 )}
