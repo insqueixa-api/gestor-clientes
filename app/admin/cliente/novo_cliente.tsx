@@ -1934,10 +1934,8 @@ let serverName = "Servidor"; // ✅ DECLARAR AQUI (escopo correto)
 
 
 
-// ✅ NOVO: Se marcou "Sincronizar com Servidor" E tem servidor, chama API
-
-      if (syncWithServer && serverId) {
-
+// ✅ NOVO: Se marcou "Sincronizar com Servidor" E tem servidor E FOR TESTE (Cliente agora é só local), chama API
+      if (isTrialMode && syncWithServer && serverId) {
         let apiUrl = ""; // ✅ FIX: escopo correto (visível no try e no catch)
 
 
@@ -1992,40 +1990,15 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
 
 
 
-      // 3. Montar URL da API
-
+      // 3. Montar URL da API (Apenas Testes usam API agora)
       apiUrl = "";
 
-
-
-      if (isTrialMode) {
-
-        if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
-
-        else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
-
-        else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
-
-        else apiUrl = "";
-
-      } else {
-
-        if (provider === "FAST") apiUrl = "/api/integrations/fast/create-client";
-
-        else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-client";
-
-        else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-client";
-
-        else apiUrl = "";
-
-      }
-
-
+      if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
+      else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
+      else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
 
       if (!apiUrl) {
-
-        throw new Error("Provider não suportado para integração automática.");
-
+        throw new Error("Provider não suportado para integração automática de testes.");
       }
 
 
@@ -2608,52 +2581,28 @@ body: JSON.stringify({
 
 
 
-      // ✅ ENFILEIRAR Toast de sucesso da API
-
+      // ✅ ENFILEIRAR Toast de sucesso da API (Agora é exclusivo de Testes)
       // (no TRIAL + ELITE, você já terá os 2 toasts: "Teste criado" e "Dados sincronizados")
-
-      if (!(isTrialMode && provider === "ELITE")) {
-
-        queueListToast(isTrialMode ? "trial" : "client", {
-
+      if (!(provider === "ELITE")) {
+        queueListToast("trial", {
           type: "success",
-
-          title: isTrialMode ? "🎉 Teste Automático!" : "🎉 Cliente Automático!",
-
-          message: `Cadastro sincronizado com sucesso no servidor ${serverName}.`,
-
+          title: "🎉 Teste Automático!",
+          message: `Teste criado com sucesso no servidor ${serverName}.`,
         });
-
       }
-
     }
 
-
-
-    // ✅ REMOVIDO: Toast imediato (vai usar queueListToast no final)
-
   } catch (apiErr: any) {
-
     const msg = String(apiErr?.message || apiErr || "").trim();
 
+    console.error("Erro ao chamar API de Teste:", { apiUrl, apiErr, msg });
 
-
-    console.error("Erro ao chamar API:", { apiUrl, apiErr, msg });
-
-
-
-    queueListToast(isTrialMode ? "trial" : "client", {
-
+    queueListToast("trial", {
       type: "error",
-
-      title: isTrialMode ? "Teste Manual Criado" : "Cliente Offline",
-
-      message: `Integração falhou${msg ? `: ${msg}` : ""}. Cadastro salvo apenas localmente (sem sincronizar com servidor).`,
-
+      title: "Teste Manual Criado",
+      message: `Integração falhou${msg ? `: ${msg}` : ""}. Teste salvo apenas localmente (sem painel).`,
     });
-
   }
-
 }
 
 
@@ -4583,7 +4532,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                             {/* LINHA 1: Toggles Lado a Lado */}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3">
 
                               {/* Sincronizar Painel */}
 
