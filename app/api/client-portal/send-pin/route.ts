@@ -57,12 +57,52 @@ if (!supabaseAdmin) {
       return NextResponse.json(GENERIC_OK, { status: 200, headers: NO_STORE_HEADERS });
     }
 
-    // ✅ A RPC resolve tenant/whatsapp internamente de forma segura
-    const { error } = await supabaseAdmin.rpc("portal_request_pin_reset", { p_token: token });
+    // 1. Executa o reset no banco (A RPC deve retornar tenant_id e client_id)
+    const { data: resetResult, error } = await supabaseAdmin.rpc("portal_request_pin_reset", { p_token: token });
 
     if (error) {
-      safeServerLog("[PORTAL][pin_reset] rpc error");
+      safeServerLog("[PORTAL][pin_reset] rpc error", error.message);
       return NextResponse.json(GENERIC_OK, { status: 200, headers: NO_STORE_HEADERS });
+    }
+
+    // 2. DISPARO DE WHATSAPP
+    const resData = Array.isArray(resetResult) ? resetResult[0] : resetResult;
+    const tid = resData?.tenant_id;
+    const cid = resData?.client_id;
+
+    if (tid && cid) {
+      try {
+        const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+        const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+
+        // Busca o template "Reset Portal" para pegar o PIN novo gerado
+        const { data: tmpl } = await supabaseAdmin
+          .from("message_templates")
+          .select("content")
+          .eq("tenant_id", tid)
+          .ilike("name", "%Reset Portal%")
+          .maybeSingle();
+
+        if (tmpl?.content) {
+          // Chama a sua API de envio agora (ela cuidará de gerar o token e preencher as variáveis)
+          await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json", 
+                "x-internal-secret": internalSecret 
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              recipient_id: cid,
+              recipient_type: "client",
+              message: tmpl.content
+            })
+          });
+          safeServerLog("[PORTAL][pin_reset] Disparo via WhatsApp solicitado.");
+        }
+      } catch (waErr: any) {
+        safeServerLog("[PORTAL][pin_reset] Erro ao disparar WhatsApp:", waErr.message);
+      }
     }
 
     return NextResponse.json(GENERIC_OK, { status: 200, headers: NO_STORE_HEADERS });
