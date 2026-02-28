@@ -72,10 +72,14 @@ export async function POST(req: NextRequest) {
     if (internal) {
       const supabase = createSupabaseAdmin(supabaseUrl, supabaseServiceKey);
 
+const tenant_id = String(body?.tenant_id ?? "").trim();
+      if (!tenant_id) return jsonError(400, "tenant_id obrigatório (interno)");
+
       const { data: integ, error: integErr } = await supabase
         .from("server_integrations")
         .select("api_token, provider")
         .eq("id", String(integration_id))
+        .eq("tenant_id", tenant_id) // ✅ TRAVA ADICIONADA: Isola o Tenant
         .single();
 
       if (integErr || !integ) return jsonError(404, "Integração não encontrada");

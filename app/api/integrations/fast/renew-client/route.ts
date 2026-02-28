@@ -71,25 +71,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ✅ Admin client (service_role) só roda após passar no gate acima
-    const supabase = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
-    });
-
-    // 1) Buscar integração (secrets)
-    let integQuery = supabase
-      .from("server_integrations")
-      .select("api_token, api_secret, provider, is_active")
-      .eq("id", integration_id);
+    // 1) Buscar integração (secrets) dependendo da origem
+    let integ = null;
 
     if (internal) {
-      // ✅ trava cross-tenant quando usa service role
-      integQuery = integQuery.eq("tenant_id", tenant_id);
+      // ✅ PORTAL: Usa service role, mas OBRIGA a cruzar o tenant_id
+      const supabaseAdmin = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
+        auth: { persistSession: false },
+      });
+
+      const { data, error } = await supabaseAdmin
+        .from("server_integrations")
+        .select("api_token, api_secret, provider, is_active")
+        .eq("id", integration_id)
+        .eq("tenant_id", tenant_id) // TRAVA ABSOLUTA
+        .single();
+        
+      if (error) return jsonError(500, "Falha ao buscar integração interna.");
+      integ = data;
+    } else {
+      // ✅ PAINEL ADMIN: Usa o client do usuário logado. O RLS do banco protege automaticamente!
+      const supabaseAuth = await createSupabaseServer();
+      const { data, error } = await supabaseAuth
+        .from("server_integrations")
+        .select("api_token, api_secret, provider, is_active")
+        .eq("id", integration_id)
+        .single();
+
+      if (error) return jsonError(500, "Falha ao buscar integração do painel.");
+      integ = data;
     }
 
-    const { data: integ, error: integErr } = await integQuery.single();
-
-    if (integErr) return jsonError(500, "Falha ao buscar integração.");
     if (!integ) return jsonError(404, "Integração não encontrada");
 
     const provider = String(integ.provider ?? "").toUpperCase();

@@ -47,22 +47,41 @@ if (!integration_id) return jsonError(400, "integration_id é obrigatório.");
     
 if (internal && !tenant_id) return jsonError(400, "tenant_id é obrigatório (internal)");
 
-// ✅ Admin client (service_role) só roda após passar no gate acima
-const supabase = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
-    });
+// 1) Carrega integração dependendo da origem
+    let integ = null;
+    let supabaseForUpdate = null; // Guardamos o client correto para o update no final
 
-    // 1) Carrega integração
-let integQuery = supabase
-  .from("server_integrations")
-  .select("id, provider, api_token, api_secret, is_active")
-  .eq("id", integration_id);
+    if (internal) {
+      // ✅ PORTAL: Usa service role, mas OBRIGA a cruzar o tenant_id
+      const supabaseAdmin = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
+        auth: { persistSession: false },
+      });
+      supabaseForUpdate = supabaseAdmin;
 
-if (internal) integQuery = integQuery.eq("tenant_id", tenant_id);
+      const { data, error } = await supabaseAdmin
+        .from("server_integrations")
+        .select("id, provider, api_token, api_secret, is_active")
+        .eq("id", integration_id)
+        .eq("tenant_id", tenant_id) // TRAVA ABSOLUTA
+        .single();
+        
+      if (error) return jsonError(500, "Falha ao buscar integração interna.");
+      integ = data;
+    } else {
+      // ✅ PAINEL ADMIN: Usa o client do usuário logado. O RLS protege sozinho!
+      const supabaseAuth = await createSupabaseServer();
+      supabaseForUpdate = supabaseAuth;
 
-const { data: integ, error: integErr } = await integQuery.single();
+      const { data, error } = await supabaseAuth
+        .from("server_integrations")
+        .select("id, provider, api_token, api_secret, is_active")
+        .eq("id", integration_id)
+        .single();
 
-    if (integErr) return jsonError(500, "Falha ao buscar integração.");
+      if (error) return jsonError(500, "Falha ao buscar integração do painel.");
+      integ = data;
+    }
+
     if (!integ) return jsonError(404, "Integração não encontrada.");
 
     const provider = String(integ.provider ?? "").toUpperCase();
@@ -116,10 +135,14 @@ const { data: integ, error: integErr } = await integQuery.single();
       credits_last_sync_at: new Date().toISOString(),
     };
 
-    const { error: upErr } = await supabase
+let updateQuery = supabaseForUpdate
       .from("server_integrations")
       .update(patch)
       .eq("id", integration_id);
+      
+    if (internal) updateQuery = updateQuery.eq("tenant_id", tenant_id); // Reforço de segurança para a Service Role
+    
+    const { error: upErr } = await updateQuery;
 
     if (upErr) return jsonError(500, "Falha ao atualizar integração.");
 

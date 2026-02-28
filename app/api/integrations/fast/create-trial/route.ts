@@ -58,19 +58,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ✅ Admin client (service_role) só roda após o gate acima
-    const supabase = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
-    });
+    // ✅ Buscar token + secret dependendo da origem
+    let integ = null;
 
-    // Buscar token + secret
-    const { data: integ, error: integErr } = await supabase
-      .from("server_integrations")
-      .select("api_token, api_secret, provider, is_active")
-      .eq("id", integration_id)
-      .single();
+    if (internal) {
+      // ✅ PORTAL: Usa service role, mas OBRIGA a cruzar o tenant_id
+      const tenant_id = String(body?.tenant_id ?? "").trim();
+      if (!tenant_id) return jsonError(400, "tenant_id obrigatório (interno)");
 
-    if (integErr) return jsonError(500, "Falha ao buscar integração.");
+      const supabaseAdmin = createSupabaseAdmin(SUPABASE_URL, SERVICE_ROLE, {
+        auth: { persistSession: false },
+      });
+
+      const { data, error } = await supabaseAdmin
+        .from("server_integrations")
+        .select("api_token, api_secret, provider, is_active")
+        .eq("id", integration_id)
+        .eq("tenant_id", tenant_id) // TRAVA ABSOLUTA
+        .single();
+
+      if (error) return jsonError(500, "Falha ao buscar integração interna.");
+      integ = data;
+    } else {
+      // ✅ PAINEL ADMIN: Usa o client do usuário logado (RLS protege automático)
+      const supabaseAuth = await createSupabaseServer();
+      const { data, error } = await supabaseAuth
+        .from("server_integrations")
+        .select("api_token, api_secret, provider, is_active")
+        .eq("id", integration_id)
+        .single();
+
+      if (error) return jsonError(500, "Falha ao buscar integração do painel.");
+      integ = data;
+    }
     if (!integ) return jsonError(404, "Integração não encontrada");
     if (String(integ.provider ?? "").toUpperCase() !== "FAST") {
       return jsonError(400, "Provider inválido");
