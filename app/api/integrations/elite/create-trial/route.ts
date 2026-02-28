@@ -463,11 +463,7 @@ if (!isInternal) {
   const am: any = (userRes.user.app_metadata as any) || {};
   tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
 
-  // 👇 AS 3 LINHAS NOVAS (BLINDAGEM RISCO -1.000) 👇
-      if (!tenantIdFromToken) {
-        return NextResponse.json({ ok: false, error: "Acesso negado: Credencial de Tenant ausente no token." }, { status: 403 });
-      }
-      // 👆 FIM DAS LINHAS NOVAS 👆
+  
 
   // se o token tem tenant e o body também, eles precisam bater
   if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
