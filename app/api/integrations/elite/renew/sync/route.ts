@@ -418,9 +418,10 @@ export async function POST(req: Request) {
       throw new Error("Não foi possível resgatar a data de vencimento da Elite.");
     }
 
-    // Retorna os dados puros, sem fazer updates na tela!
+// Retorna os dados puros, sem fazer updates na tela!
     return NextResponse.json({
       ok: true,
+      external_user_id: real_external_id, // ✅ AGORA ELE DEVOLVE O ID CORRETO!
       expires_at_iso: finalExpIso,
       exp_date: finalExpIso,
       password: currentPassword || undefined

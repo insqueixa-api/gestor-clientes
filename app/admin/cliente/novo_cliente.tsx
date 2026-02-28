@@ -3365,13 +3365,14 @@ if (!isEditing && registerRenewal && !isTrialMode) {
         throw new Error(json.error || "Falha na resposta da API.");
       }
 
-      console.log("🟢 [TESTE ELITE SYNC] SUCESSO! Data resgatada:", json.expires_at_iso);
+      console.log("🟢 [TESTE ELITE SYNC] SUCESSO! Data:", json.expires_at_iso, "| ID Real:", json.external_user_id);
 
       if (json.expires_at_iso) {
         // Atualiza os inputs na tela na hora!
         const dt = new Date(json.expires_at_iso);
         const dISO = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
         const tISO = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+        
         setDueDate(dISO);
         setDueTime(tISO);
         
@@ -3381,7 +3382,12 @@ if (!isEditing && registerRenewal && !isTrialMode) {
            console.log("🟢 [TESTE ELITE SYNC] Senha resgatada:", json.password);
         }
 
-        addToast("success", "Sync Realizado!", `Vencimento atualizado para ${dISO} ${tISO}`);
+        // Mostra a data e o ID resgatado direto na notificação verde
+        addToast(
+          "success", 
+          "Sync Realizado!", 
+          `Venc.: ${dISO} ${tISO} | ID Real: ${json.external_user_id || "Não retornado"}`
+        );
       } else {
         addToast("warning", "Aviso", "A API retornou OK, mas não encontrou a data.");
       }
@@ -4373,7 +4379,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
    )}
    {/* ========================================================== */}
 
-   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
+   {/* ✅ NO VO: Header com Período ao lado direito (só para teste) */}
    <div className="flex justify-between items-center gap-3">
 
       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span>
