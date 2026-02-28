@@ -77,16 +77,18 @@ const TAG_GROUPS = [
     { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
     { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
     { label: "{valor_fatura}", desc: "Valor da renovação" },
+    { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
 
-    // ✅ NOVO (muito importante)
-    { label: "{moeda_cliente}", desc: "BRL/USD/EUR)" },
-
-    // ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
+    // ✅ PIX Manual
     { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
     { label: "{pix_manual_cpf}", desc: "Chave PIX (tipo CPF)" },
     { label: "{pix_manual_email}", desc: "Chave PIX (tipo E-mail)" },
     { label: "{pix_manual_phone}", desc: "Chave PIX (tipo Telefone)" },
-    
+    { label: "{pix_manual_aleatoria}", desc: "Chave PIX Aleatória" }, // Adicionado para cobrir todos
+
+    // ✅ Transferência Internacional Manual
+    { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },
+    { label: "{transfer_swift}", desc: "Código SWIFT/BIC (Conta Int.)" },
   ],
 },
 

@@ -6,6 +6,13 @@ type ExportRow = {
   nome_completo: string;
   telefone_principal: string;
   whatsapp_username: string;
+
+  // ✅ Contato Secundário
+  secundario_saudacao: string;
+  secundario_nome: string;
+  secundario_telefone: string;
+  secundario_whatsapp: string;
+
   aceita_mensagem: string;
 
   servidor: string;
@@ -46,6 +53,10 @@ function toCsv(rows: ExportRow[]): string {
     "Nome Completo",
     "Telefone principal",
     "Whatsapp Username",
+    "Secundario Saudacao", // ✅ NOVO
+    "Secundario Nome", // ✅ NOVO
+    "Secundario Telefone", // ✅ NOVO
+    "Secundario Whatsapp", // ✅ NOVO
     "Aceita mensagem",
     "Servidor",
     "Usuario",
@@ -74,10 +85,14 @@ function toCsv(rows: ExportRow[]): string {
   for (const r of rows) {
     lines.push(
       [
-r.saudacao,
+        r.saudacao,
         r.nome_completo,
         r.telefone_principal,
         r.whatsapp_username,
+        r.secundario_saudacao, // ✅ NOVO
+        r.secundario_nome, // ✅ NOVO
+        r.secundario_telefone, // ✅ NOVO
+        r.secundario_whatsapp, // ✅ NOVO
         r.aceita_mensagem,
         r.servidor,
         r.usuario,
@@ -193,7 +208,6 @@ export async function GET(req: Request) {
   const scope = (url.searchParams.get("scope") || "clients") as "clients" | "all";
 
   // clients
-  // clients
   let q = supabase
     .from("clients")
     .select([
@@ -202,6 +216,11 @@ export async function GET(req: Request) {
       "display_name",
       "first_name",
       "last_name",
+      "phone_e164", // ✅ Telefone principal 
+      "secondary_name_prefix", // ✅ NOVO
+      "secondary_display_name", // ✅ NOVO
+      "secondary_phone_e164", // ✅ NOVO
+      "secondary_whatsapp_username", // ✅ NOVO
       "whatsapp_opt_in",
       "whatsapp_username",
       "server_id",
@@ -313,24 +332,7 @@ export async function GET(req: Request) {
     appsByClient.set(cid, arr);
   }
 
-  // telefone principal (best effort)
-  const phoneByClient = new Map<string, string>();
-  try {
-    const { data: phones } = await supabase
-      .from("client_phones")
-      .select("client_id, phone_e164, is_primary")
-      .in("client_id", clientIds);
-
-    for (const p of (phones ?? []) as any[]) {
-      if (!p.client_id) continue;
-      const ph = p.phone_e164 ? String(p.phone_e164) : "";
-      if (!ph) continue;
-
-      if (p.is_primary || !phoneByClient.has(p.client_id)) {
-        phoneByClient.set(p.client_id, ph);
-      }
-    }
-  } catch {}
+  
 
   const rows: ExportRow[] = clientRows.map((c) => {
     const nomeCompleto =
@@ -354,8 +356,15 @@ export async function GET(req: Request) {
     return {
       saudacao: c.name_prefix ?? "",
       nome_completo: nomeCompleto ?? "",
-      telefone_principal: phoneByClient.get(c.id) ?? "",
+      telefone_principal: c.phone_e164 ?? "", // ✅ Vem direto da query agora
       whatsapp_username: c.whatsapp_username ?? "",
+      
+      // ✅ Contato Secundário
+      secundario_saudacao: c.secondary_name_prefix ?? "",
+      secundario_nome: c.secondary_display_name ?? "",
+      secundario_telefone: c.secondary_phone_e164 ?? "",
+      secundario_whatsapp: c.secondary_whatsapp_username ?? "",
+
       aceita_mensagem: c.whatsapp_opt_in ? "Sim" : "Não",
 
       servidor: serverName,

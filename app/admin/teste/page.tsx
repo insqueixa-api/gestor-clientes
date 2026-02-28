@@ -252,8 +252,8 @@ export default function TrialsPage() {
   const [serverFilter, setServerFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState<"Todos" | TrialStatus>("Todos");
 
-  const [sortKey, setSortKey] = useState<SortKey>("due");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+const [sortKey, setSortKey] = useState<SortKey>("due");
+  const [sortDir, setSortDir] = useState<SortDir>("asc"); // ✅ "asc" mostra os mais recentes/urgentes primeiro
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -645,12 +645,23 @@ useEffect(() => {
     const list = [...filtered];
     list.sort((a, b) => {
       let cmp = 0;
+      
+      // ✅ Helper para converter strings de data num timestamp absoluto para ordenação
+      const getTimestamp = (isoD: string, timeT: string) => {
+        const d = new Date(`${isoD}T${timeT || "00:00"}:00`);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+      };
+
       switch (sortKey) {
         case "name":
           cmp = compareText(a.name, b.name);
           break;
         case "due":
-          cmp = compareText(`${a.dueISODate} ${a.dueTime}`, `${b.dueISODate} ${b.dueTime}`);
+          // ✅ Ordenação matemática (Perfeita cronologia)
+          cmp = compareNumber(
+            getTimestamp(a.dueISODate, a.dueTime),
+            getTimestamp(b.dueISODate, b.dueTime)
+          );
           break;
         case "status":
           cmp = compareNumber(statusRank(a.status), statusRank(b.status));
@@ -659,7 +670,15 @@ useEffect(() => {
           cmp = compareText(a.server, b.server);
           break;
       }
-      if (cmp === 0) cmp = compareText(`${a.dueISODate} ${a.dueTime}`, `${b.dueISODate} ${b.dueTime}`);
+      
+      // Desempate por data
+      if (cmp === 0) {
+          cmp = compareNumber(
+            getTimestamp(a.dueISODate, a.dueTime),
+            getTimestamp(b.dueISODate, b.dueTime)
+          );
+      }
+      
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;

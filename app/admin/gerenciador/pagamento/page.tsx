@@ -127,83 +127,48 @@ const GATEWAY_META: GatewayMeta[] = [
   {
     type: "pix_manual",
     label: "PIX Manual",
-    description: "Chave PIX para templates de mensagem e fallback offline.",
+    description: "Chave PIX direta.",
     currencies: ["BRL"],
     is_online: false,
     icon: "📱",
     color: "from-violet-500 to-purple-500",
     fields: [
       {
-        key: "pix_key",
-        label: "Chave PIX",
-        type: "text",
-        placeholder: "CPF, CNPJ, email, telefone ou chave aleatória",
-        required: true,
-      },
-      {
         key: "pix_key_type",
         label: "Tipo da Chave",
         type: "select",
         options: [
-          { value: "cpf", label: "CPF" },
-          { value: "cnpj", label: "CNPJ" },
-          { value: "email", label: "E-mail" },
-          { value: "phone", label: "Telefone" },
-          { value: "random", label: "Chave Aleatória" },
+          { value: "CPF", label: "CPF" },
+          { value: "CNPJ", label: "CNPJ" },
+          { value: "E-mail", label: "E-mail" },
+          { value: "Telefone", label: "Telefone" },
+          { value: "Aleatória", label: "Chave Aleatória" },
         ],
         required: true,
       },
       {
-        key: "holder_name",
-        label: "Nome do Titular",
+        key: "pix_key",
+        label: "Chave PIX",
         type: "text",
-        placeholder: "Nome que aparece no PIX",
+        placeholder: "Digite a chave...",
         required: true,
-      },
-      {
-        key: "bank_name",
-        label: "Banco",
-        type: "text",
-        placeholder: "Ex: Mercado Pago, Wise, Itaú...",
-      },
-      {
-        key: "instructions",
-        label: "Instruções para o Cliente",
-        type: "textarea",
-        placeholder: "Ex: Após o pagamento, envie o comprovante pelo WhatsApp.",
-        hint: "Texto exibido ao cliente quando o fallback manual for acionado",
-      },
+      }
     ],
   },
-  // 👇 NOVO BLOCO: TRANSFERÊNCIA MANUAL INTERNACIONAL 👇
   {
     type: "transfer_manual",
     label: "Transferência Internacional",
-    description: "Dados bancários para depósito manual (IBAN, Swift/BIC).",
-    currencies: ["USD", "EUR"],
+    description: "Dados diretos para transferência.",
+    currencies: ["INTL"], // Tag genérica para não poluir
     is_online: false,
     icon: "🏦",
     color: "from-blue-600 to-indigo-600",
     fields: [
       {
-        key: "bank_name",
-        label: "Nome do Banco",
-        type: "text",
-        placeholder: "Ex: Banco Millennium, N26, Revolut...",
-        required: true,
-      },
-      {
-        key: "holder_name",
-        label: "Beneficiário (Titular)",
-        type: "text",
-        placeholder: "Nome completo do titular da conta",
-        required: true,
-      },
-      {
         key: "iban",
-        label: "IBAN",
+        label: "Código IBAN",
         type: "text",
-        placeholder: "PT50 0000 0000 0000 0000 0000 0",
+        placeholder: "Ex: PT50...",
         required: true,
       },
       {
@@ -212,20 +177,7 @@ const GATEWAY_META: GatewayMeta[] = [
         type: "text",
         placeholder: "Ex: BCPTPTPL",
         required: true,
-      },
-      {
-        key: "routing_number",
-        label: "Routing Number / Sort Code",
-        type: "text",
-        placeholder: "Apenas se aplicável (EUA/UK)",
-      },
-      {
-        key: "instructions",
-        label: "Instruções para o Cliente",
-        type: "textarea",
-        placeholder: "Ex: Envie o comprovante de transferência no WhatsApp indicando o seu e-mail.",
-        hint: "Instruções exibidas no painel do cliente",
-      },
+      }
     ],
   },
   // 👆 FIM DO NOVO BLOCO 👆
@@ -1000,7 +952,7 @@ export default function PagamentosPage() {
   // Agrupar por moeda
   const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
   const intlGateways = gateways.filter(
-    (g) => g.currency.includes("USD") || g.currency.includes("EUR")
+    (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
   );
 
     return (

@@ -15,6 +15,10 @@ export async function GET() {
     "Nome Completo",
     "Telefone principal",
     "Whatsapp Username",
+    "Secundario Saudacao", // ✅ NOVO
+    "Secundario Nome", // ✅ NOVO
+    "Secundario Telefone", // ✅ NOVO
+    "Secundario Whatsapp", // ✅ NOVO
     "Aceita mensagem",
     "Servidor",
     "Usuario",
@@ -43,6 +47,10 @@ export async function GET() {
     "João Silva",
     "+5521999999999",
     "5521999999999",
+    "Sra", // ✅ Exemplo: Secundario Saudacao
+    "Maria Silva", // ✅ Exemplo: Secundario Nome
+    "+5521888888888", // ✅ Exemplo: Secundario Telefone
+    "5521888888888", // ✅ Exemplo: Secundario Whatsapp
     "Sim",
     "UniTV",
     "joao.silva",

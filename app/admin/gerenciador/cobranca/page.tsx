@@ -291,11 +291,19 @@ const handleGlobalPause = async () => {
 };
 
 
-  // 3. Ação: RETOMAR TUDO
+// 3. Ação: RETOMAR TUDO
   const handleGlobalResume = async () => {
     setLoading(true);
     const tid = await getCurrentTenantId();
-    await supabaseBrowser.from("client_message_jobs").update({ status: "QUEUED" }).eq("tenant_id", tid!).eq("status", "PAUSED");
+    if (!tid) return;
+    
+    // ✅ Segurança extra: garante que só afeta o tenant
+    await supabaseBrowser
+        .from("client_message_jobs")
+        .update({ status: "QUEUED" })
+        .eq("tenant_id", tid)
+        .eq("status", "PAUSED");
+        
     setLoading(false);
   };
 
@@ -308,11 +316,19 @@ const handleGlobalPause = async () => {
       const tid = await getCurrentTenantId();
       if (!tid) return;
 
+// ✅ Segurança: Atualiza APENAS os jobs filtrados no cache local (queueData) que pertencem a este tenant
+      const jobIdsToCancel = queueData.map(j => j.id).filter(Boolean);
+      
+      if (jobIdsToCancel.length === 0) {
+          setShowModal(false);
+          return;
+      }
+
       const { error } = await supabaseBrowser
         .from("client_message_jobs")
         .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
         .eq("tenant_id", tid)
-        .in("status", ["SCHEDULED", "QUEUED", "SENDING", "PAUSED"]);
+        .in("id", jobIdsToCancel); // ✅ Proteção Ativa
 
       if (error) {
         console.error("[QueueMonitor] Erro ao cancelar tudo:", error);
@@ -852,10 +868,11 @@ return {
       addToast("success", "Fila Criada!", `${inserts.length} mensagens foram agendadas. O envio ocorrerá gradualmente.`);
       await loadData();
 
-    } catch (err: any) {
-      console.error("Erro no envio manual:", err);
-      addToast("error", "Erro ao enfileirar", err.message || "Falha desconhecida.");
-    }
+} catch (err: any) {
+      // ✅ Segurança: Log limpo
+      if (process.env.NODE_ENV !== "production") console.error("Falha ao criar fila manual.");
+      addToast("error", "Erro ao enfileirar", "Verifique as configurações e tente novamente.");
+    }
   };
 
 

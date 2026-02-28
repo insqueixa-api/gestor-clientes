@@ -50,6 +50,17 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
 }
 
 // --- PÁGINA ---
+
+function normalizeApiUrl(url: string) {
+  if (!url) return "";
+  let s = url.trim().replace(/\/+$/, ""); 
+  // Não deixa passar scripts maliciosos
+  if (s.toLowerCase().startsWith("javascript:")) return ""; 
+  if (s && !s.startsWith("http")) {
+    s = "https://" + s; 
+  }
+  return s;
+}
 export default function AppManagerPage() {
   const [apps, setApps] = useState<AppData[]>([]);
   // ✅ Busca (mesmo padrão da tela de Clientes)
@@ -254,29 +265,28 @@ setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
   }
 
   // --- MANIPULAÇÃO DOS CAMPOS DINÂMICOS ---
+  // ✅ Helper para criar IDs curtos (ex: f_abc12)
+  const generateShortId = () => "f_" + Math.random().toString(36).substring(2, 7);
+
   function addField() {
     setFormFields((prev) => [
       ...prev,
-      { id: globalThis.crypto.randomUUID(), label: "", type: "text" },
-
+      { id: generateShortId(), label: "", type: "text" },
     ]);
   }
 
-  // ✅ NOVO: Botão Rápido para Vencimento
-  // ✅ NOVO: Botão Rápido para Vencimento
 function addExpirationField() {
   setFormFields((prev) => [
     ...prev,
-    { id: globalThis.crypto.randomUUID(), label: "Vencimento", type: "date" },
+    { id: generateShortId(), label: "Vencimento", type: "date" },
   ]);
 }
 
-// ✅ NOVO: Botão Rápido para MAC
 function addMacField() {
   setFormFields((prev) => [
     ...prev,
     {
-      id: globalThis.crypto.randomUUID(),
+      id: generateShortId(),
       label: "MAC",
       type: "mac",
       placeholder: "00:1A:2B:3C:4D:5E",
@@ -317,11 +327,13 @@ try {
     return;
   }
 
-  // Payload base (insert)
+// Payload base (insert)
+  const safeUrl = normalizeApiUrl(formUrl); // ✅ Limpa a URL e impede XSS
+
   const insertPayload = {
     tenant_id: tid,
     name: formName.trim(),
-    info_url: formUrl?.trim() ? formUrl.trim() : null,
+    info_url: safeUrl || null,
     fields_config: formFields,
     partner_server_id: selectedServerId || null,
     cost_type: costType ?? "paid",

@@ -8,6 +8,13 @@ type ParsedRow = {
   nome_completo: string;
   telefone_principal: string;
   whatsapp_username: string;
+  
+  // ✅ Contato Secundário
+  secundario_saudacao: string;
+  secundario_nome: string;
+  secundario_telefone: string;
+  secundario_whatsapp: string;
+
   aceita_mensagem: boolean;
 
   servidor_nome: string;
@@ -408,6 +415,10 @@ export async function POST(req: Request) {
     "nome completo",
     "telefone principal",
     "whatsapp username",
+    "secundario saudacao", // ✅ NOVO
+    "secundario nome", // ✅ NOVO
+    "secundario telefone", // ✅ NOVO
+    "secundario whatsapp", // ✅ NOVO
     "aceita mensagem",
     "servidor",
     "usuario",
@@ -562,6 +573,13 @@ export async function POST(req: Request) {
         nome_completo: get("Nome Completo"),
         telefone_principal: get("Telefone principal"),
         whatsapp_username: get("Whatsapp Username"),
+        
+        // ✅ Extrair Secundário
+        secundario_saudacao: get("Secundario Saudacao") || get("Secundário Saudação"),
+        secundario_nome: get("Secundario Nome") || get("Secundário Nome"),
+        secundario_telefone: get("Secundario Telefone") || get("Secundário Telefone"),
+        secundario_whatsapp: get("Secundario Whatsapp") || get("Secundário Whatsapp"),
+
         aceita_mensagem: parseBool(get("Aceita mensagem")),
 
         servidor_nome: get("Servidor"),
@@ -710,6 +728,7 @@ export async function POST(req: Request) {
 
       // telefone
       const phoneE164 = toE164Phone(parsed.telefone_principal);
+      const secondaryPhoneE164 = toE164Phone(parsed.secundario_telefone); // ✅ Transforma o secundário
 
       if (!client_id) {
         // ✅ CREATE via RPC
@@ -738,6 +757,12 @@ export async function POST(req: Request) {
           p_notes: parsed.obs || null,
 
           p_phone_primary_e164: phoneE164,
+          
+          // ✅ Injecção do Contato Secundário no CREATE
+          p_secondary_name_prefix: parsed.secundario_saudacao || null,
+          p_secondary_display_name: parsed.secundario_nome || null,
+          p_secondary_phone_e164: secondaryPhoneE164,
+          p_secondary_whatsapp_username: parsed.secundario_whatsapp || null,
 
           p_whatsapp_opt_in: parsed.aceita_mensagem,
           p_whatsapp_username: parsed.whatsapp_username || null,
@@ -780,6 +805,14 @@ export async function POST(req: Request) {
 
           p_display_name: nameParts.display_name,
           p_name_prefix: parsed.saudacao || null,
+          
+          p_phone_e164: phoneE164, // ✅ Transfere o telefone principal para o update nativo
+
+          // ✅ Injecção do Contato Secundário no UPDATE
+          p_secondary_name_prefix: parsed.secundario_saudacao || null,
+          p_secondary_display_name: parsed.secundario_nome || null,
+          p_secondary_phone_e164: secondaryPhoneE164,
+          p_secondary_whatsapp_username: parsed.secundario_whatsapp || null,
 
           p_notes: parsed.obs || null,
           p_clear_notes: false,
@@ -856,19 +889,7 @@ export async function POST(req: Request) {
         if (appErr) throw new Error(`set_client_apps: ${appErr.message}`);
       }
 
-      // ✅ Telefones via RPC
-      if (phoneE164) {
-        const { error: phErr } = await supabase.rpc("set_client_phones", {
-          p_tenant_id: tenant_id,
-          p_client_id: client_id,
-          p_primary_e164: phoneE164,
-          p_secondary_e164: [],
-        });
-
-        if (phErr) {
-          warnings.push({ row: rowNum, warning: `Telefone não foi importado (set_client_phones): ${phErr.message}` });
-        }
-      }
+      
     } catch (e: any) {
       rowErrors.push({ row: rowNum, error: e?.message || "Falha ao importar linha" });
     }
