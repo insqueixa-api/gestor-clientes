@@ -836,19 +836,11 @@ if (c.server_id) {
       let serverName = "Servidor"; // ✅ DECLARAR AQUI
 
       // --- PASSO 1: RENOVAÇÃO AUTOMÁTICA (SE MARCADA) ---
-console.log("🔵 DEBUG Renovação:", {
-  renewAutomatic,
-  server_id: clientData?.server_id,
-  username: clientData?.username,
-  months: monthsToRenew,
-});
-
 if (renewAutomatic && clientData?.server_id) {
   try {
     setLoadingText("Renovando no servidor...");
 
     // 1.1. Buscar integração
-    console.log("🔵 Buscando integração...");
     const { data: srv, error: srvErr } = await supabaseBrowser
       .from("servers")
       .select("panel_integration")
@@ -880,12 +872,6 @@ if (renewAutomatic && clientData?.server_id) {
             if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
 
             // 1.4. Chamar API
-            console.log("🔵 Chamando API:", apiUrl, {
-              integration_id: srv.panel_integration,
-              username: clientData.username,
-              months: monthsToRenew,
-            });
-
             // ✅ Pegamos o Token da sua sessão logada para não dar 401 Unauthorized
             const { data: userSess } = await supabaseBrowser.auth.getSession();
             const token = userSess?.session?.access_token;
@@ -907,14 +893,10 @@ if (renewAutomatic && clientData?.server_id) {
               }),
             });
 
-console.log("🔵 API Response Status:", apiRes.status, apiRes.ok);
-
 const apiJson = await apiRes.json();
-console.log("🔵 API Response JSON:", apiJson);
 
 if (!apiRes.ok || !apiJson.ok) {
-  const errorMsg = apiJson.error || "Erro na API de integração";
-  console.error("❌ Erro API:", errorMsg);
+  const errorMsg = apiJson.error || "A API do Servidor recusou a renovação.";
   throw new Error(errorMsg);
 }
 
@@ -964,9 +946,7 @@ console.log("✅ Renovação automática concluída:", {
   servidor: serverName,
 });
           }
-        } catch (apiErr: any) {
-  console.error("❌ ERRO COMPLETO:", apiErr);
-  console.error("❌ Stack:", apiErr.stack);
+} catch (apiErr: any) {
   
   // ✅ Toast LOCAL (aparece no modal)
   addToast(

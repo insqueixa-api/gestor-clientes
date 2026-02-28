@@ -52,8 +52,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // B. Se JÁ ESTIVER logado e tentar acessar a raiz ou login -> Vai pro dashboard
-  if (user && (url.pathname === '/login' || url.pathname === '/')) {
+// B. Se JÁ ESTIVER logado e tentar acessar a tela de login -> Vai pro dashboard
+  if (user && url.pathname === '/login') {
     return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
