@@ -122,124 +122,69 @@ export default function PlanosPage() {
   }
 
   // --- Função de Deletar (Integral) ---
-  // --- Função de Deletar (Integral) ---
-async function handleDelete(plan: PlanRow) {
-  if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
+// --- Função de Deletar (Blindada) ---
+  async function handleDelete(plan: PlanRow) {
+    if (!confirm(`Tem certeza que deseja excluir a tabela "${plan.name}"?`)) return;
 
-  const supabase = supabaseBrowser;
+    setLoading(true);
+    
+    try {
+      const tenantId = await getCurrentTenantId();
+      if (!tenantId) throw new Error("Acesso negado: Tenant ausente.");
 
-  console.group("🔍 DEBUG DELETE");
-  console.log("Tabela a deletar:", plan.id);
-  console.log("Tenant da tabela:", plan.tenant_id);
+      const supabase = supabaseBrowser;
 
-  try {
-    // 1) Usuário atual (cliente)
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr) console.warn("⚠️ getUser error:", userErr);
-    const user = userRes?.user ?? null;
-    console.log("👤 Usuário logado (getUser):", user?.id || "NENHUM");
-
-    // 2) Tenant atual (seu helper)
-    const currentTenantId = await getCurrentTenantId();
-    console.log("🏢 Tenant atual:", currentTenantId);
-    console.log("🏢 Tenant da tabela:", plan.tenant_id);
-    console.log("✅ Match?", currentTenantId === plan.tenant_id);
-
-    // 3) ✅ DEBUG DEFINITIVO: o que o banco está vendo no request
-    console.log("🧾 Checando contexto do request (RLS)...");
-    const { data: ctx, error: ctxErr } = await supabase.rpc("debug_request_context");
-    console.log("🧾 REQUEST CONTEXT:", ctx);
-    console.log("🧾 REQUEST CONTEXT error:", ctxErr);
-
-    // 4) Delete
-    console.log("🗑️ Tentando delete...");
-// 1. Deletar preços primeiro
-const { error: pricesErr } = await supabase
-  .from("plan_table_item_prices")
-  .delete()
-  .in(
-    "plan_table_item_id",
-    plan.items.map((i) => i.id)
-  );
-
-if (pricesErr) {
-  console.error("❌ Erro ao deletar preços:", pricesErr);
-  alert(`Erro ao deletar preços: ${pricesErr.message}`);
-  console.groupEnd();
-  return;
-}
-
-// 2. Deletar itens
-const { error: itemsErr } = await supabase
-  .from("plan_table_items")
-  .delete()
-  .eq("plan_table_id", plan.id);
-
-if (itemsErr) {
-  console.error("❌ Erro ao deletar itens:", itemsErr);
-  alert(`Erro ao deletar itens: ${itemsErr.message}`);
-  console.groupEnd();
-  return;
-}
-
-// 3. Deletar tabela
-const { data, error, status, statusText } = await supabase
-  .from("plan_tables")
-  .delete()
-  .eq("id", plan.id)
-  .select();
-
-    console.log("📊 Status:", status, statusText);
-    console.log("📊 Data retornada:", data);
-    console.log("📊 Error:", error);
-
-    if (error) {
-      console.error("❌ Erro Supabase:", error);
-      alert(`Erro: ${error.message}\nCódigo: ${error.code}`);
-      console.groupEnd();
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      // Aqui a gente diferencia: RLS mesmo vs request sem auth
-      const role = (ctx as any)?.role;
-      const uid = (ctx as any)?.uid;
-
-      if (!uid || role === "anon") {
-        alert(
-          "⚠️ O DELETE está chegando como ANON (sem sessão/JWT).\n" +
-            "Então auth.uid() = null e o RLS bloqueia.\n\n" +
-            "Me manda o log do '🧾 REQUEST CONTEXT' que eu te devolvo o DE/PARA do supabaseBrowser."
-        );
-      } else {
-        alert(
-          "⚠️ RLS bloqueou o delete mesmo com usuário autenticado.\n\n" +
-            "Me manda o log do '🧾 REQUEST CONTEXT' + a policy de DELETE de plan_tables."
-        );
+      // 1. Deletar preços PRIMEIRO (Evita crash de foreign key)
+      const itemIds = plan.items.map((i) => i.id).filter(Boolean);
+      
+      if (itemIds.length > 0) {
+        const { error: pricesErr } = await supabase
+          .from("plan_table_item_prices")
+          .delete()
+          .in("plan_table_item_id", itemIds);
+          
+        if (pricesErr) throw new Error(`Erro ao deletar preços: ${pricesErr.message}`);
       }
 
-      console.groupEnd();
-      return;
+      // 2. Deletar Itens associados a esta tabela
+      const { error: itemsErr } = await supabase
+        .from("plan_table_items")
+        .delete()
+        .eq("plan_table_id", plan.id);
+        
+      if (itemsErr) throw new Error(`Erro ao deletar itens: ${itemsErr.message}`);
+
+      // 3. Deletar Tabela Principal (✅ Trava Absoluta de Tenant adicionada)
+      const { data, error } = await supabase
+        .from("plan_tables")
+        .delete()
+        .eq("id", plan.id)
+        .eq("tenant_id", tenantId) 
+        .select();
+
+      if (error) {
+         throw new Error(`Erro ao deletar tabela: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+         throw new Error("Tabela não encontrada ou você não tem permissão para apagá-la.");
+      }
+
+      // 4. Atualiza o estado da UI sem recarregar a página
+      setPlano((prev) => prev.filter((p) => p.id !== plan.id));
+      setExpanded((prev) => {
+        const out = { ...prev };
+        delete out[plan.id];
+        return out;
+      });
+
+    } catch (err: any) {
+      if (process.env.NODE_ENV !== "production") console.error("Falha no DELETE:", err?.message || err);
+      alert(err?.message || "Ocorreu um erro inesperado ao excluir a tabela.");
+    } finally {
+      setLoading(false);
     }
-
-    console.log("✅ Deletado com sucesso no banco!");
-
-    // 5) Atualiza estado
-    setPlano((prev) => prev.filter((p) => p.id !== plan.id));
-    setExpanded((prev) => {
-      const out = { ...prev };
-      delete out[plan.id];
-      return out;
-    });
-
-    console.groupEnd();
-  } catch (err) {
-    console.error("💥 Erro catch:", err);
-    alert("Erro inesperado");
-    console.groupEnd();
   }
-}
-
 
   useEffect(() => {
     fetchPlano();

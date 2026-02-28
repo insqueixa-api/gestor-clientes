@@ -17,7 +17,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type GatewayType = "mercadopago" | "wise" | "pix_manual";
+type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual"; // ✅ Novo tipo adicionado
 
 interface PaymentGateway {
   id: string;
@@ -175,6 +175,60 @@ const GATEWAY_META: GatewayMeta[] = [
       },
     ],
   },
+  // 👇 NOVO BLOCO: TRANSFERÊNCIA MANUAL INTERNACIONAL 👇
+  {
+    type: "transfer_manual",
+    label: "Transferência Internacional",
+    description: "Dados bancários para depósito manual (IBAN, Swift/BIC).",
+    currencies: ["USD", "EUR"],
+    is_online: false,
+    icon: "🏦",
+    color: "from-blue-600 to-indigo-600",
+    fields: [
+      {
+        key: "bank_name",
+        label: "Nome do Banco",
+        type: "text",
+        placeholder: "Ex: Banco Millennium, N26, Revolut...",
+        required: true,
+      },
+      {
+        key: "holder_name",
+        label: "Beneficiário (Titular)",
+        type: "text",
+        placeholder: "Nome completo do titular da conta",
+        required: true,
+      },
+      {
+        key: "iban",
+        label: "IBAN",
+        type: "text",
+        placeholder: "PT50 0000 0000 0000 0000 0000 0",
+        required: true,
+      },
+      {
+        key: "swift_bic",
+        label: "SWIFT / BIC",
+        type: "text",
+        placeholder: "Ex: BCPTPTPL",
+        required: true,
+      },
+      {
+        key: "routing_number",
+        label: "Routing Number / Sort Code",
+        type: "text",
+        placeholder: "Apenas se aplicável (EUA/UK)",
+      },
+      {
+        key: "instructions",
+        label: "Instruções para o Cliente",
+        type: "textarea",
+        placeholder: "Ex: Envie o comprovante de transferência no WhatsApp indicando o seu e-mail.",
+        hint: "Instruções exibidas no painel do cliente",
+      },
+    ],
+  },
+  // 👆 FIM DO NOVO BLOCO 👆
 ];
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -270,7 +324,8 @@ function GatewayModal({
         priority,
         is_active: isActive,
         is_online: meta.is_online,
-        is_manual_fallback: selectedType === "pix_manual" ? isManualFallback : false,
+        // ✅ Agora permite que a transferência manual também seja marcada como fallback
+        is_manual_fallback: (selectedType === "pix_manual" || selectedType === "transfer_manual") ? isManualFallback : false,
         config: form,
         updated_at: new Date().toISOString(),
       };
@@ -507,8 +562,8 @@ function GatewayModal({
                 </div>
               </div>
 
-              {/* PIX Manual — fallback */}
-              {selectedType === "pix_manual" && (
+              {/* Fallback Manual (PIX ou IBAN) */}
+              {(selectedType === "pix_manual" || selectedType === "transfer_manual") && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -716,10 +771,12 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
     .filter((g) => g.is_active && g.is_online && (g.currency.includes("USD") || g.currency.includes("EUR")))
     .sort((a, b) => a.priority - b.priority);
 
-  const manual = gateways.find((g) => g.type === "pix_manual" && g.is_active);
+  // ✅ Separa o fallback do Brasil e o Fallback Internacional
+  const manualBrl = gateways.find((g) => g.type === "pix_manual" && g.is_active);
+  const manualIntl = gateways.find((g) => g.type === "transfer_manual" && g.is_active);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* BRL */}
       <div>
         <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
@@ -744,7 +801,7 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
             );
           })}
 
-          {manual && (
+          {manualBrl && (
             <>
               <div className="flex items-center justify-center">
                 <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
@@ -765,7 +822,7 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
             </>
           )}
 
-          {brlOnline.length === 0 && !manual && (
+          {brlOnline.length === 0 && !manualBrl && (
             <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
               <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
                 ⚠️ Nenhum gateway BRL ativo
@@ -799,30 +856,33 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
             );
           })}
 
-          {intlOnline.length === 0 && (
+          {manualIntl && (
+            <>
+              <div className="flex items-center justify-center">
+                <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
+                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
+                  se falhar
+                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <span className="text-sm">🏦</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300 truncate">IBAN / SWIFT</p>
+                  <p className="text-[10px] text-blue-600/80 dark:text-blue-300/70">Fallback offline</p>
+                </div>
+                <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
+              </div>
+            </>
+          )}
+
+          {intlOnline.length === 0 && !manualIntl && (
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
-              <p className="text-xs text-slate-400 dark:text-white/40">Nenhum gateway internacional</p>
+              <p className="text-xs text-slate-400 dark:text-white/40">Nenhum gateway internacional ativo</p>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Templates */}
-      <div>
-
-        {manual ? (
-          <div className="space-y-2">
-      
-
-     
-          </div>
-        ) : (
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
-            <p className="text-xs text-slate-400 dark:text-white/40">
-              Adicione PIX Manual para usar nos templates
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

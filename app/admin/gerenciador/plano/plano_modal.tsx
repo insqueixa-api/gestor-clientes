@@ -215,7 +215,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
   async function handleSave() {
     if (!name.trim()) {
-      alert("Informe o nome da tabela");
+      alert("Informe o nome da tabela.");
       return;
     }
 
@@ -223,26 +223,38 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     const supabase = supabaseBrowser;
     const tenantId = await getCurrentTenantId();
 
+    if (!tenantId) {
+      alert("Erro de sessão. Recarregue a página.");
+      setSaving(false);
+      return;
+    }
+
     try {
       if (isEditing && plan) {
-        // Atualiza nome e moeda (agora sempre pode, exceto sistema)
+        // ✅ Atualiza nome e moeda (agora sempre pode, exceto sistema) - TRAVADO COM TENANT
         if (!isSystemDefault) {
-          await supabase
+          const { error: updErr } = await supabase
             .from("plan_tables")
-            .update({ name, currency })
-            .eq("id", plan.id);
+            .update({ name: name.trim(), currency })
+            .eq("id", plan.id)
+            .eq("tenant_id", tenantId); // ✅ PROTEÇÃO
+            
+          if (updErr) throw new Error("Falha ao atualizar a tabela.");
         }
 
-        // Atualiza preços
+        // ✅ Atualiza preços - TRAVADO COM TENANT E SEM NEGATIVOS
         for (const row of items) {
           for (let screen = 1; screen <= 3; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
             if (val === "") continue;
             
+            const numVal = Number(val);
+            if (numVal < 0) throw new Error("Os preços não podem ser negativos.");
+            
             await supabase
               .from("plan_table_item_prices")
-              .update({ price_amount: Number(val) })
-              .match({ plan_table_item_id: row.itemId, screens_count: screen });
+              .update({ price_amount: numVal })
+              .match({ plan_table_item_id: row.itemId, screens_count: screen, tenant_id: tenantId }); // ✅ PROTEÇÃO
           }
         }
       } else {
@@ -251,7 +263,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           .from("plan_tables")
           .insert({
             tenant_id: tenantId,
-            name: name,
+            name: name.trim(),
             currency: currency,
             is_system_default: false,
             is_active: true
@@ -259,7 +271,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           .select()
           .single();
 
-        if (tableError) throw tableError;
+        if (tableError) throw new Error("Falha ao criar tabela principal.");
         const newTableId = tableData.id;
 
         const monthsMap: Record<string, number> = {
@@ -281,24 +293,31 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
           if (itemError || !newItem) continue;
 
+          // ✅ Bloqueio de inserção de valores negativos
+          const getSafeNum = (val: string) => {
+             if (!val) return null;
+             const n = Number(val);
+             return n >= 0 ? n : 0; // Força 0 se tentarem hackear enviando negativo
+          };
+
           const pricesToInsert = [
             { 
               tenant_id: tenantId, 
               plan_table_item_id: newItem.id, 
               screens_count: 1, 
-              price_amount: item.price1 ? Number(item.price1) : null 
+              price_amount: getSafeNum(item.price1) 
             },
             { 
               tenant_id: tenantId, 
               plan_table_item_id: newItem.id, 
               screens_count: 2, 
-              price_amount: item.price2 ? Number(item.price2) : null 
+              price_amount: getSafeNum(item.price2) 
             },
             { 
               tenant_id: tenantId, 
               plan_table_item_id: newItem.id, 
               screens_count: 3, 
-              price_amount: item.price3 ? Number(item.price3) : null 
+              price_amount: getSafeNum(item.price3) 
             },
           ];
 
@@ -307,9 +326,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
       }
 
       onSuccess();
-    } catch (err) {
-      console.error("Erro ao salvar:", err);
-      alert("Erro ao salvar tabela.");
+    } catch (err: any) {
+      if (process.env.NODE_ENV !== "production") console.error("Erro ao salvar:", err?.message || err);
+      alert(err?.message || "Ocorreu um erro inesperado ao salvar a tabela.");
     } finally {
       setSaving(false);
     }
