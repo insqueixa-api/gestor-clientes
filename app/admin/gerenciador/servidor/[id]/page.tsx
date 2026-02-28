@@ -163,6 +163,7 @@ const supabase = supabaseBrowser;
           const { data: clientsData } = await supabase
             .from("clients")
             .select("id, display_name, server_username")
+            .eq("tenant_id", tenantId) // ✅ PROTEGIDO: Força a busca a ficar no próprio Tenant
             .in("id", clientIds);
             
           clientsData?.forEach(c => { clientsMap[c.id] = c; });
@@ -223,11 +224,13 @@ const supabase = supabaseBrowser;
         const { count: activeClients } = await supabase
   .from("vw_clients_list_active")
   .select("*", { count: 'exact', head: true })
+  .eq("tenant_id", tenantId) // ✅ PROTEGIDO
   .eq("server_id", serverId);
 
 const { count: archivedClients } = await supabase
   .from("vw_clients_list_archived")
   .select("*", { count: 'exact', head: true })
+  .eq("tenant_id", tenantId) // ✅ PROTEGIDO
   .eq("server_id", serverId);
 
 const totalClients = (activeClients || 0) + (archivedClients || 0);
@@ -242,12 +245,14 @@ setClientStats({
         const { count: totalResellers } = await supabase
           .from("reseller_servers")
           .select("*", { count: 'exact', head: true })
+          .eq("tenant_id", tenantId) // ✅ PROTEGIDO
           .eq("server_id", serverId);
-        
         setResellerCount(totalResellers || 0);
 
-      } catch (error) {
-        if (process.env.NODE_ENV !== "production") console.error("Erro ao carregar detalhes:", error);
+} catch (error: any) {
+        // ✅ Sem vazamentos de objetos completos no cliente
+        if (process.env.NODE_ENV !== "production") console.error("Falha ao carregar métricas (Dev):", error?.message);
+        addToast("error", "Erro ao carregar dados", "Algumas informações podem estar incorretas.");
       } finally {
         setLoading(false);
       }

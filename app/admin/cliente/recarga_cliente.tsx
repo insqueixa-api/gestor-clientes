@@ -903,7 +903,7 @@ if (!apiRes.ok || !apiJson.ok) {
             // 1.5. Atualizar com dados da API
             let expDateISO = apiJson.data?.exp_date_iso;
             
-            // ✅ SEGUNDA CHANCE ELITE: O painel renovou, mas não deu a data. Vamos pescar!
+            // ✅ SEGUNDA CHANCE ELITE: O painel renovou/converteu, mas não deu a data. Vamos pescar!
             if (!expDateISO && provider === "ELITE") {
               setLoadingText("Resgatando data real (Elite)...");
               
@@ -930,9 +930,14 @@ if (!apiRes.ok || !apiJson.ok) {
                 if (syncRes.ok && syncJson?.ok) {
                   expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
                   
-                  // Se o P2P da Elite girou uma senha nova, a gente captura!
+                  // Se o P2P da Elite girou uma senha nova durante a conversão, a gente captura!
                   if (syncJson.password) {
                     apiPassword = syncJson.password;
+                  }
+                  
+                  // ✅ Se o Sync descobrir um ID real (muito útil na conversão de testes antigos), atualiza o cache local
+                  if (syncJson.external_user_id && !clientData.external_user_id) {
+                     clientData.external_user_id = syncJson.external_user_id;
                   }
                 }
               } catch (e) {
@@ -1013,12 +1018,15 @@ console.log("✅ Renovação automática concluída:", {
       // --- PASSO 2: ATUALIZAR CLIENTE ---
       setLoadingText("Atualizando cadastro...");
 
-// ✅ DECISÃO DA DATA: Se for QUALQUER tipo de renovação (manual ou automática)
-      // o update_client NUNCA pode alterar a data. O update_client é apenas para notas, planos e tecnologia.
-      // A data deve ser alterada APENAS pela RPC renew_client_and_log.
+      // ✅ DECISÃO DA DATA E ID EXTERNO
+      // Se for apenas conversão (sem registrar log financeiro), o update_client TEM de gravar a data nova.
+      // Se registrar financeiro, o update_client não mexe na data (quem mexe é o renew_client_and_log).
       const dateForUpdate = registerPayment 
-          ? clientData?.vencimento // Mantém a data antiga para o banco não dar "choque"
-          : apiVencimento;         // Se não for registar pagamento (só converter o trial), aí sim envia a nova.
+          ? clientData?.vencimento 
+          : apiVencimento;         
+
+      // Garante que o ID externo descoberto pelo Sync é salvo
+      const finalExternalId = clientData?.external_user_id || null;
 
       const updatePayload: any = {
         p_tenant_id: tid,
@@ -1029,13 +1037,13 @@ console.log("✅ Renovação automática concluída:", {
         p_clear_notes: (!!clientData?.notes && !obs),
         p_server_id: clientData?.server_id,
         p_server_username: clientData?.username,
-        p_server_password: apiPassword, // ✅ NATV: atualiza / FAST: null (mantém)
+        p_server_password: apiPassword, 
         p_screens: Number(screens),
         p_plan_label: PLAN_LABELS[selectedPlanPeriod],
         p_plan_table_id: selectedTableId || null,
         p_price_amount: rawPlanPrice,
         p_price_currency: currency as any,
-        p_vencimento: dateForUpdate, // ✅ Usa a regra definida acima
+        p_vencimento: dateForUpdate,
         p_is_trial: allowConvertWithoutPayment ? false : null,
         p_whatsapp_opt_in: true,
         p_whatsapp_username: null,
@@ -1043,6 +1051,12 @@ console.log("✅ Renovação automática concluída:", {
         p_is_archived: false,
         p_technology: finalTechnology,
       };
+      
+      // ✅ Atualiza o ID externo no banco caso o Sync da Elite o tenha resgatado (via trigger/RPC ou direto no supabase)
+      if (finalExternalId) {
+         // Executa um patch silencioso apenas para garantir o ID numérico
+         supabaseBrowser.from("clients").update({ external_user_id: finalExternalId }).eq("id", clientId).then();
+      }
 
       const { error: updateError } = await supabaseBrowser.rpc("update_client", updatePayload);
 

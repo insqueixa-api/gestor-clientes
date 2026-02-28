@@ -78,20 +78,26 @@ export default function RecargaServidorModal({ server, onClose, onSuccess, onErr
                 if (currency === 'USD') setFxRate(data.usd_to_brl?.toString() || "1");
                 if (currency === 'EUR') setFxRate(data.eur_to_brl?.toString() || "1");
             }
-        } catch (err) {
-            if (process.env.NODE_ENV !== "production") console.error("Erro ao buscar cambio", err);
+} catch (err) {
+            // ✅ Segurança: Limpeza de log. Se falhar, assume 1, mas nunca imprime detalhes de erro no cliente.
+            if (process.env.NODE_ENV !== "production") console.error("Falha ao atualizar câmbio.");
         }
     }
     fetchFx();
   }, [currency]);
 
 async function handleSave() {
+    // ✅ Blindagem Dupla: Garante que Quantidade E Custo Unitário não sejam negativos ou anómalos
     if (!qty || Number(qty) <= 0) {
-      if (onError) {
-        onError("A quantidade de créditos é inválida.");
-      }
+      if (onError) onError("A quantidade de créditos deve ser maior que zero.");
       return;
     }
+
+    if (Number(unitCost) < 0) {
+      if (onError) onError("O custo unitário não pode ser negativo.");
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -186,9 +192,10 @@ async function handleSave() {
 
       onSuccess();
     } catch (error: any) {
-      if (process.env.NODE_ENV !== "production") console.error("Erro na recarga:", error);
+      // ✅ Segurança: Limita o log local apenas a mensagens, nunca o objeto de erro completo de DB
+      if (process.env.NODE_ENV !== "production") console.error("Erro na recarga:", error?.message || "Falha desconhecida");
       if (onError) {
-        onError(error.message);
+        onError(error?.message || "Ocorreu um erro ao processar a recarga.");
       }
     } finally {
       setSaving(false);

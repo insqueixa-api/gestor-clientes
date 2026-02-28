@@ -147,6 +147,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         const tenantId = await getCurrentTenantId();
         if (!tenantId) return;
 
+// ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
         const { data, error } = await supabaseBrowser
           .from("vw_server_integrations")
           .select("id,integration_name,provider,is_active")
@@ -182,6 +183,14 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
   async function handleSave() {
     if (!name.trim()) return alert("Nome é obrigatório");
+    
+    // ✅ BLINDAGEM DE VALORES: Impede números negativos injetados por DevTools
+    const initialCredits = Number(credits) || 0;
+    const initialUnitPrice = Number(unitPrice) || 0;
+    if (initialCredits < 0 || initialUnitPrice < 0) {
+      return alert("A quantidade de créditos e o custo unitário não podem ser negativos.");
+    }
+
     setSaving(true);
 
     try {
@@ -189,6 +198,12 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       const supabase = supabaseBrowser;
 
       const cleanDns = dnsList.map((d) => d.trim()).filter((d) => d !== "");
+      
+      // ✅ PROTEÇÃO DE URL: Aplica o helper que você criou (e estava órfão) para limpar injeções XSS no Painel Web
+      let safePanelValue = panelValue.trim();
+      if (panelType === "WEB") {
+        safePanelValue = normalizeApiUrl(safePanelValue);
+      }
 
       const baseSlug = (isEditing && slug) ? slug : slugify(name);
       const safeBaseSlug = baseSlug || slugify(`server_${Date.now()}`);
@@ -228,8 +243,8 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         notes: notes?.trim() ? notes.trim() : null,
         default_currency: currency,
         panel_type: panelType || null,
-        panel_web_url: panelType === "WEB" ? panelValue : null,
-        panel_telegram_group: panelType === "TELEGRAM" ? panelValue : null,
+        panel_web_url: panelType === "WEB" ? safePanelValue : null, // ✅ Usando a variável higienizada
+        panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null, // ✅ Usando a variável higienizada
         panel_integration: integration || null,
         dns: cleanDns,
       };
@@ -444,8 +459,9 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       setSaving(false);
       onSuccess();
 } catch (error: any) {
-  if (process.env.NODE_ENV !== "production") console.error(error);
-  alert(`Erro ao salvar: ${error?.message || "Erro desconhecido"}`);
+      // ✅ Não vaza o objeto inteiro no navegador
+      if (process.env.NODE_ENV !== "production") console.error("Falha ao salvar servidor:", error?.message);
+      alert(`Erro ao salvar servidor: Verifique os dados e tente novamente.`);
       setSaving(false);
     }
   }
