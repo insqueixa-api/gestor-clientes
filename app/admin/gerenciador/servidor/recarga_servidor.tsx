@@ -142,14 +142,22 @@ async function handleSave() {
           throw new Error(`Provedor não suportado para sincronização: ${provider}`);
         }
 
+        // 👇 INÍCIO DO AJUSTE: Pegar o token para a API recém-blindada não nos bloquear 👇
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess?.session?.access_token;
+
         const syncRes = await fetch(syncUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia o crachá de acesso
+          },
           body: JSON.stringify({ 
             integration_id: server.panel_integration,
             tenant_id: tenantId // ✅ Passando o tenant_id, assim como na lista de servidores
           }),
         });
+        // 👆 FIM DO AJUSTE 👆
 
         const syncJson = await syncRes.json().catch(() => ({}));
         if (!syncRes.ok || !syncJson?.ok) {

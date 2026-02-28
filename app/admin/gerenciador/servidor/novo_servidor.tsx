@@ -259,12 +259,18 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
           const provider = String(integ?.provider || "").toUpperCase();
 
           // 2) Força um sync antes de aplicar saldo
-const syncUrl = getSyncUrlByProvider(provider);
+          const syncUrl = getSyncUrlByProvider(provider);
 
+          // ✅ INJEÇÃO DO TOKEN
+          const { data: sess } = await supabase.auth.getSession();
+          const token = sess?.session?.access_token;
 
           const syncRes = await fetch(syncUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒
+            },
             body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),
           });
 
@@ -340,12 +346,18 @@ const syncUrl = getSyncUrlByProvider(provider);
         if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
 
         const provider = String(integ?.provider || "").toUpperCase();
-const syncUrl = getSyncUrlByProvider(provider);
+        const syncUrl = getSyncUrlByProvider(provider);
 
+        // ✅ INJEÇÃO DO TOKEN
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
 
         const syncRes = await fetch(syncUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒
+          },
           body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),
         });
 

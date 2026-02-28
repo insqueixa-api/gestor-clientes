@@ -292,15 +292,23 @@ export default function AdminServersPage() {
 
       addToast("success", "Sincronizando", `Atualizando saldo da integração ${server.panel_integration_name}...`);
 
+      // 👇 INÍCIO DO AJUSTE: Pegar o token para a API recém-blindada não nos bloquear 👇
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia o crachá de acesso
+        },
         // ✅ INCLUI O TENANT_ID AQUI para evitar erro de segurança na nova API da Elite
         body: JSON.stringify({ 
           integration_id: server.panel_integration,
           tenant_id: server.tenant_id 
         }),
       });
+      
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) {

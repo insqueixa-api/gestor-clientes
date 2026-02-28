@@ -2222,19 +2222,12 @@ if (nextExternalUserId) {
 
 
 
+      // ✅ Log higienizado: removemos o "password" para não vazar no console (F12)
       console.log("🔵 Dados recebidos da API:", {
-
         username: apiUsername,
-
-        password: apiPassword,
-
         m3u_url: apiM3uUrl,
-
         exp_date: apiData?.exp_date,
-
       });
-
-
 
 // ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
 
