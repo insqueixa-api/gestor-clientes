@@ -385,20 +385,9 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
       return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
     }
 
-    // ✅ EXTRAIR TENANT DO USUÁRIO PARA BLINDAR A SERVICE ROLE
-    const um: any = userRes.user.user_metadata || {};
-    const am: any = userRes.user.app_metadata || {};
-    const userTenantId = String(um.tenant_id || am.tenant_id || "").trim();
-
-    if (!userTenantId) {
-      return NextResponse.json({ ok: false, error: "Tenant não encontrado no usuário." }, { status: 403 });
-    }
-
-    // ✅ Busca o external_user_id no banco se não veio no body (AGORA COM TRAVA DE TENANT)
+    // ✅ Busca o external_user_id no banco se não veio no body
     if (!external_user_id && (client_id || server_username)) {
-      let query = sb.from("clients")
-        .select("external_user_id, server_id, technology")
-        .eq("tenant_id", userTenantId); // 🔒 SEGURANÇA APLICADA AQUI
+      let query = sb.from("clients").select("external_user_id, server_id, technology");
       
       if (client_id) {
          query = query.eq("id", client_id);
@@ -417,12 +406,11 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
     if (!integration_id) return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
     // ✅ A trava rígida do external_user_id foi removida. O resgate dinâmico cuidará disso mais abaixo!
 
-    // ✅ Carrega apenas os dados da integração (AGORA COM TRAVA DE TENANT)
+    // ✅ Carrega apenas os dados da integração
     const { data: integ, error: integError } = await sb
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") 
       .eq("id", integration_id)
-      .eq("tenant_id", userTenantId) // 🔒 SEGURANÇA APLICADA AQUI
       .single();
 
     if (integError || !integ) throw new Error("Integração não encontrada.");

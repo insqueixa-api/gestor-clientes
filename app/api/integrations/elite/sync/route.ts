@@ -268,51 +268,24 @@ export async function POST(req: Request) {
       }
     }
 
-    const body = await req.json().catch(() => ({}));
-    const integration_id = String(body?.integration_id || "").trim();
+    const { integration_id } = await req.json().catch(() => ({}));
     if (!integration_id) {
       return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
     }
 
-    let integ = null;
-    let sbForUpdate = null;
+    const sb = createClient(
+      mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
+      { auth: { persistSession: false } }
+    );
 
-    if (isInternal) {
-      // ✅ PORTAL: Usa Service Role, mas OBRIGA a cruzar o tenant_id
-      const tenant_id = String(body?.tenant_id || "").trim();
-      if (!tenant_id) return NextResponse.json({ ok: false, error: "tenant_id obrigatório (interno)" }, { status: 400 });
+    const { data: integ, error } = await sb
+      .from("server_integrations")
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
+      .eq("id", integration_id)
+      .single();
 
-      const sbAdmin = createClient(
-        mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
-        mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
-        { auth: { persistSession: false } }
-      );
-      sbForUpdate = sbAdmin;
-
-      const { data, error } = await sbAdmin
-        .from("server_integrations")
-        .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
-        .eq("id", integration_id)
-        .eq("tenant_id", tenant_id) // TRAVA ABSOLUTA
-        .single();
-        
-      if (error) throw new Error("Integração interna não encontrada.");
-      integ = data;
-    } else {
-      // ✅ PAINEL ADMIN: Usa o client autenticado (RLS protege automaticamente)
-      const { createClient: createAuthClient } = await import("@/lib/supabase/server");
-      const sbAuth = await createAuthClient();
-      sbForUpdate = sbAuth;
-
-      const { data, error } = await sbAuth
-        .from("server_integrations")
-        .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
-        .eq("id", integration_id)
-        .single();
-
-      if (error) throw new Error("Integração não encontrada.");
-      integ = data;
-    }
+    if (error) throw error;
     if (!integ) throw new Error("Integração não encontrada.");
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
@@ -378,9 +351,7 @@ export async function POST(req: Request) {
     if (owner_id != null) patch.owner_id = owner_id;
     if (credits != null) patch.credits_last_known = credits;
 
-    let updateQuery = sbForUpdate.from("server_integrations").update(patch).eq("id", integration_id);
-    if (isInternal) updateQuery = updateQuery.eq("tenant_id", String(body?.tenant_id || "").trim());
-    await updateQuery;
+    await sb.from("server_integrations").update(patch).eq("id", integration_id);
 
     return NextResponse.json({
       ok: true,
