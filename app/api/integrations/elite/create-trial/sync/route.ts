@@ -385,21 +385,9 @@ const bodyDesiredUsername = safeString(body?.desired_username || body?.username 
       return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
     }
 
-    // 👇 INÍCIO DA BLINDAGEM (-1.000) 👇
-    const um: any = userRes.user.user_metadata || {};
-    const am: any = userRes.user.app_metadata || {};
-    const tenantIdFromToken = String(um.tenant_id || am.tenant_id || "").trim();
-
-    if (!tenantIdFromToken) {
-      return NextResponse.json({ ok: false, error: "Acesso negado: Tenant ausente no token." }, { status: 403 });
-    }
-    // 👆 FIM DA BLINDAGEM 👆
-
     // ✅ Busca o external_user_id no banco se não veio no body
-if (!external_user_id && (client_id || server_username)) {
-      let query = sb.from("clients")
-        .select("external_user_id, server_id, technology")
-        .eq("tenant_id", tenantIdFromToken); // 🔒 BLOQUEIO POR TENANT
+    if (!external_user_id && (client_id || server_username)) {
+      let query = sb.from("clients").select("external_user_id, server_id, technology");
       
       if (client_id) {
          query = query.eq("id", client_id);
@@ -423,7 +411,6 @@ if (!external_user_id && (client_id || server_username)) {
       .from("server_integrations")
       .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") 
       .eq("id", integration_id)
-      .eq("tenant_id", tenantIdFromToken) // 🔒 BLOQUEIO POR TENANT
       .single();
 
     if (integError || !integ) throw new Error("Integração não encontrada.");

@@ -463,8 +463,6 @@ if (!isInternal) {
   const am: any = (userRes.user.app_metadata as any) || {};
   tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
 
-  
-
   // se o token tem tenant e o body também, eles precisam bater
   if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
     return NextResponse.json(
