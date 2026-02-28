@@ -79,7 +79,7 @@ export default function AdminServersPage() {
   // ✅ Seu hook (pelo erro) é o formato "confirm simples"
   const { confirm, ConfirmUI } = useConfirm();
 
-
+  const [syncingServerId, setSyncingServerId] = useState<string | null>(null);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -128,9 +128,11 @@ export default function AdminServersPage() {
         .select("server_id")
         .eq("tenant_id", tenantId);
 
+      // ✅ PROTEGIDO: Adicionado .eq("tenant_id", tenantId)
       const resellersPromise = supabase
         .from("reseller_servers")
-        .select("server_id");
+        .select("server_id")
+        .eq("tenant_id", tenantId); 
 
       const integrationsPromise = supabase
         .from("vw_server_integrations")
@@ -271,11 +273,15 @@ export default function AdminServersPage() {
     }
   }
 
-  async function handleSyncIntegration(server: ServerRow) {
+async function handleSyncIntegration(server: ServerRow) {
+    if (syncingServerId === server.id) return; // ✅ Trava anti-duplo clique
+
     if (!server.panel_integration) {
       addToast("error", "Sem integração", "Este servidor não tem integração vinculada.");
       return;
     }
+
+    setSyncingServerId(server.id); // ✅ Bloqueia o botão
 
     try {
       const provider = String(server.panel_integration_provider || "").toUpperCase();
@@ -318,7 +324,9 @@ export default function AdminServersPage() {
       addToast("success", "Sincronizado", "Saldo atualizado com sucesso!");
       fetchServers();
     } catch (e: any) {
-      addToast("error", "Erro ao sincronizar", e.message);
+      addToast("error", "Erro ao sincronizar", "Falha na comunicação com o painel.");
+    } finally {
+      setSyncingServerId(null); // ✅ Liberta o botão no final
     }
   }
   async function handleHardDelete(server: ServerRow) {
@@ -363,8 +371,9 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
       addToast("success", "Excluído", "Servidor removido definitivamente.");
       fetchServers();
     } catch (error: any) {
-      console.error(error);
-      addToast("error", "Erro ao excluir", error.message);
+      // ✅ BLINDADO: Não vaza o objeto de erro inteiro no navegador do cliente
+      console.error("Falha ao excluir servidor (Dev)");
+      addToast("error", "Erro ao excluir", "Não foi possível remover o servidor.");
     }
   }
 
@@ -506,8 +515,8 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
   {/* Botão de Sync (só se tiver integração) */}
   {server.panel_integration && (
     <IconActionBtn
-      title="Sincronizar saldo da integração"
-      tone="blue"
+      title={syncingServerId === server.id ? "Sincronizando..." : "Sincronizar saldo da integração"}
+      tone={syncingServerId === server.id ? "amber" : "blue"} // ✅ Fica amarelo enquanto trabalha
       onClick={(e) => {
         e.stopPropagation();
         handleSyncIntegration(server);
