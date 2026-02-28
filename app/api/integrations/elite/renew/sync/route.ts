@@ -329,12 +329,26 @@ export async function POST(req: Request) {
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
 
     let real_external_id = external_user_id;
+    const searchTarget = targetUsername || external_user_id;
 
-    // Se o ID for texto puro (Nome), descobre o ID real primeiro
+    // Se o ID for texto puro (Nome), descobre o ID real primeiro com BUSCA EXATA
     if (isP2P && (!/^\d+$/.test(real_external_id) || real_external_id.length > 9)) {
-       const fixTable = await findRowBySearch(fc, base, csrf, real_external_id, dashboardPath, isP2P);
+       const fixTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
        if (fixTable.ok && fixTable.rows?.length > 0) {
-           real_external_id = String(fixTable.rows[0].id);
+           // Procura exatamente pelo nome ignorando maiúsculas e minúsculas
+           const exMatch = fixTable.rows.find((r: any) => 
+               String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.email).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.exField2).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.exField4).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.username).toLowerCase() === searchTarget.toLowerCase()
+           );
+           
+           if (exMatch) {
+               real_external_id = String(exMatch.id);
+           } else {
+               real_external_id = String(fixTable.rows[0].id); // Último recurso
+           }
        }
     }
 
@@ -350,18 +364,26 @@ export async function POST(req: Request) {
     let rawDateString = pickFirst(details, ["formatted_exp_date", "data.formatted_exp_date", "endTime", "data.endTime", "user.formatted_exp_date"]);
     let currentPassword = pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password"]);
     
-    // BUSCA NA TABELA (Maior fidelidade)
-    const searchTarget = isP2P ? real_external_id : targetUsername;
+    // BUSCA NA TABELA (Maior fidelidade - Trava Absoluta)
     const fallbackTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
     
     if (fallbackTable.ok && fallbackTable.rows?.length > 0) {
-       const row = fallbackTable.rows.find((r: any) => String(r?.id) === real_external_id) || fallbackTable.rows[0];
+       // Apanha apenas se o ID bater OU o nome for exatamente igual (Nada de roubar o primeiro da fila)
+       const row = fallbackTable.rows.find((r: any) => 
+           String(r?.id) === String(real_external_id) ||
+           String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
+           String(r.email).toLowerCase() === searchTarget.toLowerCase() ||
+           String(r.exField2).toLowerCase() === searchTarget.toLowerCase() ||
+           String(r.exField4).toLowerCase() === searchTarget.toLowerCase() ||
+           String(r.username).toLowerCase() === searchTarget.toLowerCase()
+       );
        
-       // Pegamos a data direto da tabela (seja ela formatada PT-BR ou ISO)
-       if (row?.formatted_exp_date || row?.endTime) {
-           rawDateString = row?.formatted_exp_date || row?.endTime;
+       if (row) {
+           if (row.formatted_exp_date || row.endTime) {
+               rawDateString = row.formatted_exp_date || row.endTime;
+           }
+           if (!currentPassword) currentPassword = row.password || row.exField2;
        }
-       if (!currentPassword) currentPassword = row?.password || row?.exField2;
     }
 
     // 5. Converte para ISO com Inteligência Absoluta
