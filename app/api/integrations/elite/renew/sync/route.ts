@@ -347,28 +347,37 @@ export async function POST(req: Request) {
     const details = detailsParsed.json ?? {};
     
     // 4. Captura Data e Senha (Caso P2P tenha mudado)
-    let expSpText = pickFirst(details, ["formatted_exp_date", "data.formatted_exp_date", "user.formatted_exp_date"]);
+    // Adicionamos "endTime" (muito comum em P2P)
+    let expSpText = pickFirst(details, ["formatted_exp_date", "data.formatted_exp_date", "endTime", "data.endTime", "user.formatted_exp_date"]);
     let currentPassword = pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password"]);
     
-    // Fallback para a Tabela caso a API de details falhe
-    if (!expSpText) {
-       const searchTarget = isP2P ? real_external_id : targetUsername;
-       const fallbackTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
-       if (fallbackTable.ok && fallbackTable.rows?.length > 0) {
-          const row = fallbackTable.rows.find((r: any) => String(r?.id) === real_external_id) || fallbackTable.rows[0];
-          expSpText = row?.formatted_exp_date;
-          if (!currentPassword) currentPassword = row?.password || row?.exField2;
+    // BUSCA NA TABELA: É a fonte de verdade mais forte, pois é o que aparece no seu dashboard!
+    const searchTarget = isP2P ? real_external_id : targetUsername;
+    const fallbackTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+    
+    if (fallbackTable.ok && fallbackTable.rows?.length > 0) {
+       const row = fallbackTable.rows.find((r: any) => String(r?.id) === real_external_id) || fallbackTable.rows[0];
+       
+       const rowExpText = row?.formatted_exp_date || row?.endTime;
+       // Se a tabela tiver a data bonitinha (ex: 20/03/2026), ela VENCE! (Prioridade Máxima)
+       if (rowExpText && String(rowExpText).includes("/")) {
+           expSpText = String(rowExpText); 
        }
+       if (!currentPassword) currentPassword = row?.password || row?.exField2;
     }
 
     // 5. Converte para ISO
     let finalExpIso = null;
-    const rawExpDateNum = pickFirst(details, ["exp_date", "data.exp_date", "user.exp_date"]);
     
-    if (typeof rawExpDateNum === "number" || (typeof rawExpDateNum === "string" && /^\d{10}$/.test(rawExpDateNum))) {
-      finalExpIso = new Date(Number(rawExpDateNum) * 1000).toISOString();
-    } else if (expSpText) {
+    // ✅ PRIORIDADE 1: Texto formatado. Evita que o P2P nos engane com "exp_date" antigos
+    if (expSpText && typeof expSpText === "string" && expSpText.includes("/")) {
       finalExpIso = parseFormattedBrDateTimeToIso(expSpText, TZ_SP);
+    } else {
+      // ✅ PRIORIDADE 2: Fallback para Timestamp (adicionado endTime)
+      const rawExpDateNum = pickFirst(details, ["endTime", "data.endTime", "exp_date", "data.exp_date"]);
+      if (typeof rawExpDateNum === "number" || (typeof rawExpDateNum === "string" && /^\d{10}$/.test(rawExpDateNum))) {
+        finalExpIso = new Date(Number(rawExpDateNum) * 1000).toISOString();
+      }
     }
 
     if (!finalExpIso) throw new Error("Não foi possível resgatar a data de vencimento da Elite.");
