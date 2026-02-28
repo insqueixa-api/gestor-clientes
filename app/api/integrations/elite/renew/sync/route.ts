@@ -368,17 +368,27 @@ export async function POST(req: Request) {
     const fallbackTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
     
     if (fallbackTable.ok && fallbackTable.rows?.length > 0) {
-       // Apanha apenas se o ID bater OU o nome for exatamente igual (Nada de roubar o primeiro da fila)
-       const row = fallbackTable.rows.find((r: any) => 
-           String(r?.id) === String(real_external_id) ||
-           String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
-           String(r.email).toLowerCase() === searchTarget.toLowerCase() ||
-           String(r.exField2).toLowerCase() === searchTarget.toLowerCase() ||
-           String(r.exField4).toLowerCase() === searchTarget.toLowerCase() ||
-           String(r.username).toLowerCase() === searchTarget.toLowerCase()
-       );
+       let row = null;
+
+       if (isP2P) {
+           // No P2P, mantemos a trava absoluta pois ele espalha o login em vários campos
+           row = fallbackTable.rows.find((r: any) => 
+               String(r?.id) === String(real_external_id) ||
+               String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.email).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.exField2).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.exField4).toLowerCase() === searchTarget.toLowerCase() ||
+               String(r.username).toLowerCase() === searchTarget.toLowerCase()
+           );
+       } else {
+           // No IPTV, o motor deles é mais preciso, tentamos o ID exato, se não, assumimos o primeiro resultado da busca
+           row = fallbackTable.rows.find((r: any) => String(r?.id) === String(real_external_id)) || fallbackTable.rows[0];
+       }
        
        if (row) {
+           // ✅ CORREÇÃO: Grava o ID real encontrado para a API poder devolvê-lo no final!
+           real_external_id = String(row.id);
+
            if (row.formatted_exp_date || row.endTime) {
                rawDateString = row.formatted_exp_date || row.endTime;
            }
