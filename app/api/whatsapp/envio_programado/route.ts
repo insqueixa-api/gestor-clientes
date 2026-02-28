@@ -225,14 +225,16 @@ moeda_cliente: moedaCliente,
 // (mantém se você ainda usa pix copia e cola automático)
 pix_copia_cola: row.pix_code || "",
 
-// ✅ PIX Manual por tipo (dinâmico via payment_gateways pix_manual)
-// OBS: aqui fica vazio e a gente preenche no POST logo depois do buildTemplateVars
+// ✅ Gateways Manuais
 pix_manual_cnpj: "",
 pix_manual_cpf: "",
 pix_manual_email: "",
 pix_manual_phone: "",
+pix_manual_aleatoria: "",
+transfer_iban: "",
+transfer_swift: "",
 
-// ✅ compat legado (se algum template antigo ainda tiver {chave_pix_manual})
+// ✅ compat legado 
 chave_pix_manual: "",
 
 valor_fatura: valorFaturaStr,
@@ -328,32 +330,56 @@ if (data) {
   throw new Error("Revenda não encontrada nas views de revenda");
 }
 
-async function fetchPixManualMap(sb: any, tenantId: string) {
+async function fetchManualPaymentMap(sb: any, tenantId: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {
+    pix_manual_cnpj: "",
+    pix_manual_cpf: "",
+    pix_manual_email: "",
+    pix_manual_phone: "",
+    pix_manual_aleatoria: "",
+    transfer_iban: "",
+    transfer_swift: "",
+    chave_pix_manual: "", // fallback legado
+  };
+
   const { data, error } = await sb
     .from("payment_gateways")
-    .select("priority, created_at, config")
+    .select("type, priority, config, created_at")
     .eq("tenant_id", tenantId)
-    .eq("type", "pix_manual")
+    .in("type", ["pix_manual", "transfer_manual"])
     .eq("is_active", true)
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  // pega o 1º de cada tipo (pela ordem priority/created_at)
-  const out: Record<string, string> = {};
+  // 1) Trata os do tipo PIX
+  const pixList = (data || [])
+    .filter((r: any) => r.type === "pix_manual")
+    .map((r: any) => ({
+      pix_key_type: String(r?.config?.pix_key_type ?? "").trim().toLowerCase(),
+      pix_key: String(r?.config?.pix_key ?? "").trim(),
+    }));
 
-  for (const g of (data || []) as any[]) {
-    const cfg = (g?.config || {}) as any;
-    const tRaw = String(cfg?.pix_key_type || "").trim().toLowerCase(); // cnpj/cpf/email/phone/random
-    const kRaw = String(cfg?.pix_key || "").trim();
+  const pickPix = (t: string) => pixList.find((p: any) => p.pix_key_type === t && p.pix_key);
 
-    if (!tRaw || !kRaw) continue;
+  out.pix_manual_cnpj = pickPix("cnpj")?.pix_key || "";
+  out.pix_manual_cpf = pickPix("cpf")?.pix_key || "";
+  out.pix_manual_email = pickPix("email")?.pix_key || "";
+  out.pix_manual_phone = pickPix("phone")?.pix_key || "";
+  out.pix_manual_aleatoria = pickPix("aleatoria")?.pix_key || pickPix("random")?.pix_key || "";
+  
+  // Preenche o legado com a primeira chave PIX válida que encontrar
+  out.chave_pix_manual = out.pix_manual_cnpj || out.pix_manual_cpf || out.pix_manual_email || out.pix_manual_phone || out.pix_manual_aleatoria || "";
 
-    if (!out[tRaw]) out[tRaw] = kRaw;
+  // 2) Trata os do tipo Transferência Internacional
+  const transferGateway = (data || []).find((r: any) => r.type === "transfer_manual");
+  if (transferGateway && transferGateway.config) {
+    out.transfer_iban = String(transferGateway.config.iban || "").trim();
+    out.transfer_swift = String(transferGateway.config.swift_bic || "").trim();
   }
 
-  return out; // { cnpj: "...", cpf:"...", email:"...", phone:"...", random:"..." }
+  return out;
 }
 
 
@@ -659,15 +685,10 @@ if ((job as any).automation_id && automationConfig) {
       let successCount = 0;
       let lastError = "";
 
-      // Puxa PIX manual uma vez
-      let pixVars: Record<string, string> = { pix_manual_cnpj: "", pix_manual_cpf: "", pix_manual_email: "", pix_manual_phone: "", chave_pix_manual: "" };
+      // Puxa Gateway Manual (PIX + Transferência Internacional) uma vez por envio
+      let manualPaymentVars: Record<string, string> = {};
       try {
-        const pix = await fetchPixManualMap(sb, String(job.tenant_id));
-        pixVars.pix_manual_cnpj = pix.cnpj || "";
-        pixVars.pix_manual_cpf = pix.cpf || "";
-        pixVars.pix_manual_email = pix.email || "";
-        pixVars.pix_manual_phone = pix.phone || "";
-        pixVars.chave_pix_manual = pix.cnpj || pix.cpf || pix.email || pix.phone || pix.random || "";
+        manualPaymentVars = await fetchManualPaymentMap(sb, String(job.tenant_id));
       } catch (e) {}
 
       // ✅ Loop de envios para os contatos vinculados à conta
@@ -677,7 +698,7 @@ if ((job as any).automation_id && automationConfig) {
           recipientRow: wa.row,
           isSecondary: contact.is_secondary,
         });
-        Object.assign(vars, pixVars);
+        Object.assign(vars, manualPaymentVars); // ✅ Injeta o PIX e o IBAN na mensagem final
 
         // Gera token exclusivo do contato atual no loop
         try {

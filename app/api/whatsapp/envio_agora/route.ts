@@ -188,38 +188,51 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
-async function fetchPixManualVars(sb: any, tenantId: string): Promise<Record<string, string>> {
-  // defaults (sempre retorna essas chaves, mesmo sem gateway)
+async function fetchManualPaymentVars(sb: any, tenantId: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {
     pix_manual_cnpj: "",
     pix_manual_cpf: "",
     pix_manual_email: "",
     pix_manual_phone: "",
+    pix_manual_aleatoria: "",
+    transfer_iban: "",
+    transfer_swift: "",
   };
 
+  // ✅ Busca tanto o PIX manual quanto a Transferência Internacional manual
   const { data, error } = await sb
     .from("payment_gateways")
-    .select("priority, config, created_at")
+    .select("type, priority, config, created_at")
     .eq("tenant_id", tenantId)
-    .eq("type", "pix_manual")
+    .in("type", ["pix_manual", "transfer_manual"])
     .eq("is_active", true)
     .order("priority", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  const list = (data || []).map((r: any) => ({
-    priority: r.priority ?? null,
-    pix_key_type: String(r?.config?.pix_key_type ?? "").trim().toLowerCase(), // cnpj/cpf/email/phone/random
-    pix_key: String(r?.config?.pix_key ?? "").trim(),
-  }));
+  // 1) Trata os do tipo PIX
+  const pixList = (data || [])
+    .filter((r: any) => r.type === "pix_manual")
+    .map((r: any) => ({
+      pix_key_type: String(r?.config?.pix_key_type ?? "").trim().toLowerCase(),
+      pix_key: String(r?.config?.pix_key ?? "").trim(),
+    }));
 
-  const pick = (t: string) => list.find((p) => p.pix_key_type === t && p.pix_key);
+  const pickPix = (t: string) => pixList.find((p: any) => p.pix_key_type === t && p.pix_key);
 
-  out.pix_manual_cnpj = pick("cnpj")?.pix_key || "";
-  out.pix_manual_cpf = pick("cpf")?.pix_key || "";
-  out.pix_manual_email = pick("email")?.pix_key || "";
-  out.pix_manual_phone = pick("phone")?.pix_key || "";
+  out.pix_manual_cnpj = pickPix("cnpj")?.pix_key || "";
+  out.pix_manual_cpf = pickPix("cpf")?.pix_key || "";
+  out.pix_manual_email = pickPix("email")?.pix_key || "";
+  out.pix_manual_phone = pickPix("phone")?.pix_key || "";
+  out.pix_manual_aleatoria = pickPix("aleatoria")?.pix_key || pickPix("random")?.pix_key || "";
+
+  // 2) Trata os do tipo Transferência Internacional
+  const transferGateway = (data || []).find((r: any) => r.type === "transfer_manual");
+  if (transferGateway && transferGateway.config) {
+    out.transfer_iban = String(transferGateway.config.iban || "").trim();
+    out.transfer_swift = String(transferGateway.config.swift_bic || "").trim();
+  }
 
   return out;
 }
@@ -328,13 +341,14 @@ valor_fatura: valorFaturaStr,
 // ✅ NOVO: moeda do cliente (tem que vir correta da sua view)
 moeda_cliente: String(row.price_currency || "").trim(),
 
-// ✅ NOVO: PIX manual por tipo (vai ser preenchido no POST via payment_gateways)
+// ✅ Gateway Manual (vai ser preenchido/sobrescrito no POST via payment_gateways)
 pix_manual_cnpj: "",
 pix_manual_cpf: "",
 pix_manual_email: "",
 pix_manual_phone: "",
-
-
+pix_manual_aleatoria: "",
+transfer_iban: "",
+transfer_swift: "",
 
     // Legado (Para não quebrar o que já existia)
     nome: displayName,
@@ -618,12 +632,12 @@ if (!tenantId || !message || !recipientType || !recipientId) {
     total_contacts: wa.phones.length,
   });
 
-  // Puxa as variáveis de PIX uma única vez para a conta
-  let pixVars: Record<string, string> = {};
+  // Puxa as variáveis dos Gateways Manuais uma única vez para a conta
+  let manualPaymentVars: Record<string, string> = {};
   try {
-    pixVars = await fetchPixManualVars(sb, tenantId);
+    manualPaymentVars = await fetchManualPaymentVars(sb, tenantId);
   } catch (e: any) {
-    safeServerLog("[WA][send_now][pix_manual] falhou", e?.message ?? e);
+    safeServerLog("[WA][send_now][manual_payments] falhou", e?.message ?? e);
   }
 
   const results = [];
@@ -638,7 +652,7 @@ if (!tenantId || !message || !recipientType || !recipientId) {
       recipientRow: wa.row,
       isSecondary: contact.is_secondary,
     });
-    Object.assign(vars, pixVars);
+    Object.assign(vars, manualPaymentVars); // ✅ Injeta o PIX e o IBAN na mensagem final
 
     // ✅ 1. CORREÇÃO DO PIN: Tenta pegar o PIN real do banco (ignora os 4 últimos dígitos se a senha tiver sido alterada)
     try {
