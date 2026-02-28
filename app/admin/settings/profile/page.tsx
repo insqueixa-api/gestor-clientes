@@ -664,15 +664,23 @@ setShowImportModal(false); // ✅ fecha modal ao iniciar
       const fd = new FormData();
       fd.append("file", file);
 
-const res = await fetch(
-  `/api/cliente/import?tenant_id=${encodeURIComponent(tenantId)}`,
-  {
-    method: "POST",
-    body: fd,
-    credentials: "same-origin",
-    cache: "no-store",
-  }
-);
+      // 👇 INÍCIO DA INJEÇÃO DO TOKEN 👇
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      // 👆 FIM DA INJEÇÃO 👆
+
+      const res = await fetch(
+        `/api/cliente/import?tenant_id=${encodeURIComponent(tenantId)}`,
+        {
+          method: "POST",
+          body: fd,
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia a credencial
+          }
+        }
+      );
 
 
       const json = await res.json().catch(() => ({} as any));

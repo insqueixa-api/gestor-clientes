@@ -104,17 +104,25 @@ const url =
 
 
 
-    addToast(
+addToast(
       "success",
       "Sincronizando",
       `Validando ${providerLabel(provider)} e buscando saldo...`
     );
 
+    // 👇 INÍCIO DA INJEÇÃO DO TOKEN (RISCO -1.000) 👇
+    const { data: sess } = await supabaseBrowser.auth.getSession();
+    const token = sess?.session?.access_token;
+
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia a credencial
+      },
       body: JSON.stringify({ integration_id: row.id }),
     });
+    // 👆 FIM DA INJEÇÃO 👆
 
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json?.ok) {

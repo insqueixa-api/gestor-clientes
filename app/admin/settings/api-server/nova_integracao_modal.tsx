@@ -62,13 +62,18 @@ useEffect(() => {
 
     try {
       setLoadingEdit(true);
+      
+      // 👇 INÍCIO DA BLINDAGEM: Garantir o Tenant ID
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Tenant não encontrado.");
 
       const { data, error } = await supabaseBrowser
         .from("server_integrations")
         .select("api_token, api_secret, api_base_url, provider, integration_name, is_active")
-
         .eq("id", integration.id)
+        .eq("tenant_id", tid) // 🔒 Trava de Segurança
         .single();
+      // 👆 FIM DA BLINDAGEM
 
       if (error) throw error;
       if (!alive) return;
@@ -155,19 +160,20 @@ return true;
 
 
   const patch: any = {
-    provider,
-    integration_name: integrationName.trim(),
-    is_active: isActive,
-    api_token: apiToken.trim(),
-    // ✅ Aplicando no Update também
-    api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
-    api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
-  };
+        provider,
+        integration_name: integrationName.trim(),
+        is_active: isActive,
+        api_token: apiToken.trim(),
+        // ✅ Aplicando no Update também
+        api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
+        api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
+      };
 
-const { error } = await supabaseBrowser
-  .from("server_integrations")
-  .update(patch)
-  .eq("id", integration!.id);
+    const { error } = await supabaseBrowser
+      .from("server_integrations")
+      .update(patch)
+      .eq("id", integration!.id)
+      .eq("tenant_id", tenantId); // 🔒 Trava de Segurança
 
 
 

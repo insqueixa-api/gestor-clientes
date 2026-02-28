@@ -431,10 +431,17 @@ const payload = {
           ? "/api/integrations/fast/sync"
           : "/api/integrations/natv/sync";
 
-        // 3C) Chama sync
+// 3C) Chama sync
+        // ✅ INJEÇÃO DO TOKEN DE SEGURANÇA
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess?.session?.access_token;
+
         const syncRes = await fetch(syncUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envio obrigatório
+          },
           body: JSON.stringify({ integration_id: serverData.panel_integration }),
         });
 
