@@ -3306,6 +3306,97 @@ if (!isEditing && registerRenewal && !isTrialMode) {
   }
 
 
+// =========================================================================
+  // 🧪 INÍCIO DO BLOCO TEMPORÁRIO: TESTE DE SYNC ELITE RENEW
+  // =========================================================================
+  const [testingSync, setTestingSync] = useState(false);
+
+  async function handleTestEliteSync() {
+    if (!serverId) {
+      addToast("warning", "Atenção", "Selecione o servidor primeiro.");
+      return;
+    }
+    
+    setTestingSync(true);
+    console.log("🧪 [TESTE ELITE SYNC] Iniciando...");
+
+    try {
+      const tid = await getCurrentTenantId();
+      
+      // Busca a integração do servidor para mandar pra API
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", serverId)
+        .single();
+        
+      if (!srv?.panel_integration) throw new Error("Servidor não tem integração vinculada.");
+
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+
+      // Monta o payload exato que o Webhook enviaria
+      const payload = {
+        integration_id: srv.panel_integration,
+        external_user_id: externalUserId || clientToEdit?.external_user_id || "",
+        username: username,
+        technology: technology,
+        tenant_id: tid
+      };
+
+      console.log("🧪 [TESTE ELITE SYNC] Enviando Payload:", payload);
+
+      const res = await fetch("/api/integrations/elite/renew/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await res.text();
+      let json: any = {};
+      try { json = JSON.parse(text); } catch {}
+
+      console.log("🧪 [TESTE ELITE SYNC] Resposta Bruta:", res.status, text);
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Falha na resposta da API.");
+      }
+
+      console.log("🟢 [TESTE ELITE SYNC] SUCESSO! Data resgatada:", json.expires_at_iso);
+
+      if (json.expires_at_iso) {
+        // Atualiza os inputs na tela na hora!
+        const dt = new Date(json.expires_at_iso);
+        const dISO = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+        const tISO = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+        setDueDate(dISO);
+        setDueTime(tISO);
+        
+        // Se a senha mudou (P2P), atualiza na tela
+        if (json.password) {
+           setPassword(json.password);
+           console.log("🟢 [TESTE ELITE SYNC] Senha resgatada:", json.password);
+        }
+
+        addToast("success", "Sync Realizado!", `Vencimento atualizado para ${dISO} ${tISO}`);
+      } else {
+        addToast("warning", "Aviso", "A API retornou OK, mas não encontrou a data.");
+      }
+
+    } catch (e: any) {
+      console.error("🔴 [TESTE ELITE SYNC] ERRO:", e);
+      addToast("error", "Erro no Sync", e.message);
+    } finally {
+      setTestingSync(false);
+    }
+  }
+  // =========================================================================
+  // 🧪 FIM DO BLOCO TEMPORÁRIO
+  // =========================================================================
+
 
   if (fetchingAux) return null;
 
@@ -4265,11 +4356,24 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 
 
                 {/* VENCIMENTO */}
-
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
 
-   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
+   {/* ========================================================== */}
+   {/* 🧪 BOTÃO TEMPORÁRIO: TESTE DE SYNC ELITE RENEW               */}
+   {/* ========================================================== */}
+   {isEditing && trialProvider === "ELITE" && (
+     <button
+       type="button"
+       onClick={handleTestEliteSync}
+       disabled={testingSync}
+       className="w-full py-2 mb-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase animate-pulse disabled:opacity-50"
+     >
+       {testingSync ? "Sincronizando Elite..." : "🧪 TESTAR SYNC ELITE (RESCATAR VENCIMENTO)"}
+     </button>
+   )}
+   {/* ========================================================== */}
 
+   {/* ✅ NOVO: Header com Período ao lado direito (só para teste) */}
    <div className="flex justify-between items-center gap-3">
 
       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vencimento</span>

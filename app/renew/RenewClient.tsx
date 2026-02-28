@@ -431,16 +431,15 @@ setPaymentPhase("awaiting_payment");
 setPaymentData(null);
 
 
-      // Chamar API de criação de pagamento
+// Chamar API de criação de pagamento
       const res = await fetch("/api/client-portal/create-payment", {
-
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_token: session,
           client_id: selectedAccount.id,
           period: renewPeriod,
-          
+          screens: selectedAccount.screens, // 🔒 Injeção da quantidade correta de telas
         }),
         cache: "no-store",
       });
@@ -679,8 +678,8 @@ if (fulfillment === "done") {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Pagamento Não Aprovado</h2>
-              <p className="text-slate-600 mb-6">O pagamento foi cancelado ou não foi aprovado.</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Falha na Renovação</h2>
+              <p className="text-slate-600 mb-6">Confirme se a transferência foi realizada e entre em contato com o suporte.</p>
               <button
                 onClick={() => {
                   setPaymentModal(false);

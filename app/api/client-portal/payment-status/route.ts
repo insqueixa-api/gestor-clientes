@@ -311,11 +311,11 @@ const { data: client, error: cErr } = await supabaseAdmin
   let newPassword = provider === "NATV" ? (renewJson?.data?.password ?? null) : null;
 
   // 2. ✅ SEGUNDA CHANCE (Para a Elite): Se a renovação deu OK mas não veio data,
-  // chamamos a sua Rota de Sync para buscar a data REAL raspando a tela da Elite.
+  // chamamos a rota leve de Sync focada em Renovação para buscar a data REAL.
   if (!expDateISO && provider === "ELITE") {
-    safeServerLog("[PAYMENT] Elite não retornou data. Iniciando Sync de resgate...");
+    safeServerLog("[PAYMENT] Elite não retornou data. Iniciando Sync de resgate via /renew/sync...");
     
-    const syncRes = await fetch(`${origin}/api/integrations/elite/create-trial/sync`, {
+    const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
       method: "POST",
       headers, // Usa os mesmos headers (com o x-internal-secret)
       body: JSON.stringify({
@@ -323,8 +323,7 @@ const { data: client, error: cErr } = await supabaseAdmin
         external_user_id: client.external_user_id,
         username: login,
         technology: client.technology,
-        password: client.server_password, // Envia a palavra-passe atual
-        rename_from_notes: false // Crucial: apenas ler os dados, sem renomear
+        tenant_id: tenantId // Passado como medida de segurança extra para o backend
       }),
     });
 
@@ -332,60 +331,17 @@ const { data: client, error: cErr } = await supabaseAdmin
 
     if (syncRes.ok && syncJson?.ok) {
       expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
-      // Se for P2P e o Sync tiver resgatado/gerado uma nova palavra-passe, atualizamos aqui!
+      // Se for P2P e o Sync tiver resgatado a palavra-passe atualizada, guardamos
       if (syncJson.password) {
           newPassword = syncJson.password;
       }
-      safeServerLog("[PAYMENT] Data resgatada com sucesso via Sync Elite:", expDateISO);
+      safeServerLog("[PAYMENT] Data resgatada com sucesso via Sync Elite Renovação:", expDateISO);
     }
   }
 
   // 3. Validação Final: Se mesmo depois do Sync a data não existir, bloqueia.
   if (!expDateISO) {
     throw new Error(`Renovado no provedor ${provider}, mas a nova data de vencimento não foi encontrada após tentativa de sincronização.`);
-  }
-
-  // ====================================================================
-  // ✅ BUSCADOR DA VERDADE (SYNC PÓS-RENOVAÇÃO)
-  // Se a integração (como Elite) não devolver a data na resposta da renovação,
-  // nós chamamos a rota de Sync da Conta para raspar a tela e trazer a data real!
-  // ====================================================================
-  if (!expDateISO) {
-    let accountSyncPath = "";
-    if (provider === "ELITE") accountSyncPath = "/api/integrations/elite/create-trial/sync";
-    
-    if (accountSyncPath) {
-      const syncRes = await fetch(`${origin}${accountSyncPath}`, {
-        method: "POST",
-        headers,
-        cache: "no-store",
-        body: JSON.stringify({
-          integration_id: integrationId,
-          external_user_id: client.external_user_id,
-          username: login,
-          technology: client.technology,
-          password: client.server_password, // Envia a senha para manter compatibilidade com IPTV
-          rename_from_notes: false // Não queremos renomear ninguem, só queremos a data
-        }),
-      });
-
-      const syncJson = await syncRes.json().catch(() => null);
-
-      if (syncRes.ok && syncJson?.ok) {
-        // Pega a data absoluta da tela da Elite!
-        expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
-        
-        // Se a Elite tiver gerado uma senha nova no processo (P2P), a gente captura!
-        if (syncJson.password) {
-            newPassword = syncJson.password;
-        }
-      }
-    }
-  }
-
-  // Se depois de tudo isso, a data ainda não existir, aí sim temos um problema grave.
-  if (!expDateISO) {
-      throw new Error(`Renovado no provedor ${provider}, mas falha ao obter a nova data de vencimento pelo Sync.`);
   }
 
   // 4) Atualizar cliente
