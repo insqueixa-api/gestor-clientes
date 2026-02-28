@@ -290,39 +290,55 @@ export async function POST(req: Request) {
 
     const tenantIdFromBody = String(body?.tenant_id || "").trim();
 
-    const sb = createClient(
-      mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
-      mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false } }
-    );
+    let integ = null;
+    let finalTenantId = tenantIdFromBody;
+    let finalClient = null; // Guardamos o client para o background patch
 
-    let tenantIdFromToken = "";
-    if (!isInternal) {
-      const { data: userRes, error: userErr } = await sb.auth.getUser(token);
+    if (isInternal) {
+      // ✅ PORTAL: Service Role + Trava de Tenant
+      if (!tenantIdFromBody) {
+        return NextResponse.json({ ok: false, error: "tenant_id obrigatório para chamadas internas." }, { status: 400 });
+      }
+
+      const sbAdmin = createClient(
+        mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
+        mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
+        { auth: { persistSession: false } }
+      );
+      finalClient = sbAdmin;
+
+      const { data, error } = await sbAdmin
+        .from("server_integrations")
+        .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
+        .eq("id", integration_id)
+        .eq("tenant_id", tenantIdFromBody)
+        .single();
+        
+      if (error) throw new Error("Integração interna não encontrada.");
+      integ = data;
+
+    } else {
+      // ✅ PAINEL ADMIN: Usa a própria sessão do usuário para buscar. RLS Protege.
+      const sbAuth = await import("@/lib/supabase/server").then(m => m.createClient());
+      finalClient = sbAuth;
+
+      const { data: userRes, error: userErr } = await sbAuth.auth.getUser();
       if (userErr || !userRes?.user) {
-        return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
+        return NextResponse.json({ ok: false, error: "Unauthorized (invalid session)" }, { status: 401 });
       }
 
-      const um: any = (userRes.user.user_metadata as any) || {};
-      const am: any = (userRes.user.app_metadata as any) || {};
-      tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
+      const { data, error } = await sbAuth
+        .from("server_integrations")
+        .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
+        .eq("id", integration_id)
+        .single();
 
-      if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
-        return NextResponse.json({ ok: false, error: "tenant_id inválido." }, { status: 403 });
-      }
+      if (error) throw new Error("Integração não encontrada ou acesso negado.");
+      integ = data;
+      finalTenantId = integ.tenant_id; // Pegamos o tenant real retornado pelo RLS
     }
 
-    const tenantId = tenantIdFromToken || tenantIdFromBody;
-
-    // Carrega a integração Elite
-    const { data: integ, error } = await sb
-      .from("server_integrations")
-      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
-      .eq("id", integration_id)
-      .eq("tenant_id", tenantId)
-      .single();
-
-    if (error || !integ) throw new Error("Integração não encontrada.");
+    if (!integ) throw new Error("Integração não encontrada.");
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração inativa.");
 
@@ -354,16 +370,16 @@ export async function POST(req: Request) {
            trace.push({ step: "id_fixed", new_id: external_user_id });
            
            // Background Patch para salvar no banco o ID encontrado (Usa IIFE assíncrona para não quebrar o TS)
-           if (tenantId) {
-             (async () => {
-               const { error } = await sb.from("clients")
-                 .update({ external_user_id: external_user_id })
-                 .eq("tenant_id", tenantId)
-                 .eq("server_username", searchTarget)
-                 .is("external_user_id", null);
-               if (error) console.log("Erro no background patch:", error.message);
-             })();
-           }
+            if (finalTenantId && finalClient) {
+              (async () => {
+                const { error } = await finalClient.from("clients")
+                  .update({ external_user_id: external_user_id })
+                  .eq("tenant_id", finalTenantId)
+                  .eq("server_username", searchTarget)
+                  .is("external_user_id", null);
+                if (error) console.log("Erro no background patch:", error.message);
+              })();
+            }
        } else {
            throw new Error(`Não foi possível encontrar o ID do usuário '${searchTarget}' no painel. Verifique se ele realmente existe lá.`);
        }
