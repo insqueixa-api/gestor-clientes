@@ -901,21 +901,61 @@ if (!apiRes.ok || !apiJson.ok) {
 }
 
             // 1.5. Atualizar com dados da API
-            const expDateISO = apiJson.data?.exp_date_iso;
-            if (expDateISO) {
-                apiVencimento = expDateISO; // ✅ Se a API devolver a data exata (Fast/NaTV), usa ela. 
-            } // Senão (Elite), mantém o "apiVencimento" perfeitamente calculado pelo seu front-end!
+            let expDateISO = apiJson.data?.exp_date_iso;
+            
+            // ✅ SEGUNDA CHANCE ELITE: O painel renovou, mas não deu a data. Vamos pescar!
+            if (!expDateISO && provider === "ELITE") {
+              setLoadingText("Resgatando data real (Elite)...");
+              
+              // Delay respiratório de 1.5s
+              await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // NATV: atualiza senha / FAST/ELITE: mantém intacta
+              try {
+                const syncRes = await fetch("/api/integrations/elite/renew/sync", {
+                  method: "POST",
+                  headers: { 
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}) 
+                  },
+                  body: JSON.stringify({
+                    integration_id: srv.panel_integration,
+                    external_user_id: clientData.external_user_id || clientData.username,
+                    username: clientData.username,
+                    technology: finalTechnology,
+                    tenant_id: tid
+                  }),
+                });
+
+                const syncJson = await syncRes.json().catch(() => null);
+                if (syncRes.ok && syncJson?.ok) {
+                  expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
+                  
+                  // Se o P2P da Elite girou uma senha nova, a gente captura!
+                  if (syncJson.password) {
+                    apiPassword = syncJson.password;
+                  }
+                }
+              } catch (e) {
+                console.warn("⚠️ Falha não crítica no Sync pós-renovação Elite:", e);
+              }
+            }
+
+            // Define a data final
+            if (expDateISO) {
+                apiVencimento = expDateISO; // Data absoluta do painel
+            } 
+            // Se falhar o resgate, cai no fallback seguro: a data que estava na tela do modal.
+
+            // NATV: atualiza senha / FAST: mantém intacta
             if (provider === "NATV" && apiJson.data?.password) {
               apiPassword = apiJson.data.password;
             }
 
-            // 1.6. Sync créditos
+            // 1.6. Sync créditos globais do servidor
             let syncUrl = "";
             if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
             else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
-            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync"; 
+            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync";
             
             if (syncUrl) {
               await fetch(syncUrl, {

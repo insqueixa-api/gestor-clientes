@@ -313,7 +313,13 @@ const { data: client, error: cErr } = await supabaseAdmin
   // 2. ✅ SEGUNDA CHANCE (Para a Elite): Se a renovação deu OK mas não veio data,
   // chamamos a rota leve de Sync focada em Renovação para buscar a data REAL.
   if (!expDateISO && provider === "ELITE") {
-    safeServerLog("[PAYMENT] Elite não retornou data. Iniciando Sync de resgate via /renew/sync...");
+    safeServerLog("[PAYMENT] Elite renovado com sucesso. Aguardando 1.5s para o painel respirar antes do Sync...");
+    
+    // 👇 DELAY DE SEGURANÇA (1500ms) 👇
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    // 👆 FIM DO DELAY 👇
+
+    safeServerLog("[PAYMENT] Iniciando Sync de resgate via /renew/sync...");
     
     const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
       method: "POST",
