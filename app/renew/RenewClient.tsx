@@ -232,6 +232,7 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "approved" | "rejected">("pending");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
 
   // ✅ NOVO: fases do fluxo (UI mais clara)
   const [paymentPhase, setPaymentPhase] = useState<
@@ -399,6 +400,9 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   }, [selectedAccountId]);
 
   const handleRenew = async () => {
+    // ✅ Bloqueia execução duplicada
+    if (isProcessingPayment) return;
+    
     if (!selectedAccount) return;
     if (!session) {
       alert("Sessão expirada. Abra o link novamente.");
@@ -423,15 +427,17 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
 
     if (!renewPeriod) return;
 
-        try {
+    try {
+      setIsProcessingPayment(true); // ✅ Trava o botão
+      
       // ✅ reset total do modal/fluxo
-(window as any).__cp_done_scheduled = false; // ✅ reset do agendamento de reload
-setPaymentStatus("pending");
-setPaymentPhase("awaiting_payment");
-setPaymentData(null);
+      (window as any).__cp_done_scheduled = false; 
+      setPaymentStatus("pending");
+      setPaymentPhase("awaiting_payment");
+      setPaymentData(null);
 
 
-// Chamar API de criação de pagamento
+      // Chamar API de criação de pagamento
       const res = await fetch("/api/client-portal/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -465,6 +471,8 @@ setPaymentData(null);
     } catch (err: any) {
       debugErr("Erro ao renovar (dev):", err?.message || err);
       alert("Erro ao processar renovação. Tente novamente.");
+    } finally {
+      setIsProcessingPayment(false); // ✅ Liberta o botão (o modal já abriu ou deu erro)
     }
   };
 
@@ -1403,10 +1411,22 @@ if (fulfillment === "done") {
           return (
             <button
               onClick={handleRenew}
-              disabled={!renewPrice || !renewPrice.price_amount}
-              className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-lg mt-2"
+              disabled={!renewPrice || !renewPrice.price_amount || isProcessingPayment} // ✅ Desativa se estiver a processar
+              className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-lg mt-2"
             >
-              💸 Concluir Renovação • {renewPrice && renewPrice.price_amount > 0 ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency) : "—"}
+              {isProcessingPayment ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processando...
+                </>
+              ) : (
+                <>
+                  💸 Concluir Renovação • {renewPrice && renewPrice.price_amount > 0 ? formatMoney(renewPrice.price_amount, selectedAccount.price_currency) : "—"}
+                </>
+              )}
             </button>
           );
         })()}
