@@ -290,18 +290,20 @@ export async function POST(req: Request) {
       auth: { persistSession: false },
     });
 
-    let tenantId = "";
-    if (isInternal) {
-      tenantId = String(body.tenant_id || "");
-    } else {
+    // Validar se o utilizador está logado (se a chamada vier do Front-end)
+    if (!isInternal) {
       const { data: userRes, error: userErr } = await sb.auth.getUser(token);
-      if (userErr || !userRes?.user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-      const um: any = userRes.user.user_metadata || {};
-      const am: any = userRes.user.app_metadata || {};
-      tenantId = String(um.tenant_id || am.tenant_id || "").trim();
+      if (userErr || !userRes?.user) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
     }
 
-    if (!tenantId) return NextResponse.json({ ok: false, error: "Acesso negado: Tenant ausente." }, { status: 403 });
+    // Pega o Tenant diretamente da requisição que você enviou (Front ou Webhook)
+    const tenantId = String(body?.tenant_id || "").trim();
+
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "tenant_id obrigatório no body." }, { status: 400 });
+    }
 
     // 1. Busca Integração
     const { data: integ, error: integError } = await sb
