@@ -709,38 +709,38 @@ const payload = {
                 </div>
               </div>
 
-   {/* ✅ BLOCO DO WHATSAPP */}
-              <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/5 space-y-3 animate-in zoom-in-95 duration-500">
-                <div onClick={() => setSendWhats(!sendWhats)} className="cursor-pointer flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar comprovante via WhatsApp?</span>
+   {/* ✅ BLOCO DO WHATSAPP (Linha Única) */}
+              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in zoom-in-95 duration-500">
+                
+                {/* Toggle */}
+                <div 
+                  onClick={() => setSendWhats(!sendWhats)} 
+                  className="cursor-pointer flex items-center gap-3 shrink-0"
+                >
                   <Switch checked={sendWhats} onChange={setSendWhats} label="" />
+                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                    Enviar comprovante?
+                  </span>
                 </div>
 
+                {/* Seletor (Só aparece se o toggle estiver ON) */}
                 {sendWhats && (
-                  <div className="animate-in fade-in zoom-in duration-200 space-y-3 pt-3 border-t border-slate-200 dark:border-white/10">
-                    <div>
-                      <Label>Modelo de Mensagem</Label>
-                      <Select
-                        value={selectedTemplateId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setSelectedTemplateId(id);
-                          const tpl = templates.find((t) => t.id === id);
-                          if (tpl) setMessageContent(tpl.content);
-                        }}
-                      >
-                        <option value="">-- Personalizado --</option>
-                        {templates.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </Select>
-                    </div>
-                    <textarea
-                      value={messageContent}
-                      onChange={(e) => setMessageContent(e.target.value)}
-                      className="w-full h-24 px-3 py-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
-                      placeholder="Olá, sua recarga foi efetuada..."
-                    />
+                  <div className="w-full sm:w-auto flex-1 max-w-[240px] animate-in fade-in slide-in-from-right-2 duration-200">
+                    <Select
+                      value={selectedTemplateId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setSelectedTemplateId(id);
+                        const tpl = templates.find((t) => t.id === id);
+                        if (tpl) setMessageContent(tpl.content);
+                      }}
+                      className="h-8 text-xs font-semibold text-slate-600 dark:text-white/70"
+                    >
+                      <option value="">-- Personalizado --</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </Select>
                   </div>
                 )}
               </div>
