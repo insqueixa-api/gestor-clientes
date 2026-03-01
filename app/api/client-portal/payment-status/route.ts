@@ -226,8 +226,8 @@ async function runFulfillment(params: {
 // 1) Carrega cliente
 const { data: client, error: cErr } = await supabaseAdmin
   .from("clients")
-  // ✅ ADICIONADO: server_password, necessário para o Sync da Elite funcionar
-  .select("id,tenant_id,display_name,server_username,server_password,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial")
+  // ✅ ADICIONADO: screens (para não gravar sempre 1 no log)
+  .select("id,tenant_id,display_name,server_username,server_password,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial,screens")
   .eq("tenant_id", tenantId)
   .eq("id", payment.client_id)
   .single();

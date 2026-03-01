@@ -7,6 +7,27 @@ import { getCurrentTenantId } from "@/lib/tenant";
 
 type Currency = "BRL" | "USD" | "EUR";
 
+// ✅ Tipagem dos Templates de Mensagem
+interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+}
+
+// ✅ Helper para Toast na Listagem Principal
+function queueToast(type: "success" | "error", title: string, message?: string) {
+  try {
+    if (typeof window === "undefined") return;
+    const key = "resellers_list_toasts"; // Chave separada para a tela de revendas
+    const raw = window.sessionStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    arr.push({ type, title, message, ts: Date.now() });
+    window.sessionStorage.setItem(key, JSON.stringify(arr));
+  } catch (e) {
+    console.error("Erro ao salvar toast", e);
+  }
+}
+
 type ResellerServerRow = {
   reseller_server_id: string;
   tenant_id: string;
@@ -156,6 +177,13 @@ export default function QuickRechargeModal({
   const [notes, setNotes] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
+  const [loadingText, setLoadingText] = useState("Processando..."); // ✅ Texto dinâmico do botão
+
+  // ✅ Estados do WhatsApp
+  const [sendWhats, setSendWhats] = useState(true);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [messageContent, setMessageContent] = useState("");
 
   // --- Lógica derivada ---
   const qty = useMemo(() => {
@@ -281,8 +309,24 @@ export default function QuickRechargeModal({
             r.unit_price_override != null ? Number(r.unit_price_override) : null,
         }));
 
-        if (!alive) return;
+if (!alive) return;
         setServers(mapped);
+
+        // ✅ BUSCAR TEMPLATES E PRÉ-SELECIONAR "RECARGA REVENDA"
+        const { data: tmplData } = await supabaseBrowser
+          .from("message_templates")
+          .select("id, name, content")
+          .eq("tenant_id", tid)
+          .order("name", { ascending: true });
+
+        if (tmplData && alive) {
+          setTemplates(tmplData);
+          const defaultTpl = tmplData.find((t) => t.name.toLowerCase().includes("recarga revenda"));
+          if (defaultTpl) {
+            setSelectedTemplateId(defaultTpl.id);
+            setMessageContent(defaultTpl.content);
+          }
+        }
 
         // seleção inicial
         const preselect =
@@ -368,10 +412,11 @@ export default function QuickRechargeModal({
     };
   }, [tenantId, currency]);
 
-  async function onSave() {
+async function onSave() {
     if (!canSave || saving) return;
 
     setSaving(true);
+    setLoadingText("Processando recarga..."); // ✅ Adicionado
     try {
       if (!tenantId) throw new Error("Tenant inválido");
       if (!selectedLink?.server_id) throw new Error("Servidor inválido no vínculo");
@@ -459,8 +504,43 @@ const payload = {
         if (error) throw new Error(error.message);
       }
 
-      await onDone();
-      onClose();
+      // ✅ 5) ENVIAR WHATSAPP SE ESTIVER ATIVO
+      if (sendWhats && messageContent && messageContent.trim()) {
+        setLoadingText("Enviando WhatsApp...");
+        try {
+          const { data: session } = await supabaseBrowser.auth.getSession();
+          const token = session.session?.access_token;
+
+          const res = await fetch("/api/whatsapp/envio_agora", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tenant_id: tenantId,
+              reseller_id: resellerId, // ✅ A API entende que é revenda
+              message: messageContent,
+              whatsapp_session: "default",
+            }),
+          });
+
+          if (!res.ok) throw new Error("API retornou erro");
+          queueToast("success", "Mensagem Enviada", "A recarga foi feita e o comprovante entregue no WhatsApp.");
+        } catch (e) {
+          console.error("Falha envio Whats:", e);
+          queueToast("error", "Recarga Feita", "A recarga funcionou, mas o envio do WhatsApp falhou.");
+        }
+      } else {
+         queueToast("success", "Recarga Concluída", "Créditos adicionados com sucesso.");
+      }
+
+      setLoadingText("Concluído!");
+      setTimeout(async () => {
+        await onDone();
+        onClose();
+      }, 500);
+
     } catch (err: any) {
       const msg = err?.message || String(err);
       onError?.(msg);
@@ -629,6 +709,42 @@ const payload = {
                 </div>
               </div>
 
+   {/* ✅ BLOCO DO WHATSAPP */}
+              <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/5 space-y-3 animate-in zoom-in-95 duration-500">
+                <div onClick={() => setSendWhats(!sendWhats)} className="cursor-pointer flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar comprovante via WhatsApp?</span>
+                  <Switch checked={sendWhats} onChange={setSendWhats} label="" />
+                </div>
+
+                {sendWhats && (
+                  <div className="animate-in fade-in zoom-in duration-200 space-y-3 pt-3 border-t border-slate-200 dark:border-white/10">
+                    <div>
+                      <Label>Modelo de Mensagem</Label>
+                      <Select
+                        value={selectedTemplateId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSelectedTemplateId(id);
+                          const tpl = templates.find((t) => t.id === id);
+                          if (tpl) setMessageContent(tpl.content);
+                        }}
+                      >
+                        <option value="">-- Personalizado --</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    <textarea
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      className="w-full h-24 px-3 py-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-all"
+                      placeholder="Olá, sua recarga foi efetuada..."
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="animate-in slide-in-from-bottom-4 duration-500">
                 <Label>Observações internas (opcional)</Label>
                 <textarea
@@ -657,9 +773,12 @@ const payload = {
                     })
                   }
                   disabled={!canSave || saving}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600 disabled:opacity-50 text-white font-bold transition-colors"
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600 disabled:opacity-50 text-white font-bold transition-colors flex items-center justify-center gap-2"
                 >
-                  {saving ? "Salvando..." : "Confirmar recarga"}
+                  {saving && (
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  )}
+                  {saving ? loadingText : "Confirmar recarga"}
                 </button>
               </div>
             </div>
@@ -668,5 +787,16 @@ const payload = {
       </div>
     </div>,
     typeof document !== "undefined" ? document.body : null
+  );
+}
+
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string; }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      {label && <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>}
+      <button type="button" onClick={(e) => { e.stopPropagation(); onChange(!checked); }} className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"}`} aria-pressed={checked}>
+        <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      </button>
+    </div>
   );
 }
