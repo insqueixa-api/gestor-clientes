@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import * as XLSX from "xlsx"; // ✅ NOVO
 
 type ExportRow = {
   saudacao: string;
@@ -391,18 +392,25 @@ valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : Stri
     };
   });
 
-  const csv = toCsv(rows);
+  // ✅ Geração nativa em Excel (XLSX)
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
+  
+  // Escreve o ficheiro num buffer (memória)
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
-  const filename = `clientes_${y}-${m}-${d}.csv`;
+  const filename = `clientes_${y}-${m}-${d}.xlsx`; // ✅ Nova extensão
 
-  return new NextResponse(csv, {
+  return new NextResponse(buffer, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      // ✅ Headers corretos para Excel
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
     },
