@@ -12,7 +12,14 @@ const COUNTRIES = [
   { name: "Portugal", code: "351" },
   { name: "Reino Unido", code: "44" },
   { name: "Espanha", code: "34" },
+  { name: "Alemanha", code: "49" },
+  { name: "França", code: "33" },
+  { name: "Itália", code: "39" },
+  { name: "Irlanda", code: "353" }, // ✅ ADICIONADO
+  { name: "México", code: "52" },
   { name: "Argentina", code: "54" },
+  { name: "Colômbia", code: "57" },
+  { name: "Chile", code: "56" },
 ];
 
 function normalizeE164(raw: string) {
@@ -26,16 +33,27 @@ function applyPhoneNormalization(rawInput: string) {
     return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
   }
 
-  // 1) Se o usuário digitou só número local BR (10/11), assume DDI 55
+  // 1) Descobre se começa com um DDI conhecido
   const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
   const hasKnownDDI = sorted.some((c) => digits.startsWith(c.code));
 
-  const e164 = !hasKnownDDI && (digits.length === 10 || digits.length === 11)
-    ? `+55${digits}`
-    : `+${digits}`;
+  // ✅ 2) Lógica à prova de bala:
+  // Se ele digitou explicitamente um "+" na UI, NUNCA forçamos o "55".
+  const userTypedPlus = (rawInput || "").trim().startsWith("+");
 
-  // 2) Deriva país + número local e formata pra UI
-  const info = splitE164Advanced(e164); // usa seu helper existente
+  let e164 = "";
+  if (userTypedPlus || hasKnownDDI) {
+    e164 = `+${digits}`;
+  } else if (!hasKnownDDI && (digits.length === 10 || digits.length === 11)) {
+    // Se não tem "+", não é DDI conhecido, e tem 10/11 dígitos: assume Brasil.
+    e164 = `+55${digits}`;
+  } else {
+    // Fallback de segurança
+    e164 = `+${digits}`;
+  }
+
+  // 3) Deriva país + número local e formata pra UI
+  const info = splitE164Advanced(e164); 
   const nationalDigits = info.localNumber || "";
   const formattedNational = formatLocalNumber(nationalDigits);
 
@@ -44,13 +62,21 @@ function applyPhoneNormalization(rawInput: string) {
   return { countryLabel, e164, nationalDigits, formattedNational };
 }
 
-
-
 function splitE164Advanced(e164: string) {
   const digits = e164.replace(/\D+/g, "");
   const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
   const country = sorted.find(c => digits.startsWith(c.code));
-  if (!country) return { countryName: "País", countryCode: "00", localNumber: digits };
+  
+  // ✅ Se não achar o país na lista, pega os primeiros 3 dígitos (ou 2) inteligentemente em vez de quebrar
+  if (!country) {
+      const fallbackCode = digits.slice(0, 3);
+      return { 
+          countryName: "🌍 DDI Desconhecido", 
+          countryCode: fallbackCode, 
+          localNumber: digits.slice(fallbackCode.length) 
+      };
+  }
+  
   return { countryName: country.name, countryCode: country.code, localNumber: digits.slice(country.code.length) };
 }
 

@@ -808,7 +808,12 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
   const uniqueplano = useMemo(() => Array.from(new Set(rows.map((r) => r.planPeriod).filter((p) => p !== "—"))).sort(), [rows]);
 
   const filtered = useMemo(() => {
-  const q = search.trim().toLowerCase();
+  // ✅ Normaliza a busca: remove espaços, joga pra minúsculo e arranca todos os acentos
+  const q = search
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
   const today = isoDateInSaoPaulo();
   const end3 = addDaysIsoInSaoPaulo(today, 3);
@@ -827,21 +832,21 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
           case "Hoje": if (diff !== 0) return false; break;
           case "Vence Amanhã": if (diff !== 1) return false; break;
           case "Vence em 2 dias": if (diff !== 2) return false; break;
-          
-            
           case "Mês Atual":
-            // Compara se o prefixo YYYY-MM é igual
             const currentMonth = isoDateInSaoPaulo().slice(0, 7);
             if (!r.dueISODate.startsWith(currentMonth)) return false;
             break;
-          
         }
       }
 
     if (q) {
+      // ✅ Normaliza o "palheiro" (dados do cliente): joga pra minúsculo e arranca acentos
       const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status]
         .join(" ")
-        .toLowerCase();
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+        
       if (!hay.includes(q)) return false;
     }
 

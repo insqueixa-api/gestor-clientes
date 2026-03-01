@@ -22,6 +22,7 @@ const DDI_OPTIONS: DdiOption[] = [
   { code: "49", label: "Alemanha", flag: "🇩🇪" },
   { code: "33", label: "França", flag: "🇫🇷" },
   { code: "39", label: "Itália", flag: "🇮🇹" },
+  { code: "353", label: "Irlanda", flag: "🇮🇪" }, // ✅ ADICIONADO
   { code: "52", label: "México", flag: "🇲🇽" },
   { code: "54", label: "Argentina", flag: "🇦🇷" },
   { code: "56", label: "Chile", flag: "🇨🇱" },
@@ -70,24 +71,31 @@ function onlyDigits(raw: string) {
   return raw.replace(/\D+/g, "");
 }
 
-function inferDDIFromDigits(allDigits: string): string {
+// ✅ 1. Melhorada a função inferDDIFromDigits para aceitar o originalInput
+function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
   const digits = onlyDigits(allDigits || "");
   if (!digits) return "55";
+
   const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
   for (const opt of sorted) {
     if (digits.startsWith(opt.code)) return opt.code;
   }
+
+  // ✅ Se tem "+" explícito, não força "55", extrai os primeiros dígitos possíveis
+  if (originalInput && originalInput.trim().startsWith("+")) {
+    return digits.slice(0, 3);
+  }
+
   return "55";
 }
 
 function ddiMeta(ddi: string) {
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
   if (!opt) return { 
-      label: `+${ddi}`, 
+      label: `DDI Desconhecido (+${ddi})`, 
       code: ddi,
-      pretty: `+${ddi}` 
+      pretty: `🌍 DDI (+${ddi})` // ✅ Mais seguro e claro
   };
-  // ✅ ALTERADO: Retorna formato "Brasil (+55)" em vez da bandeira
   return { 
       label: `${opt.label} (+${opt.code})`, 
       code: opt.code,
@@ -124,21 +132,30 @@ function formatNational(ddi: string, nationalDigits: string) {
   return groups.join(" ").trim();
 }
 
+// ✅ 2. Passar o input cru para a splitE164
 function splitE164(raw: string) {
   const digits = onlyDigits(raw);
-  const ddi = inferDDIFromDigits(digits);
+  const ddi = inferDDIFromDigits(digits, raw);
   const national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
   return { ddi, national };
 }
 
+// ✅ 3. Passar o input cru para a applyPhoneNormalization
 function applyPhoneNormalization(rawInput: string) {
   const rawDigits = onlyDigits(rawInput);
   if (!rawDigits) {
     return { prettyPrefix: "—", e164: "", formattedNational: "", nationalDigits: "" };
   }
-  const ddi = inferDDIFromDigits(rawDigits);
+  
+  // Se o user digitou apenas os 10 ou 11 do Brasil sem +, garante o 55
+  let finalInputToInfer = rawInput;
+  if (!rawInput.trim().startsWith("+") && (rawDigits.length === 10 || rawDigits.length === 11)) {
+     finalInputToInfer = `+55${rawDigits}`;
+  }
+
+  const ddi = inferDDIFromDigits(onlyDigits(finalInputToInfer), finalInputToInfer);
   const meta = ddiMeta(ddi);
-  const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
+  const nationalDigits = onlyDigits(finalInputToInfer).startsWith(ddi) ? onlyDigits(finalInputToInfer).slice(ddi.length) : onlyDigits(finalInputToInfer);
   const formattedNational = formatNational(ddi, nationalDigits);
   const e164 = `+${ddi}${nationalDigits}`;
   return { 

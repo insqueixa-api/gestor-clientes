@@ -214,13 +214,25 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
 
   const filteredAccounts = useMemo(() => {
     if (!searchQuery.trim()) return accounts;
-    const lowerQuery = searchQuery.toLowerCase();
-    return accounts.filter(
-      (a) =>
-        (a.display_name || "").toLowerCase().includes(lowerQuery) ||
-        (a.server_username || "").toLowerCase().includes(lowerQuery) ||
-        (a.server_name || "").toLowerCase().includes(lowerQuery)
-    );
+    
+    // ✅ Normaliza a busca: minúsculas e sem acentos
+    const normalizedQuery = searchQuery
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    return accounts.filter((a) => {
+      // ✅ Junta os campos do cliente e normaliza também
+      const hay = [a.display_name, a.server_username, a.server_name]
+        .map(v => String(v || ""))
+        .join(" ")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+      return hay.includes(normalizedQuery);
+    });
   }, [accounts, searchQuery]);
   // -------------------------------------------------------------------------
 

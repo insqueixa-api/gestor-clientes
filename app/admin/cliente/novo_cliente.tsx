@@ -202,6 +202,7 @@ const DDI_OPTIONS: DdiOption[] = [
 { code: "45", label: "Dinamarca", flag: "🇩🇰" },
 { code: "48", label: "Polônia", flag: "🇵🇱" },
 { code: "30", label: "Grécia", flag: "🇬🇷" },
+{ code: "353", label: "Irlanda", flag: "🇮🇪" }, // ✅ ADICIONADO
 
 // América
 { code: "507", label: "Panamá", flag: "🇵🇦" },
@@ -258,22 +259,31 @@ const DDI_OPTIONS: DdiOption[] = [
 ];
 
 
-function inferDDIFromDigits(allDigits: string): string {
+function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
   const digits = onlyDigits(allDigits || "");
   if (!digits) return "55";
+  
+  // Tenta encontrar nos conhecidos primeiro
   const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
-
   for (const opt of sorted) {
     if (digits.startsWith(opt.code)) return opt.code;
   }
 
+  // Se o usuário digitou "+" explicitamente, não força "55". Tenta extrair.
+  if (originalInput && originalInput.trim().startsWith("+")) {
+      // DDI tem no máximo 3 ou 4 dígitos, pega o que fizer sentido
+      const possibleDDI = digits.slice(0, 3); 
+      return possibleDDI; 
+  }
+
+  // Se não tem + e não está na lista, assume Brasil
   return "55";
 }
 
 function ddiMeta(ddi: string) {
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
 
-  if (!opt) return { label: `+${ddi}`, pretty: `+${ddi}` };
+  if (!opt) return { label: `DDI Desconhecido (+${ddi})`, pretty: `🌍 DDI (+${ddi})` }; // ✅ Mais amigável
   return { label: `${opt.label} (+${opt.code})`, pretty: `${opt.flag} ${opt.label} (+${opt.code})` };
 }
 
@@ -736,7 +746,7 @@ const [messageContent, setMessageContent] = useState("");
       };
     }
 
-    const ddi = inferDDIFromDigits(rawDigits);
+    const ddi = inferDDIFromDigits(rawDigits, rawInput); // ✅ Passa a string inteira
     const meta = ddiMeta(ddi);
     const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
     const formattedNational = formatNational(ddi, nationalDigits);
