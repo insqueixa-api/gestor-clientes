@@ -595,14 +595,50 @@ if (connected) {
 }
 
 
-    function handleExportClients() {
+const [exporting, setExporting] = useState(false);
+
+  async function handleExportClients() {
     if (!tenantId) {
       addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
       return;
     }
-    // dispara download do CSV
-    window.location.href = `/api/cliente/export?tenant_id=${encodeURIComponent(tenantId)}`;
+    
+  setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
 
+    try {
+      const res = await fetch(`/api/cliente/export?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "GET",
+      });
+
+      if (!res.ok) {
+        throw new Error("Falha ao gerar o arquivo de exportação.");
+      }
+
+      // Baixa o arquivo gerado via Blob
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      // Tenta pegar o nome do arquivo no Header, senao usa fallback
+      const disposition = res.headers.get("Content-Disposition");
+      let filename = `clientes_export.xlsx`;
+      if (disposition && disposition.includes("filename=")) {
+        filename = disposition.split("filename=")[1].replace(/["']/g, "");
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (e: any) {
+      addToast("error", "Erro ao exportar", e.message);
+    } finally {
+      setExporting(false);
+    }
   }
 
   function handleImportClick() {
@@ -696,24 +732,42 @@ setShowImportModal(false); // ✅ fecha modal ao iniciar
       const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
       const warnCount = Array.isArray(json?.warnings) ? json.warnings.length : 0;
 
-const summary = `Total: ${json.total} | Atualizados: ${json.updated} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
+      const summary = `Total: ${json.total} | Atualizados: ${json.updated} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
 
-// ✅ Se teve erro, não mostra como "success"
-if (errCount > 0) {
-  addToast("error", "Import com erros", summary);
+      // ✅ Se teve erro, gera um log para download
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", `${summary}. O relatório de erros será descarregado.`);
 
-  // mostra até 5 erros (pra não explodir a UI)
-  const topErrors = (json.errors || []).slice(0, 5);
-  for (const it of topErrors) {
-    addToast("error", "Falha em linhas da planilha", `Linha ${it.row}: ${it.error}`);
-  }
+        // Criar conteúdo do Log
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE CLIENTES\n`;
+        logContent += `Data: ${new Date().toLocaleString("pt-BR")}\n`;
+        logContent += `${summary}\n\n`;
+        logContent += `--- DETALHE DOS ERROS ---\n`;
+        
+        json.errors.forEach((e: any) => {
+          logContent += `Linha ${e.row}: ${e.error}\n`;
+        });
 
-  if (Array.isArray(json.errors) && json.errors.length > 5) {
-    addToast("error", "Mais erros", `+${json.errors.length - 5} linhas com erro. Ajuste e importe novamente.`);
-  }
+        if (warnCount > 0) {
+          logContent += `\n--- DETALHE DOS AVISOS ---\n`;
+          json.warnings.forEach((w: any) => {
+            logContent += `Linha ${w.row}: ${w.warning}\n`;
+          });
+        }
 
-  return; // ✅ não recarrega
-}
+        // Fazer download do Log (.txt)
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `relatorio_importacao_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        return; // ✅ não recarrega, pois o utilizador tem de corrigir o ficheiro
+      }
 
 // ✅ Sem erro: sucesso de verdade
 addToast("success", "Import concluído", summary);
@@ -786,16 +840,23 @@ return (
         </button>
 
         <button
-  type="button"
-  disabled={importing}
-  onClick={() => {
-    setShowImportModal(false);
-    importFileRef.current?.click();
-  }}
-  className="w-full px-4 py-2 rounded-lg bg-emerald-600 ... disabled:opacity-50 disabled:cursor-not-allowed"
->
-  {importing ? "⏳ Importando..." : "⬆️ Importar planilha"}
-</button>
+          type="button"
+          disabled={importing}
+          onClick={() => {
+            // Nao fecha o modal AQUI, senao voce nao ve o loader! O modal fecha na funcao handleImportFile
+            importFileRef.current?.click();
+          }}
+          className="w-full h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {importing ? (
+            <>
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              Processando e Importando...
+            </>
+          ) : (
+            "⬆️ Selecionar e Importar Planilha"
+          )}
+        </button>
 
       </div>
 
@@ -956,10 +1017,17 @@ return (
                     <button
                       type="button"
                       onClick={handleExportClients}
-                      disabled={!tenantId}
-                      className="mt-2 px-3 py-2 rounded bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/20 transition-colors text-left flex items-center gap-2 w-fit disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!tenantId || exporting}
+                      className="mt-2 px-3 py-2 rounded bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/20 transition-colors text-left flex items-center justify-center gap-2 w-fit disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
                     >
-                      ⬇️ Exportar agora
+                      {exporting ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                          Processando...
+                        </span>
+                      ) : (
+                        "⬇️ Exportar agora"
+                      )}
                     </button>
 
                 </div>
