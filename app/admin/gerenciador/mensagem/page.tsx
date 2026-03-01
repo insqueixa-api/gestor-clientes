@@ -101,6 +101,7 @@ type MessageTemplate = {
   name: string;
   content: string;
   updated_at: string;
+  is_system_default: boolean; // ✅ NOVO
 };
 
 // ============================================================================
@@ -131,10 +132,11 @@ export default function MessagesPage() {
     const tid = await getCurrentTenantId();
     if (!tid) return;
 
-    const { data, error } = await supabaseBrowser
+const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id, name, content, updated_at")
+      .select("id, name, content, updated_at, is_system_default")
       .eq("tenant_id", tid)
+      .order("is_system_default", { ascending: false }) // ✅ Lista os padrões do sistema primeiro
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -349,13 +351,16 @@ return (
                       <IconEdit />
                     </button>
 
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
-                      title="Excluir"
-                    >
-                      <IconTrash />
-                    </button>
+                    {/* 🔒 Trava o botão de apagar */}
+                    {!msg.is_system_default && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
+                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
+                        title="Excluir"
+                      >
+                        <IconTrash />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -659,9 +664,19 @@ return createPortal(
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Cobrança 3 dias antes..."
-                className="w-full h-12 px-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium"
-                autoFocus
+                readOnly={templateToEdit?.is_system_default} // 🔒 Trava a edição
+                className={`w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium ${
+                  templateToEdit?.is_system_default
+                    ? "bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 cursor-not-allowed"
+                    : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
+                }`}
+                autoFocus={!templateToEdit?.is_system_default}
               />
+              {templateToEdit?.is_system_default && (
+                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-bold flex items-center gap-1">
+                  🔒 Este é um modelo do sistema. O nome não pode ser alterado, apenas o conteúdo abaixo.
+                </p>
+              )}
             </div>
 
             <div className="flex-1 flex flex-col">

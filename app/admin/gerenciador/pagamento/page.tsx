@@ -248,19 +248,13 @@ function GatewayModal({
   const meta = GATEWAY_META.find((m) => m.type === selectedType);
 
   async function handleSave() {
-    if (!selectedType || !meta) {
-      alert("⚠️ Erro: O tipo de integração não está selecionado.");
-      return;
-    }
+    if (!selectedType || !meta) return;
 
-    // 1. Validação de Campos Obrigatórios
     const missingFields = meta.fields
       .filter((f) => f.required && !String(form[f.key] ?? "").trim())
       .map((f) => f.label);
 
     if (missingFields.length > 0) {
-      // ✅ Alerta forçado no meio da tela para o usuário ver
-      alert(`⚠️ Faltam dados!\n\nPor favor, preencha:\n- ${missingFields.join("\n- ")}`);
       setError(`Campos obrigatórios: ${missingFields.join(", ")}`);
       return;
     }
@@ -270,7 +264,7 @@ function GatewayModal({
 
     try {
       const tenantId = await getCurrentTenantId();
-      if (!tenantId) throw new Error("Tenant inválido. Atualize a página.");
+      if (!tenantId) throw new Error("Sessão inválida. Atualize a página.");
 
       const supabase = supabaseBrowser;
 
@@ -309,10 +303,7 @@ function GatewayModal({
       onSave();
       onClose();
     } catch (err: any) {
-      console.error("Erro completo do banco:", err);
-      // ✅ Alerta forçado se o banco rejeitar algo (para não morrer silenciosamente)
-      alert(`❌ Erro ao salvar no banco:\n\n${err?.message ?? "Falha desconhecida"}`);
-      setError(err?.message ?? "Erro ao salvar");
+      setError(err?.message ?? "Erro ao salvar.");
     } finally {
       setSaving(false);
     }
