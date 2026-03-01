@@ -519,7 +519,9 @@ const payload = {
             },
             body: JSON.stringify({
               tenant_id: tenantId,
-              reseller_id: resellerId, // ✅ A API entende que é revenda
+              reseller_id: resellerId,
+              reseller_server_id: selectedResellerServerId, // ✅ Mandamos a chave exata do vínculo
+              credits_recharged: qty, // ✅ Mandamos a quantidade exata feita AGORA
               message: messageContent,
               whatsapp_session: "default",
             }),

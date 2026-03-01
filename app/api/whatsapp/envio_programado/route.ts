@@ -204,13 +204,15 @@ const moedaCliente = String(row.price_currency || row.currency || "").trim(); //
     plano_nome: row.plan_name || "",
     telas_qtd: String(row.screens || ""),
     tecnologia: row.technology || "",
-    servidor_nome: row.server_name || "",
+    servidor_nome: row.servidor_nome || row.server_name || "",
 
     data_vencimento: dueAt ? toBRDate(dueAt) : "",
     hora_vencimento: dueAt ? toBRTime(dueAt) : "",
     dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
 
-    revenda_nome: row.reseller_name || "",
+    revenda_nome: row.reseller_name || row.display_name || row.name || "",
+    usuario_revenda: row.usuario_revenda || "",
+    venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "",
     revenda_site: row.reseller_panel_url || "",
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
@@ -315,8 +317,25 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
       continue;
     }
 
-if (data) {
+    if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
+      
+      // ✅ NOVO: Busca dados adicionais do vínculo com o servidor (o mais recente)
+      const { data: rsData } = await sb
+        .from("reseller_servers")
+        .select("server_username, last_recharge_credits, servers(name)")
+        .eq("tenant_id", tenantId)
+        .eq("reseller_id", resellerId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rsData) {
+        data.usuario_revenda = rsData.server_username;
+        data.venda_creditos = rsData.last_recharge_credits;
+        data.servidor_nome = rsData.servers?.name;
+      }
+
       return {
         phones: phone ? [{ number: phone, is_secondary: false }] : [],
         whatsapp_opt_in: (data as any).whatsapp_opt_in === true,

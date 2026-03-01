@@ -64,7 +64,8 @@ const TAG_GROUPS = [
     title: "🏢 Dados da Revenda",
     color: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
     tags: [
-      { label: "{revenda_nome}", desc: "Nome Painel (name)" },
+      { label: "{revenda_nome}", desc: "Nome do Revendedor" },
+      { label: "{usuario_revenda}", desc: "Usuário no Painel (server_username)" }, // ✅ NOVO
       { label: "{revenda_site}", desc: "Link Painel (panel_web_url)" },
       { label: "{revenda_telegram}", desc: "Telegram (panel_telegram_group)" },
       { label: "{revenda_dns}", desc: "Lista DNS (dns)" },
@@ -74,6 +75,7 @@ const TAG_GROUPS = [
   title: "💰 Financeiro",
   color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
   tags: [
+    { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" }, // ✅ NOVO
     { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
     { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
     { label: "{valor_fatura}", desc: "Valor da renovação" },
@@ -84,7 +86,7 @@ const TAG_GROUPS = [
     { label: "{pix_manual_cpf}", desc: "Chave PIX (tipo CPF)" },
     { label: "{pix_manual_email}", desc: "Chave PIX (tipo E-mail)" },
     { label: "{pix_manual_phone}", desc: "Chave PIX (tipo Telefone)" },
-    { label: "{pix_manual_aleatoria}", desc: "Chave PIX Aleatória" }, // Adicionado para cobrir todos
+    { label: "{pix_manual_aleatoria}", desc: "Chave PIX Aleatória" },
 
     // ✅ Transferência Internacional Manual
     { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },

@@ -310,47 +310,44 @@ const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}`
     primeiro_nome: primeiroNome,
     nome_completo: displayName,
     whatsapp: row.whatsapp_username || "",
-    observacoes: row.notes || "", // Mantido como fallback se um dia você adicionar notes
+    observacoes: row.notes || "",
     data_cadastro: createdAt ? toBRDate(createdAt) : "",
 
-    // 🖥️ Acesso e Servidor (Nomes exatos do Banco)
+    // 🖥️ Acesso e Servidor
     usuario_app: row.username || "",
     senha_app: row.server_password || "",
     plano_nome: row.plan_name || "",
     telas_qtd: String(row.screens || ""),
     tecnologia: row.technology || "",
-    servidor_nome: row.server_name || "",
+    servidor_nome: row.servidor_nome || row.server_name || "", // ✅ ACEITA O NOME DO SERVIDOR INJETADO
 
     // 📅 Dados da Assinatura
     data_vencimento: dueAt ? toBRDate(dueAt) : "",
     hora_vencimento: dueAt ? toBRTime(dueAt) : "",
     dia_da_semana_venc: dueAt ? weekdayPtBR(dueAt) : "",
 
-    // 🏢 Revenda (Mantido compatibilidade caso haja revendas depois)
-    revenda_nome: row.reseller_name || "",
+    // 🏢 Revenda 
+    revenda_nome: row.reseller_name || row.display_name || row.name || "", // ✅ ROBUSTEZ NO NOME
+    usuario_revenda: row.usuario_revenda || "", // ✅ NOVO
     revenda_site: row.reseller_panel_url || "",
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
 
-    
-// 💰 Financeiro
-link_pagamento: linkPagamento,
-pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", // ✅ PIN inicial padrão
-valor_fatura: valorFaturaStr,
+    // 💰 Financeiro
+    venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "", // ✅ NOVO
+    link_pagamento: linkPagamento,
+    pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", 
+    valor_fatura: valorFaturaStr,
+    moeda_cliente: String(row.price_currency || "").trim(),
+    pix_manual_cnpj: "",
+    pix_manual_cpf: "",
+    pix_manual_email: "",
+    pix_manual_phone: "",
+    pix_manual_aleatoria: "",
+    transfer_iban: "",
+    transfer_swift: "",
 
-// ✅ NOVO: moeda do cliente (tem que vir correta da sua view)
-moeda_cliente: String(row.price_currency || "").trim(),
-
-// ✅ Gateway Manual (vai ser preenchido/sobrescrito no POST via payment_gateways)
-pix_manual_cnpj: "",
-pix_manual_cpf: "",
-pix_manual_email: "",
-pix_manual_phone: "",
-pix_manual_aleatoria: "",
-transfer_iban: "",
-transfer_swift: "",
-
-    // Legado (Para não quebrar o que já existia)
+    // Legado
     nome: displayName,
     tipo_destino: params.recipientType,
   };
@@ -410,14 +407,14 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
   };
 }
 
-async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string) {
+async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string, resellerServerId?: string, creditsRecharged?: string) {
   const tryViews = ["vw_resellers_list_active", "vw_resellers_list_archived"];
   let lastErr: any = null;
 
   for (const view of tryViews) {
     const { data, error } = await sb
       .from(view)
-      .select("*") // ✅ precisa da linha pra tags (wa.row)
+      .select("*")
       .eq("tenant_id", tenantId)
       .eq("id", resellerId)
       .maybeSingle();
@@ -427,13 +424,33 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
       continue;
     }
 
-if (data) {
+    if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
+      
+      // ✅ NOVO: Busca dados de servidor, usuário e créditos
+      let serverQuery = sb.from("reseller_servers").select("server_username, last_recharge_credits, servers(name)").eq("tenant_id", tenantId).eq("reseller_id", resellerId);
+      
+      // Se enviou da recarga agorinha, busca exato o servidor da recarga. Se for envio avulso/manual, busca o último mexido.
+      if (resellerServerId) {
+          serverQuery = serverQuery.eq("id", resellerServerId);
+      } else {
+          serverQuery = serverQuery.order("updated_at", { ascending: false }).limit(1);
+      }
+      
+      const { data: rsData } = await serverQuery.maybeSingle();
+
+      if (rsData) {
+        data.usuario_revenda = rsData.server_username;
+        // Prioriza os créditos exatos que vieram da tela agorinha, se não tiver, pega o que ficou guardado no banco
+        data.venda_creditos = creditsRecharged != null ? creditsRecharged : rsData.last_recharge_credits;
+        data.servidor_nome = rsData.servers?.name;
+      }
+
       return {
         phones: phone ? [{ number: phone, is_secondary: false }] : [],
         whatsapp_opt_in: (data as any).whatsapp_opt_in === true,
         dont_message_until: ((data as any).whatsapp_snooze_until as string | null) ?? null,
-        row: data, // ✅ para variáveis
+        row: data, 
       };
     }
   }
@@ -576,10 +593,13 @@ if (!tenantId || !message || !recipientType || !recipientId) {
 }
 
 
-  // ✅ pega SEMPRE do destino certo
+  const rawResellerServerId = String((body as any).reseller_server_id || "").trim();
+  const rawCredits = (body as any).credits_recharged != null ? String((body as any).credits_recharged) : undefined;
+
+  // ✅ pega SEMPRE do destino certo (passando servidor e créditos se existirem)
   const wa =
     recipientType === "reseller"
-      ? await fetchResellerWhatsApp(sb, tenantId, recipientId)
+      ? await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits)
       : await fetchClientWhatsApp(sb, tenantId, recipientId);
 
   // Validação 1: Conta sem números salvos
