@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import * as XLSX from "xlsx"; // ✅ NOVO: Importação da biblioteca
 
 export const dynamic = "force-dynamic";
 
@@ -55,47 +56,7 @@ function parseBool(v: string): boolean {
   return s === "1" || s === "true" || s === "sim" || s === "yes" || s === "y";
 }
 
-// Parser CSV simples (suporta ; e aspas)
-function parseCsv(text: string): { headers: string[]; rows: string[][] } {
-  const input = text.replace(/^\uFEFF/, "");
-  const lines = input.split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
-
-  const rows: string[][] = [];
-  for (const line of lines) {
-    const out: string[] = [];
-    let cur = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-
-      if (ch === '"') {
-        const next = line[i + 1];
-        if (inQuotes && next === '"') {
-          cur += '"';
-          i++;
-          continue;
-        }
-        inQuotes = !inQuotes;
-        continue;
-      }
-
-      if (!inQuotes && ch === ";") {
-        out.push(cur);
-        cur = "";
-        continue;
-      }
-
-      cur += ch;
-    }
-    out.push(cur);
-    rows.push(out.map((x) => x.trim()));
-  }
-
-  const headers = rows[0] ?? [];
-  const data = rows.slice(1);
-  return { headers, rows: data };
-}
+// ✅ A FUNÇÃO parseCsv FOI APAGADA AQUI. NÃO PRECISA MAIS DELA!
 
 function splitNomeCompleto(full: string): { first_name: string | null; last_name: string | null; display_name: string } {
   const name = (full || "").trim().replace(/\s+/g, " ");
@@ -403,8 +364,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const text = await file.text();
-  const { headers, rows } = parseCsv(text);
+  // ✅ NOVO: Leitura do ficheiro Excel (.xlsx) nativo
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  
+  // Pega a primeira folha de cálculo
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+
+  // Converte para um array de arrays (igual ao que o seu parser antigo fazia)
+  // defval: "" garante que células vazias não quebrem a ordem das colunas
+  const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+  
+  // Limpa linhas que estejam completamente vazias (normal no Excel)
+  const dataRows = allRows.filter(r => r.join("").trim() !== "");
+
+  // Separa o Cabeçalho (primeira linha) do resto dos Dados
+  const headers = (dataRows[0] || []).map(String);
+  const rows = dataRows.slice(1);
 
   const colIndex = new Map<string, number>();
   headers.forEach((h, idx) => colIndex.set(normalizeHeader(h), idx));

@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
+import * as XLSX from "xlsx"; // ✅ NOVO
 
 export const dynamic = "force-dynamic";
 
-function csvEscape(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  const s = String(v);
-  if (/[",\n\r;]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
 export async function GET() {
+  
   const headers = [
     "Saudacao",
     "Nome Completo",
@@ -73,18 +68,20 @@ export async function GET() {
     "14:30", // Cadastro hora (opcional)
   ];
 
-  const lines: string[] = [];
-  lines.push(headers.map(csvEscape).join(";"));
-  lines.push(example.map(csvEscape).join(";"));
+  // ✅ Geração do Excel nativo em vez de linhas de texto CSV
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, example]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
 
-  // BOM ajuda o Excel a reconhecer UTF-8
-  const csv = "\ufeff" + lines.join("\n");
+  // Cria o ficheiro em memória (buffer)
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-  return new NextResponse(csv, {
+  return new NextResponse(buffer, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="template_import_clientes.csv"`,
+      // ✅ MIME Type do Excel e nova extensão (.xlsx)
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="template_import_clientes.xlsx"`,
       "Cache-Control": "no-store",
     },
   });
