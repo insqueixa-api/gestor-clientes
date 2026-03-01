@@ -159,7 +159,7 @@ const GATEWAY_META: GatewayMeta[] = [
     type: "transfer_manual",
     label: "Transferência Internacional",
     description: "Dados diretos para transferência.",
-    currencies: ["INTL"], // Tag genérica para não poluir
+    currencies: ["USD", "EUR"], // ✅ Revertido para não quebrar a lógica de renderização
     is_online: false,
     icon: "🏦",
     color: "from-blue-600 to-indigo-600",
@@ -248,13 +248,19 @@ function GatewayModal({
   const meta = GATEWAY_META.find((m) => m.type === selectedType);
 
   async function handleSave() {
-    if (!selectedType || !meta) return;
+    if (!selectedType || !meta) {
+      alert("⚠️ Erro: O tipo de integração não está selecionado.");
+      return;
+    }
 
+    // 1. Validação de Campos Obrigatórios
     const missingFields = meta.fields
       .filter((f) => f.required && !String(form[f.key] ?? "").trim())
       .map((f) => f.label);
 
     if (missingFields.length > 0) {
+      // ✅ Alerta forçado no meio da tela para o usuário ver
+      alert(`⚠️ Faltam dados!\n\nPor favor, preencha:\n- ${missingFields.join("\n- ")}`);
       setError(`Campos obrigatórios: ${missingFields.join(", ")}`);
       return;
     }
@@ -264,11 +270,10 @@ function GatewayModal({
 
     try {
       const tenantId = await getCurrentTenantId();
-      if (!tenantId) throw new Error("Tenant inválido");
+      if (!tenantId) throw new Error("Tenant inválido. Atualize a página.");
 
       const supabase = supabaseBrowser;
 
-      // ✅ payload base (SEM tenant_id no UPDATE)
       const basePayload = {
         name: meta.label,
         type: selectedType,
@@ -276,7 +281,6 @@ function GatewayModal({
         priority,
         is_active: isActive,
         is_online: meta.is_online,
-        // ✅ Agora permite que a transferência manual também seja marcada como fallback
         is_manual_fallback: (selectedType === "pix_manual" || selectedType === "transfer_manual") ? isManualFallback : false,
         config: form,
         updated_at: new Date().toISOString(),
@@ -305,6 +309,9 @@ function GatewayModal({
       onSave();
       onClose();
     } catch (err: any) {
+      console.error("Erro completo do banco:", err);
+      // ✅ Alerta forçado se o banco rejeitar algo (para não morrer silenciosamente)
+      alert(`❌ Erro ao salvar no banco:\n\n${err?.message ?? "Falha desconhecida"}`);
       setError(err?.message ?? "Erro ao salvar");
     } finally {
       setSaving(false);
