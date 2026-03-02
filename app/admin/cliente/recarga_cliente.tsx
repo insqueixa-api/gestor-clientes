@@ -769,8 +769,8 @@ if (c.server_id) {
       const isFromTrial = Boolean(allowConvertWithoutPayment);
       const isPaymentFlow = Boolean(registerPayment);
 
-      // Monta o resumo para o popup (mudamos para any[] para aceitar elementos visuais)
-      const details: any[] = [];
+      // Monta o resumo para o popup (voltamos ao string[] puro para evitar bullets vazios)
+      const details: string[] = [];
 
       const nameToShow = clientData?.display_name || clientName || "—";
       const usernameToShow = clientData?.username || "—";
@@ -780,8 +780,8 @@ if (c.server_id) {
       details.push(`Username: ${usernameToShow}`);
       details.push(`Servidor: ${serverToShow}`);
       
-      // ✅ Separador real: linha fina (1px) que ocupa pouquíssimo espaço vertical
-      details.push(<div key="divider" className="h-px w-full bg-slate-200 dark:bg-white/10 my-0.5" />);
+      // ✅ Linha fina feita com traço EM (mais limpo e longo, funde-se nativamente)
+      details.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
       details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
       details.push(`Telas: ${screens}`);
@@ -806,7 +806,7 @@ if (c.server_id) {
         subtitle: "Confira os dados antes de salvar.",
         tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
         icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
-        details: details as any, // ✅ Evita erro de TypeScript por passarmos HTML
+        details,
         confirmText: "Confirmar",
         cancelText: "Voltar",
       });
