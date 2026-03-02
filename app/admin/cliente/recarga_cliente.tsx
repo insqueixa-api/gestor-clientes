@@ -769,8 +769,8 @@ if (c.server_id) {
       const isFromTrial = Boolean(allowConvertWithoutPayment);
       const isPaymentFlow = Boolean(registerPayment);
 
-      // Monta o resumo para o popup
-      const details: string[] = [];
+      // Monta o resumo para o popup (mudamos para any[] para aceitar elementos visuais)
+      const details: any[] = [];
 
       const nameToShow = clientData?.display_name || clientName || "—";
       const usernameToShow = clientData?.username || "—";
@@ -779,7 +779,10 @@ if (c.server_id) {
       details.push(`Cliente: ${nameToShow}`);
       details.push(`Username: ${usernameToShow}`);
       details.push(`Servidor: ${serverToShow}`);
-      details.push(`----------------`);
+      
+      // ✅ Separador real: linha fina (1px) que ocupa pouquíssimo espaço vertical
+      details.push(<div key="divider" className="h-px w-full bg-slate-200 dark:bg-white/10 my-0.5" />);
+      
       details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
       details.push(`Telas: ${screens}`);
       details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
@@ -798,12 +801,12 @@ if (c.server_id) {
         // ✅ NOVO: deixa o título com o nome também (fica bem claro)
         title:
           isFromTrial && !isPaymentFlow
-            ? `Converter Cliente — ${nameToShow}`
-            : `Confirmar Renovação — ${nameToShow}`,
+            ? `Converter Cliente`
+            : `Confirmar Renovação`,
         subtitle: "Confira os dados antes de salvar.",
         tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
         icon: isFromTrial && !isPaymentFlow ? "✨" : "💰",
-        details,
+        details: details as any, // ✅ Evita erro de TypeScript por passarmos HTML
         confirmText: "Confirmar",
         cancelText: "Voltar",
       });
