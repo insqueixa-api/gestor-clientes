@@ -781,7 +781,7 @@ if (c.server_id) {
       details.push(`Servidor: ${serverToShow}`);
       
       // ✅ Linha fina feita com traço EM (mais limpo e longo, funde-se nativamente)
-      details.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      details.push(`---`);
       
       details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
       details.push(`Telas: ${screens}`);

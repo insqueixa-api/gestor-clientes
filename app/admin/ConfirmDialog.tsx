@@ -110,15 +110,27 @@ export default function ConfirmDialog({
           </div>
         </div>
 
-        {details.length > 0 && (
+{details.length > 0 && (
           <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
             <ul className="space-y-2">
-              {details.map((line, i) => (
-                <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                  <span className={`${t.dot} font-bold`}>•</span>
-                  <span className="break-words whitespace-pre-wrap">{line}</span>
-                </li>
-              ))}
+              {details.map((line, i) => {
+                // ✅ NOVO: Se o texto for "---", desenha um divider nativo sem bolinha
+                if (line === "---") {
+                  return (
+                    <li key={i} className="py-1">
+                      <div className="w-full h-px bg-slate-200 dark:bg-white/10" />
+                    </li>
+                  );
+                }
+
+                // Renderização normal para os restantes itens
+                return (
+                  <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                    <span className={`${t.dot} font-bold`}>•</span>
+                    <span className="break-words whitespace-pre-wrap">{line}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
