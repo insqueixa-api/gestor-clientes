@@ -255,7 +255,7 @@ export default function AdminShell({
             <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/teste" label="🧪 Testes" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label="⏱️ Testes" onClick={() => setOpenMenu(null)} />
 
             <Divider />
 
@@ -263,9 +263,9 @@ export default function AdminShell({
               Gerenciador
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/plano" label="📦 Planos" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label="🛒 Planos" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagem padrão" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/cobranca" label="🧾 Cobrança" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label="💵 Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
             <Divider />
