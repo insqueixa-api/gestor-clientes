@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  whatsapp:
+    build: .
+    container_name: unigestor-whatsapp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Sessões persistidas — sobrevivem a restarts e rebuilds
+      - ./auth:/app/auth
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    # Limites de memória (seguro para o Droplet de 1GB)
+    mem_limit: 400m
+    memswap_limit: 400m
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

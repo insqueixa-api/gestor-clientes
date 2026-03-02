@@ -1,0 +1,269 @@
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+} from "@whiskeysockets/baileys";
+import { Boom } from "@hapi/boom";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import pino from "pino";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const AUTH_DIR = path.resolve(__dirname, "../auth");
+
+// Mensagem enviada ao rejeitar chamadas
+const CALL_REJECT_MESSAGE =
+  process.env.CALL_REJECT_MESSAGE ||
+  "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado!";
+
+// logger silencioso para Baileys (evita spam nos logs)
+const baileysLogger = pino({ level: "silent" });
+
+// Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
+const sessions = new Map();
+
+// Callbacks de QR por sessão: sessionKey -> fn(qr)
+const qrCallbacks = new Map();
+
+function getSessionDir(sessionKey) {
+  return path.join(AUTH_DIR, sessionKey);
+}
+
+function ensureAuthDir(sessionKey) {
+  const dir = getSessionDir(sessionKey);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getSession(sessionKey) {
+  return sessions.get(sessionKey) || null;
+}
+
+function getAllSessions() {
+  const result = [];
+  for (const [key, sess] of sessions.entries()) {
+    result.push({
+      sessionKey: key,
+      status: sess.status,
+      jid: sess.jid || null,
+      pushName: sess.pushName || null,
+    });
+  }
+  return result;
+}
+
+async function createSession(sessionKey) {
+  // Evita criar duplicata
+  const existing = sessions.get(sessionKey);
+  if (existing && existing.status === "connected") return existing;
+
+  const sessionDir = ensureAuthDir(sessionKey);
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sessData = {
+    socket: null,
+    qr: null,
+    status: "connecting", // connecting | qr | connected | disconnected
+    jid: null,
+    pushName: null,
+    pictureUrl: null,
+    retries: 0,
+  };
+  sessions.set(sessionKey, sessData);
+
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    logger: baileysLogger,
+    printQRInTerminal: false,
+    browser: ["UniGestor", "Chrome", "120.0.0"],
+    connectTimeoutMs: 30_000,
+    defaultQueryTimeoutMs: 20_000,
+    keepAliveIntervalMs: 25_000,
+    retryRequestDelayMs: 2_000,
+    markOnlineOnConnect: false,
+  });
+
+  sessData.socket = sock;
+
+  // ── Credenciais ──────────────────────────────────────────────
+  sock.ev.on("creds.update", saveCreds);
+
+  // ── Conexão ──────────────────────────────────────────────────
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    // QR gerado
+    if (qr) {
+      sessData.qr = qr;
+      sessData.status = "qr";
+      console.log(`[WA][${sessionKey.slice(0, 8)}] QR pronto`);
+
+      const cb = qrCallbacks.get(sessionKey);
+      if (cb) cb(qr);
+    }
+
+    if (connection === "open") {
+      sessData.status = "connected";
+      sessData.qr = null;
+      sessData.retries = 0;
+      sessData.jid = sock.user?.id || null;
+      sessData.pushName = sock.user?.name || null;
+      console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Conectado: ${sessData.pushName}`);
+
+      // Tenta buscar foto de perfil
+      try {
+        if (sessData.jid) {
+          sessData.pictureUrl = await sock.profilePictureUrl(sessData.jid, "image").catch(() => null);
+        }
+      } catch {}
+    }
+
+    if (connection === "close") {
+      const statusCode = (lastDisconnect?.error instanceof Boom)
+        ? lastDisconnect.error.output?.statusCode
+        : null;
+
+      const shouldReconnect =
+        statusCode !== DisconnectReason.loggedOut &&
+        statusCode !== DisconnectReason.forbidden &&
+        sessData.retries < 5;
+
+      console.log(`[WA][${sessionKey.slice(0, 8)}] Desconectado (${statusCode}), reconectar: ${shouldReconnect}`);
+
+      if (shouldReconnect) {
+        sessData.status = "connecting";
+        sessData.retries++;
+        const delay = Math.min(sessData.retries * 3000, 15000);
+        setTimeout(() => createSession(sessionKey), delay);
+      } else {
+        sessData.status = "disconnected";
+        // Se foi logout, apaga credenciais
+        if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.forbidden) {
+          console.log(`[WA][${sessionKey.slice(0, 8)}] Logout detectado — limpando credenciais`);
+          deleteSessionFiles(sessionKey);
+        }
+      }
+    }
+  });
+
+  // ── Rejeição de Chamadas ─────────────────────────────────────
+  sock.ev.on("call", async (calls) => {
+    for (const call of calls) {
+      if (call.status !== "offer") continue; // só quando chega a chamada
+      try {
+        // Rejeita a chamada
+        await sock.rejectCall(call.id, call.from);
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+
+        // Envia mensagem explicativa
+        await sock.sendMessage(call.from, { text: CALL_REJECT_MESSAGE });
+        console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${call.from}`);
+      } catch (e) {
+        console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
+      }
+    }
+  });
+
+  return sessData;
+}
+
+async function disconnectSession(sessionKey) {
+  const sess = sessions.get(sessionKey);
+  if (!sess) return false;
+
+  try {
+    await sess.socket?.logout();
+  } catch {}
+
+  sess.status = "disconnected";
+  sessions.delete(sessionKey);
+  deleteSessionFiles(sessionKey);
+  return true;
+}
+
+function deleteSessionFiles(sessionKey) {
+  const dir = getSessionDir(sessionKey);
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de sessão removidos`);
+  }
+}
+
+async function sendMessage(sessionKey, phone, message) {
+  const sess = sessions.get(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    throw new Error("Sessão não conectada");
+  }
+
+  // Normaliza número para JID do WhatsApp
+  const jid = normalizeJid(phone);
+
+  const result = await sess.socket.sendMessage(jid, { text: message });
+  return {
+    ok: true,
+    messageId: result?.key?.id || null,
+  };
+}
+
+async function validateNumber(sessionKey, phone) {
+  const sess = sessions.get(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    throw new Error("Sessão não conectada para validar número");
+  }
+
+  const jid = normalizeJid(phone);
+  const [result] = await sess.socket.onWhatsApp(jid);
+
+  return {
+    phone,
+    exists: !!result?.exists,
+    jid: result?.jid || null,
+  };
+}
+
+function normalizeJid(phone) {
+  // Remove tudo que não for dígito
+  const digits = String(phone).replace(/\D/g, "");
+
+  // Já tem código de país (começa com 55 para Brasil)
+  // Monta o JID padrão do WhatsApp
+  return `${digits}@s.whatsapp.net`;
+}
+
+// ── Auto-reconectar sessões existentes no disco ───────────────
+async function restoreExistingSessions() {
+  if (!fs.existsSync(AUTH_DIR)) {
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+    return;
+  }
+
+  const dirs = fs.readdirSync(AUTH_DIR).filter((d) => {
+    return fs.statSync(path.join(AUTH_DIR, d)).isDirectory();
+  });
+
+  console.log(`[WA] Restaurando ${dirs.length} sessão(ões) existente(s)...`);
+
+  for (const sessionKey of dirs) {
+    try {
+      await createSession(sessionKey);
+      // Pequeno delay entre sessões para não sobrecarregar
+      await new Promise((r) => setTimeout(r, 2000));
+    } catch (e) {
+      console.error(`[WA] Erro ao restaurar sessão ${sessionKey.slice(0, 8)}:`, e?.message);
+    }
+  }
+}
+
+export {
+  createSession,
+  disconnectSession,
+  sendMessage,
+  validateNumber,
+  getSession,
+  getAllSessions,
+  restoreExistingSessions,
+  qrCallbacks,
+};
