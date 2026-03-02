@@ -489,7 +489,7 @@ const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_tria
     .from(viewName)
     .select("*")
     .eq("tenant_id", tid)
-    .eq("computed_status", "TRIAL")
+    // ✅ REMOVIDO: .eq("computed_status", "TRIAL") -> O próprio banco já trata isto e a Lixeira precisa do "ARCHIVED"
     .order("vencimento", { ascending: false, nullsFirst: false });
 
   if (error) {
