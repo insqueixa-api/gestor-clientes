@@ -247,9 +247,40 @@ const [waPushName, setWaPushName] = useState<string | null>(null);
 const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null); // vem do /api/whatsapp/profile (pictureUrl)
 // controle cache profile (evita bater na VM toda hora)
 const waLastProfileFetchRef = useRef<number>(0);
-
-
 const [waStatusText, setWaStatusText] = useState<string | null>(null);
+const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
+const [waRejectMessage, setWaRejectMessage] = useState<string>(
+  "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊"
+);
+const [waSavingConfig, setWaSavingConfig] = useState(false);
+
+async function fetchWaConfig() {
+  try {
+    const res = await fetch("/api/whatsapp/config", { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setWaRejectCalls(json.rejectCalls ?? true);
+      setWaRejectMessage(json.rejectMessage ?? "");
+    }
+  } catch {}
+}
+
+async function saveWaConfig() {
+  setWaSavingConfig(true);
+  try {
+    const res = await fetch("/api/whatsapp/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage }),
+    });
+    if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
+    else addToast("error", "Erro", "Falha ao salvar configuração.");
+  } catch (e: any) {
+    addToast("error", "Erro", e?.message);
+  } finally {
+    setWaSavingConfig(false);
+  }
+}
 
 
   const [name, setName] = useState("");
@@ -580,32 +611,25 @@ async function refreshWhatsAppPanel() {
 if (connected) {
   setWaQr(null);
   setWaQrDataUrl(null);
-
   const now = Date.now();
-
   const ONE_DAY = 24 * 60 * 60 * 1000;
-
-  const needProfile =
-    !waPushName ||                       // nunca carregou
-    !waProfilePicUrl ||                 // sem avatar
-    now - waLastProfileFetchRef.current > ONE_DAY; // passou 1 dia
-
+  const needProfile = !waPushName || !waProfilePicUrl || now - waLastProfileFetchRef.current > ONE_DAY;
   if (needProfile) {
     await fetchWaProfile();
+    await fetchWaConfig();
     waLastProfileFetchRef.current = now;
   }
-
   return;
 }
 
 
-    const qr = await fetchWaQr();
-    if (!qr) {
-      setWaQrDataUrl(null);
-      return;
-    }
-    const url = await QRCode.toDataURL(qr, { margin: 1, scale: 6 });
-    setWaQrDataUrl(url);
+const qr = await fetchWaQr();
+if (!qr) {
+  setWaQrDataUrl(null);
+  return;
+}
+// backend já retorna base64 pronto
+setWaQrDataUrl(qr);
   } finally {
     setWaLoading(false);
   }
@@ -1125,7 +1149,41 @@ return (
                 )}
 
 <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
-  {waConnected ? (
+  {waConnected && (
+  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+    <div className="flex items-center justify-between">
+      <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
+      <button
+        type="button"
+        onClick={() => setWaRejectCalls(v => !v)}
+        className={`relative w-10 h-5 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+      >
+        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
+      </button>
+    </div>
+    {waRejectCalls && (
+      <div>
+        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mensagem de resposta</label>
+        <textarea
+          value={waRejectMessage}
+          onChange={e => setWaRejectMessage(e.target.value)}
+          rows={3}
+          className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+        />
+      </div>
+    )}
+    <button
+      type="button"
+      onClick={() => void saveWaConfig()}
+      disabled={waSavingConfig}
+      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
+    >
+      {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+    </button>
+  </div>
+)}
+
+{waConnected ? (
     <div className="flex items-center gap-3">
       {/* Avatar */}
       <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">

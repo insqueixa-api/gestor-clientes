@@ -221,6 +221,25 @@ app.post("/validate", authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /session-config ───────────────────────────────────────
+app.get("/session-config", authMiddleware, (req, res) => {
+  const sessionKey = getSessionKey(req);
+  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
+
+  const config = getSessionConfig(sessionKey);
+  return res.json(config);
+});
+
+// ── POST /session-config ──────────────────────────────────────
+app.post("/session-config", authMiddleware, (req, res) => {
+  const sessionKey = getSessionKey(req);
+  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
+
+  const { rejectCalls, rejectMessage } = req.body || {};
+  const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage });
+  return res.json({ ok: true, config });
+});
+
 // ── 404 ───────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: "Rota não encontrada" });

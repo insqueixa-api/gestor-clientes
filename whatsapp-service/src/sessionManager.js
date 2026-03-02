@@ -13,9 +13,56 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR = path.resolve(__dirname, "../auth");
 
 // Mensagem enviada ao rejeitar chamadas
-const CALL_REJECT_MESSAGE =
+const DEFAULT_REJECT_MESSAGE =
   process.env.CALL_REJECT_MESSAGE ||
-  "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado!";
+  "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊";
+
+// Config por sessão: { rejectCalls: bool, rejectMessage: string }
+const sessionConfigs = new Map();
+const CONFIG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../auth");
+
+function getConfigPath(sessionKey) {
+  return path.join(CONFIG_DIR, sessionKey, "wa-config.json");
+}
+
+function getSessionConfig(sessionKey) {
+  if (sessionConfigs.has(sessionKey)) return sessionConfigs.get(sessionKey);
+
+  // tenta carregar do disco
+  try {
+    const file = getConfigPath(sessionKey);
+    if (fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+      sessionConfigs.set(sessionKey, data);
+      return data;
+    }
+  } catch {}
+
+  const defaults = { rejectCalls: true, rejectMessage: DEFAULT_REJECT_MESSAGE };
+  sessionConfigs.set(sessionKey, defaults);
+  return defaults;
+}
+
+function updateSessionConfig(sessionKey, updates) {
+  const current = getSessionConfig(sessionKey);
+  const next = {
+    ...current,
+    ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
+    ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
+  };
+  sessionConfigs.set(sessionKey, next);
+
+  // persiste no disco
+  try {
+    const dir = path.join(CONFIG_DIR, sessionKey);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(getConfigPath(sessionKey), JSON.stringify(next, null, 2));
+  } catch (e) {
+    console.error(`[CONFIG] Falha ao salvar config:`, e?.message);
+  }
+
+  return next;
+}
 
 // logger silencioso para Baileys (evita spam nos logs)
 const baileysLogger = pino({ level: "silent" });
@@ -152,21 +199,19 @@ async function createSession(sessionKey) {
   // ── Rejeição de Chamadas ─────────────────────────────────────
   sock.ev.on("call", async (calls) => {
     for (const call of calls) {
-      if (call.status !== "offer") continue; // só quando chega a chamada
+      if (call.status !== "offer") continue;
+      const config = getSessionConfig(sessionKey);
+      if (!config.rejectCalls) continue; // toggle desativado
       try {
-        // Rejeita a chamada
         await sock.rejectCall(call.id, call.from);
         console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
-
-        // Envia mensagem explicativa
-        await sock.sendMessage(call.from, { text: CALL_REJECT_MESSAGE });
+        await sock.sendMessage(call.from, { text: config.rejectMessage });
         console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${call.from}`);
       } catch (e) {
         console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
       }
     }
   });
-
   return sessData;
 }
 
@@ -266,4 +311,6 @@ export {
   getAllSessions,
   restoreExistingSessions,
   qrCallbacks,
+  getSessionConfig,
+  updateSessionConfig,
 };
