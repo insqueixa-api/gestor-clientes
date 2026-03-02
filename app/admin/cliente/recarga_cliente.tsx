@@ -773,10 +773,13 @@ if (c.server_id) {
       const details: string[] = [];
 
       const nameToShow = clientData?.display_name || clientName || "—";
+      const usernameToShow = clientData?.username || "—";
+      const serverToShow = clientData?.server_name || "—";
 
-      // ✅ NOVO: cliente primeiro (igual você quer no popup)
       details.push(`Cliente: ${nameToShow}`);
-
+      details.push(`Username: ${usernameToShow}`);
+      details.push(`Servidor: ${serverToShow}`);
+      details.push(`----------------`);
       details.push(`Plano: ${PLAN_LABELS[selectedPlanPeriod]}`);
       details.push(`Telas: ${screens}`);
       details.push(`Vencimento: ${toBRDate(dueDate)} às ${dueTime}`);
@@ -784,7 +787,9 @@ if (c.server_id) {
       if (isFromTrial && !isPaymentFlow) {
         details.push(`Tipo: Conversão (Sem pagamento)`);
       } else {
-        details.push(`Valor: ${fmtMoney(currency, rawPlanPrice)}`);
+        // Formata apenas o número para não duplicar o símbolo da moeda
+        const formattedVal = rawPlanPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        details.push(`Valor: ${currency} ${formattedVal}`);
         if (creditsUsed > 0) details.push(`Créditos a descontar: ${creditsUsed}`);
       }
 
@@ -1236,7 +1241,9 @@ style={{ maxHeight: "90dvh" }}
                     {headerTitle}
                   </h2>
                   <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/50">
-                      <span className="font-medium">{clientName}</span>
+                      <span className="font-medium">
+                        {clientData ? `${clientData.username || "—"} (${clientData.server_name || "—"})` : clientName}
+                      </span>
                   </div>
                 </div>
               </div>
