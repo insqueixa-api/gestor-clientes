@@ -309,6 +309,35 @@ async function saveWaConfig() {
   
   const [whatsappUsername, setWhatsappUsername] = useState("");
 
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
+  const [waValidation, setWaValidation] = useState<WaValidation>(null);
+  const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function validateWa(username: string) {
+    const digits = username.replace(/\D/g, "");
+    if (digits.length < 8) { setWaValidation(null); return; }
+    setWaValidation({ loading: true, exists: false });
+    try {
+      const res = await fetch("/api/whatsapp/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
+
+      if (json.exists && json.jid) {
+        const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        if (jidDigits) {
+          const norm = applyPhoneNormalization(jidDigits);
+          setPhonePrettyPrefix(norm.prettyPrefix);
+        }
+      }
+    } catch {
+      setWaValidation({ loading: false, exists: false });
+    }
+  }
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -484,18 +513,25 @@ async function saveWaConfig() {
     const norm = applyPhoneNormalization(phoneRaw);
     setPhonePrettyPrefix(norm.prettyPrefix);
     setPhoneRaw(norm.formattedNational || norm.nationalDigits || phoneRaw);
-    
-    // Auto-preenche WhatsApp se vazio e válido
-    if (!whatsappUsername && norm.e164) {
-        setWhatsappUsername(onlyDigits(norm.e164));
+
+    // Sempre atualiza o username com o número normalizado
+    if (norm.e164) {
+      const digits = onlyDigits(norm.e164);
+      setWhatsappUsername(digits);
+      setWaValidation(null);
+      void validateWa(digits);
     }
-    
+
     if (isEditing === false) setIsEditing(true);
   }
 
   // Permite qualquer caractere no WhatsApp
-  const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setWhatsappUsername(e.target.value);
+const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setWhatsappUsername(val);
+    setWaValidation(null);
+    if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
+    waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
   };
 
   async function handleSave() {
@@ -1046,6 +1082,13 @@ return (
   </a>
 )}
                     </div>
+                    {waValidation && (
+                      <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                        {waValidation.loading ? (
+                          <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                        ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado no WhatsApp</>}
+                      </div>
+                    )}
                 </div>
                 <div>
                      <Label>Membro desde</Label>
