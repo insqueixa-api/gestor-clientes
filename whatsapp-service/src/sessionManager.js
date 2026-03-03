@@ -96,6 +96,9 @@ const baileysLogger = pino({ level: "silent" });
 // Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
 const sessions = new Map();
 
+// Map lid -> phone: sessionKey -> Map(lid -> phoneNumber)
+const lidPhoneMap = new Map();
+
 // Callbacks de QR por sessão: sessionKey -> fn(qr)
 const qrCallbacks = new Map();
 
@@ -164,6 +167,19 @@ async function createSession(sessionKey) {
   // ── Credenciais ──────────────────────────────────────────────
   sock.ev.on("creds.update", saveCreds);
 
+  // ── Mapeia lid -> phone nos contatos ─────────────────────────
+sock.ev.on("contacts.upsert", (contacts) => {
+  if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+  const map = lidPhoneMap.get(sessionKey);
+  for (const contact of contacts) {
+    if (contact.lid && contact.id) {
+      const phone = contact.id.split("@")[0].split(":")[0].replace(/\D/g, "");
+      const lid = contact.lid.split("@")[0].split(":")[0];
+      if (phone && lid) map.set(lid, phone);
+    }
+  }
+});
+
   // ── Conexão ──────────────────────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -230,7 +246,17 @@ async function createSession(sessionKey) {
 if (!config.rejectCalls) continue;
 
 // Verifica whitelist
-const callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
+let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
+
+// Se for @lid, tenta resolver para o número real
+if (call.from.includes("@lid")) {
+  const map = lidPhoneMap.get(sessionKey);
+  const resolved = map?.get(callerNumber);
+  if (resolved) {
+    console.log(`[WA][CALL_DEBUG] lid ${callerNumber} resolvido para ${resolved}`);
+    callerNumber = resolved;
+  }
+}
 const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
 console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
 if (allowed.includes(callerNumber)) {
