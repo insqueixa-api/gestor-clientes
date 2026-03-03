@@ -182,6 +182,23 @@ async function createSession(sessionKey) {
 sock.ev.on("contacts.upsert", mapContacts);
 sock.ev.on("contacts.set", ({ contacts }) => mapContacts(contacts));
 
+// Captura lid->phone nas mensagens também (constrói o mapa com o tempo)
+sock.ev.on("messages.upsert", ({ messages }) => {
+  if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+  const map = lidPhoneMap.get(sessionKey);
+  for (const msg of messages) {
+    const key = msg.key;
+    if (!key) continue;
+    const jid = key.remoteJid || "";
+    const lid = key.participant || key.remoteJid || "";
+    if (jid.includes("@s.whatsapp.net") && lid.includes("@lid")) {
+      const phone = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+      const lidKey = lid.split("@")[0].split(":")[0];
+      if (phone && lidKey) map.set(lidKey, phone);
+    }
+  }
+});
+
   // ── Conexão ──────────────────────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -258,15 +275,30 @@ if (call.from.includes("@lid")) {
   if (resolved) {
     console.log(`[WA][CALL_DEBUG] lid ${callerNumber} resolvido para ${resolved}`);
     callerNumber = resolved;
+} else {
+  // fallback 1: compara pelos últimos 8 dígitos
+  const suffix = callerNumber.slice(-8);
+  const matchBySlug = allowed.find(n => n.slice(-8) === suffix);
+  if (matchBySlug) {
+    console.log(`[WA][CALL_DEBUG] lid matched por sufixo ${suffix} → ${matchBySlug}`);
+    callerNumber = matchBySlug;
   } else {
-    // fallback: compara pelos últimos 8 dígitos
-    const suffix = callerNumber.slice(-8);
-    const matchBySlug = allowed.find(n => n.slice(-8) === suffix);
-    if (matchBySlug) {
-      console.log(`[WA][CALL_DEBUG] lid matched por sufixo ${suffix} → ${matchBySlug}`);
-      callerNumber = matchBySlug;
-    }
+    // fallback 2: tenta resolver via onWhatsApp
+    try {
+  const lidJid = call.from;
+  const originalLid = callerNumber;
+  const [info] = await sock.onWhatsApp(lidJid).catch(() => [null]);
+  if (info?.jid) {
+    const resolved = info.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+    console.log(`[WA][CALL_DEBUG] lid resolvido via onWhatsApp: ${resolved}`);
+    callerNumber = resolved;
+    // salva no mapa para próximas chamadas
+    if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+    lidPhoneMap.get(sessionKey).set(originalLid, resolved);
   }
+} catch {}
+  }
+}
 }
 console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
 if (allowed.includes(callerNumber)) {
