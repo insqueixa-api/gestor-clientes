@@ -1173,7 +1173,7 @@ return (
     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
     <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
     <div className="flex flex-wrap gap-1">
-      {["{SAUDACAO}", "{HORA}", "{DATA}", "{NUMERO}"].map(tag => (
+      {["{saudacao}", "{hora}", "{data}"].map(tag => (
         <button
           key={tag}
           type="button"
@@ -1188,7 +1188,7 @@ return (
       value={waRejectMessage}
       onChange={e => setWaRejectMessage(e.target.value)}
       rows={3}
-      placeholder="Ex: {SAUDACAO}! No momento não atendemos ligações. Você ligou às {HORA} do dia {DATA}."
+      placeholder="Ex: {saudacao}! No momento não atendemos ligações. Você ligou às {hora} do dia {data}."
       className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
     />
     <div className="pt-1">
