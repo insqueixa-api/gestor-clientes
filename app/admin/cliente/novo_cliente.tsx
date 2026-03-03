@@ -3599,8 +3599,6 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       )}
 
                     </div>
-
-                  </div>
                     {waValidation && (
                       <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
                         {waValidation.loading ? (
@@ -3611,7 +3609,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                           <>❌ Não encontrado no WhatsApp</>
                         )}
                       </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* CONTATO SECUNDÁRIO (TOGGLE) */}
