@@ -167,8 +167,7 @@ async function createSession(sessionKey) {
   // ── Credenciais ──────────────────────────────────────────────
   sock.ev.on("creds.update", saveCreds);
 
-  // ── Mapeia lid -> phone nos contatos ─────────────────────────
-sock.ev.on("contacts.upsert", (contacts) => {
+  function mapContacts(contacts) {
   if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
   const map = lidPhoneMap.get(sessionKey);
   for (const contact of contacts) {
@@ -178,7 +177,10 @@ sock.ev.on("contacts.upsert", (contacts) => {
       if (phone && lid) map.set(lid, phone);
     }
   }
-});
+}
+
+sock.ev.on("contacts.upsert", mapContacts);
+sock.ev.on("contacts.set", ({ contacts }) => mapContacts(contacts));
 
   // ── Conexão ──────────────────────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
@@ -255,6 +257,14 @@ if (call.from.includes("@lid")) {
   if (resolved) {
     console.log(`[WA][CALL_DEBUG] lid ${callerNumber} resolvido para ${resolved}`);
     callerNumber = resolved;
+  } else {
+    // fallback: compara pelos últimos 8 dígitos
+    const suffix = callerNumber.slice(-8);
+    const matchBySlug = allowed.find(n => n.slice(-8) === suffix);
+    if (matchBySlug) {
+      console.log(`[WA][CALL_DEBUG] lid matched por sufixo ${suffix} → ${matchBySlug}`);
+      callerNumber = matchBySlug;
+    }
   }
 }
 const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
