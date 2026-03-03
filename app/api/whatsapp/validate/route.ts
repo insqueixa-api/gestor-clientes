@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const { phone } = await req.json().catch(() => ({}));
   if (!phone) return NextResponse.json({ error: "phone obrigatório" }, { status: 400 });
 
-  const res = await fetch(`${ctx.baseUrl}/validate-number`, {
+  const res = await fetch(`${ctx.baseUrl}/validate`, {
     method: "POST",
     headers: ctx.headers,
     body: JSON.stringify({ phone }),
