@@ -173,7 +173,7 @@ export default function AdminShell({
               <NavLink href="/admin" label="📊 Dashboard" />
               <NavLink href="/admin/cliente" label="👥 Clientes" />
               <NavLink href="/admin/revendedor" label="🤝 Revendas" />
-              <NavLink href="/admin/teste" label="🧪 Testes" />
+              <NavLink href="/admin/teste" label="⏱️ Testes" />
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
@@ -234,10 +234,10 @@ export default function AdminShell({
               Gestão
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/plano" label="📦 Planos" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label="🛒 Planos" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagens WhatsApp" onClick={() => setOpenMenu(null)} />
             <Divider />
-            <MenuLink href="/admin/gerenciador/cobranca" label="🧾 Automação de Cobrança" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label="💵 Automação de Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
           </DropdownPortal>,
