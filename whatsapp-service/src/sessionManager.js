@@ -231,6 +231,7 @@ if (!config.rejectCalls) continue;
 // Verifica whitelist
 const callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
 const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
+console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
 if (allowed.includes(callerNumber)) {
   console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
   continue;
