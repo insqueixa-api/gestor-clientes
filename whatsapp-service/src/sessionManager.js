@@ -45,11 +45,12 @@ function getSessionConfig(sessionKey) {
 
 function updateSessionConfig(sessionKey, updates) {
   const current = getSessionConfig(sessionKey);
-  const next = {
-    ...current,
-    ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
-    ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
-  };
+const next = {
+  ...current,
+  ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
+  ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
+  ...(Array.isArray(updates.allowedNumbers) ? { allowedNumbers: updates.allowedNumbers } : {}),
+};
   sessionConfigs.set(sessionKey, next);
 
   // persiste no disco
