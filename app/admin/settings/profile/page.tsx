@@ -241,6 +241,8 @@ const [waQr, setWaQr] = useState<string | null>(null);
 const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
 const [waLastError, setWaLastError] = useState<string | null>(null);
 
+const [waConfigExpanded, setWaConfigExpanded] = useState(false);
+
 // UI: info da sessão WhatsApp (vem do /api/whatsapp/status)
 const [waSessionLabel, setWaSessionLabel] = useState<string>("Contato principal");
 const [waPushName, setWaPushName] = useState<string | null>(null);
@@ -1160,15 +1162,30 @@ return (
   <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
     <div className="flex items-center justify-between">
       <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
-      <button
-        type="button"
-        onClick={() => setWaRejectCalls(v => !v)}
-        className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
-      >
-        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setWaConfigExpanded(v => !v)}
+          className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors"
+          title={waConfigExpanded ? "Minimizar" : "Expandir"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            {waConfigExpanded
+              ? <path d="M18 15l-6-6-6 6"/>
+              : <path d="M6 9l6 6 6-6"/>
+            }
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setWaRejectCalls(v => !v)}
+          className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
+        </button>
+      </div>
     </div>
-    {waRejectCalls && (
+{waRejectCalls && waConfigExpanded && (
   <div className="space-y-2">
     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
     <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
@@ -1206,14 +1223,16 @@ return (
     </div>
   </div>
 )}
-    <button
-      type="button"
-      onClick={() => void saveWaConfig()}
-      disabled={waSavingConfig}
-      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
-    >
-      {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
-    </button>
+{waConfigExpanded && (
+      <button
+        type="button"
+        onClick={() => void saveWaConfig()}
+        disabled={waSavingConfig}
+        className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
+      >
+        {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+      </button>
+    )}
   </div>
 )}
 
