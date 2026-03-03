@@ -65,6 +65,34 @@ const next = {
   return next;
 }
 
+// ── Persistência do mapa lid→phone ───────────────────────────
+function getLidMapPath(sessionKey) {
+  return path.join(CONFIG_DIR, sessionKey, "lid-map.json");
+}
+
+function saveLidMap(sessionKey) {
+  try {
+    const map = lidPhoneMap.get(sessionKey);
+    if (!map) return;
+    const obj = Object.fromEntries(map);
+    const dir = path.join(CONFIG_DIR, sessionKey);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(getLidMapPath(sessionKey), JSON.stringify(obj));
+  } catch {}
+}
+
+function loadLidMap(sessionKey) {
+  try {
+    const file = getLidMapPath(sessionKey);
+    if (!fs.existsSync(file)) return;
+    const obj = JSON.parse(fs.readFileSync(file, "utf-8"));
+    if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+    const map = lidPhoneMap.get(sessionKey);
+    for (const [k, v] of Object.entries(obj)) map.set(k, v);
+    console.log(`[WA] lid-map carregado: ${map.size} entradas`);
+  } catch {}
+}
+
 const TZ_SP = "America/Sao_Paulo";
 
 function renderRejectMessage(template, fromJid) {
@@ -162,7 +190,10 @@ async function createSession(sessionKey) {
     markOnlineOnConnect: false,
   });
 
-  sessData.socket = sock;
+sessData.socket = sock;
+
+  // carrega mapa lid→phone salvo no disco
+  loadLidMap(sessionKey);
 
   // ── Credenciais ──────────────────────────────────────────────
   sock.ev.on("creds.update", saveCreds);
@@ -179,13 +210,14 @@ async function createSession(sessionKey) {
   }
 }
 
-sock.ev.on("contacts.upsert", mapContacts);
-sock.ev.on("contacts.set", ({ contacts }) => mapContacts(contacts));
+sock.ev.on("contacts.upsert", (contacts) => { mapContacts(contacts); saveLidMap(sessionKey); });
+sock.ev.on("contacts.set", ({ contacts }) => { mapContacts(contacts); saveLidMap(sessionKey); });
 
 // Captura lid->phone nas mensagens também (constrói o mapa com o tempo)
 sock.ev.on("messages.upsert", ({ messages }) => {
   if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
   const map = lidPhoneMap.get(sessionKey);
+  let changed = false;
   for (const msg of messages) {
     const key = msg.key;
     if (!key) continue;
@@ -194,9 +226,10 @@ sock.ev.on("messages.upsert", ({ messages }) => {
     if (jid.includes("@s.whatsapp.net") && lid.includes("@lid")) {
       const phone = jid.split("@")[0].split(":")[0].replace(/\D/g, "");
       const lidKey = lid.split("@")[0].split(":")[0];
-      if (phone && lidKey) map.set(lidKey, phone);
+      if (phone && lidKey) { map.set(lidKey, phone); changed = true; }
     }
   }
+  if (changed) saveLidMap(sessionKey);
 });
 
   // ── Conexão ──────────────────────────────────────────────────
