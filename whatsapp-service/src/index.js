@@ -83,6 +83,30 @@ app.get("/status", authMiddleware, async (req, res) => {
   });
 });
 
+// ── Validar número WhatsApp ──────────────────────────────────
+app.post("/validate-number", async (req, res) => {
+  const { sessionKey } = req;
+  const { phone } = req.body || {};
+  if (!phone) return res.status(400).json({ error: "phone obrigatório" });
+
+  const sess = getSession(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    return res.status(503).json({ error: "Sessão não conectada" });
+  }
+
+  try {
+    const digits = String(phone).replace(/\D/g, "");
+    const jid = `${digits}@s.whatsapp.net`;
+    const [result] = await sess.socket.onWhatsApp(jid);
+    return res.json({
+      exists: !!result?.exists,
+      jid: result?.jid || null,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || "Erro ao validar" });
+  }
+});
+
 // ── GET /qr ──────────────────────────────────────────────────
 app.get("/qr", authMiddleware, async (req, res) => {
   const sessionKey = getSessionKey(req);
