@@ -924,7 +924,7 @@ return (
 <div className="flex items-center justify-between gap-2 mb-2">
   <div className="min-w-0 text-left">
     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Perfil
+      Gerenciar Perfil
     </h1>
   </div>
   <div className="flex items-center gap-2 shrink-0">
@@ -1059,7 +1059,7 @@ return (
           {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Dados do Sistema</h3>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-row gap-3">
   <button
     type="button"
     onClick={handleExportClients}
@@ -1278,24 +1278,6 @@ return (
             )}
           </div>
         </div>
-
-
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Aparência</h3>
-            <div className="space-y-3">
-              <Label>Tema do Sistema</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setTheme("light")} className={`p-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${theme === "light" ? "bg-slate-100 border-emerald-500 text-emerald-700 ring-1 ring-emerald-500" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
-                  <div className="w-4 h-4 rounded-full bg-slate-200 border border-slate-300"></div>
-                  <span className="text-xs font-bold">Claro</span>
-                </button>
-                <button onClick={() => setTheme("dark")} className={`p-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${theme === "dark" ? "bg-[#0f141a] border-emerald-500 text-emerald-400 ring-1 ring-emerald-500" : "bg-[#0f141a] border-white/10 text-slate-400 hover:bg-black/40"}`}>
-                  <div className="w-4 h-4 rounded-full bg-slate-700 border border-slate-600"></div>
-                  <span className="text-xs font-bold">Escuro</span>
-                </button>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Segurança</h3>
