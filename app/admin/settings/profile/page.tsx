@@ -253,25 +253,32 @@ const [waRejectMessage, setWaRejectMessage] = useState<string>(
   "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊"
 );
 const [waSavingConfig, setWaSavingConfig] = useState(false);
+const [waAllowedNumbers, setWaAllowedNumbers] = useState<string>("");
 
 async function fetchWaConfig() {
   try {
     const res = await fetch("/api/whatsapp/config", { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    if (res.ok) {
-      setWaRejectCalls(json.rejectCalls ?? true);
-      setWaRejectMessage(json.rejectMessage ?? "");
-    }
+if (res.ok) {
+  setWaRejectCalls(json.rejectCalls ?? true);
+  setWaRejectMessage(json.rejectMessage ?? "");
+  setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
+}
   } catch {}
 }
 
 async function saveWaConfig() {
   setWaSavingConfig(true);
   try {
+    const allowedNumbers = waAllowedNumbers
+      .split("\n")
+      .map(n => n.replace(/\D/g, ""))
+      .filter(Boolean);
+
     const res = await fetch("/api/whatsapp/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage }),
+      body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
     });
     if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
     else addToast("error", "Erro", "Falha ao salvar configuração.");
@@ -1156,22 +1163,49 @@ return (
       <button
         type="button"
         onClick={() => setWaRejectCalls(v => !v)}
-        className={`relative w-10 h-5 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+        className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
       >
         <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
       </button>
     </div>
     {waRejectCalls && (
-      <div>
-        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mensagem de resposta</label>
-        <textarea
-          value={waRejectMessage}
-          onChange={e => setWaRejectMessage(e.target.value)}
-          rows={3}
-          className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
-        />
-      </div>
-    )}
+  <div className="space-y-2">
+    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
+    <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
+    <div className="flex flex-wrap gap-1">
+      {["{SAUDACAO}", "{HORA}", "{DATA}", "{NUMERO}"].map(tag => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => setWaRejectMessage(v => v + tag)}
+          className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono"
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
+    <textarea
+      value={waRejectMessage}
+      onChange={e => setWaRejectMessage(e.target.value)}
+      rows={3}
+      placeholder="Ex: {SAUDACAO}! No momento não atendemos ligações. Você ligou às {HORA} do dia {DATA}."
+      className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+    />
+    <div className="pt-1">
+      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+        Números que não serão rejeitados:
+      </label>
+      <textarea
+        value={waAllowedNumbers}
+        onChange={e => setWaAllowedNumbers(e.target.value)}
+        rows={3}
+        placeholder={"553199999999\n553188888888"}
+        className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
+      />
+      <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha, com DDI (ex: 5531...). Chamadas desses números serão permitidas.</p>
+    </div>
+  </div>
+)}
     <button
       type="button"
       onClick={() => void saveWaConfig()}

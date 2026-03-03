@@ -11,6 +11,8 @@ import {
   getAllSessions,
   restoreExistingSessions,
   qrCallbacks,
+  getSessionConfig,
+  updateSessionConfig,
 } from "./sessionManager.js";
 
 const app = express();
@@ -235,8 +237,8 @@ app.post("/session-config", authMiddleware, (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
-  const { rejectCalls, rejectMessage } = req.body || {};
-  const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage });
+const { rejectCalls, rejectMessage, allowedNumbers } = req.body || {};
+const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, allowedNumbers });
   return res.json({ ok: true, config });
 });
 

@@ -38,7 +38,7 @@ function getSessionConfig(sessionKey) {
     }
   } catch {}
 
-  const defaults = { rejectCalls: true, rejectMessage: DEFAULT_REJECT_MESSAGE };
+  const defaults = { rejectCalls: true, rejectMessage: DEFAULT_REJECT_MESSAGE, allowedNumbers: [] };
   sessionConfigs.set(sessionKey, defaults);
   return defaults;
 }
@@ -62,6 +62,31 @@ function updateSessionConfig(sessionKey, updates) {
   }
 
   return next;
+}
+
+const TZ_SP = "America/Sao_Paulo";
+
+function renderRejectMessage(template, fromJid) {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ_SP, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(now);
+
+  const p = {};
+  for (const part of parts) if (part.type !== "literal") p[part.type] = part.value;
+
+  const hour = Number(p.hour);
+  const saudacao = hour >= 4 && hour < 12 ? "Bom dia" : hour >= 12 && hour < 18 ? "Boa tarde" : "Boa noite";
+  const hora = `${p.hour}:${p.minute}`;
+  const data = `${p.day}/${p.month}/${p.year}`;
+  const numero = fromJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+
+  return template
+    .replace(/\{SAUDACAO\}/gi, saudacao)
+    .replace(/\{HORA\}/gi, hora)
+    .replace(/\{DATA\}/gi, data)
+    .replace(/\{NUMERO\}/gi, numero);
 }
 
 // logger silencioso para Baileys (evita spam nos logs)
@@ -201,11 +226,22 @@ async function createSession(sessionKey) {
     for (const call of calls) {
       if (call.status !== "offer") continue;
       const config = getSessionConfig(sessionKey);
-      if (!config.rejectCalls) continue; // toggle desativado
-      try {
-        await sock.rejectCall(call.id, call.from);
-        console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
-        await sock.sendMessage(call.from, { text: config.rejectMessage });
+if (!config.rejectCalls) continue;
+
+// Verifica whitelist
+const callerNumber = call.from.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
+if (allowed.includes(callerNumber)) {
+  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
+  continue;
+}
+
+try {
+  await sock.rejectCall(call.id, call.from);
+  console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+
+  const renderedMessage = renderRejectMessage(config.rejectMessage, call.from);
+  await sock.sendMessage(call.from, { text: renderedMessage });
         console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${call.from}`);
       } catch (e) {
         console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
@@ -303,14 +339,7 @@ async function restoreExistingSessions() {
 }
 
 export {
-  createSession,
-  disconnectSession,
-  sendMessage,
-  validateNumber,
-  getSession,
-  getAllSessions,
-  restoreExistingSessions,
-  qrCallbacks,
-  getSessionConfig,
-  updateSessionConfig,
+  createSession, disconnectSession, sendMessage, validateNumber,
+  getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
+  getSessionConfig, updateSessionConfig, renderRejectMessage,
 };
