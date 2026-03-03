@@ -189,9 +189,9 @@ function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...input
       <Label>{label}</Label>
       <div className="flex gap-2">
         {/* ✅ AUMENTADO: Largura min-w-[140px] para caber "Brasil (+55)" */}
-        <div className="h-10 min-w-[140px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white truncate justify-center">
-          {prettyPrefix || "—"}
-        </div>
+<div className="h-10 w-[90px] shrink-0 px-2 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] font-bold text-slate-700 dark:text-white truncate justify-center">
+  {prettyPrefix || "—"}
+</div>
         <div className="relative flex-1">
           <Input 
             value={rawValue} 
@@ -921,35 +921,30 @@ return (
   </div>
   )}
       {/* HEADER + BOTÃO DINÂMICO */}
-<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
-  {/* Título ESQUERDA */}
-  <div className="flex flex-col gap-1 text-left w-full sm:w-auto">
-    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-      Configurações da Conta
+<div className="flex items-center justify-between gap-2 mb-2">
+  <div className="min-w-0 text-left">
+    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+      Perfil
     </h1>
-    <p className="text-sm text-slate-500 dark:text-white/50">
-      Gerencie seu perfil, conexões e dados.
-    </p>
   </div>
-
-  {/* Botão DIREITA */}
-  <div className="flex justify-end w-full sm:w-auto">
-    {!isEditing ? (
-      <button
-        onClick={() => setIsEditing(true)}
-        className="px-6 py-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-all text-sm flex items-center gap-2"
-      >
-        <span>✏️</span> Editar
-      </button>
-    ) : (
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 text-sm flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
-      >
-        {saving ? "Salvando..." : "💾 Salvar Alterações"}
-      </button>
-    )}
+  <div className="flex items-center gap-2 shrink-0">
+    {/* Tema */}
+    <button
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className={`h-9 md:h-10 px-3 rounded-lg border font-bold text-xs flex items-center gap-2 transition-all ${
+        theme === "dark"
+          ? "bg-slate-800 border-slate-700 text-amber-400"
+          : "bg-white border-slate-200 text-slate-600 dark:text-white/60"
+      }`}
+      title="Alternar tema"
+    >
+      {theme === "dark" ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      )}
+      <span className="hidden sm:inline">{theme === "dark" ? "Escuro" : "Claro"}</span>
+    </button>
   </div>
 </div>
 
@@ -959,30 +954,47 @@ return (
         {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
         <div className="xl:col-span-2 space-y-6">
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2 flex justify-between">
-                Dados Pessoais
-                {isEditing && <span className="text-emerald-500 text-[9px] bg-emerald-500/10 px-2 rounded">EDITION MODE</span>}
-            </h3>
+<div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+    Dados Pessoais
+  </h3>
+  {!isEditing ? (
+    <button
+      onClick={() => setIsEditing(true)}
+      className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
+    >
+      ✏️ Editar
+    </button>
+  ) : (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
+    >
+      {saving ? "Salvando..." : "💾 Salvar"}
+    </button>
+  )}
+</div>
            
             {/* LINHA 1: NOME + PERFIL */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="md:col-span-2">
-                <Label>Nome Completo</Label>
-                <Input 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)} 
-                    placeholder="Seu nome" 
-                    readOnly={!isEditing}
-                    onFocus={() => setIsEditing(true)} 
-                />
-              </div>
-              <div>
-                <Label>Perfil de Acesso</Label>
-                <div className="h-10 px-3 flex items-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-bold">
-                    {role}
-                </div>
-              </div>
-            </div>
+            <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
+  <div className="col-span-2">
+    <Label>Nome Completo</Label>
+    <Input
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      placeholder="Seu nome"
+      readOnly={!isEditing}
+      onFocus={() => setIsEditing(true)}
+    />
+  </div>
+  <div className="col-span-1">
+    <Label>Perfil</Label>
+    <div className="h-10 px-2 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold text-center">
+      {role}
+    </div>
+  </div>
+</div>
 
             {/* LINHA 2: EMAIL + TELEFONE (2 COLUNAS AGORA) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1011,41 +1023,28 @@ return (
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
                         
                         {/* MODO LEITURA: Link Clicável */}
-                        {!isEditing && whatsappUsername ? (
-                            <a 
-                                href={`https://wa.me/${whatsappUsername}`} 
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full h-10 pl-8 px-3 flex items-center bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-emerald-600 dark:text-emerald-400 font-bold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors cursor-pointer"
-                            >
-                                {whatsappUsername}
-
-                                <span className="ml-auto text-[10px] opacity-70 flex items-center gap-1">
-                                    <svg 
-                                        xmlns="http://www.w3.org/2000/svg" 
-                                        width="10" 
-                                        height="10" 
-                                        viewBox="0 0 24 24" 
-                                        fill="currentColor"
-                                    >
-                                        <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
-                                    </svg>
-
-                                    Abrir
-                                </span>
-
-                            </a>
-                        ) : (
-                            /* MODO EDIÇÃO: Input normal */
-                            <Input 
-                                className="pl-8" 
-                                value={whatsappUsername} 
-                                onChange={handleWhatsChange} 
-                                placeholder="5521999999999"
-                                readOnly={!isEditing}
-                                onFocus={() => setIsEditing(true)} 
-                            />
-                        )}
+                        <Input
+  className="pl-8 pr-10"
+  value={whatsappUsername}
+  onChange={handleWhatsChange}
+  placeholder="5521999999999"
+  readOnly={!isEditing}
+  onFocus={() => setIsEditing(true)}
+/>
+{whatsappUsername && (
+  <a
+    href={`https://wa.me/${whatsappUsername}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={e => e.stopPropagation()}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+    title="Abrir no WhatsApp"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
+  </a>
+)}
                     </div>
                 </div>
                 <div>
@@ -1060,57 +1059,29 @@ return (
           {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Dados do Sistema</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex flex-col gap-2">
-                    <span className="text-sm font-bold text-slate-700 dark:text-white">Exportar Dados</span>
-                    <p className="text-xs text-slate-500 dark:text-white/50">Baixe um backup completo dos seus clientes em CSV.</p>
-                    <button
-                      type="button"
-                      onClick={handleExportClients}
-                      disabled={!tenantId || exporting}
-                      className="mt-2 px-3 py-2 rounded bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/20 transition-colors text-left flex items-center justify-center gap-2 w-fit disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
-                    >
-                      {exporting ? (
-                        <span className="flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4 text-emerald-600 dark:text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          Processando...
-                        </span>
-                      ) : (
-                        "⬇️ Exportar agora"
-                      )}
-                    </button>
-
-                </div>
-                <div className="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex flex-col gap-2">
-                    <span className="text-sm font-bold text-slate-700 dark:text-white">Importar Dados</span>
-                    <p className="text-xs text-slate-500 dark:text-white/50">
-                      Carregue clientes via CSV (separador “;”).
-                    </p>
-
-                    <button
-                    type="button"
-                    onClick={handleImportClick}
-                    disabled={!tenantId || importing}
-                    className="mt-2 px-3 py-2 rounded bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/20 transition-colors text-left flex items-center gap-2 w-fit disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {importing ? "⏳ Importando..." : "⬆️ Importar planilha"}
-                  </button>
-
-
-                    <input
-                      ref={importFileRef}
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.currentTarget.value = "";
-                        if (f) void handleImportFile(f);
-                      }}
-                    />
-
-                </div>
-            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+  <button
+    type="button"
+    onClick={handleExportClients}
+    disabled={!tenantId || exporting}
+    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {exporting ? (
+      <><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Processando...</>
+    ) : (
+      <><span>⬇️</span> Exportar</>
+    )}
+  </button>
+  <button
+    type="button"
+    onClick={handleImportClick}
+    disabled={!tenantId || importing}
+    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {importing ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+  </button>
+  <input ref={importFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
+</div>
           </div>
         </div>
 
