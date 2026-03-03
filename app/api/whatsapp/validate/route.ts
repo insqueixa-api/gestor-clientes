@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionHeaders } from "@/lib/whatsapp/session";
+//import { getSessionHeaders } from "@/lib/whatsapp/session";
 
-export async function POST(req: NextRequest) {
+/*export async function POST(req: NextRequest) {
   const ctx = await getSessionHeaders();
   if (!ctx) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
@@ -16,4 +16,4 @@ export async function POST(req: NextRequest) {
 
   const json = await res.json().catch(() => ({}));
   return NextResponse.json(json, { status: res.status });
-}
+}*/
