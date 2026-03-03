@@ -96,6 +96,14 @@ function toDatetimeLocalValue(dateStr: string | null | undefined) {
 }
 
 // --- COMPONENTES VISUAIS (PADRÃO page.txt) ---
+function IconWa() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
+  );
+}
+
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">{children}</label>;
 }
@@ -142,6 +150,36 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [dontMessageUntil, setDontMessageUntil] = useState("");
   const [notes, setNotes] = useState("");
+
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
+  const [waValidation, setWaValidation] = useState<WaValidation>(null);
+  const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function validateWa(username: string) {
+    const digits = username.replace(/\D/g, "");
+    if (digits.length < 8) { setWaValidation(null); return; }
+    setWaValidation({ loading: true, exists: false });
+    try {
+      const res = await fetch("/api/whatsapp/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
+
+      // Resolve país pelo JID retornado pelo WhatsApp
+      if (json.exists && json.jid) {
+        const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        if (jidDigits) {
+          const inferred = applyPhoneNormalization(jidDigits);
+          setPrimaryWhatsappE164(inferred.e164);
+        }
+      }
+    } catch {
+      setWaValidation({ loading: false, exists: false });
+    }
+  }
 
   type ExtraPhone = { id: number; e164: string; display: string; username: string; confirmed: boolean };
   const [extras, setExtras] = useState<ExtraPhone[]>([]);
@@ -230,26 +268,20 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   // 2. HANDLERS DE WHATSAPP
     
     function handlePrimaryValidate() {
-      const rawDigits = (primaryDisplay || "").replace(/\D+/g, "");
-      if (rawDigits.length < 8) {
-        setPrimaryConfirmed(false);
-        return;
-      }
-
-      // 🔥 mesmo comportamento do cliente: inferir DDI + formatar nacional + salvar E.164
-      const inferred = applyPhoneNormalization(rawDigits);
-
-
-
-      setPrimaryWhatsappE164(inferred.e164);
-      setPrimaryDisplay(inferred.formattedNational || inferred.nationalDigits || primaryDisplay);
-      setPrimaryConfirmed(true);
-
-      // username default (se vazio)
-      if (!whatsappUsername.trim()) {
-        setWhatsappUsername(inferred.e164.replace(/\D+/g, "")); // DDI + número
-      }
+    const rawDigits = (primaryDisplay || "").replace(/\D+/g, "");
+    if (rawDigits.length < 8) {
+      setPrimaryConfirmed(false);
+      return;
     }
+    const inferred = applyPhoneNormalization(rawDigits);
+    setPrimaryWhatsappE164(inferred.e164);
+    setPrimaryDisplay(inferred.formattedNational || inferred.nationalDigits || primaryDisplay);
+    setPrimaryConfirmed(true);
+
+    const finalUser = whatsappUsername.trim() || inferred.e164.replace(/\D+/g, "");
+    if (!whatsappUsername.trim()) setWhatsappUsername(finalUser);
+    void validateWa(finalUser);
+  }
 
 
 
@@ -503,11 +535,36 @@ if (error) throw new Error(error.message);
         </span>
         <Input
           value={whatsappUsername}
-          onChange={e => setWhatsappUsername(e.target.value)}
+          onChange={e => {
+            const val = e.target.value;
+            setWhatsappUsername(val);
+            setWaValidation(null);
+            if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
+            waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
+          }}
           placeholder="username"
-          className="pl-8"
+          className="pl-8 pr-10"
         />
+{whatsappUsername && (
+          <a
+            href={`https://wa.me/${whatsappUsername}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+            title="Abrir no WhatsApp"
+          >
+            <IconWa />
+          </a>
+        )}
       </div>
+      {waValidation && (
+        <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+          {waValidation.loading ? (
+            <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+          ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado no WhatsApp</>}
+        </div>
+      )}
     </div>
   </div>
 
