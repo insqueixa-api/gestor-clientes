@@ -335,7 +335,7 @@ if (call.from.includes("@lid")) {
 }
 console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
 if (allowed.includes(callerNumber)) {
-  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
+  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida (match exato) de ${callerNumber}`);
   continue;
 }
 
