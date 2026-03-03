@@ -284,8 +284,8 @@ async function saveWaConfig() {
     });
     if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
     else addToast("error", "Erro", "Falha ao salvar configuração.");
-  } catch (e: any) {
-    addToast("error", "Erro", e?.message);
+} catch (e: any) {
+        addToast("error", "Erro ao carregar", e.message);
   } finally {
     setWaSavingConfig(false);
   }
@@ -606,7 +606,7 @@ async function fetchWaProfile() {
     return { pushName: json.pushName ?? null, pictureUrl: json.pictureUrl ?? null };
   } catch (e: any) {
     // não derruba o painel por falha de foto
-    console.warn("fetchWaProfile failed:", e?.message);
+    // silencioso: falha de foto não é crítica
     return { pushName: null, pictureUrl: null };
   }
 }
@@ -1237,7 +1237,7 @@ return (
 )}
 
 {waConnected ? (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4 py-1">
       {/* Avatar */}
       <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
         {waProfilePicUrl ? (

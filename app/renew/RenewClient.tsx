@@ -1131,9 +1131,9 @@ if (fulfillment === "done") {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]">
       
-      {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
+{/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
           
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Botão de Voltar para a Tela 1 */}

@@ -636,6 +636,38 @@ useEffect(() => {
   const [secondaryCountryLabel, setSecondaryCountryLabel] = useState<string>(ddiMeta("55").label);
   const [secondaryWhatsappUsername, setSecondaryWhatsappUsername] = useState("");
   const [secondaryWhatsUserTouched, setSecondaryWhatsUserTouched] = useState(false);
+
+type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
+const [waValidation, setWaValidation] = useState<WaValidation>(null);
+const [secondaryWaValidation, setSecondaryWaValidation] = useState<WaValidation>(null);
+const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const secondaryValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+async function validateWa(username: string, setter: (v: WaValidation) => void, countryLabelSetter?: (v: string) => void) {
+  const digits = username.replace(/\D/g, "");
+  if (digits.length < 8) { setter(null); return; }
+  setter({ loading: true, exists: false });
+  try {
+    const res = await fetch("/api/whatsapp/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: digits }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setter({ loading: false, exists: !!json.exists, jid: json.jid });
+
+    // Resolve país pelo JID do WhatsApp se disponível
+    if (json.exists && json.jid && countryLabelSetter) {
+      const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+      if (jidDigits) {
+        const ddi = inferDDIFromDigits(jidDigits);
+        countryLabelSetter(ddiMeta(ddi).label);
+      }
+    }
+  } catch {
+    setter({ loading: false, exists: false });
+  }
+}
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [dontMessageUntil, setDontMessageUntil] = useState<string>("");
 
@@ -760,24 +792,27 @@ const [messageContent, setMessageContent] = useState("");
     };
   }
 
-  function handleDonePrimary() {
-    const norm = applyPhoneNormalization(primaryPhoneRaw);
-    setPrimaryCountryLabel(norm.countryLabel);
-    setPrimaryPhoneRaw(norm.formattedNational || norm.nationalDigits || primaryPhoneRaw);
+function handleDonePrimary() {
+  const norm = applyPhoneNormalization(primaryPhoneRaw);
+  setPrimaryCountryLabel(norm.countryLabel);
+  setPrimaryPhoneRaw(norm.formattedNational || norm.nationalDigits || primaryPhoneRaw);
 
-    if (!whatsUserTouched) {
-      setWhatsappUsername(onlyDigits(norm.e164));
-    }
-  }
+  const finalUser = whatsUserTouched ? whatsappUsername : onlyDigits(norm.e164);
+  if (!whatsUserTouched) setWhatsappUsername(finalUser);
 
-  function handleDoneSecondary() {
-    const norm = applyPhoneNormalization(secondaryPhoneRaw);
-    setSecondaryCountryLabel(norm.countryLabel);
-    setSecondaryPhoneRaw(norm.formattedNational || norm.nationalDigits || secondaryPhoneRaw);
-    if (!secondaryWhatsUserTouched) {
-      setSecondaryWhatsappUsername(onlyDigits(norm.e164));
-    }
-  }
+  void validateWa(finalUser, setWaValidation, setPrimaryCountryLabel);
+}
+
+function handleDoneSecondary() {
+  const norm = applyPhoneNormalization(secondaryPhoneRaw);
+  setSecondaryCountryLabel(norm.countryLabel);
+  setSecondaryPhoneRaw(norm.formattedNational || norm.nationalDigits || secondaryPhoneRaw);
+
+  const finalUser = secondaryWhatsUserTouched ? secondaryWhatsappUsername : onlyDigits(norm.e164);
+  if (!secondaryWhatsUserTouched) setSecondaryWhatsappUsername(finalUser);
+
+  void validateWa(finalUser, setSecondaryWaValidation, setSecondaryCountryLabel);
+}
 
 // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
 const [hasIntegration, setHasIntegration] = useState(false);
@@ -3526,12 +3561,15 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         value={whatsappUsername}
 
                         onChange={(e) => {
-
-                          setWhatsappUsername(e.target.value);
-
-                          setWhatsUserTouched(true);
-
-                        }}
+                        const val = e.target.value;
+                        setWhatsappUsername(val);
+                        setWhatsUserTouched(true);
+                        setWaValidation(null);
+                        if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
+                        waValidateTimer.current = setTimeout(() => {
+                          void validateWa(val, setWaValidation, setPrimaryCountryLabel);
+                        }, 800);
+                      }}
 
                         placeholder="username"
 
@@ -3564,10 +3602,18 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     </div>
 
                   </div>
-
+                  {waValidation && (
+                    <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                      {waValidation.loading ? (
+                        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                      ) : waValidation.exists ? (
+                        <>✅ WhatsApp ativo</>
+                      ) : (
+                        <>❌ Não encontrado no WhatsApp</>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-
 
                 {/* CONTATO SECUNDÁRIO (TOGGLE) */}
                 {!showSecondary ? (
@@ -3638,9 +3684,15 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             className="pl-8 pr-10"
                             value={secondaryWhatsappUsername}
                             onChange={(e) => {
-                              setSecondaryWhatsappUsername(e.target.value);
-                              setSecondaryWhatsUserTouched(true);
-                            }}
+                            const val = e.target.value;
+                            setSecondaryWhatsappUsername(val);
+                            setSecondaryWhatsUserTouched(true);
+                            setSecondaryWaValidation(null);
+                            if (secondaryValidateTimer.current) clearTimeout(secondaryValidateTimer.current);
+                            secondaryValidateTimer.current = setTimeout(() => {
+                              void validateWa(val, setSecondaryWaValidation, setSecondaryCountryLabel);
+                            }, 800);
+                          }}
                             placeholder="username"
                           />
                           {secondaryWhatsappUsername && (
@@ -3656,6 +3708,17 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             </a>
                           )}
                         </div>
+                        {secondaryWaValidation && (
+                          <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-bold ${secondaryWaValidation.loading ? "text-slate-400" : secondaryWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                            {secondaryWaValidation.loading ? (
+                              <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                            ) : secondaryWaValidation.exists ? (
+                              <>✅ WhatsApp ativo</>
+                            ) : (
+                              <>❌ Não encontrado no WhatsApp</>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
