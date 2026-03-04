@@ -126,30 +126,33 @@ function formatMoney(amount: number, currency: string = "BRL") {
   }).format(amount);
 }
 
+// ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
+// ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
-  const now = new Date();
-  const due = new Date(vencimento);
-  const diff = due.getTime() - now.getTime();
-  const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const isoTarget = vencimento.split("T")[0]; // yyyy-mm-dd
+
+  // Hoje em SP
+  const todaySP = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+  const d1 = new Date(`${todaySP}T12:00:00`);
+  const d2 = new Date(`${isoTarget}T12:00:00`);
+  const diffDays = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 
   // Vencido
-  if (diff <= 0) {
+  if (diffDays < 0) {
     const expiredDays = Math.abs(diffDays);
-    if (expiredDays === 0) return { expired: true, text: "Assinatura venceu hoje" };
     if (expiredDays === 1) return { expired: true, text: "Assinatura venceu ontem" };
     return { expired: true, text: `Assinatura vencida há ${expiredDays} dias` };
   }
 
-  // Vence hoje (menos de 24h)
+  // Vence hoje
   if (diffDays === 0) {
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const dueFormatted = new Date(vencimento).toLocaleTimeString("pt-BR", {
       timeZone: "America/Sao_Paulo",
       hour: "2-digit",
       minute: "2-digit",
     });
-    return { expired: false, today: true, text: `Assinatura vence hoje às ${dueFormatted}`, hours, minutes };
+    return { expired: false, today: true, text: `Assinatura vence hoje às ${dueFormatted}` };
   }
 
   // Vence amanhã

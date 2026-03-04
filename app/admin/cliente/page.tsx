@@ -32,7 +32,7 @@ function getDiffDays(isoDateTarget: string) {
   
   const diffTime = d2.getTime() - d1.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-}
+} 
 
 // Helper para texto colorido abaixo do status
 function getSubStatusInfo(diff: number, status: ClientStatus) {
