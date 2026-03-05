@@ -468,9 +468,9 @@ if (c.server_id) {
           // 3) LÓGICA DE VENCIMENTO (ATIVO vs VENCIDO)
           {
             const monthsToAdd = PLAN_MONTHS[foundPeriod] || 1;
-  const isActive = c.computed_status === "ACTIVE";
-
-  let baseDate: Date;
+const vencDate = c.vencimento ? new Date(c.vencimento) : null;
+const isActive = vencDate != null && vencDate > new Date();
+let baseDate: Date;
   let newTimeStr: string;
 
   if (isActive && c.vencimento) {
@@ -644,8 +644,9 @@ if (c.server_id) {
     useEffect(() => {
       if (!clientData) return;
       const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
-      const isActive = clientData.computed_status === "ACTIVE";
-      const base = isActive && clientData.vencimento ? new Date(clientData.vencimento) : new Date();
+const vencDate = clientData.vencimento ? new Date(clientData.vencimento) : null;
+const isActive = vencDate != null && vencDate > new Date();
+const base = isActive ? vencDate! : new Date();
       const target = new Date(base);
       target.setMonth(target.getMonth() + monthsToAdd);
       const fmtDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });

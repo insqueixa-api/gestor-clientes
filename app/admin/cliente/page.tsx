@@ -841,7 +841,7 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
 
     if (q) {
       // ✅ Normaliza o "palheiro" (dados do cliente): joga pra minúsculo e arranca acentos
-      const hay = [r.name, r.username, r.server, r.planPeriod, r.valueLabel, r.status]
+      const hay = [r.name, r.username, r.secondary_display_name ?? "", r.server, r.planPeriod, r.valueLabel, r.status]
         .join(" ")
         .toLowerCase()
         .normalize("NFD")
@@ -1884,9 +1884,12 @@ return (
     
     {/* Alterado: Adicionado whitespace-nowrap para impedir que ícones quebrem a linha */}
     <div className="flex items-center gap-2 whitespace-nowrap">
-      <Link href={`/admin/cliente/${r.id}`} className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate">
-        {r.name}
-      </Link>
+<Link href={`/admin/cliente/${r.id}`} className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate">
+  {r.name.split(" ")[0]}
+  {r.secondary_display_name
+    ? <span className="text-slate-400 dark:text-white/30 font-normal"> / {r.secondary_display_name.split(" ")[0]}</span>
+    : null}
+</Link>
       
       {/* Adicionado shrink-0 para garantir que os ícones nunca sejam esmagados */}
       <div className="flex items-center gap-1 shrink-0">
