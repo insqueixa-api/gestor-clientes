@@ -1102,7 +1102,8 @@ if (registerPayment && !renewAutomatic) {
     p_months: monthsToRenew,
     p_status: "PAID",
     p_notes: serverNotesManual, // ✅ Vai para a view do SERVIDOR (Com nome e obs)
-    p_new_vencimento: null,
+    p_new_vencimento: saoPauloDateTimeToIso(dueDate, dueTime),
+p_is_automatic: false,
     p_message: clientMessageManual, // ✅ Vai para a linha do tempo do CLIENTE (Sem nome)
     p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)),
     p_total_amount: totalBrl,
