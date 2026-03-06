@@ -1247,7 +1247,6 @@ style={{ maxHeight: "90dvh" }}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Data do Vencimento</Label>
-                      // ✅ PARA
 <DateInputBR value={dueDate} onChange={setDueDate} />
                     </div>
                     <div>
