@@ -19,6 +19,16 @@ function safeServerLog(...args: any[]) {
   }
 }
 
+// ✅ Log estruturado para Vercel (sempre ativo, nunca vaza dados sensíveis)
+export function prodLog(event: string, meta: Record<string, unknown> = {}) {
+  const line = {
+    ts: new Date().toISOString(),
+    event,
+    ...meta,
+  };
+  console.log("[FULFILLMENT]", JSON.stringify(line));
+}
+
 const MONTHS_BY_PERIOD: Record<string, number> = {
   MONTHLY: 1,
   BIMONTHLY: 2,
@@ -110,6 +120,16 @@ export async function runFulfillment(params: FulfillmentParams) {
     .single();
 
   if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
+  prodLog("fulfillment.start", {
+  tenant: tenantId.slice(-6),
+  client_id: String(client.id).slice(-6),
+  client_name: String((client as any).display_name || "").slice(0, 20),
+  provider: "pending",
+  period: payment.period,
+  amount: payment.price_amount,
+  currency: payment.price_currency,
+  mp_payment_id: String(payment.mp_payment_id).slice(-6),
+});
 
   const login = String((client as any).server_username || "").trim();
   if (!client.server_id || !login) {
@@ -138,8 +158,15 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   if (iErr || !integ) throw new Error("Integração não encontrada para renovação.");
 
-  const provider = String(integ.provider || "").toUpperCase();
+const provider = String(integ.provider || "").toUpperCase();
   const months = toPeriodMonths(payment.period);
+  prodLog("fulfillment.provider_resolved", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    provider,
+    months,
+    server_id: String(client.server_id).slice(-6),
+  });
 
   // 3) Chamar renew
   let renewPath = "";
@@ -177,13 +204,26 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   const renewJson = await renewRes.json().catch(() => null);
 
-  if (!renewRes.ok || !renewJson?.ok) {
+if (!renewRes.ok || !renewJson?.ok) {
+    prodLog("fulfillment.renew_failed", {
+      tenant: tenantId.slice(-6),
+      client_id: String(client.id).slice(-6),
+      provider,
+      http_status: renewRes.status,
+    });
     const msg = renewJson?.error || `Falha ao renovar no provedor ${provider}. HTTP ${renewRes.status}`;
     throw new Error(msg);
   }
 
   let expDateISO = renewJson?.data?.exp_date_iso;
   let newPassword = provider === "NATV" ? (renewJson?.data?.password ?? null) : null;
+
+  prodLog("fulfillment.renew_ok", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    provider,
+    exp_date_found: !!expDateISO,
+  });
 
   // Segunda chance Elite
   if (!expDateISO && provider === "ELITE") {
@@ -203,6 +243,11 @@ export async function runFulfillment(params: FulfillmentParams) {
 
     const syncJson = await syncRes.json().catch(() => null);
     if (syncRes.ok && syncJson?.ok) {
+      prodLog("fulfillment.elite_sync_ok", {
+  tenant: tenantId.slice(-6),
+  client_id: String(client.id).slice(-6),
+  exp_date_found: !!expDateISO,
+});
       expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
       if (syncJson.password) newPassword = syncJson.password;
     }
@@ -231,6 +276,11 @@ export async function runFulfillment(params: FulfillmentParams) {
     .eq("id", client.id);
 
   if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
+  prodLog("fulfillment.client_updated", {
+  tenant: tenantId.slice(-6),
+  client_id: String(client.id).slice(-6),
+  new_vencimento: expDateISO,
+});
 
   // 5) Logs
   const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
@@ -333,6 +383,15 @@ export async function runFulfillment(params: FulfillmentParams) {
   } catch (e) {
     safeServerLog("fulfillment: failed whatsapp", (e as any)?.message);
   }
+
+  prodLog("fulfillment.done", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    provider,
+    months,
+    amount: payment.price_amount,
+    currency: payment.price_currency,
+  });
 
   return { expDateISO };
 }
