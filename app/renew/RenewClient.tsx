@@ -129,7 +129,10 @@ function formatMoney(amount: number, currency: string = "BRL") {
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
 // ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
-  const isoTarget = vencimento.split("T")[0]; // yyyy-mm-dd
+  // ✅ PARA — converte para SP antes de extrair a data
+const isoTarget = new Date(vencimento).toLocaleDateString("sv-SE", {
+  timeZone: "America/Sao_Paulo",
+});
 
   // Hoje em SP
   const todaySP = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -162,16 +165,21 @@ function getTimeRemaining(vencimento: string) {
   return { expired: false, text: `Assinatura vence em ${diffDays} dias` };
 }
 
+// ✅ PARA — sem depender de locale do navegador
 function formatDateTime(dateStr: string) {
   const date = new Date(dateStr);
-  return date.toLocaleString("pt-BR", {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
 
 function calculateDiscount(monthlyPrice: number, totalPrice: number, months: number) {
@@ -677,14 +685,16 @@ if (fulfillment === "done") {
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                   <p className="text-sm text-emerald-700 font-medium">
                     Novo vencimento:{" "}
-{new Date(paymentData.new_vencimento).toLocaleString("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "America/Sao_Paulo",
-})}
+{paymentData.new_vencimento && (
+  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+    <p className="text-sm text-emerald-700 font-medium">
+      Novo vencimento:{" "}
+      {formatDateTime(paymentData.new_vencimento)}
+    </p>
+  </div>
+)}
+
+
 
                   </p>
                 </div>

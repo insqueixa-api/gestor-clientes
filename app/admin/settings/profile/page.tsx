@@ -922,7 +922,7 @@ return (
           onClick={handleDownloadTemplate}
           className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
         >
-          📄 Baixar modelo (CSV)
+          📄 Baixar modelo (Excel)
         </button>
 
         <button
@@ -1123,7 +1123,7 @@ return (
   >
     {importing ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
   </button>
-  <input ref={importFileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
+  <input ref={importFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
 </div>
           </div>
         </div>

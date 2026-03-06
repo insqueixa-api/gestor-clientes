@@ -1076,21 +1076,7 @@ console.log("✅ Renovação automática concluída:", {
 if (registerPayment && !renewAutomatic) {
   setLoadingText("Registrando pagamento...");
 
-  // ✅ Monta DE / PARA para o log
-  const oldVenc = clientData?.vencimento
-    ? new Date(clientData.vencimento).toLocaleString("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-      })
-    : "—";
-
-  const newVencISO = saoPauloDateTimeToIso(dueDate, dueTime);
-  const newVenc = new Date(newVencISO).toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  
 
 // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
   const clientMessageManual = `Renovação manual via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
@@ -1115,19 +1101,7 @@ p_is_automatic: false,
 if (registerPayment && renewAutomatic) {
   setLoadingText("Registrando renovação...");
 
-  const oldVenc = clientData?.vencimento
-    ? new Date(clientData.vencimento).toLocaleString("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-      })
-    : "—";
-
-  const newVenc = new Date(apiVencimento).toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  
 
 // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
   const clientMessageAuto = `Renovação automática via painel · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
@@ -1273,7 +1247,8 @@ style={{ maxHeight: "90dvh" }}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Data do Vencimento</Label>
-                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium dark:[color-scheme:dark]" />
+                      // ✅ PARA
+<DateInputBR value={dueDate} onChange={setDueDate} />
                     </div>
                     <div>
                       <Label>Hora Limite</Label>
@@ -1559,6 +1534,49 @@ style={{ maxHeight: "90dvh" }}
       />
     );
   }
+
+  function DateInputBR({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  // Converte yyyy-mm-dd → dd/mm/aaaa para exibir
+  const toDisplay = (iso: string) => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  // Converte dd/mm/aaaa → yyyy-mm-dd para o estado
+  const toISO = (br: string) => {
+    const clean = br.replace(/\D/g, "");
+    const d = clean.slice(0, 2);
+    const m = clean.slice(2, 4);
+    const y = clean.slice(4, 8);
+    if (y.length === 4) return `${y}-${m}-${d}`;
+    return "";
+  };
+
+  const [display, setDisplay] = useState(toDisplay(value));
+
+  useEffect(() => {
+    setDisplay(toDisplay(value));
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      value={display}
+      maxLength={10}
+      placeholder="DD/MM/AAAA"
+      onChange={(e) => {
+        let v = e.target.value.replace(/\D/g, "");
+        if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+        if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+        setDisplay(v);
+        const iso = toISO(v);
+        if (iso) onChange(iso);
+      }}
+      className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors text-sm font-medium"
+    />
+  );
+}
 
   function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
     return (

@@ -258,12 +258,19 @@ const isoDate = isoDateInSaoPaulo(dt);
     return { dueISODate: "9999-12-31", dueLabelDate: "—", dueTime: "—" };
   }
   
-  return { 
-    dueISODate: isoDate, 
-dueLabelDate: dt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-dueTime: dt.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })
+// ✅ PARA
+const parts = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit", month: "2-digit", year: "numeric",
+  hour: "2-digit", minute: "2-digit", hour12: false,
+}).formatToParts(dt);
+const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
 
-  };
+return {
+  dueISODate: isoDate,
+  dueLabelDate: `${get("day")}/${get("month")}/${get("year")}`,
+  dueTime: `${get("hour")}:${get("minute")}`,
+};
 }
 
 function formatMoney(amount: number | null, currency: string | null) {
@@ -2822,10 +2829,17 @@ function ScheduledMessagesModal({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider bg-white dark:bg-white/10 px-2 py-0.5 rounded border border-slate-100 dark:border-white/5">
-                        {new Date(it.send_at).toLocaleString("pt-BR", {
-                          timeZone: "America/Sao_Paulo",
-                          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-                        })}
+// ✅ PARA — extrai via formatToParts (mesma lógica)
+{(() => {
+  const dt = new Date(it.send_at);
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(dt);
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
+})()}
                       </div>
 
                       {it.status && (
