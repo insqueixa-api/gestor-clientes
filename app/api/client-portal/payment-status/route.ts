@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  runFulfillment,
+  markFulfillmentDone,
+  markFulfillmentError,
+  tryAcquireFulfillmentLock,
+  toPeriodMonths,
+} from "@/lib/client-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
 
@@ -39,29 +46,8 @@ function makeSupabaseAdmin() {
   return createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 }
 
-const MONTHS_BY_PERIOD: Record<string, number> = {
-  MONTHLY: 1,
-  BIMONTHLY: 2,
-  QUARTERLY: 3,
-  SEMIANNUAL: 6,
-  ANNUAL: 12,
-};
 
-function toPeriodMonths(periodRaw: unknown) {
-  const p = String(periodRaw || "").toUpperCase().trim();
-  return MONTHS_BY_PERIOD[p] ?? 1;
-}
 
-function fmtBRDateFromISO(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
 
 async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: string) {
   const { data, error } = await supabaseAdmin
@@ -151,62 +137,12 @@ async function refreshMercadoPagoStatusIfNotApproved(
   }
 }
 
-// ✅ CORREÇÃO: Adicionado parâmetro forceReset para lidar com Zumbis
-async function tryAcquireFulfillmentLock(
-  supabaseAdmin: any,
-  tenantId: string,
-  paymentRowId: string
-) {
-  const { data, error } = await supabaseAdmin.rpc(
-    "client_portal_try_acquire_fulfillment_lock",
-    {
-      p_tenant_id: tenantId,
-      p_payment_row_id: paymentRowId,
-      p_zombie_seconds: 180,
-    }
-  );
-
-  if (error) {
-    safeServerLog("tryAcquireFulfillmentLock(rpc) error:", error.message);
-    return { acquired: false, mode: "rpc_error" };
-  }
-
-  // supabase rpc retorna array
-  const acquired = Array.isArray(data) ? !!data[0]?.acquired : !!(data as any)?.acquired;
-  return { acquired, mode: acquired ? "rpc_acquired" : "rpc_no_match" };
-}
 
 
 
 
-async function markFulfillmentDone(
-  supabaseAdmin: any,
-  tenantId: string,
-  paymentRowId: string,
-  newVencimentoISO: string
-) {
-  await supabaseAdmin
-    .from("client_portal_payments")
-    .update({
-      fulfillment_status: "done",
-      fulfilled_at: new Date().toISOString(),
-      new_vencimento: newVencimentoISO,
-      fulfillment_error: null,
-    })
-    .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId);
-}
 
-async function markFulfillmentError(supabaseAdmin: any, tenantId: string, paymentRowId: string, message: string) {
-  await supabaseAdmin
-    .from("client_portal_payments")
-    .update({
-      fulfillment_status: "error",
-      fulfillment_error: message,
-    })
-    .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId);
-}
+
 
 function getAppOrigin() {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
@@ -214,305 +150,7 @@ function getAppOrigin() {
   return appUrl.replace(/\/+$/, "");
 }
 
-async function runFulfillment(params: {
-  supabaseAdmin: any;
-  tenantId: string;
-  origin: string;
-  payment: any;
-}) {
-  const { supabaseAdmin, tenantId, origin, payment } = params;
 
-// 1) Carrega cliente
-// 1) Carrega cliente
-const { data: client, error: cErr } = await supabaseAdmin
-  .from("clients")
-  // ✅ ADICIONADO: screens (para não gravar sempre 1 no log)
-  .select("id,tenant_id,display_name,server_username,server_password,external_user_id,technology,server_id,whatsapp_username,price_currency,is_trial,screens")
-  .eq("tenant_id", tenantId)
-  .eq("id", payment.client_id)
-  .single();
-
-  if (cErr || !client) throw new Error("Cliente não encontrado para renovação.");
-
-  const login = String((client as any).server_username || "").trim();
-  if (!client.server_id || !login) {
-    throw new Error("Cliente sem server_id/server_username para renovação.");
-  }
-
-  // 2) Descobrir integração do servidor
-  const { data: srv, error: sErr } = await supabaseAdmin
-    .from("servers")
-    .select("id,name,panel_integration")
-    .eq("tenant_id", tenantId)
-    .eq("id", client.server_id)
-    .single();
-
-  if (sErr || !srv) throw new Error("Servidor não encontrado para renovação.");
-  if (!srv.panel_integration) throw new Error("Servidor sem integração (panel_integration).");
-
-  const integrationId = String(srv.panel_integration);
-
-  const { data: integ, error: iErr } = await supabaseAdmin
-    .from("server_integrations")
-    .select("id,provider")
-    .eq("tenant_id", tenantId)
-    .eq("id", integrationId)
-    .single();
-
-  if (iErr || !integ) throw new Error("Integração não encontrada para renovação.");
-
-  const provider = String(integ.provider || "").toUpperCase();
-  const months = toPeriodMonths(payment.period);
-
-  // 3) Chamar renew-client (NaTV/FAST/ELITE) — usa endpoint interno
-  let renewPath = "";
-  if (provider === "FAST") renewPath = "/api/integrations/fast/renew-client";
-  else if (provider === "NATV") renewPath = "/api/integrations/natv/renew-client";
-  else if (provider === "ELITE") renewPath = "/api/integrations/elite/renew"; // ✅ ROTA DA ELITE
-  else throw new Error(`Provedor não suportado: ${provider}`);
-
-  const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-  if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "x-internal-secret": internalSecret,
-  };
-
-  const payload: any = {
-    tenant_id: tenantId,
-    integration_id: integrationId,
-    username: login,
-    months,
-  };
-
-  // ✅ Para a Elite, injetamos a tecnologia e o ID numérico que puxamos no passo 1
-  if (provider === "ELITE") {
-    payload.external_user_id = client.external_user_id || login;
-    payload.technology = client.technology || "IPTV";
-  }
-
-  const renewRes = await fetch(`${origin}${renewPath}`, {
-    method: "POST",
-    headers,
-    cache: "no-store",
-    body: JSON.stringify(payload),
-  });
-
-  const renewJson = await renewRes.json().catch(() => null);
-
-  if (!renewRes.ok || !renewJson?.ok) {
-    const msg = renewJson?.error || `Falha ao renovar no provedor ${provider}. HTTP ${renewRes.status}`;
-    throw new Error(msg);
-  }
-
-  // 1. Tenta apanhar a data diretamente da renovação (Fast/NaTV fazem isso)
-  let expDateISO = renewJson?.data?.exp_date_iso;
-  let newPassword = provider === "NATV" ? (renewJson?.data?.password ?? null) : null;
-
-  // 2. ✅ SEGUNDA CHANCE (Para a Elite): Se a renovação deu OK mas não veio data,
-  // chamamos a rota leve de Sync focada em Renovação para buscar a data REAL.
-  if (!expDateISO && provider === "ELITE") {
-    safeServerLog("[PAYMENT] Elite renovado com sucesso. Aguardando 1.5s para o painel respirar antes do Sync...");
-    
-    // 👇 DELAY DE SEGURANÇA (1500ms) 👇
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    // 👆 FIM DO DELAY 👇
-
-    safeServerLog("[PAYMENT] Iniciando Sync de resgate via /renew/sync...");
-    
-    const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
-      method: "POST",
-      headers, // Usa os mesmos headers (com o x-internal-secret)
-      body: JSON.stringify({
-        integration_id: integrationId,
-        external_user_id: client.external_user_id,
-        username: login,
-        technology: client.technology,
-        tenant_id: tenantId // Passado como medida de segurança extra para o backend
-      }),
-    });
-
-    const syncJson = await syncRes.json().catch(() => null);
-
-    if (syncRes.ok && syncJson?.ok) {
-      expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
-      // Se for P2P e o Sync tiver resgatado a palavra-passe atualizada, guardamos
-      if (syncJson.password) {
-          newPassword = syncJson.password;
-      }
-      safeServerLog("[PAYMENT] Data resgatada com sucesso via Sync Elite Renovação:", expDateISO);
-    }
-  }
-
-  // 3. Validação Final: Se mesmo depois do Sync a data não existir, bloqueia.
-  if (!expDateISO) {
-    throw new Error(`Renovado no provedor ${provider}, mas a nova data de vencimento não foi encontrada após tentativa de sincronização.`);
-  }
-
-  // 4) Atualizar cliente
-  const updatePayload: any = {
-  plan_label: payment.plan_label ?? null,
-  price_amount: payment.price_amount ?? null,
-  price_currency: payment.price_currency ?? client.price_currency ?? "BRL",
-  vencimento: expDateISO,
-  updated_at: new Date().toISOString(),
-};
-
-// ✅ se era trial, converte para normal
-if ((client as any)?.is_trial === true) {
-  updatePayload.is_trial = false;
-}
-
-if (newPassword) updatePayload.server_password = String(newPassword);
-
-const { error: upClientErr } = await supabaseAdmin
-  .from("clients")
-  .update(updatePayload)
-  .eq("tenant_id", tenantId)
-  .eq("id", client.id);
-
-  if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
-
-  // --- PREPARANDO VARIÁVEIS PARA OS LOGS ---
-  const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
-  const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
-  const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
-  const qtyScreens = Number((client as any).screens ?? 1);
-  const clientName = String((client as any).display_name || "Cliente").trim();
-  
-  // ✅ Formata a moeda exatamente igual ao modal do painel (Ex: R$ 30,00)
-  const formattedMoney = new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: safeCurrency,
-  }).format(totalPaid);
-
-  // 5a) Log na Linha do Tempo do Cliente (Limpo, sem o próprio nome e sem servidor)
-  try {
-    await supabaseAdmin.from("client_events").insert({
-      tenant_id: tenantId,
-      client_id: client.id,
-      event_type: "RENEWAL",
-      // Ex: Renovação via Portal do Cliente · 1 mês(es) · 2 tela(s) · R$ 30,00
-      message: `Renovação via Portal do Cliente · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney}`,
-      meta: {
-        mp_payment_id: String(payment.mp_payment_id),
-        months,
-        provider,
-        server_name: srv.name || null,
-        new_vencimento: expDateISO,
-        source: "client_portal",
-      },
-    });
-  } catch (e) {
-    safeServerLog("payment-status: failed to insert client_events", (e as any)?.message);
-  }
-
-  // 5b) Registra em client_renewals para o Dashboard (Com nome do cliente para a view do Admin)
-  try {
-    const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
-      tenant_id: tenantId,
-      client_id: client.id,
-      server_id: client.server_id,
-      months,
-      screens: qtyScreens,
-      currency: safeCurrency, 
-      unit_price: unitPrice,
-      total_amount: totalPaid,
-      credits_per_month: 1, 
-      credits_used: months * qtyScreens,
-      status: "PAID",
-      // Ex: Renovação via Portal do Cliente · Rebecca (RebeccaVida) · 1 mês(es) · 2 tela(s) · R$ 30,00 · MP: 12345
-      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
-    });
-
-    if (renErr) {
-      await supabaseAdmin.from("client_events").insert({
-        tenant_id: tenantId,
-        client_id: client.id,
-        event_type: "SYSTEM",
-        message: `[ERRO FINANCEIRO] Falha ao registrar renovação no Servidor: ${renErr.message}`
-      });
-    }
-  } catch (e) {
-    safeServerLog("payment-status: failed to insert client_renewals", (e as any)?.message);
-  }
-
-
-  // 6) Sync (best-effort)
-  try {
-    let syncPath = "";
-    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
-    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
-    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync"; // ✅ SYNC DA ELITE
-    
-    if (syncPath) {
-      await fetch(`${origin}${syncPath}`, { method: "POST", headers, body: JSON.stringify({ integration_id: integrationId }) });
-    }
-  } catch (e) {
-    safeServerLog("payment-status: failed sync", (e as any)?.message);
-  }
-
-    // 7) WhatsApp (best-effort) — usa template "Pagamento Realizado" salvo no banco
-  try {
-    // ✅ Busca template "pagamento" do tenant
-    let msg = "";
-    try {
-      const { data: tmpl } = await supabaseAdmin
-        .from("message_templates")
-        .select("content")
-        .eq("tenant_id", tenantId)
-        .or("name.ilike.%pagamento%,name.ilike.%pago%,name.ilike.%realizado%")
-        .order("name", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      msg = String(tmpl?.content || "").trim();
-    } catch (e) {
-      safeServerLog("payment-status: failed to fetch message template", (e as any)?.message);
-    }
-
-    if (!msg) throw new Error("Template de pagamento não encontrado.");
-
-    const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
-      method: "POST",
-      headers: {
-        ...headers, // já tem Content-Type e x-internal-secret
-        Accept: "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        tenant_id: tenantId,
-        client_id: client.id,
-        message: msg,
-        whatsapp_session: "default",
-      }),
-    });
-
-    const waRaw = await waRes.text();
-
-    if (!waRes.ok) {
-      safeServerLog("[WA][envio_agora] HTTP error", {
-        status: waRes.status,
-        statusText: waRes.statusText,
-        // não vaza telefone nem token; só um pedaço da resposta
-        body_preview: String(waRaw || "").slice(0, 300),
-        tenantId,
-        clientId_suffix: String(client.id).slice(-6),
-      });
-    } else {
-      safeServerLog("[WA][envio_agora] ok", {
-        tenantId,
-        clientId_suffix: String(client.id).slice(-6),
-      });
-    }
-  } catch (e) {
-    safeServerLog("payment-status: failed whatsapp (exception)", (e as any)?.message);
-  }
-
-
-  return { expDateISO };
-}
 
 export async function POST(req: NextRequest) {
   const supabaseAdmin = makeSupabaseAdmin();
