@@ -783,32 +783,32 @@ if (fulfillment === "done") {
                   </div>
                 )}
 
-                {/* Código Copia e Cola */}
-                {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ou copie o código:</p>
-                    <div className="flex items-center gap-2 p-1 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
-                      <input
-                        type="text"
-                        value={paymentData.pix_qr_code}
-                        readOnly
-                        className="flex-1 px-2 bg-transparent text-xs font-mono text-slate-700 outline-none truncate"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentData.pix_qr_code);
-                          setCopiedCode(true);
-                          setTimeout(() => setCopiedCode(false), 3000);
-                        }}
-                        className={`px-4 py-2 text-white font-bold text-xs rounded-md transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 min-w-[100px] ${
-                          copiedCode ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600"
-                        }`}
-                      >
-                        {copiedCode ? "✅ Copiado" : "📋 Copiar"}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Código Copia e Cola - Visual Premium */}
+                {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider text-center">Ou copie o código:</p>
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        value={paymentData.pix_qr_code}
+                        readOnly
+                        className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-[#161b22] border-2 border-slate-200 dark:border-white/10 rounded-lg text-xs font-mono text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(paymentData.pix_qr_code);
+                          setCopiedCode(true);
+                          setTimeout(() => setCopiedCode(false), 3000);
+                        }}
+                        className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                          copiedCode ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600 shadow-sm"
+                        }`}
+                      >
+                        {copiedCode ? "✅ Copiado" : "📋 Copiar"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Status */}
                 <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
@@ -864,31 +864,31 @@ if (fulfillment === "done") {
                 {/* Dados do PIX */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
-                    <div className="flex items-center gap-2 p-1 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
-                      <input
-                        type="text"
-                        value={paymentData.pix_key}
-                        readOnly
-                        className="flex-1 px-2 bg-transparent text-xs font-mono text-slate-800 outline-none truncate"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentData.pix_key);
-                          setCopiedKey(true);
-                          setTimeout(() => setCopiedKey(false), 3000);
-                        }}
-                        className={`px-4 py-2 text-white font-bold text-xs rounded-md transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 min-w-[100px] ${
-                          copiedKey ? "bg-emerald-500 hover:bg-emerald-600" : "bg-violet-500 hover:bg-violet-600"
-                        }`}
-                      >
-                        {copiedKey ? "✅ Copiado" : "📋 Copiar"}
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
-                    </p>
-                  </div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        value={paymentData.pix_key}
+                        readOnly
+                        className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-[#161b22] border-2 border-slate-200 dark:border-white/10 rounded-lg text-sm font-mono text-slate-800 dark:text-white outline-none focus:border-violet-500 transition-colors shadow-sm"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(paymentData.pix_key);
+                          setCopiedKey(true);
+                          setTimeout(() => setCopiedKey(false), 3000);
+                        }}
+                        className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                          copiedKey ? "bg-emerald-500 hover:bg-emerald-600" : "bg-violet-500 hover:bg-violet-600 shadow-sm"
+                        }`}
+                      >
+                        {copiedKey ? "✅ Copiado" : "📋 Copiar"}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
+                    </p>
+                  </div>
 
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular</p>
