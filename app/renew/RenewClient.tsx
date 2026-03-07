@@ -251,11 +251,15 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const availablePrices = prices;
 
   
-  // Estados do pagamento
-  const [paymentModal, setPaymentModal] = useState(false);
-  const [paymentData, setPaymentData] = useState<any>(null);
-  const [paymentStatus, setPaymentStatus] = useState<"pending" | "approved" | "rejected">("pending");
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
+// Estados do pagamento
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "approved" | "rejected">("pending");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
+  
+  // ✅ NOVO: Estados para controle visual do botão de copiar
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   // ✅ NOVO: fases do fluxo (UI mais clara)
   const [paymentPhase, setPaymentPhase] = useState<
@@ -790,15 +794,18 @@ if (fulfillment === "done") {
                         readOnly
                         className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 truncate"
                       />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentData.pix_qr_code);
-                          alert("Código copiado!");
-                        }}
-                        className="px-4 py-2 bg-blue-500 text-white font-bold text-sm rounded-lg hover:bg-blue-600 transition-colors"
-                      >
-                        📋
-                      </button>
+<button
+                        onClick={() => {
+                          navigator.clipboard.writeText(paymentData.pix_qr_code);
+                          setCopiedCode(true);
+                          setTimeout(() => setCopiedCode(false), 3000);
+                        }}
+                        className={`px-4 py-2 text-white font-bold text-sm rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 ${
+                          copiedCode ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600"
+                        }`}
+                      >
+                        {copiedCode ? "✅ Copiado" : "📋 Copiar"}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -865,15 +872,18 @@ if (fulfillment === "done") {
                         readOnly
                         className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono text-slate-800"
                       />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentData.pix_key);
-                          alert("Chave copiada!");
-                        }}
-                        className="px-4 py-2 bg-violet-500 text-white font-bold rounded-lg hover:bg-violet-600 transition-colors"
-                      >
-                        📋
-                      </button>
+<button
+                        onClick={() => {
+                          navigator.clipboard.writeText(paymentData.pix_key);
+                          setCopiedKey(true);
+                          setTimeout(() => setCopiedKey(false), 3000);
+                        }}
+                        className={`px-4 py-2 text-white font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 ${
+                          copiedKey ? "bg-emerald-500 hover:bg-emerald-600" : "bg-violet-500 hover:bg-violet-600"
+                        }`}
+                      >
+                        {copiedKey ? "✅ Copiado" : "📋 Copiar"}
+                      </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}

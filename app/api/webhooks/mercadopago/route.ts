@@ -75,17 +75,17 @@ if (!verifyMpWebhook(req, paymentId)) {
 
     prodLog("webhook.received", { payment_id_suffix: paymentId.slice(-6) });
 
-    // 1) Buscar pagamento pendente no nosso banco
-    const { data: payment, error: payErr } = await supabaseAdmin
-      .from("client_portal_payments")
-      .select("id, tenant_id, client_id, mp_payment_id, status, period, plan_label, price_amount, price_currency, new_vencimento")
-      .eq("mp_payment_id", paymentId)
-      .in("status", ["pending", "processing"])
-      .single();
+    // 1) Buscar pagamento no nosso banco (pode estar in_process devido ao frontend)
+    const { data: payment, error: payErr } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento")
+      .eq("mp_payment_id", paymentId)
+      .single();
 
-if (payErr || !payment) {
-      return NextResponse.json({ ok: true });
-    }
+    // Se não achou ou já foi concluído com sucesso, sai silenciosamente
+    if (payErr || !payment || payment.status === "approved" || payment.fulfillment_status === "done") {
+      return NextResponse.json({ ok: true });
+    }
 
     prodLog("webhook.payment_found", {
       payment_row_id: String(payment.id).slice(-6),
@@ -140,24 +140,17 @@ if (payErr || !payment) {
       tenant: String(payment.tenant_id).slice(-6),
     });
 
-    // 4) Lock atômico: pending -> processing
-    const { data: locked, error: lockErr } = await supabaseAdmin
-      .from("client_portal_payments")
-      .update({ status: "processing" })
-      .eq("id", payment.id)
-      .eq("status", "pending")
-      .select("id");
+    // 4) Marca approved e prepara para o fulfillment
+    // Igual ao frontend: se fulfillment_status for nulo, iniciamos como pending para o lock funcionar
+    const updatePayload: any = { status: "approved" };
+    if (!payment.fulfillment_status) {
+      updatePayload.fulfillment_status = "pending";
+    }
 
-    if (lockErr) return NextResponse.json({ ok: true });
-    if (!locked || (Array.isArray(locked) && locked.length === 0)) {
-      return NextResponse.json({ ok: true });
-    }
-
-    // 5) Marca approved e executa fulfillment direto
-    await supabaseAdmin
-      .from("client_portal_payments")
-      .update({ status: "approved" })
-      .eq("id", payment.id);
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update(updatePayload)
+      .eq("id", payment.id);
 
     const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
 
