@@ -337,23 +337,26 @@ if (!renewRes.ok || !renewJson?.ok) {
     safeServerLog("fulfillment: failed to insert client_renewals", (e as any)?.message);
   }
 
-  // 6) Sync
-  try {
-    let syncPath = "";
-    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
-    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
-    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync";
+// 6) Sync
+  try {
+    let syncPath = "";
+    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
+    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
+    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync";
 
-    if (syncPath) {
-      await fetch(`${origin}${syncPath}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ integration_id: integrationId }),
-      });
-    }
-  } catch (e) {
-    safeServerLog("fulfillment: failed sync", (e as any)?.message);
-  }
+    if (syncPath) {
+      await fetch(`${origin}${syncPath}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ 
+          tenant_id: tenantId, 
+          integration_id: integrationId 
+        }),
+      });
+    }
+  } catch (e) {
+    safeServerLog("fulfillment: failed sync", (e as any)?.message);
+  }
 
   // 7) WhatsApp
   try {
