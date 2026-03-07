@@ -784,31 +784,31 @@ if (fulfillment === "done") {
                 )}
 
                 {/* Código Copia e Cola */}
-                {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ou copie o código:</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={paymentData.pix_qr_code}
-                        readOnly
-                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 truncate"
-                      />
-<button
+                {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ou copie o código:</p>
+                    <div className="flex items-center gap-2 p-1 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                      <input
+                        type="text"
+                        value={paymentData.pix_qr_code}
+                        readOnly
+                        className="flex-1 px-2 bg-transparent text-xs font-mono text-slate-700 outline-none truncate"
+                      />
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(paymentData.pix_qr_code);
                           setCopiedCode(true);
                           setTimeout(() => setCopiedCode(false), 3000);
                         }}
-                        className={`px-4 py-2 text-white font-bold text-sm rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 ${
+                        className={`px-4 py-2 text-white font-bold text-xs rounded-md transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 min-w-[100px] ${
                           copiedCode ? "bg-emerald-500 hover:bg-emerald-600" : "bg-blue-500 hover:bg-blue-600"
                         }`}
                       >
                         {copiedCode ? "✅ Copiado" : "📋 Copiar"}
                       </button>
-                    </div>
-                  </div>
-                )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Status */}
                 <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
@@ -864,31 +864,31 @@ if (fulfillment === "done") {
                 {/* Dados do PIX */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={paymentData.pix_key}
-                        readOnly
-                        className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono text-slate-800"
-                      />
-<button
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
+                    <div className="flex items-center gap-2 p-1 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                      <input
+                        type="text"
+                        value={paymentData.pix_key}
+                        readOnly
+                        className="flex-1 px-2 bg-transparent text-xs font-mono text-slate-800 outline-none truncate"
+                      />
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(paymentData.pix_key);
                           setCopiedKey(true);
                           setTimeout(() => setCopiedKey(false), 3000);
                         }}
-                        className={`px-4 py-2 text-white font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 ${
+                        className={`px-4 py-2 text-white font-bold text-xs rounded-md transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 min-w-[100px] ${
                           copiedKey ? "bg-emerald-500 hover:bg-emerald-600" : "bg-violet-500 hover:bg-violet-600"
                         }`}
                       >
                         {copiedKey ? "✅ Copiado" : "📋 Copiar"}
                       </button>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
-                    </p>
-                  </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
+                    </p>
+                  </div>
 
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular</p>
