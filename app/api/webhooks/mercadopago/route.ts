@@ -82,8 +82,10 @@ if (!verifyMpWebhook(req, paymentId)) {
       .eq("mp_payment_id", paymentId)
       .single();
 
-    // Se não achou ou já foi concluído com sucesso, sai silenciosamente
-    if (payErr || !payment || payment.status === "approved" || payment.fulfillment_status === "done") {
+    // Se não achou ou a renovação já foi concluída, sai silenciosamente.
+    // ATENÇÃO: NÃO abortamos se o status for "approved", pois o frontend pode
+    // ter marcado como aprovado e morrido antes de finalizar o fulfillment!
+    if (payErr || !payment || payment.fulfillment_status === "done") {
       return NextResponse.json({ ok: true });
     }
 

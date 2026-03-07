@@ -226,61 +226,65 @@ if (!renewRes.ok || !renewJson?.ok) {
   });
 
   // Segunda chance Elite
-  if (!expDateISO && provider === "ELITE") {
-    await new Promise(resolve => setTimeout(resolve, 1500));
+  let newExternalId = null; // ✅ Preparado para capturar o ID
+  if (!expDateISO && provider === "ELITE") {
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        integration_id: integrationId,
-        external_user_id: client.external_user_id,
-        username: login,
-        technology: client.technology,
-        tenant_id: tenantId,
-      }),
-    });
+    const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        integration_id: integrationId,
+        external_user_id: client.external_user_id,
+        username: login,
+        technology: client.technology,
+        tenant_id: tenantId,
+      }),
+    });
 
-    const syncJson = await syncRes.json().catch(() => null);
-    if (syncRes.ok && syncJson?.ok) {
-      prodLog("fulfillment.elite_sync_ok", {
-  tenant: tenantId.slice(-6),
-  client_id: String(client.id).slice(-6),
-  exp_date_found: !!expDateISO,
-});
-      expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
-      if (syncJson.password) newPassword = syncJson.password;
-    }
-  }
+    const syncJson = await syncRes.json().catch(() => null);
+    if (syncRes.ok && syncJson?.ok) {
+      prodLog("fulfillment.elite_sync_ok", {
+        tenant: tenantId.slice(-6),
+        client_id: String(client.id).slice(-6),
+        exp_date_found: !!(syncJson.expires_at_iso || syncJson.exp_date),
+      });
+      expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
+      if (syncJson.password) newPassword = syncJson.password;
+      if (syncJson.external_user_id) newExternalId = syncJson.external_user_id; // ✅ Captura o ID real caçado!
+    }
+  }
 
   if (!expDateISO) {
     throw new Error(`Renovado no provedor ${provider}, mas a nova data de vencimento não foi encontrada.`);
   }
 
-  // 4) Atualizar cliente
-  const updatePayload: any = {
-    plan_label: payment.plan_label ?? null,
-    price_amount: payment.price_amount ?? null,
-    price_currency: payment.price_currency ?? client.price_currency ?? "BRL",
-    vencimento: expDateISO,
-    updated_at: new Date().toISOString(),
-  };
+  // 4) Atualizar cliente (Blindado)
+  const updatePayload: any = {
+    plan_label: payment.plan_label || (client as any).plan_label || null, // ✅ Protegido
+    price_amount: payment.price_amount || (client as any).price_amount || null, // ✅ Protegido
+    price_currency: payment.price_currency || (client as any).price_currency || "BRL",
+    vencimento: expDateISO,
+    updated_at: new Date().toISOString(),
+  };
 
-  if ((client as any)?.is_trial === true) updatePayload.is_trial = false;
-  if (newPassword) updatePayload.server_password = String(newPassword);
+  if ((client as any)?.is_trial === true) updatePayload.is_trial = false;
+  if (newPassword) updatePayload.server_password = String(newPassword);
+  if (newExternalId) updatePayload.external_user_id = String(newExternalId); // ✅ Salva o ID real no banco!
 
-  const { error: upClientErr } = await supabaseAdmin
-    .from("clients")
-    .update(updatePayload)
-    .eq("tenant_id", tenantId)
-    .eq("id", client.id);
+  const { error: upClientErr } = await supabaseAdmin
+    .from("clients")
+    .update(updatePayload)
+    .eq("tenant_id", tenantId)
+    .eq("id", client.id);
 
-  if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
-  prodLog("fulfillment.client_updated", {
-  tenant: tenantId.slice(-6),
-  client_id: String(client.id).slice(-6),
-  new_vencimento: expDateISO,
-});
+  if (upClientErr) throw new Error(`Falha ao atualizar cliente: ${upClientErr.message}`);
+  prodLog("fulfillment.client_updated", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    new_vencimento: expDateISO,
+    external_id_updated: !!newExternalId
+  });
 
   // 5) Logs
   const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
@@ -309,21 +313,22 @@ if (!renewRes.ok || !renewJson?.ok) {
     safeServerLog("fulfillment: failed to insert client_events", (e as any)?.message);
   }
 
-  try {
-    const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
-      tenant_id: tenantId,
-      client_id: client.id,
-      server_id: client.server_id,
-      months,
-      screens: qtyScreens,
-      currency: safeCurrency,
-      unit_price: unitPrice,
-      total_amount: totalPaid,
-      credits_per_month: 1,
-      credits_used: months * qtyScreens,
-      status: "PAID",
-      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
-    });
+try {
+    const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
+      tenant_id: tenantId,
+      client_id: client.id,
+      server_id: client.server_id,
+      months,
+      screens: qtyScreens,
+      currency: safeCurrency,
+      unit_price: unitPrice,
+      total_amount: totalPaid,
+      credits_per_month: 1,
+      credits_used: months * qtyScreens,
+      status: "PAID",
+      new_vencimento: expDateISO, // ✅ Faltava isso! O financeiro precisa saber a data gerada
+      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
+    });
 
     if (renErr) {
       await supabaseAdmin.from("client_events").insert({
