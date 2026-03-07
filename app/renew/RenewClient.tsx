@@ -671,9 +671,9 @@ if (fulfillment === "done") {
     const waNumber = String(sessionData?.whatsapp_username ?? "").replace(/[^\d]/g, "");
 
 
-    return (
+return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
           {/* Success */}
           {isApproved && (
             <div className="p-8 text-center">
@@ -751,19 +751,19 @@ if (fulfillment === "done") {
     </div>
 
 
-              <div className="px-6 pt-5 pb-3 space-y-4">
+              <div className="px-5 pt-4 pb-3 space-y-3">
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
-                  <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
+                  <div className="bg-white p-2 sm:p-4 rounded-xl border-2 border-slate-200">
                     {paymentData.pix_qr_code_base64 ? (
                       <img
                         src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`}
                         alt="QR Code PIX"
-                        className="w-full max-w-[280px] mx-auto"
+                        className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
                       />
                     ) : (
-                      <div className="w-64 h-64 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
-                        <p className="text-slate-400 text-sm">QR Code não disponível</p>
+                      <div className="w-48 h-48 sm:w-56 sm:h-56 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
+                        <p className="text-slate-400 text-sm text-center">QR Code não disponível</p>
                       </div>
                     )}
                   </div>
@@ -853,8 +853,8 @@ if (fulfillment === "done") {
                 <p className="text-sm text-white/80">Pagamento Offline</p>
               </div>
 
-                <div className="px-6 pt-5 pb-3 space-y-4">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="px-5 pt-4 pb-3 space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Atenção</p>
                   <p className="text-xs text-amber-700">
                     Nossos gateways automáticos estão temporariamente indisponíveis. Use os dados abaixo para fazer o PIX manualmente.
