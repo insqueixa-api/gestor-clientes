@@ -733,7 +733,7 @@ if (fulfillment === "done") {
           {/* Online - QR Code PIX */}
           {isOnline && !isApproved && !isRejected && (
             <>
-    <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-6 text-white text-center">
+    <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center">
       <h2 className="text-xl font-bold mb-1">
         {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : "Pague com PIX"}
       </h2>
@@ -751,7 +751,7 @@ if (fulfillment === "done") {
     </div>
 
 
-              <div className="p-6 space-y-4">
+              <div className="px-6 pt-5 pb-3 space-y-4">
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
                   <div className="bg-white p-4 rounded-xl border-2 border-slate-200">
@@ -836,7 +836,7 @@ if (fulfillment === "done") {
                       setPaymentStatus("pending");
                       setPaymentPhase("awaiting_payment");
                     }}
-                    className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                    className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -848,12 +848,12 @@ if (fulfillment === "done") {
           {/* Manual - PIX Manual */}
           {isManual && !isApproved && !isRejected && (
             <>
-              <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-6 text-white text-center">
+              <div className="bg-gradient-to-r from-violet-500 to-purple-600 py-3 px-6 text-white text-center">
                 <h2 className="text-xl font-bold mb-1">PIX Manual</h2>
                 <p className="text-sm text-white/80">Pagamento Offline</p>
               </div>
 
-              <div className="p-6 space-y-4">
+                <div className="px-6 pt-5 pb-3 space-y-4">
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Atenção</p>
                   <p className="text-xs text-amber-700">
@@ -937,10 +937,11 @@ if (fulfillment === "done") {
                     setPaymentModal(false);
                     setPaymentData(null);
                   }}
-                  className="w-full py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                  className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Fechar
                 </button>
+              
               </div>
             </>
           )}
