@@ -2003,7 +2003,7 @@ return (
   })()}
 </Td>
 
-<Td>
+<Td align="center">
   <span className="text-slate-600 dark:text-white/70">{r.server}</span>
 </Td>
 
