@@ -52,7 +52,13 @@ type ClientLight = {
   created_at: string;
   computed_status: string;
   server_name?: string;
-  apps_names?: string[]; // ✅ Adicionado para o filtro de aplicativos
+  apps_names?: string[];
+  
+  // ✅ Novos campos do Banco
+  username?: string;
+  secondary_display_name?: string;
+  secondary_whatsapp_username?: string;
+  price_amount?: number;
 };
 
 
@@ -485,7 +491,7 @@ export default function BillingPage() {
   
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{show: boolean, editingRule: Automation | null}>({ show: false, editingRule: null });
-  const [impactModalData, setImpactModalData] = useState<{ruleName: string, clients: ClientLight[]} | null>(null);
+  const [impactModalData, setImpactModalData] = useState<{ruleName: string, clients: ClientLight[], ruleDateField?: string} | null>(null);
   const [logsModalData, setLogsModalData] = useState<{ruleId: string, ruleName: string} | null>(null);
   
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -538,7 +544,7 @@ const addToast = (
 
   
 supabaseBrowser
-    .from("vw_clients_list_active") // ✅ View oficial corrigida
+    .from("vw_clients_list_active")
     .select(`
       id,
       display_name:client_name,
@@ -549,8 +555,12 @@ supabaseBrowser
       vencimento,
       created_at,
       computed_status,
-      apps_names
-    `) // ✅ apps_names adicionado
+      apps_names,
+      username,
+      secondary_display_name,
+      secondary_whatsapp_username,
+      price_amount
+    `)
     .eq("tenant_id", tid),
 
   supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
@@ -961,7 +971,7 @@ return (
       onToggle={() => toggleActive(auto)}
       onDelete={() => handleDelete(auto.id)}
       onEdit={() => setWizardState({ show: true, editingRule: auto })}
-      onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted })}
+      onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted, ruleDateField: auto.rule_date_field })}
       onControl={(action) => handleControl(auto, action)}
       onShowLogs={() => setLogsModalData({ ruleId: auto.id, ruleName: auto.name })}
       onRun={() => handleManualRun(auto)}
@@ -1251,42 +1261,94 @@ function AutomationCard({
 // ============================================================================
 // MODAL DE IMPACTO (LISTA DE CLIENTES)
 // ============================================================================
-function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: ClientLight[]}, onClose: () => void }) {
-    // ✅ PROTEÇÃO SSR: Evita erro "document is not defined"
+function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: ClientLight[], ruleDateField?: string}, onClose: () => void }) {
     if (typeof document === "undefined") return null;
+
+    // Descobre se a regra usa vencimento ou data de criação
+    const isCadastro = data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Clientes Afetados Hoje</h3>
                         <p className="text-xs text-slate-500">Regra: <strong>{data.ruleName}</strong> • Total: <strong>{data.clients.length}</strong></p>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">✕</button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white text-xl leading-none">✕</button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                     {data.clients.length === 0 ? (
                         <div className="p-10 text-center text-slate-400 italic">Nenhum cliente atende a esta regra hoje.</div>
                     ) : (
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-white/40 font-bold">
                                 <tr>
-                                    <th className="p-3">Cliente</th>
-                                    <th className="p-3">WhatsApp</th>
-                                    <th className="p-3">Vencimento</th>
+                                    <th className="p-3">Cliente / Contato</th>
+                                    <th className="p-3">Acesso / Servidor</th>
+                                    <th className="p-3 whitespace-nowrap">{isCadastro ? 'Data Cadastro' : 'Vencimento'}</th>
                                     <th className="p-3">Plano</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm text-slate-700 dark:text-white/80 divide-y divide-slate-100 dark:divide-white/5">
                                 {data.clients.map(c => (
-                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                                        <td className="p-3 font-bold">{c.display_name}</td>
-                                        <td className="p-3 font-mono text-xs">{c.whatsapp_username}</td>
-                                        <td className="p-3">{formatDateSP(c.vencimento)}</td>
+                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors align-top">
+                                        
+                                        {/* COLUNA 1: CLIENTES E WHATSAPP */}
+                                        <td className="p-3">
+                                            {/* Principal */}
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                                                    {c.display_name} 
+                                                    <span className="text-[10px] bg-slate-100 dark:bg-white/10 text-slate-500 px-1.5 py-0.5 rounded font-normal uppercase">Titular</span>
+                                                </span>
+                                                <span className="text-xs font-mono text-slate-500">📞 {c.whatsapp_username || '--'}</span>
+                                            </div>
 
-                                        <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-xs">{c.plan_label}</span></td>
+                                            {/* Secundário (só aparece se tiver) */}
+                                            {c.secondary_display_name && (
+                                                <div className="flex flex-col mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                                    <span className="font-bold text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1.5">
+                                                        {c.secondary_display_name}
+                                                        <span className="text-[9px] bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-normal uppercase">Secundário</span>
+                                                    </span>
+                                                    <span className="text-xs font-mono text-slate-500">📞 {c.secondary_whatsapp_username || '--'}</span>
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* COLUNA 2: SERVIDOR E LOGIN */}
+                                        <td className="p-3">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-slate-800 dark:text-white text-sm">{c.username || <span className="text-slate-400 italic font-normal">Sem usuário</span>}</span>
+                                                <span className="text-xs text-slate-500 mt-0.5">{c.server_name || '--'}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* COLUNA 3: DATA (Dinâmica dependendo da regra) */}
+                                        <td className="p-3 whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-base">{isCadastro ? '📝' : '📅'}</span>
+                                                <span className="font-medium text-slate-800 dark:text-white">
+                                                    {formatDateSP(isCadastro ? c.created_at : c.vencimento)}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* COLUNA 4: PLANO E VALOR */}
+                                        <td className="p-3">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                                    {c.plan_label || 'Sem plano'}
+                                                </span>
+                                                {c.price_amount > 0 && (
+                                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 pl-1">
+                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(c.price_amount)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1295,7 +1357,9 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
                 </div>
 
                 <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end">
-                    <button onClick={onClose} className="px-5 py-2 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase hover:bg-slate-700 transition-colors">Fechar</button>
+                    <button onClick={onClose} className="px-5 py-2.5 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase hover:bg-slate-700 transition-colors shadow-md">
+                        Fechar
+                    </button>
                 </div>
             </div>
         </div>,
