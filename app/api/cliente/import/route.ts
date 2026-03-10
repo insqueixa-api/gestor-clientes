@@ -374,7 +374,7 @@ export async function POST(req: Request) {
 
   // Converte para um array de arrays (igual ao que o seu parser antigo fazia)
   // defval: "" garante que células vazias não quebrem a ordem das colunas
-  const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "", raw: false });
+  const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
   
   // Limpa linhas que estejam completamente vazias (normal no Excel)
   const dataRows = allRows.filter(r => r.join("").trim() !== "");
