@@ -366,7 +366,7 @@ export async function POST(req: Request) {
 
   // ✅ NOVO: Leitura do ficheiro Excel (.xlsx) nativo
   const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
   
   // Pega a primeira folha de cálculo
   const sheetName = workbook.SheetNames[0];
