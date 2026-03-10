@@ -48,15 +48,11 @@ type ClientLight = {
   whatsapp_username: string;
   server_id: string;
   plan_label: string;
-  plan_price?: number | null;
   vencimento: string | null;
   created_at: string;
   computed_status: string;
   server_name?: string;
-  server_username?: string | null;
-  apps_names?: string[];
-  secondary_name_prefix?: string | null;
-  secondary_whatsapp_username?: string | null;
+  apps_names?: string[]; // ✅ Adicionado para o filtro de aplicativos
 };
 
 
@@ -489,7 +485,7 @@ export default function BillingPage() {
   
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{show: boolean, editingRule: Automation | null}>({ show: false, editingRule: null });
-  const [impactModalData, setImpactModalData] = useState<{ruleName: string, clients: ClientLight[], ruleDateField: string} | null>(null);
+  const [impactModalData, setImpactModalData] = useState<{ruleName: string, clients: ClientLight[]} | null>(null);
   const [logsModalData, setLogsModalData] = useState<{ruleId: string, ruleName: string} | null>(null);
   
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -543,22 +539,18 @@ const addToast = (
   
 supabaseBrowser
     .from("vw_clients_list_active") // ✅ View oficial corrigida
-.select(`
+    .select(`
       id,
       display_name:client_name,
       whatsapp_username,
-      whatsapp_username_2,
-      name_2,
       server_id,
       server_name,
-      server_username,
       plan_label:plan_name,
-      plan_price,
       vencimento,
       created_at,
       computed_status,
       apps_names
-    `)
+    `) // ✅ apps_names adicionado
     .eq("tenant_id", tid),
 
   supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
@@ -969,7 +961,7 @@ return (
       onToggle={() => toggleActive(auto)}
       onDelete={() => handleDelete(auto.id)}
       onEdit={() => setWizardState({ show: true, editingRule: auto })}
-      onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted, ruleDateField: auto.rule_date_field })}
+      onShowImpact={() => setImpactModalData({ ruleName: auto.name, clients: impacted })}
       onControl={(action) => handleControl(auto, action)}
       onShowLogs={() => setLogsModalData({ ruleId: auto.id, ruleName: auto.name })}
       onRun={() => handleManualRun(auto)}
@@ -1259,96 +1251,42 @@ function AutomationCard({
 // ============================================================================
 // MODAL DE IMPACTO (LISTA DE CLIENTES)
 // ============================================================================
-function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: ClientLight[], ruleDateField: string}, onClose: () => void }) {
+function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: ClientLight[]}, onClose: () => void }) {
+    // ✅ PROTEÇÃO SSR: Evita erro "document is not defined"
     if (typeof document === "undefined") return null;
-
-    const showVencimento = String(data.ruleDateField ?? "").toLowerCase() === "vencimento";
-
-    function fmtPrice(v?: number | null) {
-        if (!v || !Number.isFinite(Number(v))) return null;
-        return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    }
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-4xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-
-                {/* HEADER */}
+            <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-white/5">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Clientes Afetados Hoje</h3>
-                        <p className="text-xs text-slate-500">
-                            Regra: <strong>{data.ruleName}</strong> · Total: <strong>{data.clients.length}</strong> ·
-                            Data base: <strong>{showVencimento ? "Vencimento" : "Cadastro"}</strong>
-                        </p>
+                        <p className="text-xs text-slate-500">Regra: <strong>{data.ruleName}</strong> • Total: <strong>{data.clients.length}</strong></p>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white text-lg leading-none">✕</button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-800 dark:hover:text-white">✕</button>
                 </div>
 
-                {/* CORPO */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                     {data.clients.length === 0 ? (
                         <div className="p-10 text-center text-slate-400 italic">Nenhum cliente atende a esta regra hoje.</div>
                     ) : (
                         <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-[10px] uppercase text-slate-500 dark:text-white/40 font-bold tracking-wider">
+                            <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-white/40 font-bold">
                                 <tr>
-                                    <th className="px-4 py-3">Cliente</th>
-                                    <th className="px-4 py-3">WhatsApp</th>
-                                    <th className="px-4 py-3">Servidor</th>
-                                    <th className="px-4 py-3">{showVencimento ? "Vencimento" : "Cadastro"}</th>
-                                    <th className="px-4 py-3">Plano</th>
+                                    <th className="p-3">Cliente</th>
+                                    <th className="p-3">WhatsApp</th>
+                                    <th className="p-3">Vencimento</th>
+                                    <th className="p-3">Plano</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm text-slate-700 dark:text-white/80 divide-y divide-slate-100 dark:divide-white/5">
                                 {data.clients.map(c => (
-                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors align-top">
+                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                        <td className="p-3 font-bold">{c.display_name}</td>
+                                        <td className="p-3 font-mono text-xs">{c.whatsapp_username}</td>
+                                        <td className="p-3">{formatDateSP(c.vencimento)}</td>
 
-                                        {/* CLIENTE */}
-                                        <td className="px-4 py-3">
-                                            <div className="font-bold text-slate-800 dark:text-white leading-tight">{c.display_name}</div>
-                                            {c.secondary_name_prefix && (
-                                                <div className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{c.secondary_name_prefix}</div>
-                                            )}
-                                        </td>
-
-                                        {/* WHATSAPP */}
-                                        <td className="px-4 py-3">
-                                            <div className="font-mono text-xs text-slate-700 dark:text-white/80 leading-tight">
-                                                {c.whatsapp_username || <span className="text-slate-300 italic">—</span>}
-                                            </div>
-                                            {c.secondary_whatsapp_username && (
-                                                <div className="font-mono text-xs text-slate-400 dark:text-white/40 mt-0.5">{c.secondary_whatsapp_username}</div>
-                                            )}
-                                        </td>
-
-                                        {/* SERVIDOR */}
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-700 dark:text-white/80 leading-tight text-xs">
-                                                {c.server_name || <span className="text-slate-300 italic">—</span>}
-                                            </div>
-                                            {c.server_username && (
-                                                <div className="font-mono text-[10px] text-slate-400 dark:text-white/40 mt-0.5">{c.server_username}</div>
-                                            )}
-                                        </td>
-
-                                        {/* DATA */}
-                                        <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-white/80 whitespace-nowrap">
-                                            {showVencimento ? formatDateSP(c.vencimento) : formatDateSP(c.created_at)}
-                                        </td>
-
-                                        {/* PLANO */}
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-xs font-medium">
-                                                {c.plan_label}
-                                            </span>
-                                            {fmtPrice(c.plan_price) && (
-                                                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 font-mono">
-                                                    {fmtPrice(c.plan_price)}
-                                                </div>
-                                            )}
-                                        </td>
-
+                                        <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-xs">{c.plan_label}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
