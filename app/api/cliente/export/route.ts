@@ -41,86 +41,6 @@ type ExportRow = {
   cadastro_hora: string;     // created_at (hora)
 };
 
-function csvEscape(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  const s = String(v);
-  if (/[",\n\r;]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function toCsv(rows: ExportRow[]): string {
-  const headers = [
-    "Saudacao",
-    "Nome Completo",
-    "Telefone principal",
-    "Whatsapp Username",
-    "Secundario Saudacao", // ✅ NOVO
-    "Secundario Nome", // ✅ NOVO
-    "Secundario Telefone", // ✅ NOVO
-    "Secundario Whatsapp", // ✅ NOVO
-    "Aceita mensagem",
-    "Servidor",
-    "Usuario",
-    "Senha",
-    "Tecnologia",
-    "Currency",
-    "Plano",
-    "Telas",
-    "Vencimento dia",
-    "Vencimento hora",
-    "Aplicativos nome",
-    "Obs",
-
-    // ✅ novos (no final)
-    "Valor Plano",
-    "Tabela Preco",
-    "M3U URL",
-    "ID Externo", // ✅ NOVO TÍTULO AQUI
-    "Data do cadastro",
-    "Cadastro hora",
-  ];
-
-  const lines: string[] = [];
-  lines.push(headers.map(csvEscape).join(";"));
-
-  for (const r of rows) {
-    lines.push(
-      [
-        r.saudacao,
-        r.nome_completo,
-        r.telefone_principal,
-        r.whatsapp_username,
-        r.secundario_saudacao, // ✅ NOVO
-        r.secundario_nome, // ✅ NOVO
-        r.secundario_telefone, // ✅ NOVO
-        r.secundario_whatsapp, // ✅ NOVO
-        r.aceita_mensagem,
-        r.servidor,
-        r.usuario,
-        r.senha,
-        r.tecnologia,
-        r.currency,
-        r.plano,
-        r.telas,
-        r.vencimento_dia,
-        r.vencimento_hora,
-        r.aplicativos_nome,
-        r.obs,
-
-        r.valor_plano,
-        r.tabela_preco,
-        r.m3u_url,
-        r.external_user_id, // ✅ NOVA VARIÁVEL MAPEADA AQUI
-        r.cadastro_dia,
-        r.cadastro_hora,
-      ]
-        .map(csvEscape)
-        .join(";")
-    );
-  }
-
-  return "\ufeff" + lines.join("\n");
-}
 
 function formatDiaHoraBR(iso: string | null | undefined) {
   if (!iso) return { dia: "", hora: "" };
@@ -251,19 +171,52 @@ export async function GET(req: Request) {
   const clientRows = (clients ?? []) as any[];
   const clientIds = clientRows.map((c) => c.id);
 
+  const exportHeaders = [
+    "Saudacao",
+    "Nome Completo",
+    "Telefone principal",
+    "Whatsapp Username",
+    "Secundario Saudacao",
+    "Secundario Nome",
+    "Secundario Telefone",
+    "Secundario Whatsapp",
+    "Aceita mensagem",
+    "Servidor",
+    "Usuario",
+    "Senha",
+    "Tecnologia",
+    "Currency",
+    "Plano",
+    "Telas",
+    "Vencimento dia",
+    "Vencimento hora",
+    "Aplicativos nome",
+    "Obs",
+    "Valor Plano",
+    "Tabela Preco",
+    "M3U URL",
+    "ID Externo",
+    "Data do cadastro",
+    "Cadastro hora",
+  ];
+
   // sem clientes
   if (clientIds.length === 0) {
-    const csv = toCsv([]);
+    const emptySheet = XLSX.utils.aoa_to_sheet([exportHeaders]);
+    const emptyWb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(emptyWb, emptySheet, "Clientes");
+    const emptyBuffer = XLSX.write(emptyWb, { type: "buffer", bookType: "xlsx" });
+
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, "0");
     const d = String(now.getDate()).padStart(2, "0");
-    const filename = `clientes_${y}-${m}-${d}.csv`;
+    const filename = `clientes_${y}-${m}-${d}.xlsx`;
 
-    return new NextResponse(csv, {
+    return new NextResponse(emptyBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "no-store",
       },
@@ -393,7 +346,39 @@ valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : Stri
   });
 
   // ✅ Geração nativa em Excel (XLSX)
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  
+  
+
+  const dataAsArrays = rows.map((r) => [
+    r.saudacao,
+    r.nome_completo,
+    r.telefone_principal,
+    r.whatsapp_username,
+    r.secundario_saudacao,
+    r.secundario_nome,
+    r.secundario_telefone,
+    r.secundario_whatsapp,
+    r.aceita_mensagem,
+    r.servidor,
+    r.usuario,
+    r.senha,
+    r.tecnologia,
+    r.currency,
+    r.plano,
+    r.telas,
+    r.vencimento_dia,
+    r.vencimento_hora,
+    r.aplicativos_nome,
+    r.obs,
+    r.valor_plano,
+    r.tabela_preco,
+    r.m3u_url,
+    r.external_user_id,
+    r.cadastro_dia,
+    r.cadastro_hora,
+  ]);
+
+  const worksheet = XLSX.utils.aoa_to_sheet([exportHeaders, ...dataAsArrays]);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
   
