@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import RecargaServidorModal from "../recarga_servidor"; 
 import type { ServerRow } from "../page"; 
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- Tipagens ---
 
@@ -58,10 +59,23 @@ const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const { confirm, ConfirmUI } = useConfirm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function handleDeleteMovement(m: MovementRow) {
-    if (!confirm(`Apagar este registro?\n\n${m.label}\n\nEsta ação não pode ser desfeita.`)) return;
+async function handleDeleteMovement(m: MovementRow) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle: "Esta movimentação será removida permanentemente.",
+      details: [
+        `Tipo: ${m.kind === "PURCHASE" ? "Recarga" : m.kind === "RESELLER_SALE" ? "Revenda" : "Cliente"}`,
+        `Data: ${fmtDate(m.happened_at)}`,
+        m.label ? `Desc: ${m.label.slice(0, 60)}` : "",
+      ].filter(Boolean),
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
 
     const supabase = supabaseBrowser;
     const tenantId = await getCurrentTenantId();
@@ -643,6 +657,8 @@ setClientStats({
         </div>
 
       </div>
+
+{ConfirmUI}
 
 {/* MODAL DE RECARGA */}
       {isRecargaOpen && server && (
