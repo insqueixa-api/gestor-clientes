@@ -58,6 +58,48 @@ const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDeleteMovement(m: MovementRow) {
+    if (!confirm(`Apagar este registro?\n\n${m.label}\n\nEsta ação não pode ser desfeita.`)) return;
+
+    const supabase = supabaseBrowser;
+    const tenantId = await getCurrentTenantId();
+    if (!tenantId) return;
+
+    setDeletingId(m.id);
+    try {
+      let error: any = null;
+
+      if (m.kind === "PURCHASE") {
+        ({ error } = await supabase
+          .from("server_credit_purchases")
+          .delete()
+          .eq("id", m.id)
+          .eq("tenant_id", tenantId));
+      } else if (m.kind === "RESELLER_SALE") {
+        ({ error } = await supabase
+          .from("server_credit_sales")
+          .delete()
+          .eq("id", m.id)
+          .eq("tenant_id", tenantId));
+      } else if (m.kind === "CLIENT_RENEWAL") {
+        ({ error } = await supabase
+          .from("client_renewals")
+          .delete()
+          .eq("id", m.id)
+          .eq("tenant_id", tenantId));
+      }
+
+      if (error) throw error;
+      addToast("success", "Registro apagado", "Movimentação removida com sucesso.");
+      setMovements(prev => prev.filter(x => x.id !== m.id));
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e?.message || "Falha ao deletar registro.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
   
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
@@ -547,6 +589,7 @@ setClientStats({
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider text-center">Qtd.</th>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Valor (brl)</th>
                   <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">Descrição / Cliente</th>
+                  <th className="px-5 py-3 w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -576,6 +619,20 @@ setClientStats({
                         ) : (
                           <span className="opacity-70 italic">{m.label}</span>
                         )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => handleDeleteMovement(m)}
+                          disabled={deletingId === m.id}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                          title="Apagar registro"
+                        >
+                          {deletingId === m.id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))

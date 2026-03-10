@@ -315,20 +315,19 @@ if (!renewRes.ok || !renewJson?.ok) {
 
 try {
     const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
-      tenant_id: tenantId,
-      client_id: client.id,
-      server_id: client.server_id,
-      months,
-      screens: qtyScreens,
-      currency: safeCurrency,
-      unit_price: unitPrice,
-      total_amount: totalPaid,
-      credits_per_month: 1,
-      credits_used: months * qtyScreens,
-      status: "PAID",
-      new_vencimento: expDateISO, // ✅ Faltava isso! O financeiro precisa saber a data gerada
-      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
-    });
+      tenant_id: tenantId,
+      client_id: client.id,
+      server_id: client.server_id,
+      months,
+      screens: qtyScreens,
+      currency: safeCurrency,
+      unit_price: unitPrice,
+      total_amount: totalPaid,
+      credits_per_month: 1,
+      credits_used: months * qtyScreens,
+      status: "PAID",
+      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
+    });
 
     if (renErr) {
       await supabaseAdmin.from("client_events").insert({
