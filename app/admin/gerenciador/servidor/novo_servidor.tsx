@@ -236,6 +236,9 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
       // ✅ Payload REAL da tabela public.servers
       // NÃO enviamos credits_available aqui no update normal para evitar conflito com gatilhos
+      const parsedUnitPrice = parseFloat(unitPrice);
+      const safeUnitPrice = Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0 ? parsedUnitPrice : null;
+
       const payload = {
         tenant_id: tenantId,
         name: name.trim(),
@@ -243,10 +246,11 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         notes: notes?.trim() ? notes.trim() : null,
         default_currency: currency,
         panel_type: panelType || null,
-        panel_web_url: panelType === "WEB" ? safePanelValue : null, // ✅ Usando a variável higienizada
-        panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null, // ✅ Usando a variável higienizada
+        panel_web_url: panelType === "WEB" ? safePanelValue : null,
+        panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null,
         panel_integration: integration || null,
         dns: cleanDns,
+        ...(safeUnitPrice !== null ? { avg_credit_cost_brl: safeUnitPrice } : {}),
       };
 
       let serverId: string | null = server?.id ?? null;
