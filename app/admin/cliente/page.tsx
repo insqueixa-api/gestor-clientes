@@ -1944,9 +1944,8 @@ return (
   </div>
 </Td>
 
-<Td>
+<Td align="center">
   <div className="flex flex-col">
-    {/* ✅ Cor fixa padrão (sem vermelho) */}
     <span className="font-mono font-medium text-slate-600 dark:text-white/80">
       {r.dueLabelDate}
     </span>
@@ -2004,31 +2003,30 @@ return (
   })()}
 </Td>
 
-                      <Td>
-                        <span className="text-slate-600 dark:text-white/70">{r.server}</span>
-                      </Td>
+               <Td align="center">
+  <span className="text-slate-600 dark:text-white/70">{r.server}</span>
+</Td>
 
-                      <Td>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
-                          {r.technology}
-                        </span>
-                      </Td>
+<Td align="center">
+  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+    {r.technology}
+  </span>
+</Td>
 
-                      <Td>
-                        <span className="text-slate-600 dark:text-white/70 pl-2">{r.screens}</span>
-                      </Td>
+<Td align="center">
+  <span className="text-slate-600 dark:text-white/70">{r.screens}</span>
+</Td>
 
-                      <Td>
-                        <span className="text-slate-600 dark:text-white/80">{r.planPeriod}</span>
-                      </Td>
+<Td align="center">
+  <span className="text-slate-600 dark:text-white/80">{r.planPeriod}</span>
+</Td>
 
-                      <Td>
-                        <span className="font-medium text-slate-700 dark:text-white/90">{r.valueLabel}</span>
-                      </Td>
+<Td align="center">
+  <span className="font-medium text-slate-700 dark:text-white/90">{r.valueLabel}</span>
+</Td>
 
-                      <Td>
-                        {/* ✅ Lista de Aplicativos */}
-                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+<Td align="center">
+  <div className="flex flex-wrap gap-1 justify-center max-w-[180px]">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
                           <button
@@ -2721,8 +2719,8 @@ function Th({ children, width, align = "left" }: { children: React.ReactNode; wi
 
 function ThSort({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
   return (
-    <th onClick={onClick} className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-center">
-      <div className="flex items-center justify-center gap-1">
+<th onClick={onClick} className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left">
+  <div className="flex items-center gap-1">
         {label}
         <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}>
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
