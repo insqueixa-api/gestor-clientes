@@ -1930,7 +1930,17 @@ return (
     </div>
     
     {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
-    <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">{r.username}</span>
+<span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">{r.username}</span>
+    {r.whatsapp_username && (
+      <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate">
+        @{r.whatsapp_username}
+      </span>
+    )}
+    {r.secondary_whatsapp_username && (
+      <span className="text-xs font-normal text-slate-400 dark:text-white/30 truncate">
+        @{r.secondary_whatsapp_username}
+      </span>
+    )}
   </div>
 </Td>
 
@@ -2703,7 +2713,7 @@ const ALIGN_CLASS: Record<"left" | "right" | "center", string> = {
 
 function Th({ children, width, align = "left" }: { children: React.ReactNode; width?: number; align?: "left" | "right" | "center" }) {
   return (
-    <th className={`px-4 py-3 ${ALIGN_CLASS[align]}`} style={{ width }}>
+    <th className={`px-3 py-2 ${ALIGN_CLASS[align]}`} style={{ width }}>
       {children}
     </th>
   );
@@ -2711,8 +2721,8 @@ function Th({ children, width, align = "left" }: { children: React.ReactNode; wi
 
 function ThSort({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
   return (
-    <th onClick={onClick} className="px-4 py-3 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left">
-      <div className="flex items-center gap-1">
+    <th onClick={onClick} className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-center">
+      <div className="flex items-center justify-center gap-1">
         {label}
         <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-40 group-hover:opacity-70"}`}>
           {dir === "asc" ? <IconSortUp /> : <IconSortDown />}
@@ -2737,12 +2747,11 @@ function SortClick({ label, onClick, active, dir }: { label: string; onClick: ()
 }
 
 function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" | "center" }) {
-  // Define classes explícitas
   let alignClass = "text-left";
   if (align === "right") alignClass = "text-right";
   if (align === "center") alignClass = "text-center";
 
-  return <td className={`px-4 py-3 ${alignClass} align-middle`}>{children}</td>;
+  return <td className={`px-3 py-2 ${alignClass} align-middle`}>{children}</td>;
 }
 
 function ScheduledMessagesModal({
