@@ -374,7 +374,7 @@ export async function POST(req: Request) {
 
   // Converte para um array de arrays (igual ao que o seu parser antigo fazia)
   // defval: "" garante que células vazias não quebrem a ordem das colunas
-  const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+  const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "", raw: false });
   
   // Limpa linhas que estejam completamente vazias (normal no Excel)
   const dataRows = allRows.filter(r => r.join("").trim() !== "");
@@ -540,9 +540,21 @@ export async function POST(req: Request) {
     const rowNum = i + 2;
 
     try {
-      const get = (key: string) => {
+const get = (key: string): string => {
         const idx = colIndex.get(normalizeHeader(key));
-        return idx === undefined ? "" : (r[idx] ?? "").toString().trim();
+        if (idx === undefined) return "";
+        const val = r[idx];
+        if (val instanceof Date) {
+          const dd = String(val.getDate()).padStart(2, "0");
+          const mm = String(val.getMonth() + 1).padStart(2, "0");
+          const yyyy = String(val.getFullYear());
+          const hh = String(val.getHours()).padStart(2, "0");
+          const min = String(val.getMinutes()).padStart(2, "0");
+          // se for só hora (ano 1899/1900 = serial de tempo puro)
+          if (val.getFullYear() <= 1900) return `${hh}:${min}`;
+          return `${dd}/${mm}/${yyyy}`;
+        }
+        return (val ?? "").toString().trim();
       };
 
       const parsed: ParsedRow = {
