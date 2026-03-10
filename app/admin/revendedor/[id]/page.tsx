@@ -188,6 +188,45 @@ const resellerIdSafe = (resellerId ?? "").trim();
 
   // Notificações
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+
+  async function handleDeleteHistory(h: HistoryRow) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle: "Esta compra será removida do histórico permanentemente.",
+      details: [
+        `Servidor: ${serverNameById.get(String(h.server_id)) ?? "Desconhecido"}`,
+        `Créditos: ${h.qty_credits}`,
+        `Data: ${fmtDate(h.created_at)}`,
+      ],
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    setDeletingHistoryId(h.id);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Tenant não encontrado");
+
+      const { error } = await supabaseBrowser
+        .from("server_credit_sales")
+        .delete()
+        .eq("id", h.id)
+        .eq("tenant_id", tid);
+
+      if (error) throw error;
+
+      setHistory(prev => prev.filter(x => x.id !== h.id));
+      addToast("success", "Registro apagado", "Removido do histórico com sucesso.");
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e?.message || "Falha ao deletar registro.");
+    } finally {
+      setDeletingHistoryId(null);
+    }
+  }
 
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
@@ -674,8 +713,22 @@ const totalInvested = useMemo(() => {
 
                         </div>
 
-                        <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
-                          {fmtDate(h.created_at ?? null)}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+                            {fmtDate(h.created_at ?? null)}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteHistory(h)}
+                            disabled={deletingHistoryId === h.id}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                            title="Apagar registro"
+                          >
+                            {deletingHistoryId === h.id ? (
+                              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>
