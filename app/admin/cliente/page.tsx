@@ -1944,9 +1944,9 @@ return (
   </div>
 </Td>
 
-<Td align="center">
+<Td>
   <div className="flex flex-col">
-    <span className="font-mono font-medium text-slate-600 dark:text-white/80">
+      <span className="font-mono font-medium text-slate-600 dark:text-white/80">
       {r.dueLabelDate}
     </span>
     
