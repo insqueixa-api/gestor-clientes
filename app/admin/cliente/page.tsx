@@ -1468,11 +1468,34 @@ return (
 
 
   {/* Título (esquerda) */}
-  <div className="min-w-0 text-left">
+<div className="min-w-0 text-left">
+  <div className="flex items-center gap-3">
     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Gestão de Clientes 
+      Gestão de Clientes
     </h1>
+    <button
+      onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
+      title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
+    >
+      {valuesHidden ? (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.1 10.1 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94" />
+          <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19" />
+          <line x1="2" y1="2" x2="22" y2="22" />
+        </svg>
+      ) : (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12S5.5 5 12 5s10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="2.8" fill="currentColor" stroke="none" />
+        </svg>
+      )}
+      <span className="hidden sm:inline text-[11px] tracking-wide">
+        {valuesHidden ? "Exibir" : "Ocultar"}
+      </span>
+    </button>
   </div>
+</div>
 
   {/* Ações (direita) */}
   <div className="flex items-center gap-2 justify-end shrink-0">
@@ -1491,28 +1514,6 @@ return (
     >
       {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
     </button>
-
-<button
-  onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
-  title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-  className="h-9 md:h-10 px-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all flex items-center gap-1.5 text-xs font-medium shadow-sm"
->
-  {valuesHidden ? (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.1 10.1 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19" />
-      <line x1="2" y1="2" x2="22" y2="22" />
-    </svg>
-  ) : (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12S5.5 5 12 5s10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="2.8" fill="currentColor" stroke="none" />
-    </svg>
-  )}
-  <span className="hidden sm:inline text-[11px] tracking-wide">
-    {valuesHidden ? "Exibir" : "Ocultar"}
-  </span>
-</button>
 
 <button
   onClick={(e) => {
