@@ -848,7 +848,7 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
 
     if (q) {
       // ✅ Normaliza o "palheiro" (dados do cliente): joga pra minúsculo e arranca acentos
-      const hay = [r.name, r.username, r.secondary_display_name ?? "", r.server, r.planPeriod, r.valueLabel, r.status]
+      const hay = [r.name, r.username, r.secondary_display_name ?? "", r.server, r.planPeriod, r.valueLabel, r.status, r.whatsapp_username ?? "", r.secondary_whatsapp_username ?? ""]
         .join(" ")
         .toLowerCase()
         .normalize("NFD")
@@ -2736,7 +2736,7 @@ function ThSort({ label, active, dir, onClick }: { label: string; active: boolea
 function SortClick({ label, onClick, active, dir }: { label: string; onClick: () => void; active: boolean; dir: SortDir }) {
   return (
     // ✅ Alterado: 'justify-center' puro e gap menor para garantir alinhamento visual com a coluna
-    <div onClick={onClick} className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors h-full w-full">
+    <div onClick={onClick} className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors">
       <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
       {/* Ícone condicional para não empurrar o texto quando inativo (opcional, mas ajuda na centralização visual exata) */}
       <span className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600 dark:text-emerald-500" : "opacity-30"}`}>
