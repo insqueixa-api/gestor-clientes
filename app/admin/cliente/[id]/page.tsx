@@ -212,6 +212,45 @@ const [showEditModal, setShowEditModal] = useState(false);
 
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  async function handleDeleteEvent(item: TimelineItem) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle: "Este evento será removido da linha do tempo permanentemente.",
+      details: [
+        `Tipo: ${EVENT_LABELS[item.event_type] ?? item.event_type}`,
+        `Data: ${fmtDate(item.created_at)}`,
+        item.message ? `Msg: ${item.message.slice(0, 60)}` : "",
+      ].filter(Boolean),
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    setDeletingEventId(item.id);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) throw new Error("Tenant não encontrado");
+
+      const { error } = await supabaseBrowser
+        .from("client_events")
+        .delete()
+        .eq("id", item.id)
+        .eq("tenant_id", tid);
+
+      if (error) throw error;
+
+      setTimeline(prev => prev.filter(e => e.id !== item.id));
+      addToast("success", "Registro apagado", "Evento removido da linha do tempo.");
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e?.message || "Falha ao deletar evento.");
+    } finally {
+      setDeletingEventId(null);
+    }
+  }
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
@@ -840,17 +879,30 @@ const EVENT_LABELS: Record<string, string> = {
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-white dark:border-[#161b22] bg-slate-300 dark:bg-white/20"></div>
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-slate-50/50 dark:bg-white/5 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
-  {EVENT_LABELS[item.event_type] ?? item.event_type}
-</div>
+                        {EVENT_LABELS[item.event_type] ?? item.event_type}
+                      </div>
                       <div className="text-xs text-slate-500 dark:text-white/50 mt-1.5 leading-relaxed">
                         {item.message || (item.meta ? JSON.stringify(item.meta) : "")}
-
                       </div>
                     </div>
-                    <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm self-start">
-                      {fmtDate(item.created_at)}
+                    <div className="flex items-start gap-2 shrink-0">
+                      <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 font-mono bg-white dark:bg-black/20 px-2 py-1 rounded-md shadow-sm">
+                        {fmtDate(item.created_at)}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteEvent(item)}
+                        disabled={deletingEventId === item.id}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 disabled:opacity-30"
+                        title="Apagar evento"
+                      >
+                        {deletingEventId === item.id ? (
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
