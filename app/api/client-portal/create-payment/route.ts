@@ -526,8 +526,8 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
       } else {
         responsePayload.transfer_iban = manual.config.iban;
         responsePayload.transfer_swift = manual.config.swift_bic;
-        responsePayload.bank_name = manual.config.bank_name;
         responsePayload.holder_name = manual.config.holder_name;
+        responsePayload.bank_address = manual.config.bank_address;
       }
 
       return NextResponse.json(responsePayload, { status: 200, headers: NO_STORE_HEADERS });

@@ -846,10 +846,10 @@ if (fulfillment === "done") {
               {/* Header Dinâmico */}
               <div className={`py-3 px-6 text-white text-center ${isInternational ? 'bg-gradient-to-r from-blue-700 to-indigo-800' : 'bg-gradient-to-r from-violet-500 to-purple-600'}`}>
                 <h2 className="text-xl font-bold mb-1">
-                  {isInternational ? 'International Transfer' : 'PIX Manual'}
+                  {isInternational ? 'Transferência Internacional' : 'PIX Manual'}
                 </h2>
                 <p className="text-sm text-white/80">
-                  {isInternational ? 'Offline Payment' : 'Pagamento Offline'}
+                  Pagamento Offline
                 </p>
               </div>
 
@@ -858,53 +858,61 @@ if (fulfillment === "done") {
                 <div className={`p-3 border rounded-xl ${isInternational ? 'bg-indigo-50 border-indigo-200' : 'bg-amber-50 border-amber-200'}`}>
                   <p className={`text-sm font-bold mb-1 ${isInternational ? 'text-indigo-800' : 'text-amber-800'}`}>⚠️ Atenção</p>
                   <p className={`text-xs ${isInternational ? 'text-indigo-700' : 'text-amber-700'}`}>
-                    {isInternational 
-                      ? "Please use the bank details below to complete your transfer. After paying, send the receipt to support." 
-                      : "Nossos gateways automáticos estão temporariamente indisponíveis. Use os dados abaixo para fazer o PIX manualmente e envie o comprovante."}
+                    Nossos gateways automáticos estão temporariamente indisponíveis. Use os dados abaixo para fazer o pagamento manualmente e envie o comprovante.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  {/* ====== RENDERIZAÇÃO INTERNACIONAL (IBAN/SWIFT) ====== */}
+                  {/* ====== RENDERIZAÇÃO INTERNACIONAL (IBAN/SWIFT/WISE) ====== */}
                   {isInternational ? (
                     <>
-                      {/* Beneficiário e Banco */}
+                      {/* Titular */}
                       {paymentData.holder_name && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Beneficiary (Titular)</p>
-                          <p className="text-sm font-medium text-slate-700">{paymentData.holder_name}</p>
-                        </div>
-                      )}
-                      
-                      {paymentData.bank_name && (
-                        <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bank Name</p>
-                          <p className="text-sm font-medium text-slate-700">{paymentData.bank_name}</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nome do Titular (Account holder)</p>
+                          <div className="relative group">
+                            <input
+                              type="text"
+                              value={paymentData.holder_name}
+                              readOnly
+                              className="w-full pr-28 pl-3 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-sm font-medium text-slate-800 outline-none"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(paymentData.holder_name);
+                                setCopiedKey(true);
+                                setTimeout(() => setCopiedKey(false), 3000);
+                              }}
+                              className="absolute right-1 top-1 bottom-1 px-4 bg-slate-200 text-slate-600 font-bold text-xs rounded-md transition-all hover:bg-slate-300"
+                            >
+                              Copiar
+                            </button>
+                          </div>
                         </div>
                       )}
 
                       {/* Campo IBAN */}
                       {paymentData.transfer_iban && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">IBAN / Account Number</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">IBAN</p>
                           <div className="relative group">
                             <input
                               type="text"
                               value={paymentData.transfer_iban}
                               readOnly
-                              className="w-full pr-28 pl-3 py-2.5 bg-white dark:bg-[#161b22] border-2 border-slate-200 dark:border-white/10 rounded-lg text-sm font-mono text-slate-800 dark:text-white outline-none focus:border-indigo-500 transition-colors shadow-sm"
+                              className="w-full pr-28 pl-3 py-2.5 bg-white border-2 border-slate-200 rounded-lg text-sm font-mono text-slate-800 outline-none focus:border-indigo-500 shadow-sm"
                             />
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(paymentData.transfer_iban);
-                                setCopiedKey(true);
-                                setTimeout(() => setCopiedKey(false), 3000);
+                                setCopiedCode(true);
+                                setTimeout(() => setCopiedCode(false), 3000);
                               }}
                               className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
-                                copiedKey ? "bg-emerald-500 hover:bg-emerald-600" : "bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                                copiedCode ? "bg-emerald-500" : "bg-indigo-600 hover:bg-indigo-700 shadow-sm"
                               }`}
                             >
-                              {copiedKey ? "✅ Copiado" : "📋 Copiar"}
+                              {copiedCode ? "✅ Copiado" : "📋 Copiar"}
                             </button>
                           </div>
                         </div>
@@ -913,13 +921,23 @@ if (fulfillment === "done") {
                       {/* Campo SWIFT */}
                       {paymentData.transfer_swift && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">SWIFT / BIC / Routing</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Código Swift / BIC</p>
                           <input
                             type="text"
                             value={paymentData.transfer_swift}
                             readOnly
-                            className="w-full px-3 py-2.5 bg-slate-50 dark:bg-black/20 border-2 border-slate-200 dark:border-white/10 rounded-lg text-sm font-mono text-slate-700 dark:text-white outline-none"
+                            className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-sm font-mono text-slate-700 outline-none"
                           />
+                        </div>
+                      )}
+
+                      {/* Endereço do Banco */}
+                      {paymentData.bank_address && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Endereço do Banco (Bank address)</p>
+                          <p className="text-sm font-medium text-slate-700 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            {paymentData.bank_address}
+                          </p>
                         </div>
                       )}
                     </>
