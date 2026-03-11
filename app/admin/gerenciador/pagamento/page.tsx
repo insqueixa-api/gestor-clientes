@@ -179,10 +179,10 @@ const GATEWAY_META: GatewayMeta[] = [
     ],
   },
   
-  {
+{
     type: "transfer_manual_usd",
-    label: "Transferência Manual (USD)",
-    description: "Dados da Wise para recebimento em Dólares.",
+    label: "Transferência Internacional (USD)",
+    description: "Dados bancários para recebimento em Dólares.",
     currencies: ["USD"],
     is_online: false,
     icon: "💵",
@@ -193,6 +193,13 @@ const GATEWAY_META: GatewayMeta[] = [
         label: "Nome",
         type: "text",
         placeholder: "Ex: João Silva",
+        required: true,
+      },
+{
+        key: "bank_name",
+        label: "Nome do Banco",
+        type: "text",
+        placeholder: "Ex: Wise, Nomad, etc.",
         required: true,
       },
       {
@@ -223,12 +230,12 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: TRWIUS35XXX",
         required: true,
       },
-      {
+{
         key: "bank_address",
-        label: "Endereço",
+        label: "Endereço do Banco (Opcional)",
         type: "textarea",
-        placeholder: "Ex: Wise US Inc, 108 W 13th St, Wilmington, DE, 19801, United States",
-        required: true,
+        placeholder: "Ex: 108 W 13th St, Wilmington, DE...",
+        required: false,
       }
     ],
   },

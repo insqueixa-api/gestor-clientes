@@ -275,13 +275,13 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 
       return NextResponse.json(
         {
-          ok: true,
-          payment_method: "manual",
-          gateway_type: manual.type, // ✅ ESSENCIAL para o front-end mudar a cor/layout
-          price_amount: computedPrice,
-          currency,
-          ...manual.config
-        },
+  ok: true,
+  payment_method: "manual",
+  price_amount: computedPrice,
+  currency,
+  ...manual.config,
+  gateway_type: manual.type,  // ← sempre por último, nunca sobrescrito
+},
         { status: 200, headers: NO_STORE_HEADERS }
       );
     }
@@ -504,15 +504,15 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
       .limit(1)
       .maybeSingle();
 
-    if (manual && !manErr) {
+if (manual && !manErr) {
       return NextResponse.json(
         {
           ok: true,
           payment_method: "manual",
-          gateway_type: manual.type, // ✅ ESSENCIAL para o front-end mudar a cor/layout
           price_amount: computedPrice,
           currency,
-          ...manual.config
+          ...manual.config,
+          gateway_type: manual.type, // ← sempre por último, nunca sobrescrito
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
