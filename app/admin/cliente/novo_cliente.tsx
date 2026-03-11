@@ -3849,14 +3849,19 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
                 {/* Cadastro + Whats + Não Perturbe */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Data Cadastro</Label>
                     <DateTimeInputBR value={createdAt} onChange={setCreatedAt} />
                   </div>
 
-                  <div className="pt-0 sm:pt-[18px]">
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3">
+                  <div>
+                    <Label>Não perturbe até</Label>
+                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3 max-w-xs">
                       <span className="text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
                         Aceita msg?
                       </span>
@@ -3866,11 +3871,6 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         label=""
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <Label>Não perturbe até</Label>
-                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
                   </div>
                 </div>
 
