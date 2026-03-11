@@ -3730,14 +3730,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>
-                      Data Cadastro{" "}
-                      {createdAt && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(createdAt.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
+                    <Label>Data Cadastro</Label>
                     <div className="flex gap-1.5">
                       <input
                         type="text"
@@ -3781,14 +3774,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div>
-                    <Label>
-                      Não perturbe até{" "}
-                      {dontMessageUntil && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(dontMessageUntil.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
+                    <Label>Não perturbe até</Label>
                     <div className="flex gap-1.5">
                       <input
                         type="text"
@@ -4443,14 +4429,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label>
-                          Data{" "}
-                          {dueDate && (
-                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                              ({toBRDate(dueDate)})
-                            </span>
-                          )}
-                        </Label>
+                        <Label>Data</Label>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -4983,14 +4962,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <div key={safeKey}>
-      <Label>
-        {label || "Campo"}
-        {isDateField && fieldValue && (
-           <span className="text-emerald-500 font-bold tracking-normal ml-1">
-             ({toBRDate(fieldValue)})
-           </span>
-        )}
-      </Label>
+      <Label>{label || "Campo"}</Label>
 
       {isDateField ? (
         <input
