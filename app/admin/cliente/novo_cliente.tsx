@@ -538,49 +538,61 @@ function DateTimeInputBR({
   value: string;
   onChange: (v: string) => void;
 }) {
-  function split(v: string) {
-    const [d = "", t = ""] = (v || "").split("T");
-    return { date: d, time: t.slice(0, 5) };
+  function isoToDisplay(iso: string) {
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
 
-  const [internalDate, setInternalDate] = useState(() => split(value).date);
-  const [internalTime, setInternalTime] = useState(() => split(value).time);
-  const suppressRef = useRef(false);
+  const datePart = (value || "").split("T")[0] || "";
+  const timePart = (value || "").split("T")[1]?.slice(0, 5) || "";
+
+  const [dateDisplay, setDateDisplay] = useState(() => isoToDisplay(datePart));
+  const lastValueRef = useRef(value);
 
   useEffect(() => {
-    if (suppressRef.current) {
-      suppressRef.current = false;
-      return;
-    }
-    const { date, time } = split(value);
-    setInternalDate(date);
-    setInternalTime(time);
+    if (value === lastValueRef.current) return;
+    lastValueRef.current = value;
+    setDateDisplay(isoToDisplay((value || "").split("T")[0] || ""));
   }, [value]);
 
-  function handleDateChange(newDate: string) {
-    setInternalDate(newDate);
-    suppressRef.current = true;
-    onChange(newDate ? `${newDate}T${internalTime || "00:00"}` : "");
+  function handleDateInput(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    let masked = digits;
+    if (digits.length > 4)
+      masked = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    else if (digits.length > 2)
+      masked = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    setDateDisplay(masked);
+
+    if (digits.length === 8) {
+      const iso = `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+      onChange(`${iso}T${timePart || "00:00"}`);
+    } else if (digits.length === 0) {
+      onChange("");
+    }
   }
 
-  function handleTimeChange(newTime: string) {
-    setInternalTime(newTime);
-    if (internalDate) {
-      suppressRef.current = true;
-      onChange(`${internalDate}T${newTime}`);
-    }
+  function handleTimeChange(t: string) {
+    onChange(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`);
   }
 
   return (
-    <div className="flex gap-2">
-      <div className="flex-1">
-        <DateInputBR value={internalDate} onChange={handleDateChange} />
-      </div>
+    <div className="flex gap-1.5">
+      <Input
+        value={dateDisplay}
+        onChange={(e) => handleDateInput(e.target.value)}
+        placeholder="DD/MM/AAAA"
+        maxLength={10}
+        inputMode="numeric"
+        className="flex-1 min-w-0"
+      />
       <Input
         type="time"
-        value={internalTime}
+        value={timePart}
         onChange={(e) => handleTimeChange(e.target.value)}
-        className="w-28 dark:[color-scheme:dark]"
+        className="w-24 shrink-0 dark:[color-scheme:dark]"
       />
     </div>
   );
@@ -3849,19 +3861,14 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
                 {/* Cadastro + Whats + Não Perturbe */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <Label>Data Cadastro</Label>
                     <DateTimeInputBR value={createdAt} onChange={setCreatedAt} />
                   </div>
 
-                  <div>
-                    <Label>Não perturbe até</Label>
-                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3 max-w-xs">
+                  <div className="pt-0 sm:pt-[18px]">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3">
                       <span className="text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
                         Aceita msg?
                       </span>
@@ -3871,6 +3878,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         label=""
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <Label>Não perturbe até</Label>
+                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
                   </div>
                 </div>
 
