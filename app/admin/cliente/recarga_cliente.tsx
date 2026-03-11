@@ -1366,9 +1366,9 @@ style={{ maxHeight: "90dvh" }}
                                   </Select>
                               </div>
                               <div>
-                                  <Label>Data Pagto</Label>
-                                  <Input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
-                              </div>
+                                  <Label>Data Pagto</Label>
+                                  <FormattedDateInput type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
+                              </div>
                           </div>
                       </div>
                   )}
@@ -1526,13 +1526,49 @@ style={{ maxHeight: "90dvh" }}
   }
 
   function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-    return (
-      <input
-        {...props}
-        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
-      />
-    );
-  }
+    return (
+      <input
+        {...props}
+        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      />
+    );
+  }
+
+  function FormattedDateInput({ type, value, onChange, className = "", ...props }: any) {
+    const [isFocused, setIsFocused] = useState(false);
+  
+    if (type !== "date" && type !== "datetime-local") {
+      return <Input type={type} value={value} onChange={onChange} className={className} {...props} />;
+    }
+  
+    let displayValue = value;
+    if (!isFocused && value) {
+      try {
+        if (type === "date") {
+          const [y, m, d] = value.split("-");
+          if (y && m && d) displayValue = `${d}/${m}/${y}`;
+        } else if (type === "datetime-local") {
+          const [datePart, timePart] = value.split("T");
+          if (datePart && timePart) {
+            const [y, m, d] = datePart.split("-");
+            if (y && m && d) displayValue = `${d}/${m}/${y} ${timePart}`;
+          }
+        }
+      } catch (e) {}
+    }
+  
+    return (
+      <Input
+        type={isFocused ? type : "text"}
+        value={isFocused ? value : displayValue}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onChange={onChange}
+        className={className}
+        {...props}
+      />
+    );
+  }
 
   function DateInputBR({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   // Converte yyyy-mm-dd → dd/mm/aaaa para exibir

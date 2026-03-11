@@ -2449,14 +2449,14 @@ return (
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
-              <input
-                type="datetime-local"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
-              />
-            </div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <FormattedDateInput
+                type="datetime-local"
+                value={scheduleDate}
+                onChange={(e: any) => setScheduleDate(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm dark:[color-scheme:dark]"
+              />
+            </div>
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
@@ -2610,17 +2610,17 @@ return (
                   </label>
 
                   <div className="flex items-center gap-2">
-  <input
-    type={inputType}
-    value={appValues[fid] ?? ""}
-    onChange={(e) => {
-      const v = e.target.value;
-      setAppValues((prev) => ({ ...prev, [fid]: v }));
-    }}
-    className="flex-1 h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
-    placeholder={f.placeholder || ""}
-    disabled={appLoading || appSaving}
-  />
+  <FormattedDateInput
+    type={inputType}
+    value={appValues[fid] ?? ""}
+    onChange={(e: any) => {
+      const v = e.target.value;
+      setAppValues((prev) => ({ ...prev, [fid]: v }));
+    }}
+    className="flex-1 h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm dark:[color-scheme:dark]"
+    placeholder={f.placeholder || ""}
+    disabled={appLoading || appSaving}
+  />
 
   {/* ✅ Copiar só em campos livres (não-date) */}
   {f.type !== "date" && (
@@ -2711,6 +2711,42 @@ export default function ClientePage() {
 }
 
 // --- SUB-COMPONENTES VISUAIS (TEMA LIGHT/DARK) ---
+
+function FormattedDateInput({ type, value, onChange, className = "", ...props }: any) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  if (type !== "date" && type !== "datetime-local") {
+    return <input type={type} value={value} onChange={onChange} className={className} {...props} />;
+  }
+
+  let displayValue = value;
+  if (!isFocused && value) {
+    try {
+      if (type === "date") {
+        const [y, m, d] = value.split("-");
+        if (y && m && d) displayValue = `${d}/${m}/${y}`;
+      } else if (type === "datetime-local") {
+        const [datePart, timePart] = value.split("T");
+        if (datePart && timePart) {
+          const [y, m, d] = datePart.split("-");
+          if (y && m && d) displayValue = `${d}/${m}/${y} ${timePart}`;
+        }
+      }
+    } catch (e) {}
+  }
+
+  return (
+    <input
+      type={isFocused ? type : "text"}
+      value={isFocused ? value : displayValue}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      onChange={onChange}
+      className={className}
+      {...props}
+    />
+  );
+}
 
 function Select({
   children,
