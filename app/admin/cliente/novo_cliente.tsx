@@ -3738,13 +3738,21 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         </span>
                       )}
                     </Label>
-                    <Input
-                      type="datetime-local"
-                      value={dontMessageUntil}
-                      onChange={(e) => setDontMessageUntil(e.target.value)}
-                      className="h-10 text-xs"
-                      lang="pt-BR"
-                    />
+                    <div className="flex gap-1.5">
+                      <Input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA"
+                        value={createdAt ? (() => { const [y,m,d]=(createdAt.split("T")[0]||"").split("-"); return d&&m&&y?`${d}/${m}/${y}`:""; })() : ""}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                          if (digits.length===8) { const iso=`${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`; const time=createdAt?.split("T")[1]?.slice(0,5)||"00:00"; setCreatedAt(`${iso}T${time}`); }
+                          else if (!digits) setCreatedAt("");
+                        }}
+                        className="h-10 text-xs flex-1"
+                      />
+                      <Input type="time" value={createdAt?.split("T")[1]?.slice(0,5)||""}
+                        onChange={(e) => { const date=createdAt?.split("T")[0]||new Date().toISOString().slice(0,10); setCreatedAt(`${date}T${e.target.value}`); }}
+                        className="h-10 text-xs w-28 dark:[color-scheme:dark]"
+                      />
+                    </div>
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
@@ -3769,13 +3777,21 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         </span>
                       )}
                     </Label>
-                    <Input
-                      type="datetime-local"
-                      value={createdAt}
-                      onChange={(e) => setCreatedAt(e.target.value)}
-                      className="h-10 text-xs"
-                      lang="pt-BR"
-                    />
+                    <div className="flex gap-1.5">
+                      <Input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA"
+                        value={dontMessageUntil ? (() => { const [y,m,d]=(dontMessageUntil.split("T")[0]||"").split("-"); return d&&m&&y?`${d}/${m}/${y}`:""; })() : ""}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                          if (digits.length===8) { const iso=`${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`; const time=dontMessageUntil?.split("T")[1]?.slice(0,5)||"00:00"; setDontMessageUntil(`${iso}T${time}`); }
+                          else if (!digits) setDontMessageUntil("");
+                        }}
+                        className="h-10 text-xs flex-1"
+                      />
+                      <Input type="time" value={dontMessageUntil?.split("T")[1]?.slice(0,5)||""}
+                        onChange={(e) => { const date=dontMessageUntil?.split("T")[0]||new Date().toISOString().slice(0,10); setDontMessageUntil(`${date}T${e.target.value}`); }}
+                        className="h-10 text-xs w-28 dark:[color-scheme:dark]"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -4405,13 +4421,15 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       <div>
                         <Label>
                           Data{" "}
-                          {dueDate && (
-                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                              ({toBRDate(dueDate)})
-                            </span>
-                          )}
                         </Label>
-                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" lang="pt-BR" />
+                        <Input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA"
+                          value={dueDate ? (() => { const [y,m,d]=dueDate.split("-"); return d&&m&&y?`${d}/${m}/${y}`:""; })() : ""}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                            if (digits.length===8) setDueDate(`${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`);
+                            else if (!digits) setDueDate("");
+                          }}
+                        />
                       </div>
                       <div>
                         <Label>Hora</Label>
