@@ -276,9 +276,10 @@ return {
 function formatMoney(amount: number | null, currency: string | null) {
   if (!amount || amount <= 0) return { value: 0, label: "—" };
   const cur = currency || "BRL";
+  const formatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur }).format(amount);
   return {
     value: amount,
-    label: new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur }).format(amount),
+    label: formatted.replace(/^US(\$)/, "$1"),
   };
 }
 

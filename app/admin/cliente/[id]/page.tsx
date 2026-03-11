@@ -69,7 +69,8 @@ function StatusBadge({ status }: { status: string }) {
 function fmtMoney(val: number | null | undefined, cur: string | null | undefined) {
   const n = Number(val || 0);
   if (!n || n <= 0) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur || "BRL" }).format(n);
+  const formatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur || "BRL" }).format(n);
+  return formatted.replace(/^US(\$)/, "$1");
 }
 
 function fmtDate(d: string) {
