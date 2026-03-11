@@ -664,6 +664,14 @@ if (fulfillment === "done") {
 
     const isOnline = paymentData.payment_method === "online";
     const isManual = paymentData.payment_method === "manual";
+
+const effectiveGatewayType: string =
+  paymentData.gateway_type ||
+  (paymentData.currency === "EUR"
+    ? "transfer_manual_eur"
+    : paymentData.currency === "USD"
+    ? "transfer_manual_usd"
+    : "pix_manual");
     const isApproved = paymentStatus === "approved";
     const isRejected = paymentStatus === "rejected";
 
@@ -850,15 +858,15 @@ return (
             <>
               {/* HEADER DINÂMICO BASEADO NO TIPO */}
               <div className={`py-3 px-6 text-white text-center ${
-                paymentData.gateway_type === "transfer_manual_eur" || paymentData.gateway_type === "transfer_manual_usd" 
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-700" 
-                  : "bg-gradient-to-r from-violet-500 to-purple-600"
-              }`}>
-                <h2 className="text-xl font-bold mb-1">
-                  {paymentData.gateway_type === "transfer_manual_eur" ? "Transferência em Euros" : 
-                   paymentData.gateway_type === "transfer_manual_usd" ? "Transferência em Dólares" : 
-                   "PIX Manual"}
-                </h2>
+  effectiveGatewayType === "transfer_manual_eur" || effectiveGatewayType === "transfer_manual_usd" 
+    ? "bg-gradient-to-r from-blue-600 to-indigo-700" 
+    : "bg-gradient-to-r from-violet-500 to-purple-600"
+}`}>
+  <h2 className="text-xl font-bold mb-1">
+    {effectiveGatewayType === "transfer_manual_eur" ? "Transferência em Euros" : 
+     effectiveGatewayType === "transfer_manual_usd" ? "Transferência em Dólares" : 
+     "PIX Manual"}
+  </h2>
                 <p className="text-sm text-white/80">Pagamento Offline</p>
               </div>
 
@@ -871,7 +879,7 @@ return (
                 </div>
 
                 {/* 1. DADOS PARA PIX MANUAL */}
-                {(!paymentData.gateway_type || paymentData.gateway_type === "pix_manual") && (
+                {(effectiveGatewayType === "pix_manual") && (
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Chave PIX</p>
@@ -915,7 +923,7 @@ return (
                 )}
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
-                {paymentData.gateway_type === "transfer_manual_eur" && (
+                {effectiveGatewayType === "transfer_manual_eur" && (
                   <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
@@ -945,7 +953,7 @@ return (
                 )}
 
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
-                {paymentData.gateway_type === "transfer_manual_usd" && (
+                {effectiveGatewayType === "transfer_manual_usd" && (
                   <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>

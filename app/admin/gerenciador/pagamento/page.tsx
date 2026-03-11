@@ -18,7 +18,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 // ✅ Atualizado: Separados os fallbacks internacionais
-type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
+type GatewayType = "mercadopago" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
 
 interface PaymentGateway {
   id: string;
@@ -86,45 +86,7 @@ const GATEWAY_META: GatewayMeta[] = [
     ],
   },
   
-  {
-    type: "wise",
-    label: "Wise",
-    description: "Transferências internacionais em USD e EUR.",
-    currencies: ["USD", "EUR"],
-    is_online: true,
-    icon: "🌍",
-    color: "from-emerald-500 to-teal-500",
-    fields: [
-      {
-        key: "api_token",
-        label: "API Token",
-        type: "password",
-        placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-        hint: "Encontre em: Wise Business → Configurações → API tokens",
-        required: true,
-      },
-      {
-        key: "profile_id",
-        label: "Profile ID",
-        type: "text",
-        placeholder: "12345678",
-        hint: "ID do perfil business (visível na URL após login)",
-        required: true,
-      },
-      {
-        key: "source_currency",
-        label: "Moeda de Origem",
-        type: "select",
-        options: [
-          { value: "BRL", label: "BRL (Real Brasileiro)" },
-          { value: "USD", label: "USD (Dólar Americano)" },
-          { value: "EUR", label: "EUR (Euro)" },
-        ],
-        hint: "Moeda da sua conta Wise",
-        required: true,
-      },
-    ],
-  },
+  
   {
     type: "pix_manual",
     label: "PIX Manual",
@@ -216,66 +178,7 @@ const GATEWAY_META: GatewayMeta[] = [
       }
     ],
   },
-  {
-    type: "transfer_manual_usd",
-    label: "Transferência Internacional (USD)",
-    description: "Dados bancários para recebimento em Dólares.",
-    currencies: ["USD"],
-    is_online: false,
-    icon: "💵",
-    color: "from-blue-600 to-indigo-600",
-    fields: [
-      {
-        key: "beneficiary_name",
-        label: "Nome do Favorecido",
-        type: "text",
-        placeholder: "Ex: João Silva",
-        required: true,
-      },
-      {
-        key: "bank_name",
-        label: "Nome do Banco",
-        type: "text",
-        placeholder: "Ex: Wise, Nomad, etc.",
-        required: true,
-      },
-      {
-        key: "account_number",
-        label: "Número da conta",
-        type: "text",
-        placeholder: "Ex: 832905626259166",
-        required: true,
-      },
-{
-        key: "account_type",
-        label: "Tipo da conta (Opcional)",
-        type: "text",
-        placeholder: "Ex: Checking, Savings...",
-        required: false,
-      },
-      {
-        key: "routing_number",
-        label: "Routing number",
-        type: "text",
-        placeholder: "Ex: 084009519",
-        required: true,
-      },
-      {
-        key: "swift_bic",
-        label: "Swift/BIC",
-        type: "text",
-        placeholder: "Ex: TRWIUS35XXX",
-        required: true,
-      },
-{
-        key: "bank_address",
-        label: "Endereço do Banco (Opcional)",
-        type: "textarea",
-        placeholder: "Ex: 108 W 13th St, Wilmington, DE...",
-        required: false,
-      }
-    ],
-  },
+  
   {
     type: "transfer_manual_usd",
     label: "Transferência Manual (USD)",
