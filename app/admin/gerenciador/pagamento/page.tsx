@@ -183,7 +183,7 @@ const GATEWAY_META: GatewayMeta[] = [
         key: "beneficiary_name",
         label: "Nome do Favorecido",
         type: "text",
-        placeholder: "Ex: Márcio Martins",
+        placeholder: "Ex: João Silva",
         required: true,
       },
       {
@@ -207,12 +207,12 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: TRWIBEB1XXX",
         required: true,
       },
-      {
+{
         key: "bank_address",
-        label: "Endereço do Banco",
+        label: "Endereço do Banco (Opcional)",
         type: "textarea",
         placeholder: "Ex: Rue du Trône 100, 3rd floor, Brussels...",
-        required: true,
+        required: false,
       }
     ],
   },
@@ -229,7 +229,7 @@ const GATEWAY_META: GatewayMeta[] = [
         key: "beneficiary_name",
         label: "Nome do Favorecido",
         type: "text",
-        placeholder: "Ex: Márcio Martins",
+        placeholder: "Ex: João Silva",
         required: true,
       },
       {
@@ -267,12 +267,12 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: TRWIUS35XXX",
         required: true,
       },
-      {
+{
         key: "bank_address",
-        label: "Endereço do Banco",
+        label: "Endereço do Banco (Opcional)",
         type: "textarea",
         placeholder: "Ex: 108 W 13th St, Wilmington, DE...",
-        required: true,
+        required: false,
       }
     ],
   },
@@ -289,7 +289,7 @@ const GATEWAY_META: GatewayMeta[] = [
         key: "beneficiary_name",
         label: "Nome",
         type: "text",
-        placeholder: "Ex: Márcio Martins",
+        placeholder: "Ex: João Silva",
         required: true,
       },
       {
