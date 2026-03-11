@@ -246,12 +246,12 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: 832905626259166",
         required: true,
       },
-      {
+{
         key: "account_type",
-        label: "Tipo da conta",
+        label: "Tipo da conta (Opcional)",
         type: "text",
-        placeholder: "Ex: Checking, Savings, Deposit...",
-        required: true,
+        placeholder: "Ex: Checking, Savings...",
+        required: false,
       },
       {
         key: "routing_number",
@@ -299,12 +299,12 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: 832905626259166",
         required: true,
       },
-      {
+{
         key: "account_type",
-        label: "Tipo da conta",
+        label: "Tipo da conta (Opcional)",
         type: "text",
-        placeholder: "Ex: Deposit",
-        required: true,
+        placeholder: "Ex: Checking, Savings...",
+        required: false,
       },
       {
         key: "routing_number",

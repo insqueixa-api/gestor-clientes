@@ -258,37 +258,35 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
     }
 
     if (!gateways || gateways.length === 0) {
-      // Nenhum gateway online — busca fallback manual
+      // Nenhum gateway online — busca fallback manual dinâmico pela moeda
       const { data: manual, error: manErr } = await supabaseAdmin
         .from("payment_gateways")
         .select("*")
         .eq("tenant_id", sess.tenant_id)
-        .eq("type", "pix_manual")
         .eq("is_active", true)
         .eq("is_manual_fallback", true)
-        .single();
+        .contains("currency", [currency])
+        .limit(1)
+        .maybeSingle();
 
       if (manErr || !manual) {
         return jsonError("Nenhum método de pagamento configurado", 503);
       }
 
-      // Retorna dados do PIX Manual (isso é intencional pro cliente ver)
+      // Retorna dados dinâmicos repassando TODO o config para o front
       return NextResponse.json(
         {
           ok: true,
           payment_method: "manual",
-          pix_key: manual.config.pix_key,
-          pix_key_type: manual.config.pix_key_type,
-          holder_name: manual.config.holder_name,
-          bank_name: manual.config.bank_name,
-          instructions: manual.config.instructions,
+          gateway_type: manual.type,
           price_amount: computedPrice,
           currency,
+          // Repassa todos os campos configurados no Admin diretamente:
+          ...manual.config 
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
     }
-
     // 4) Tentar criar pagamento com cada gateway
     let lastError: any = null;
 
@@ -497,28 +495,27 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
       }
     }
 
-    // Todos os gateways falharam — tentar fallback manual
+    // Todos os gateways falharam — tentar fallback manual dinâmico pela moeda
     const { data: manual, error: manErr } = await supabaseAdmin
       .from("payment_gateways")
       .select("*")
       .eq("tenant_id", sess.tenant_id)
-      .eq("type", "pix_manual")
       .eq("is_active", true)
       .eq("is_manual_fallback", true)
-      .single();
+      .contains("currency", [currency])
+      .limit(1)
+      .maybeSingle();
 
     if (manual && !manErr) {
       return NextResponse.json(
         {
           ok: true,
           payment_method: "manual",
-          pix_key: manual.config.pix_key,
-          pix_key_type: manual.config.pix_key_type,
-          holder_name: manual.config.holder_name,
-          bank_name: manual.config.bank_name,
-          instructions: manual.config.instructions,
+          gateway_type: manual.type,
           price_amount: computedPrice,
           currency,
+          // Repassa todos os campos configurados no Admin diretamente:
+          ...manual.config
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
