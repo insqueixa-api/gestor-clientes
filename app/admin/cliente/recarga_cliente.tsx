@@ -1534,39 +1534,25 @@ style={{ maxHeight: "90dvh" }}
     );
   }
 
-  function FormattedDateInput({ type, value, onChange, className = "", ...props }: any) {
-    const [isFocused, setIsFocused] = useState(false);
-  
-    if (type !== "date" && type !== "datetime-local") {
-      return <Input type={type} value={value} onChange={onChange} className={className} {...props} />;
-    }
-  
-    let displayValue = value;
-    if (!isFocused && value) {
-      try {
-        if (type === "date") {
-          const [y, m, d] = value.split("-");
-          if (y && m && d) displayValue = `${d}/${m}/${y}`;
-        } else if (type === "datetime-local") {
-          const [datePart, timePart] = value.split("T");
-          if (datePart && timePart) {
-            const [y, m, d] = datePart.split("-");
-            if (y && m && d) displayValue = `${d}/${m}/${y} ${timePart}`;
-          }
-        }
-      } catch (e) {}
-    }
-  
+  function FormattedDateInput({ type, value, onChange, className = "", placeholder, ...props }: any) {
     return (
-      <Input
-        type={isFocused ? type : "text"}
-        value={isFocused ? value : displayValue}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        onChange={onChange}
-        className={className}
-        {...props}
-      />
+      <div className="relative w-full">
+        {/* O placeholder customizado fica por trás */}
+        {!value && (
+          <div className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 text-[13px] pointer-events-none whitespace-nowrap">
+            {placeholder || "DD/MM/AAAA HH:mm"}
+          </div>
+        )}
+        
+        <Input
+          type={type}
+          value={value || ""}
+          onChange={onChange}
+          // Se não tem valor, deixa o texto do input transparente para vermos o placeholder div atrás
+          className={`${className} ${!value ? "text-transparent dark:text-transparent" : "text-slate-800 dark:text-white"}`}
+          {...props}
+        />
+      </div>
     );
   }
 
