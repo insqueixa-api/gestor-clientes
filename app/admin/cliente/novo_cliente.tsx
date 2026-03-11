@@ -3728,73 +3728,53 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
                 {/* Cadastro + Whats + Não Perturbe */}
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
                   <div>
-
-                    <Label>Data Cadastro</Label>
-
+                    <Label>
+                      Data Cadastro{" "}
+                      {createdAt && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(createdAt.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
                     <Input
-
                       type="datetime-local"
-
                       value={createdAt}
-
                       onChange={(e) => setCreatedAt(e.target.value)}
-
                       className="h-10 text-xs"
-
                     />
-
                   </div>
-
-
 
                   <div className="pt-0 sm:pt-[18px]">
-
                     <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center justify-between gap-3">
-
                       <span className="text-xs text-slate-600 dark:text-white/70 whitespace-nowrap">
-
                         Aceita msg?
-
                       </span>
-
                       <Switch
-
                         checked={whatsappOptIn}
-
                         onChange={setWhatsappOptIn}
-
                         label=""
-
                       />
-
                     </div>
-
                   </div>
-
-
 
                   <div>
-
-                    <Label>Não perturbe até</Label>
-
+                    <Label>
+                      Não perturbe até{" "}
+                      {dontMessageUntil && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(dontMessageUntil.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
                     <Input
-
                       type="datetime-local"
-
                       value={dontMessageUntil}
-
                       onChange={(e) => setDontMessageUntil(e.target.value)}
-
                       className="h-10 text-xs"
-
                     />
-
                   </div>
-
                 </div>
 
 
@@ -4420,23 +4400,24 @@ if (!isEditing && registerRenewal && !isTrialMode) {
    </div>
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-                      <div><Label>Data</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" /></div>
-
                       <div>
-
-                        <Label>Hora</Label>
-
-                        <div className="flex gap-2">
-
-                           <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="dark:[color-scheme:dark]" />
-
-                           <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-white/70 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Fim do dia">23:59</button>
-
-                        </div>
-
+                        <Label>
+                          Data{" "}
+                          {dueDate && (
+                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                              ({toBRDate(dueDate)})
+                            </span>
+                          )}
+                        </Label>
+                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" />
                       </div>
-
+                      <div>
+                        <Label>Hora</Label>
+                        <div className="flex gap-2">
+                           <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="dark:[color-scheme:dark]" />
+                           <button type="button" onClick={() => setDueTime("23:59")} className="px-2 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] font-bold text-slate-600 dark:text-white/70 hover:bg-slate-300 dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 whitespace-nowrap" title="Fim do dia">23:59</button>
+                        </div>
+                      </div>
                    </div>
 
                     {!isEditing && (
@@ -4935,64 +4916,44 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 
+  const isDateField = field?.type === "date";
+  const fieldValue = 
+    (fieldKey && (app.values as any)?.[fieldKey] != null
+      ? String((app.values as any)[fieldKey])
+      : "") ||
+    (label && (app.values as any)?.[label] != null
+      ? String((app.values as any)[label])
+      : "") ||
+    "";
+
   return (
-
     <div key={safeKey}>
-
-      <Label>{label || "Campo"}</Label>
-
-
+      <Label>
+        {label || "Campo"}
+        {isDateField && fieldValue && (
+           <span className="text-emerald-500 font-bold tracking-normal ml-1">
+             ({toBRDate(fieldValue)})
+           </span>
+        )}
+      </Label>
 
       <Input
-
-        type={field?.type === "date" ? "date" : "text"}
-
-        value={
-
-          (fieldKey && (app.values as any)?.[fieldKey] != null
-
-            ? String((app.values as any)[fieldKey])
-
-            : "") ||
-
-          (label && (app.values as any)?.[label] != null
-
-            ? String((app.values as any)[label])
-
-            : "") ||
-
-          ""
-
-        }
-
+        type={isDateField ? "date" : "text"}
+        value={fieldValue}
         onChange={(e) => {
-
           const raw = e.target.value;
-
           const next = isMacField ? normalizeMacInput(raw) : raw;
 
-
-
           const key = String(fieldKey || label || "").trim();
-
           if (!key) return;
 
-
-
           updateAppFieldValue(app.instanceId, key, next);
-
         }}
-
         placeholder={label ? `Digite ${label}...` : "Digite..."}
-
         autoCapitalize={isMacField ? "characters" : "none"}
-
         spellCheck={false}
-
       />
-
     </div>
-
   );
 
 })

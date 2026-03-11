@@ -767,7 +767,7 @@ if ((job as any).automation_id && automationConfig) {
 
       await sb.from("client_message_jobs").update({ status: "SENT", sent_at: new Date().toISOString(), error_message: null }).eq("id", job.id);
 
-      // ✅ Grava o Log do disparo
+// ✅ Grava o Log do disparo
       if ((job as any).automation_id) {
         const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
         await sb.from("billing_logs").insert({
@@ -779,6 +779,12 @@ if ((job as any).automation_id && automationConfig) {
           status: "SENT",
           sent_at: new Date().toISOString(),
         });
+        
+        // ✅ ATUALIZA A DATA DE ÚLTIMO ENVIO NA REGRA DE AUTOMAÇÃO
+        await sb
+          .from("billing_automations")
+          .update({ last_run_at: new Date().toISOString() })
+          .eq("id", (job as any).automation_id);
       }
 
       processed++;

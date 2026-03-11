@@ -110,6 +110,17 @@ function formatDateSP(input?: string | null): string {
   return d.toLocaleDateString("pt-BR", { timeZone: BILLING_TZ });
 }
 
+// ✅ NOVO: Função para ler a hora que já vem do banco
+function formatTimeSP(input?: string | null): string {
+  if (!input) return "";
+  let d = new Date(input);
+  if (isNaN(d.getTime())) return "";
+  // Se veio apenas a data YYYY-MM-DD, não temos hora exata
+  if (input.length === 10 && input.includes("-")) return "";
+  
+  return d.toLocaleTimeString("pt-BR", { timeZone: BILLING_TZ, hour: '2-digit', minute: '2-digit' });
+}
+
 function isoDateInSaoPaulo(d = new Date()) {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: BILLING_TZ,
@@ -1328,11 +1339,18 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 
                                         {/* COLUNA 3: DATA (Dinâmica dependendo da regra) */}
                                         <td className="p-3 whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-base">{isCadastro ? '📝' : '📅'}</span>
-                                                <span className="font-medium text-slate-800 dark:text-white">
-                                                    {formatDateSP(isCadastro ? c.created_at : c.vencimento)}
-                                                </span>
+                                            <div className="flex items-start gap-2">
+                                                <span className="text-base mt-0.5">{isCadastro ? '📝' : '📅'}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-slate-800 dark:text-white leading-tight">
+                                                        {formatDateSP(isCadastro ? c.created_at : c.vencimento)}
+                                                    </span>
+                                                    {formatTimeSP(isCadastro ? c.created_at : c.vencimento) && (
+                                                        <span className="text-xs font-mono text-slate-500 mt-0.5">
+                                                            ⏰ {formatTimeSP(isCadastro ? c.created_at : c.vencimento)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
 
