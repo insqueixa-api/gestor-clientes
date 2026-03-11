@@ -1366,9 +1366,9 @@ style={{ maxHeight: "90dvh" }}
                                   </Select>
                               </div>
                               <div>
-                                  <Label>Data Pagto</Label>
-                                  <FormattedDateInput type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
-                              </div>
+                                  <Label>Data Pagto</Label>
+                                  <Input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
+                              </div>
                           </div>
                       </div>
                   )}
@@ -1526,35 +1526,13 @@ style={{ maxHeight: "90dvh" }}
   }
 
   function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-    return (
-      <input
-        {...props}
-        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
-      />
-    );
-  }
-
-  function FormattedDateInput({ type, value, onChange, className = "", placeholder, ...props }: any) {
-    return (
-      <div className="relative w-full">
-        {/* O placeholder customizado fica por trás */}
-        {!value && (
-          <div className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 text-[13px] pointer-events-none whitespace-nowrap">
-            {placeholder || "DD/MM/AAAA HH:mm"}
-          </div>
-        )}
-        
-        <Input
-          type={type}
-          value={value || ""}
-          onChange={onChange}
-          // Se não tem valor, deixa o texto do input transparente para vermos o placeholder div atrás
-          className={`${className} ${!value ? "text-transparent dark:text-transparent" : "text-slate-800 dark:text-white"}`}
-          {...props}
-        />
-      </div>
-    );
-  }
+    return (
+      <input
+        {...props}
+        className={`w-full h-9 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[13px] text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+      />
+    );
+  }
 
   function DateInputBR({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   // Converte yyyy-mm-dd → dd/mm/aaaa para exibir
