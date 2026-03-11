@@ -465,139 +465,6 @@ function Switch({
 }
 
 
-
-// ─── DateInputBR ──────────────────────────────────────────────────────────────
-// value: "YYYY-MM-DD" | ""   ·   onChange emite "YYYY-MM-DD" | ""
-function DateInputBR({
-  value,
-  onChange,
-  className = "",
-  disabled = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-  disabled?: boolean;
-}) {
-  function toDisplay(iso: string) {
-    if (!iso) return "";
-    const [y, m, d] = iso.split("-");
-    if (!d) return "";
-    return `${d}/${m}/${y}`;
-  }
-
-  const [display, setDisplay] = useState(() => toDisplay(value));
-  const suppressSyncRef = useRef(false);
-
-  useEffect(() => {
-    if (suppressSyncRef.current) {
-      suppressSyncRef.current = false;
-      return;
-    }
-    setDisplay(toDisplay(value));
-  }, [value]);
-
-  function handleChange(raw: string) {
-    const digits = raw.replace(/\D/g, "").slice(0, 8);
-    let masked = digits;
-    if (digits.length > 4)
-      masked = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      masked = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    setDisplay(masked);
-
-    if (digits.length === 8) {
-      const iso = `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
-      suppressSyncRef.current = true;
-      onChange(iso);
-    } else if (digits.length === 0) {
-      suppressSyncRef.current = true;
-      onChange("");
-    }
-  }
-
-  return (
-    <Input
-      value={display}
-      onChange={(e) => handleChange(e.target.value)}
-      placeholder="DD/MM/AAAA"
-      maxLength={10}
-      inputMode="numeric"
-      className={className}
-      disabled={disabled}
-    />
-  );
-}
-
-// ─── DateTimeInputBR ──────────────────────────────────────────────────────────
-// value: "YYYY-MM-DDTHH:mm" | ""   ·   onChange emite "YYYY-MM-DDTHH:mm" | ""
-function DateTimeInputBR({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  function isoToDisplay(iso: string) {
-    if (!iso) return "";
-    const parts = iso.split("-");
-    if (parts.length !== 3) return "";
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-
-  const datePart = (value || "").split("T")[0] || "";
-  const timePart = (value || "").split("T")[1]?.slice(0, 5) || "";
-
-  const [dateDisplay, setDateDisplay] = useState(() => isoToDisplay(datePart));
-  const lastValueRef = useRef(value);
-
-  useEffect(() => {
-    if (value === lastValueRef.current) return;
-    lastValueRef.current = value;
-    setDateDisplay(isoToDisplay((value || "").split("T")[0] || ""));
-  }, [value]);
-
-  function handleDateInput(raw: string) {
-    const digits = raw.replace(/\D/g, "").slice(0, 8);
-    let masked = digits;
-    if (digits.length > 4)
-      masked = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      masked = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    setDateDisplay(masked);
-
-    if (digits.length === 8) {
-      const iso = `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
-      onChange(`${iso}T${timePart || "00:00"}`);
-    } else if (digits.length === 0) {
-      onChange("");
-    }
-  }
-
-  function handleTimeChange(t: string) {
-    onChange(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`);
-  }
-
-  return (
-    <div className="flex gap-1.5">
-      <Input
-        value={dateDisplay}
-        onChange={(e) => handleDateInput(e.target.value)}
-        placeholder="DD/MM/AAAA"
-        maxLength={10}
-        inputMode="numeric"
-        className="flex-1 min-w-0"
-      />
-      <Input
-        type="time"
-        value={timePart}
-        onChange={(e) => handleTimeChange(e.target.value)}
-        className="w-24 shrink-0 dark:[color-scheme:dark]"
-      />
-    </div>
-  );
-}
-
 function PhoneRow({
   label,
   countryLabel,
@@ -3863,8 +3730,41 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>Data Cadastro</Label>
-                    <DateTimeInputBR value={createdAt} onChange={setCreatedAt} />
+                    <Label>
+                      Data Cadastro{" "}
+                      {createdAt && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(createdAt.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={10}
+                        placeholder="DD/MM/AAAA"
+                        value={createdAt ? (() => { const [y,m,d] = (createdAt.split("T")[0]||"").split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                          if (digits.length === 8) {
+                            const iso = `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`;
+                            const time = createdAt?.split("T")[1]?.slice(0,5) || "00:00";
+                            setCreatedAt(`${iso}T${time}`);
+                          } else if (!digits) setCreatedAt("");
+                        }}
+                        className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                      />
+                      <input
+                        type="time"
+                        value={createdAt?.split("T")[1]?.slice(0,5) || ""}
+                        onChange={(e) => {
+                          const date = createdAt?.split("T")[0] || new Date().toISOString().slice(0,10);
+                          setCreatedAt(`${date}T${e.target.value}`);
+                        }}
+                        className="w-24 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark]"
+                      />
+                    </div>
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
@@ -3881,8 +3781,41 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div>
-                    <Label>Não perturbe até</Label>
-                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
+                    <Label>
+                      Não perturbe até{" "}
+                      {dontMessageUntil && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(dontMessageUntil.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={10}
+                        placeholder="DD/MM/AAAA"
+                        value={dontMessageUntil ? (() => { const [y,m,d] = (dontMessageUntil.split("T")[0]||"").split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                          if (digits.length === 8) {
+                            const iso = `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`;
+                            const time = dontMessageUntil?.split("T")[1]?.slice(0,5) || "00:00";
+                            setDontMessageUntil(`${iso}T${time}`);
+                          } else if (!digits) setDontMessageUntil("");
+                        }}
+                        className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                      />
+                      <input
+                        type="time"
+                        value={dontMessageUntil?.split("T")[1]?.slice(0,5) || ""}
+                        onChange={(e) => {
+                          const date = dontMessageUntil?.split("T")[0] || new Date().toISOString().slice(0,10);
+                          setDontMessageUntil(`${date}T${e.target.value}`);
+                        }}
+                        className="w-24 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark]"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -4510,8 +4443,28 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label>Data</Label>
-                        <DateInputBR value={dueDate} onChange={setDueDate} />
+                        <Label>
+                          Data{" "}
+                          {dueDate && (
+                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                              ({toBRDate(dueDate)})
+                            </span>
+                          )}
+                        </Label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={10}
+                          placeholder="DD/MM/AAAA"
+                          value={dueDate ? (() => { const [y,m,d] = dueDate.split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g,"").slice(0,8);
+                            if (digits.length === 8) {
+                              setDueDate(`${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`);
+                            } else if (!digits) setDueDate("");
+                          }}
+                          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                        />
                       </div>
                       <div>
                         <Label>Hora</Label>
@@ -5030,16 +4983,33 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <div key={safeKey}>
-      <Label>{label || "Campo"}</Label>
+      <Label>
+        {label || "Campo"}
+        {isDateField && fieldValue && (
+           <span className="text-emerald-500 font-bold tracking-normal ml-1">
+             ({toBRDate(fieldValue)})
+           </span>
+        )}
+      </Label>
 
       {isDateField ? (
-        <DateInputBR
-          value={fieldValue}
-          onChange={(v) => {
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={10}
+          placeholder="DD/MM/AAAA"
+          value={fieldValue ? (() => { const [y,m,d] = fieldValue.split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g,"").slice(0,8);
             const key = String(fieldKey || label || "").trim();
             if (!key) return;
-            updateAppFieldValue(app.instanceId, key, v);
+            if (digits.length === 8) {
+              updateAppFieldValue(app.instanceId, key, `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`);
+            } else if (!digits) {
+              updateAppFieldValue(app.instanceId, key, "");
+            }
           }}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
         />
       ) : (
         <Input
