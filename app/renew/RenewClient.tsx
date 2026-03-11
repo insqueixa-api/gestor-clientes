@@ -879,13 +879,7 @@ return (
               </div>
 
               <div className="px-5 pt-4 pb-3 space-y-3">
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Atenção</p>
-                  <p className="text-xs text-amber-700">
-                    Nossos gateways automáticos estão temporariamente indisponíveis. Use os dados abaixo para fazer o pagamento manualmente.
-                  </p>
-                </div>
-
+  
                 {/* 1. DADOS PARA PIX MANUAL */}
                 {(effectiveGatewayType === "pix_manual") && (
                   <div className="space-y-3">
