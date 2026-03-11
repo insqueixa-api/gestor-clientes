@@ -17,7 +17,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual"; // ✅ Novo tipo adicionado
+type GatewayType = "mercadopago" | "pix_manual" | "transfer_manual_usd" | "transfer_manual_eur";
 
 interface PaymentGateway {
   id: string;
@@ -136,47 +136,38 @@ const GATEWAY_META: GatewayMeta[] = [
     ],
   },
   {
-    type: "transfer_manual",
-    label: "Transferência Internacional / Wise",
-    description: "Dados diretos para transferência manual (EUR/USD).",
-    currencies: ["USD", "EUR"], 
+    type: "transfer_manual_usd",
+    label: "Transferência (USD)",
+    description: "Conta americana (Routing/Account Number)",
+    currencies: ["USD"], 
     is_online: false,
-    icon: "🌍",
+    icon: "💵",
     color: "from-blue-600 to-indigo-600",
     fields: [
-      {
-        key: "holder_name",
-        label: "Nome do Titular (Account holder name)",
-        type: "text",
-        placeholder: "Nome exato da conta",
-        required: true,
-      },
-      {
-        key: "iban",
-        label: "IBAN",
-        type: "text",
-        placeholder: "Ex: BE12 3456 7890...",
-        required: true,
-      },
-      {
-        key: "swift_bic",
-        label: "Código Swift / BIC",
-        type: "text",
-        placeholder: "Ex: TRWI...",
-        required: true,
-      },
-      {
-        key: "bank_address",
-        label: "Endereço do Banco (Bank address)",
-        type: "textarea",
-        placeholder: "Ex: 104238...",
-      },
-      {
-        key: "instructions",
-        label: "Aviso / Instruções",
-        type: "textarea",
-        placeholder: "Ex: Se estiver fora da Europa, use os dados...",
-      }
+      { key: "bank_name", label: "Bank Name", type: "text", placeholder: "Ex: Evolve Bank", required: true },
+      { key: "holder_name", label: "Account Holder", type: "text", placeholder: "Seu nome", required: true },
+      { key: "routing_number", label: "ACH Routing Number", type: "text", required: true },
+      { key: "account_number", label: "Account Number", type: "text", required: true },
+      { key: "swift_bic", label: "SWIFT / BIC (Opcional)", type: "text" },
+      { key: "bank_address", label: "Bank Address (Opcional)", type: "textarea" },
+      { key: "instructions", label: "Aviso / Instruções", type: "textarea" }
+    ],
+  },
+  {
+    type: "transfer_manual_eur",
+    label: "Transferência (EUR)",
+    description: "Conta europeia (IBAN)",
+    currencies: ["EUR"], 
+    is_online: false,
+    icon: "💶",
+    color: "from-blue-600 to-indigo-600",
+    fields: [
+      { key: "bank_name", label: "Bank Name", type: "text", placeholder: "Ex: Wise Europe", required: true },
+      { key: "holder_name", label: "Account Holder", type: "text", placeholder: "Seu nome", required: true },
+      { key: "iban", label: "IBAN", type: "text", required: true },
+      { key: "swift_bic", label: "SWIFT / BIC", type: "text", required: true },
+      { key: "bank_address", label: "Bank Address (Opcional)", type: "textarea" },
+      { key: "instructions", label: "Aviso / Instruções", type: "textarea" }
     ],
   },
 ];
@@ -273,7 +264,7 @@ function GatewayModal({
         priority,
         is_active: isActive,
         is_online: meta.is_online,
-        is_manual_fallback: (selectedType === "pix_manual" || selectedType === "transfer_manual") ? isManualFallback : false,
+        is_manual_fallback: (selectedType === "pix_manual" || selectedType?.startsWith("transfer_manual")) ? isManualFallback : false,
         config: form,
         updated_at: new Date().toISOString(),
       };
@@ -511,7 +502,7 @@ function GatewayModal({
               </div>
 
               {/* Fallback Manual (PIX ou IBAN) */}
-              {(selectedType === "pix_manual" || selectedType === "transfer_manual") && (
+              {(selectedType === "pix_manual" || selectedType?.startsWith("transfer_manual")) && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -719,9 +710,9 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
     .filter((g) => g.is_active && g.is_online && (g.currency.includes("USD") || g.currency.includes("EUR")))
     .sort((a, b) => a.priority - b.priority);
 
-  // ✅ Separa o fallback do Brasil e o Fallback Internacional
+// ✅ Separa o fallback do Brasil e o Fallback Internacional
   const manualBrl = gateways.find((g) => g.type === "pix_manual" && g.is_active);
-  const manualIntl = gateways.find((g) => g.type === "transfer_manual" && g.is_active);
+  const manualIntl = gateways.find((g) => g.type.startsWith("transfer_manual") && g.is_active);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

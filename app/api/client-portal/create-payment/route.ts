@@ -498,7 +498,9 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
     }
 
     // Todos os gateways falharam — tentar fallback manual apropriado para a moeda
-    const fallbackType = currency === "BRL" ? "pix_manual" : "transfer_manual";
+    let fallbackType = "pix_manual";
+    if (currency === "USD") fallbackType = "transfer_manual_usd";
+    else if (currency === "EUR") fallbackType = "transfer_manual_eur";
 
     const { data: manual, error: manErr } = await supabaseAdmin
       .from("payment_gateways")
@@ -516,18 +518,20 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
         price_amount: computedPrice,
         currency,
         instructions: manual.config.instructions,
+        holder_name: manual.config.holder_name,
+        bank_name: manual.config.bank_name,
+        bank_address: manual.config.bank_address,
+        transfer_swift: manual.config.swift_bic,
       };
 
       if (fallbackType === "pix_manual") {
         responsePayload.pix_key = manual.config.pix_key;
         responsePayload.pix_key_type = manual.config.pix_key_type;
-        responsePayload.holder_name = manual.config.holder_name;
-        responsePayload.bank_name = manual.config.bank_name;
-      } else {
+      } else if (fallbackType === "transfer_manual_usd") {
+        responsePayload.transfer_routing = manual.config.routing_number;
+        responsePayload.transfer_account = manual.config.account_number;
+      } else if (fallbackType === "transfer_manual_eur") {
         responsePayload.transfer_iban = manual.config.iban;
-        responsePayload.transfer_swift = manual.config.swift_bic;
-        responsePayload.holder_name = manual.config.holder_name;
-        responsePayload.bank_address = manual.config.bank_address;
       }
 
       return NextResponse.json(responsePayload, { status: 200, headers: NO_STORE_HEADERS });

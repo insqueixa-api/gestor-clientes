@@ -863,13 +863,21 @@ if (fulfillment === "done") {
                 </div>
 
                 <div className="space-y-3">
-                  {/* ====== RENDERIZAÇÃO INTERNACIONAL (IBAN/SWIFT/WISE) ====== */}
+                  {/* ====== RENDERIZAÇÃO INTERNACIONAL (USD/EUR) ====== */}
                   {isInternational ? (
                     <>
+                      {/* Nome do Banco */}
+                      {paymentData.bank_name && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bank Name</p>
+                          <p className="text-sm font-medium text-slate-700">{paymentData.bank_name}</p>
+                        </div>
+                      )}
+
                       {/* Titular */}
                       {paymentData.holder_name && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nome do Titular (Account holder)</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Account Holder</p>
                           <div className="relative group">
                             <input
                               type="text"
@@ -885,13 +893,53 @@ if (fulfillment === "done") {
                               }}
                               className="absolute right-1 top-1 bottom-1 px-4 bg-slate-200 text-slate-600 font-bold text-xs rounded-md transition-all hover:bg-slate-300"
                             >
-                              Copiar
+                              {copiedKey ? "✅ Copied" : "Copy"}
                             </button>
                           </div>
                         </div>
                       )}
 
-                      {/* Campo IBAN */}
+                      {/* Campo USD: Routing Number */}
+                      {paymentData.transfer_routing && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ACH Routing Number</p>
+                          <input
+                            type="text"
+                            value={paymentData.transfer_routing}
+                            readOnly
+                            className="w-full px-3 py-2.5 bg-white border-2 border-slate-200 rounded-lg text-sm font-mono text-slate-800 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* Campo USD: Account Number */}
+                      {paymentData.transfer_account && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Account Number</p>
+                          <div className="relative group">
+                            <input
+                              type="text"
+                              value={paymentData.transfer_account}
+                              readOnly
+                              className="w-full pr-28 pl-3 py-2.5 bg-white border-2 border-slate-200 rounded-lg text-sm font-mono text-slate-800 outline-none focus:border-indigo-500 shadow-sm"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(paymentData.transfer_account);
+                                setCopiedCode(true);
+                                setTimeout(() => setCopiedCode(false), 3000);
+                              }}
+                              className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                                copiedCode ? "bg-emerald-500" : "bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                              }`}
+                            >
+                              {copiedCode ? "✅ Copied" : "📋 Copy"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Campo EUR: IBAN */}
                       {paymentData.transfer_iban && (
                         <div>
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">IBAN</p>
@@ -912,16 +960,16 @@ if (fulfillment === "done") {
                                 copiedCode ? "bg-emerald-500" : "bg-indigo-600 hover:bg-indigo-700 shadow-sm"
                               }`}
                             >
-                              {copiedCode ? "✅ Copiado" : "📋 Copiar"}
+                              {copiedCode ? "✅ Copied" : "📋 Copy"}
                             </button>
                           </div>
                         </div>
                       )}
                       
-                      {/* Campo SWIFT */}
+                      {/* Campo SWIFT (Aparece se houver, tanto para USD fora dos eua quanto EUR) */}
                       {paymentData.transfer_swift && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Código Swift / BIC</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">SWIFT / BIC</p>
                           <input
                             type="text"
                             value={paymentData.transfer_swift}
@@ -934,8 +982,8 @@ if (fulfillment === "done") {
                       {/* Endereço do Banco */}
                       {paymentData.bank_address && (
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Endereço do Banco (Bank address)</p>
-                          <p className="text-sm font-medium text-slate-700 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bank Address</p>
+                          <p className="text-sm font-medium text-slate-700 p-3 bg-slate-50 border border-slate-200 rounded-lg whitespace-pre-wrap">
                             {paymentData.bank_address}
                           </p>
                         </div>
