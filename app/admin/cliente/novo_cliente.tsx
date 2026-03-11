@@ -3730,34 +3730,21 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>Data Cadastro</Label>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={10}
-                        placeholder="DD/MM/AAAA"
-                        value={createdAt ? (() => { const [y,m,d] = (createdAt.split("T")[0]||"").split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
-                          if (digits.length === 8) {
-                            const iso = `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`;
-                            const time = createdAt?.split("T")[1]?.slice(0,5) || "00:00";
-                            setCreatedAt(`${iso}T${time}`);
-                          } else if (!digits) setCreatedAt("");
-                        }}
-                        className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                      />
-                      <input
-                        type="time"
-                        value={createdAt?.split("T")[1]?.slice(0,5) || ""}
-                        onChange={(e) => {
-                          const date = createdAt?.split("T")[0] || new Date().toISOString().slice(0,10);
-                          setCreatedAt(`${date}T${e.target.value}`);
-                        }}
-                        className="w-24 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark]"
-                      />
-                    </div>
+                    <Label>
+                      Data Cadastro{" "}
+                      {createdAt && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(createdAt.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      value={dontMessageUntil}
+                      onChange={(e) => setDontMessageUntil(e.target.value)}
+                      className="h-10 text-xs"
+                      lang="pt-BR"
+                    />
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
@@ -3774,34 +3761,21 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div>
-                    <Label>Não perturbe até</Label>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={10}
-                        placeholder="DD/MM/AAAA"
-                        value={dontMessageUntil ? (() => { const [y,m,d] = (dontMessageUntil.split("T")[0]||"").split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g,"").slice(0,8);
-                          if (digits.length === 8) {
-                            const iso = `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`;
-                            const time = dontMessageUntil?.split("T")[1]?.slice(0,5) || "00:00";
-                            setDontMessageUntil(`${iso}T${time}`);
-                          } else if (!digits) setDontMessageUntil("");
-                        }}
-                        className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                      />
-                      <input
-                        type="time"
-                        value={dontMessageUntil?.split("T")[1]?.slice(0,5) || ""}
-                        onChange={(e) => {
-                          const date = dontMessageUntil?.split("T")[0] || new Date().toISOString().slice(0,10);
-                          setDontMessageUntil(`${date}T${e.target.value}`);
-                        }}
-                        className="w-24 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark]"
-                      />
-                    </div>
+                    <Label>
+                      Não perturbe até{" "}
+                      {dontMessageUntil && (
+                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                          ({toBRDate(dontMessageUntil.split("T")[0])})
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      value={createdAt}
+                      onChange={(e) => setCreatedAt(e.target.value)}
+                      className="h-10 text-xs"
+                      lang="pt-BR"
+                    />
                   </div>
                 </div>
 
@@ -4429,21 +4403,15 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label>Data</Label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={10}
-                          placeholder="DD/MM/AAAA"
-                          value={dueDate ? (() => { const [y,m,d] = dueDate.split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
-                          onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g,"").slice(0,8);
-                            if (digits.length === 8) {
-                              setDueDate(`${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`);
-                            } else if (!digits) setDueDate("");
-                          }}
-                          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                        />
+                        <Label>
+                          Data{" "}
+                          {dueDate && (
+                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
+                              ({toBRDate(dueDate)})
+                            </span>
+                          )}
+                        </Label>
+                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" lang="pt-BR" />
                       </div>
                       <div>
                         <Label>Hora</Label>
@@ -4962,43 +4930,31 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <div key={safeKey}>
-      <Label>{label || "Campo"}</Label>
+      <Label>
+        {label || "Campo"}
+        {isDateField && fieldValue && (
+           <span className="text-emerald-500 font-bold tracking-normal ml-1">
+             ({toBRDate(fieldValue)})
+           </span>
+        )}
+      </Label>
 
-      {isDateField ? (
-        <input
-          type="text"
-          inputMode="numeric"
-          maxLength={10}
-          placeholder="DD/MM/AAAA"
-          value={fieldValue ? (() => { const [y,m,d] = fieldValue.split("-"); return d&&m&&y ? `${d}/${m}/${y}` : ""; })() : ""}
-          onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g,"").slice(0,8);
-            const key = String(fieldKey || label || "").trim();
-            if (!key) return;
-            if (digits.length === 8) {
-              updateAppFieldValue(app.instanceId, key, `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`);
-            } else if (!digits) {
-              updateAppFieldValue(app.instanceId, key, "");
-            }
-          }}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-        />
-      ) : (
-        <Input
-          type="text"
-          value={fieldValue}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const next = isMacField ? normalizeMacInput(raw) : raw;
-            const key = String(fieldKey || label || "").trim();
-            if (!key) return;
-            updateAppFieldValue(app.instanceId, key, next);
-          }}
-          placeholder={label ? `Digite ${label}...` : "Digite..."}
-          autoCapitalize={isMacField ? "characters" : "none"}
-          spellCheck={false}
-        />
-      )}
+      <Input
+        type={isDateField ? "date" : "text"}
+        value={fieldValue}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const next = isMacField ? normalizeMacInput(raw) : raw;
+
+          const key = String(fieldKey || label || "").trim();
+          if (!key) return;
+
+          updateAppFieldValue(app.instanceId, key, next);
+        }}
+        placeholder={label ? `Digite ${label}...` : "Digite..."}
+        autoCapitalize={isMacField ? "characters" : "none"}
+        spellCheck={false}
+      />
     </div>
   );
 
