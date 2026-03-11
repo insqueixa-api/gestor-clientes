@@ -17,7 +17,8 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual"; // ✅ Novo tipo adicionado
+// ✅ Atualizado: Separados os fallbacks internacionais
+type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
 
 interface PaymentGateway {
   id: string;
@@ -134,6 +135,20 @@ const GATEWAY_META: GatewayMeta[] = [
     color: "from-violet-500 to-purple-500",
     fields: [
       {
+        key: "beneficiary_name",
+        label: "Nome do Favorecido",
+        type: "text",
+        placeholder: "Ex: Márcio Martins",
+        required: true,
+      },
+      {
+        key: "institution",
+        label: "Instituição (Banco)",
+        type: "text",
+        placeholder: "Ex: Nubank, Banco Inter...",
+        required: true,
+      },
+      {
         key: "pix_key_type",
         label: "Tipo da Chave",
         type: "select",
@@ -156,31 +171,97 @@ const GATEWAY_META: GatewayMeta[] = [
     ],
   },
   {
-    type: "transfer_manual",
-    label: "Transferência Internacional",
-    description: "Dados diretos para transferência.",
-    currencies: ["USD", "EUR"], // ✅ Revertido para não quebrar a lógica de renderização
+    type: "transfer_manual_eur",
+    label: "Transferência Manual (EUR)",
+    description: "Dados da Wise para recebimento em Euros.",
+    currencies: ["EUR"],
     is_online: false,
-    icon: "🏦",
+    icon: "💶",
     color: "from-blue-600 to-indigo-600",
     fields: [
       {
-        key: "iban",
-        label: "Código IBAN",
+        key: "beneficiary_name",
+        label: "Nome",
         type: "text",
-        placeholder: "Ex: PT50...",
+        placeholder: "Ex: Márcio Martins",
+        required: true,
+      },
+      {
+        key: "iban",
+        label: "IBAN",
+        type: "text",
+        placeholder: "Ex: BE04 9056 6529 6331",
         required: true,
       },
       {
         key: "swift_bic",
-        label: "SWIFT / BIC",
+        label: "Swift/BIC",
         type: "text",
-        placeholder: "Ex: BCPTPTPL",
+        placeholder: "Ex: TRWIBEB1XXX",
+        required: true,
+      },
+      {
+        key: "bank_name_address",
+        label: "Nome e endereço do banco",
+        type: "textarea",
+        placeholder: "Ex: Wise, Rue du Trône 100, 3rd floor, Brussels, 1050, Belgium",
         required: true,
       }
     ],
   },
-  // 👆 FIM DO NOVO BLOCO 👆
+  {
+    type: "transfer_manual_usd",
+    label: "Transferência Manual (USD)",
+    description: "Dados da Wise para recebimento em Dólares.",
+    currencies: ["USD"],
+    is_online: false,
+    icon: "💵",
+    color: "from-blue-600 to-indigo-600",
+    fields: [
+      {
+        key: "beneficiary_name",
+        label: "Nome",
+        type: "text",
+        placeholder: "Ex: Márcio Martins",
+        required: true,
+      },
+      {
+        key: "account_number",
+        label: "Número da conta",
+        type: "text",
+        placeholder: "Ex: 832905626259166",
+        required: true,
+      },
+      {
+        key: "account_type",
+        label: "Tipo da conta",
+        type: "text",
+        placeholder: "Ex: Deposit",
+        required: true,
+      },
+      {
+        key: "routing_number",
+        label: "Routing number",
+        type: "text",
+        placeholder: "Ex: 084009519",
+        required: true,
+      },
+      {
+        key: "swift_bic",
+        label: "Swift/BIC",
+        type: "text",
+        placeholder: "Ex: TRWIUS35XXX",
+        required: true,
+      },
+      {
+        key: "bank_address",
+        label: "Endereço",
+        type: "textarea",
+        placeholder: "Ex: Wise US Inc, 108 W 13th St, Wilmington, DE, 19801, United States",
+        required: true,
+      }
+    ],
+  },
 ];
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -268,6 +349,8 @@ function GatewayModal({
 
       const supabase = supabaseBrowser;
 
+      const isFallbackType = selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd";
+
       const basePayload = {
         name: meta.label,
         type: selectedType,
@@ -275,7 +358,7 @@ function GatewayModal({
         priority,
         is_active: isActive,
         is_online: meta.is_online,
-        is_manual_fallback: (selectedType === "pix_manual" || selectedType === "transfer_manual") ? isManualFallback : false,
+        is_manual_fallback: isFallbackType ? isManualFallback : false,
         config: form,
         updated_at: new Date().toISOString(),
       };
@@ -328,12 +411,12 @@ function GatewayModal({
               {isEdit ? "Atualize as configurações da integração" : "Configure uma nova forma de recebimento"}
             </p>
           </div>
-<button
-  onClick={onClose}
-  className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
->
-  <IconX />
-</button>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+          >
+            <IconX />
+          </button>
         </div>
 
         {/* BODY */}
@@ -512,8 +595,8 @@ function GatewayModal({
                 </div>
               </div>
 
-              {/* Fallback Manual (PIX ou IBAN) */}
-              {(selectedType === "pix_manual" || selectedType === "transfer_manual") && (
+              {/* Fallback Manual */}
+              {(selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd") && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -688,22 +771,22 @@ function GatewayCard({
 
         {/* Ações */}
         <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-<button
-  onClick={onEdit}
-  className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
->
-  <IconEdit />
-  Editar
-</button>
+          <button
+            onClick={onEdit}
+            className="flex-1 h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 text-slate-700 dark:text-white/70 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+          >
+            <IconEdit />
+            Editar
+          </button>
 
-<button
-  onClick={onDelete}
-  disabled={isDeleting}
-  className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-  title="Excluir"
->
-  {isDeleting ? "..." : <IconTrash />}
-</button>
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-500/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            title="Excluir"
+          >
+            {isDeleting ? "..." : <IconTrash />}
+          </button>
         </div>
       </div>
     </div>
@@ -721,9 +804,9 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
     .filter((g) => g.is_active && g.is_online && (g.currency.includes("USD") || g.currency.includes("EUR")))
     .sort((a, b) => a.priority - b.priority);
 
-  // ✅ Separa o fallback do Brasil e o Fallback Internacional
+  // ✅ Separa o fallback do Brasil e os Fallbacks Internacionais
   const manualBrl = gateways.find((g) => g.type === "pix_manual" && g.is_active);
-  const manualIntl = gateways.find((g) => g.type === "transfer_manual" && g.is_active);
+  const manualIntlArray = gateways.filter((g) => (g.type === "transfer_manual_eur" || g.type === "transfer_manual_usd") && g.is_active);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -806,7 +889,7 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
             );
           })}
 
-          {manualIntl && (
+          {manualIntlArray.length > 0 && (
             <>
               <div className="flex items-center justify-center">
                 <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
@@ -816,18 +899,20 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <span className="text-sm">🏦</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300 truncate">IBAN / SWIFT</p>
-                  <p className="text-[10px] text-blue-600/80 dark:text-blue-300/70">Fallback offline</p>
+              {manualIntlArray.map((mIntl) => (
+                <div key={mIntl.id} className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-2">
+                  <span className="text-sm">{mIntl.type === "transfer_manual_usd" ? "💵" : "💶"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-blue-700 dark:text-blue-300 truncate">{mIntl.name}</p>
+                    <p className="text-[10px] text-blue-600/80 dark:text-blue-300/70">Fallback offline ({mIntl.currency.join(", ")})</p>
+                  </div>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
                 </div>
-                <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-              </div>
+              ))}
             </>
           )}
 
-          {intlOnline.length === 0 && !manualIntl && (
+          {intlOnline.length === 0 && manualIntlArray.length === 0 && (
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
               <p className="text-xs text-slate-400 dark:text-white/40">Nenhum gateway internacional ativo</p>
             </div>
@@ -1113,6 +1198,10 @@ export default function PagamentosPage() {
           onSave={fetchGateways}
         />
       )}
+
+      {/* Confirmação e Toasts */}
+      {ConfirmUI}
+      <ToastNotifications toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
