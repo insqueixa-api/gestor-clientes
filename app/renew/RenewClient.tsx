@@ -120,7 +120,9 @@ function getGreeting() {
 }
 
 function formatMoney(amount: number, currency: string = "BRL") {
-  return new Intl.NumberFormat("pt-BR", {
+  // ✅ Se for BRL usa pt-BR (R$), se for USD/EUR usa en-US ($ / €)
+  const locale = currency === "BRL" ? "pt-BR" : "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
   }).format(amount);

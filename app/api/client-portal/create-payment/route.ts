@@ -241,23 +241,23 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 }
 
 
-    // 3) Buscar gateway ativo (prioridade)
-    const { data: gateways, error: gwErr } = await supabaseAdmin
-      .from("payment_gateways")
-      .select("*")
-      .eq("tenant_id", sess.tenant_id)
-      .eq("is_active", true)
-      .eq("is_online", true)
-      .contains("currency", [currency])
-      .order("priority", { ascending: true });
-
-    if (gwErr) {
-      safeServerLog("create-payment: gateways query error", gwErr?.message);
-      // ✅ sem vazar detalhe
-      return jsonError("Erro interno", 500);
+    // 3) Buscar gateway ativo (Somente BRL usa gateway online/Mercado Pago)
+    let gateways = [];
+    if (currency === "BRL") {
+      const { data } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("*")
+        .eq("tenant_id", sess.tenant_id)
+        .eq("is_active", true)
+        .eq("is_online", true)
+        .contains("currency", ["BRL"])
+        .order("priority", { ascending: true });
+      gateways = data || [];
     }
 
-    if (!gateways || gateways.length === 0) {
+    // Se for USD/EUR ou se não houver gateway online para BRL...
+    if (gateways.length === 0) {
+       
       // Nenhum gateway online — busca fallback manual
       const { data: manual, error: manErr } = await supabaseAdmin
         .from("payment_gateways")
