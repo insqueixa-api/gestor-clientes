@@ -120,10 +120,11 @@ function getGreeting() {
 }
 
 function formatMoney(amount: number, currency: string = "BRL") {
-  return new Intl.NumberFormat("pt-BR", {
+  const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency,
   }).format(amount);
+  return formatted.replace(/^US(\$)/, "$1");
 }
 
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
@@ -258,8 +259,15 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
   
   // ✅ NOVO: Estados para controle visual do botão de copiar
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
+const [copiedCode, setCopiedCode] = useState(false);
+const [copiedKey, setCopiedKey] = useState(false);
+const [copiedField, setCopiedField] = useState<string | null>(null);
+
+function copyField(key: string, value: string) {
+  navigator.clipboard.writeText(value ?? "");
+  setCopiedField(key);
+  setTimeout(() => setCopiedField(null), 3000);
+}
 
   // ✅ NOVO: fases do fluxo (UI mais clara)
   const [paymentPhase, setPaymentPhase] = useState<
@@ -676,7 +684,7 @@ const effectiveGatewayType: string =
     const isRejected = paymentStatus === "rejected";
 
     // ✅ evita qualquer lixo/char inválido no link externo
-    const waNumber = String(sessionData?.whatsapp_username ?? "").replace(/[^\d]/g, "");
+    const waNumber = String(sessionData?.admin_whatsapp ?? "").replace(/[^\d]/g, "");
 
 
 return (
@@ -909,88 +917,127 @@ return (
                     </div>
                     
                     <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular (Favorecido)</p>
-                      <p className="text-sm font-medium text-slate-700 dark:text-white/80">{paymentData.beneficiary_name || paymentData.holder_name}</p>
-                    </div>
+  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular (Favorecido)</p>
+  <div className="flex items-center justify-between gap-2">
+    <p className="text-sm font-medium text-slate-700 dark:text-white/80">{paymentData.beneficiary_name || paymentData.holder_name}</p>
+    <button onClick={() => copyField("pix_name", paymentData.beneficiary_name || paymentData.holder_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "pix_name" ? "✅ Copiado" : "📋 Copiar"}</button>
+  </div>
+</div>
 
-                    {paymentData.institution && (
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Instituição Bancária</p>
-                        <p className="text-sm font-medium text-slate-700 dark:text-white/80">{paymentData.institution}</p>
-                      </div>
-                    )}
+{paymentData.institution && (
+  <div>
+    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Instituição Bancária</p>
+    <div className="flex items-center justify-between gap-2">
+      <p className="text-sm font-medium text-slate-700 dark:text-white/80">{paymentData.institution}</p>
+      <button onClick={() => copyField("pix_inst", paymentData.institution)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_inst" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "pix_inst" ? "✅ Copiado" : "📋 Copiar"}</button>
+    </div>
+  </div>
+)}
                   </div>
                 )}
 
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
-                {effectiveGatewayType === "transfer_manual_eur" && (
-                  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
-                      <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.beneficiary_name}</p>
-                    </div>
-                    {paymentData.bank_name && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Banco</p>
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.bank_name}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">IBAN</p>
-                      <p className="text-sm font-mono font-medium text-slate-800 dark:text-white break-all">{paymentData.iban}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Swift/BIC</p>
-                      <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.swift_bic}</p>
-                    </div>
-                    {paymentData.bank_address && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
-                        <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
+{effectiveGatewayType === "transfer_manual_eur" && (
+  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.beneficiary_name}</p>
+        <button onClick={() => copyField("eur_name", paymentData.beneficiary_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_name" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    {paymentData.bank_name && (
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Banco</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.bank_name}</p>
+          <button onClick={() => copyField("eur_bank", paymentData.bank_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_bank" ? "✅ Copiado" : "📋 Copiar"}</button>
+        </div>
+      </div>
+    )}
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">IBAN</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white break-all">{paymentData.iban}</p>
+        <button onClick={() => copyField("eur_iban", paymentData.iban)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_iban" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Swift/BIC</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.swift_bic}</p>
+        <button onClick={() => copyField("eur_swift", paymentData.swift_bic)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_swift" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    {paymentData.bank_address && (
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
+          <button onClick={() => copyField("eur_addr", paymentData.bank_address)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "eur_addr" ? "✅ Copiado" : "📋 Copiar"}</button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
-                {effectiveGatewayType === "transfer_manual_usd" && (
-                  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
-                      <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.beneficiary_name}</p>
-                    </div>
-                    {paymentData.bank_name && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Banco</p>
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.bank_name}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Número da conta</p>
-                      <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.account_number}</p>
-                    </div>
-                    {paymentData.account_type && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tipo da conta</p>
-                        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.account_type}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Routing number</p>
-                      <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.routing_number}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Swift/BIC</p>
-                      <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.swift_bic}</p>
-                    </div>
-                    {paymentData.bank_address && (
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
-                        <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
+{effectiveGatewayType === "transfer_manual_usd" && (
+  <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Favorecido</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.beneficiary_name}</p>
+        <button onClick={() => copyField("usd_name", paymentData.beneficiary_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_name" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    {paymentData.bank_name && (
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Nome do Banco</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.bank_name}</p>
+          <button onClick={() => copyField("usd_bank", paymentData.bank_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_bank" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_bank" ? "✅ Copiado" : "📋 Copiar"}</button>
+        </div>
+      </div>
+    )}
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Número da conta</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.account_number}</p>
+        <button onClick={() => copyField("usd_acc", paymentData.account_number)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_acc" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_acc" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    {paymentData.account_type && (
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tipo da conta</p>
+        <p className="text-sm font-medium text-slate-800 dark:text-white">{paymentData.account_type}</p>
+      </div>
+    )}
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Routing number</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.routing_number}</p>
+        <button onClick={() => copyField("usd_routing", paymentData.routing_number)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_routing" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_routing" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Swift/BIC</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-mono font-medium text-slate-800 dark:text-white">{paymentData.swift_bic}</p>
+        <button onClick={() => copyField("usd_swift", paymentData.swift_bic)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_swift" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_swift" ? "✅ Copiado" : "📋 Copiar"}</button>
+      </div>
+    </div>
+    {paymentData.bank_address && (
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Endereço do Banco</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-slate-600 dark:text-white/70 leading-snug">{paymentData.bank_address}</p>
+          <button onClick={() => copyField("usd_addr", paymentData.bank_address)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "usd_addr" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "usd_addr" ? "✅ Copiado" : "📋 Copiar"}</button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
                 {/* VALOR A TRANSFERIR (GLOBAL PARA TODOS OS MANUAIS) */}
                 <div className="pt-2">
