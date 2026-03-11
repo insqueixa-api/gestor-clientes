@@ -255,8 +255,24 @@ if (!renewRes.ok || !renewJson?.ok) {
     }
   }
 
+// 3.5) Fallback de Segurança (Passo 3)
   if (!expDateISO) {
-    throw new Error(`Renovado no provedor ${provider}, mas a nova data de vencimento não foi encontrada.`);
+    prodLog("fulfillment.date_fallback_used", {
+      tenant: tenantId.slice(-6),
+      client_id: String(client.id).slice(-6),
+      provider,
+      fallback_months: months
+    });
+    
+    // Calcula a data de segurança baseada no vencimento atual ou data de hoje
+    const vencDate = (client as any).vencimento ? new Date((client as any).vencimento) : null;
+    const isActive = vencDate != null && vencDate > new Date();
+    const baseDate = isActive ? vencDate : new Date();
+    
+    const targetDate = new Date(baseDate);
+    targetDate.setMonth(targetDate.getMonth() + months);
+    
+    expDateISO = targetDate.toISOString();
   }
 
   // 4) Atualizar cliente (Blindado)
@@ -324,11 +340,11 @@ try {
       unit_price: unitPrice,
       total_amount: totalPaid,
       credits_per_month: 1,
-      credits_used: months * qtyScreens,
-      status: "PAID",
-      new_vencimento: expDateISO, // ✅ Faltava isso! O financeiro precisa saber a data gerada
-      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
-    });
+credits_used: months * qtyScreens,
+      status: "PAID",
+      // REMOVIDO: new_vencimento (Coluna não existe na tabela client_renewals no banco)
+      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
+    });
 
     if (renErr) {
       await supabaseAdmin.from("client_events").insert({
