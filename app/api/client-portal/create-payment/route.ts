@@ -497,31 +497,40 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
       }
     }
 
-    // Todos os gateways falharam — tentar fallback manual
+    // Todos os gateways falharam — tentar fallback manual apropriado para a moeda
+    const fallbackType = currency === "BRL" ? "pix_manual" : "transfer_manual";
+
     const { data: manual, error: manErr } = await supabaseAdmin
       .from("payment_gateways")
       .select("*")
       .eq("tenant_id", sess.tenant_id)
-      .eq("type", "pix_manual")
+      .eq("type", fallbackType)
       .eq("is_active", true)
-      .eq("is_manual_fallback", true)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (manual && !manErr) {
-      return NextResponse.json(
-        {
-          ok: true,
-          payment_method: "manual",
-          pix_key: manual.config.pix_key,
-          pix_key_type: manual.config.pix_key_type,
-          holder_name: manual.config.holder_name,
-          bank_name: manual.config.bank_name,
-          instructions: manual.config.instructions,
-          price_amount: computedPrice,
-          currency,
-        },
-        { status: 200, headers: NO_STORE_HEADERS }
-      );
+      const responsePayload: any = {
+        ok: true,
+        payment_method: "manual",
+        price_amount: computedPrice,
+        currency,
+        instructions: manual.config.instructions,
+      };
+
+      if (fallbackType === "pix_manual") {
+        responsePayload.pix_key = manual.config.pix_key;
+        responsePayload.pix_key_type = manual.config.pix_key_type;
+        responsePayload.holder_name = manual.config.holder_name;
+        responsePayload.bank_name = manual.config.bank_name;
+      } else {
+        responsePayload.transfer_iban = manual.config.iban;
+        responsePayload.transfer_swift = manual.config.swift_bic;
+        responsePayload.bank_name = manual.config.bank_name;
+        responsePayload.holder_name = manual.config.holder_name;
+      }
+
+      return NextResponse.json(responsePayload, { status: 200, headers: NO_STORE_HEADERS });
     }
 
     // ✅ não vaza “lastError” real

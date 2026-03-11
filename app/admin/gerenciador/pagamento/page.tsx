@@ -86,45 +86,6 @@ const GATEWAY_META: GatewayMeta[] = [
   },
   
   {
-    type: "wise",
-    label: "Wise",
-    description: "Transferências internacionais em USD e EUR.",
-    currencies: ["USD", "EUR"],
-    is_online: true,
-    icon: "🌍",
-    color: "from-emerald-500 to-teal-500",
-    fields: [
-      {
-        key: "api_token",
-        label: "API Token",
-        type: "password",
-        placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-        hint: "Encontre em: Wise Business → Configurações → API tokens",
-        required: true,
-      },
-      {
-        key: "profile_id",
-        label: "Profile ID",
-        type: "text",
-        placeholder: "12345678",
-        hint: "ID do perfil business (visível na URL após login)",
-        required: true,
-      },
-      {
-        key: "source_currency",
-        label: "Moeda de Origem",
-        type: "select",
-        options: [
-          { value: "BRL", label: "BRL (Real Brasileiro)" },
-          { value: "USD", label: "USD (Dólar Americano)" },
-          { value: "EUR", label: "EUR (Euro)" },
-        ],
-        hint: "Moeda da sua conta Wise",
-        required: true,
-      },
-    ],
-  },
-  {
     type: "pix_manual",
     label: "PIX Manual",
     description: "Chave PIX direta.",
@@ -152,35 +113,73 @@ const GATEWAY_META: GatewayMeta[] = [
         type: "text",
         placeholder: "Digite a chave...",
         required: true,
-      }
+      },
+      {
+        key: "holder_name",
+        label: "Nome do Titular",
+        type: "text",
+        placeholder: "Ex: Empresa LTDA",
+        required: true,
+      },
+      {
+        key: "bank_name",
+        label: "Banco (Opcional)",
+        type: "text",
+        placeholder: "Ex: Nubank",
+      },
+      {
+        key: "instructions",
+        label: "Instruções (Opcional)",
+        type: "textarea",
+        placeholder: "Avisos rápidos para o cliente...",
+      },
     ],
   },
   {
     type: "transfer_manual",
     label: "Transferência Internacional",
-    description: "Dados diretos para transferência.",
-    currencies: ["USD", "EUR"], // ✅ Revertido para não quebrar a lógica de renderização
+    description: "Dados diretos para transferência bancária.",
+    currencies: ["USD", "EUR"], 
     is_online: false,
     icon: "🏦",
     color: "from-blue-600 to-indigo-600",
     fields: [
       {
-        key: "iban",
-        label: "Código IBAN",
+        key: "bank_name",
+        label: "Nome do Banco",
         type: "text",
-        placeholder: "Ex: PT50...",
+        placeholder: "Ex: Banco XYZ, N.A.",
+        required: true,
+      },
+      {
+        key: "holder_name",
+        label: "Nome do Beneficiário",
+        type: "text",
+        placeholder: "Ex: João da Silva",
+        required: true,
+      },
+      {
+        key: "iban",
+        label: "Código IBAN (ou Conta)",
+        type: "text",
+        placeholder: "Ex: PT50 1234 5678...",
         required: true,
       },
       {
         key: "swift_bic",
-        label: "SWIFT / BIC",
+        label: "SWIFT / BIC / Roteamento",
         type: "text",
         placeholder: "Ex: BCPTPTPL",
         required: true,
+      },
+      {
+        key: "instructions",
+        label: "Instruções Adicionais (Opcional)",
+        type: "textarea",
+        placeholder: "Ex: Enviar comprovante após o pagamento.",
       }
     ],
   },
-  // 👆 FIM DO NOVO BLOCO 👆
 ];
 
 const PRIORITY_LABELS: Record<number, string> = {
