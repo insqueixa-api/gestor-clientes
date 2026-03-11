@@ -465,6 +465,127 @@ function Switch({
 }
 
 
+
+// ─── DateInputBR ──────────────────────────────────────────────────────────────
+// value: "YYYY-MM-DD" | ""   ·   onChange emite "YYYY-MM-DD" | ""
+function DateInputBR({
+  value,
+  onChange,
+  className = "",
+  disabled = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  function toDisplay(iso: string) {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    if (!d) return "";
+    return `${d}/${m}/${y}`;
+  }
+
+  const [display, setDisplay] = useState(() => toDisplay(value));
+  const suppressSyncRef = useRef(false);
+
+  useEffect(() => {
+    if (suppressSyncRef.current) {
+      suppressSyncRef.current = false;
+      return;
+    }
+    setDisplay(toDisplay(value));
+  }, [value]);
+
+  function handleChange(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    let masked = digits;
+    if (digits.length > 4)
+      masked = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    else if (digits.length > 2)
+      masked = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    setDisplay(masked);
+
+    if (digits.length === 8) {
+      const iso = `${digits.slice(4, 8)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+      suppressSyncRef.current = true;
+      onChange(iso);
+    } else if (digits.length === 0) {
+      suppressSyncRef.current = true;
+      onChange("");
+    }
+  }
+
+  return (
+    <Input
+      value={display}
+      onChange={(e) => handleChange(e.target.value)}
+      placeholder="DD/MM/AAAA"
+      maxLength={10}
+      inputMode="numeric"
+      className={className}
+      disabled={disabled}
+    />
+  );
+}
+
+// ─── DateTimeInputBR ──────────────────────────────────────────────────────────
+// value: "YYYY-MM-DDTHH:mm" | ""   ·   onChange emite "YYYY-MM-DDTHH:mm" | ""
+function DateTimeInputBR({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  function split(v: string) {
+    const [d = "", t = ""] = (v || "").split("T");
+    return { date: d, time: t.slice(0, 5) };
+  }
+
+  const [internalDate, setInternalDate] = useState(() => split(value).date);
+  const [internalTime, setInternalTime] = useState(() => split(value).time);
+  const suppressRef = useRef(false);
+
+  useEffect(() => {
+    if (suppressRef.current) {
+      suppressRef.current = false;
+      return;
+    }
+    const { date, time } = split(value);
+    setInternalDate(date);
+    setInternalTime(time);
+  }, [value]);
+
+  function handleDateChange(newDate: string) {
+    setInternalDate(newDate);
+    suppressRef.current = true;
+    onChange(newDate ? `${newDate}T${internalTime || "00:00"}` : "");
+  }
+
+  function handleTimeChange(newTime: string) {
+    setInternalTime(newTime);
+    if (internalDate) {
+      suppressRef.current = true;
+      onChange(`${internalDate}T${newTime}`);
+    }
+  }
+
+  return (
+    <div className="flex gap-2">
+      <div className="flex-1">
+        <DateInputBR value={internalDate} onChange={handleDateChange} />
+      </div>
+      <Input
+        type="time"
+        value={internalTime}
+        onChange={(e) => handleTimeChange(e.target.value)}
+        className="w-28 dark:[color-scheme:dark]"
+      />
+    </div>
+  );
+}
+
 function PhoneRow({
   label,
   countryLabel,
@@ -3730,20 +3851,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>
-                      Data Cadastro{" "}
-                      {createdAt && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(createdAt.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="datetime-local"
-                      value={createdAt}
-                      onChange={(e) => setCreatedAt(e.target.value)}
-                      className="h-10 text-xs"
-                    />
+                    <Label>Data Cadastro</Label>
+                    <DateTimeInputBR value={createdAt} onChange={setCreatedAt} />
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
@@ -3760,20 +3869,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div>
-                    <Label>
-                      Não perturbe até{" "}
-                      {dontMessageUntil && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(dontMessageUntil.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="datetime-local"
-                      value={dontMessageUntil}
-                      onChange={(e) => setDontMessageUntil(e.target.value)}
-                      className="h-10 text-xs"
-                    />
+                    <Label>Não perturbe até</Label>
+                    <DateTimeInputBR value={dontMessageUntil} onChange={setDontMessageUntil} />
                   </div>
                 </div>
 
@@ -4401,15 +4498,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label>
-                          Data{" "}
-                          {dueDate && (
-                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                              ({toBRDate(dueDate)})
-                            </span>
-                          )}
-                        </Label>
-                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" />
+                        <Label>Data</Label>
+                        <DateInputBR value={dueDate} onChange={setDueDate} />
                       </div>
                       <div>
                         <Label>Hora</Label>
@@ -4928,31 +5018,33 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <div key={safeKey}>
-      <Label>
-        {label || "Campo"}
-        {isDateField && fieldValue && (
-           <span className="text-emerald-500 font-bold tracking-normal ml-1">
-             ({toBRDate(fieldValue)})
-           </span>
-        )}
-      </Label>
+      <Label>{label || "Campo"}</Label>
 
-      <Input
-        type={isDateField ? "date" : "text"}
-        value={fieldValue}
-        onChange={(e) => {
-          const raw = e.target.value;
-          const next = isMacField ? normalizeMacInput(raw) : raw;
-
-          const key = String(fieldKey || label || "").trim();
-          if (!key) return;
-
-          updateAppFieldValue(app.instanceId, key, next);
-        }}
-        placeholder={label ? `Digite ${label}...` : "Digite..."}
-        autoCapitalize={isMacField ? "characters" : "none"}
-        spellCheck={false}
-      />
+      {isDateField ? (
+        <DateInputBR
+          value={fieldValue}
+          onChange={(v) => {
+            const key = String(fieldKey || label || "").trim();
+            if (!key) return;
+            updateAppFieldValue(app.instanceId, key, v);
+          }}
+        />
+      ) : (
+        <Input
+          type="text"
+          value={fieldValue}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const next = isMacField ? normalizeMacInput(raw) : raw;
+            const key = String(fieldKey || label || "").trim();
+            if (!key) return;
+            updateAppFieldValue(app.instanceId, key, next);
+          }}
+          placeholder={label ? `Digite ${label}...` : "Digite..."}
+          autoCapitalize={isMacField ? "characters" : "none"}
+          spellCheck={false}
+        />
+      )}
     </div>
   );
 
