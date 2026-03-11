@@ -241,23 +241,23 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
 }
 
 
-    // 3) Buscar gateway ativo (Somente BRL usa gateway online/Mercado Pago)
-    let gateways = [];
-    if (currency === "BRL") {
-      const { data } = await supabaseAdmin
-        .from("payment_gateways")
-        .select("*")
-        .eq("tenant_id", sess.tenant_id)
-        .eq("is_active", true)
-        .eq("is_online", true)
-        .contains("currency", ["BRL"])
-        .order("priority", { ascending: true });
-      gateways = data || [];
+    // 3) Buscar gateway ativo (prioridade)
+    const { data: gateways, error: gwErr } = await supabaseAdmin
+      .from("payment_gateways")
+      .select("*")
+      .eq("tenant_id", sess.tenant_id)
+      .eq("is_active", true)
+      .eq("is_online", true)
+      .contains("currency", [currency])
+      .order("priority", { ascending: true });
+
+    if (gwErr) {
+      safeServerLog("create-payment: gateways query error", gwErr?.message);
+      // ✅ sem vazar detalhe
+      return jsonError("Erro interno", 500);
     }
 
-    // Se for USD/EUR ou se não houver gateway online para BRL...
-    if (gateways.length === 0) {
-       
+    if (!gateways || gateways.length === 0) {
       // Nenhum gateway online — busca fallback manual
       const { data: manual, error: manErr } = await supabaseAdmin
         .from("payment_gateways")
@@ -497,44 +497,31 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
       }
     }
 
-    // Todos os gateways falharam — tentar fallback manual apropriado para a moeda
-    let fallbackType = "pix_manual";
-    if (currency === "USD") fallbackType = "transfer_manual_usd";
-    else if (currency === "EUR") fallbackType = "transfer_manual_eur";
-
+    // Todos os gateways falharam — tentar fallback manual
     const { data: manual, error: manErr } = await supabaseAdmin
       .from("payment_gateways")
       .select("*")
       .eq("tenant_id", sess.tenant_id)
-      .eq("type", fallbackType)
+      .eq("type", "pix_manual")
       .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
+      .eq("is_manual_fallback", true)
+      .single();
 
     if (manual && !manErr) {
-      const responsePayload: any = {
-        ok: true,
-        payment_method: "manual",
-        price_amount: computedPrice,
-        currency,
-        instructions: manual.config.instructions,
-        holder_name: manual.config.holder_name,
-        bank_name: manual.config.bank_name,
-        bank_address: manual.config.bank_address,
-        transfer_swift: manual.config.swift_bic,
-      };
-
-      if (fallbackType === "pix_manual") {
-        responsePayload.pix_key = manual.config.pix_key;
-        responsePayload.pix_key_type = manual.config.pix_key_type;
-      } else if (fallbackType === "transfer_manual_usd") {
-        responsePayload.transfer_routing = manual.config.routing_number;
-        responsePayload.transfer_account = manual.config.account_number;
-      } else if (fallbackType === "transfer_manual_eur") {
-        responsePayload.transfer_iban = manual.config.iban;
-      }
-
-      return NextResponse.json(responsePayload, { status: 200, headers: NO_STORE_HEADERS });
+      return NextResponse.json(
+        {
+          ok: true,
+          payment_method: "manual",
+          pix_key: manual.config.pix_key,
+          pix_key_type: manual.config.pix_key_type,
+          holder_name: manual.config.holder_name,
+          bank_name: manual.config.bank_name,
+          instructions: manual.config.instructions,
+          price_amount: computedPrice,
+          currency,
+        },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
     }
 
     // ✅ não vaza “lastError” real

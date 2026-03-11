@@ -17,7 +17,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type GatewayType = "mercadopago" | "pix_manual" | "transfer_manual_usd" | "transfer_manual_eur";
+type GatewayType = "mercadopago" | "wise" | "pix_manual" | "transfer_manual"; // ✅ Novo tipo adicionado
 
 interface PaymentGateway {
   id: string;
@@ -86,6 +86,45 @@ const GATEWAY_META: GatewayMeta[] = [
   },
   
   {
+    type: "wise",
+    label: "Wise",
+    description: "Transferências internacionais em USD e EUR.",
+    currencies: ["USD", "EUR"],
+    is_online: true,
+    icon: "🌍",
+    color: "from-emerald-500 to-teal-500",
+    fields: [
+      {
+        key: "api_token",
+        label: "API Token",
+        type: "password",
+        placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        hint: "Encontre em: Wise Business → Configurações → API tokens",
+        required: true,
+      },
+      {
+        key: "profile_id",
+        label: "Profile ID",
+        type: "text",
+        placeholder: "12345678",
+        hint: "ID do perfil business (visível na URL após login)",
+        required: true,
+      },
+      {
+        key: "source_currency",
+        label: "Moeda de Origem",
+        type: "select",
+        options: [
+          { value: "BRL", label: "BRL (Real Brasileiro)" },
+          { value: "USD", label: "USD (Dólar Americano)" },
+          { value: "EUR", label: "EUR (Euro)" },
+        ],
+        hint: "Moeda da sua conta Wise",
+        required: true,
+      },
+    ],
+  },
+  {
     type: "pix_manual",
     label: "PIX Manual",
     description: "Chave PIX direta.",
@@ -113,63 +152,35 @@ const GATEWAY_META: GatewayMeta[] = [
         type: "text",
         placeholder: "Digite a chave...",
         required: true,
-      },
+      }
+    ],
+  },
+  {
+    type: "transfer_manual",
+    label: "Transferência Internacional",
+    description: "Dados diretos para transferência.",
+    currencies: ["USD", "EUR"], // ✅ Revertido para não quebrar a lógica de renderização
+    is_online: false,
+    icon: "🏦",
+    color: "from-blue-600 to-indigo-600",
+    fields: [
       {
-        key: "holder_name",
-        label: "Nome do Titular",
+        key: "iban",
+        label: "Código IBAN",
         type: "text",
-        placeholder: "Ex: Empresa LTDA",
+        placeholder: "Ex: PT50...",
         required: true,
       },
       {
-        key: "bank_name",
-        label: "Banco (Opcional)",
+        key: "swift_bic",
+        label: "SWIFT / BIC",
         type: "text",
-        placeholder: "Ex: Nubank",
-      },
-      {
-        key: "instructions",
-        label: "Instruções (Opcional)",
-        type: "textarea",
-        placeholder: "Avisos rápidos para o cliente...",
-      },
+        placeholder: "Ex: BCPTPTPL",
+        required: true,
+      }
     ],
   },
-  {
-    type: "transfer_manual_usd",
-    label: "Transferência (USD)",
-    description: "Conta americana (Routing/Account Number)",
-    currencies: ["USD"], 
-    is_online: false,
-    icon: "💵",
-    color: "from-blue-600 to-indigo-600",
-    fields: [
-      { key: "bank_name", label: "Bank Name", type: "text", placeholder: "Ex: Evolve Bank", required: true },
-      { key: "holder_name", label: "Account Holder", type: "text", placeholder: "Seu nome", required: true },
-      { key: "routing_number", label: "ACH Routing Number", type: "text", required: true },
-      { key: "account_number", label: "Account Number", type: "text", required: true },
-      { key: "swift_bic", label: "SWIFT / BIC (Opcional)", type: "text" },
-      { key: "bank_address", label: "Bank Address (Opcional)", type: "textarea" },
-      { key: "instructions", label: "Aviso / Instruções", type: "textarea" }
-    ],
-  },
-  {
-    type: "transfer_manual_eur",
-    label: "Transferência (EUR)",
-    description: "Conta europeia (IBAN)",
-    currencies: ["EUR"], 
-    is_online: false,
-    icon: "💶",
-    color: "from-blue-600 to-indigo-600",
-    fields: [
-      { key: "bank_name", label: "Bank Name", type: "text", placeholder: "Ex: Wise Europe", required: true },
-      { key: "holder_name", label: "Account Holder", type: "text", placeholder: "Seu nome", required: true },
-      { key: "iban", label: "IBAN", type: "text", required: true },
-      { key: "swift_bic", label: "SWIFT / BIC", type: "text", required: true },
-      { key: "bank_address", label: "Bank Address (Opcional)", type: "textarea" },
-      { key: "instructions", label: "Aviso / Instruções", type: "textarea" }
-    ],
-  },
+  // 👆 FIM DO NOVO BLOCO 👆
 ];
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -264,7 +275,7 @@ function GatewayModal({
         priority,
         is_active: isActive,
         is_online: meta.is_online,
-        is_manual_fallback: (selectedType === "pix_manual" || selectedType?.startsWith("transfer_manual")) ? isManualFallback : false,
+        is_manual_fallback: (selectedType === "pix_manual" || selectedType === "transfer_manual") ? isManualFallback : false,
         config: form,
         updated_at: new Date().toISOString(),
       };
@@ -502,7 +513,7 @@ function GatewayModal({
               </div>
 
               {/* Fallback Manual (PIX ou IBAN) */}
-              {(selectedType === "pix_manual" || selectedType?.startsWith("transfer_manual")) && (
+              {(selectedType === "pix_manual" || selectedType === "transfer_manual") && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -710,9 +721,9 @@ function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
     .filter((g) => g.is_active && g.is_online && (g.currency.includes("USD") || g.currency.includes("EUR")))
     .sort((a, b) => a.priority - b.priority);
 
-// ✅ Separa o fallback do Brasil e o Fallback Internacional
+  // ✅ Separa o fallback do Brasil e o Fallback Internacional
   const manualBrl = gateways.find((g) => g.type === "pix_manual" && g.is_active);
-  const manualIntl = gateways.find((g) => g.type.startsWith("transfer_manual") && g.is_active);
+  const manualIntl = gateways.find((g) => g.type === "transfer_manual" && g.is_active);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
