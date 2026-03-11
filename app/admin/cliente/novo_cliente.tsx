@@ -411,12 +411,48 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 function Input({ className = "", ...props }: InputProps) {
-  return (
-    <input
-      {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
-    />
-  );
+  return (
+    <input
+      {...props}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`}
+    />
+  );
+}
+
+function FormattedDateInput({ type, value, onChange, className = "", ...props }: any) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  if (type !== "date" && type !== "datetime-local") {
+    return <Input type={type} value={value} onChange={onChange} className={className} {...props} />;
+  }
+
+  let displayValue = value;
+  if (!isFocused && value) {
+    try {
+      if (type === "date") {
+        const [y, m, d] = value.split("-");
+        if (y && m && d) displayValue = `${d}/${m}/${y}`;
+      } else if (type === "datetime-local") {
+        const [datePart, timePart] = value.split("T");
+        if (datePart && timePart) {
+          const [y, m, d] = datePart.split("-");
+          if (y && m && d) displayValue = `${d}/${m}/${y} ${timePart}`;
+        }
+      }
+    } catch (e) {}
+  }
+
+  return (
+    <Input
+      type={isFocused ? type : "text"}
+      value={isFocused ? value : displayValue}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      onChange={onChange}
+      className={className}
+      {...props}
+    />
+  );
 }
 
 function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
@@ -3730,20 +3766,13 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 {/* Cadastro + Whats + Não Perturbe */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>
-                      Data Cadastro{" "}
-                      {createdAt && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(createdAt.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="datetime-local"
-                      value={createdAt}
-                      onChange={(e) => setCreatedAt(e.target.value)}
-                      className="h-10 text-xs"
-                    />
+                    <Label>Data Cadastro</Label>
+                    <FormattedDateInput
+                      type="datetime-local"
+                      value={createdAt}
+                      onChange={(e) => setCreatedAt(e.target.value)}
+                      className="h-10 text-xs"
+                    />
                   </div>
 
                   <div className="pt-0 sm:pt-[18px]">
@@ -3760,20 +3789,13 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                   </div>
 
                   <div>
-                    <Label>
-                      Não perturbe até{" "}
-                      {dontMessageUntil && (
-                        <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                          ({toBRDate(dontMessageUntil.split("T")[0])})
-                        </span>
-                      )}
-                    </Label>
-                    <Input
-                      type="datetime-local"
-                      value={dontMessageUntil}
-                      onChange={(e) => setDontMessageUntil(e.target.value)}
-                      className="h-10 text-xs"
-                    />
+                    <Label>Não perturbe até</Label>
+                    <FormattedDateInput
+                      type="datetime-local"
+                      value={dontMessageUntil}
+                      onChange={(e) => setDontMessageUntil(e.target.value)}
+                      className="h-10 text-xs"
+                    />
                   </div>
                 </div>
 
@@ -4401,15 +4423,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label>
-                          Data{" "}
-                          {dueDate && (
-                            <span className="text-emerald-500 font-bold tracking-normal ml-1">
-                              ({toBRDate(dueDate)})
-                            </span>
-                          )}
-                        </Label>
-                        <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" />
+                        <Label>Data</Label>
+                        <FormattedDateInput type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" />
                       </div>
                       <div>
                         <Label>Hora</Label>
@@ -4928,31 +4943,24 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   return (
     <div key={safeKey}>
-      <Label>
-        {label || "Campo"}
-        {isDateField && fieldValue && (
-           <span className="text-emerald-500 font-bold tracking-normal ml-1">
-             ({toBRDate(fieldValue)})
-           </span>
-        )}
-      </Label>
+      <Label>{label || "Campo"}</Label>
 
-      <Input
-        type={isDateField ? "date" : "text"}
-        value={fieldValue}
-        onChange={(e) => {
-          const raw = e.target.value;
-          const next = isMacField ? normalizeMacInput(raw) : raw;
+      <FormattedDateInput
+        type={isDateField ? "date" : "text"}
+        value={fieldValue}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const next = isMacField ? normalizeMacInput(raw) : raw;
 
-          const key = String(fieldKey || label || "").trim();
-          if (!key) return;
+          const key = String(fieldKey || label || "").trim();
+          if (!key) return;
 
-          updateAppFieldValue(app.instanceId, key, next);
-        }}
-        placeholder={label ? `Digite ${label}...` : "Digite..."}
-        autoCapitalize={isMacField ? "characters" : "none"}
-        spellCheck={false}
-      />
+          updateAppFieldValue(app.instanceId, key, next);
+        }}
+        placeholder={label ? `Digite ${label}...` : "Digite..."}
+        autoCapitalize={isMacField ? "characters" : "none"}
+        spellCheck={false}
+      />
     </div>
   );
 
