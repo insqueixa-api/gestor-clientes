@@ -273,16 +273,14 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
         return jsonError("Nenhum método de pagamento configurado", 503);
       }
 
-      // Retorna dados dinâmicos repassando TODO o config para o front
       return NextResponse.json(
         {
           ok: true,
           payment_method: "manual",
-          gateway_type: manual.type,
+          gateway_type: manual.type, // ✅ ESSENCIAL para o front-end mudar a cor/layout
           price_amount: computedPrice,
           currency,
-          // Repassa todos os campos configurados no Admin diretamente:
-          ...manual.config 
+          ...manual.config
         },
         { status: 200, headers: NO_STORE_HEADERS }
       );
@@ -511,10 +509,9 @@ Após realizar a transferência, envie o comprovante pelo WhatsApp para confirma
         {
           ok: true,
           payment_method: "manual",
-          gateway_type: manual.type,
+          gateway_type: manual.type, // ✅ ESSENCIAL para o front-end mudar a cor/layout
           price_amount: computedPrice,
           currency,
-          // Repassa todos os campos configurados no Admin diretamente:
           ...manual.config
         },
         { status: 200, headers: NO_STORE_HEADERS }
