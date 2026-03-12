@@ -297,7 +297,7 @@ export default function GestaoSaasPage() {
             onClick={() => setShowNew(true)}
             className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
           >
-            <span className="text-base leading-none">+</span> Novo Tenant
+            <span className="text-base leading-none">+</span> Novo Revenda
           </button>
         )}
       </div>
@@ -363,7 +363,7 @@ export default function GestaoSaasPage() {
         <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-800 dark:text-white">
-              Tenants
+              Revendedores
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
                 {filtered.length}
               </span>
@@ -381,9 +381,9 @@ export default function GestaoSaasPage() {
                 <table className="w-full text-sm text-left">
                   <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase tracking-wider text-slate-400 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                     <tr>
-                      <th className="px-4 py-3">Tenant / Contato</th>
+                      <th className="px-4 py-3">Revenda / Contato</th>
                       <th className="px-4 py-3">WhatsApp</th>
-                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Perfil</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Validade</th>
                       <th className="px-4 py-3">Créditos</th>
@@ -845,10 +845,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
                 <FieldInput value={name} disabled />
               </div>
             )}
-            <div className={mode === "new" ? "md:col-span-2" : ""}>
-              <FieldLabel>Nome do Responsável</FieldLabel>
-              <FieldInput value={responsibleName} onChange={e => setResponsibleName(e.target.value)} placeholder="Nome completo" />
-            </div>
+
             {mode === "edit" && (
               <div>
                 <FieldLabel>E-mail de contato</FieldLabel>
@@ -954,7 +951,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
           </button>
           <button onClick={handleSubmit} disabled={saving}
             className="px-6 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition shadow-lg shadow-emerald-900/20 disabled:opacity-50">
-            {saving ? "Salvando..." : mode === "new" ? "Criar Tenant" : "Salvar"}
+            {saving ? "Salvando..." : mode === "new" ? "Criar Revendedor" : "Salvar"}
           </button>
         </div>
       </div>
