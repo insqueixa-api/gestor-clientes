@@ -278,7 +278,7 @@ export default function GestaoSaasPage() {
     expired:  nonSuperTenants.filter(t => t.license_status === "EXPIRED").length,
   };
 
-  const canManage = myRole === "SUPERADMIN" || myRole === "MASTER";
+  const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
