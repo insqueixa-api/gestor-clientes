@@ -20,11 +20,7 @@ type AppData = {
   info_url: string | null;
   is_active: boolean;
   fields_config: AppField[];
-  partner_server_id?: string | null;
-  cost_type?: "paid" | "free" | "partnership";
 };
-
-type ServerOption = { id: string; name: string };
 
 // --- COMPONENTES UI ---
 function Label({ children }: { children: React.ReactNode }) {
@@ -62,13 +58,11 @@ function normalizeApiUrl(url: string) {
   return s;
 }
 export default function AppManagerPage() {
-  const [apps, setApps] = useState<AppData[]>([]);
-  // ✅ Busca (mesmo padrão da tela de Clientes)
+const [apps, setApps] = useState<AppData[]>([]);
 const [search, setSearch] = useState("");
-  const [servers, setServers] = useState<ServerOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+const [loading, setLoading] = useState(true);
+const [isModalOpen, setIsModalOpen] = useState(false);
+const [saving, setSaving] = useState(false);
 
     // ✅ trava scroll da página por trás quando modal abre (mantém posição e evita “vazar” no mobile)
   const modalScrollYRef = useRef(0);
@@ -115,9 +109,6 @@ const [search, setSearch] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
   
-  // Novos Estados
-  const [selectedServerId, setSelectedServerId] = useState<string>("");
-  const [costType, setCostType] = useState<"paid" | "free" | "partnership">("paid");
 
   // --- TOAST (COM AUTO-CLOSE CORRIGIDO) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -157,44 +148,14 @@ const { data: appsData, error: appsError } = await supabaseBrowser
 
       if (appsError) throw appsError;
 
-const costPriority: Record<string, number> = {
-  partnership: 0,
-  free: 1,
-  paid: 2,
-};
-
-
-
 const formattedApps = (appsData || [])
   .map((app) => ({
     ...app,
     fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
-    cost_type: app.cost_type || "paid",
   }))
-  .sort((a, b) => {
-    const costDiff =
-      (costPriority[a.cost_type ?? "paid"] ?? 99) -
-      (costPriority[b.cost_type ?? "paid"] ?? 99);
-
-    if (costDiff !== 0) return costDiff;
-
-    return a.name.localeCompare(b.name, "pt-BR", {
-      sensitivity: "base",
-    });
-  });
+  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 
 setApps(formattedApps);
-
-      // 2. Carrega Servidores
-const { data: srvData, error: srvError } = await supabaseBrowser
-  .from("servers")
-  .select("id, name")
-  .eq("tenant_id", tid)
-  .eq("is_archived", false);
-
-if (srvError) throw srvError;
-
-setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
 
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
@@ -222,45 +183,29 @@ setServers((srvData || []).map((s: any) => ({ id: s.id, name: s.name })));
         .join(" ")
         .toLowerCase();
 
-      const serverName = a.partner_server_id
-        ? String(servers.find((s) => s.id === a.partner_server_id)?.name ?? "").toLowerCase()
-        : "";
-
       return (
         name.includes(q) ||
         url.includes(q) ||
-        fieldsText.includes(q) ||
-        serverName.includes(q)
+        fieldsText.includes(q)
       );
     });
-  }, [apps, search, servers]);
+  }, 
 
-  // ✅ +++ Agrupamento PRO (Parcerias / Gratuitos / Pagos) — agora usando filteredApps
-  const groupedApps = {
-    partnership: filteredApps.filter((a) => (a.cost_type ?? "paid") === "partnership"),
-    free: filteredApps.filter((a) => (a.cost_type ?? "paid") === "free"),
-    paid: filteredApps.filter((a) => (a.cost_type ?? "paid") === "paid"),
-  };
-
-
+[search, apps]);
   // --- MANIPULAÇÃO DO MODAL ---
-  function openNew() {
+function openNew() {
     setEditingId(null);
     setFormName("");
     setFormUrl("");
-    setFormFields([]); 
-    setSelectedServerId("");
-    setCostType("paid");
+    setFormFields([]);
     setIsModalOpen(true);
   }
 
-  function openEdit(app: AppData) {
+function openEdit(app: AppData) {
     setEditingId(app.id);
     setFormName(app.name);
     setFormUrl(app.info_url || "");
-    setFormFields(JSON.parse(JSON.stringify(app.fields_config))); 
-    setSelectedServerId(app.partner_server_id || "");
-    setCostType(app.cost_type || "paid");
+    setFormFields(JSON.parse(JSON.stringify(app.fields_config)));
     setIsModalOpen(true);
   }
 
@@ -304,13 +249,7 @@ function addMacField() {
     );
   }
 
-  // --- LOGICA DE PARCERIA ---
-  function handleServerChange(serverId: string) {
-      setSelectedServerId(serverId);
-      if (!serverId && costType === "partnership") {
-          setCostType("paid");
-      }
-  }
+
 
   // --- SALVAR ---
   async function handleSave() {
@@ -335,20 +274,14 @@ try {
     name: formName.trim(),
     info_url: safeUrl || null,
     fields_config: formFields,
-    partner_server_id: selectedServerId || null,
-    cost_type: costType ?? "paid",
   };
 
   if (editingId) {
-    // ✅ UPDATE: NÃO manda tenant_id (tenant é imutável)
     const updatePayload = {
       name: formName.trim(),
       info_url: formUrl?.trim() ? formUrl.trim() : null,
       fields_config: formFields,
-      partner_server_id: selectedServerId || null,
-      cost_type: costType ?? "paid",
     };
-
     // ✅ trava por id + tenant_id
     const { error } = await supabaseBrowser
       .from("apps")
@@ -418,32 +351,7 @@ function renderAppCard(app: AppData) {
       <div className="flex justify-between items-start mb-3">
         <div className="space-y-1">
           <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-
-          <div className="flex flex-wrap gap-2 text-[10px]">
-            {app.cost_type === "free" && (
-              <span className="text-emerald-600 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                GRÁTIS
-              </span>
-            )}
-
-            {app.cost_type === "partnership" && (
-              <span className="text-purple-600 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded">
-                PARCERIA
-              </span>
-            )}
-
-            {(app.cost_type ?? "paid") === "paid" && (
-              <span className="text-rose-600 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-                PAGO
-              </span>
-            )}
-
-            {app.partner_server_id && (
-              <span className="text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
-                {servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor Desconhecido"}
-              </span>
-            )}
-          </div>
+       
         </div>
 
         <div className="flex gap-1">
@@ -561,81 +469,13 @@ return (
               : "Nenhum aplicativo para exibir."}
         </div>
       ) : (
-  <div className="space-y-6">
-
-    {/* PARCERIAS */}
-    {groupedApps.partnership.length > 0 && (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
-        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Parcerias</h2>
-            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
-              {groupedApps.partnership.length}
-            </span>
-          </div>
-<span className="text-[10px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
-  PARCERIA
-</span>
-        </div>
-
-        <div className="p-3 sm:p-4">
+        <div className="px-3 sm:px-0">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {groupedApps.partnership.map((app) => renderAppCard(app))}
+            {filteredApps.map((app) => renderAppCard(app))}
           </div>
+          <div className="h-24 md:h-20" />
         </div>
-      </div>
-    )}
-
-    {/* GRATUITOS */}
-    {groupedApps.free.length > 0 && (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
-        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gratuitos</h2>
-            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
-              {groupedApps.free.length}
-            </span>
-          </div>
-<span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-  GRÁTIS
-</span>
-        </div>
-
-        <div className="p-3 sm:p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {groupedApps.free.map((app) => renderAppCard(app))}
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* PAGOS */}
-    {groupedApps.paid.length > 0 && (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
-        <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Pagos</h2>
-            <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
-              {groupedApps.paid.length}
-            </span>
-          </div>
-<span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">
-  PAGO
-</span>
-        </div>
-
-        <div className="p-3 sm:p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {groupedApps.paid.map((app) => renderAppCard(app))}
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* espaço fixo pra não cortar popups */}
-    <div className="h-24 md:h-20" />
-  </div>
-)}
+      )}
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
@@ -680,32 +520,7 @@ return (
                 </div>
               </div>
 
-              {/* PARCERIA E CUSTO */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
-                  <div>
-                      <Label>Parceria com Servidor?</Label>
-                      <Select 
-                        value={selectedServerId} 
-                        onChange={(e) => handleServerChange(e.target.value)}
-                      >
-                          <option value="">Não (Nenhum)</option>
-                          {servers.map(srv => (
-                              <option key={srv.id} value={srv.id}>{srv.name}</option>
-                          ))}
-                      </Select>
-                  </div>
-                  <div>
-                      <Label>Aplicativo Gratuito?</Label>
-                      <Select 
-                        value={costType} 
-                        onChange={(e) => setCostType(e.target.value as any)}
-                      >
-                          <option value="paid">Não (Pago)</option>
-                          <option value="free">Sim (Gratuito)</option>
-                          {selectedServerId && <option value="partnership">Parceria</option>}
-                      </Select>
-                  </div>
-              </div>
+              
 
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3">
