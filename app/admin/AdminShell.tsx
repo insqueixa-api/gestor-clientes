@@ -288,8 +288,8 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
