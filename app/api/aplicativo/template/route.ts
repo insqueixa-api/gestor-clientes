@@ -39,7 +39,7 @@ export async function GET() {
     "• O campo App deve ter o nome exato do aplicativo cadastrado no sistema.",
     "• Preencha apenas as colunas que o aplicativo utiliza. Deixe as demais em branco.",
     "• Vencimento deve estar no formato DD/MM/AAAA.",
-    "• Device ID (MAC) deve estar no formato 00:1A:2B:3C:4D:5E.",
+    "• Device ID (MAC): aceita qualquer formato (00:1A:2B:3C:4D:5E, 001A2B3C4D5E, 00-1A-2B-3C-4D-5E, etc). O sistema normaliza automaticamente.",
     "• Não altere os cabeçalhos das colunas.",
   ];
 

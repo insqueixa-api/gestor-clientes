@@ -4,7 +4,26 @@ import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 
-// Mapeamento label fixo → tipo (inverso do FIELD_LABELS do front)
+// Normaliza MAC: aceita com/sem separadores, maiúsculas/minúsculas, ç→c
+// Valida: exatamente 12 hex após limpeza
+function normalizeMAC(raw: string): string | null {
+  if (!raw) return null;
+
+  // Substitui caracteres comuns de confusão
+  let s = raw
+    .trim()
+    .toUpperCase()
+    .replace(/Ç/g, "C")   // ç digitado errado
+    .replace(/O/g, "0")   // O maiúsculo confundido com zero (opcional — comente se não quiser)
+    .replace(/[^A-F0-9]/g, ""); // remove tudo que não for hex
+
+  if (s.length !== 12) return null; // inválido
+
+  // Formata como 00:1A:2B:3C:4D:5E
+  return s.match(/.{2}/g)!.join(":");
+}
+
+// Mapeamento label fixo → tipo
 const LABEL_TO_TYPE: Record<string, string> = {
   "Vencimento":      "date",
   "Device ID (MAC)": "mac",
@@ -268,6 +287,13 @@ export async function POST(req: Request) {
             continue;
           }
           field_values[field.id] = iso;
+        } else if (field.type === "mac") {
+          const mac = normalizeMAC(rawValue);
+          if (!mac) {
+            warnings.push({ row: rowNum, warning: `MAC inválido no campo "${label}": "${rawValue}". Precisa ter 12 caracteres hexadecimais. Campo ignorado.` });
+            continue;
+          }
+          field_values[field.id] = mac;
         } else {
           field_values[field.id] = rawValue;
         }
