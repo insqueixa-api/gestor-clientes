@@ -1044,12 +1044,15 @@ function AutomationCard({
     onShowLogs 
 }: any) {
     
-    const getRuleText = () => {
-        if (data.rule_days_diff === 0) return "No dia do vencimento";
-        const dayText = Math.abs(data.rule_days_diff) === 1 ? 'dia' : 'dias';
-        if (data.rule_days_diff > 0) return `${data.rule_days_diff} ${dayText} APÓS vencimento`;
-        return `${Math.abs(data.rule_days_diff)} ${dayText} ANTES vencimento`;
-    };
+const getRuleText = () => {
+    const fieldLabel = (data.rule_date_field === "cadastro" || data.rule_date_field === "created_at")
+        ? "cadastro"
+        : "vencimento";
+    if (data.rule_days_diff === 0) return `No dia do ${fieldLabel}`;
+    const dayText = Math.abs(data.rule_days_diff) === 1 ? 'dia' : 'dias';
+    if (data.rule_days_diff > 0) return `${data.rule_days_diff} ${dayText} APÓS ${fieldLabel}`;
+    return `${Math.abs(data.rule_days_diff)} ${dayText} ANTES ${fieldLabel}`;
+};
 
     // ✅ Pega o status real do banco (ou assume IDLE se nulo)
     const status = data.execution_status || 'IDLE';

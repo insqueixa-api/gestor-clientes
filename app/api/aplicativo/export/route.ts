@@ -65,11 +65,20 @@ async function resolveTenantIdForUser(
   return { tenant_id: tenantFromQuery, status: 200 };
 }
 
-function buildXlsxResponse(rows: any[][], headers: string[], filename: string) {
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+function buildXlsxResponse(rows: (string | Date)[][], headers: string[], filename: string) {
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows], { cellDates: true });
+
+  // Aplica formato DD/MM/YYYY em todas as células de data da coluna Vencimento (índice 4)
+  for (let r = 1; r <= rows.length; r++) {
+    const cellAddr = XLSX.utils.encode_cell({ r, c: 4 });
+    if (worksheet[cellAddr] && worksheet[cellAddr].t === "d") {
+      worksheet[cellAddr].z = "DD/MM/YYYY";
+    }
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Aplicativos");
-  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", cellDates: true });
 
   return new NextResponse(buffer, {
     status: 200,
@@ -199,7 +208,7 @@ export async function GET(req: Request) {
   }
 
   // 5. Monta linhas — uma por client_app
-  const dataRows: string[][] = [];
+  const dataRows: (string | Date)[][] = [];
 
   for (const ca of clientApps) {
     const client = clientMap.get(ca.client_id);
@@ -215,15 +224,10 @@ export async function GET(req: Request) {
       if (!fieldId) return ""; // app não tem esse campo
       const raw = fv[fieldId] ?? "";
       // Formata data para DD/MM/AAAA se tipo date
-      if (type === "date" && raw) {
+if (type === "date" && raw) {
         const dt = new Date(raw);
         if (!Number.isNaN(dt.getTime())) {
-          return new Intl.DateTimeFormat("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          }).format(dt);
+          return dt; // célula de data nativa — formato aplicado pelo buildXlsxResponse
         }
       }
       return String(raw);
@@ -234,9 +238,9 @@ export async function GET(req: Request) {
 
   // Ordena por nome do cliente, depois app
   dataRows.sort((a, b) => {
-    const nameComp = a[0].localeCompare(b[0], "pt-BR", { sensitivity: "base" });
+    const nameComp = String(a[0]).localeCompare(String(b[0]), "pt-BR", { sensitivity: "base" });
     if (nameComp !== 0) return nameComp;
-    return a[3].localeCompare(b[3], "pt-BR", { sensitivity: "base" });
+    return String(a[3]).localeCompare(String(b[3]), "pt-BR", { sensitivity: "base" });
   });
 
   return buildXlsxResponse(dataRows, allHeaders, filename);
