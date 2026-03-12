@@ -20,6 +20,16 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
 }
 
 // Helper para calcular diferença de dias (Fuso SP)
+const APP_FIELD_LABELS: Record<string, string> = {
+  date: "Vencimento",
+  mac: "Device ID (MAC)",
+  device_key: "Device Key",
+  email: "E-mail",
+  password: "Senha",
+  url: "URL",
+  obs: "Obs",
+};
+
 function getDiffDays(isoDateTarget: string) {
   if (!isoDateTarget || isoDateTarget === "9999-12-31") return 9999;
   
@@ -2598,52 +2608,57 @@ return (
           <div className="mt-3 space-y-2">
             {appModal.app.fields_config.map((f: any) => {
               const fid = String(f.id);
+              const rawLabel = String(f?.label ?? "").trim();
+              const label = APP_FIELD_LABELS[String(f?.type ?? "")] || rawLabel || "Campo";
+              const isDate = f.type === "date";
+              const isPassword = f.type === "password";
+              const isUrl = f.type === "url" || f.type === "link";
 
-              const inputType =
-                f.type === "date" ? "date" : f.type === "link" ? "url" : "text";
+              // Exibe data como DD/MM/AAAA
+              function isoToDisplay(iso: string) {
+                if (!iso) return "";
+                const [y, m, d] = iso.split("-");
+                if (!y || !m || !d) return iso;
+                return `${d}/${m}/${y}`;
+              }
 
               return (
                 <div key={fid} className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
-                    {f.label}
+                    {label}
                   </label>
 
                   <div className="flex items-center gap-2">
-  <input
-    type={inputType}
-    value={appValues[fid] ?? ""}
-    onChange={(e) => {
-      const v = e.target.value;
-      setAppValues((prev) => ({ ...prev, [fid]: v }));
-    }}
-    className="flex-1 h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
-    placeholder={f.placeholder || ""}
-    disabled={appLoading || appSaving}
-  />
+                    <input
+                      type={isPassword ? "password" : "text"}
+                      value={isDate ? isoToDisplay(appValues[fid] ?? "") : (appValues[fid] ?? "")}
+                      readOnly
+                      className="flex-1 h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none text-sm select-all cursor-default"
+                      placeholder={isDate ? "DD/MM/AAAA" : "—"}
+                    />
 
-  {/* ✅ Copiar só em campos livres (não-date) */}
-  {f.type !== "date" && (
-    <button
-      type="button"
-      onClick={() => copyToClipboard(appValues[fid])}
-      disabled={appLoading || appSaving}
-      className="h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-100 dark:hover:bg-white/15 transition disabled:opacity-50 disabled:cursor-not-allowed"
-      title="Copiar valor"
-    >
-      Copiar
-    </button>
-  )}
-</div>
+                    {!isPassword && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(appValues[fid])}
+                        disabled={appLoading || !appValues[fid]}
+                        className="h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-100 dark:hover:bg-white/15 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Copiar valor"
+                      >
+                        Copiar
+                      </button>
+                    )}
+                  </div>
 
 
-                  {/* extra: se for link, mostra botão abrir */}
-                  {f.type === "link" && (appValues[fid] || "").trim() && (
+                  {isUrl && (appValues[fid] || "").trim() && (
                     <div className="flex justify-end">
                       <a
                         href={(appValues[fid] || "").trim()}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                      
                       >
                         Abrir link →
                       </a>
