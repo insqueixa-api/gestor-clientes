@@ -7,12 +7,37 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // --- TIPOS ---
+type AppFieldType = "date" | "mac" | "device_key" | "email" | "password" | "url" | "obs";
+
 type AppField = {
   id: string;
-  label: string;
-  type: "text" | "date" | "link" | "mac";
-  placeholder?: string;
+  type: AppFieldType;
 };
+
+// Label fixo derivado do tipo — usado no card e no export
+const FIELD_LABELS: Record<AppFieldType, string> = {
+  date:       "Vencimento",
+  mac:        "Device ID (MAC)",
+  device_key: "Device Key",
+  email:      "E-mail",
+  password:   "Senha",
+  url:        "URL",
+  obs:        "Obs",
+};
+
+// Ícone visual por tipo
+const FIELD_ICONS: Record<AppFieldType, string> = {
+  date:       "📅",
+  mac:        "🔌",
+  device_key: "🔑",
+  email:      "✉️",
+  password:   "🔒",
+  url:        "🔗",
+  obs:        "📝",
+};
+
+// Ordem de exibição no construtor
+const ALL_FIELD_TYPES: AppFieldType[] = ["date", "mac", "device_key", "email", "password", "url", "obs"];
 
 type AppData = {
   id: string;
@@ -178,8 +203,8 @@ setApps(formattedApps);
       const url = String(a.info_url ?? "").toLowerCase();
 
       const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
-      const fieldsText = fields
-        .map((f) => `${f.label ?? ""} ${f.type ?? ""}`)
+const fieldsText = fields
+        .map((f) => `${FIELD_LABELS[f.type] ?? ""} ${f.type ?? ""}`)
         .join(" ")
         .toLowerCase();
 
@@ -213,41 +238,15 @@ function openEdit(app: AppData) {
   // ✅ Helper para criar IDs curtos (ex: f_abc12)
   const generateShortId = () => "f_" + Math.random().toString(36).substring(2, 7);
 
-  function addField() {
-    setFormFields((prev) => [
-      ...prev,
-      { id: generateShortId(), label: "", type: "text" },
-    ]);
+ function addField(type: AppFieldType) {
+    setFormFields((prev) => [...prev, { id: generateShortId(), type }]);
   }
-
-function addExpirationField() {
-  setFormFields((prev) => [
-    ...prev,
-    { id: generateShortId(), label: "Vencimento", type: "date" },
-  ]);
-}
-
-function addMacField() {
-  setFormFields((prev) => [
-    ...prev,
-    {
-      id: generateShortId(),
-      label: "MAC",
-      type: "mac",
-      placeholder: "00:1A:2B:3C:4D:5E",
-    },
-  ]);
-}
 
   function removeField(id: string) {
     setFormFields((prev) => prev.filter((f) => f.id !== id));
   }
 
-  function updateField(id: string, key: keyof AppField, value: string) {
-    setFormFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, [key]: value } : f))
-    );
-  }
+  // updateField removido — label não é mais editável
 
 
 
@@ -393,7 +392,7 @@ function renderAppCard(app: AppData) {
                 key={idx}
                 className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
               >
-                {field.label} {field.type === "date" && "📅"}
+                {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
               </span>
             ))
           ) : (
@@ -529,30 +528,25 @@ return (
     Campos Personalizados
   </h3>
 
-  {/* ✅ BOTÕES DE ADIÇÃO (mobile quebra linha) */}
+  {/* Botões — um por tipo, some quando já adicionado */}
   <div className="flex flex-wrap gap-2 sm:justify-end">
-    <button
-      onClick={addExpirationField}
-      className="text-xs px-2 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded font-bold hover:bg-amber-500/20 transition-colors flex items-center gap-1"
-      title="Adicionar campo de vencimento automaticamente"
-    >
-      <span>📅</span> + Vencimento
-    </button>
-
-    <button
-      onClick={addMacField}
-      className="text-xs px-2 py-1 bg-slate-500/10 text-slate-700 dark:text-white/70 border border-slate-500/20 rounded font-bold hover:bg-slate-500/20 transition-colors flex items-center gap-1"
-      title="Adicionar campo MAC automaticamente"
-    >
-      <span>🧷</span> + MAC
-    </button>
-
-    <button
-      onClick={addField}
-      className="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded font-bold hover:bg-emerald-500/20 transition-colors"
-    >
-      + Campo Livre
-    </button>
+    {ALL_FIELD_TYPES.map((type) => {
+      const alreadyAdded = formFields.some((f) => f.type === type);
+      return (
+        <button
+          key={type}
+          onClick={() => addField(type)}
+          disabled={alreadyAdded}
+          className={`text-xs px-2 py-1 border rounded font-bold transition-colors flex items-center gap-1
+            ${alreadyAdded
+              ? "opacity-30 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400"
+              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+            }`}
+        >
+          {FIELD_ICONS[type]} + {FIELD_LABELS[type]}
+        </button>
+      );
+    })}
   </div>
 </div>
 
@@ -565,34 +559,19 @@ return (
 
                   {formFields.map((field, index) => (
                     <div
-  key={field.id}
-  className="grid grid-cols-[24px_1fr_40px] sm:grid-cols-[24px_1fr_128px_40px] gap-2 items-center animate-in slide-in-from-left-2 duration-200"
->
-                      <div className="w-6 flex items-center justify-center text-xs text-slate-400 font-mono">
+                      key={field.id}
+                      className="flex items-center gap-3 animate-in slide-in-from-left-2 duration-200 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg"
+                    >
+                      <span className="text-base">{FIELD_ICONS[field.type]}</span>
+                      <span className="flex-1 text-sm font-medium text-slate-700 dark:text-white/80">
+                        {FIELD_LABELS[field.type]}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded">
                         #{index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <Input 
-                          placeholder="Nome do campo (Ex: MAC, Device Key)" 
-                          value={field.label}
-                          onChange={(e) => updateField(field.id, "label", e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-3 sm:col-span-1 sm:col-start-3 w-full">
-  <select
-    className="w-full h-10 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
-    value={field.type}
-    onChange={(e) => updateField(field.id, "type", e.target.value as any)}
-  >
-<option value="text">Texto</option>
-<option value="date">Data</option>
-<option value="link">Link</option>
-<option value="mac">MAC</option>
-                        </select>
-                      </div>
-                      <button 
+                      </span>
+                      <button
                         onClick={() => removeField(field.id)}
-                        className="w-10 h-10 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                         title="Remover campo"
                       >
                         ✕
