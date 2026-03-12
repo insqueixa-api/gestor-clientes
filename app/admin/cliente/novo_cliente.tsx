@@ -78,6 +78,16 @@ interface MessageTemplate {
   content: string;
 }
 
+const APP_FIELD_LABELS: Record<string, string> = {
+  date: "Vencimento",
+  mac: "Device ID (MAC)",
+  device_key: "Device Key",
+  email: "E-mail",
+  password: "Senha",
+  url: "URL",
+  obs: "Obs",
+};
+
 const PLAN_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
   BIMONTHLY: "Bimestral",
@@ -4910,26 +4920,13 @@ if (!isEditing && registerRenewal && !isTrialMode) {
   app.fields_config.map((field: any, index: number) => {
 
   const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
+  const rawLabel = String(field?.label ?? "").trim();
+  const label = rawLabel || APP_FIELD_LABELS[String(field?.type ?? "")] || "Campo";
 
-  const label = String(field?.label ?? "").trim();
+  const isMacField = String(field?.type || "").toUpperCase() === "MAC";
+  const isPasswordField = String(field?.type || "").toLowerCase() === "password";
 
-
-
-  const isMacField =
-
-  String(field?.type || "").toUpperCase() === "MAC" ||
-
-  /\bmac\b/i.test(label) ||
-
-  /\bmac\b/i.test(fieldKey);
-
-
-
-  // ✅ Trocamos Math.random() por index para não perder o foco
-
-  const safeKey = fieldKey || label || `${app.instanceId}-${index}`;
-
-
+  const safeKey = fieldKey || rawLabel || `${app.instanceId}-${index}`;
 
   const isDateField = field?.type === "date";
   const fieldValue = 
@@ -4946,8 +4943,8 @@ if (!isEditing && registerRenewal && !isTrialMode) {
       <Label>{label || "Campo"}</Label>
 
       <FormattedDateInput
-        type={isDateField ? "date" : "text"}
-        value={fieldValue}
+        type={isDateField ? "date" : isPasswordField ? "password" : "text"}
+        value={fieldValue}
         onChange={(e) => {
           const raw = e.target.value;
           const next = isMacField ? normalizeMacInput(raw) : raw;
