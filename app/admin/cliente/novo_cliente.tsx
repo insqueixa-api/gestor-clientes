@@ -4919,9 +4919,10 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
   app.fields_config.map((field: any, index: number) => {
 
-  const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
+const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: id
   const rawLabel = String(field?.label ?? "").trim();
-  const label = rawLabel || APP_FIELD_LABELS[String(field?.type ?? "")] || "Campo";
+  // ✅ Tipo tem prioridade — ignora label legado do banco
+  const label = APP_FIELD_LABELS[String(field?.type ?? "")] || rawLabel || "Campo";
 
   const isMacField = String(field?.type || "").toUpperCase() === "MAC";
   const isPasswordField = String(field?.type || "").toLowerCase() === "password";
