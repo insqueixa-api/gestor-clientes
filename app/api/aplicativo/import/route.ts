@@ -143,7 +143,13 @@ export async function POST(req: Request) {
   const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const allRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
-  const dataRows = allRows.filter((r: any[]) => r.join("").trim() !== "");
+  const dataRows = allRows.filter((r: any[]) => {
+    const first = String(r[0] ?? "").trim();
+    if (!first) return false;                         // linha vazia
+    if (first.startsWith("⚠️")) return false;         // cabeçalho de instruções
+    if (first.startsWith("•")) return false;          // bullet de instrução
+    return true;
+  });
 
   if (dataRows.length < 2) {
     return NextResponse.json({ error: "empty_file", hint: "O arquivo não contém linhas de dados." }, { status: 400 });

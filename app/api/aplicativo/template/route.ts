@@ -33,7 +33,7 @@ export async function GET() {
   ];
 
   const notes = [
-    "⚠️ INSTRUÇÕES",
+    "⚠️ INSTRUÇÕES PARA IMPORTAÇÃO DE APLICATIVOS ⚠️",
     "• Uma linha por aplicativo. O mesmo cliente pode aparecer em múltiplas linhas.",
     "• Cliente é identificado pela combinação de Usuario + Servidor.",
     "• O campo App deve ter o nome exato do aplicativo cadastrado no sistema.",
@@ -41,7 +41,7 @@ export async function GET() {
     "• Vencimento deve estar no formato DD/MM/AAAA.",
     "• Device ID (MAC): aceita qualquer formato (00:1A:2B:3C:4D:5E, 001A2B3C4D5E, 00-1A-2B-3C-4D-5E, etc). O sistema normaliza automaticamente.",
     "• Não altere os cabeçalhos das colunas.",
-  ];
+    "• Exclua as linhas de exemplo e instruções antes de importar. Elas estão aqui apenas para referência.",];
 
   const worksheet = XLSX.utils.aoa_to_sheet([
     headers,
