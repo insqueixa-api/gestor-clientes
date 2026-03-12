@@ -129,10 +129,11 @@ const [saving, setSaving] = useState(false);
   }, [isModalOpen]);
 
   // Estado do APP em Edição
-  const [editingId, setEditingId] = useState<string | null>(null);
+const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
+  const dragIndexRef = useRef<number | null>(null);
   
 
   // --- TOAST (COM AUTO-CLOSE CORRIGIDO) ---
@@ -560,8 +561,29 @@ return (
                   {formFields.map((field, index) => (
                     <div
                       key={field.id}
-                      className="flex items-center gap-3 animate-in slide-in-from-left-2 duration-200 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg"
+                      draggable
+                      onDragStart={() => { dragIndexRef.current = index; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        const from = dragIndexRef.current;
+                        if (from === null || from === index) return;
+                        setFormFields((prev) => {
+                          const next = [...prev];
+                          const [moved] = next.splice(from, 1);
+                          next.splice(index, 0, moved);
+                          return next;
+                        });
+                        dragIndexRef.current = null;
+                      }}
+                      onDragEnd={() => { dragIndexRef.current = null; }}
+                      className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg cursor-default select-none"
                     >
+                      <span
+                        className="text-slate-300 dark:text-white/20 hover:text-slate-500 dark:hover:text-white/50 cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
+                        title="Arrastar para reordenar"
+                      >
+                        ⠿
+                      </span>
                       <span className="text-base">{FIELD_ICONS[field.type]}</span>
                       <span className="flex-1 text-sm font-medium text-slate-700 dark:text-white/80">
                         {FIELD_LABELS[field.type]}
