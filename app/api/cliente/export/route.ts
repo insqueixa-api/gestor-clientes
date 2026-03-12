@@ -28,7 +28,6 @@ type ExportRow = {
   vencimento_dia: string;
   vencimento_hora: string;
 
-  aplicativos_nome: string;
   obs: string;
 
   
@@ -190,7 +189,6 @@ export async function GET(req: Request) {
     "Telas",
     "Vencimento dia",
     "Vencimento hora",
-    "Aplicativos nome",
     "Obs",
     "Valor Plano",
     "Tabela Preco",
@@ -266,27 +264,7 @@ export async function GET(req: Request) {
     }
   }
 
-  // apps por cliente
-  const { data: clientApps, error: aErr } = await supabase
-    .from("client_apps")
-    .select("client_id, apps(name)")
-    .in("client_id", clientIds);
-
-  if (aErr) {
-    return NextResponse.json({ error: "export_failed_apps", details: aErr.message }, { status: 500 });
-  }
-
-  const appsByClient = new Map<string, string[]>();
-  for (const row of (clientApps ?? []) as any[]) {
-    const cid = row.client_id;
-    const appName = row.apps?.name;
-    if (!cid || !appName) continue;
-    const arr = appsByClient.get(cid) ?? [];
-    arr.push(String(appName));
-    appsByClient.set(cid, arr);
-  }
-
-  
+ 
 
   const rows: ExportRow[] = clientRows.map((c) => {
     const nomeCompleto =
@@ -296,10 +274,7 @@ export async function GET(req: Request) {
     const { dia: vencDia, hora: vencHora } = formatDiaHoraBR(c.vencimento ?? null);
     const { dia: cadDia, hora: cadHora } = formatDiaHoraBR(c.created_at ?? null);
 
-    const apps = appsByClient.get(c.id) ?? [];
-    const appsUnique = Array.from(new Set(apps)).join(", ");
-
-    const serverName = serverNameById.get(c.server_id) ?? "";
+const serverName = serverNameById.get(c.server_id) ?? ""; 
 
     const cur = String(c.price_currency ?? "BRL").toUpperCase();
     const planTableLabel =
@@ -333,7 +308,7 @@ export async function GET(req: Request) {
       vencimento_dia: vencDia,
       vencimento_hora: vencHora,
 
-      aplicativos_nome: appsUnique,
+      
       obs: c.notes ?? "",
 
 valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : String(c.price_amount),
@@ -368,7 +343,7 @@ valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : Stri
     r.telas,
     r.vencimento_dia,
     r.vencimento_hora,
-    r.aplicativos_nome,
+    
     r.obs,
     r.valor_plano,
     r.tabela_preco,

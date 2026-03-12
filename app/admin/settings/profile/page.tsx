@@ -683,6 +683,9 @@ setWaQrDataUrl(qr);
 
 const [exporting, setExporting] = useState(false);
 
+  // Modal de seleção: "export" | "template" | "import" | null
+  const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
+
   async function handleExportClients() {
     if (!tenantId) {
       addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
@@ -735,8 +738,136 @@ const [exporting, setExporting] = useState(false);
     setShowImportModal(true);
   }
 
-  function handleDownloadTemplate() {
-  window.location.href = "/api/cliente/template";
+function handleDownloadTemplate() {
+    window.location.href = "/api/cliente/template";
+  }
+
+  function handleDownloadTemplateApps() {
+    window.location.href = "/api/aplicativo/template";
+  }
+
+  async function handleExportApps() {
+    if (!tenantId) {
+      addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
+      return;
+    }
+
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+
+    try {
+      const res = await fetch(`/api/aplicativo/export?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "GET",
+      });
+
+      if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      const disposition = res.headers.get("Content-Disposition");
+      let filename = `aplicativos_export.xlsx`;
+      if (disposition && disposition.includes("filename=")) {
+        filename = disposition.split("filename=")[1].replace(/["']/g, "");
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      addToast("error", "Erro ao exportar", e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const importAppsFileRef = useRef<HTMLInputElement | null>(null);
+  const [importingApps, setImportingApps] = useState(false);
+
+  async function handleImportAppsFile(file: File) {
+    if (!tenantId) {
+      addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
+      return;
+    }
+
+    setImportingApps(true);
+    setActionModal(null);
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+
+      const res = await fetch(
+        `/api/aplicativo/import?tenant_id=${encodeURIComponent(tenantId)}`,
+        {
+          method: "POST",
+          body: fd,
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        }
+      );
+
+      const json = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        const base = json?.details || json?.error || "Falha ao importar";
+        const missing = Array.isArray(json?.missing) ? ` | Faltando: ${json.missing.join(", ")}` : "";
+        const hint = json?.hint ? ` | ${json.hint}` : "";
+        throw new Error(`${base}${missing}${hint}`);
+      }
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const warnCount = Array.isArray(json?.warnings) ? json.warnings.length : 0;
+      const summary = `Total: ${json.total} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", `${summary}. O relatório será descarregado.`);
+
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE APLICATIVOS\n`;
+        logContent += `Data: ${new Date().toLocaleString("pt-BR")}\n`;
+        logContent += `${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        if (warnCount > 0) {
+          logContent += `\n--- DETALHE DOS AVISOS ---\n`;
+          json.warnings.forEach((w: any) => { logContent += `Linha ${w.row}: ${w.warning}\n`; });
+        }
+
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `relatorio_import_apps_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+
+      addToast("success", "Import concluído", summary);
+
+      if (warnCount > 0) {
+        const topWarnings = (json.warnings || []).slice(0, 3);
+        for (const it of topWarnings) {
+          addToast("error", "Aviso no import", `Linha ${it.row}: ${it.warning}`);
+        }
+        if (json.warnings.length > 3) {
+          addToast("error", "Mais avisos", `+${json.warnings.length - 3} avisos.`);
+        }
+      }
+    } catch (e: any) {
+      addToast("error", "Erro no import de apps", e?.message || "Falha ao importar");
+    } finally {
+      setImportingApps(false);
+    }
   }
 
   async function handleDisconnectWhatsApp() {
@@ -1102,28 +1233,115 @@ return (
           {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Dados do Sistema</h3>
-            <div className="flex flex-row gap-3">
+            {/* Modal de seleção: Clientes ou Aplicativos */}
+{actionModal && (
+  <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+    <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4">
+      <h3 className="text-base font-bold text-slate-800 dark:text-white">
+        {actionModal === "export" && "⬇️ Exportar"}
+        {actionModal === "template" && "📄 Baixar Template"}
+        {actionModal === "import" && "⬆️ Importar"}
+      </h3>
+      <p className="text-sm text-slate-500 dark:text-white/60">O que você quer {actionModal === "export" ? "exportar" : actionModal === "template" ? "baixar" : "importar"}?</p>
+
+      <div className="flex flex-col gap-3 pt-1">
+        {/* Clientes */}
+        <button
+          type="button"
+          onClick={() => {
+            setActionModal(null);
+            if (actionModal === "export") void handleExportClients();
+            else if (actionModal === "template") handleDownloadTemplate();
+            else if (actionModal === "import") setShowImportModal(true);
+          }}
+          className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+        >
+          <span className="text-xl">👥</span>
+          <div className="text-left">
+            <div className="font-bold">Clientes</div>
+            <div className="text-[11px] font-normal text-slate-400">Dados cadastrais dos clientes</div>
+          </div>
+        </button>
+
+        {/* Aplicativos */}
+        <button
+          type="button"
+          onClick={() => {
+            setActionModal(null);
+            if (actionModal === "export") void handleExportApps();
+            else if (actionModal === "template") handleDownloadTemplateApps();
+            else if (actionModal === "import") importAppsFileRef.current?.click();
+          }}
+          className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+        >
+          <span className="text-xl">📱</span>
+          <div className="text-left">
+            <div className="font-bold">Aplicativos</div>
+            <div className="text-[11px] font-normal text-slate-400">Apps vinculados aos clientes</div>
+          </div>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setActionModal(null)}
+        className="w-full text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-1"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+)}
+
+<div className="flex flex-row gap-3">
+  {/* EXPORTAR */}
   <button
     type="button"
-    onClick={handleExportClients}
+    onClick={() => setActionModal("export")}
     disabled={!tenantId || exporting}
     className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    {exporting ? (
-      <><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Processando...</>
-    ) : (
-      <><span>⬇️</span> Exportar</>
-    )}
+    {exporting
+      ? <><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Processando...</>
+      : <><span>⬇️</span> Exportar</>
+    }
   </button>
+
+  {/* TEMPLATE */}
   <button
     type="button"
-    onClick={handleImportClick}
-    disabled={!tenantId || importing}
+    onClick={() => setActionModal("template")}
+    disabled={!tenantId}
     className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    {importing ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+    <span>📄</span> Template
   </button>
-  <input ref={importFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
+
+  {/* IMPORTAR */}
+  <button
+    type="button"
+    onClick={() => setActionModal("import")}
+    disabled={!tenantId || importing || importingApps}
+    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {(importing || importingApps) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+  </button>
+
+  {/* Hidden inputs */}
+  <input
+    ref={importFileRef}
+    type="file"
+    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    className="hidden"
+    onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }}
+  />
+  <input
+    ref={importAppsFileRef}
+    type="file"
+    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    className="hidden"
+    onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }}
+  />
 </div>
           </div>
         </div>

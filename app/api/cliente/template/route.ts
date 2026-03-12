@@ -24,7 +24,6 @@ export async function GET() {
     "Telas",
     "Vencimento dia",
     "Vencimento hora",
-    "Aplicativos nome",
     "Obs",
 
 // ✅ NOVOS (sempre no final)
@@ -56,7 +55,6 @@ export async function GET() {
     "1",
     "10/02/2026",
     "21:00",
-    "IBO Player, XCIPTV",
     "Cliente importado via planilha",
 
 // ✅ NOVOS (exemplos — pode deixar em branco)

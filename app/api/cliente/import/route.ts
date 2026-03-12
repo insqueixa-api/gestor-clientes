@@ -30,7 +30,7 @@ type ParsedRow = {
   vencimento_dia: string;
   vencimento_hora: string;
 
-  aplicativos_nome: string;
+  
   obs: string;
 
 // ✅ NOVOS
@@ -406,7 +406,6 @@ export async function POST(req: Request) {
     "telas",
     "vencimento dia",
     "vencimento hora",
-    "aplicativos nome",
     "obs",
 // novos (sempre no final no seu template)
     "valor plano",
@@ -510,25 +509,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3) Pré-carregar apps catalog
-  const { data: apps, error: aErr } = await supabase
-    .from("apps")
-    .select("id,name")
-    .eq("tenant_id", tenant_id);
-
-  if (aErr) {
-    return NextResponse.json(
-      { error: "apps_lookup_failed", details: aErr.message, hint: "Confirme se existe tabela 'apps' com tenant_id,name." },
-      { status: 500 }
-    );
-  }
-
-  const appIdByName = new Map<string, string>();
-  for (const a of (apps ?? []) as any[]) {
-    const nameKey = normText(a.name);
-    if (!nameKey) continue;
-    appIdByName.set(nameKey, String(a.id));
-  }
+  
 
   let inserted = 0;
   let updated = 0;
@@ -589,7 +570,7 @@ const get = (key: string): string => {
         vencimento_dia: get("Vencimento dia"),
         vencimento_hora: get("Vencimento hora"),
 
-        aplicativos_nome: get("Aplicativos nome"),
+        
         obs: get("Obs"),
 
 // ✅ novos
@@ -676,27 +657,7 @@ const get = (key: string): string => {
       const nameParts = splitNomeCompleto(parsed.nome_completo);
       if (!nameParts.display_name) throw new Error("Nome Completo vazio.");
 
-      // apps
-      const appNames = (parsed.aplicativos_nome || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
-
-      const appIds: string[] = [];
-      const missingApps: string[] = [];
-
-      for (const nm of Array.from(new Set(appNames))) {
-        const id = appIdByName.get(normText(nm));
-        if (id) appIds.push(id);
-        else missingApps.push(nm);
-      }
-
-      if (missingApps.length) {
-        warnings.push({
-          row: rowNum,
-          warning: `Apps não encontrados no catálogo: ${missingApps.join(", ")} (não foram vinculados).`,
-        });
-      }
+      
 
       // lookup existente (best effort)
       const { data: existing, error: exErr } = await supabase
@@ -759,7 +720,7 @@ const get = (key: string): string => {
           p_whatsapp_snooze_until: null,
           p_clear_whatsapp_snooze_until: true,
 
-          p_app_ids: appIds,
+          
           p_is_archived: false,
 
           p_technology: (parsed.tecnologia || "").trim() || "IPTV",
@@ -868,15 +829,7 @@ const get = (key: string): string => {
         }
       }
 
-      // ✅ Apps via RPC (sincroniza lista inteira)
-      {
-        const { error: appErr } = await supabase.rpc("set_client_apps", {
-          p_tenant_id: tenant_id,
-          p_client_id: client_id,
-          p_app_ids: appIds,
-        });
-        if (appErr) throw new Error(`set_client_apps: ${appErr.message}`);
-      }
+
 
       
     } catch (e: any) {
