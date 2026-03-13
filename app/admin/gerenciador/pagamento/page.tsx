@@ -905,7 +905,7 @@ export default function PagamentosPage() {
 </div>
 
     {/* CONTEÚDO */}
-    <div className="px-3 sm:px-0 space-y-6">
+    <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">

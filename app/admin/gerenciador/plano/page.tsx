@@ -25,6 +25,7 @@ export type PlanRow = {
   currency: "BRL" | "USD" | "EUR";
   is_active: boolean;
   is_system_default: boolean;
+  is_master_only: boolean;
   created_at: string;
   items: Item[];
 };
@@ -159,7 +160,7 @@ export default function PlanosPage() {
         .from("plan_tables")
         .delete()
         .eq("id", plan.id)
-        .eq("tenant_id", tenantId) 
+        .or(`tenant_id.eq.${tenantId},is_system_default.eq.true`)
         .select();
 
       if (error) {
@@ -401,7 +402,9 @@ export default function PlanosPage() {
                           {[1, 2, 3].map((screenCount) => (
                             <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                               <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                                Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
+                                Preços para {screenCount} {plan.is_master_only 
+                                ? screenCount === 1 ? "Sessão WhatsApp" : "Sessões WhatsApp"
+                                : screenCount === 1 ? "Tela" : "Telas"}
                               </h3>
 
                               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
