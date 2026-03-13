@@ -206,9 +206,10 @@ export default function GestaoSaasPage() {
   const [tenants, setTenants] = useState<SaasTenant[]>([]);
   const [myRole, setMyRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState("Todos");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false); // NOVO ESTADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const [showNew, setShowNew] = useState(false);
@@ -317,50 +318,109 @@ export default function GestaoSaasPage() {
         ))}
       </div>
 
-      {/* FILTROS */}
-      <div className="px-3 sm:px-0">
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-[10px] font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-3">Filtros</div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex-1 min-w-[180px] relative">
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar revenda, contato, whatsapp..."
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
-                  <IconX />
-                </button>
-              )}
-            </div>
+      {/* --- BARRA DE FILTROS COMPLETA --- */}
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 md:sticky md:top-4 z-20 mb-6">
+        
+        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+          Filtros Rápidos
+        </div>
+
+        {/* MOBILE: Pesquisa + Botão de Painel */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar revenda..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
+                <IconX />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+              (roleFilter !== "Todos" || statusFilter !== "Todos")
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50"
+            }`}
+          >
+            Filtros
+          </button>
+        </div>
+
+        {/* DESKTOP: Linha Única */}
+        <div className="hidden md:flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar revenda, contato, whatsapp..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500">
+                <IconX />
+              </button>
+            )}
+          </div>
+          <div className="w-[190px]">
             <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
               <option value="Todos">Role (Todos)</option>
               <option value="SUPERADMIN">Superadmin</option>
               <option value="MASTER">Master</option>
               <option value="USER">User</option>
             </select>
+          </div>
+          <div className="w-[190px]">
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
               <option value="Todos">Status (Todos)</option>
               <option value="ACTIVE">Ativo</option>
               <option value="TRIAL">Trial</option>
               <option value="EXPIRED">Expirado</option>
               <option value="ARCHIVED">Arquivado</option>
             </select>
-            <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); }}
-              className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center gap-1.5">
+          </div>
+          <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); }}
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center gap-1.5">
+            <IconX /> Limpar
+          </button>
+        </div>
+
+        {/* PAINEL MOBILE */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              <option value="Todos">Role (Todos)</option>
+              <option value="SUPERADMIN">Superadmin</option>
+              <option value="MASTER">Master</option>
+              <option value="USER">User</option>
+            </select>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              <option value="Todos">Status (Todos)</option>
+              <option value="ACTIVE">Ativo</option>
+              <option value="TRIAL">Trial</option>
+              <option value="EXPIRED">Expirado</option>
+              <option value="ARCHIVED">Arquivado</option>
+            </select>
+            <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); setMobileFiltersOpen(false); }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
               <IconX /> Limpar
             </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* LISTA */}
       <div className="px-3 sm:px-0">
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden sm:mx-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-800 dark:text-white">
               Revendedores
@@ -376,13 +436,13 @@ export default function GestaoSaasPage() {
             <div className="py-20 text-center text-slate-400 dark:text-white/40">Nenhum revenda encontrado.</div>
           ) : (
             <>
-              {/* TABELA DESKTOP */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase tracking-wider text-slate-400 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
+              {/* TABELA UNIFICADA (Scroll horizontal no Mobile) */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left min-w-[800px]">
+                  {/* Nota: o min-w-[800px] (ou valor similar) garante que a tabela não esmague no celular e crie a barra de rolagem */}
+                  <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                     <tr>
                       <th className="px-4 py-3">Revenda / Contato</th>
-                      <th className="px-4 py-3">WhatsApp</th>
                       <th className="px-4 py-3">Perfil</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Validade</th>
@@ -478,25 +538,31 @@ function TenantRow({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArch
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
       <td className="px-4 py-3">
-        <div className="font-bold text-slate-800 dark:text-white">{t.name}</div>
-        {t.responsible_name && t.responsible_name !== t.name && (
-          <div className="text-xs text-slate-500 dark:text-white/50 mt-0.5">{t.responsible_name}</div>
-        )}
-        <div className="text-[10px] font-mono text-slate-400 dark:text-white/30 mt-0.5">
-          {t.auth_email || t.contact_email || "—"}
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        {t.whatsapp_username ? (
-          <div className="flex items-center gap-1.5">
-            <span className="text-emerald-500"><IconWa /></span>
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">@{t.whatsapp_username}</span>
+        <div className="flex flex-col max-w-[180px] sm:max-w-none">
+          {/* Nome e Responsável (na mesma linha) */}
+          <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+            {t.name}
+            {t.responsible_name && t.responsible_name !== t.name && (
+              <span className="text-slate-400 dark:text-white/30 font-normal"> / {t.responsible_name}</span>
+            )}
           </div>
-        ) : t.phone_e164 ? (
-          <span className="text-xs font-mono text-slate-500 dark:text-white/50">{t.phone_e164}</span>
-        ) : (
-          <span className="text-slate-300 dark:text-white/20 text-xs">—</span>
-        )}
+          
+          {/* WhatsApp ou Telefone (mesma cor do @username do cliente) */}
+          {t.whatsapp_username ? (
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate mt-0.5">
+              @{t.whatsapp_username}
+            </span>
+          ) : t.phone_e164 ? (
+            <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate mt-0.5">
+              {t.phone_e164}
+            </span>
+          ) : null}
+
+          {/* Email em destaque menor */}
+          <div className="text-[10px] font-mono text-slate-400 dark:text-white/30 mt-0.5 truncate">
+            {t.auth_email || t.contact_email || "—"}
+          </div>
+        </div>
       </td>
       <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
       <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
@@ -524,7 +590,7 @@ function TenantRow({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArch
         )}
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity relative">
           <ActionBtn title="Editar perfil" tone="amber" onClick={onEdit}><IconEdit /></ActionBtn>
           {!isSuperadmin && canManage && (
             <>
