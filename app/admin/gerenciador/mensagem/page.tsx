@@ -129,17 +129,36 @@ export default function MessagesPage() {
   const removeToast = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
 
   // Carregar Mensagens
-  async function loadMessages() {
-    setLoading(true);
-    const tid = await getCurrentTenantId();
-    if (!tid) return;
+async function ensureMessagesCloned(tid: string) {
+  await supabaseBrowser.rpc("ensure_message_templates_cloned", {
+    p_tenant_id: tid,
+  });
+}
 
-const { data, error } = await supabaseBrowser
-      .from("message_templates")
-      .select("id, name, content, updated_at, is_system_default")
-      .eq("tenant_id", tid)
-      .order("is_system_default", { ascending: false }) // ✅ Lista os padrões do sistema primeiro
-      .order("updated_at", { ascending: false });
+async function loadMessages() {
+  setLoading(true);
+  const tid = await getCurrentTenantId();
+  if (!tid) return;
+
+  await ensureMessagesCloned(tid);
+
+  // Detecta role para filtrar templates exclusivos de Master/Admin
+  const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
+  const isMasterOrAdmin = roleData === "superadmin" || roleData === "master";
+
+  let query = supabaseBrowser
+    .from("message_templates")
+    .select("id, name, content, updated_at, is_system_default")
+    .eq("tenant_id", tid)
+    .order("is_system_default", { ascending: false })
+    .order("updated_at", { ascending: false });
+
+  // Usuários comuns não veem templates master_only
+  if (!isMasterOrAdmin) {
+    query = query.eq("master_only", false);
+  }
+
+  const { data, error } = await query;
 
     if (error) {
       console.error(error);
