@@ -1141,41 +1141,41 @@ return (
                 </div>
             </div>
 
-            {/* ✅ LINHA 4 - ASSINATURA */}
-            <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
-              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
-                Detalhes da Assinatura
-              </div>
-              <div className="flex flex-wrap gap-10">
-                {/* 1. Status: Todos veem */}
-                <div>
-                  <Label>Status</Label>
-                  <div className="h-10 flex items-center">
-                    <StatusBadge status={licenseStatus} />
-                  </div>
+            {/* ✅ LINHA 4 - ASSINATURA (Oculta inteiramente para SUPERADMIN) */}
+            {role !== "SUPERADMIN" && (
+              <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
+                <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
+                  Detalhes da Assinatura
                 </div>
+                <div className="flex flex-wrap gap-10">
+                  {/* 1. Status */}
+                  <div>
+                    <Label>Status</Label>
+                    <div className="h-10 flex items-center">
+                      <StatusBadge status={licenseStatus} />
+                    </div>
+                  </div>
 
-                {/* 2. Validade: MASTER e USER veem (Oculto para SUPERADMIN) */}
-                {role !== "SUPERADMIN" && (
+                  {/* 2. Validade */}
                   <div>
                     <Label>Validade</Label>
                     <div className="h-10 flex items-center text-sm font-bold text-slate-700 dark:text-white">
                       {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
                     </div>
                   </div>
-                )}
 
-                {/* 3. Créditos: APENAS MASTER vê */}
-                {role === "MASTER" && (
-                  <div>
-                    <Label>Saldo de Créditos</Label>
-                    <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      {creditBalance}
+                  {/* 3. Créditos: APENAS MASTER vê */}
+                  {role === "MASTER" && (
+                    <div>
+                      <Label>Saldo de Créditos</Label>
+                      <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {creditBalance}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* DADOS DO SISTEMA */}
