@@ -373,7 +373,7 @@ export default function GestaoSaasPage() {
           {loading ? (
             <div className="py-20 text-center text-slate-400 dark:text-white/40 animate-pulse">Carregando...</div>
           ) : filtered.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 dark:text-white/40">Nenhum tenant encontrado.</div>
+            <div className="py-20 text-center text-slate-400 dark:text-white/40">Nenhum revenda encontrado.</div>
           ) : (
             <>
               {/* TABELA DESKTOP */}
@@ -776,7 +776,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 shrink-0">
           <h2 className="text-lg font-bold text-slate-800 dark:text-white">
-            {mode === "new" ? "Novo Tenant" : `Editar: ${tenant?.name}`}
+            {mode === "new" ? "Novo Revenda" : `Editar: ${tenant?.name}`}
           </h2>
         </div>
 
@@ -795,7 +795,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
               <SectionTitle>Dados da Conta</SectionTitle>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <FieldLabel>Nome do Tenant *</FieldLabel>
+                  <FieldLabel>Nome do Revenda *</FieldLabel>
                   <FieldInput value={name} onChange={e => setName(e.target.value)} placeholder="Ex: João Revendas" autoFocus />
                 </div>
                 <div>
@@ -808,7 +808,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
                 </div>
               </div>
               <div>
-                <FieldLabel>Papel (Role)</FieldLabel>
+                <FieldLabel>Papel (Perfil)</FieldLabel>
                 <div className="flex gap-2 mt-1">
                   {(["MASTER", "USER"] as const).map(r => (
                     <button key={r} onClick={() => setRole(r)}
