@@ -629,9 +629,8 @@ const sortedTenants = useMemo(() => {
       <div className="flex items-center justify-between gap-2 px-3 sm:px-0">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Gestão SaaS</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            
-            <span className="font-bold text-slate-500 dark:text-white/50">{myName || myRole || "carregando..."}</span>
+          <p className="ont-bold text-slate-500 dark:text-white/50">
+            Minha Rede
           </p>
         </div>
         
