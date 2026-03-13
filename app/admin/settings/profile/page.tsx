@@ -228,9 +228,14 @@ export default function ProfileSettingsPage() {
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("Carregando...");
-const [roleRaw, setRoleRaw] = useState<string | null>(null);
+  const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
-// ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
+  // ✅ NOVO: Estados da Assinatura
+  const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+
+  // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
 const canPairWhatsApp = !!userId && !!tenantId;
 
 
@@ -374,29 +379,40 @@ async function saveWaConfig() {
               role,
               tenants (
                 id,
-                name
+                name,
+                license_status,
+                expires_at,
+                credit_balance
               )
             `
           )
           .eq("user_id", user.id)
           .maybeSingle();
 
-
         let companyName = "";
 
         if (member) {
           setRoleRaw(member.role || null);
 
-          const roleName = member.role === "owner" ? "Admin (Dono)" : member.role || "Membro";
+          // ✅ TRADUÇÃO DE OWNER PARA SUPERADMIN
+          let roleName = "Visitante";
+          if (member.role === "owner" || member.role === "SUPERADMIN") roleName = "SUPERADMIN";
+          else if (member.role === "MASTER") roleName = "MASTER";
+          else if (member.role === "USER") roleName = "USER";
+          else if (member.role) roleName = member.role.toUpperCase();
+
           setRole(roleName);
 
           const t: any = member.tenants;
-          if (Array.isArray(t)) {
-            companyName = t[0]?.name || "";
-            setTenantId(t[0]?.id || null);
-          } else if (t) {
-            companyName = t.name || "";
-            setTenantId(t.id || null);
+          const currentT = Array.isArray(t) ? t[0] : t;
+          
+          if (currentT) {
+            companyName = currentT.name || "";
+            setTenantId(currentT.id || null);
+            // ✅ Salva os dados de assinatura
+            setLicenseStatus(currentT.license_status || "ACTIVE");
+            setExpiresAt(currentT.expires_at || null);
+            setCreditBalance(currentT.credit_balance || 0);
           } else {
             setTenantId(null);
           }
@@ -994,24 +1010,36 @@ return (
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
     Dados Pessoais
   </h3>
-  {!isEditing ? (
-    <button
-      onClick={() => setIsEditing(true)}
-      className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
-    >
-      ✏️ Editar
-    </button>
-  ) : (
-    <button
-      onClick={handleSave}
-      disabled={saving}
-      className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
-    >
-      {saving ? "Salvando..." : "💾 Salvar"}
-    </button>
-  )}
+  <div className="flex items-center gap-2">
+    {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
+    {role !== "SUPERADMIN" && (
+      <button
+        onClick={() => alert("Abrir checkout ou modal de pagamento")} 
+        className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-900/20"
+      >
+        <IconMoney /> Renovar
+      </button>
+    )}
+
+    {!isEditing ? (
+      <button
+        onClick={() => setIsEditing(true)}
+        className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
+      >
+        ✏️ Editar
+      </button>
+    ) : (
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="h-7 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
+      >
+        {saving ? "Salvando..." : "💾 Salvar"}
+      </button>
+    )}
+  </div>
 </div>
-           
+            
             {/* LINHA 1: NOME + PERFIL */}
             <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
   <div className="col-span-2">
@@ -1026,7 +1054,11 @@ return (
   </div>
   <div className="col-span-1">
     <Label>Perfil</Label>
-    <div className="h-10 px-2 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold text-center">
+    <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${
+      role === "SUPERADMIN" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20" :
+      role === "MASTER" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20" :
+      "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60 border-slate-200 dark:border-white/10"
+    }`}>
       {role}
     </div>
   </div>
@@ -1096,6 +1128,42 @@ return (
                         {createdAt || "—"}
                     </div>
                 </div>
+            </div>
+
+            {/* ✅ LINHA 4 - ASSINATURA */}
+            <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
+              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
+                Detalhes da Assinatura
+              </div>
+              <div className="flex flex-wrap gap-10">
+                {/* 1. Status: Todos veem */}
+                <div>
+                  <Label>Status</Label>
+                  <div className="h-10 flex items-center">
+                    <StatusBadge status={licenseStatus} />
+                  </div>
+                </div>
+
+                {/* 2. Validade: MASTER e USER veem (Oculto para SUPERADMIN) */}
+                {role !== "SUPERADMIN" && (
+                  <div>
+                    <Label>Validade</Label>
+                    <div className="h-10 flex items-center text-sm font-bold text-slate-700 dark:text-white">
+                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Créditos: APENAS MASTER vê */}
+                {role === "MASTER" && (
+                  <div>
+                    <Label>Saldo de Créditos</Label>
+                    <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      {creditBalance}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1334,5 +1402,24 @@ return (
         </div>
       </div>
     </div>
+  );
+}
+function IconMoney() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+    TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+    EXPIRED:  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+    ARCHIVED: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border-slate-200 dark:border-white/10",
+    INACTIVE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+  };
+  const label: Record<string, string> = {
+    ACTIVE: "Ativo", TRIAL: "Trial", EXPIRED: "Expirado", ARCHIVED: "Arquivado", INACTIVE: "Inativo",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${map[status] ?? map.INACTIVE}`}>
+      {label[status] ?? status}
+    </span>
   );
 }
