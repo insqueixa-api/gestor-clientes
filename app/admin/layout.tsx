@@ -83,9 +83,12 @@ export default async function AdminLayout({
   
   const userLabel = profile?.display_name || tenantName || authLabel;
 
+  // ✅ NOVO: Pega a role que o banco já buscou lá em cima, padroniza e envia pro AdminShell
+  const userRole = (member.role === "owner" ? "SUPERADMIN" : (member.role || "USER")).toUpperCase();
+
   return (
     <ThemeProvider defaultTheme="light">
-      <AdminShell userLabel={userLabel} tenantName={tenantName}>
+      <AdminShell userLabel={userLabel} tenantName={tenantName} role={userRole}>
         {children}
       </AdminShell>
     </ThemeProvider>
