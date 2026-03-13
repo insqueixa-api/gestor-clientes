@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const { data: roleData, error: roleErr } = await supabase.rpc("saas_my_role");
   if (roleErr || !["SUPERADMIN", "MASTER"].includes(roleData)) {
     return NextResponse.json(
-      { error: "forbidden", hint: "Apenas SUPERADMIN ou MASTER podem criar tenants." },
+      { error: "forbidden", hint: "Apenas SUPERADMIN ou MASTER podem criar revendas." },
       { status: 403 }
     );
   }

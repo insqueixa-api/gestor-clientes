@@ -235,12 +235,12 @@ export default function GestaoSaasPage() {
       ]);
       setMyRole(roleRes.data ?? "");
       if (tenantsRes.error) {
-        addToast("error", "Erro ao carregar tenants", tenantsRes.error.message);
+        addToast("error", "Erro ao carregar revendas", tenantsRes.error.message);
       } else {
         setTenants((tenantsRes.data as SaasTenant[]) ?? []);
       }
     } catch (e: any) {
-      addToast("error", "Erro ao carregar", e.message);
+      addToast("error", "Erro ao carregar revendas", e.message);
     } finally {
       setLoading(false);
     }
@@ -288,7 +288,7 @@ export default function GestaoSaasPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Gestão SaaS</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Rede de tenants ·{" "}
+            Rede de revendas ·{" "}
             <span className="font-bold text-slate-500 dark:text-white/50 lowercase">{myRole || "carregando..."}</span>
           </p>
         </div>
@@ -428,7 +428,7 @@ export default function GestaoSaasPage() {
         <TenantFormModal
           mode="new" myRole={myRole}
           onClose={() => setShowNew(false)}
-          onSuccess={() => { setShowNew(false); loadData(); addToast("success", "Tenant criado!"); }}
+          onSuccess={() => { setShowNew(false); loadData(); addToast("success", "Revenda criada!"); }}
           onError={m => addToast("error", "Erro", m)}
         />
       )}
@@ -751,7 +751,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar tenant.");
+        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
         const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
