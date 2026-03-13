@@ -127,10 +127,10 @@ export default function GestaoSaasDetailPage() {
   );
 
   return (
-    <div className="space-y-6 pt-0 pb-28 sm:pb-32 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between gap-3 px-3 sm:px-0 pt-4">
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 pt-2 sm:pt-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => router.back()}
@@ -138,23 +138,27 @@ export default function GestaoSaasDetailPage() {
           >
             <IconBack />
           </button>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-slate-800 dark:text-white truncate">{master.name}</h1>
+          <div className="min-w-0 text-left">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              {master.name}
+            </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Rede do revendedor · <span className="font-bold">{children.length}</span> associado{children.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => { setShowHistory(true); void loadHistory(); }}
-          className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0"
-        >
-          <IconClock /> Histórico
-        </button>
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <button
+            onClick={() => { setShowHistory(true); void loadHistory(); }}
+            className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+          >
+            <IconClock /> <span className="hidden sm:inline">Histórico</span>
+          </button>
+        </div>
       </div>
 
       {/* INFO DO MASTER */}
-      <div className="mx-3 sm:mx-0 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
@@ -176,15 +180,25 @@ export default function GestaoSaasDetailPage() {
           </div>
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
-            <div className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate">
-              {master.whatsapp_username ? `@${master.whatsapp_username}` : "—"}
-            </div>
+            {master.whatsapp_username ? (
+              <a
+                href={`https://wa.me/${master.whatsapp_username.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate hover:underline flex items-center gap-1"
+                title="Abrir no WhatsApp"
+              >
+                @{master.whatsapp_username}
+              </a>
+            ) : (
+              <div className="text-xs text-slate-500 dark:text-white/50 truncate">—</div>
+            )}
           </div>
         </div>
       </div>
 
       {/* TABELA READ-ONLY */}
-      <div className="mx-3 sm:mx-0 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
           <div className="text-sm font-bold text-slate-800 dark:text-white">
             Rede
@@ -247,12 +261,13 @@ export default function GestaoSaasDetailPage() {
                 })}
               </tbody>
             </table>
+            
+            {/* ✅ Espaço fixo no final da lista, garantindo o respiro da tela */}
+            <div className="h-24 md:h-20" />
+
           </div>
         )}
       </div>
-
-      {/* ✅ Spacer do Rodapé corrigido (dentro do fluxo principal) */}
-      <div className="h-24 md:h-20 shrink-0" />
 
       {/* MODAL HISTÓRICO */}
       {showHistory && typeof document !== "undefined" && createPortal(
