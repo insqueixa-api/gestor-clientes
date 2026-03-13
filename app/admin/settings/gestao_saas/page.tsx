@@ -648,7 +648,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
 
   // Conta
   const [name, setName] = useState(tenant?.name ?? "");
-  const [email, setEmail] = useState(tenant?.contact_email ?? "");
+  const [email, setEmail] = useState(tenant?.contact_email ?? tenant?.auth_email ?? "");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"MASTER" | "USER">("MASTER");
   const [trialDays, setTrialDays] = useState(7);
