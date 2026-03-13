@@ -1033,6 +1033,13 @@ return (
   </div>
 )}
 
+                {/* AVISO IMPORTANTE (Piscando) */}
+                <div className="pt-2 animate-pulse">
+                  <p className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase text-center bg-rose-50 dark:bg-rose-500/10 p-2 rounded-lg border border-rose-200 dark:border-rose-500/30">
+                    ⚠️ Importante: Favor não colocar observações na transferência.
+                  </p>
+                </div>
+
                 {/* VALOR A TRANSFERIR (GLOBAL PARA TODOS OS MANUAIS) */}
                 <div className="pt-2">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor a Transferir</p>

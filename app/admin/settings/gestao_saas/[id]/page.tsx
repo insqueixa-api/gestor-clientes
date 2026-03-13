@@ -243,6 +243,9 @@ export default function GestaoSaasDetailPage() {
         )}
       </div>
 
+{/* ✅ Spacer do Rodapé (Padronização UI) */}
+      <div className="h-24 md:h-20" />
+      
       {/* MODAL HISTÓRICO */}
       {showHistory && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
