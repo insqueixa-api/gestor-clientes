@@ -105,12 +105,13 @@ export default function PlanosPage() {
     const { data: newTable } = await supabase
       .from("plan_tables")
       .insert({
-        tenant_id: tenantId,
-        name: tpl.name,
-        currency: tpl.currency,
-        is_system_default: false,
-        is_active: true,
-      })
+  tenant_id: tenantId,
+  name: tpl.name,
+  currency: tpl.currency,
+  is_system_default: true,
+  is_master_only: tpl.is_master_only ?? false,
+  is_active: true,
+})
       .select("id")
       .single();
 

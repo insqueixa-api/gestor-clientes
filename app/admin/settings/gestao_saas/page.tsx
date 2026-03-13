@@ -1303,7 +1303,9 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   const [email, setEmail] = useState(tenant?.contact_email ?? tenant?.auth_email ?? "");
   const [newEmail, setNewEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"MASTER" | "USER">("MASTER");
+  const [role, setRole] = useState<"MASTER" | "USER">(
+  mode === "edit" ? (tenant?.role === "USER" ? "USER" : "MASTER") : "MASTER"
+);
   const [trialDays, setTrialDays] = useState(7);
   const [creditsInitial, setCreditsInitial] = useState(0);
 
@@ -1407,7 +1409,14 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
         });
-        if (error) throw new Error(error.message);
+if (error) throw new Error(error.message);
+
+        // Atualiza role
+        const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
+          p_tenant_id: tenant!.id,
+          p_role: role,
+        });
+        if (roleErr) throw new Error(roleErr.message);
 
         // Atualiza email se preenchido
         if (newEmail.trim() && newEmail.trim() !== email) {
@@ -1514,6 +1523,21 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
                   onChange={e => setNewEmail(e.target.value)}
                   placeholder="novo@email.com"
                 />
+              </div>
+              <div>
+                <FieldLabel>Perfil (Role)</FieldLabel>
+                <div className="flex gap-2 mt-1">
+                  {(["MASTER", "USER"] as const).map(r => (
+                    <button key={r} type="button" onClick={() => setRole(r)}
+                      className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
+                        role === r
+                          ? r === "MASTER" ? "bg-amber-500 border-amber-500 text-white" : "bg-slate-700 dark:bg-slate-600 border-slate-700 text-white"
+                          : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"
+                      }`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
