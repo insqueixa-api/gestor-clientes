@@ -23,7 +23,8 @@ type PlanRow = {
   name: string;
   currency: "BRL" | "USD" | "EUR";
   is_active: boolean;
-  is_system_default: boolean;
+is_system_default: boolean;
+  is_master_only: boolean;
   created_at: string;
   items: Item[];
 };
@@ -62,8 +63,7 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
-  const isEditing = !!plan;
-  const isSystemDefault = plan?.is_system_default ?? false;
+const isEditing = !!plan;
   
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
@@ -232,15 +232,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     try {
       if (isEditing && plan) {
         // ✅ Atualiza nome e moeda (agora sempre pode, exceto sistema) - TRAVADO COM TENANT
-        if (!isSystemDefault) {
-          const { error: updErr } = await supabase
-            .from("plan_tables")
-            .update({ name: name.trim(), currency })
-            .eq("id", plan.id)
-            .eq("tenant_id", tenantId); // ✅ PROTEÇÃO
-            
-          if (updErr) throw new Error("Falha ao atualizar a tabela.");
-        }
+        const { error: updErr } = await supabase
+  .from("plan_tables")
+  .update({ name: name.trim(), currency })
+  .eq("id", plan.id)
+  .eq("tenant_id", tenantId);
+  
+if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
         // ✅ Atualiza preços - TRAVADO COM TENANT E SEM NEGATIVOS
         for (const row of items) {
@@ -254,7 +252,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             await supabase
               .from("plan_table_item_prices")
               .update({ price_amount: numVal })
-              .match({ plan_table_item_id: row.itemId, screens_count: screen, tenant_id: tenantId }); // ✅ PROTEÇÃO
+              .match({ plan_table_item_id: row.itemId, screens_count: screen });
           }
         }
       } else {
@@ -355,7 +353,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             >
               Cancelar
             </button>
-            {!isSystemDefault && (
+            
               <button 
                 onClick={handleSave}
                 disabled={saving || loading}
@@ -363,7 +361,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               >
                 {saving ? "Salvando..." : "Salvar"}
               </button>
-            )}
+            
           </div>
         </div>
 
@@ -375,32 +373,30 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               <div>
                 <Label>Nome da tabela</Label>
                 <input 
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Tabela especial revenda"
-                  disabled={isSystemDefault}
+  value={name}
+  onChange={e => setName(e.target.value)}
+  placeholder="Ex: Tabela especial revenda"
+  disabled={plan?.is_system_default && plan?.is_master_only}
                   className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                 />
               </div>
               <div>
                 <Label>Moeda</Label>
                 <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-                  {(['BRL', 'USD', 'EUR'] as const).map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => !isSystemDefault && setCurrency(c)}
-                      disabled={isSystemDefault}
-                      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
-                        ${currency === c 
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
-                          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}
-                        ${isSystemDefault ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
+  {(['BRL', 'USD', 'EUR'] as const).map(c => (
+    <button
+      key={c}
+      type="button"
+      onClick={() => setCurrency(c)}
+      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
+        ${currency === c 
+          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
+          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
+    >
+      {c}
+    </button>
+  ))}
+</div>
                 {isEditing && currency !== originalCurrency && (
                   <p className="text-[10px] text-amber-500 mt-2 italic">
                     * Atenção: valores resetados para tabela Padrão {currency}
@@ -417,11 +413,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 {isEditing ? "Carregando dados..." : "Clonando tabela padrão..."}
               </div>
             ) : (
-              [1, 2, 3].map((screenCount) => (
-                <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                    Preços para {screenCount} {screenCount === 1 ? 'tela' : 'telas'}
-                  </h3>
+              (plan?.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
+  <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
+    <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+      Preços para {screenCount} {plan?.is_master_only
+        ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
+        : screenCount === 1 ? 'tela' : 'telas'}
+    </h3>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {PERIOD_ORDER.map((period) => {
@@ -454,7 +452,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                               type="number" 
                               step="0.01"
                               value={value}
-                              disabled={isSystemDefault}
+                              disabled={false}
                               onChange={(e) => handlePriceChange(period, field, e.target.value)}
                               className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
                               placeholder="0,00"
@@ -476,11 +474,11 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               ? "Altere o nome, moeda e valores conforme necessário" 
               : "Ajuste os valores clonados da tabela padrão"}
           </span>
-          {!isEditing && (
+          
             <span className="text-[10px] text-slate-400 dark:text-white/30">
               A tabela será criada como <strong>ativa</strong> por padrão
             </span>
-          )}
+          
         </div>
       </div>
     </div>,
