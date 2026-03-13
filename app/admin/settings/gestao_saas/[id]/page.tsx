@@ -170,7 +170,14 @@ export default function GestaoSaasDetailPage() {
           </div>
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Contato</div>
-            <div className="text-xs text-slate-500 dark:text-white/50 truncate">{master.contact_email || "—"}</div>
+            <div className="flex flex-col gap-0.5">
+              <div className="text-xs text-slate-500 dark:text-white/50 truncate">{master.contact_email || "—"}</div>
+              {master.whatsapp_username && (
+                <div className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate">
+                  @{master.whatsapp_username}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -243,9 +250,9 @@ export default function GestaoSaasDetailPage() {
         )}
       </div>
 
-{/* ✅ Spacer do Rodapé (Padronização UI) */}
-      <div className="h-24 md:h-20" />
-      
+      {/* ✅ Spacer do Rodapé corrigido (dentro do fluxo principal) */}
+      <div className="h-24 md:h-20 shrink-0" />
+
       {/* MODAL HISTÓRICO */}
       {showHistory && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
