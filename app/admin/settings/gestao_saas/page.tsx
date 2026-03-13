@@ -435,50 +435,33 @@ const [search, setSearch] = useState("");
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-slate-400 dark:text-white/40">Nenhum revenda encontrado.</div>
           ) : (
-            <>
-              {/* TABELA UNIFICADA (Scroll horizontal no Mobile) */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left min-w-[800px]">
-                  {/* Nota: o min-w-[800px] (ou valor similar) garante que a tabela não esmague no celular e crie a barra de rolagem */}
-                  <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
-                    <tr>
-                      <th className="px-4 py-3">Revenda / Contato</th>
-                      <th className="px-4 py-3">Perfil</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Validade</th>
-                      <th className="px-4 py-3">Créditos</th>
-                      <th className="px-4 py-3 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                    {filtered.map(t => (
-                      <TenantRow
-                        key={t.id} t={t} canManage={canManage}
-                        onEdit={() => setEditTarget(t)}
-                        onRenew={() => setRenewTarget(t)}
-                        onCredits={() => setCreditsTarget(t)}
-                        onHistory={() => setHistoryTarget(t)}
-                        onArchive={() => handleArchive(t)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* CARDS MOBILE */}
-              <div className="md:hidden divide-y divide-slate-100 dark:divide-white/5">
-                {filtered.map(t => (
-                  <TenantCard
-                    key={t.id} t={t} canManage={canManage}
-                    onEdit={() => setEditTarget(t)}
-                    onRenew={() => setRenewTarget(t)}
-                    onCredits={() => setCreditsTarget(t)}
-                    onHistory={() => setHistoryTarget(t)}
-                    onArchive={() => handleArchive(t)}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="overflow-x-auto">
+              {/* min-w-[700px] força o scroll no mobile sem esmagar as colunas */}
+              <table className="w-full text-sm text-left min-w-[700px]">
+                <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
+                  <tr>
+                    <th className="px-4 py-3">Revenda / Contato</th>
+                    <th className="px-4 py-3">Perfil</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Validade</th>
+                    <th className="px-4 py-3">Créditos</th>
+                    <th className="px-4 py-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {filtered.map(t => (
+                    <TenantRow
+                      key={t.id} t={t} canManage={canManage}
+                      onEdit={() => setEditTarget(t)}
+                      onRenew={() => setRenewTarget(t)}
+                      onCredits={() => setCreditsTarget(t)}
+                      onHistory={() => setHistoryTarget(t)}
+                      onArchive={() => handleArchive(t)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -605,95 +588,6 @@ function TenantRow({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArch
         </div>
       </td>
     </tr>
-  );
-}
-
-// ============================================================
-// CARD MOBILE
-// ============================================================
-function TenantCard({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive }: {
-  t: SaasTenant; canManage: boolean;
-  onEdit: () => void; onRenew: () => void; onCredits: () => void;
-  onHistory: () => void; onArchive: () => void;
-}) {
-  const isSuperadmin = t.role === "SUPERADMIN";
-  const days = daysUntil(t.expires_at);
-  return (
-    <div className="p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-bold text-slate-800 dark:text-white truncate">{t.name}</div>
-          {t.responsible_name && t.responsible_name !== t.name && (
-            <div className="text-xs text-slate-500 dark:text-white/50 truncate mt-0.5">{t.responsible_name}</div>
-          )}
-          <div className="text-[10px] font-mono text-slate-400 dark:text-white/30 truncate mt-0.5">
-            {t.auth_email || t.contact_email || "—"}
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <RoleBadge role={t.role} />
-          <StatusBadge status={t.license_status} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2">
-          <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-white/30 mb-0.5">WhatsApp</div>
-          {t.whatsapp_username ? (
-            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-              <IconWa /><span>@{t.whatsapp_username}</span>
-            </div>
-          ) : (
-            <div className="text-slate-400">{t.phone_e164 || "—"}</div>
-          )}
-        </div>
-        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2">
-          <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-white/30 mb-0.5">Créditos</div>
-          <div className={`font-bold ${isSuperadmin ? "text-purple-500" : "text-slate-700 dark:text-white"}`}>
-            {isSuperadmin ? "∞" : t.credit_balance}
-          </div>
-        </div>
-        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2">
-          <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-white/30 mb-0.5">Validade</div>
-          <div className={`font-medium ${isSuperadmin ? "text-purple-500" : "text-slate-700 dark:text-white"}`}>
-            {isSuperadmin ? "∞" : t.expires_at ? fmtDate(t.expires_at) : "—"}
-          </div>
-          {!isSuperadmin && days !== null && (
-            <div className={`text-[9px] font-bold mt-0.5 ${days < 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-slate-400"}`}>
-              {days < 0 ? `Expirou há ${Math.abs(days)}d` : `${days}d restantes`}
-            </div>
-          )}
-        </div>
-        <div className="bg-slate-50 dark:bg-white/5 rounded-lg p-2">
-          <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-white/30 mb-0.5">Criado em</div>
-          <div className="font-medium text-slate-700 dark:text-white">{fmtDate(t.created_at)}</div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button onClick={onEdit} className="flex-1 min-w-[72px] py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] font-bold border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 transition flex items-center justify-center gap-1.5">
-          <IconEdit size={13} /> Editar
-        </button>
-        {!isSuperadmin && canManage && (
-          <>
-            <button onClick={onRenew} className="flex-1 min-w-[72px] py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 transition flex items-center justify-center gap-1.5">
-              <IconRefresh size={13} /> Renovar
-            </button>
-            <button onClick={onCredits} className="flex-1 min-w-[72px] py-2 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 text-[11px] font-bold border border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 transition flex items-center justify-center gap-1.5">
-              <IconCoins size={13} /> Créditos
-            </button>
-            <button onClick={onHistory} className="flex-1 min-w-[72px] py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/60 text-[11px] font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 transition flex items-center justify-center gap-1.5">
-              <IconClock size={13} /> Histórico
-            </button>
-            {t.license_status !== "ARCHIVED" && (
-              <button onClick={onArchive} className="flex-1 min-w-[72px] py-2 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 transition flex items-center justify-center gap-1.5">
-                <IconTrash size={13} /> Arquivar
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 
