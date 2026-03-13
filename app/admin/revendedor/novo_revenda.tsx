@@ -391,30 +391,37 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
           const { error } = await supabaseBrowser.rpc("update_reseller", {
             p_tenant_id: tenantId,
             p_reseller_id: resellerId,
-
             p_display_name: name.trim(),
-
-            // ✅ Removemos o "|| null". Ao apagar, envia "" (string vazia) e o banco apaga o registro.
-            p_email: email.trim().toLowerCase(),
-
-            // ✅ Agora as notas limpam de verdade se você apagar o texto!
+            p_email: email.trim().toLowerCase() || null,
             p_notes: notes.trim() || null,
-            p_clear_notes: notes.trim() === "",
-
+            p_clear_notes: notes.trim() === "", // Usa a flag nativa para notas se existir
             p_whatsapp_opt_in: Boolean(whatsappOptIn),
-            
-            // ✅ Removemos o "|| null" para permitir apagar o username também
-            p_whatsapp_username: whatsappUsername.trim(),
-            
+            p_whatsapp_username: whatsappUsername.trim() || null,
             p_whatsapp_snooze_until: dontMessageUntil
               ? new Date(dontMessageUntil).toISOString()
               : null,
-
             p_is_archived: null,
           });
 
           if (error) throw new Error(error.message);
 
+          // ✅ SOLUÇÃO À PROVA DE BALAS:
+          // Se a RPC ignorou os nulos e manteve o valor antigo, forçamos a limpeza direto na tabela.
+          const fieldsToClear: any = {};
+          if (!email.trim()) fieldsToClear.email = null;
+          if (!whatsappUsername.trim()) fieldsToClear.whatsapp_username = null;
+          if (!notes.trim()) fieldsToClear.notes = null;
+
+          // Se houver algum campo apagado na tela, roda o update forçado:
+          if (Object.keys(fieldsToClear).length > 0) {
+            const { error: updateErr } = await supabaseBrowser
+              .from("resellers")
+              .update(fieldsToClear)
+              .eq("id", resellerId)
+              .eq("tenant_id", tenantId); // Garantia de segurança
+
+            if (updateErr) console.warn("Falha ao forçar limpeza dos campos:", updateErr.message);
+          }
         }
 
         // =======================
