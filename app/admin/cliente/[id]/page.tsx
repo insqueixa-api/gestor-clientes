@@ -846,14 +846,14 @@ const EVENT_LABELS: Record<string, string> = {
                   
                   {client.secondary_display_name && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-white/40">Nome</span>
+                      <span className="text-xs text-slate-500 dark:text-white/40">Nome Secundário</span>
                       <span className="text-xs font-bold text-slate-700 dark:text-white/90 text-right">{client.secondary_display_name}</span>
                     </div>
                   )}
 
                   {client.secondary_phone_e164 && (
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-500 dark:text-white/40">WhatsApp</span>
+                      <span className="text-xs text-slate-500 dark:text-white/40">WhatsApp Secundário</span>
                       <a 
                         href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
                         target="_blank"
