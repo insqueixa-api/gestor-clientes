@@ -349,10 +349,23 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     if (!tenantId || !showNewAlert.targetId) return;
     if (!newAlertText.trim()) return addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
     try {
-      const { error } = await supabaseBrowser.from("client_alerts").insert({
-        tenant_id: tenantId, reseller_id: showNewAlert.targetId, message: newAlertText, status: "OPEN"
-      });
+      // Pega o ID do usuário logado para satisfazer possíveis regras RLS
+      const { data: userData } = await supabaseBrowser.auth.getUser();
+      
+      const payload = {
+        tenant_id: tenantId, 
+        reseller_id: showNewAlert.targetId, 
+        message: newAlertText, 
+        status: "OPEN",
+        // Envia explícito o created_by (útil para RLS) e null para client_id
+        created_by: userData?.user?.id || undefined,
+        client_id: null
+      };
+
+      const { error } = await supabaseBrowser.from("client_alerts").insert(payload);
+      
       if (error) throw error;
+      
       addToast("success", "Alerta criado!");
       setShowNewAlert({ open: false, targetId: null, targetName: undefined });
       setNewAlertText("");
@@ -386,16 +399,37 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     try {
       setSendingNow(true);
       const token = await getToken();
+      
+      // Cria o payload sem enviar string vazia no template
+      const payload: any = {
+        tenant_id: tenantId, 
+        reseller_id: showSendNow.resellerId, 
+        message: messageText, 
+        whatsapp_session: "default"
+      };
+      
+      if (selectedTemplateNowId) {
+        payload.message_template_id = selectedTemplateNowId;
+      }
+
       const res = await fetch("/api/whatsapp/envio_agora", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenant_id: tenantId, reseller_id: showSendNow.resellerId, message: messageText, whatsapp_session: "default", message_template_id: selectedTemplateNowId }),
+        method: "POST", 
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Falha ao enviar");
+      
+      const raw = await res.text();
+      let json: any = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch { }
+      
+      if (!res.ok) throw new Error(json?.error || raw || "Falha ao enviar");
+      
       addToast("success", "Mensagem enviada!");
       setShowSendNow({ open: false, resellerId: null });
       setMessageText("");
+      setSelectedTemplateNowId("");
     } catch (e: any) {
-      addToast("error", "Erro", e.message);
+      addToast("error", "Erro ao enviar", e.message);
     } finally {
       setSendingNow(false);
     }
@@ -407,17 +441,40 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     try {
       setScheduling(true);
       const token = await getToken();
+      
+      // Cria o payload sem enviar string vazia no template
+      const payload: any = {
+        tenant_id: tenantId, 
+        reseller_id: showScheduleMsg.resellerId, 
+        message: scheduleText, 
+        send_at: scheduleDate, 
+        whatsapp_session: "default"
+      };
+      
+      if (selectedTemplateScheduleId) {
+        payload.message_template_id = selectedTemplateScheduleId;
+      }
+
       const res = await fetch("/api/whatsapp/envio_agendado", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenant_id: tenantId, reseller_id: showScheduleMsg.resellerId, message: scheduleText, send_at: scheduleDate, whatsapp_session: "default", message_template_id: selectedTemplateScheduleId }),
+        method: "POST", 
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Falha ao agendar");
+      
+      const raw = await res.text();
+      let json: any = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch { }
+      
+      if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
+      
       addToast("success", "Mensagem agendada!");
       setShowScheduleMsg({ open: false, resellerId: null });
-      setScheduleText(""); setScheduleDate("");
+      setScheduleText(""); 
+      setScheduleDate("");
+      setSelectedTemplateScheduleId("");
       await loadData();
     } catch (e: any) {
-      addToast("error", "Erro", e.message);
+      addToast("error", "Erro ao agendar", e.message);
     } finally {
       setScheduling(false);
     }
@@ -666,6 +723,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
                     ))}
                   </tbody>
               </table>
+              {/* ✅ Espaço fixo depois da última revenda (para popups/menus não serem cortados) */}
+              <div className="h-24 md:h-20" />
             </div>
           )}
         </div>
@@ -706,45 +765,156 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
         <HistoryModal tenant={historyTarget} onClose={() => setHistoryTarget(null)} />
       )}
 
+      {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
       {showSendNow.open && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 dark:text-white">Enviar Mensagem Agora</h3>
-            <div className="flex gap-2">
-              <select value={selectedTemplateNowId} onChange={(e) => setSelectedTemplateNowId(e.target.value)} className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm">
-                <option value="">Selecionar mensagem...</option>
-                {messageTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button onClick={() => setShowNewTemplate({ open: true, target: "now" })} className="px-3 rounded-lg border text-xs font-bold text-slate-600 hover:bg-slate-50">+ Template</button>
+        <Modal title="Enviar Mensagem Rápida" onClose={() => {
+          setShowSendNow({ open: false, resellerId: null });
+          setSelectedTemplateNowId("");
+          setMessageText("");
+        }}>
+          <div className="space-y-4">
+            <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 p-3 rounded-lg flex items-center gap-3">
+               <span className="text-xl">💬</span>
+               <div className="text-sm text-sky-900 dark:text-sky-200">
+                 Esta mensagem será enviada <strong>imediatamente</strong> via WhatsApp.
+               </div>
             </div>
-            <textarea value={messageText} onChange={e => setMessageText(e.target.value)} className="w-full min-h-[120px] p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm" placeholder="Sua mensagem..." />
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                Mensagem pronta (opcional)
+              </label>
+              <select
+                value={selectedTemplateNowId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedTemplateNowId(id);
+                  if (id) {
+                    const tpl = messageTemplates.find((t) => t.id === id);
+                    setMessageText(tpl?.content ?? "");
+                  } else {
+                    setMessageText("");
+                  }
+                }}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+              >
+                <option value="">Selecionar...</option>
+                {messageTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <textarea
+              value={messageText}
+              disabled={!!selectedTemplateNowId}
+              onChange={(e) => {
+                if (selectedTemplateNowId) setSelectedTemplateNowId("");
+                setMessageText(e.target.value);
+              }}
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+              placeholder="Olá, gostaria de informar que..."
+              autoFocus
+            />
+
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowSendNow({ open: false, resellerId: null })} className="px-4 py-2 font-bold text-sm text-slate-500">Cancelar</button>
-              <button onClick={handleSendMessage} disabled={sendingNow} className="px-6 py-2 bg-sky-600 text-white font-bold rounded-lg text-sm">{sendingNow ? "Enviando..." : "Enviar"}</button>
+              <button 
+                onClick={() => setShowSendNow({ open: false, resellerId: null })} 
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={sendingNow}
+                className="px-6 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 shadow-lg shadow-sky-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <IconSend /> {sendingNow ? "Enviando..." : "Enviar Agora"}
+              </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
+      {/* --- MODAL DE AGENDAMENTO DE MENSAGEM --- */}
       {showScheduleMsg.open && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 dark:text-white">Agendar Mensagem</h3>
-            <div className="flex gap-2">
-              <select value={selectedTemplateScheduleId} onChange={(e) => setSelectedTemplateScheduleId(e.target.value)} className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm">
-                <option value="">Selecionar mensagem...</option>
-                {messageTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button onClick={() => setShowNewTemplate({ open: true, target: "schedule" })} className="px-3 rounded-lg border text-xs font-bold text-slate-600 hover:bg-slate-50">+ Template</button>
+        <Modal title="Agendar Mensagem" onClose={() => {
+          setShowScheduleMsg({ open: false, resellerId: null });
+          setSelectedTemplateScheduleId("");
+          setScheduleText("");
+          setScheduleDate("");
+        }}>
+          <div className="space-y-5">
+            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
+               <span className="text-xl">📅</span>
+               <div className="text-sm text-purple-900 dark:text-purple-200">
+                 Programe avisos ou cobranças para o futuro.
+               </div>
             </div>
-            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 rounded-lg text-sm" />
-            <textarea value={scheduleText} onChange={e => setScheduleText(e.target.value)} className="w-full min-h-[120px] p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm" placeholder="Mensagem agendada..." />
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+              <input
+                type="datetime-local"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conteúdo da Mensagem</label>
+              <div>
+                <select
+                  value={selectedTemplateScheduleId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedTemplateScheduleId(id);
+                    if (id) {
+                      const tpl = messageTemplates.find((t) => t.id === id);
+                      setScheduleText(tpl?.content ?? "");
+                    } else {
+                      setScheduleText("");
+                    }
+                  }}
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+                >
+                  <option value="">Selecionar mensagem pronta (opcional)...</option>
+                  {messageTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <textarea
+                value={scheduleText}
+                disabled={!!selectedTemplateScheduleId}
+                onChange={(e) => {
+                  if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
+                  setScheduleText(e.target.value);
+                }}
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-4 text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
+                placeholder="Ex: Olá, seu plano vence amanhã..."
+              />
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowScheduleMsg({ open: false, resellerId: null })} className="px-4 py-2 font-bold text-sm text-slate-500">Cancelar</button>
-              <button onClick={handleScheduleMessage} disabled={scheduling} className="px-6 py-2 bg-purple-600 text-white font-bold rounded-lg text-sm">{scheduling ? "Agendando..." : "Agendar"}</button>
+              <button 
+                onClick={() => setShowScheduleMsg({ open: false, resellerId: null })} 
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 text-sm font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleScheduleMessage}
+                disabled={scheduling}
+                className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-900/20 flex items-center gap-2 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <IconClock /> {scheduling ? "Agendando..." : "Confirmar Agendamento"}
+              </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showNewAlert.open && (
@@ -1482,3 +1652,18 @@ function IconTrash({ size = 16 }: { size?: number }) { return <svg width={size} 
 function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
 function IconSend() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></svg>; }
 function IconBell() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" /><path d="M10 21a2 2 0 0 0 4 0" /></svg>; }
+function Modal({ title, children, onClose }: { title: string, children: React.ReactNode, onClose: () => void }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 bg-black/70 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+          <div className="font-bold text-slate-800 dark:text-white tracking-tight">{title}</div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
