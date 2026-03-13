@@ -399,7 +399,7 @@ export default function PlanosPage() {
 
                       {isExpanded && (
                         <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
-                          {[1, 2, 3].map((screenCount) => (
+                          {(plan.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                             <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                               <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
                                 Preços para {screenCount} {plan.is_master_only 
