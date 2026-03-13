@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 // ============================================================
 // HELPERS DE TELEFONE (igual ao ResellerFormModal)
@@ -84,8 +85,19 @@ type SaasTenant = {
   whatsapp_username: string | null;
   notes: string | null;
   auth_email: string | null;
-  last_sign_in_at: string | null;
+last_sign_in_at: string | null;
+  alertsCount?: number; // ✅ ADICIONADO PARA O CONTADOR DE ALERTAS
 };
+
+type ScheduledMsg = {
+  id: string;
+  reseller_id: string;
+  send_at: string;
+  message: string;
+  status?: string | null;
+};
+
+type MessageTemplate = { id: string; name: string; content: string };
 
 type Transaction = {
   id: string;
@@ -182,8 +194,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function ActionBtn({ children, title, tone, onClick }: {
   children: React.ReactNode; title: string;
-  tone: "amber" | "green" | "blue" | "slate" | "red";
-  onClick: () => void;
+  tone: "amber" | "green" | "blue" | "slate" | "red" | "purple";
+  onClick: (e: React.MouseEvent) => void;
 }) {
   const colors = {
     amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
@@ -191,9 +203,10 @@ function ActionBtn({ children, title, tone, onClick }: {
     blue:  "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
     slate: "text-slate-600 dark:text-white/60 bg-slate-100 dark:bg-white/10 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/15",
     red:   "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
+    purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
   };
   return (
-    <button onClick={onClick} title={title} className={`p-1.5 rounded-lg border transition-all ${colors[tone]}`}>
+    <button onClick={(e) => { e.stopPropagation(); onClick(e); }} title={title} className={`p-1.5 rounded-lg border transition-all ${colors[tone]}`}>
       {children}
     </button>
   );
@@ -216,7 +229,58 @@ const [search, setSearch] = useState("");
   const [editTarget, setEditTarget] = useState<SaasTenant | null>(null);
   const [renewTarget, setRenewTarget] = useState<SaasTenant | null>(null);
   const [creditsTarget, setCreditsTarget] = useState<SaasTenant | null>(null);
-  const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
+const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
+
+  // --- MENSAGENS E ALERTAS ---
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  
+  const [showSendNow, setShowSendNow] = useState<{ open: boolean; resellerId: string | null }>({ open: false, resellerId: null });
+  const [messageText, setMessageText] = useState("");
+  
+  const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; resellerId: string | null }>({ open: false, resellerId: null });
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleText, setScheduleText] = useState("");
+  
+  const [showNewAlert, setShowNewAlert] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
+  const [newAlertText, setNewAlertText] = useState("");
+  
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
+  const [selectedTemplateNowId, setSelectedTemplateNowId] = useState("");
+  const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState("");
+  const [sendingNow, setSendingNow] = useState(false);
+  const sendNowAbortRef = useRef<AbortController | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+  
+  const [showNewTemplate, setShowNewTemplate] = useState<{ open: boolean; target: "now" | "schedule" }>({ open: false, target: "now" });
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateContent, setNewTemplateContent] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  
+  const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
+  const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({ open: false, resellerId: null });
+  
+  const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
+  const [tenantAlerts, setTenantAlerts] = useState<any[]>([]);
+
+  // Efeitos para carregar conteúdo de templates
+  useEffect(() => {
+    if (!selectedTemplateNowId) return;
+    const t = messageTemplates.find((x) => x.id === selectedTemplateNowId);
+    if (t) setMessageText(t.content || "");
+  }, [selectedTemplateNowId, messageTemplates]);
+
+  useEffect(() => {
+    if (!selectedTemplateScheduleId) return;
+    const t = messageTemplates.find((x) => x.id === selectedTemplateScheduleId);
+    if (t) setScheduleText(t.content || "");
+  }, [selectedTemplateScheduleId, messageTemplates]);
+
+  async function getToken() {
+    const { data: { session } } = await supabaseBrowser.auth.getSession();
+    if (!session?.access_token) throw new Error("Sem sessão");
+    return session.access_token;
+  }
 
   const addToast = (type: "success" | "error", title: string, msg?: string) => {
     const id = Date.now() + Math.random();
@@ -227,18 +291,49 @@ const [search, setSearch] = useState("");
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const tid = await getCurrentTenantId();
+      setTenantId(tid);
+      
+      if (tid) {
+        const { data: tpls } = await supabaseBrowser.from("message_templates").select("id,name,content").eq("tenant_id", tid);
+        setMessageTemplates(tpls || []);
+      }
+
       const [roleRes, tenantsRes] = await Promise.all([
         supabaseBrowser.rpc("saas_my_role"),
-        supabaseBrowser
-          .from("vw_saas_tenants")
-          .select("*")
-          .order("created_at", { ascending: false }),
+        supabaseBrowser.from("vw_saas_tenants").select("*").order("created_at", { ascending: false }),
       ]);
       setMyRole(roleRes.data ?? "");
+      
       if (tenantsRes.error) {
         addToast("error", "Erro ao carregar revendas", tenantsRes.error.message);
       } else {
-        setTenants((tenantsRes.data as SaasTenant[]) ?? []);
+        const fetched = (tenantsRes.data as SaasTenant[]) ?? [];
+        const ids = fetched.map(t => t.id);
+
+        if (tid && ids.length > 0) {
+          // Buscar Alertas Abertos
+          const { data: alerts } = await supabaseBrowser.from("client_alerts").select("reseller_id").eq("tenant_id", tid).in("reseller_id", ids).eq("status", "OPEN");
+          const alertsMap = new Map<string, number>();
+          (alerts || []).forEach(a => {
+            const rid = String(a.reseller_id);
+            alertsMap.set(rid, (alertsMap.get(rid) || 0) + 1);
+          });
+
+          // Buscar Agendamentos Pendentes
+          const { data: jobs } = await supabaseBrowser.from("client_message_jobs").select("id,reseller_id,send_at,message,status").eq("tenant_id", tid).in("reseller_id", ids).in("status", ["SCHEDULED", "QUEUED"]).gte("send_at", new Date().toISOString());
+          const jobsMap: Record<string, ScheduledMsg[]> = {};
+          (jobs || []).forEach(row => {
+            const rid = String(row.reseller_id);
+            if (!jobsMap[rid]) jobsMap[rid] = [];
+            jobsMap[rid].push(row as ScheduledMsg);
+          });
+          setScheduledMap(jobsMap);
+
+          setTenants(fetched.map(t => ({ ...t, alertsCount: alertsMap.get(t.id) || 0 })));
+        } else {
+          setTenants(fetched);
+        }
       }
     } catch (e: any) {
       addToast("error", "Erro ao carregar revendas", e.message);
@@ -248,6 +343,107 @@ const [search, setSearch] = useState("");
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // --- API HANDLERS (Alertas e Mensagens) ---
+  const handleSaveAlert = async () => {
+    if (!tenantId || !showNewAlert.targetId) return;
+    if (!newAlertText.trim()) return addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
+    try {
+      const { error } = await supabaseBrowser.from("client_alerts").insert({
+        tenant_id: tenantId, reseller_id: showNewAlert.targetId, message: newAlertText, status: "OPEN"
+      });
+      if (error) throw error;
+      addToast("success", "Alerta criado!");
+      setShowNewAlert({ open: false, targetId: null, targetName: undefined });
+      setNewAlertText("");
+      await loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao criar alerta", e?.message);
+    }
+  };
+
+  const handleOpenAlertList = async (targetId: string, targetName: string) => {
+    setTenantAlerts([]);
+    setShowAlertList({ open: true, targetId, targetName });
+    if (!tenantId) return;
+    const { data } = await supabaseBrowser.from("client_alerts").select("*").eq("tenant_id", tenantId).eq("reseller_id", targetId).eq("status", "OPEN").order("created_at", { ascending: false });
+    if (data) setTenantAlerts(data);
+  };
+
+  const handleDeleteAlert = async (alertId: string) => {
+    try {
+      await supabaseBrowser.from("client_alerts").delete().eq("id", alertId);
+      setTenantAlerts(prev => prev.filter(a => String(a.id) !== String(alertId)));
+      await loadData();
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!tenantId || !showSendNow.resellerId || sendingNow) return;
+    if (!messageText.trim()) return addToast("error", "Vazio", "Digite a mensagem.");
+    try {
+      setSendingNow(true);
+      const token = await getToken();
+      const res = await fetch("/api/whatsapp/envio_agora", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, reseller_id: showSendNow.resellerId, message: messageText, whatsapp_session: "default", message_template_id: selectedTemplateNowId }),
+      });
+      if (!res.ok) throw new Error("Falha ao enviar");
+      addToast("success", "Mensagem enviada!");
+      setShowSendNow({ open: false, resellerId: null });
+      setMessageText("");
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    } finally {
+      setSendingNow(false);
+    }
+  };
+
+  const handleScheduleMessage = async () => {
+    if (!tenantId || !showScheduleMsg.resellerId || scheduling) return;
+    if (!scheduleText.trim() || !scheduleDate) return addToast("error", "Erro", "Preencha a data e a mensagem.");
+    try {
+      setScheduling(true);
+      const token = await getToken();
+      const res = await fetch("/api/whatsapp/envio_agendado", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, reseller_id: showScheduleMsg.resellerId, message: scheduleText, send_at: scheduleDate, whatsapp_session: "default", message_template_id: selectedTemplateScheduleId }),
+      });
+      if (!res.ok) throw new Error("Falha ao agendar");
+      addToast("success", "Mensagem agendada!");
+      setShowScheduleMsg({ open: false, resellerId: null });
+      setScheduleText(""); setScheduleDate("");
+      await loadData();
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleSaveNewTemplate = async () => {
+    if (!tenantId || !newTemplateName.trim() || !newTemplateContent.trim()) return addToast("error", "Erro", "Preencha tudo.");
+    try {
+      setSavingTemplate(true);
+      const { data, error } = await supabaseBrowser.from("message_templates").insert({ tenant_id: tenantId, name: newTemplateName, content: newTemplateContent }).select("id").single();
+      if (error) throw error;
+      const newId = String((data as any)?.id || "");
+      const { data: tpls } = await supabaseBrowser.from("message_templates").select("id,name,content").eq("tenant_id", tenantId);
+      setMessageTemplates(tpls || []);
+      if (showNewTemplate.target === "now") { setSelectedTemplateNowId(newId); setMessageText(newTemplateContent); }
+      else { setSelectedTemplateScheduleId(newId); setScheduleText(newTemplateContent); }
+      addToast("success", "Template salvo!");
+      setShowNewTemplate({ open: false, target: "now" });
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  function closeAllPopups() { setMsgMenuForId(null); }
 
   const handleArchive = async (t: SaasTenant) => {
     if (!confirm(`Arquivar "${t.name}"? O acesso será suspenso.`)) return;
@@ -449,17 +645,26 @@ const [search, setSearch] = useState("");
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {filtered.map(t => (
-                    <TenantRow
-                      key={t.id} t={t} canManage={canManage}
-                      onEdit={() => setEditTarget(t)}
-                      onRenew={() => setRenewTarget(t)}
-                      onCredits={() => setCreditsTarget(t)}
-                      onHistory={() => setHistoryTarget(t)}
-                      onArchive={() => handleArchive(t)}
-                    />
-                  ))}
-                </tbody>
+                    {filtered.map(t => (
+                      <TenantRow
+                        key={t.id} t={t} canManage={canManage}
+                        onEdit={() => setEditTarget(t)}
+                        onRenew={() => setRenewTarget(t)}
+                        onCredits={() => setCreditsTarget(t)}
+                        onHistory={() => setHistoryTarget(t)}
+                        onArchive={() => handleArchive(t)}
+                        // NOVAS PROPRIEDADES:
+                        scheduledMap={scheduledMap}
+                        msgMenuForId={msgMenuForId}
+                        setMsgMenuForId={setMsgMenuForId}
+                        onMessageNow={() => { setMsgMenuForId(null); setMessageText(""); setShowSendNow({ open: true, resellerId: t.id }); }}
+                        onMessageSchedule={() => { setMsgMenuForId(null); setScheduleText(""); setScheduleDate(""); setShowScheduleMsg({ open: true, resellerId: t.id }); }}
+                        onOpenScheduled={() => setShowScheduledModal({ open: true, resellerId: t.id, resellerName: t.name })}
+                        onNewAlert={() => { setNewAlertText(""); setShowNewAlert({ open: true, targetId: t.id, targetName: t.name }); }}
+                        onOpenAlerts={() => handleOpenAlertList(t.id, t.name)}
+                      />
+                    ))}
+                  </tbody>
               </table>
             </div>
           )}
@@ -501,6 +706,112 @@ const [search, setSearch] = useState("");
         <HistoryModal tenant={historyTarget} onClose={() => setHistoryTarget(null)} />
       )}
 
+      {showSendNow.open && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
+            <h3 className="font-bold text-slate-800 dark:text-white">Enviar Mensagem Agora</h3>
+            <div className="flex gap-2">
+              <select value={selectedTemplateNowId} onChange={(e) => setSelectedTemplateNowId(e.target.value)} className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm">
+                <option value="">Selecionar mensagem...</option>
+                {messageTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button onClick={() => setShowNewTemplate({ open: true, target: "now" })} className="px-3 rounded-lg border text-xs font-bold text-slate-600 hover:bg-slate-50">+ Template</button>
+            </div>
+            <textarea value={messageText} onChange={e => setMessageText(e.target.value)} className="w-full min-h-[120px] p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm" placeholder="Sua mensagem..." />
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowSendNow({ open: false, resellerId: null })} className="px-4 py-2 font-bold text-sm text-slate-500">Cancelar</button>
+              <button onClick={handleSendMessage} disabled={sendingNow} className="px-6 py-2 bg-sky-600 text-white font-bold rounded-lg text-sm">{sendingNow ? "Enviando..." : "Enviar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showScheduleMsg.open && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
+            <h3 className="font-bold text-slate-800 dark:text-white">Agendar Mensagem</h3>
+            <div className="flex gap-2">
+              <select value={selectedTemplateScheduleId} onChange={(e) => setSelectedTemplateScheduleId(e.target.value)} className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm">
+                <option value="">Selecionar mensagem...</option>
+                {messageTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button onClick={() => setShowNewTemplate({ open: true, target: "schedule" })} className="px-3 rounded-lg border text-xs font-bold text-slate-600 hover:bg-slate-50">+ Template</button>
+            </div>
+            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 rounded-lg text-sm" />
+            <textarea value={scheduleText} onChange={e => setScheduleText(e.target.value)} className="w-full min-h-[120px] p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-sm" placeholder="Mensagem agendada..." />
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowScheduleMsg({ open: false, resellerId: null })} className="px-4 py-2 font-bold text-sm text-slate-500">Cancelar</button>
+              <button onClick={handleScheduleMessage} disabled={scheduling} className="px-6 py-2 bg-purple-600 text-white font-bold rounded-lg text-sm">{scheduling ? "Agendando..." : "Agendar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewAlert.open && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
+            <h3 className="font-bold text-slate-800 dark:text-white">Novo Alerta: {showNewAlert.targetName}</h3>
+            <textarea value={newAlertText} onChange={e => setNewAlertText(e.target.value)} className="w-full p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 text-sm min-h-[100px]" placeholder="Motivo do alerta..." />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowNewAlert({ open: false, targetId: null })} className="font-bold text-sm text-slate-500">Cancelar</button>
+              <button onClick={handleSaveAlert} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg text-sm">Salvar Alerta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAlertList.open && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="font-bold text-slate-800 dark:text-white mb-4">Alertas de {showAlertList.targetName}</h3>
+            {tenantAlerts.length === 0 ? (
+              <p className="text-sm text-slate-500">Nenhum alerta aberto.</p>
+            ) : (
+              tenantAlerts.map(a => (
+                <div key={a.id} className="flex justify-between items-start p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 rounded-lg">
+                  <span className="text-sm text-slate-700 dark:text-white">{a.message}</span>
+                  <button onClick={() => handleDeleteAlert(a.id)} className="text-xs text-rose-500 font-bold hover:underline">Excluir</button>
+                </div>
+              ))
+            )}
+            <button onClick={() => setShowAlertList({ open: false, targetId: null })} className="w-full mt-4 py-2 border rounded-lg font-bold text-slate-600">Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {showScheduledModal.open && showScheduledModal.resellerId && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="font-bold text-slate-800 dark:text-white mb-4">Mensagens Agendadas</h3>
+            {(scheduledMap[showScheduledModal.resellerId] || []).length === 0 ? (
+              <p className="text-sm text-slate-500">Nenhuma mensagem na fila.</p>
+            ) : (
+              (scheduledMap[showScheduledModal.resellerId] || []).map(s => (
+                <div key={s.id} className="p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 rounded-lg mb-2">
+                  <div className="text-xs font-bold text-purple-600 mb-1">{new Date(s.send_at).toLocaleString("pt-BR")}</div>
+                  <div className="text-sm text-slate-700 dark:text-white">{s.message}</div>
+                </div>
+              ))
+            )}
+            <button onClick={() => setShowScheduledModal({ open: false, resellerId: null })} className="w-full py-2 border rounded-lg font-bold text-slate-600">Fechar</button>
+          </div>
+        </div>
+      )}
+
+      {showNewTemplate.open && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 rounded-xl shadow-2xl p-6 space-y-4">
+            <h3 className="font-bold">Salvar novo Template</h3>
+            <input value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} className="w-full h-10 px-3 bg-slate-50 border rounded-lg text-sm" placeholder="Nome (Ex: Cobrança)" />
+            <textarea value={newTemplateContent} onChange={e => setNewTemplateContent(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-lg text-sm min-h-[100px]" placeholder="Conteúdo..." />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowNewTemplate({ open: false, target: "now" })} className="text-sm font-bold text-slate-500">Cancelar</button>
+              <button onClick={handleSaveNewTemplate} disabled={savingTemplate} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg text-sm">{savingTemplate ? "Salvando..." : "Salvar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
@@ -511,37 +822,54 @@ const [search, setSearch] = useState("");
 // ============================================================
 // LINHA DESKTOP
 // ============================================================
-function TenantRow({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive }: {
+function TenantRow({ 
+  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive,
+  scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
+}: {
   t: SaasTenant; canManage: boolean;
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
   onHistory: () => void; onArchive: () => void;
+  scheduledMap: Record<string, ScheduledMsg[]>;
+  msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
+  onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
+  onNewAlert: () => void; onOpenAlerts: () => void;
 }) {
   const isSuperadmin = t.role === "SUPERADMIN";
   const days = daysUntil(t.expires_at);
+  const scheduledCount = scheduledMap[t.id]?.length || 0;
+
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
       <td className="px-4 py-3">
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
-          {/* Nome e Responsável (na mesma linha) */}
-          <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-            {t.name}
-            {t.responsible_name && t.responsible_name !== t.name && (
-              <span className="text-slate-400 dark:text-white/30 font-normal"> / {t.responsible_name}</span>
-            )}
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+              {t.name}
+              {t.responsible_name && t.responsible_name !== t.name && (
+                <span className="text-slate-400 dark:text-white/30 font-normal"> / {t.responsible_name}</span>
+              )}
+            </div>
+
+            {/* Badges de Notificação */}
+            <div className="flex items-center gap-1 shrink-0">
+              {(t.alertsCount ?? 0) > 0 && (
+                <button type="button" onClick={onOpenAlerts} title={`${t.alertsCount} alerta(s)`} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse">
+                  🔔 {t.alertsCount}
+                </button>
+              )}
+              {scheduledCount > 0 && (
+                <button type="button" onClick={onOpenScheduled} title={`${scheduledCount} agendada(s)`} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse">
+                  🗓️ {scheduledCount}
+                </button>
+              )}
+            </div>
           </div>
           
-          {/* WhatsApp ou Telefone (mesma cor do @username do cliente) */}
           {t.whatsapp_username ? (
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate mt-0.5">
-              @{t.whatsapp_username}
-            </span>
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate mt-0.5">@{t.whatsapp_username}</span>
           ) : t.phone_e164 ? (
-            <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate mt-0.5">
-              {t.phone_e164}
-            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate mt-0.5">{t.phone_e164}</span>
           ) : null}
-
-          {/* Email em destaque menor */}
           <div className="text-[10px] font-mono text-slate-400 dark:text-white/30 mt-0.5 truncate">
             {t.auth_email || t.contact_email || "—"}
           </div>
@@ -574,7 +902,25 @@ function TenantRow({ t, canManage, onEdit, onRenew, onCredits, onHistory, onArch
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity relative">
+          
+          {/* Botões do WhatsApp */}
+          <div className="relative">
+            <ActionBtn title="Mensagem" tone="blue" onClick={(e) => { e.stopPropagation(); setMsgMenuForId((cur) => (cur === t.id ? null : t.id)); }}>
+              <IconChat />
+            </ActionBtn>
+            {msgMenuForId === t.id && (
+              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] z-50 shadow-2xl overflow-hidden p-1">
+                <button onClick={onMessageNow} className="w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-bold rounded-lg"><IconSend /> Enviar agora</button>
+                <button onClick={onMessageSchedule} className="w-full px-4 py-2.5 flex items-center gap-3 text-slate-600 dark:text-white/60 hover:bg-emerald-500/10 hover:text-emerald-600 transition-all text-left text-sm font-bold rounded-lg"><IconClock /> Programar</button>
+              </div>
+            )}
+          </div>
+
           <ActionBtn title="Editar perfil" tone="amber" onClick={onEdit}><IconEdit /></ActionBtn>
+          
+          {/* Novo Botão de Alerta */}
+          <ActionBtn title="Novo alerta" tone="purple" onClick={onNewAlert}><IconBell /></ActionBtn>
+
           {!isSuperadmin && canManage && (
             <>
               <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconRefresh /></ActionBtn>
@@ -1133,3 +1479,6 @@ function IconRefresh({ size = 16 }: { size?: number }) { return <svg width={size
 function IconCoins({ size = 16 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>; }
 function IconClock({ size = 16 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 function IconTrash({ size = 16 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>; }
+function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
+function IconSend() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></svg>; }
+function IconBell() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" /><path d="M10 21a2 2 0 0 0 4 0" /></svg>; }
