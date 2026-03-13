@@ -985,15 +985,17 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
         </div>
       </div>
 
-      {/* Barra de Filtros */}
+      {/* Barra de Filtros Completa */}
       <div
-        className="px-3 sm:px-0 p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
+        className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
           Filtros Rápidos
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* MOBILE: Pesquisa + Botão Filtros */}
+        <div className="md:hidden flex items-center gap-2">
           <div className="flex-1 relative">
             <input
               value={search}
@@ -1005,197 +1007,120 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               <button
                 onClick={() => setSearch("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                title="Limpar pesquisa"
               >
                 <IconX />
               </button>
             )}
           </div>
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
+              (statusFilter !== "Todos" || serverFilter !== "Todos" || archivedFilter === "Sim")
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
+            }`}
+          >
+            Filtros
+          </button>
+        </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setMobileFiltersOpen(true);
-              }}
-              className="md:hidden h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors flex items-center gap-2 whitespace-nowrap"
-              title="Filtros"
-            >
-              <IconFilter />
-              Filtros
-            </button>
-
+        {/* DESKTOP: Linha única */}
+        <div className="hidden md:flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar revenda..."
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+              >
+                <IconX />
+              </button>
+            )}
+          </div>
+          <div className="w-[190px]">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-              title="Status"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
-              <option value="Todos">Status</option>
+              <option value="Todos">Status (Todos)</option>
               <option value="Ativo">Ativo</option>
               <option value="Inativo">Inativo</option>
               <option value="Arquivado">Arquivado</option>
             </select>
-
+          </div>
+          <div className="w-[220px]">
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
-              className="hidden md:block h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-              title="Servidor"
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
             >
-              <option value="Todos">Servidor</option>
+              <option value="Todos">Servidor (Todos)</option>
               {(serversOptions || []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
-
-            <button
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("Todos");
-                setServerFilter("Todos");
-                setArchivedFilter("Não");
-              }}
-              className="hidden md:flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
-              title="Limpar filtros"
-            >
-              <IconX />
-              <span className="hidden sm:inline">Limpar</span>
-            </button>
           </div>
-        </div>
-      </div>
-
-      {mobileFiltersOpen && (
-        <div
-          className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm md:hidden"
-          onMouseDown={() => setMobileFiltersOpen(false)}
-        >
-          <div
-            className="fixed bottom-0 left-0 right-0 rounded-t-2xl bg-white dark:bg-[#161b22] border-t border-slate-200 dark:border-white/10 p-4 space-y-3"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-extrabold text-slate-700 dark:text-white">Filtros</div>
-              <button
-                onClick={() => setMobileFiltersOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-white/70"
-                title="Fechar"
-              >
-                <IconX />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/40 mb-1.5">
-                Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-              >
-                <option value="Todos">Todos</option>
-                <option value="Ativo">Ativo</option>
-                <option value="Inativo">Inativo</option>
-                <option value="Arquivado">Arquivado</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/40 mb-1.5">
-                Servidor
-              </label>
-              <select
-                value={serverFilter}
-                onChange={(e) => setServerFilter(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-              >
-                <option value="Todos">Todos</option>
-                {(serversOptions || []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não")}
-              className={`w-full h-11 px-3 rounded-lg text-sm font-extrabold border transition-colors flex items-center justify-center gap-2 ${archivedFilter === "Sim"
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
-                }`}
-              title="Lixeira"
-            >
-              <IconTrash />
-              {archivedFilter === "Sim" ? "Lixeira: ON" : "Lixeira: OFF"}
-            </button>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => setMobileFiltersOpen(false)}
-                className="flex-1 h-11 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-extrabold"
-              >
-                Fechar
-              </button>
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("Todos");
-                  setServerFilter("Todos");
-                  setArchivedFilter("Não");
-                  setMobileFiltersOpen(false);
-                }}
-                className="flex-1 h-11 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-extrabold shadow-lg shadow-rose-900/20"
-              >
-                Limpar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {loading && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/5 font-medium">
-          Carregando revendas...
-        </div>
-      )}
-
-      {serverHasNoLinks && (
-        <div
-          className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-4 py-3 flex items-start gap-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mt-0.5 shrink-0">
-            <IconFilter />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-extrabold tracking-tight">
-              Nenhuma revenda vinculada a este servidor
-            </div>
-            <div className="text-xs mt-1 opacity-80">
-              Servidor: <span className="font-bold">{serverSelectedName}</span>.
-              Se isso não era esperado, verifique os vínculos em <span className="font-bold">reseller_servers</span> ou limpe o filtro.
-            </div>
-          </div>
-
           <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setServerFilter("Todos");
+            onClick={() => {
+              setSearch(""); setStatusFilter("Todos"); setServerFilter("Todos"); setArchivedFilter("Não");
             }}
-            className="shrink-0 h-9 px-3 rounded-lg border border-amber-500/30 bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 text-amber-700 dark:text-amber-300 text-xs font-extrabold transition-colors whitespace-nowrap"
-            title="Limpar filtro de servidor"
+            className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
           >
-            Limpar
+            <IconX /> Limpar
           </button>
         </div>
-      )}
+
+        {/* PAINEL MOBILE INLINE */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+            <button
+              onClick={() => setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))}
+              className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+                archivedFilter === "Sim"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+              }`}
+            >
+              <span className="flex items-center gap-2"><IconTrash /> Filtrar Lixeira</span>
+              <span className="text-xs opacity-80">{archivedFilter === "Sim" ? "ON" : "OFF"}</span>
+            </button>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            >
+              <option value="Todos">Status (Todos)</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Inativo">Inativo</option>
+              <option value="Arquivado">Arquivado</option>
+            </select>
+            <select
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            >
+              <option value="Todos">Servidor (Todos)</option>
+              {(serversOptions || []).map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                setSearch(""); setStatusFilter("Todos"); setServerFilter("Todos"); setArchivedFilter("Não"); setMobileFiltersOpen(false);
+              }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <IconX /> Limpar
+            </button>
+          </div>
+        )}
+      </div>
 
       {!loading && (
         <div
