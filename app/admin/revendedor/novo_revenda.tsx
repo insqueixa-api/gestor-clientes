@@ -389,30 +389,31 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
         // ✏️ UPDATE
         if (isEditing) {
           const { error } = await supabaseBrowser.rpc("update_reseller", {
-  p_tenant_id: tenantId,
-  p_reseller_id: resellerId,
+            p_tenant_id: tenantId,
+            p_reseller_id: resellerId,
 
-  // ✅ nome correto do campo
-  p_display_name: name.trim(),
+            p_display_name: name.trim(),
 
-  p_email: email.trim().toLowerCase() || null,
+            // ✅ Removemos o "|| null". Ao apagar, envia "" (string vazia) e o banco apaga o registro.
+            p_email: email.trim().toLowerCase(),
 
-  // ✅ notas NUNCA limpam automaticamente
-  p_notes: notes.trim() || null,
-  p_clear_notes: false,
+            // ✅ Agora as notas limpam de verdade se você apagar o texto!
+            p_notes: notes.trim() || null,
+            p_clear_notes: notes.trim() === "",
 
-  // ✅ whatsapp
-  p_whatsapp_opt_in: Boolean(whatsappOptIn),
-  p_whatsapp_username: whatsappUsername.trim() || null,
-  p_whatsapp_snooze_until: dontMessageUntil
-    ? new Date(dontMessageUntil).toISOString()
-    : null,
+            p_whatsapp_opt_in: Boolean(whatsappOptIn),
+            
+            // ✅ Removemos o "|| null" para permitir apagar o username também
+            p_whatsapp_username: whatsappUsername.trim(),
+            
+            p_whatsapp_snooze_until: dontMessageUntil
+              ? new Date(dontMessageUntil).toISOString()
+              : null,
 
-  // pode manter null se sua função tratar como "não alterar"
-  p_is_archived: null,
-});
+            p_is_archived: null,
+          });
 
-if (error) throw new Error(error.message);
+          if (error) throw new Error(error.message);
 
         }
 
