@@ -372,6 +372,7 @@ async function saveWaConfig() {
             setCreatedAt(d.toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' }));
         }
 
+        // ✅ 1. SEU CÓDIGO ORIGINAL (SEM MEXER NO SELECT PARA NÃO QUEBRAR)
         const { data: member } = await supabaseBrowser
           .from("tenant_members")
           .select(
@@ -379,10 +380,7 @@ async function saveWaConfig() {
               role,
               tenants (
                 id,
-                name,
-                license_status,
-                expires_at,
-                credit_balance
+                name
               )
             `
           )
@@ -390,6 +388,7 @@ async function saveWaConfig() {
           .maybeSingle();
 
         let companyName = "";
+        let currentTenantId = null; // Guardamos para usar na busca extra
 
         if (member) {
           setRoleRaw(member.role || null);
@@ -408,11 +407,8 @@ async function saveWaConfig() {
           
           if (currentT) {
             companyName = currentT.name || "";
-            setTenantId(currentT.id || null);
-            // ✅ Salva os dados de assinatura
-            setLicenseStatus(currentT.license_status || "ACTIVE");
-            setExpiresAt(currentT.expires_at || null);
-            setCreditBalance(currentT.credit_balance || 0);
+            currentTenantId = currentT.id || null;
+            setTenantId(currentTenantId);
           } else {
             setTenantId(null);
           }
@@ -420,6 +416,21 @@ async function saveWaConfig() {
           setRoleRaw(null);
           setRole("Visitante");
           setTenantId(null);
+        }
+
+        // ✅ 2. BUSCA SEGURA DOS DETALHES DE ASSINATURA NA VIEW CORRETA
+        if (currentTenantId) {
+          const { data: saasData } = await supabaseBrowser
+            .from("vw_saas_tenants")
+            .select("license_status, expires_at, credit_balance")
+            .eq("id", currentTenantId)
+            .maybeSingle();
+            
+          if (saasData) {
+            setLicenseStatus(saasData.license_status || "ACTIVE");
+            setExpiresAt(saasData.expires_at || null);
+            setCreditBalance(saasData.credit_balance || 0);
+          }
         }
 
 
