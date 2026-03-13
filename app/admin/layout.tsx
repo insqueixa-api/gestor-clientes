@@ -77,7 +77,7 @@ export default async function AdminLayout({
   // ✅ LÓGICA DE PRIORIDADE CORRIGIDA:
   // 1. Nome salvo no perfil
   // 2. Nome da Empresa (Tenant) <-- Vai cair aqui no seu caso
-  // 3. Fallback do Auth/Email
+  // 3. Fallback do Auth/E-mail
   const authLabel = pickUserLabel(user);
   const tenantName = tenantRow?.name ?? "Tenant";
   
@@ -93,5 +93,6 @@ const userRole = (realRole as string | null)?.toUpperCase() ?? "USER";
         {children}
       </AdminShell>
     </ThemeProvider>
+
   );
 }
