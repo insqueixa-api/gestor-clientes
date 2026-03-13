@@ -669,10 +669,11 @@ const sortedTenants = useMemo(() => {
         ))}
       </div>
 
-      {/* --- BARRA DE FILTROS COMPLETA --- */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 md:sticky md:top-4 z-20 mb-6">
-        
-        <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
+{/* --- BARRA DE FILTROS COMPLETA --- */}
+      <div className="px-3 sm:px-0">
+        <div className="md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 md:sticky md:top-4 z-20 mb-6">
+          
+          <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -811,11 +812,11 @@ const sortedTenants = useMemo(() => {
             </button>
           </div>
         )}
+        </div>
       </div>
 
-      {/* LISTA */}
-      <div className="px-3 sm:px-0">
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden sm:mx-0">
+{/* LISTA */}
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-800 dark:text-white">
               Revendedores
@@ -871,7 +872,6 @@ const sortedTenants = useMemo(() => {
               <div className="h-24 md:h-20" />
             </div>
           )}
-        </div>
       </div>
 
       {/* MODAIS */}
