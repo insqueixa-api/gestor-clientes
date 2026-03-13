@@ -1232,8 +1232,10 @@ function TenantRow({
           {!isSuperadmin && canManage && (
             <>
               {/* ✅ MUDOU PARA IconMoney PARA FICAR IGUAL A CLIENTES */}
-              <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
-              <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
+<ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
+{t.role !== "USER" && (
+  <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
+)}
               <ActionBtn title="Histórico" tone="slate" onClick={onHistory}><IconClock /></ActionBtn>
               
               {/* ✅ LÓGICA DE ARQUIVAR / RESTAURAR / DELETAR IGUAL A CLIENTES */}
@@ -1580,14 +1582,21 @@ function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
   onClose: () => void; onSuccess: () => void; onError: (m: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const [days, setDays] = useState(30);
-  const creditsNeeded = Math.ceil(days / 30);
-  const isSuperadmin = myRole === "SUPERADMIN";
+  const PERIODS = [
+    { label: "Mensal",     days: 30  },
+    { label: "Bimestral",  days: 60  },
+    { label: "Trimestral", days: 90  },
+    { label: "Semestral",  days: 180 },
+    { label: "Anual",      days: 365 },
+  ];
+  const [selectedDays, setSelectedDays] = useState(30);
+  const creditsNeeded = Math.ceil(selectedDays / 30);
+  const isSuperadmin = myRole.toUpperCase() === "SUPERADMIN";
 
   const handleRenew = async () => {
     setSaving(true);
     const { error } = await supabaseBrowser.rpc("saas_renew_license", {
-      p_tenant_id: tenant.id, p_days: days, p_description: `Renovação de ${days} dias`,
+      p_tenant_id: tenant.id, p_days: selectedDays, p_description: `Renovação de ${selectedDays} dias`,
     });
     setSaving(false);
     if (error) onError(error.message); else onSuccess();
@@ -1608,41 +1617,35 @@ function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
           </div>
           <div>
             <FieldLabel>Período</FieldLabel>
-            <div className="grid grid-cols-4 gap-2 mt-1 mb-2">
-              {[7, 15, 30, 60].map(d => (
-                <button key={d} onClick={() => setDays(d)}
-                  className={`py-2 rounded-lg border text-xs font-bold transition-all ${days === d ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"}`}>
-                  {d}d
+            <div className="flex flex-col gap-2 mt-1">
+              {PERIODS.map(p => (
+                <button key={p.days} onClick={() => setSelectedDays(p.days)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-bold transition-all ${
+                    selectedDays === p.days
+                      ? "bg-emerald-500 border-emerald-500 text-white"
+                      : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5"
+                  }`}>
+                  <span>{p.label}</span>
+                  <span className={`text-xs font-bold ${selectedDays === p.days ? "text-white/80" : "text-slate-400"}`}>
+                    {isSuperadmin ? "Gratuito" : `${Math.ceil(p.days / 30)} crédito${Math.ceil(p.days / 30) > 1 ? "s" : ""}`}
+                  </span>
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[90, 180, 365].map(d => (
-                <button key={d} onClick={() => setDays(d)}
-                  className={`py-2 rounded-lg border text-xs font-bold transition-all ${days === d ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"}`}>
-                  {d}d
-                </button>
-              ))}
-              <FieldInput type="number" min={1} value={days} onChange={e => setDays(Number(e.target.value))} className="text-center text-xs" />
+          </div>
+          {!isSuperadmin && (
+            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg p-3 text-center">
+              <div className="text-xs text-slate-400 mb-1">Total a descontar</div>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{creditsNeeded}</div>
+              <div className="text-xs text-slate-400">crédito{creditsNeeded > 1 ? "s" : ""} para {selectedDays} dias</div>
             </div>
-          </div>
-          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg p-3 text-center">
-            {isSuperadmin ? (
-              <span className="text-emerald-700 dark:text-emerald-400 font-bold text-sm">Renovação gratuita (Superadmin)</span>
-            ) : (
-              <>
-                <div className="text-xs text-slate-400 mb-1">Créditos necessários</div>
-                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{creditsNeeded}</div>
-                <div className="text-xs text-slate-400">para {days} dias</div>
-              </>
-            )}
-          </div>
+          )}
         </div>
         <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-3">
           <button onClick={onClose} className="text-slate-500 dark:text-white/50 font-bold text-xs uppercase">Cancelar</button>
           <button onClick={handleRenew} disabled={saving}
             className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-lg text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50">
-            {saving ? "Renovando..." : `Renovar ${days}d`}
+            {saving ? "Renovando..." : `Renovar — ${PERIODS.find(p => p.days === selectedDays)?.label}`}
           </button>
         </div>
       </div>
