@@ -96,7 +96,7 @@ export default function PlanosPage() {
           )
         `
         )
-        .eq("tenant_id", tenantId)
+        .or(`tenant_id.eq.${tenantId},is_system_default.eq.true`)
         .order("is_system_default", { ascending: false })
         .order("created_at", { ascending: true });
 
