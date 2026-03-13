@@ -1186,6 +1186,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                             {r.name}
                           </Link>
 
+                          {/* Botões de Alerta e Agendamento */}
                           <div className="flex items-center gap-1 shrink-0">
                             {r.alertsCount > 0 && (
                               <button
@@ -1217,9 +1218,23 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                           </div>
                         </div>
 
-                        <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
-                          {r.primary_phone}
-                        </span>
+                        {/* WhatsApp Username ou Telefone */}
+                        {r.whatsapp_username ? (
+                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate mt-0.5">
+                            @{r.whatsapp_username}
+                          </span>
+                        ) : r.primary_phone && r.primary_phone !== "—" ? (
+                          <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate mt-0.5">
+                            {r.primary_phone}
+                          </span>
+                        ) : null}
+
+                        {/* E-mail */}
+                        {r.email && (
+                          <div className="text-[10px] font-mono text-slate-400 dark:text-white/30 mt-0.5 truncate">
+                            {r.email}
+                          </div>
+                        )}
                       </div>
                     </Td>
 
