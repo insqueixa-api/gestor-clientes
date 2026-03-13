@@ -584,7 +584,8 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
   // ✅ Stats: Remove o seu próprio usuário e os SUPERADMINS das estatísticas
   const nonSuperTenants = tenants.filter(t => t.role !== "SUPERADMIN" && t.id !== tenantId);
   const stats = {
-    total:    nonSuperTenants.length,
+    // ✅ Alterado: Filtra para não somar os revendedores que estão na lixeira (ARCHIVED)
+    total:    nonSuperTenants.filter(t => t.license_status !== "ARCHIVED").length,
     active:   nonSuperTenants.filter(t => t.license_status === "ACTIVE").length,
     trial:    nonSuperTenants.filter(t => t.license_status === "TRIAL").length,
     expired:  nonSuperTenants.filter(t => t.license_status === "EXPIRED").length,

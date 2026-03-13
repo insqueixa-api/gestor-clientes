@@ -51,10 +51,12 @@ export default function AdminShell({
   children,
   userLabel,
   tenantName,
+  role, // ✅ NOVA PROP
 }: {
   children: React.ReactNode;
   userLabel: string;
   tenantName: string;
+  role: string; // ✅ NOVA PROP (ex: "SUPERADMIN", "MASTER", "USER")
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
 
@@ -274,7 +276,12 @@ export default function AdminShell({
               Conta
             </div>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
+            
+            {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
+            {role !== "USER" && (
+              <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
+            )}
+
             <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
@@ -288,7 +295,12 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
+            
+            {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
+            {role !== "USER" && (
+              <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
+            )}
+
             <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
