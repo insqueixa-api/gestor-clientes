@@ -127,7 +127,7 @@ export default function GestaoSaasDetailPage() {
   );
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a]">
+    <div className="space-y-6 pt-0 pb-28 sm:pb-32 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a]">
 
       {/* HEADER */}
       <div className="flex items-center justify-between gap-3 px-3 sm:px-0 pt-4">
@@ -155,7 +155,7 @@ export default function GestaoSaasDetailPage() {
 
       {/* INFO DO MASTER */}
       <div className="mx-3 sm:mx-0 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
             <StatusBadge status={master.license_status} />
@@ -168,15 +168,16 @@ export default function GestaoSaasDetailPage() {
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
             <div className="font-bold text-emerald-600 dark:text-emerald-400">{master.credit_balance}</div>
           </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Contato</div>
-            <div className="flex flex-col gap-0.5">
-              <div className="text-xs text-slate-500 dark:text-white/50 truncate">{master.contact_email || "—"}</div>
-              {master.whatsapp_username && (
-                <div className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate">
-                  @{master.whatsapp_username}
-                </div>
-              )}
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">E-mail</div>
+            <div className="text-xs text-slate-500 dark:text-white/50 truncate" title={master.contact_email || ""}>
+              {master.contact_email || "—"}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
+            <div className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate">
+              {master.whatsapp_username ? `@${master.whatsapp_username}` : "—"}
             </div>
           </div>
         </div>
