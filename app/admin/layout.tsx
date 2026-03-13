@@ -84,8 +84,7 @@ export default async function AdminLayout({
   const userLabel = profile?.display_name || tenantName || authLabel;
 
   // ✅ NOVO: Pega a role que o banco já buscou lá em cima, padroniza e envia pro AdminShell
-  const { data: realRole } = await supabase.rpc("saas_my_role");
-const userRole = (realRole as string | null)?.toUpperCase() ?? "USER";
+const userRole = member.role === "owner" ? "MASTER" : "USER";
 
   return (
     <ThemeProvider defaultTheme="light">
