@@ -839,23 +839,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
             </>
           )}
 
-          {/* Seção: Identificação */}
-          <SectionTitle>Identificação</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mode === "edit" && (
-              <div className="md:col-span-2">
-                <FieldLabel>Nome do Tenant</FieldLabel>
-                <FieldInput value={name} disabled />
-              </div>
-            )}
-
-            {mode === "edit" && (
-              <div>
-                <FieldLabel>E-mail de contato</FieldLabel>
-                <FieldInput type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contato@email.com" />
-              </div>
-            )}
-          </div>
+          
 
           {/* Seção: WhatsApp / Telefone */}
           <SectionTitle>Contato WhatsApp</SectionTitle>
