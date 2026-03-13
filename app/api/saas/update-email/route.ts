@@ -21,8 +21,8 @@ export async function POST(req: Request) {
   if (!tenant_id || !new_email)
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
 
-  // Busca o user_id do tenant
-  const { data: member } = await supabase
+// Busca o user_id do tenant (via service_role para bypass de RLS)
+  const { data: member } = await adminSupabase
     .from("tenant_members")
     .select("user_id")
     .eq("tenant_id", tenant_id)

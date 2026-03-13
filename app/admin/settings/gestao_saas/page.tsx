@@ -1333,10 +1333,11 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
     setPhoneE164(inferred.e164);
     setPhoneDisplay(inferred.formattedNational || inferred.nationalDigits || phoneDisplay);
     setPhoneConfirmed(true);
-    // Auto-preenche username com os dígitos do telefone se estiver vazio
-    const finalUser = waUsername.trim() || inferred.e164.replace(/\D+/g, "");
-    if (!waUsername.trim()) setWaUsername(finalUser);
-    void validateWa(finalUser);
+    // Sempre sincroniza o username com o novo telefone
+    const newUsername = inferred.e164.replace(/\D+/g, "");
+    setWaUsername(newUsername);
+    setWaValidation(null);
+    void validateWa(newUsername);
   }
 
   const phoneCountryInfo = splitE164(phoneE164);
@@ -1527,10 +1528,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
                   </button>
                 </div>
               </div>
-              {phoneE164 && phoneConfirmed && (
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">✓ {phoneE164}</p>
-              )}
-            </div>
+          </div>
 
             {/* WhatsApp Username */}
             <div>
@@ -1763,10 +1761,17 @@ function HistoryModal({ tenant, onClose }: { tenant: SaasTenant; onClose: () => 
       .then(({ data }) => { setTransactions((data as Transaction[]) ?? []); setLoading(false); });
   }, [tenant.id]);
 
-  const typeStyle: Record<string, string> = {
-    CREDIT: "text-emerald-600 dark:text-emerald-400",
-    DEBIT:  "text-rose-600 dark:text-rose-400",
-    GRANT:  "text-purple-600 dark:text-purple-400",
+const typeStyle: Record<string, string> = {
+    purchase: "text-sky-600 dark:text-sky-400",
+    consume:  "text-rose-600 dark:text-rose-400",
+    grant:    "text-emerald-600 dark:text-emerald-400",
+    refund:   "text-purple-600 dark:text-purple-400",
+  };
+  const typeLabel: Record<string, string> = {
+    purchase: "Compra",
+    consume:  "Consumo",
+    grant:    "Recebido",
+    refund:   "Reembolso",
   };
 
   if (typeof document === "undefined") return null;
@@ -1799,7 +1804,9 @@ function HistoryModal({ tenant, onClose }: { tenant: SaasTenant; onClose: () => 
                 {transactions.map(tx => (
                   <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono">{fmtDateTime(tx.created_at)}</td>
-                    <td className="px-4 py-3"><span className={`text-xs font-bold uppercase ${typeStyle[tx.type] ?? "text-slate-500"}`}>{tx.type}</span></td>
+                    <span className={`text-xs font-bold ${typeStyle[tx.type] ?? "text-slate-500"}`}>
+  {typeLabel[tx.type] ?? tx.type}
+</span>
                     <td className={`px-4 py-3 font-bold text-sm ${typeStyle[tx.type] ?? "text-slate-500"}`}>{tx.amount > 0 ? "+" : ""}{tx.amount}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/50">{tx.description}</td>
                   </tr>
