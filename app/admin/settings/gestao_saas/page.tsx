@@ -219,10 +219,11 @@ export default function GestaoSaasPage() {
   const [tenants, setTenants] = useState<SaasTenant[]>([]);
   const [myRole, setMyRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
-const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("Todos");
-  const [statusFilter, setStatusFilter] = useState("ATIVOS");
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false); // NOVO ESTADO
+  const [statusFilter, setStatusFilter] = useState("Todos"); // ✅ MUDADO PARA "Todos"
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [archivedFilter, setArchivedFilter] = useState<"Não" | "Sim">("Não"); // ✅ ADICIONADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const [showNew, setShowNew] = useState(false);
@@ -519,9 +520,18 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
+      // ✅ 1. Filtro Exclusivo de Lixeira
+      if (archivedFilter === "Sim") {
+        if (t.license_status !== "ARCHIVED") return false;
+      } else {
+        if (t.license_status === "ARCHIVED") return false;
+      }
+
+      // ✅ 2. Filtro de Role e Status Secundários
       if (roleFilter !== "Todos" && t.role !== roleFilter) return false;
-      if (statusFilter === "ATIVOS" && t.license_status === "ARCHIVED") return false;
-      if (statusFilter !== "Todos" && statusFilter !== "ATIVOS" && t.license_status !== statusFilter) return false;
+      if (statusFilter !== "Todos" && t.license_status !== statusFilter) return false;
+
+      // ✅ 3. Busca por Texto
       if (q) {
         const hay = [t.name, t.slug, t.responsible_name, t.auth_email, t.contact_email, t.whatsapp_username, t.phone_e164, t.role]
           .filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -529,7 +539,7 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
       }
       return true;
     });
-  }, [tenants, search, roleFilter, statusFilter]);
+  }, [tenants, search, roleFilter, statusFilter, archivedFilter]);
 
   // Stats: não conta o superadmin nos números
   const nonSuperTenants = tenants.filter(t => t.role !== "SUPERADMIN");
@@ -554,16 +564,34 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
             <span className="font-bold text-slate-500 dark:text-white/50 lowercase">{myRole || "carregando..."}</span>
           </p>
         </div>
-        {canManage && (
+        
+        {/* Ações Direita (Lixeira + Novo) */}
+        <div className="flex items-center gap-2 justify-end shrink-0">
           <button
-            onClick={() => setShowNew(true)}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+            }}
+            className={`hidden md:inline-flex h-9 md:h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+              archivedFilter === "Sim"
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/10"
+            }`}
           >
-            <span className="text-base leading-none">+</span> Novo Revenda
+            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
           </button>
-        )}
-      </div>
 
+          {canManage && (
+            <button
+              onClick={() => setShowNew(true)}
+              className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+            >
+              <span className="text-base leading-none">+</span> Novo Revendedor
+            </button>
+          )}
+        </div>
+      </div>
+      
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 sm:px-0">
         {[
@@ -603,13 +631,14 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
           </div>
           <button
             onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${
-              (roleFilter !== "Todos" || statusFilter !== "Todos")
+            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors flex items-center gap-2 ${
+              (roleFilter !== "Todos" || statusFilter !== "Todos" || archivedFilter === "Sim")
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50"
+                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"
             }`}
           >
-            Filtros
+            <IconFilter />
+            <span className="hidden sm:inline">Filtros</span>
           </button>
         </div>
 
@@ -640,19 +669,61 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
           <div className="w-[190px]">
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
-              <option value="ATIVOS">Ativos (padrão)</option>
-              <option value="Todos">Todos (incl. arquivados)</option>
+              <option value="Todos">Status (Todos)</option>
               <option value="ACTIVE">Ativo</option>
               <option value="TRIAL">Trial</option>
               <option value="EXPIRED">Expirado</option>
-              <option value="ARCHIVED">Arquivado</option>
             </select>
           </div>
-          <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); }}
+          <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); setArchivedFilter("Não"); }}
             className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center gap-1.5">
             <IconX /> Limpar
           </button>
         </div>
+
+        {/* PAINEL MOBILE */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+            
+            {/* ✅ Lixeira no Mobile */}
+            <button
+              onClick={() => setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"))}
+              className={`w-full h-10 px-3 rounded-lg text-sm font-bold border transition-colors flex items-center justify-between ${
+                archivedFilter === "Sim"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <IconTrash size={16} />
+                Filtrar Lixeira
+              </span>
+              <span className="text-xs opacity-80">
+                {archivedFilter === "Sim" ? "ON" : "OFF"}
+              </span>
+            </button>
+
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              <option value="Todos">Role (Todos)</option>
+              <option value="SUPERADMIN">Superadmin</option>
+              <option value="MASTER">Master</option>
+              <option value="USER">User</option>
+            </select>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              <option value="Todos">Status (Todos)</option>
+              <option value="ACTIVE">Ativo</option>
+              <option value="TRIAL">Trial</option>
+              <option value="EXPIRED">Expirado</option>
+            </select>
+            <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); setArchivedFilter("Não"); setMobileFiltersOpen(false); }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
+              <IconX /> Limpar
+            </button>
+          </div>
+        )}
+      
 
         {/* PAINEL MOBILE */}
         {mobileFiltersOpen && (
@@ -1676,5 +1747,12 @@ function Modal({ title, children, onClose }: { title: string, children: React.Re
       </div>
     </div>,
     document.body
+  );
+}
+function IconFilter() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 3H2l8 9v7l4 2v-9l8-9Z" />
+    </svg>
   );
 }
