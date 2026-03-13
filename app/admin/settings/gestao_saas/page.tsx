@@ -231,7 +231,7 @@ export default function GestaoSaasPage() {
   const [editTarget, setEditTarget] = useState<SaasTenant | null>(null);
   const [renewTarget, setRenewTarget] = useState<SaasTenant | null>(null);
   const [creditsTarget, setCreditsTarget] = useState<SaasTenant | null>(null);
-const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
+
 
   // --- MENSAGENS E ALERTAS ---
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -594,15 +594,22 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
   const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
 
   // ✅ Remove o SEU PRÓPRIO usuário logado de aparecer na tabela!
-  const sortedTenants = useMemo(() => {
-    // 1. Remove você mesmo
-    const listSemEu = filtered.filter(t => t.id !== tenantId);
-    
-    // 2. Ordena o que sobrou (A-Z)
-    listSemEu.sort((a, b) => a.name.localeCompare(b.name));
-    
-    return listSemEu;
+const sortedTenants = useMemo(() => {
+    const diretos = filtered.filter(t => t.parent_tenant_id === tenantId);
+    diretos.sort((a, b) => a.name.localeCompare(b.name));
+    return diretos;
   }, [filtered, tenantId]);
+
+  // Contador de rede por tenant (calculado do array completo)
+  const networkCount = useMemo(() => {
+    const map: Record<string, number> = {};
+    tenants.forEach(t => {
+      if (t.parent_tenant_id) {
+        map[t.parent_tenant_id] = (map[t.parent_tenant_id] || 0) + 1;
+      }
+    });
+    return map;
+  }, [tenants]);
 
 
   return (
@@ -837,14 +844,14 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                     {sortedTenants.map(t => (
                       <TenantRow
-                        key={t.id} t={t} canManage={canManage} 
+                        key={t.id} t={t} canManage={canManage}
+                        networkCount={networkCount[t.id] || 0}
                         onEdit={() => setEditTarget(t)}
                         onRenew={() => setRenewTarget(t)}
                         onCredits={() => setCreditsTarget(t)}
-                        onHistory={() => setHistoryTarget(t)}
                         onArchive={() => handleArchive(t)}
                         onDelete={() => handleDelete(t)}
-                        onRestore={() => handleRestore(t)} // ✅ ADICIONADO
+                        onRestore={() => handleRestore(t)}
                         // NOVAS PROPRIEDADES:
                         scheduledMap={scheduledMap}
                         msgMenuForId={msgMenuForId}
@@ -896,9 +903,7 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
           onError={m => addToast("error", "Erro", m)}
         />
       )}
-      {historyTarget && (
-        <HistoryModal tenant={historyTarget} onClose={() => setHistoryTarget(null)} />
-      )}
+
 
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
       {showSendNow.open && (
@@ -1130,12 +1135,13 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore,
+  t, canManage, networkCount, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore,
+
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
-  t: SaasTenant; canManage: boolean; 
+  t: SaasTenant; canManage: boolean; networkCount: number;
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
-  onHistory: () => void; onArchive: () => void; onDelete: () => void; onRestore: () => void;
+  onArchive: () => void; onDelete: () => void; onRestore: () => void;
   scheduledMap: Record<string, ScheduledMsg[]>;
   msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
   onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
@@ -1150,16 +1156,32 @@ function TenantRow({
       <td className="px-4 py-3">
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
           <div className="flex items-center gap-2 whitespace-nowrap">
-            <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-              {t.name}
-              
+            <div className="font-semibold truncate">
+              {t.role === "MASTER" ? (
+  <a
+    href={`/admin/settings/gestao_saas/${t.id}`}
+    className="text-emerald-600 dark:text-emerald-400 hover:underline"
+    onClick={e => e.stopPropagation()}
+  >
+    {t.name}
+  </a>
+              ) : (
+                <span className="text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {t.name}
+                </span>
+              )}
               {t.responsible_name && t.responsible_name !== t.name && (
-                <span className="text-slate-400 dark:text-white/30 font-normal"> / {t.responsible_name}</span>
+                <span className="text-slate-400 dark:text-white/30 font-normal text-xs ml-1">/ {t.responsible_name}</span>
               )}
             </div>
 
             {/* Badges de Notificação */}
             <div className="flex items-center gap-1 shrink-0">
+              {networkCount > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 border border-slate-200 dark:border-white/10 whitespace-nowrap">
+                  {networkCount} na rede
+                </span>
+              )}
               {(t.alertsCount ?? 0) > 0 && (
                 <button type="button" onClick={onOpenAlerts} title={`${t.alertsCount} alerta(s)`} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse">
                   🔔 {t.alertsCount}
@@ -1226,19 +1248,14 @@ function TenantRow({
 
           <ActionBtn title="Editar perfil" tone="amber" onClick={onEdit}><IconEdit /></ActionBtn>
           
-          {/* Novo Botão de Alerta */}
           <ActionBtn title="Novo alerta" tone="purple" onClick={onNewAlert}><IconBell /></ActionBtn>
 
           {!isSuperadmin && canManage && (
             <>
-              {/* ✅ MUDOU PARA IconMoney PARA FICAR IGUAL A CLIENTES */}
-<ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
-{t.role !== "USER" && (
-  <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
-)}
-              <ActionBtn title="Histórico" tone="slate" onClick={onHistory}><IconClock /></ActionBtn>
-              
-              {/* ✅ LÓGICA DE ARQUIVAR / RESTAURAR / DELETAR IGUAL A CLIENTES */}
+              <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
+              {t.role !== "USER" && (
+                <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
+              )}
               <ActionBtn 
                 title={t.license_status === "ARCHIVED" ? "Restaurar" : "Arquivar"} 
                 tone={t.license_status === "ARCHIVED" ? "green" : "red"} 
@@ -1246,8 +1263,6 @@ function TenantRow({
               >
                 {t.license_status === "ARCHIVED" ? <IconRestore /> : <IconTrash />}
               </ActionBtn>
-
-              {/* Botão de Excluir Definitivo só aparece se já estiver Arquivado */}
               {t.license_status === "ARCHIVED" && (
                 <ActionBtn title="Deletar permanentemente" tone="red" onClick={onDelete}><IconTrash /></ActionBtn>
               )}
