@@ -73,10 +73,83 @@ export default function PlanosPage() {
 
 
   // --- Carregamento de Dados (Integral) ---
-  async function fetchPlano() {
-    try {
-      setLoading(true);
-      const tenantId = await getCurrentTenantId();
+  async function ensureTablesCloned(tenantId: string) {
+  const supabase = supabaseBrowser;
+
+  // Verifica se já tem tabelas próprias
+  const { data: own } = await supabase
+    .from("plan_tables")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("is_system_default", false);
+
+  if (own && own.length > 0) return; // já tem, não clona
+
+  // Busca todas as tabelas padrão do sistema
+  const { data: defaults } = await supabase
+    .from("plan_tables")
+    .select(`id, name, currency, is_master_only,
+      items:plan_table_items (
+        id, period, months, credits_base
+      )`)
+    .eq("is_system_default", true);
+
+  if (!defaults || defaults.length === 0) return;
+
+  const monthsMap: Record<string, number> = {
+    MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
+  };
+
+  for (const tpl of defaults as any[]) {
+    // Cria a tabela para o tenant
+    const { data: newTable } = await supabase
+      .from("plan_tables")
+      .insert({
+        tenant_id: tenantId,
+        name: tpl.name,
+        currency: tpl.currency,
+        is_system_default: false,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+
+    if (!newTable) continue;
+
+    for (const item of (tpl.items || []) as any[]) {
+      const { data: newItem } = await supabase
+        .from("plan_table_items")
+        .insert({
+          tenant_id: tenantId,
+          plan_table_id: newTable.id,
+          period: item.period,
+          months: monthsMap[item.period] ?? 1,
+          credits_base: item.credits_base,
+        })
+        .select("id")
+        .single();
+
+      if (!newItem) continue;
+
+      // Insere preços ZERADOS
+      const screens = tpl.is_master_only ? [1, 2] : [1, 2, 3];
+      await supabase.from("plan_table_item_prices").insert(
+        screens.map(s => ({
+          tenant_id: tenantId,
+          plan_table_item_id: newItem.id,
+          screens_count: s,
+          price_amount: null,
+        }))
+      );
+    }
+  }
+}
+
+async function fetchPlano() {
+  try {
+    setLoading(true);
+    const tenantId = await getCurrentTenantId();
+    await ensureTablesCloned(tenantId);
       const supabase = supabaseBrowser;
 
       const { data, error } = await supabase
@@ -97,7 +170,7 @@ export default function PlanosPage() {
           )
         `
         )
-        .or(`tenant_id.eq.${tenantId},is_system_default.eq.true`)
+        .eq("tenant_id", tenantId)
         .order("is_system_default", { ascending: false })
         .order("created_at", { ascending: true });
 
