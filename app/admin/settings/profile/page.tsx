@@ -372,35 +372,33 @@ async function saveWaConfig() {
             setCreatedAt(d.toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' }));
         }
 
-        // ✅ 1. SEU CÓDIGO ORIGINAL (SEM MEXER NO SELECT PARA NÃO QUEBRAR)
-        const { data: member } = await supabaseBrowser
-          .from("tenant_members")
-          .select(
-            `
-              role,
-              tenants (
-                id,
-                name
-              )
-            `
-          )
-          .eq("user_id", user.id)
-          .maybeSingle();
+        // Busca tenant_members + saas_my_role em paralelo
+        const [memberRes, roleRes] = await Promise.all([
+          supabaseBrowser
+            .from("tenant_members")
+            .select(
+              `
+                role,
+                tenants (
+                  id,
+                  name
+                )
+              `
+            )
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabaseBrowser.rpc("saas_my_role"),
+        ]);
+
+        const member = memberRes.data;
+        const saasRole = (roleRes.data ?? "USER").toUpperCase();
 
         let companyName = "";
-        let currentTenantId = null; // Guardamos para usar na busca extra
+        let currentTenantId = null;
 
         if (member) {
           setRoleRaw(member.role || null);
-
-          // ✅ TRADUÇÃO DE OWNER PARA SUPERADMIN
-          let roleName = "Visitante";
-          if (member.role === "owner" || member.role === "SUPERADMIN") roleName = "SUPERADMIN";
-          else if (member.role === "MASTER") roleName = "MASTER";
-          else if (member.role === "USER") roleName = "USER";
-          else if (member.role) roleName = member.role.toUpperCase();
-
-          setRole(roleName);
+          setRole(saasRole);
 
           const t: any = member.tenants;
           const currentT = Array.isArray(t) ? t[0] : t;

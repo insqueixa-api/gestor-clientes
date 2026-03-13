@@ -553,7 +553,7 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
     if (!ok) return;
 
     try {
-      const { error } = await supabaseBrowser.from("tenants").update({ license_status: "INACTIVE" }).eq("id", t.id);
+      const { error } = await supabaseBrowser.rpc("saas_restore_tenant", { p_tenant_id: t.id });
       if (error) throw error;
       addToast("success", "Restaurado", `${t.name} foi restaurado com sucesso.`); 
       loadData();
