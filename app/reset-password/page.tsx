@@ -61,10 +61,11 @@ export default function ResetPasswordPage() {
 
       if (error) throw error;
 
-      setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
+setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
       
       setTimeout(() => {
-        router.push("/"); 
+        // Redirecionamento absoluto para o endereço correto
+        window.location.href = "https://unigestor.net.br/login";
       }, 2000);
       
     } catch (err: unknown) {
@@ -179,7 +180,7 @@ export default function ResetPasswordPage() {
               </form>
             ) : (
               <button
-                onClick={() => router.push("/")}
+                onClick={() => window.location.href = "https://unigestor.net.br/login"}
                 className="w-full rounded-xl py-3 font-semibold transition bg-slate-800 text-white hover:bg-slate-900 dark:bg-white/10 dark:hover:bg-white/20"
               >
                 Voltar ao Login
