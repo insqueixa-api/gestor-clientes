@@ -226,11 +226,16 @@ export default function ProfileSettingsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("");
+const [email, setEmail] = useState("");
   const [role, setRole] = useState("Carregando...");
-const [roleRaw, setRoleRaw] = useState<string | null>(null);
+  const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
-// ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
+  // ✅ NOVO: Estados da Assinatura
+  const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+
+  // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
 const canPairWhatsApp = !!userId && !!tenantId;
 
 
@@ -374,36 +379,41 @@ async function saveWaConfig() {
               role,
               tenants (
                 id,
-                name
+                name,
+                license_status,
+                expires_at,
+                credit_balance
               )
             `
           )
           .eq("user_id", user.id)
           .maybeSingle();
 
-
         let companyName = "";
 
         if (member) {
           setRoleRaw(member.role || null);
 
-          const roleName = member.role === "owner" ? "Admin (Dono)" : member.role || "Membro";
+          let roleName = "Visitante";
+          if (member.role === "owner" || member.role === "SUPERADMIN") roleName = "SUPERADMIN";
+          else if (member.role === "MASTER") roleName = "MASTER";
+          else if (member.role === "USER") roleName = "USER";
+          else if (member.role) roleName = member.role.toUpperCase();
+
           setRole(roleName);
 
           const t: any = member.tenants;
-          if (Array.isArray(t)) {
-            companyName = t[0]?.name || "";
-            setTenantId(t[0]?.id || null);
-          } else if (t) {
-            companyName = t.name || "";
-            setTenantId(t.id || null);
+          const currentT = Array.isArray(t) ? t[0] : t;
+          
+          if (currentT) {
+            companyName = currentT.name || "";
+            setTenantId(currentT.id || null);
+            setLicenseStatus(currentT.license_status || "ACTIVE");
+            setExpiresAt(currentT.expires_at || null);
+            setCreditBalance(currentT.credit_balance || 0);
           } else {
             setTenantId(null);
           }
-        } else {
-          setRoleRaw(null);
-          setRole("Visitante");
-          setTenantId(null);
         }
 
 
@@ -1125,24 +1135,36 @@ return (
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
     Dados Pessoais
   </h3>
-  {!isEditing ? (
-    <button
-      onClick={() => setIsEditing(true)}
-      className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
-    >
-      ✏️ Editar
-    </button>
-  ) : (
-    <button
-      onClick={handleSave}
-      disabled={saving}
-      className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
-    >
-      {saving ? "Salvando..." : "💾 Salvar"}
-    </button>
-  )}
+  <div className="flex items-center gap-2">
+    {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
+    {role !== "SUPERADMIN" && (
+      <button
+        onClick={() => alert("Abrir checkout ou modal de pagamento")} // 👈 Ajuste com a sua rota/função real de pagamento
+        className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-900/20"
+      >
+        <IconMoney /> Renovar
+      </button>
+    )}
+
+    {!isEditing ? (
+      <button
+        onClick={() => setIsEditing(true)}
+        className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
+      >
+        ✏️ Editar
+      </button>
+    ) : (
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="h-7 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
+      >
+        {saving ? "Salvando..." : "💾 Salvar"}
+      </button>
+    )}
+  </div>
 </div>
-           
+            
             {/* LINHA 1: NOME + PERFIL */}
             <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
   <div className="col-span-2">
@@ -1157,7 +1179,11 @@ return (
   </div>
   <div className="col-span-1">
     <Label>Perfil</Label>
-    <div className="h-10 px-2 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold text-center">
+    <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${
+      role === "SUPERADMIN" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20" :
+      role === "MASTER" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20" :
+      "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60 border-slate-200 dark:border-white/10"
+    }`}>
       {role}
     </div>
   </div>
@@ -1191,27 +1217,27 @@ return (
                         
                         {/* MODO LEITURA: Link Clicável */}
                         <Input
-  className="pl-8 pr-10"
-  value={whatsappUsername}
-  onChange={handleWhatsChange}
-  placeholder="5521999999999"
-  readOnly={!isEditing}
-  onFocus={() => setIsEditing(true)}
-/>
-{whatsappUsername && (
-  <a
-    href={`https://wa.me/${whatsappUsername}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    onClick={e => e.stopPropagation()}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
-    title="Abrir no WhatsApp"
-  >
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
-    </svg>
-  </a>
-)}
+                          className="pl-8 pr-10"
+                          value={whatsappUsername}
+                          onChange={handleWhatsChange}
+                          placeholder="5521999999999"
+                          readOnly={!isEditing}
+                          onFocus={() => setIsEditing(true)}
+                        />
+                        {whatsappUsername && (
+                          <a
+                            href={`https://wa.me/${whatsappUsername}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+                            title="Abrir no WhatsApp"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+                            </svg>
+                          </a>
+                        )}
                     </div>
                     {waValidation && (
                       <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
@@ -1221,14 +1247,52 @@ return (
                       </div>
                     )}
                 </div>
+                
                 <div>
                      <Label>Membro desde</Label>
                     <div className="h-10 px-3 flex items-center text-slate-500 dark:text-white/50 text-xs">
                         {createdAt || "—"}
                     </div>
                 </div>
+            </div> {/* ✅ FECHOU A LINHA 3 AQUI */}
+
+            {/* ✅ LINHA 4 - ASSINATURA */}
+            <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
+              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
+                Detalhes da Assinatura
+              </div>
+              <div className="flex flex-wrap gap-10">
+                {/* 1. Status: Todos veem */}
+                <div>
+                  <Label>Status</Label>
+                  <div className="h-10 flex items-center">
+                    <StatusBadge status={licenseStatus} />
+                  </div>
+                </div>
+
+                {/* 2. Validade: MASTER e USER veem (Oculto para SUPERADMIN) */}
+                {role !== "SUPERADMIN" && (
+                  <div>
+                    <Label>Validade</Label>
+                    <div className="h-10 flex items-center text-sm font-bold text-slate-700 dark:text-white">
+                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Créditos: APENAS MASTER vê */}
+                {role === "MASTER" && (
+                  <div>
+                    <Label>Saldo de Créditos</Label>
+                    <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      {creditBalance}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+
+          </div> {/* ✅ FECHOU O CARD DE DADOS PESSOAIS */}
 
           {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
@@ -1552,5 +1616,24 @@ return (
         </div>
       </div>
     </div>
+  );
+}
+function IconMoney() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+    TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+    EXPIRED:  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+    ARCHIVED: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border-slate-200 dark:border-white/10",
+    INACTIVE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+  };
+  const label: Record<string, string> = {
+    ACTIVE: "Ativo", TRIAL: "Trial", EXPIRED: "Expirado", ARCHIVED: "Arquivado", INACTIVE: "Inativo",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${map[status] ?? map.INACTIVE}`}>
+      {label[status] ?? status}
+    </span>
   );
 }
