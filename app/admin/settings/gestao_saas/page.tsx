@@ -221,7 +221,7 @@ export default function GestaoSaasPage() {
   const [loading, setLoading] = useState(true);
 const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("Todos");
-  const [statusFilter, setStatusFilter] = useState("Todos");
+  const [statusFilter, setStatusFilter] = useState("ATIVOS");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false); // NOVO ESTADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -497,6 +497,18 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
 
   function closeAllPopups() { setMsgMenuForId(null); }
 
+  const handleDelete = async (t: SaasTenant) => {
+    if (!confirm(`DELETAR permanentemente "${t.name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const { error } = await supabaseBrowser.rpc("saas_delete_tenant", { p_tenant_id: t.id });
+      if (error) throw error;
+      addToast("success", "Deletado", `${t.name} foi removido permanentemente.`);
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao deletar", e.message);
+    }
+  };
+
   const handleArchive = async (t: SaasTenant) => {
     if (!confirm(`Arquivar "${t.name}"? O acesso será suspenso.`)) return;
     const { error } = await supabaseBrowser.rpc("saas_archive_tenant", { p_tenant_id: t.id });
@@ -508,7 +520,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
       if (roleFilter !== "Todos" && t.role !== roleFilter) return false;
-      if (statusFilter !== "Todos" && t.license_status !== statusFilter) return false;
+      if (statusFilter === "ATIVOS" && t.license_status === "ARCHIVED") return false;
+      if (statusFilter !== "Todos" && statusFilter !== "ATIVOS" && t.license_status !== statusFilter) return false;
       if (q) {
         const hay = [t.name, t.slug, t.responsible_name, t.auth_email, t.contact_email, t.whatsapp_username, t.phone_e164, t.role]
           .filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -627,7 +640,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
           <div className="w-[190px]">
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
-              <option value="Todos">Status (Todos)</option>
+              <option value="ATIVOS">Ativos (padrão)</option>
+              <option value="Todos">Todos (incl. arquivados)</option>
               <option value="ACTIVE">Ativo</option>
               <option value="TRIAL">Trial</option>
               <option value="EXPIRED">Expirado</option>
@@ -705,6 +719,7 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
                         onCredits={() => setCreditsTarget(t)}
                         onHistory={() => setHistoryTarget(t)}
                         onArchive={() => handleArchive(t)}
+                        onDelete={() => handleDelete(t)}
                         // NOVAS PROPRIEDADES:
                         scheduledMap={scheduledMap}
                         msgMenuForId={msgMenuForId}
@@ -988,12 +1003,12 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive,
+  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete,
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
   t: SaasTenant; canManage: boolean;
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
-  onHistory: () => void; onArchive: () => void;
+  onHistory: () => void; onArchive: () => void; onDelete: () => void;
   scheduledMap: Record<string, ScheduledMsg[]>;
   msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
   onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
@@ -1091,7 +1106,9 @@ function TenantRow({
               <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconRefresh /></ActionBtn>
               <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
               <ActionBtn title="Histórico" tone="slate" onClick={onHistory}><IconClock /></ActionBtn>
-              {t.license_status !== "ARCHIVED" && (
+              {t.license_status === "ARCHIVED" ? (
+                <ActionBtn title="Deletar permanentemente" tone="red" onClick={onDelete}><IconTrash /></ActionBtn>
+              ) : (
                 <ActionBtn title="Arquivar" tone="red" onClick={onArchive}><IconTrash /></ActionBtn>
               )}
             </>
