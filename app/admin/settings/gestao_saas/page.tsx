@@ -326,7 +326,7 @@ export default function GestaoSaasPage() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar tenant, contato, whatsapp..."
+                placeholder="Buscar revenda, contato, whatsapp..."
                 className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
               />
               {search && (
@@ -712,7 +712,10 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
     setPhoneE164(inferred.e164);
     setPhoneDisplay(inferred.formattedNational || inferred.nationalDigits || phoneDisplay);
     setPhoneConfirmed(true);
-    if (waUsername.trim()) void validateWa(waUsername.trim());
+    // Auto-preenche username com os dígitos do telefone se estiver vazio
+    const finalUser = waUsername.trim() || inferred.e164.replace(/\D+/g, "");
+    if (!waUsername.trim()) setWaUsername(finalUser);
+    void validateWa(finalUser);
   }
 
   const phoneCountryInfo = splitE164(phoneE164);
@@ -824,7 +827,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Trial (dias)</FieldLabel>
+                  <FieldLabel>Teste (dias)</FieldLabel>
                   <FieldInput type="number" min={0} value={trialDays} onChange={e => setTrialDays(Number(e.target.value))} />
                   <p className="text-[10px] text-slate-400 mt-1">0 = sem trial</p>
                 </div>
@@ -895,7 +898,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
 
             {/* WhatsApp Username */}
             <div>
-              <FieldLabel>Username WhatsApp (@)</FieldLabel>
+              <FieldLabel>WhatsApp Username</FieldLabel>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">@</span>
                 <FieldInput
