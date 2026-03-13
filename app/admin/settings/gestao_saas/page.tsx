@@ -582,14 +582,16 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
   }, [tenants, search, roleFilter, statusFilter, archivedFilter]);
 
   // ✅ Stats: Remove o seu próprio usuário e os SUPERADMINS das estatísticas
-  const nonSuperTenants = tenants.filter(t => t.role !== "SUPERADMIN" && t.id !== tenantId);
-  const stats = {
-    // ✅ Alterado: Filtra para não somar os revendedores que estão na lixeira (ARCHIVED)
-    total:    nonSuperTenants.filter(t => t.license_status !== "ARCHIVED").length,
-    active:   nonSuperTenants.filter(t => t.license_status === "ACTIVE").length,
-    trial:    nonSuperTenants.filter(t => t.license_status === "TRIAL").length,
-    expired:  nonSuperTenants.filter(t => t.license_status === "EXPIRED").length,
-  };
+const directTenants = useMemo(() =>
+  tenants.filter(t => t.parent_tenant_id === tenantId && t.role !== "SUPERADMIN"),
+[tenants, tenantId]);
+
+const stats = {
+  total:   directTenants.filter(t => t.license_status !== "ARCHIVED").length,
+  active:  directTenants.filter(t => t.license_status === "ACTIVE").length,
+  trial:   directTenants.filter(t => t.license_status === "TRIAL").length,
+  expired: directTenants.filter(t => t.license_status === "EXPIRED").length,
+};
 
   const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
 
