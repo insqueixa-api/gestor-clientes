@@ -517,6 +517,24 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     else { addToast("success", "Arquivado", `${t.name} foi arquivado.`); loadData(); }
   };
 
+  // ✅ NOVO: Função para restaurar o tenant arquivado
+  const handleRestore = async (t: SaasTenant) => {
+    if (!confirm(`Restaurar "${t.name}"? Ele voltará para a lista principal.`)) return;
+    try {
+      // Atualiza direto na tabela para INACTIVE (assim ele volta, mas precisará ser renovado)
+      const { error } = await supabaseBrowser
+        .from("tenants")
+        .update({ license_status: "INACTIVE" }) 
+        .eq("id", t.id);
+      
+      if (error) throw error;
+      addToast("success", "Restaurado", `${t.name} foi restaurado com sucesso.`); 
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao restaurar", e.message);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
@@ -791,6 +809,7 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
                         onHistory={() => setHistoryTarget(t)}
                         onArchive={() => handleArchive(t)}
                         onDelete={() => handleDelete(t)}
+                        onRestore={() => handleRestore(t)} // ✅ ADICIONADO
                         // NOVAS PROPRIEDADES:
                         scheduledMap={scheduledMap}
                         msgMenuForId={msgMenuForId}
@@ -1074,12 +1093,12 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete,
+  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore, // ✅ ADICIONADO onRestore
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
   t: SaasTenant; canManage: boolean;
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
-  onHistory: () => void; onArchive: () => void; onDelete: () => void;
+  onHistory: () => void; onArchive: () => void; onDelete: () => void; onRestore: () => void; // ✅ ADICIONADO onRestore
   scheduledMap: Record<string, ScheduledMsg[]>;
   msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
   onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
@@ -1174,13 +1193,23 @@ function TenantRow({
 
           {!isSuperadmin && canManage && (
             <>
-              <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconRefresh /></ActionBtn>
+              {/* ✅ MUDOU PARA IconMoney PARA FICAR IGUAL A CLIENTES */}
+              <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
               <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
               <ActionBtn title="Histórico" tone="slate" onClick={onHistory}><IconClock /></ActionBtn>
-              {t.license_status === "ARCHIVED" ? (
+              
+              {/* ✅ LÓGICA DE ARQUIVAR / RESTAURAR / DELETAR IGUAL A CLIENTES */}
+              <ActionBtn 
+                title={t.license_status === "ARCHIVED" ? "Restaurar" : "Arquivar"} 
+                tone={t.license_status === "ARCHIVED" ? "green" : "red"} 
+                onClick={t.license_status === "ARCHIVED" ? onRestore : onArchive}
+              >
+                {t.license_status === "ARCHIVED" ? <IconRestore /> : <IconTrash />}
+              </ActionBtn>
+
+              {/* Botão de Excluir Definitivo só aparece se já estiver Arquivado */}
+              {t.license_status === "ARCHIVED" && (
                 <ActionBtn title="Deletar permanentemente" tone="red" onClick={onDelete}><IconTrash /></ActionBtn>
-              ) : (
-                <ActionBtn title="Arquivar" tone="red" onClick={onArchive}><IconTrash /></ActionBtn>
               )}
             </>
           )}
@@ -1756,3 +1785,12 @@ function IconFilter() {
     </svg>
   );
 }
+function IconRestore() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}
+function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
