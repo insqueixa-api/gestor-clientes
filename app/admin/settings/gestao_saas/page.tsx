@@ -1277,6 +1277,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   // Conta
   const [name, setName] = useState(tenant?.name ?? "");
   const [email, setEmail] = useState(tenant?.contact_email ?? tenant?.auth_email ?? "");
+  const [newEmail, setNewEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"MASTER" | "USER">("MASTER");
   const [trialDays, setTrialDays] = useState(7);
@@ -1318,16 +1319,8 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
+      // ✅ Apenas valida existência, nunca sobrescreve o número digitado
       setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
-      if (json.exists && json.jid) {
-        const jidDigits = String(json.jid).split("@")[0].replace(/\D/g, "");
-        if (jidDigits) {
-          const inferred = applyPhoneNormalization(jidDigits);
-          setPhoneE164(inferred.e164);
-          setPhoneDisplay(inferred.formattedNational);
-          setPhoneConfirmed(true);
-        }
-      }
     } catch {
       setWaValidation({ loading: false, exists: false });
     }
@@ -1381,7 +1374,8 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
-const { error } = await supabaseBrowser.rpc("saas_update_profile", {
+        // Atualiza perfil
+        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
           p_responsible_name:  responsibleName.trim() || null,
           p_phone_e164:        phoneE164 || null,
@@ -1389,6 +1383,17 @@ const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_notes:             notes.trim() || null,
         });
         if (error) throw new Error(error.message);
+
+        // Atualiza email se preenchido
+        if (newEmail.trim() && newEmail.trim() !== email) {
+          const res = await fetch("/api/saas/update-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tenant_id: tenant!.id, new_email: newEmail.trim().toLowerCase() }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.hint || data.error || "Falha ao atualizar e-mail.");
+        }
       }
       onSuccess();
     } catch (e: any) {
@@ -1467,6 +1472,26 @@ const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           )}
 
           
+
+          {/* Seção: Email (só no edit) */}
+          {mode === "edit" && (
+            <>
+              <SectionTitle>Acesso</SectionTitle>
+              <div>
+                <FieldLabel>E-mail atual</FieldLabel>
+                <FieldInput value={email} disabled className="opacity-50 cursor-not-allowed" />
+              </div>
+              <div>
+                <FieldLabel>Novo e-mail (deixe em branco para não alterar)</FieldLabel>
+                <FieldInput
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  placeholder="novo@email.com"
+                />
+              </div>
+            </>
+          )}
 
           {/* Seção: WhatsApp / Telefone */}
           <SectionTitle>Contato WhatsApp</SectionTitle>
