@@ -1224,10 +1224,9 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
-        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
+const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
           p_responsible_name:  responsibleName.trim() || null,
-          p_email:             email.trim() || null,
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
@@ -1250,7 +1249,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 shrink-0">
           <h2 className="text-lg font-bold text-slate-800 dark:text-white">
-            {mode === "new" ? "Novo Revenda" : `Editar: ${tenant?.name}`}
+            {mode === "new" ? "Novo Revendedor" : `Editar: ${tenant?.name}`}
           </h2>
         </div>
 
