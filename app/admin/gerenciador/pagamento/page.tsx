@@ -243,7 +243,7 @@ const GATEWAY_META: GatewayMeta[] = [
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: "Principal",
-  2: "Fallback",
+  2: "Secundário",
 };
 
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
@@ -681,14 +681,8 @@ function GatewayCard({
                     : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
                 }`}
               >
-                {gateway.is_online ? "Online" : "Manual"}
+                {gateway.is_online ? "Automático" : "Manual"}
               </span>
-
-              {gateway.is_manual_fallback && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                  Fallback
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -764,136 +758,6 @@ function GatewayCard({
           >
             {isDeleting ? "..." : <IconTrash />}
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── FLUXO VISUAL ─────────────────────────────────────────────────────────────
-
-function PaymentFlowDiagram({ gateways }: { gateways: PaymentGateway[] }) {
-  const brlOnline = gateways
-    .filter((g) => g.is_active && g.is_online && g.currency.includes("BRL"))
-    .sort((a, b) => a.priority - b.priority);
-
-  const intlOnline = gateways
-    .filter((g) => g.is_active && g.is_online && (g.currency.includes("USD") || g.currency.includes("EUR")))
-    .sort((a, b) => a.priority - b.priority);
-
-  // ✅ Separa o fallback do Brasil e os Fallbacks Internacionais
-  const manualBrl = gateways.find((g) => g.type === "pix_manual" && g.is_active);
-  const manualIntlArray = gateways.filter((g) => (g.type === "transfer_manual_eur" || g.type === "transfer_manual_usd") && g.is_active);
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* BRL */}
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
-          Pagamentos BRL
-        </p>
-
-        <div className="space-y-2">
-          {brlOnline.map((g, i) => {
-            const meta = GATEWAY_META.find((m) => m.type === g.type);
-            return (
-              <div
-                key={g.id}
-                className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10"
-              >
-                <span className="text-sm">{meta?.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{g.name}</p>
-                  <p className="text-[10px] text-slate-400 dark:text-white/40">{i === 0 ? "Principal" : "Fallback"}</p>
-                </div>
-                <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />
-              </div>
-            );
-          })}
-
-          {manualBrl && (
-            <>
-              <div className="flex items-center justify-center">
-                <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
-                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
-                  se falhar
-                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                <span className="text-sm">📱</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-violet-700 dark:text-violet-300 truncate">PIX Manual</p>
-                  <p className="text-[10px] text-violet-600/80 dark:text-violet-300/70">Fallback offline</p>
-                </div>
-                <span className="w-2 h-2 bg-violet-500 rounded-full shrink-0" />
-              </div>
-            </>
-          )}
-
-          {brlOnline.length === 0 && !manualBrl && (
-            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-              <p className="text-xs text-rose-700 dark:text-rose-300 font-medium">
-                ⚠️ Nenhum gateway BRL ativo
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* USD/EUR */}
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-2">
-          Pagamentos USD/EUR
-        </p>
-
-        <div className="space-y-2">
-          {intlOnline.map((g) => {
-            const meta = GATEWAY_META.find((m) => m.type === g.type);
-            return (
-              <div
-                key={g.id}
-                className="flex items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10"
-              >
-                <span className="text-sm">{meta?.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{g.name}</p>
-                  <p className="text-[10px] text-slate-400 dark:text-white/40">{g.currency.join(", ")}</p>
-                </div>
-                <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />
-              </div>
-            );
-          })}
-
-          {manualIntlArray.length > 0 && (
-            <>
-              <div className="flex items-center justify-center">
-                <div className="text-[10px] text-slate-400 dark:text-white/40 flex items-center gap-1">
-                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
-                  se falhar
-                  <span className="w-8 h-px bg-slate-200 dark:bg-white/10" />
-                </div>
-              </div>
-
-              {manualIntlArray.map((mIntl) => (
-                <div key={mIntl.id} className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-2">
-                  <span className="text-sm">{mIntl.type === "transfer_manual_usd" ? "💵" : "💶"}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-blue-700 dark:text-blue-300 truncate">{mIntl.name}</p>
-                    <p className="text-[10px] text-blue-600/80 dark:text-blue-300/70">Fallback offline ({mIntl.currency.join(", ")})</p>
-                  </div>
-                  <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                </div>
-              ))}
-            </>
-          )}
-
-          {intlOnline.length === 0 && manualIntlArray.length === 0 && (
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10">
-              <p className="text-xs text-slate-400 dark:text-white/40">Nenhum gateway internacional ativo</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -1042,33 +906,13 @@ export default function PagamentosPage() {
 
     {/* CONTEÚDO */}
     <div className="px-3 sm:px-0 space-y-6">
-        {/* Fluxo visual */}
-        {!loading && gateways.length > 0 && (
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
-            <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Fluxo de Pagamento Atual</h2>
-                <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
-                  {gateways.length}
-                </span>
-              </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-white/50">
-                fluxo
-              </span>
-            </div>
-
-            <div className="p-3 sm:p-4">
-              <PaymentFlowDiagram gateways={gateways} />
-            </div>
-          </div>
-        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : gateways.length === 0 ? (
-          <div className="bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-none sm:rounded-xl p-10 text-center">
+          <div className="bg-white dark:bg-[#161b22] border border-dashed border-slate-300 dark:border-white/10 rounded-xl p-10 text-center mx-0">
             <div className="text-5xl mb-3">💳</div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
               Nenhuma integração configurada
@@ -1090,7 +934,7 @@ export default function PagamentosPage() {
           <div className="space-y-6">
             {/* BRL */}
             {brlGateways.length > 0 && (
-              <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+              <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
                 <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways BRL</h2>
@@ -1125,7 +969,7 @@ export default function PagamentosPage() {
 
             {/* Internacionais */}
             {intlGateways.length > 0 && (
-              <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible">
+              <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
                 <div className="px-3 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">Gateways Internacionais</h2>

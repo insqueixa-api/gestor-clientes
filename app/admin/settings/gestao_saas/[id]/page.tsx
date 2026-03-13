@@ -143,7 +143,7 @@ export default function GestaoSaasDetailPage() {
               {master.name}
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Rede do revendedor · <span className="font-bold">{children.length}</span> associado{children.length !== 1 ? "s" : ""}
+              Rede do Revendedor
             </p>
           </div>
         </div>
