@@ -1314,13 +1314,17 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   </tr>
                 ))}
 
-                {visible.length === 0 && (
+{visible.length === 0 && (
                   <tr>
                     <td colSpan={8} className="p-12 text-center text-slate-400 dark:text-white/30 italic font-medium bg-slate-50/30 dark:bg-white/5">Nenhuma revenda encontrada com os filtros atuais.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+            
+            {/* ✅ Espaço fixo depois do último item (para o menu do WhatsApp não ser cortado) */}
+            <div className="h-24 md:h-20" />
+            
           </div>
         </div>
       )}

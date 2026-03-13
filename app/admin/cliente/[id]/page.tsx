@@ -780,14 +780,12 @@ const EVENT_LABELS: Record<string, string> = {
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest">Contatos e observações</h3>
 
             <div className="space-y-3 text-sm">
-              {/* ✅ INÍCIO: DATA DO CADASTRO */}
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
                 <span className="text-slate-500 dark:text-white/40 font-medium">Data do Cadastro</span>
                 <span className="font-mono text-slate-800 dark:text-white text-right">
                   {client.created_at ? new Date(client.created_at).toLocaleDateString("pt-BR") : "—"}
                 </span>
               </div>
-              {/* ✅ FIM: DATA DO CADASTRO */}
 
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
                 <span className="text-slate-500 dark:text-white/40 font-medium">Nome do Cliente</span>
@@ -799,16 +797,15 @@ const EVENT_LABELS: Record<string, string> = {
                 <span className="font-mono font-bold text-slate-800 dark:text-white text-right">{formatPhoneDisplay(client.whatsapp_e164)}</span>
               </div>
 
-              {/* WhatsApp com Link */}
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-white/40 font-medium">WhatsApp</span>
-
+              {/* WhatsApp Principal com Link */}
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/5">
+                <span className="text-slate-500 dark:text-white/40 font-medium">WhatsApp Principal</span>
                 {client.whatsapp_username ? (
                   <a 
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline text-right"
                   >
                     <IconWhatsapp />
                     @{client.whatsapp_username}
@@ -818,41 +815,70 @@ const EVENT_LABELS: Record<string, string> = {
                     href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline text-right"
                   >
                     <IconWhatsapp />
                     {formatPhoneDisplay(client.whatsapp_e164)}
                   </a>
                 ) : (
-                  <span className="text-slate-400 italic text-sm">Não informado</span>
+                  <span className="text-slate-400 italic text-sm text-right">Não informado</span>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 py-2 border-t border-b border-slate-100 dark:border-white/5">
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-1">Receber Msg?</div>
-                  {client.whatsapp_opt_in ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Sim
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
-                      <span className="w-2 h-2 rounded-full bg-rose-500"></span> Não
-                    </span>
+              {/* ✅ NOVO: Contato Secundário (Só aparece se existir) */}
+              {(client.secondary_display_name || client.secondary_phone_e164 || client.secondary_whatsapp_username) && (
+                <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-2 mb-2">
+                  <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-2 tracking-widest">Contato Secundário</div>
+                  
+                  {client.secondary_display_name && (
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-slate-500 dark:text-white/40">Nome</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-white/90 text-right">{client.secondary_display_name}</span>
+                    </div>
+                  )}
+
+                  {client.secondary_phone_e164 && (
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-slate-500 dark:text-white/40">WhatsApp</span>
+                      <a 
+                        href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:underline text-right"
+                      >
+                        <IconWhatsapp />
+                        {client.secondary_whatsapp_username ? `@${client.secondary_whatsapp_username}` : formatPhoneDisplay(client.secondary_phone_e164)}
+                      </a>
+                    </div>
                   )}
                 </div>
+              )}
 
-                {isMessageBlocked && (
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase mb-1">Bloqueado até</div>
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-1.5 py-0.5 rounded">
-                      {fmtDateTime(client.dont_message_until!)}
-                    </span>
-                  </div>
+              {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-500 dark:text-white/40 font-medium">Receber Msg?</span>
+                {client.whatsapp_opt_in ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-right">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Sim
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 text-right">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span> Não
+                  </span>
                 )}
               </div>
 
-              <div>
+              {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
+              {isMessageBlocked && (
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-500 dark:text-white/40 font-medium">Bloqueado até</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded text-right">
+                    {fmtDateTime(client.dont_message_until!)}
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-2">
                 <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações</div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-white/5 min-h-[80px] whitespace-pre-wrap">
                   {client.notes ? client.notes : <span className="italic text-slate-400">Sem observações registradas.</span>}
