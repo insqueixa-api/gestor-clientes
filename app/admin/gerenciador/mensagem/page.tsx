@@ -128,19 +128,10 @@ export default function MessagesPage() {
   };
   const removeToast = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
 
-  // Carregar Mensagens
-async function ensureMessagesCloned(tid: string) {
-  await supabaseBrowser.rpc("ensure_message_templates_cloned", {
-    p_tenant_id: tid,
-  });
-}
-
-async function loadMessages() {
+ async function loadMessages() {
   setLoading(true);
   const tid = await getCurrentTenantId();
   if (!tid) return;
-
-  await ensureMessagesCloned(tid);
 
   // Detecta role para filtrar templates exclusivos de Master/Admin
   const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
