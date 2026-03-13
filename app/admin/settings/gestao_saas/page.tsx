@@ -818,8 +818,8 @@ const sortedTenants = useMemo(() => {
             <div className="text-sm font-bold text-slate-800 dark:text-white">
               Revendedores
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-                {filtered.length}
-              </span>
+  {sortedTenants.length}
+</span>
             </div>
           </div>
 
