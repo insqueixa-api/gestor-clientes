@@ -54,7 +54,34 @@ export async function middleware(request: NextRequest) {
 
 // B. Se JÁ ESTIVER logado e tentar acessar a tela de login -> Vai pro dashboard
   if (user && url.pathname === '/login') {
+    // Verifica se tem tenant vinculado
+    const { data: member } = await supabase
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!member) {
+      // Tem auth.user mas não tem tenant — desloga e fica no login
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
     return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+  }
+
+  // C. Se está logado no /admin mas sem tenant — desloga
+  if (user && url.pathname.startsWith('/admin')) {
+    const { data: member } = await supabase
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!member) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
   return response;
