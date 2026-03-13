@@ -581,8 +581,8 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
     });
   }, [tenants, search, roleFilter, statusFilter, archivedFilter]);
 
-  // Stats: não conta o superadmin nos números
-  const nonSuperTenants = tenants.filter(t => t.role !== "SUPERADMIN");
+  // ✅ Stats: Remove o seu próprio usuário e os SUPERADMINS das estatísticas
+  const nonSuperTenants = tenants.filter(t => t.role !== "SUPERADMIN" && t.id !== tenantId);
   const stats = {
     total:    nonSuperTenants.length,
     active:   nonSuperTenants.filter(t => t.license_status === "ACTIVE").length,
@@ -592,15 +592,15 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
 
   const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
 
-  // ✅ DECLARAÇÃO NO LUGAR CORRETO (Fora do return e no escopo da página)
+  // ✅ Remove o SEU PRÓPRIO usuário logado de aparecer na tabela!
   const sortedTenants = useMemo(() => {
-    const list = [...filtered];
-    list.sort((a, b) => {
-      if (a.id === tenantId) return -1;
-      if (b.id === tenantId) return 1;
-      return a.name.localeCompare(b.name);
-    });
-    return list;
+    // 1. Remove você mesmo
+    const listSemEu = filtered.filter(t => t.id !== tenantId);
+    
+    // 2. Ordena o que sobrou (A-Z)
+    listSemEu.sort((a, b) => a.name.localeCompare(b.name));
+    
+    return listSemEu;
   }, [filtered, tenantId]);
 
 
@@ -834,10 +834,9 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                    {sortedTenants.map(t => ( // ✅ Mudou de filtered para sortedTenants
+                    {sortedTenants.map(t => (
                       <TenantRow
                         key={t.id} t={t} canManage={canManage} 
-                        isMe={t.id === tenantId} // ✅ Prop nova
                         onEdit={() => setEditTarget(t)}
                         onRenew={() => setRenewTarget(t)}
                         onCredits={() => setCreditsTarget(t)}
@@ -1130,10 +1129,10 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, isMe, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore,
+  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore,
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
-  t: SaasTenant; canManage: boolean; isMe: boolean; // ✅ isMe adicionado
+  t: SaasTenant; canManage: boolean; 
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
   onHistory: () => void; onArchive: () => void; onDelete: () => void; onRestore: () => void;
   scheduledMap: Record<string, ScheduledMsg[]>;
@@ -1151,8 +1150,6 @@ function TenantRow({
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
           <div className="flex items-center gap-2 whitespace-nowrap">
             <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-              {/* ✅ TEXTO DO NOME ATUALIZADO AQUI */}
-              {isMe ? <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-1">Eu:</span> : null}
               {t.name}
               
               {t.responsible_name && t.responsible_name !== t.name && (
