@@ -226,16 +226,11 @@ export default function ProfileSettingsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
-const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState("Carregando...");
-  const [roleRaw, setRoleRaw] = useState<string | null>(null);
+const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
-  // ✅ NOVO: Estados da Assinatura
-  const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [creditBalance, setCreditBalance] = useState(0);
-
-  // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
+// ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
 const canPairWhatsApp = !!userId && !!tenantId;
 
 
@@ -379,41 +374,36 @@ async function saveWaConfig() {
               role,
               tenants (
                 id,
-                name,
-                license_status,
-                expires_at,
-                credit_balance
+                name
               )
             `
           )
           .eq("user_id", user.id)
           .maybeSingle();
 
+
         let companyName = "";
 
         if (member) {
           setRoleRaw(member.role || null);
 
-          let roleName = "Visitante";
-          if (member.role === "owner" || member.role === "SUPERADMIN") roleName = "SUPERADMIN";
-          else if (member.role === "MASTER") roleName = "MASTER";
-          else if (member.role === "USER") roleName = "USER";
-          else if (member.role) roleName = member.role.toUpperCase();
-
+          const roleName = member.role === "owner" ? "Admin (Dono)" : member.role || "Membro";
           setRole(roleName);
 
           const t: any = member.tenants;
-          const currentT = Array.isArray(t) ? t[0] : t;
-          
-          if (currentT) {
-            companyName = currentT.name || "";
-            setTenantId(currentT.id || null);
-            setLicenseStatus(currentT.license_status || "ACTIVE");
-            setExpiresAt(currentT.expires_at || null);
-            setCreditBalance(currentT.credit_balance || 0);
+          if (Array.isArray(t)) {
+            companyName = t[0]?.name || "";
+            setTenantId(t[0]?.id || null);
+          } else if (t) {
+            companyName = t.name || "";
+            setTenantId(t.id || null);
           } else {
             setTenantId(null);
           }
+        } else {
+          setRoleRaw(null);
+          setRole("Visitante");
+          setTenantId(null);
         }
 
 
@@ -693,9 +683,6 @@ setWaQrDataUrl(qr);
 
 const [exporting, setExporting] = useState(false);
 
-  // Modal de seleção: "export" | "template" | "import" | null
-  const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
-
   async function handleExportClients() {
     if (!tenantId) {
       addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
@@ -748,136 +735,8 @@ const [exporting, setExporting] = useState(false);
     setShowImportModal(true);
   }
 
-function handleDownloadTemplate() {
-    window.location.href = "/api/cliente/template";
-  }
-
-  function handleDownloadTemplateApps() {
-    window.location.href = "/api/aplicativo/template";
-  }
-
-  async function handleExportApps() {
-    if (!tenantId) {
-      addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
-      return;
-    }
-
-    setExporting(true);
-    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
-
-    try {
-      const res = await fetch(`/api/aplicativo/export?tenant_id=${encodeURIComponent(tenantId)}`, {
-        method: "GET",
-      });
-
-      if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-
-      const disposition = res.headers.get("Content-Disposition");
-      let filename = `aplicativos_export.xlsx`;
-      if (disposition && disposition.includes("filename=")) {
-        filename = disposition.split("filename=")[1].replace(/["']/g, "");
-      }
-
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e: any) {
-      addToast("error", "Erro ao exportar", e.message);
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  const importAppsFileRef = useRef<HTMLInputElement | null>(null);
-  const [importingApps, setImportingApps] = useState(false);
-
-  async function handleImportAppsFile(file: File) {
-    if (!tenantId) {
-      addToast("error", "Tenant não encontrado", "Seu usuário não está vinculado a um tenant.");
-      return;
-    }
-
-    setImportingApps(true);
-    setActionModal(null);
-
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-
-      const { data: sess } = await supabaseBrowser.auth.getSession();
-      const token = sess?.session?.access_token;
-
-      const res = await fetch(
-        `/api/aplicativo/import?tenant_id=${encodeURIComponent(tenantId)}`,
-        {
-          method: "POST",
-          body: fd,
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        }
-      );
-
-      const json = await res.json().catch(() => ({} as any));
-
-      if (!res.ok) {
-        const base = json?.details || json?.error || "Falha ao importar";
-        const missing = Array.isArray(json?.missing) ? ` | Faltando: ${json.missing.join(", ")}` : "";
-        const hint = json?.hint ? ` | ${json.hint}` : "";
-        throw new Error(`${base}${missing}${hint}`);
-      }
-
-      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
-      const warnCount = Array.isArray(json?.warnings) ? json.warnings.length : 0;
-      const summary = `Total: ${json.total} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
-
-      if (errCount > 0) {
-        addToast("error", "Import concluído com erros", `${summary}. O relatório será descarregado.`);
-
-        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE APLICATIVOS\n`;
-        logContent += `Data: ${new Date().toLocaleString("pt-BR")}\n`;
-        logContent += `${summary}\n\n--- DETALHE DOS ERROS ---\n`;
-        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
-        if (warnCount > 0) {
-          logContent += `\n--- DETALHE DOS AVISOS ---\n`;
-          json.warnings.forEach((w: any) => { logContent += `Linha ${w.row}: ${w.warning}\n`; });
-        }
-
-        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `relatorio_import_apps_${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        return;
-      }
-
-      addToast("success", "Import concluído", summary);
-
-      if (warnCount > 0) {
-        const topWarnings = (json.warnings || []).slice(0, 3);
-        for (const it of topWarnings) {
-          addToast("error", "Aviso no import", `Linha ${it.row}: ${it.warning}`);
-        }
-        if (json.warnings.length > 3) {
-          addToast("error", "Mais avisos", `+${json.warnings.length - 3} avisos.`);
-        }
-      }
-    } catch (e: any) {
-      addToast("error", "Erro no import de apps", e?.message || "Falha ao importar");
-    } finally {
-      setImportingApps(false);
-    }
+  function handleDownloadTemplate() {
+  window.location.href = "/api/cliente/template";
   }
 
   async function handleDisconnectWhatsApp() {
@@ -1135,36 +994,24 @@ return (
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
     Dados Pessoais
   </h3>
-  <div className="flex items-center gap-2">
-    {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
-    {role !== "SUPERADMIN" && (
-      <button
-        onClick={() => alert("Abrir checkout ou modal de pagamento")} // 👈 Ajuste com a sua rota/função real de pagamento
-        className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-900/20"
-      >
-        <IconMoney /> Renovar
-      </button>
-    )}
-
-    {!isEditing ? (
-      <button
-        onClick={() => setIsEditing(true)}
-        className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
-      >
-        ✏️ Editar
-      </button>
-    ) : (
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="h-7 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
-      >
-        {saving ? "Salvando..." : "💾 Salvar"}
-      </button>
-    )}
-  </div>
+  {!isEditing ? (
+    <button
+      onClick={() => setIsEditing(true)}
+      className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
+    >
+      ✏️ Editar
+    </button>
+  ) : (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
+    >
+      {saving ? "Salvando..." : "💾 Salvar"}
+    </button>
+  )}
 </div>
-            
+           
             {/* LINHA 1: NOME + PERFIL */}
             <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
   <div className="col-span-2">
@@ -1179,11 +1026,7 @@ return (
   </div>
   <div className="col-span-1">
     <Label>Perfil</Label>
-    <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${
-      role === "SUPERADMIN" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20" :
-      role === "MASTER" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20" :
-      "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60 border-slate-200 dark:border-white/10"
-    }`}>
+    <div className="h-10 px-2 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold text-center">
       {role}
     </div>
   </div>
@@ -1217,27 +1060,27 @@ return (
                         
                         {/* MODO LEITURA: Link Clicável */}
                         <Input
-                          className="pl-8 pr-10"
-                          value={whatsappUsername}
-                          onChange={handleWhatsChange}
-                          placeholder="5521999999999"
-                          readOnly={!isEditing}
-                          onFocus={() => setIsEditing(true)}
-                        />
-                        {whatsappUsername && (
-                          <a
-                            href={`https://wa.me/${whatsappUsername}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
-                            title="Abrir no WhatsApp"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
-                            </svg>
-                          </a>
-                        )}
+  className="pl-8 pr-10"
+  value={whatsappUsername}
+  onChange={handleWhatsChange}
+  placeholder="5521999999999"
+  readOnly={!isEditing}
+  onFocus={() => setIsEditing(true)}
+/>
+{whatsappUsername && (
+  <a
+    href={`https://wa.me/${whatsappUsername}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={e => e.stopPropagation()}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+    title="Abrir no WhatsApp"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
+  </a>
+)}
                     </div>
                     {waValidation && (
                       <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
@@ -1247,165 +1090,40 @@ return (
                       </div>
                     )}
                 </div>
-                
                 <div>
                      <Label>Membro desde</Label>
                     <div className="h-10 px-3 flex items-center text-slate-500 dark:text-white/50 text-xs">
                         {createdAt || "—"}
                     </div>
                 </div>
-            </div> {/* ✅ FECHOU A LINHA 3 AQUI */}
-
-            {/* ✅ LINHA 4 - ASSINATURA */}
-            <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
-              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
-                Detalhes da Assinatura
-              </div>
-              <div className="flex flex-wrap gap-10">
-                {/* 1. Status: Todos veem */}
-                <div>
-                  <Label>Status</Label>
-                  <div className="h-10 flex items-center">
-                    <StatusBadge status={licenseStatus} />
-                  </div>
-                </div>
-
-                {/* 2. Validade: MASTER e USER veem (Oculto para SUPERADMIN) */}
-                {role !== "SUPERADMIN" && (
-                  <div>
-                    <Label>Validade</Label>
-                    <div className="h-10 flex items-center text-sm font-bold text-slate-700 dark:text-white">
-                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Créditos: APENAS MASTER vê */}
-                {role === "MASTER" && (
-                  <div>
-                    <Label>Saldo de Créditos</Label>
-                    <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      {creditBalance}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
-
-          </div> {/* ✅ FECHOU O CARD DE DADOS PESSOAIS */}
+          </div>
 
           {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Dados do Sistema</h3>
-            {/* Modal de seleção: Clientes ou Aplicativos */}
-{actionModal && (
-  <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-    <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4">
-      <h3 className="text-base font-bold text-slate-800 dark:text-white">
-        {actionModal === "export" && "⬇️ Exportar"}
-        {actionModal === "template" && "📄 Baixar Template"}
-        {actionModal === "import" && "⬆️ Importar"}
-      </h3>
-      <p className="text-sm text-slate-500 dark:text-white/60">O que você quer {actionModal === "export" ? "exportar" : actionModal === "template" ? "baixar" : "importar"}?</p>
-
-      <div className="flex flex-col gap-3 pt-1">
-        {/* Clientes */}
-        <button
-          type="button"
-          onClick={() => {
-            setActionModal(null);
-            if (actionModal === "export") void handleExportClients();
-            else if (actionModal === "template") handleDownloadTemplate();
-            else if (actionModal === "import") setShowImportModal(true);
-          }}
-          className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-        >
-          <span className="text-xl">👥</span>
-          <div className="text-left">
-            <div className="font-bold">Clientes</div>
-            <div className="text-[11px] font-normal text-slate-400">Dados cadastrais dos clientes</div>
-          </div>
-        </button>
-
-        {/* Aplicativos */}
-        <button
-          type="button"
-          onClick={() => {
-            setActionModal(null);
-            if (actionModal === "export") void handleExportApps();
-            else if (actionModal === "template") handleDownloadTemplateApps();
-            else if (actionModal === "import") importAppsFileRef.current?.click();
-          }}
-          className="w-full h-11 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-        >
-          <span className="text-xl">📱</span>
-          <div className="text-left">
-            <div className="font-bold">Aplicativos</div>
-            <div className="text-[11px] font-normal text-slate-400">Apps vinculados aos clientes</div>
-          </div>
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setActionModal(null)}
-        className="w-full text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-1"
-      >
-        Cancelar
-      </button>
-    </div>
-  </div>
-)}
-
-<div className="flex flex-row gap-3">
-  {/* EXPORTAR */}
+            <div className="flex flex-row gap-3">
   <button
     type="button"
-    onClick={() => setActionModal("export")}
+    onClick={handleExportClients}
     disabled={!tenantId || exporting}
     className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    {exporting
-      ? <><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Processando...</>
-      : <><span>⬇️</span> Exportar</>
-    }
+    {exporting ? (
+      <><svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Processando...</>
+    ) : (
+      <><span>⬇️</span> Exportar</>
+    )}
   </button>
-
-  {/* TEMPLATE */}
   <button
     type="button"
-    onClick={() => setActionModal("template")}
-    disabled={!tenantId}
+    onClick={handleImportClick}
+    disabled={!tenantId || importing}
     className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    <span>📄</span> Template
+    {importing ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
   </button>
-
-  {/* IMPORTAR */}
-  <button
-    type="button"
-    onClick={() => setActionModal("import")}
-    disabled={!tenantId || importing || importingApps}
-    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {(importing || importingApps) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
-  </button>
-
-  {/* Hidden inputs */}
-  <input
-    ref={importFileRef}
-    type="file"
-    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    className="hidden"
-    onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }}
-  />
-  <input
-    ref={importAppsFileRef}
-    type="file"
-    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    className="hidden"
-    onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }}
-  />
+  <input ref={importFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
 </div>
           </div>
         </div>
@@ -1616,24 +1334,5 @@ return (
         </div>
       </div>
     </div>
-  );
-}
-function IconMoney() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
-    TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
-    EXPIRED:  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
-    ARCHIVED: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border-slate-200 dark:border-white/10",
-    INACTIVE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
-  };
-  const label: Record<string, string> = {
-    ACTIVE: "Ativo", TRIAL: "Trial", EXPIRED: "Expirado", ARCHIVED: "Arquivado", INACTIVE: "Inativo",
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${map[status] ?? map.INACTIVE}`}>
-      {label[status] ?? status}
-    </span>
   );
 }
