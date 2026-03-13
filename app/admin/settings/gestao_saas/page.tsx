@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ ADICIONADO
 
 // ============================================================
 // HELPERS DE TELEFONE (igual ao ResellerFormModal)
@@ -261,8 +262,10 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({ open: false, resellerId: null });
   
-  const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
+const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
   const [tenantAlerts, setTenantAlerts] = useState<any[]>([]);
+
+  const { confirm, ConfirmUI } = useConfirm(); // ✅ INSTANCIADO AQUI
 
   // Efeitos para carregar conteúdo de templates
   useEffect(() => {
@@ -499,7 +502,17 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   function closeAllPopups() { setMsgMenuForId(null); }
 
   const handleDelete = async (t: SaasTenant) => {
-    if (!confirm(`DELETAR permanentemente "${t.name}"? Esta ação não pode ser desfeita.`)) return;
+    const ok = await confirm({
+      title: "Excluir permanentemente?",
+      subtitle: "Essa ação NÃO pode ser desfeita. Todos os dados serão perdidos.",
+      tone: "rose",
+      icon: "⚠️",
+      details: [`Revenda: ${t.name}`, "Ação: Deletar registro"],
+      confirmText: "Excluir Definitivamente",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+
     try {
       const { error } = await supabaseBrowser.rpc("saas_delete_tenant", { p_tenant_id: t.id });
       if (error) throw error;
@@ -511,22 +524,36 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   };
 
   const handleArchive = async (t: SaasTenant) => {
-    if (!confirm(`Arquivar "${t.name}"? O acesso será suspenso.`)) return;
+    const ok = await confirm({
+      title: "Arquivar Revenda",
+      subtitle: "O acesso ao painel será suspenso e ela irá para a lixeira.",
+      tone: "amber",
+      icon: "🗑️",
+      details: [`Revenda: ${t.name}`, "Destino: Lixeira"],
+      confirmText: "Arquivar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+
     const { error } = await supabaseBrowser.rpc("saas_archive_tenant", { p_tenant_id: t.id });
     if (error) addToast("error", "Erro", error.message);
     else { addToast("success", "Arquivado", `${t.name} foi arquivado.`); loadData(); }
   };
 
-  // ✅ NOVO: Função para restaurar o tenant arquivado
   const handleRestore = async (t: SaasTenant) => {
-    if (!confirm(`Restaurar "${t.name}"? Ele voltará para a lista principal.`)) return;
+    const ok = await confirm({
+      title: "Restaurar Revenda",
+      subtitle: "Ela voltará para a lista principal como Inativa.",
+      tone: "emerald",
+      icon: "♻️",
+      details: [`Revenda: ${t.name}`, "Destino: Lista Ativa"],
+      confirmText: "Restaurar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+
     try {
-      // Atualiza direto na tabela para INACTIVE (assim ele volta, mas precisará ser renovado)
-      const { error } = await supabaseBrowser
-        .from("tenants")
-        .update({ license_status: "INACTIVE" }) 
-        .eq("id", t.id);
-      
+      const { error } = await supabaseBrowser.from("tenants").update({ license_status: "INACTIVE" }).eq("id", t.id);
       if (error) throw error;
       addToast("success", "Restaurado", `${t.name} foi restaurado com sucesso.`); 
       loadData();
@@ -538,18 +565,13 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
-      // ✅ 1. Filtro Exclusivo de Lixeira
       if (archivedFilter === "Sim") {
         if (t.license_status !== "ARCHIVED") return false;
       } else {
         if (t.license_status === "ARCHIVED") return false;
       }
-
-      // ✅ 2. Filtro de Role e Status Secundários
       if (roleFilter !== "Todos" && t.role !== roleFilter) return false;
       if (statusFilter !== "Todos" && t.license_status !== statusFilter) return false;
-
-      // ✅ 3. Busca por Texto
       if (q) {
         const hay = [t.name, t.slug, t.responsible_name, t.auth_email, t.contact_email, t.whatsapp_username, t.phone_e164, t.role]
           .filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -569,6 +591,18 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
   };
 
   const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
+
+  // ✅ DECLARAÇÃO NO LUGAR CORRETO (Fora do return e no escopo da página)
+  const sortedTenants = useMemo(() => {
+    const list = [...filtered];
+    list.sort((a, b) => {
+      if (a.id === tenantId) return -1;
+      if (b.id === tenantId) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [filtered, tenantId]);
+
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
@@ -800,9 +834,10 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                    {filtered.map(t => (
+                    {sortedTenants.map(t => ( // ✅ Mudou de filtered para sortedTenants
                       <TenantRow
-                        key={t.id} t={t} canManage={canManage}
+                        key={t.id} t={t} canManage={canManage} 
+                        isMe={t.id === tenantId} // ✅ Prop nova
                         onEdit={() => setEditTarget(t)}
                         onRenew={() => setRenewTarget(t)}
                         onCredits={() => setCreditsTarget(t)}
@@ -1082,6 +1117,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
         </div>
       )}
 
+      {ConfirmUI} {/* ✅ MODAL BONITO INSERIDO AQUI */}
+
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
@@ -1093,12 +1130,12 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore, // ✅ ADICIONADO onRestore
+  t, canManage, isMe, onEdit, onRenew, onCredits, onHistory, onArchive, onDelete, onRestore,
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
-  t: SaasTenant; canManage: boolean;
+  t: SaasTenant; canManage: boolean; isMe: boolean; // ✅ isMe adicionado
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
-  onHistory: () => void; onArchive: () => void; onDelete: () => void; onRestore: () => void; // ✅ ADICIONADO onRestore
+  onHistory: () => void; onArchive: () => void; onDelete: () => void; onRestore: () => void;
   scheduledMap: Record<string, ScheduledMsg[]>;
   msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
   onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
@@ -1114,7 +1151,10 @@ function TenantRow({
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
           <div className="flex items-center gap-2 whitespace-nowrap">
             <div className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+              {/* ✅ TEXTO DO NOME ATUALIZADO AQUI */}
+              {isMe ? <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-1">Eu:</span> : null}
               {t.name}
+              
               {t.responsible_name && t.responsible_name !== t.name && (
                 <span className="text-slate-400 dark:text-white/30 font-normal"> / {t.responsible_name}</span>
               )}
