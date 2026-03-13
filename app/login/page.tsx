@@ -222,6 +222,16 @@ const [msg, setMsg] = useState<string | null>(null);
                   />
                 </div>
 
+                {/* === VALIDADOR HUMANO CLOUDFLARE === */}
+                <div className="flex justify-center pt-2">
+                  <Turnstile 
+                    siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onError={() => setTurnstileToken(null)}
+                    onExpire={() => setTurnstileToken(null)}
+                  />
+                </div>
+
                 <button
                   type="submit"
                   disabled={!canSubmit}
