@@ -308,41 +308,50 @@ const [showEditModal, setShowEditModal] = useState(false);
         return;
       }
 // ✅ Fonte da verdade: clients
-let dbPlanTableId: string | null = null;
-let dbNotes: string | null = null;
-let dbPriceCurrency: string | null = null;
+      let dbPlanTableId: string | null = null;
+      let dbNotes: string | null = null;
+      let dbPriceCurrency: string | null = null;
 
-// ✅ Nome final da tabela (plan_tables > view)
-let finalTableName: string | null = null;
+      // ✅ Nome final da tabela (plan_tables > view)
+      let finalTableName: string | null = null;
 
-// ✅ M3U
-let dbM3uUrl: string | null = null;
+      // ✅ M3U
+      let dbM3uUrl: string | null = null;
 
-// ✅ Data de Cadastro
-let dbCreatedAt: string | null = null;
+      // ✅ Data de Cadastro
+      let dbCreatedAt: string | null = null;
+      
+      // ✅ Contatos Secundários
+      let dbSecName: string | null = null;
+      let dbSecPhone: string | null = null;
+      let dbSecUsername: string | null = null;
 
-try {
-  // 1) pega ID da tabela e notes direto da tabela clients
-  const c = await supabaseBrowser
-  .from("clients")
-  .select("plan_table_id, notes, price_currency, m3u_url, created_at") // ✅ ADICIONADO created_at
-  .eq("tenant_id", tid)
-  .eq("id", clientIdSafe)
-  .maybeSingle();
+      try {
+        // 1) pega ID da tabela e notes direto da tabela clients
+        const c = await supabaseBrowser
+        .from("clients")
+        .select("plan_table_id, notes, price_currency, m3u_url, created_at, secondary_display_name, secondary_phone_e164, secondary_whatsapp_username") // ✅ AGORA PUXA OS SECUNDÁRIOS
+        .eq("tenant_id", tid)
+        .eq("id", clientIdSafe)
+        .maybeSingle();
 
-if (!c.error && c.data) {
-  dbCreatedAt = (c.data as any).created_at ?? null; // ✅ SALVA A DATA
-  dbPlanTableId = (c.data as any).plan_table_id ?? null;
+      if (!c.error && c.data) {
+        dbCreatedAt = (c.data as any).created_at ?? null;
+        dbPlanTableId = (c.data as any).plan_table_id ?? null;
 
-  const n = (c.data as any).notes;
-  dbNotes = typeof n === "string" ? n : null;
+        const n = (c.data as any).notes;
+        dbNotes = typeof n === "string" ? n : null;
 
-  const pc = (c.data as any).price_currency;
-  dbPriceCurrency = typeof pc === "string" ? pc : null;
+        const pc = (c.data as any).price_currency;
+        dbPriceCurrency = typeof pc === "string" ? pc : null;
 
-  const m3u = (c.data as any).m3u_url;
-  dbM3uUrl = typeof m3u === "string" ? m3u : null;
-}
+        const m3u = (c.data as any).m3u_url;
+        dbM3uUrl = typeof m3u === "string" ? m3u : null;
+
+        dbSecName = (c.data as any).secondary_display_name ?? null;
+        dbSecPhone = (c.data as any).secondary_phone_e164 ?? null;
+        dbSecUsername = (c.data as any).secondary_whatsapp_username ?? null;
+      }
 
 
   // 2) tenta nome vindo da view (fallback)
@@ -396,6 +405,11 @@ plan_table_name: finalTableName ?? null,
         whatsapp_username: row.whatsapp_username ?? null,
         whatsapp_opt_in: typeof row.whatsapp_opt_in === "boolean" ? row.whatsapp_opt_in : true,
         dont_message_until: row.dont_message_until ?? null,
+
+        // ✅ MAPEIA OS SECUNDÁRIOS (Puxa da fonte da verdade primeiro)
+        secondary_display_name: dbSecName ?? (row as any).secondary_display_name ?? null,
+        secondary_phone_e164: dbSecPhone ?? (row as any).secondary_phone_e164 ?? null,
+        secondary_whatsapp_username: dbSecUsername ?? (row as any).secondary_whatsapp_username ?? null,
 
         apps_names: row.apps_names ?? null,
         alerts_open: Number(row.alerts_open || 0),
