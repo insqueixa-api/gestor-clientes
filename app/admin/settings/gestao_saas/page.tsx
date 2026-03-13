@@ -349,17 +349,12 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
     if (!tenantId || !showNewAlert.targetId) return;
     if (!newAlertText.trim()) return addToast("error", "Alerta vazio", "Digite um texto para o alerta.");
     try {
-      // Pega o ID do usuário logado para satisfazer possíveis regras RLS
-      const { data: userData } = await supabaseBrowser.auth.getUser();
-      
+      // ✅ Sem invenções de colunas: manda apenas o que a política RLS do banco exige
       const payload = {
         tenant_id: tenantId, 
         reseller_id: showNewAlert.targetId, 
         message: newAlertText, 
-        status: "OPEN",
-        // Envia explícito o created_by (útil para RLS) e null para client_id
-        created_by: userData?.user?.id || undefined,
-        client_id: null
+        status: "OPEN"
       };
 
       const { error } = await supabaseBrowser.from("client_alerts").insert(payload);
@@ -400,7 +395,6 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
       setSendingNow(true);
       const token = await getToken();
       
-      // Cria o payload sem enviar string vazia no template
       const payload: any = {
         tenant_id: tenantId, 
         reseller_id: showSendNow.resellerId, 
@@ -412,7 +406,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
         payload.message_template_id = selectedTemplateNowId;
       }
 
-      const res = await fetch("/api/whatsapp/envio_agora", {
+      // ✅ APONTA PARA A ROTA NOVA EXCLUSIVA DE REVENDEDOR
+      const res = await fetch("/api/whatsapp/envio_agora_revenda", {
         method: "POST", 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -442,7 +437,6 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
       setScheduling(true);
       const token = await getToken();
       
-      // Cria o payload sem enviar string vazia no template
       const payload: any = {
         tenant_id: tenantId, 
         reseller_id: showScheduleMsg.resellerId, 
@@ -455,7 +449,8 @@ const [historyTarget, setHistoryTarget] = useState<SaasTenant | null>(null);
         payload.message_template_id = selectedTemplateScheduleId;
       }
 
-      const res = await fetch("/api/whatsapp/envio_agendado", {
+      // ✅ APONTA PARA A ROTA NOVA EXCLUSIVA DE REVENDEDOR
+      const res = await fetch("/api/whatsapp/envio_agendado_revenda", {
         method: "POST", 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
