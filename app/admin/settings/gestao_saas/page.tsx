@@ -219,6 +219,7 @@ function ActionBtn({ children, title, tone, onClick }: {
 export default function GestaoSaasPage() {
   const [tenants, setTenants] = useState<SaasTenant[]>([]);
   const [myRole, setMyRole] = useState<string>("");
+  const [myName, setMyName] = useState<string>(""); // ✅ NOVO: Estado para guardar o seu nome
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("Todos");
@@ -309,10 +310,17 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
       ]);
       setMyRole(roleRes.data ?? "");
       
-      if (tenantsRes.error) {
+if (tenantsRes.error) {
         addToast("error", "Erro ao carregar revendas", tenantsRes.error.message);
       } else {
         const fetched = (tenantsRes.data as SaasTenant[]) ?? [];
+        
+        // ✅ Busca o nome da sua própria conta na lista
+        if (tid) {
+          const me = fetched.find(t => t.id === tid);
+          if (me) setMyName(me.name);
+        }
+
         const ids = fetched.map(t => t.id);
 
         if (tid && ids.length > 0) {
@@ -622,8 +630,8 @@ const sortedTenants = useMemo(() => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Gestão SaaS</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Rede de revendas ·{" "}
-            <span className="font-bold text-slate-500 dark:text-white/50 lowercase">{myRole || "carregando..."}</span>
+            
+            <span className="font-bold text-slate-500 dark:text-white/50">{myName || myRole || "carregando..."}</span>
           </p>
         </div>
         
