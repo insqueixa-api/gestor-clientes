@@ -823,7 +823,7 @@ const sortedTenants = useMemo(() => {
       </div>
 
 {/* LISTA */}
-      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+      <div className="w-full bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-800 dark:text-white">
               Revendedores
@@ -1493,9 +1493,20 @@ if (error) throw new Error(error.message);
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Teste (dias)</FieldLabel>
-                  <FieldInput type="number" min={0} value={trialDays} onChange={e => setTrialDays(Number(e.target.value))} />
-                  <p className="text-[10px] text-slate-400 mt-1">0 = sem trial</p>
+                  <FieldLabel>Dias de Teste</FieldLabel>
+                  <select
+                    value={trialDays}
+                    onChange={e => setTrialDays(Number(e.target.value))}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  >
+                    <option value={0}>Sem Teste (0 dias)</option>
+                    <option value={1}>1 dia</option>
+                    <option value={2}>2 dias</option>
+                    <option value={3}>3 dias</option>
+                    <option value={5}>5 dias</option>
+                    <option value={7}>7 dias (Máximo)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">Selecione o limite do teste.</p>
                 </div>
                 <div>
                   <FieldLabel>Créditos Iniciais</FieldLabel>
