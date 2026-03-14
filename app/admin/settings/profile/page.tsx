@@ -716,6 +716,10 @@ const [exporting, setExporting] = useState(false);
   const [importingReseller, setImportingReseller] = useState(false);
   const importResellerFileRef = useRef<HTMLInputElement | null>(null);
 
+  // ✅ NOVO: Estados e Refs para Mensagens
+  const [importingMessage, setImportingMessage] = useState(false);
+  const importMessageFileRef = useRef<HTMLInputElement | null>(null);
+
   // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
@@ -886,9 +890,66 @@ addToast("success", "Sucesso", summary);
         document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
         return;
       }
-      addToast("success", "Sucesso", summary);
+addToast("success", "Sucesso", summary);
       setTimeout(() => window.location.reload(), 1200);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingReseller(false); }
+  }
+
+  // --- ✅ NOVAS FUNÇÕES DE MENSAGENS ---
+  async function handleExportMessages() {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+    try {
+      const res = await fetch(`/api/import_export/mensagem/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `mensagens_export.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
+  }
+
+  function handleDownloadTemplateMessages() {
+    window.location.href = "/api/import_export/mensagem/template";
+  }
+
+  async function handleImportMessageFile(file: File) {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setImportingMessage(true);
+    setActionModal(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/import_export/mensagem/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.details || json?.error || "Falha ao importar mensagens");
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const warnCount = Array.isArray(json?.warnings) ? json.warnings.length : 0;
+      const summary = `Total: ${json.total} | Atualizados/Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", "O relatório será baixado.");
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE MENSAGENS\nData: ${new Date().toLocaleString("pt-BR")}\n${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `relatorio_import_mensagens_${Date.now()}.txt`;
+        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        return;
+      }
+      addToast("success", "Sucesso", summary);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
   }
 
   // ------------------------------------
@@ -1463,6 +1524,27 @@ return (
                         <div className="text-[11px] font-medium text-slate-400">Regras de cobrança no WhatsApp</div>
                       </div>
                     </button>
+
+                    {/* ✅ Mensagens */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportMessages();
+                        else if (action === "template") handleDownloadTemplateMessages();
+                        else if (action === "import") importMessageFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="flex items-center justify-center w-8 h-8 text-emerald-500 dark:text-emerald-400">
+                        <IconWhatsApp />
+                      </span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Mensagens WhatsApp</div>
+                        <div className="text-[11px] font-medium text-slate-400">Modelos de mensagens do sistema</div>
+                      </div>
+                    </button>
                   </div>
 
                   <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
@@ -1495,16 +1577,17 @@ return (
               <button
                 type="button"
                 onClick={() => setActionModal("import")}
-                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller}
+                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage}
                 className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(importing || importingApps || importingAuto || importingReseller) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+                {(importing || importingApps || importingAuto || importingReseller || importingMessage) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
               </button>
               
               <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
               <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }} />
               <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
               <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportResellerFile(f); }} />
+              <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportMessageFile(f); }} />
             </div>
           </div>
         </div>
@@ -1734,5 +1817,12 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${map[status] ?? map.INACTIVE}`}>
       {label[status] ?? status}
     </span>
+  );
+}
+function IconWhatsApp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
   );
 }
