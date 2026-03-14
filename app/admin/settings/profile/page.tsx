@@ -706,10 +706,15 @@ setWaQrDataUrl(qr);
 }
 
 
+
 const [exporting, setExporting] = useState(false);
   const [importingApps, setImportingApps] = useState(false);
   const importAppsFileRef = useRef<HTMLInputElement | null>(null);
   const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
+
+  // ✅ NOVO: Estados e Refs para Revendas
+  const [importingReseller, setImportingReseller] = useState(false);
+  const importResellerFileRef = useRef<HTMLInputElement | null>(null);
 
   // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
@@ -717,7 +722,7 @@ const [exporting, setExporting] = useState(false);
     setExporting(true);
     addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
     try {
-      const res = await fetch(`/api/aplicativo/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      const res = await fetch(`/api/import_export/aplicativo/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
       if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -732,7 +737,7 @@ const [exporting, setExporting] = useState(false);
   }
 
   function handleDownloadTemplateApps() {
-    window.location.href = "/api/aplicativo/template";
+    window.location.href = "/api/import_export/aplicativo/template";
   }
 
   async function handleImportAppsFile(file: File) {
@@ -743,7 +748,7 @@ const [exporting, setExporting] = useState(false);
       const fd = new FormData(); fd.append("file", file);
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
-      const res = await fetch(`/api/aplicativo/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+      const res = await fetch(`/api/import_export/aplicativo/import?tenant_id=${encodeURIComponent(tenantId)}`, {
         method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
@@ -778,7 +783,7 @@ addToast("success", "Sucesso", summary);
     setExporting(true);
     addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
     try {
-      const res = await fetch(`/api/cobranca/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      const res = await fetch(`/api/import_export/cobranca/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
       if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -793,7 +798,7 @@ addToast("success", "Sucesso", summary);
   }
 
   function handleDownloadTemplateAuto() {
-    window.location.href = "/api/cobranca/template";
+    window.location.href = "/api/import_export/cobranca/template";
   }
 
   async function handleImportAutoFile(file: File) {
@@ -804,7 +809,7 @@ addToast("success", "Sucesso", summary);
       const fd = new FormData(); fd.append("file", file);
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
-      const res = await fetch(`/api/cobranca/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+      const res = await fetch(`/api/import_export/cobranca/import?tenant_id=${encodeURIComponent(tenantId)}`, {
         method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
@@ -828,6 +833,64 @@ addToast("success", "Sucesso", summary);
       // Não precisa recarregar a tela inteira pois as automações ficam em outra página.
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingAuto(false); }
   }
+// --- ✅ NOVAS FUNÇÕES DE REVENDAS ---
+  async function handleExportResellers() {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+    try {
+      const res = await fetch(`/api/import_export/revenda/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `revendas_export.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
+  }
+
+  function handleDownloadTemplateResellers() {
+    window.location.href = "/api/import_export/revenda/template";
+  }
+
+  async function handleImportResellerFile(file: File) {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setImportingReseller(true);
+    setActionModal(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/import_export/revenda/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.details || json?.error || "Falha ao importar revendas");
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const warnCount = Array.isArray(json?.warnings) ? json.warnings.length : 0;
+      const summary = `Total: ${json.total} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", "O relatório será baixado.");
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE REVENDAS\nData: ${new Date().toLocaleString("pt-BR")}\n${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `relatorio_import_revendas_${Date.now()}.txt`;
+        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        return;
+      }
+      addToast("success", "Sucesso", summary);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingReseller(false); }
+  }
+
   // ------------------------------------
 
   async function handleExportClients() {
@@ -839,8 +902,8 @@ addToast("success", "Sucesso", summary);
   setExporting(true);
     addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
 
-    try {
-      const res = await fetch(`/api/cliente/export?tenant_id=${encodeURIComponent(tenantId)}`, {
+try {
+      const res = await fetch(`/api/import_export/cliente/export?tenant_id=${encodeURIComponent(tenantId)}`, {
         method: "GET",
       });
 
@@ -883,7 +946,7 @@ addToast("success", "Sucesso", summary);
   }
 
   function handleDownloadTemplate() {
-  window.location.href = "/api/cliente/template";
+  window.location.href = "/api/import_export/cliente/template";
   }
 
   async function handleDisconnectWhatsApp() {
@@ -938,8 +1001,8 @@ setShowImportModal(false); // ✅ fecha modal ao iniciar
       const token = sess?.session?.access_token;
       // 👆 FIM DA INJEÇÃO 👆
 
-      const res = await fetch(
-        `/api/cliente/import?tenant_id=${encodeURIComponent(tenantId)}`,
+const res = await fetch(
+        `/api/import_export/cliente/import?tenant_id=${encodeURIComponent(tenantId)}`,
         {
           method: "POST",
           body: fd,
@@ -1352,6 +1415,24 @@ return (
                       onClick={() => {
                         const action = actionModal;
                         setActionModal(null);
+                        if (action === "export") void handleExportResellers();
+                        else if (action === "template") handleDownloadTemplateResellers();
+                        else if (action === "import") importResellerFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">🤝</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Revendedores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
                         if (action === "export") void handleExportApps();
                         else if (action === "template") handleDownloadTemplateApps();
                         else if (action === "import") importAppsFileRef.current?.click();
@@ -1414,15 +1495,16 @@ return (
               <button
                 type="button"
                 onClick={() => setActionModal("import")}
-                disabled={!tenantId || importing || importingApps || importingAuto}
+                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller}
                 className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(importing || importingApps || importingAuto) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+                {(importing || importingApps || importingAuto || importingReseller) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
               </button>
               
               <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
               <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }} />
               <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
+              <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportResellerFile(f); }} />
             </div>
           </div>
         </div>
