@@ -5,6 +5,8 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import React from "react"; // Garante que o React.ReactNode funcione
+
 
 // Componente que exibe Logo + Nome do Usuário (agora vem do SERVER)
 function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: string }) {
@@ -237,7 +239,18 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/plano" label="🛒 Planos" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagens WhatsApp" onClick={() => setOpenMenu(null)} />
+            <MenuLink 
+  href="/admin/gerenciador/mensagem" 
+  label={
+    <span className="flex items-center gap-2">
+      <span className="text-emerald-500 dark:text-emerald-400">
+        <IconWhatsApp />
+      </span>
+      Mensagens WhatsApp
+    </span>
+  } 
+  onClick={() => setOpenMenu(null)} 
+/>
             <Divider />
             <MenuLink href="/admin/gerenciador/cobranca" label="💵 Automação de Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
@@ -266,7 +279,18 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/gerenciador/servidor" label="🖥️ Servidores" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/plano" label="🛒 Planos" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label="💬 Mensagem padrão" onClick={() => setOpenMenu(null)} />
+            <MenuLink 
+  href="/admin/gerenciador/mensagem" 
+  label={
+    <span className="flex items-center gap-2">
+      <span className="text-emerald-500 dark:text-emerald-400">
+        <IconWhatsApp />
+      </span>
+      Mensagens WhatsApp
+    </span>
+  } 
+  onClick={() => setOpenMenu(null)} 
+/>
             <MenuLink href="/admin/gerenciador/cobranca" label="💵 Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
@@ -365,9 +389,9 @@ function LogoutLink({ onLogout }: { onLogout?: () => void }) {
   );
 }
 
-function NavLink({ href, label }: { href: string; label: string }) {
+function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
   const pathname = usePathname();
-
+  // Se for a home do admin, checa o path exato. Senão, checa se começa com o href.
   const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
 
   return (
@@ -389,7 +413,7 @@ function MenuLink({
   onClick,
 }: {
   href: string;
-  label: string;
+  label: React.ReactNode;
   onClick?: () => void;
 }) {
   const pathname = usePathname();
@@ -410,7 +434,23 @@ function MenuLink({
     </Link>
   );
 }
-
 function Divider() {
   return <div className="my-1.5 h-px bg-slate-100 dark:bg-white/5 mx-2" />;
+}
+function IconWhatsApp() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      <path d="M9 10c0 .5.5 1.5 1.5 2.5s2 1.5 2.5 1.5.5 0 .5-.5" />
+    </svg>
+  );
 }
