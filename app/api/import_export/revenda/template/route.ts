@@ -7,8 +7,8 @@ export async function GET() {
   try {
     const headers = [
       "Nome",
-      "WhatsApp",
-      "Username WhatsApp",
+      "Telefone principal", // ✅ Alterado
+      "Whatsapp Username",  // ✅ Alterado
       "E-mail",
       "Observacoes",
       "Servidor 1 Nome", "Servidor 1 Usuario", "Servidor 1 Senha",
@@ -33,31 +33,29 @@ export async function GET() {
 
     const notes = [
       "⚠️ INSTRUÇÕES PARA IMPORTAÇÃO DE REVENDEDORES ⚠️",
-      "• Nome e WhatsApp: São OBRIGATORIOS.",
-      "• WhatsApp: O sistema normaliza automaticamente. Ex: 5511999999999 ou apenas 11999999999.",
-      "• Username WhatsApp: Se deixado em branco, o sistema tentará extrair do número de telefone automaticamente.",
+      "• Nome e Telefone principal: São OBRIGATORIOS.",
+      "• Telefone principal: O sistema normaliza automaticamente. Ex: 5511999999999 ou apenas 11999999999.",
+      "• Whatsapp Username: Se deixado em branco, o sistema tentará extrair do número de telefone automaticamente.",
       "• E-mail e Observações: Opcionais.",
       "• Servidores: Você pode vincular até 5 servidores na mesma linha. Preencha as colunas 'Nome', 'Usuario' e 'Senha'.",
-      "• Nome do Servidor: O nome do servidor digitado na planilha deve ser EXATAMENTE IGUAL ao nome cadastrado no seu painel UniGestor.",
-      "🔒 ATENÇÃO 1: Se você preencher o nome de um servidor que NÃO EXISTE no seu UniGestor, a linha inteira será travada e a revenda não será criada por segurança.",
+      "• Nome do Servidor: O nome do servidor digitado na planilha deve ser EXATAMENTE IGUAL ao nome cadastrado no seu painel.",
+      "🔒 ATENÇÃO 1: Se você preencher o nome de um servidor que NÃO EXISTE, a linha inteira será travada e a revenda não será criada por segurança.",
       "🔒 ATENÇÃO 2: Se você preencher o nome do Servidor, a coluna de 'Usuario' daquele servidor também passa a ser obrigatória.",
       "• Não altere os cabeçalhos das colunas.",
       "• Exclua a linha de exemplo e estas instruções antes de importar. Elas estão aqui apenas para referência."
     ];
 
-    // Montando a planilha com cabeçalho, exemplo, linha em branco e notas
     const worksheet = XLSX.utils.aoa_to_sheet([
       headers,
       exampleRow,
-      [], // linha em branco separadora
+      [], 
       ...notes.map((n) => [n]),
     ]);
 
-    // Largura das colunas para melhor leitura e experiência do usuário
     worksheet["!cols"] = [
       { wch: 25 }, // Nome
-      { wch: 18 }, // WhatsApp
-      { wch: 20 }, // Username WhatsApp
+      { wch: 20 }, // Telefone principal
+      { wch: 20 }, // Whatsapp Username
       { wch: 25 }, // E-mail
       { wch: 30 }, // Observacoes
       { wch: 22 }, { wch: 18 }, { wch: 15 }, // Srv 1

@@ -4,7 +4,6 @@ import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 
-// --- HELPERS ---
 function normalizeHeader(h: string) {
   return (h || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
 }
@@ -36,8 +35,8 @@ async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQ
   return { tenant_id: tenantFromQuery, status: 200 };
 }
 
-// Colunas fixas obrigatórias do Revendedor
-const REQUIRED_HEADERS = ["nome", "whatsapp"];
+// ✅ Exige "telefone principal" ao invés de "whatsapp"
+const REQUIRED_HEADERS = ["nome", "telefone principal"]; 
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -55,7 +54,6 @@ export async function POST(req: Request) {
   }
   const tenant_id = resolved.tenant_id;
 
-  // --- Lê o arquivo ---
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
@@ -70,7 +68,7 @@ export async function POST(req: Request) {
   const dataRows = allRows.filter((r: any[]) => {
     const first = String(r[0] ?? "").trim();
     if (!first) return false; 
-    if (first.startsWith("⚠️") || first.startsWith("•")) return false; 
+    if (first.startsWith("⚠️") || first.startsWith("•") || first.startsWith("🔒")) return false; 
     return true;
   });
 
@@ -93,12 +91,7 @@ export async function POST(req: Request) {
     return (row[idx] ?? "").toString().trim();
   };
 
-  // --- Pré-carrega Servidores (nome -> id) ---
-  const { data: serversData, error: srvErr } = await supabase
-    .from("servers")
-    .select("id, name")
-    .eq("tenant_id", tenant_id);
-
+  const { data: serversData, error: srvErr } = await supabase.from("servers").select("id, name").eq("tenant_id", tenant_id);
   if (srvErr) return NextResponse.json({ error: "servers_lookup_failed", details: srvErr.message }, { status: 500 });
 
   const serverIdByName = new Map<string, string>();
@@ -116,18 +109,17 @@ export async function POST(req: Request) {
 
     try {
       const nome = getCell(row, "Nome");
-      const rawPhone = getCell(row, "WhatsApp");
+      const rawPhone = getCell(row, "Telefone principal"); // ✅ Lendo da coluna correta
       const email = getCell(row, "E-mail");
-      const username = getCell(row, "Username WhatsApp");
+      const username = getCell(row, "Whatsapp Username"); // ✅ Lendo da coluna correta
       const notes = getCell(row, "Observacoes");
 
       if (!nome || !rawPhone) {
-        throw new Error("Nome e WhatsApp são obrigatórios.");
+        throw new Error("Nome e Telefone principal são obrigatórios.");
       }
 
       const phoneE164 = normalizePhone(rawPhone);
 
-      // --- Validação Severa de Servidores (TRAVA SE ERRAR) ---
       const serversToLink: any[] = [];
       let rowHasServerError = false;
 
@@ -152,27 +144,23 @@ export async function POST(req: Request) {
         }
       }
 
-      // Se deu erro em qualquer servidor dessa linha, pula para a próxima linha do Excel
       if (rowHasServerError) continue; 
 
-      // --- CRIAÇÃO DO REVENDEDOR (Usando a sua RPC) ---
       const { data: newReseller, error: createErr } = await supabase.rpc("create_reseller_and_setup", {
         p_tenant_id: tenant_id,
         p_display_name: nome,
         p_email: email || null,
         p_notes: notes || null,
         p_phone_primary_e164: phoneE164,
-        p_whatsapp_opt_in: true, // ✅ Forçado conforme instrução
+        p_whatsapp_opt_in: true, 
         p_whatsapp_username: username || null,
         p_whatsapp_snooze_until: null,
       });
 
       if (createErr) throw new Error(createErr.message);
 
-      // A RPC pode retornar o ID diretamente ou um objeto
       const resellerId = String((newReseller as any)?.reseller_id ?? (newReseller as any)?.id ?? newReseller);
 
-      // --- VINCULAÇÃO DOS SERVIDORES ---
       for (const srv of serversToLink) {
         const { error: linkErr } = await supabase.from("reseller_servers").insert({
           tenant_id: tenant_id,
@@ -182,7 +170,6 @@ export async function POST(req: Request) {
           server_password: srv.password || null,
         });
         
-        // Ignora erro 23505 (já existe), mas loga outros
         if (linkErr && linkErr.code !== '23505') { 
           warnings.push({ row: rowNum, warning: `Revenda criada, mas falhou ao vincular servidor "${srv.username}": ${linkErr.message}` });
         }
