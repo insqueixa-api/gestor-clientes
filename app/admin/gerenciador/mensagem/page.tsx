@@ -97,6 +97,15 @@ const TAG_GROUPS = [
 
 ];
 
+// --- Nomes Protegidos pelo Sistema ---
+const PROTECTED_TEMPLATES = [
+  "Pagamento Realizado",
+  "Recarga Revenda",
+  "Teste - Boas-vindas",
+  "SaaS Pagamento Realizado",
+  "SaaS Recarga Realizada"
+];
+
 // --- TIPOS ---
 type MessageTemplate = {
   id: string;
@@ -307,6 +316,8 @@ return (
           <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
             {filteredMessages.map((msg) => {
               const isSelected = selectedTemplate?.id === msg.id;
+              // ✅ Protege se for default ou se tiver um dos nomes obrigatórios
+              const isProtected = msg.is_system_default || PROTECTED_TEMPLATES.includes(msg.name);
 
               return (
                 <div
@@ -364,7 +375,7 @@ return (
                     </button>
 
                     {/* 🔒 Trava o botão de apagar */}
-                    {!msg.is_system_default && (
+                    {!isProtected && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
                         className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
@@ -494,6 +505,9 @@ function EditorModal({
   const [content, setContent] = useState(templateToEdit?.content || "");
   const [loading, setLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // ✅ Descobre se o template aberto é bloqueado para troca de nome
+  const isProtected = templateToEdit?.is_system_default || (templateToEdit?.name && PROTECTED_TEMPLATES.includes(templateToEdit.name));
 
   // MOBILE tags (novo)
   const [mobileTagsOpen, setMobileTagsOpen] = useState(false);
@@ -676,17 +690,17 @@ return createPortal(
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Cobrança 3 dias antes..."
-                readOnly={templateToEdit?.is_system_default} // 🔒 Trava a edição
+                readOnly={isProtected} // 🔒 Trava a edição do nome
                 className={`w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium ${
-                  templateToEdit?.is_system_default
+                  isProtected
                     ? "bg-slate-100 dark:bg-white/5 border-dashed border-slate-300 dark:border-white/20 text-slate-500 cursor-not-allowed"
                     : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
                 }`}
-                autoFocus={!templateToEdit?.is_system_default}
+                autoFocus={!isProtected}
               />
-              {templateToEdit?.is_system_default && (
+              {isProtected && (
                 <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-2 font-bold flex items-center gap-1">
-                  🔒 Este é um modelo do sistema. O nome não pode ser alterado, apenas o conteúdo abaixo.
+                  🔒 Este é um modelo fundamental do sistema. O nome não pode ser alterado, apenas o seu conteúdo.
                 </p>
               )}
             </div>
