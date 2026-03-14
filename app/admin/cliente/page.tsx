@@ -591,16 +591,22 @@ async function loadData() {
       await loadMessageTemplates(tid);
     }
 
-    const { data: appsData } = await supabaseBrowser
-  .from("apps")
-  .select("id,name,info_url,fields_config,is_active,partner_server_id,cost_type") // ✅ só o que usa aqui
-  .eq("tenant_id", tid);
+    // ✅ Usa a RPC segura para carregar os Locais (Overrides) + Globais visíveis!
+    const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
+      .rpc("get_my_visible_apps");
 
-if (appsData) {
+    if (appsErr) {
+      console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
+    }
+
+    // Filtra apenas os ativos para o índice principal
+    const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
+
+if (appsData && appsData.length > 0) {
   const byId: Record<string, any> = {};
   const byName: Record<string, any> = {};
 
-  for (const a of appsData as any[]) {
+  for (const a of appsData) {
     if (a?.id) byId[String(a.id)] = a;
     byName[normAppKey(a?.name)] = a;
   }
@@ -2066,22 +2072,24 @@ return (
 </Td>
 
 <Td align="center">
-  <div className="flex flex-wrap gap-1 justify-center max-w-[180px]">
+                        <div className="flex flex-wrap gap-1.5 justify-center max-w-[200px]">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
                           <button
                           key={`${app}-${i}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openAppConfigModal(r.id, r.name, app, i); // ✅ Passando a letra 'i' aqui!
+                            openAppConfigModal(r.id, r.name, app, i);
                           }}
-                          className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 truncate hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
+                          // ✅ Visual padronizado estilo "Chip Interativo"
+                          className="px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all truncate max-w-full"
+                          title={`Ver dados do aplicativo: ${app}`}
                         >
                           {app}
                         </button>
                             ))
                           ) : (
-                            <span className="text-slate-300 dark:text-white/10 text-xs">—</span>
+                            <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>
                           )}
                         </div>
                       </Td>

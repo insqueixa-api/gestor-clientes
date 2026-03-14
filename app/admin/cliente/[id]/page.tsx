@@ -271,7 +271,7 @@ const [showEditModal, setShowEditModal] = useState(false);
 
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+const tid = await getCurrentTenantId();
       if (!tid) {
         setClient(null);
         setTimeline([]);
@@ -279,6 +279,14 @@ const [showEditModal, setShowEditModal] = useState(false);
         return;
       }
 
+      // ✅ 0) Prepara dicionário de Apps seguro (Globais + Locais) para cruzar depois
+      let localAppsById: Record<string, any> = {};
+      const { data: rawAppsData } = await supabaseBrowser.rpc("get_my_visible_apps");
+      if (rawAppsData) {
+        for (const a of rawAppsData) {
+          if (a?.id) localAppsById[String(a.id)] = a;
+        }
+      }
 
       // 1) tenta na view ACTIVE
       const r1 = await supabaseBrowser
@@ -423,16 +431,18 @@ plan_table_name: finalTableName ?? null,
         created_at: dbCreatedAt ?? (row as any).created_at ?? null, // ✅ ADICIONADO AQUI
       };
 
-      // ✅ BUSCA REAL: Vencimento dos Apps (Suportando múltiplas instâncias e IDs dinâmicos)
+      // ✅ BUSCA REAL: Vencimento dos Apps (Bypass RLS cruzando com o dicionário local)
       const { data: appsData } = await supabaseBrowser
         .from("client_apps")
-        .select("id, field_values, apps (name, fields_config)") // ✅ Puxa a config para descobrir o ID do campo data
+        .select("id, app_id, field_values") // ❌ Removido o join com 'apps'
         .eq("client_id", mapped.id);
 
       if (appsData) {
         (mapped as any).apps_details = appsData.map((item: any) => {
+           // ✅ Busca no dicionário que acabamos de criar via RPC
+           const catalogApp = localAppsById[String(item.app_id)];
            const vals = item.field_values || {};
-           const config = item.apps?.fields_config || [];
+           const config = Array.isArray(catalogApp?.fields_config) ? catalogApp.fields_config : [];
            
            let expiration = vals["Vencimento"] || vals["vencimento"] || vals["VENCIMENTO"] || null;
 
@@ -452,7 +462,7 @@ plan_table_name: finalTableName ?? null,
            
            return {
              id: item.id, 
-             name: item.apps?.name || "App",
+             name: catalogApp?.name || "App (Não encontrado)", // ✅ Usa o nome do catálogo
              expiration: expiration
            };
         });

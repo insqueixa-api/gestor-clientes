@@ -1028,15 +1028,16 @@ useEffect(() => {
           .eq("is_archived", false);
 
         // 2. Apps (Catálogo Completo com Configuração)
-        // Buscamos apenas na tabela 'apps' nova que configuramos
-        const { data: appsData, error: appsErr } = await supabaseBrowser
-          .from("apps")
-          .select("id, name, fields_config, info_url")
-          .eq("tenant_id", tid)
-          .eq("is_active", true);
+        // ✅ Usa a RPC segura para carregar os Locais + Globais visíveis!
+        const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
+          .rpc("get_my_visible_apps");
+          
         if (appsErr) {
           console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
         }
+        
+        // Filtra apenas os ativos para exibir no dropdown (caso a RPC traga inativos também)
+        const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
 
         // 3. Tabelas de Preço
         const tRes = await supabaseBrowser
