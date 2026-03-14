@@ -716,9 +716,13 @@ const [exporting, setExporting] = useState(false);
   const [importingReseller, setImportingReseller] = useState(false);
   const importResellerFileRef = useRef<HTMLInputElement | null>(null);
 
-  // ✅ NOVO: Estados e Refs para Mensagens
+// ✅ NOVO: Estados e Refs para Mensagens
   const [importingMessage, setImportingMessage] = useState(false);
   const importMessageFileRef = useRef<HTMLInputElement | null>(null);
+
+  // ✅ NOVO: Estados e Refs para Servidores
+  const [importingServer, setImportingServer] = useState(false);
+  const importServerFileRef = useRef<HTMLInputElement | null>(null);
 
   // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
@@ -775,8 +779,66 @@ const [exporting, setExporting] = useState(false);
       }
 addToast("success", "Sucesso", summary);
       setTimeout(() => window.location.reload(), 1200);
-    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingApps(false); }
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
   }
+
+  // --- ✅ NOVAS FUNÇÕES DE SERVIDORES ---
+  async function handleExportServers() {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+    try {
+      const res = await fetch(`/api/import_export/servidor/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `servidores_export.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
+  }
+
+  function handleDownloadTemplateServers() {
+    window.location.href = "/api/import_export/servidor/template";
+  }
+
+  async function handleImportServerFile(file: File) {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setImportingServer(true);
+    setActionModal(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/import_export/servidor/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.details || json?.error || "Falha ao importar servidores");
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const summary = `Total: ${json.total} | Inseridos: ${json.inserted} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", "O relatório será baixado.");
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE SERVIDORES\nData: ${new Date().toLocaleString("pt-BR")}\n${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `relatorio_import_servidores_${Date.now()}.txt`;
+        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        return;
+      }
+      addToast("success", "Sucesso", summary);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingServer(false); }
+  }
+
+  
 
   // --- NOVAS FUNÇÕES DE AUTOMAÇÕES ---
   const [importingAuto, setImportingAuto] = useState(false);
@@ -1545,6 +1607,25 @@ return (
                         <div className="text-[11px] font-medium text-slate-400">Modelos de mensagens do sistema</div>
                       </div>
                     </button>
+
+                    {/* ✅ Servidores */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportServers();
+                        else if (action === "template") handleDownloadTemplateServers();
+                        else if (action === "import") importServerFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">🖥️</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Servidores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Cadastros dos seus servidores e painéis</div>
+                      </div>
+                    </button>
                   </div>
 
                   <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
@@ -1577,10 +1658,10 @@ return (
               <button
                 type="button"
                 onClick={() => setActionModal("import")}
-                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage}
+                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer}
                 className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(importing || importingApps || importingAuto || importingReseller || importingMessage) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+                {(importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
               </button>
               
               <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
@@ -1588,6 +1669,8 @@ return (
               <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
               <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportResellerFile(f); }} />
               <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportMessageFile(f); }} />
+              {/* ✅ NOVO INPUT PARA SERVIDOR */}
+              <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportServerFile(f); }} />
             </div>
           </div>
         </div>
