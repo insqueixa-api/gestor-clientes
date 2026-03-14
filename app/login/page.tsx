@@ -30,12 +30,12 @@ export default function LoginPage() {
   const initialState: LoginState = {};
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
-  // ✅ Monitora erros de login para incrementar as tentativas
+  // ✅ Monitora erros de login de forma precisa, usando o 'pending' para saber que a tentativa acabou
   useEffect(() => {
-    if (state?.error) {
+    if (!pending && state?.error) {
       setFailedAttempts((prev) => prev + 1);
     }
-  }, [state]);
+  }, [pending, state?.error]);
 
   const canSubmit = useMemo(() => {
     if (!isLikelyEmail(email)) return false;
