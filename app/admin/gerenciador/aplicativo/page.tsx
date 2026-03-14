@@ -41,6 +41,8 @@ const ALL_FIELD_TYPES: AppFieldType[] = ["date", "mac", "device_key", "email", "
 
 type AppData = {
   id: string;
+  tenant_id: string;      // ✅ Precisamos saber a origem do App
+  base_app_id?: string;   // ✅ ID do App Global caso seja um override
   name: string;
   info_url: string | null;
   is_active: boolean;
@@ -84,6 +86,7 @@ function normalizeApiUrl(url: string) {
 }
 export default function AppManagerPage() {
 const [apps, setApps] = useState<AppData[]>([]);
+const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
 const [search, setSearch] = useState("");
 const [loading, setLoading] = useState(true);
 const [isModalOpen, setIsModalOpen] = useState(false);
@@ -163,13 +166,12 @@ const [editingId, setEditingId] = useState<string | null>(null);
     try {
       const tid = await getCurrentTenantId();
       if (!tid) return;
+      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
 
-      // 1. Carrega Apps
-const { data: appsData, error: appsError } = await supabaseBrowser
-  .from("apps")
-  .select("*")
-  .eq("tenant_id", tid)
-  .order("name", { ascending: true });
+      // 1. Carrega Apps via RPC inteligente (Bypassa RLS com segurança)
+      const { data: appsData, error: appsError } = await supabaseBrowser
+        .rpc("get_my_visible_apps")
+        .order("name", { ascending: true });
 
 
       if (appsError) throw appsError;
@@ -276,21 +278,33 @@ try {
     fields_config: formFields,
   };
 
-  if (editingId) {
-    const updatePayload = {
-      name: formName.trim(),
-      info_url: formUrl?.trim() ? formUrl.trim() : null,
-      fields_config: formFields,
-    };
-    // ✅ trava por id + tenant_id
-    const { error } = await supabaseBrowser
-      .from("apps")
-      .update(updatePayload)
-      .eq("id", editingId)
-      .eq("tenant_id", tid);
+  const editingApp = apps.find(a => a.id === editingId);
+  const isEditingGlobal = editingApp && editingApp.tenant_id !== tid;
 
-    if (error) throw error;
-    addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
+  if (editingId) {
+    if (isEditingGlobal) {
+      // 🟢 É UM OVERRIDE! Ele tá editando um Global, cria um local apontando pro pai
+      const { error } = await supabaseBrowser.from("apps").insert({
+        ...insertPayload,
+        base_app_id: editingId
+      });
+      if (error) throw error;
+      addToast("success", "Personalizado", "Cópia local criada com sucesso!");
+    } else {
+      // 🔵 ATUALIZAÇÃO NORMAL (App dele mesmo)
+      const updatePayload = {
+        name: formName.trim(),
+        info_url: formUrl?.trim() ? formUrl.trim() : null,
+        fields_config: formFields,
+      };
+      const { error } = await supabaseBrowser
+        .from("apps")
+        .update(updatePayload)
+        .eq("id", editingId)
+        .eq("tenant_id", tid);
+      if (error) throw error;
+      addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
+    }
   } else {
     const { error } = await supabaseBrowser.from("apps").insert(insertPayload);
     if (error) throw error;
@@ -326,15 +340,32 @@ async function handleDelete(id: string) {
       return;
     }
 
-    const { error } = await supabaseBrowser
-      .from("apps")
-      .delete()
-      .eq("id", id)
-      .eq("tenant_id", tid);
+    const appToDelete = apps.find(a => a.id === id);
+    const isGlobal = appToDelete && appToDelete.tenant_id !== tid;
 
-    if (error) throw error;
+    if (isGlobal) {
+      // 🟢 Ocultar Global (Cria Tombstone)
+      const { error } = await supabaseBrowser.from("apps").insert({
+        tenant_id: tid,
+        base_app_id: id,
+        name: appToDelete.name,
+        is_hidden: true,
+        fields_config: []
+      });
+      if (error) throw error;
+    } else {
+      if (appToDelete?.base_app_id) {
+        // 🔵 Deletar Override (Só oculta o override, mantendo a proteção contra o Global)
+        const { error } = await supabaseBrowser.from("apps").update({ is_hidden: true }).eq("id", id).eq("tenant_id", tid);
+        if (error) throw error;
+      } else {
+        // 🔴 Deletar App Próprio Definitivamente
+        const { error } = await supabaseBrowser.from("apps").delete().eq("id", id).eq("tenant_id", tid);
+        if (error) throw error;
+      }
+    }
 
-    addToast("success", "Removido", "Aplicativo excluído.");
+    addToast("success", "Removido", "Aplicativo removido da sua lista.");
     loadData();
   } catch (e: any) {
     addToast("error", "Erro", e?.message ?? "Erro inesperado.");
