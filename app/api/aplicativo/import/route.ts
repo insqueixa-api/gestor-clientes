@@ -204,11 +204,10 @@ export async function POST(req: Request) {
     serverIdByName.set(normText(s.name), String(s.id));
   }
 
-  // --- Pré-carrega apps (nome → { id, fields_config }) ---
+ // --- Pré-carrega apps (nome → { id, fields_config }) ---
+  // ✅ Usando a RPC segura para puxar os Apps Locais (Overrides) e os Globais do Admin que o usuário enxerga!
   const { data: appsData, error: appsErr } = await supabase
-    .from("apps")
-    .select("id, name, fields_config")
-    .eq("tenant_id", tenant_id);
+    .rpc("get_my_visible_apps");
 
   if (appsErr) {
     return NextResponse.json({ error: "apps_lookup_failed", details: appsErr.message }, { status: 500 });

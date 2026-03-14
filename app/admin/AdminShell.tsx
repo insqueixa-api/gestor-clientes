@@ -175,7 +175,7 @@ export default function AdminShell({
               <NavLink href="/admin" label="📊 Dashboard" />
               <NavLink href="/admin/cliente" label="👥 Clientes" />
               <NavLink href="/admin/revendedor" label="🤝 Revendas" />
-              <NavLink href="/admin/teste" label="⏱️ Testes" />
+              <NavLink href="/admin/teste" label="🕒 Testes" />
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
@@ -257,7 +257,7 @@ export default function AdminShell({
             <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/teste" label="⏱️ Testes" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label="🕒 Testes" onClick={() => setOpenMenu(null)} />
 
             <Divider />
 
@@ -282,7 +282,7 @@ export default function AdminShell({
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
             )}
 
-            <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🔌 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -301,7 +301,7 @@ export default function AdminShell({
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
             )}
 
-            <MenuLink href="/admin/settings/api-server" label="🧩 API Servidor" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🔌 API Servidor" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,

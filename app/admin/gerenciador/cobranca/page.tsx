@@ -630,11 +630,17 @@ const sessions: SelectOption[] = (() => {
   useEffect(() => { loadData(); }, []);
 
   // --- ACTIONS ---
-    async function toggleActive(rule: Automation) {
+async function toggleActive(rule: Automation) {
   const tid = await getCurrentTenantId();
   if (!tid) return;
 
   const nextActive = !rule.is_active;
+
+  // ✅ TRAVA: Não deixa ativar se não tiver template de mensagem
+  if (nextActive && !rule.message_template_id && !(rule.message_template as any)?.id) {
+    addToast("error", "Falta a Mensagem", "Você precisa editar essa regra e vincular um modelo de mensagem antes de ativá-la.");
+    return;
+  }
 
   // ✅ Se estiver DESATIVANDO e estiver executando algo, para antes
   if (!nextActive) {
@@ -685,10 +691,16 @@ const { error } = await supabaseBrowser
   const tid = await getCurrentTenantId();
   if (!tid) return;
 
-  // ✅ Segurança: não deixa dar PLAY se a regra estiver desativada
-  if (!rule.is_active && action === "PLAY") {
-    addToast("error", "Regra desativada", "Ative o toggle para iniciar o envio automático.");
-    return;
+  // ✅ Segurança: não deixa dar PLAY se a regra estiver desativada ou sem mensagem
+  if (action === "PLAY") {
+    if (!rule.message_template_id && !(rule.message_template as any)?.id) {
+      addToast("error", "Falta a Mensagem", "Vincule um modelo de mensagem antes de enviar.");
+      return;
+    }
+    if (!rule.is_active) {
+      addToast("error", "Regra desativada", "Ative o toggle para iniciar o envio automático.");
+      return;
+    }
   }
 
   // ✅ Segurança: confirmação forte no STOP
@@ -813,13 +825,17 @@ const { error } = await supabaseBrowser
   }, [automations, clients]);
 
 
-  const handleManualRun = async (rule: Automation) => {
-    if (!rule.is_active) {
-      addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
-      return;
-    }
+const handleManualRun = async (rule: Automation) => {
+    if (!rule.message_template_id && !(rule.message_template as any)?.id) {
+      addToast("error", "Falta a Mensagem", "Edite a regra e vincule um modelo de mensagem antes de enviar.");
+      return;
+    }
+    if (!rule.is_active) {
+      addToast("error", "Regra desativada", "Ative o toggle para usar o envio manual.");
+      return;
+    }
 
-    const affected = getImpactedClients(rule);
+    const affected = getImpactedClients(rule);
     if (affected.length === 0) {
       addToast("error", "Sem alvos", "Nenhum cliente atende a regra hoje.");
       return;
@@ -1451,9 +1467,9 @@ function AutomationWizard({ auxData, editingRule, onClose, onSuccess, onError }:
     }, [editingRule]);
 
     const handleSave = async () => {
-        if (!form.name || !form.message_template_id) {
+        if (!form.name) {
             setStep(1);
-            setTimeout(() => onError("Preencha o Nome e escolha uma Mensagem."), 200);
+            setTimeout(() => onError("Preencha o Nome da Automação."), 200);
             return;
         }
 
@@ -1484,7 +1500,8 @@ const payload = {
   tenant_id: tid,
   name: form.name,
   type: form.type,
-  is_active: form.is_active,
+  // ✅ Força a desativar se não tiver mensagem vinculada
+  is_active: form.message_template_id ? form.is_active : false,
   is_automatic: form.is_automatic,
 
   message_template_id: form.message_template_id,

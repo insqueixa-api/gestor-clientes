@@ -764,9 +764,69 @@ const [exporting, setExporting] = useState(false);
         document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
         return;
       }
-      addToast("success", "Sucesso", summary);
+addToast("success", "Sucesso", summary);
       setTimeout(() => window.location.reload(), 1200);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingApps(false); }
+  }
+
+  // --- NOVAS FUNÇÕES DE AUTOMAÇÕES ---
+  const [importingAuto, setImportingAuto] = useState(false);
+  const importAutoFileRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleExportAuto() {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+    try {
+      const res = await fetch(`/api/cobranca/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `automacoes_export.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
+  }
+
+  function handleDownloadTemplateAuto() {
+    window.location.href = "/api/cobranca/template";
+  }
+
+  async function handleImportAutoFile(file: File) {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setImportingAuto(true);
+    setActionModal(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/cobranca/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.details || json?.error || "Falha ao importar automações");
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const summary = `Total processado: ${json.total} | Inseridos: ${json.inserted} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", "O relatório será baixado.");
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO DE AUTOMAÇÕES\nData: ${new Date().toLocaleString("pt-BR")}\n${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `relatorio_import_auto_${Date.now()}.txt`;
+        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        return;
+      }
+      addToast("success", "Sucesso", summary);
+      // Não precisa recarregar a tela inteira pois as automações ficam em outra página.
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingAuto(false); }
   }
   // ------------------------------------
 
@@ -1304,6 +1364,24 @@ return (
                         <div className="text-[11px] font-medium text-slate-400">Apps vinculados aos clientes</div>
                       </div>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportAuto();
+                        else if (action === "template") handleDownloadTemplateAuto();
+                        else if (action === "import") importAutoFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">💵</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Automações</div>
+                        <div className="text-[11px] font-medium text-slate-400">Regras de cobrança no WhatsApp</div>
+                      </div>
+                    </button>
                   </div>
 
                   <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
@@ -1336,14 +1414,15 @@ return (
               <button
                 type="button"
                 onClick={() => setActionModal("import")}
-                disabled={!tenantId || importing || importingApps}
+                disabled={!tenantId || importing || importingApps || importingAuto}
                 className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(importing || importingApps) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+                {(importing || importingApps || importingAuto) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
               </button>
               
               <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
               <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }} />
+              <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
             </div>
           </div>
         </div>

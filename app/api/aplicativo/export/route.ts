@@ -117,11 +117,9 @@ export async function GET(req: Request) {
 
   const allHeaders = [...FIXED_HEADERS, ...FIELD_TYPE_ORDER.map((t) => FIELD_LABELS[t])];
 
-  // 1. Busca apps do tenant com fields_config
+ // 1. Busca apps (incluindo Globais e Locais) usando a RPC segura
   const { data: appsData, error: appsErr } = await supabase
-    .from("apps")
-    .select("id, name, fields_config")
-    .eq("tenant_id", tenant_id);
+    .rpc("get_my_visible_apps");
 
   if (appsErr) {
     return NextResponse.json({ error: "export_failed_apps", details: appsErr.message }, { status: 500 });
