@@ -131,7 +131,7 @@ export default function AdminShell({
       {/* TOP NAV */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         {/* Adicionado mx-auto e max-w-screen-2xl */}
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-3">
 
           <Link
             href="/admin"
@@ -145,7 +145,7 @@ export default function AdminShell({
                     <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href="/admin/cliente" label="👥 Clientes" />
+              <NavLink href="/admin/cliente" label="👨‍👩‍👧‍👦 Clientes" />
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -173,7 +173,7 @@ export default function AdminShell({
             {/* ✅ DESKTOP: mantém tudo */}
             <div className="hidden sm:flex items-center gap-1">
               <NavLink href="/admin" label="📊 Dashboard" />
-              <NavLink href="/admin/cliente" label="👥 Clientes" />
+              <NavLink href="/admin/cliente" label="👨‍👩‍👧‍👦 Clientes" />
               <NavLink href="/admin/revendedor" label="🤝 Revendas" />
               <NavLink href="/admin/teste" label="🕒 Testes" />
 
@@ -255,7 +255,7 @@ export default function AdminShell({
             </div>
 
             <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/cliente" label="👨‍👩‍👧‍👦 Clientes" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/teste" label="🕒 Testes" onClick={() => setOpenMenu(null)} />
 
