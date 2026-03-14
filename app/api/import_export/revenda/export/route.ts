@@ -50,10 +50,10 @@ export async function GET(req: Request) {
   ];
 
   try {
-    // 1. Busca Revendedores
+// 1. Busca Revendedores
     const { data: resellers, error: resErr } = await supabase
       .from("resellers")
-      .select("id, display_name, email, whatsapp_primary, whatsapp_username, notes")
+      .select("id, display_name, email, whatsapp_e164, whatsapp_username, notes")
       .eq("tenant_id", tenant_id)
       .eq("is_archived", false)
       .order("display_name");
@@ -96,12 +96,12 @@ export async function GET(req: Request) {
       });
     });
 
-    // 3. Monta as Linhas (Achatando até 5 servidores)
+// 3. Monta as Linhas (Achatando até 5 servidores)
     const rows = resellers.map((r) => {
       const srvs = serversMap[r.id] || [];
       const rowData: any = {
         "Nome": r.display_name || "",
-        "WhatsApp": r.whatsapp_primary || "",
+        "WhatsApp": r.whatsapp_e164 || "",
         "Username WhatsApp": r.whatsapp_username || "",
         "E-mail": r.email || "",
         "Observacoes": r.notes || "",
