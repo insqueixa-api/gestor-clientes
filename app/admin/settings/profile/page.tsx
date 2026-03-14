@@ -840,16 +840,16 @@ addToast("success", "Sucesso", summary);
     addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
     try {
       const res = await fetch(`/api/import_export/revenda/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
-      if (!res.ok) throw new Error("Falha ao gerar o arquivo de exportação.");
+      if (!res.ok) {
+        // ✅ Tenta pegar a mensagem de erro real enviada pela API
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `revendas_export.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      a.href = url; a.download = `revendas_export.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
   }
 
