@@ -385,22 +385,25 @@ function renderAppCard(app: AppData) {
        
         </div>
 
-        <div className="flex gap-1">
-  <button
-    onClick={() => openEdit(app)}
-    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
-    title="Editar"
-  >
-    <IconEdit />
-  </button>
-  <button
-    onClick={() => handleDelete(app.id)}
-    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
-    title="Excluir"
-  >
-    <IconTrash />
-  </button>
-</div>
+        <div className="flex gap-2">
+          {/* Botão Editar (Âmbar) */}
+          <button
+            onClick={() => openEdit(app)}
+            className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+            title="Editar"
+          >
+            <IconEdit />
+          </button>
+
+          {/* Botão Excluir (Rose/Red) */}
+          <button
+            onClick={() => handleDelete(app.id)}
+            className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+            title="Excluir"
+          >
+            <IconTrash />
+          </button>
+        </div>
       </div>
 
       {app.info_url && (
