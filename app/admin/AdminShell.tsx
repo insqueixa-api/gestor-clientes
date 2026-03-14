@@ -131,7 +131,7 @@ export default function AdminShell({
       {/* TOP NAV */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         {/* Adicionado mx-auto e max-w-screen-2xl */}
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-3">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
 
           <Link
             href="/admin"
