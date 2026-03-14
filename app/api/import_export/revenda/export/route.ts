@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import * as XLSX from "xlsx";
 
+export const dynamic = "force-dynamic"; // ✅ OBRIGATÓRIO PARA ROTAS COM COOKIES
+
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
   const { data, error } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", userId);
   if (error) return { tenant_id: null as string | null, status: 500, error: "tenant_lookup_failed", details: error.message };
@@ -19,18 +21,35 @@ async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQ
 }
 
 export async function GET(req: Request) {
+  const supabase = await createClient();
+
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth?.user;
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const url = new URL(req.url);
+  const tenantFromQuery = url.searchParams.get("tenant_id");
+
+  const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
+  if (!resolved.tenant_id) {
+    return NextResponse.json({ error: resolved.error, hint: (resolved as any).hint }, { status: resolved.status || 400 });
+  }
+  const tenant_id = resolved.tenant_id;
+
+  const headers = [
+    "Nome", 
+    "WhatsApp", 
+    "Username WhatsApp", 
+    "E-mail", 
+    "Observacoes",
+    "Servidor 1 Nome", "Servidor 1 Usuario", "Servidor 1 Senha",
+    "Servidor 2 Nome", "Servidor 2 Usuario", "Servidor 2 Senha",
+    "Servidor 3 Nome", "Servidor 3 Usuario", "Servidor 3 Senha",
+    "Servidor 4 Nome", "Servidor 4 Usuario", "Servidor 4 Senha",
+    "Servidor 5 Nome", "Servidor 5 Usuario", "Servidor 5 Senha"
+  ];
+
   try {
-    const supabase = await createClient();
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user;
-    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-    const url = new URL(req.url);
-    const tenantFromQuery = url.searchParams.get("tenant_id");
-    const resolved = await resolveTenantIdForUser(supabase, user.id, tenantFromQuery);
-    if (!resolved.tenant_id) return NextResponse.json({ error: resolved.error }, { status: resolved.status || 400 });
-    const tenant_id = resolved.tenant_id;
-
     // 1. Busca Revendedores
     const { data: resellers, error: resErr } = await supabase
       .from("resellers")
@@ -40,8 +59,22 @@ export async function GET(req: Request) {
       .order("display_name");
 
     if (resErr) throw resErr;
+
+    // ✅ Se não houver revendedores, retorna a planilha só com cabeçalho
     if (!resellers || resellers.length === 0) {
-      return NextResponse.json({ error: "Nenhum revendedor encontrado." }, { status: 404 });
+      const ws = XLSX.utils.aoa_to_sheet([headers]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Revendedores");
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      return new NextResponse(buf, {
+        status: 200,
+        headers: {
+          "Content-Disposition": 'attachment; filename="Exportacao_Revendedores.xlsx"',
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Cache-Control": "no-store",
+        },
+      });
     }
 
     // 2. Busca Vínculos de Servidor
@@ -84,7 +117,8 @@ export async function GET(req: Request) {
       return rowData;
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    // ✅ Garante que as colunas fiquem na ordem correta
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Revendedores");
 
