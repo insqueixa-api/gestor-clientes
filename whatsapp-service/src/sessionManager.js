@@ -166,7 +166,7 @@ async function createSession(sessionKey) {
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const { version } = await fetchLatestBaileysVersion();
 
-  const sessData = {
+const sessData = {
     socket: null,
     qr: null,
     status: "connecting", // connecting | qr | connected | disconnected
@@ -174,8 +174,19 @@ async function createSession(sessionKey) {
     pushName: null,
     pictureUrl: null,
     retries: 0,
+    qrTimeout: null, // ✅ NOVO: Controle de tempo limite
   };
   sessions.set(sessionKey, sessData);
+
+  // ✅ NOVO: Lixeiro Automático (5 minutos)
+  // Se a pessoa não escanear o QR Code em 5 min, destrói a sessão para liberar memória
+  sessData.qrTimeout = setTimeout(async () => {
+    const current = sessions.get(sessionKey);
+    if (current && current.status !== "connected") {
+      console.log(`[WA][${sessionKey.slice(0, 8)}] ⏳ Timeout (5 min). Ninguém escaneou o QR Code. Destruindo lixo...`);
+      await disconnectSession(sessionKey); // Usa sua própria função para limpar a pasta e a memória
+    }
+  }, 5 * 60 * 1000); // 5 minutos em milissegundos
 
   const sock = makeWASocket({
     version,
@@ -246,7 +257,13 @@ sock.ev.on("messages.upsert", ({ messages }) => {
       if (cb) cb(qr);
     }
 
-    if (connection === "open") {
+if (connection === "open") {
+      // ✅ Desarma o lixeiro automático, pois o usuário conectou com sucesso!
+      if (sessData.qrTimeout) {
+        clearTimeout(sessData.qrTimeout);
+        sessData.qrTimeout = null;
+      }
+
       sessData.status = "connected";
       sessData.qr = null;
       sessData.retries = 0;
