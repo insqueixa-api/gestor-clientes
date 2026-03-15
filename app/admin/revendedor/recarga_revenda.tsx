@@ -55,6 +55,33 @@ interface Props {
   onError?: (msg: string) => void;
 }
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // --- HELPERS (integrais) ---
 function onlyDigits(s: string) {
   return (s || "").replace(/\D+/g, "");
@@ -179,11 +206,36 @@ export default function QuickRechargeModal({
   const [saving, setSaving] = useState(false);
   const [loadingText, setLoadingText] = useState("Processando..."); // ✅ Texto dinâmico do botão
 
-  // ✅ Estados do WhatsApp
+// ✅ Estados do WhatsApp
   const [sendWhats, setSendWhats] = useState(true);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [messageContent, setMessageContent] = useState("");
+
+  // ✅ NOVO: Controle de Sessão
+  const [selectedSession, setSelectedSession] = useState("default");
+  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+    { id: "default", label: "Carregando..." }
+  ]);
+
+  async function loadWhatsAppSessions() {
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+      ]);
+      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+
+      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+
+      setSessionOptions([
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+        { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+      ]);
+    } catch (e) {}
+  }
 
   // --- Lógica derivada ---
   const qty = useMemo(() => {
@@ -280,6 +332,10 @@ export default function QuickRechargeModal({
         const tid = await getCurrentTenantId();
         if (!alive) return;
         setTenantId(tid);
+
+        if (tid) {
+          await loadWhatsAppSessions(); // ✅ Carrega sessões para o Select
+        }
 
         const { data, error } = await supabaseBrowser
           .from("vw_reseller_servers")
@@ -523,7 +579,7 @@ const payload = {
               reseller_server_id: selectedResellerServerId, // ✅ Mandamos a chave exata do vínculo
               credits_recharged: qty, // ✅ Mandamos a quantidade exata feita AGORA
               message: messageContent,
-              whatsapp_session: "default",
+              whatsapp_session: selectedSession, // ✅ Usando a Sessão Escolhida
             }),
           });
 
@@ -711,8 +767,8 @@ const payload = {
                 </div>
               </div>
 
-   {/* ✅ BLOCO DO WHATSAPP (Linha Única) */}
-              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in zoom-in-95 duration-500">
+   {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
+              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col gap-3 animate-in zoom-in-95 duration-500">
                 
                 {/* Toggle */}
                 <div 
@@ -725,24 +781,40 @@ const payload = {
                   </span>
                 </div>
 
-                {/* Seletor (Só aparece se o toggle estiver ON) */}
+                {/* Seletores (Lado a Lado) */}
                 {sendWhats && (
-                  <div className="w-full sm:w-auto flex-1 max-w-[240px] animate-in fade-in slide-in-from-right-2 duration-200">
-                    <Select
-                      value={selectedTemplateId}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setSelectedTemplateId(id);
-                        const tpl = templates.find((t) => t.id === id);
-                        if (tpl) setMessageContent(tpl.content);
-                      }}
-                      className="h-8 text-xs font-semibold text-slate-600 dark:text-white/70"
-                    >
-                      <option value="">-- Personalizado --</option>
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </Select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Select de Sessão */}
+                    <div>
+                      <Select
+                        value={selectedSession}
+                        onChange={(e) => setSelectedSession(e.target.value)}
+                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-white/70"
+                      >
+                        {sessionOptions.map(s => (
+                          <option key={s.id} value={s.id}>{s.label}</option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    {/* Select de Template */}
+                    <div>
+                      <Select
+                        value={selectedTemplateId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSelectedTemplateId(id);
+                          const tpl = templates.find((t) => t.id === id);
+                          if (tpl) setMessageContent(tpl.content);
+                        }}
+                        className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-white/70"
+                      >
+                        <option value="">-- Personalizado --</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
                 )}
               </div>
