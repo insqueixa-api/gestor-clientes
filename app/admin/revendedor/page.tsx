@@ -14,6 +14,33 @@ import ResellerFormModal from "./novo_revenda";
 import QuickRechargeModal from "./recarga_revenda";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // --- TIPOS ---
 type ResellerStatus = "Ativo" | "Inativo" | "Arquivado";
 
@@ -187,6 +214,7 @@ export default function RevendaPage() {
     resellerName: undefined,
   });
   const [messageText, setMessageText] = useState("");
+  const [selectedSessionNow, setSelectedSessionNow] = useState("default"); // ✅ NOVO
 
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({
     open: false,
@@ -195,6 +223,32 @@ export default function RevendaPage() {
   });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
+  const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default"); // ✅ NOVO
+
+  // ✅ NOVO: Opções de sessão dinâmicas (Busca os telefones reais da VM)
+  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+    { id: "default", label: "Carregando..." }
+  ]);
+
+  async function loadWhatsAppSessions() {
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+      ]);
+
+      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+
+      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+
+      setSessionOptions([
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+        { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+      ]);
+    } catch (e) {}
+  }
 
   // Modal Novo Alerta
   const [showNewAlert, setShowNewAlert] = useState<{
@@ -402,6 +456,7 @@ export default function RevendaPage() {
     setTenantId(tid);
     if (tid) {
       await loadMessageTemplates(tid);
+      await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão para o Select
     }
 
     const serversRes = await supabaseBrowser
@@ -791,8 +846,8 @@ body: JSON.stringify({
    tenant_id: tenantId,
    reseller_id: showSendNow.resellerId,
    message: msg,
-   whatsapp_session: "default",
-   message_template_id: selectedTemplateNowId, // ✅ NOME CORRETO AQUI
+   whatsapp_session: selectedSessionNow, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+   message_template_id: selectedTemplateNowId, 
  }),
       });
 
@@ -856,8 +911,8 @@ const res = await fetch("/api/whatsapp/envio_agendado", {
    reseller_id: showScheduleMsg.resellerId, // ✅ REVenda
    message: msg,
    send_at: sendAtIso,
-   whatsapp_session: "default",
-   message_template_id: selectedTemplateScheduleId, // ✅ NOME CORRETO AQUI
+   whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+   message_template_id: selectedTemplateScheduleId, 
  }),
 });
 
@@ -1391,8 +1446,28 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       )}
 
       {showSendNow.open && (
-        <Modal title="Enviar mensagem agora" onClose={() => setShowSendNow({ open: false, resellerId: null })}>
+        <Modal title="Enviar mensagem agora" onClose={() => {
+          setShowSendNow({ open: false, resellerId: null });
+          setSelectedSessionNow("default"); // ✅ Reseta ao fechar
+        }}>
           <div className="space-y-4">
+            
+            {/* ✅ Select da Sessão WhatsApp */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                Sessão de Envio
+              </label>
+              <select
+                value={selectedSessionNow}
+                onChange={(e) => setSelectedSessionNow(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+              >
+                {sessionOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center gap-2">
               <select
                 value={selectedTemplateNowId}
@@ -1445,8 +1520,28 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       )}
 
       {showScheduleMsg.open && (
-        <Modal title="Agendar mensagem" onClose={() => setShowScheduleMsg({ open: false, resellerId: null })}>
+        <Modal title="Agendar mensagem" onClose={() => {
+          setShowScheduleMsg({ open: false, resellerId: null });
+          setSelectedSessionSchedule("default"); // ✅ Reseta ao fechar
+        }}>
           <div className="space-y-4">
+            
+            {/* ✅ Select da Sessão WhatsApp */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                Sessão de Envio
+              </label>
+              <select
+                value={selectedSessionSchedule}
+                onChange={(e) => setSelectedSessionSchedule(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+              >
+                {sessionOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center gap-2">
               <select
                 value={selectedTemplateScheduleId}
