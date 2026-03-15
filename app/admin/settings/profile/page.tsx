@@ -633,14 +633,14 @@ setWaConnected(!!json.connected);
 setWaStatusText(json.status ?? null);
 
 // status não traz mais profile/session info
-// (isso vem do /api/whatsapp/profile)
 if (!json.connected) {
   setWaPushName(null);
   setWaProfilePicUrl(null);
   setWaSessionLabel("Contato principal");
 }
 
-return !!json.connected;
+// ✅ Agora retornamos um objeto para sabermos qual é o status exato lá na VM
+return { connected: !!json.connected, status: json.status };
 
 
 } catch (e: any) {
@@ -648,7 +648,7 @@ return !!json.connected;
   setWaLastError(msg);
   addToast("error", "WhatsApp", msg);
   setWaConnected(false);
-  return false;
+  return { connected: false, status: "error" };
 }
 
 }
@@ -689,10 +689,11 @@ setWaPushName(json.pushName ?? null);
 }
 
 
-async function refreshWhatsAppPanel() {
+// ✅ Adicionado o parâmetro forceQr
+async function refreshWhatsAppPanel(forceQr = false) {
   setWaLoading(true);
   try {
-    const connected = await fetchWaStatus();
+    const { connected, status } = await fetchWaStatus();
 
 if (connected) {
   setWaQr(null);
@@ -708,18 +709,24 @@ if (connected) {
   return;
 }
 
-
-const qr = await fetchWaQr();
-if (!qr) {
+// ✅ TRAVA DE SEGURANÇA: Só bate na API de gerar QR se o botão for clicado (forceQr) 
+// OU se a VM informar que já existe uma tentativa de conexão rolando ("qr" ou "connecting")
+if (forceQr || status === "qr" || status === "connecting") {
+  const qr = await fetchWaQr();
+  if (!qr) {
+    setWaQrDataUrl(null);
+    return;
+  }
+  setWaQrDataUrl(qr);
+} else {
+  // Se está totalmente desconectado e não clicou no botão, limpa o QR.
   setWaQrDataUrl(null);
-  return;
 }
-// backend já retorna base64 pronto
-setWaQrDataUrl(qr);
+
 } finally {
       setWaLoading(false);
     }
-    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s (Baileys demora a popular)
+    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s
     if (!waPushName) {
       setTimeout(async () => {
         await fetchWaProfile();
@@ -1740,13 +1747,13 @@ return (
                   </span>
 
                   <button
-                    type="button"
-                    onClick={() => void refreshWhatsAppPanel()}
-                    disabled={waLoading}
-                    className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
-                  >
-                    {waLoading ? "Atualizando..." : "Atualizar"}
-                  </button>
+  type="button"
+  onClick={() => void refreshWhatsAppPanel(true)} // ✅ Força a geração ao clicar
+  disabled={waLoading}
+  className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+>
+  {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
+</button>
                 </div>
 
                 {!!waLastError && (
@@ -2043,11 +2050,11 @@ async function fetchWaStatus() {
       setWaConnected(!!json.connected);
       setWaStatusText(json.status ?? null);
       if (!json.connected) { setWaPushName(null); setWaProfilePicUrl(null); }
-      return !!json.connected;
+      return { connected: !!json.connected, status: json.status }; // ✅ Retorna objeto
     } catch (e: any) {
       setWaLastError(e?.message);
       setWaConnected(false);
-      return false;
+      return { connected: false, status: "error" };
     }
   }
 
@@ -2061,10 +2068,10 @@ async function fetchWaStatus() {
     } catch {}
   }
 
-  async function refreshPanel() {
+  async function refreshPanel(forceQr = false) { // ✅ Adicionado parâmetro
     setWaLoading(true);
     try {
-      const connected = await fetchWaStatus();
+      const { connected, status } = await fetchWaStatus();
       if (connected) {
         setWaQrDataUrl(null);
         const now = Date.now();
@@ -2074,15 +2081,20 @@ async function fetchWaStatus() {
           await fetchWaConfig();
           waLastProfileFetchRef.current = now;
         }
-        // ✅ retry dentro do try — executa de verdade
         if (!waPushName) {
           setTimeout(() => { void fetchWaProfile(); }, 3000);
         }
         return;
       }
-      const res = await fetch("/api/whatsapp/qr2", { cache: "no-store" });
-      const json = await res.json().catch(() => ({} as any));
-      setWaQrDataUrl(json?.qr || null);
+      
+      // ✅ Mesma trava da Sessão 1
+      if (forceQr || status === "qr" || status === "connecting") {
+        const res = await fetch("/api/whatsapp/qr2", { cache: "no-store" });
+        const json = await res.json().catch(() => ({} as any));
+        setWaQrDataUrl(json?.qr || null);
+      } else {
+        setWaQrDataUrl(null);
+      }
     } finally {
       setWaLoading(false);
     }
@@ -2248,10 +2260,10 @@ async function fetchWaStatus() {
                 {waLoading ? "Processando..." : "🔌 Desconectar Sessão 2"}
               </button>
             ) : (
-              <button type="button" onClick={() => void refreshPanel()} disabled={waLoading}
-                className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
-                {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar Sessão 2"}
-              </button>
+              <button type="button" onClick={() => void refreshPanel(true)} disabled={waLoading} 
+  className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+  {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar Sessão 2"}
+</button>
             )}
           </>
         )}
