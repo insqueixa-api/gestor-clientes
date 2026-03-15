@@ -251,7 +251,11 @@ const [waLastError, setWaLastError] = useState<string | null>(null);
 const [waConfigExpanded, setWaConfigExpanded] = useState(false);
 
 // UI: info da sessão WhatsApp (vem do /api/whatsapp/status)
-const [waSessionLabel, setWaSessionLabel] = useState<string>("Contato principal");
+const [waSessionLabel, setWaSessionLabel] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("wa_label_1") || "Contato principal";
+    return "Contato principal";
+  });
+  const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
 const [waPushName, setWaPushName] = useState<string | null>(null);
 const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null); // vem do /api/whatsapp/profile (pictureUrl)
 // controle cache profile (evita bater na VM toda hora)
@@ -1828,9 +1832,25 @@ return (
 
       {/* Infos */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
-          {waSessionLabel || "Contato principal"}
+        {waSessionLabelEditing ? (
+        <input
+          autoFocus
+          value={waSessionLabel}
+          onChange={e => setWaSessionLabel(e.target.value)}
+          onBlur={() => { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); }}
+          onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); } }}
+          className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
+        />
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+            {waSessionLabel || "Contato principal"}
+          </span>
+          <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-slate-300 hover:text-slate-500 dark:hover:text-white/60 transition-colors shrink-0" title="Renomear sessão">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
         </div>
+      )}
         <div className="text-xs text-slate-500 dark:text-white/60 truncate">
           {waPushName ? `Conectado como: ${waPushName}` : "WhatsApp conectado ✅"}
         </div>
@@ -1956,6 +1976,11 @@ function WhatsAppSession2Panel({
   const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
   const waLastProfileFetchRef               = useRef<number>(0);
   const [waStatusText, setWaStatusText]     = useState<string | null>(null);
+  const [waSessionLabel, setWaSessionLabel] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("wa_label_2") || "Contato Secundário";
+    return "Contato Secundário";
+  });
+  const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
   const [waRejectCalls, setWaRejectCalls]   = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState(
     "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊"
@@ -2160,7 +2185,25 @@ function WhatsAppSession2Panel({
                     {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Foto" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400">WA</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-slate-800 dark:text-white truncate">2ª Sessão</div>
+                    {waSessionLabelEditing ? (
+                      <input
+                        autoFocus
+                        value={waSessionLabel}
+                        onChange={e => setWaSessionLabel(e.target.value)}
+                        onBlur={() => { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); }}
+                        onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); } }}
+                        className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                          {waSessionLabel}
+                        </span>
+                        <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-slate-300 hover:text-slate-500 dark:hover:text-white/60 transition-colors shrink-0" title="Renomear sessão">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      </div>
+                    )}
                     <div className="text-xs text-slate-500 dark:text-white/60 truncate">
                       {waPushName ? `Conectado como: ${waPushName}` : "WhatsApp conectado ✅"}
                     </div>
