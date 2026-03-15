@@ -260,6 +260,21 @@ sock.ev.on("messages.upsert", ({ messages }) => {
           sessData.pictureUrl = await sock.profilePictureUrl(sessData.jid, "image").catch(() => null);
         }
       } catch {}
+
+      // ✅ Baileys às vezes não popula sock.user?.name imediatamente — retry após 5s
+      if (!sessData.pushName) {
+        setTimeout(async () => {
+          try {
+            const name = sock.user?.name || null;
+            if (name) {
+              sessData.pushName = name;
+              console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 pushName atualizado: ${name}`);
+            }
+          } catch (e) {
+            console.error(`[WA][${sessionKey.slice(0, 8)}] Retry pushName falhou:`, e?.message);
+          }
+        }, 5000);
+      }
     }
 
     if (connection === "close") {
