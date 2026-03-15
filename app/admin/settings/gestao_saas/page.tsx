@@ -87,7 +87,8 @@ type SaasTenant = {
   notes: string | null;
   auth_email: string | null;
 last_sign_in_at: string | null;
-  alertsCount?: number; // ✅ ADICIONADO PARA O CONTADOR DE ALERTAS
+  whatsapp_sessions: number;       // ✅ NOVO
+  alertsCount?: number;
 };
 
 type ScheduledMsg = {
@@ -570,6 +571,67 @@ if (tenantsRes.error) {
     }
   };
 
+  // ADICIONAR após handleRestore:
+
+  const handleAddSession = async (t: SaasTenant) => {
+    const credEstimate = t.expires_at
+      ? Math.max(0, Math.round(
+          (new Date(t.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30) * 2
+        ) / 2)
+      : 0;
+
+    const ok = await confirm({
+      title: "Adicionar 2ª Sessão WhatsApp",
+      subtitle: `Será descontado ~${credEstimate} crédito(s) proporcional ao tempo restante.`,
+      tone: "amber",
+      icon: "📱",
+      details: [
+        `Revenda: ${t.name}`,
+        `Sessões atuais: ${t.whatsapp_sessions}/2`,
+        `Saldo disponível: ${t.credit_balance} créditos`,
+        "Renovações futuras custarão 2 créditos/mês",
+      ],
+      confirmText: "Confirmar e Descontar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseBrowser.rpc("saas_add_whatsapp_session", {
+        p_tenant_id: t.id,
+      });
+      if (error) throw error;
+      addToast("success", "2ª sessão ativada!", `${t.name} agora tem 2 sessões WhatsApp.`);
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao adicionar sessão", e.message);
+    }
+  };
+
+  const handleRemoveSession = async (t: SaasTenant) => {
+    const ok = await confirm({
+      title: "Remover 2ª Sessão WhatsApp",
+      subtitle: "A sessão será removida sem reembolso. Próximas renovações custarão 1 crédito/mês.",
+      tone: "rose",
+      icon: "📵",
+      details: [`Revenda: ${t.name}`, "Sem reembolso de créditos"],
+      confirmText: "Remover Sessão",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseBrowser.rpc("saas_remove_whatsapp_session", {
+        p_tenant_id: t.id,
+      });
+      if (error) throw error;
+      addToast("success", "Sessão removida.", `${t.name} voltou para 1 sessão.`);
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao remover sessão", e.message);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
@@ -848,6 +910,7 @@ const sortedTenants = useMemo(() => {
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Validade</th>
                     <th className="px-4 py-3">Créditos</th>
+                    <th className="px-4 py-3">Sessões WA</th>
                     <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -862,6 +925,8 @@ const sortedTenants = useMemo(() => {
                         onArchive={() => handleArchive(t)}
                         onDelete={() => handleDelete(t)}
                         onRestore={() => handleRestore(t)}
+                        onAddSession={() => handleAddSession(t)}
+                        onRemoveSession={() => handleRemoveSession(t)}
                         // NOVAS PROPRIEDADES:
                         scheduledMap={scheduledMap}
                         msgMenuForId={msgMenuForId}
@@ -1144,13 +1209,14 @@ const sortedTenants = useMemo(() => {
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, networkCount, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore,
+  t, canManage, networkCount, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore, onAddSession, onRemoveSession,
 
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
   t: SaasTenant; canManage: boolean; networkCount: number;
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
   onArchive: () => void; onDelete: () => void; onRestore: () => void;
+  onAddSession: () => void; onRemoveSession: () => void;
   scheduledMap: Record<string, ScheduledMsg[]>;
   msgMenuForId: string | null; setMsgMenuForId: React.Dispatch<React.SetStateAction<string | null>>;
   onMessageNow: () => void; onMessageSchedule: () => void; onOpenScheduled: () => void;
@@ -1235,8 +1301,58 @@ function TenantRow({
           <span className="text-xs font-bold text-purple-500">∞</span>
         ) : (
           <span className={`text-sm font-bold ${t.credit_balance > 0 ? "text-slate-700 dark:text-white" : "text-slate-400 dark:text-white/30"}`}>
-            {t.credit_balance}
+            {Number(t.credit_balance).toFixed(1).replace(".0", "")}
           </span>
+        )}
+      </td>
+
+      {/* ✅ NOVA CÉLULA — Sessões WhatsApp */}
+      <td className="px-4 py-3">
+        {isSuperadmin ? (
+          <span className="text-xs font-bold text-purple-500">∞</span>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            {/* Indicador visual */}
+            <div className="flex gap-0.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="Sessão 1 ativa" />
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  t.whatsapp_sessions >= 2
+                    ? "bg-emerald-500"
+                    : "bg-slate-200 dark:bg-white/10"
+                }`}
+                title={t.whatsapp_sessions >= 2 ? "Sessão 2 ativa" : "Sessão 2 inativa"}
+              />
+            </div>
+            <span className="text-xs font-bold text-slate-500 dark:text-white/50">
+              {t.whatsapp_sessions}/2
+            </span>
+            {/* Botões +/- */}
+            {canManage && !t.is_trial && t.license_status !== "ARCHIVED" && (
+              <div className="flex gap-0.5 ml-1">
+                {t.whatsapp_sessions < 2 ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddSession(); }}
+                    title="Adicionar 2ª sessão"
+                    className="w-5 h-5 flex items-center justify-center rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-colors text-xs font-bold leading-none"
+                  >
+                    +
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
+                    title="Remover 2ª sessão"
+                    className="w-5 h-5 flex items-center justify-center rounded bg-rose-100 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-200 transition-colors text-xs font-bold leading-none"
+                  >
+                    −
+                  </button>
+                )}
+              </div>
+            )}
+            {t.is_trial && (
+              <span className="text-[9px] text-sky-400 font-bold uppercase ml-0.5">trial</span>
+            )}
+          </div>
         )}
       </td>
       <td className="px-4 py-3">
@@ -1672,7 +1788,7 @@ function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
     { label: "Anual",      days: 365 },
   ];
   const [selectedDays, setSelectedDays] = useState(30);
-  const creditsNeeded = Math.ceil(selectedDays / 30);
+  const creditsNeeded = Math.ceil(selectedDays / 30) * (tenant.whatsapp_sessions ?? 1);
   const isSuperadmin = myRole.toUpperCase() === "SUPERADMIN";
 
   const handleRenew = async () => {
@@ -1709,7 +1825,10 @@ function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
                   }`}>
                   <span>{p.label}</span>
                   <span className={`text-xs font-bold ${selectedDays === p.days ? "text-white/80" : "text-slate-400"}`}>
-                    {isSuperadmin ? "Gratuito" : `${Math.ceil(p.days / 30)} crédito${Math.ceil(p.days / 30) > 1 ? "s" : ""}`}
+                    {isSuperadmin ? "Gratuito" : (() => {
+                      const c = Math.ceil(p.days / 30) * (tenant.whatsapp_sessions ?? 1);
+                      return `${c} crédito${c > 1 ? "s" : ""}${(tenant.whatsapp_sessions ?? 1) > 1 ? " (2 sessões)" : ""}`;
+                    })()}
                   </span>
                 </button>
               ))}
