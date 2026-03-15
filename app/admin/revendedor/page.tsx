@@ -1448,49 +1448,52 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       {showSendNow.open && (
         <Modal title="Enviar mensagem agora" onClose={() => {
           setShowSendNow({ open: false, resellerId: null });
-          setSelectedSessionNow("default"); // ✅ Reseta ao fechar
+          setSelectedTemplateNowId("");
+          setMessageText("");
+          setSelectedSessionNow("default");
         }}>
           <div className="space-y-4">
             
-            {/* ✅ Select da Sessão WhatsApp */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
-              </label>
-              <select
-                value={selectedSessionNow}
-                onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-              >
-                {sessionOptions.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
-            </div>
+            {/* ✅ GRID LADO A LADO: Sessão e Template */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Sessão */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  Sessão de Envio
+                </label>
+                <select
+                  value={selectedSessionNow}
+                  onChange={(e) => setSelectedSessionNow(e.target.value)}
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                >
+                  {sessionOptions.map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedTemplateNowId}
-                onChange={(e) => setSelectedTemplateNowId(e.target.value)}
-                className="flex-1 h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
-                title="Selecionar template"
-              >
-                <option value="">Selecionar mensagem...</option>
-                {messageTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => openNewTemplate("now")}
-                className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
-                title="Criar novo template"
-              >
-                + Novo Template
-              </button>
+              {/* Template */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  Mensagem pronta (opcional)
+                </label>
+                <select
+                  value={selectedTemplateNowId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedTemplateNowId(id);
+                    const tpl = messageTemplates.find((t) => t.id === id);
+                    if (tpl) setMessageText(tpl.content);
+                    else setMessageText("");
+                  }}
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                >
+                  <option value="">Selecionar...</option>
+                  {messageTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <textarea
@@ -1522,56 +1525,58 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
       {showScheduleMsg.open && (
         <Modal title="Agendar mensagem" onClose={() => {
           setShowScheduleMsg({ open: false, resellerId: null });
-          setSelectedSessionSchedule("default"); // ✅ Reseta ao fechar
+          setSelectedTemplateScheduleId("");
+          setScheduleText("");
+          setScheduleDate("");
+          setSelectedSessionSchedule("default");
         }}>
           <div className="space-y-4">
             
-            {/* ✅ Select da Sessão WhatsApp */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
-                Sessão de Envio
-              </label>
-              <select
-                value={selectedSessionSchedule}
-                onChange={(e) => setSelectedSessionSchedule(e.target.value)}
-                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-              >
-                {sessionOptions.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
+            {/* ✅ GRID LADO A LADO: Sessão e Template */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Sessão */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  Sessão de Envio
+                </label>
+                <select
+                  value={selectedSessionSchedule}
+                  onChange={(e) => setSelectedSessionSchedule(e.target.value)}
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                >
+                  {sessionOptions.map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Template */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                  Mensagem pronta (opcional)
+                </label>
+                <select
+                  value={selectedTemplateScheduleId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedTemplateScheduleId(id);
+                    const tpl = messageTemplates.find((t) => t.id === id);
+                    if (tpl) setScheduleText(tpl.content);
+                    else setScheduleText("");
+                  }}
+                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
+                >
+                  <option value="">Selecionar...</option>
+                  {messageTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedTemplateScheduleId}
-                onChange={(e) => setSelectedTemplateScheduleId(e.target.value)}
-                className="flex-1 h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
-                title="Selecionar template"
-              >
-                <option value="">Selecionar mensagem...</option>
-                {messageTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-  type="button"
-  onClick={() => openNewTemplate("schedule")}
-  className="h-11 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 text-xs font-extrabold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
-  title="Criar novo template"
->
-  + Novo Template
-</button>
-
-            </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
-                Data e hora do envio
-              </label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data e Hora do Envio</label>
+
               <input
                 type="datetime-local"
                 value={scheduleDate}
