@@ -677,11 +677,8 @@ async function fetchWaProfile() {
 
     // payload do back:
     // { connected, status, jid, pushName, pictureUrl }
-    setWaPushName(json.pushName ?? null);
+setWaPushName(json.pushName ?? null);
     setWaProfilePicUrl(json.pictureUrl ?? null);
-
-    // opcional: label fixa (se quiser no futuro pode vir do back)
-    setWaSessionLabel("Contato principal");
 
     return { pushName: json.pushName ?? null, pictureUrl: json.pictureUrl ?? null };
   } catch (e: any) {
@@ -2077,19 +2074,17 @@ async function fetchWaStatus() {
           await fetchWaConfig();
           waLastProfileFetchRef.current = now;
         }
+        // ✅ retry dentro do try — executa de verdade
+        if (!waPushName) {
+          setTimeout(() => { void fetchWaProfile(); }, 3000);
+        }
         return;
       }
       const res = await fetch("/api/whatsapp/qr2", { cache: "no-store" });
       const json = await res.json().catch(() => ({} as any));
       setWaQrDataUrl(json?.qr || null);
-} finally {
+    } finally {
       setWaLoading(false);
-    }
-    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s (Baileys demora a popular)
-    if (!waPushName) {
-      setTimeout(async () => {
-        await fetchWaProfile();
-      }, 3000);
     }
   }
 
