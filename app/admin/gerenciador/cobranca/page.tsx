@@ -188,13 +188,13 @@ function formatBRPhoneFromDigits(digits: string): string {
   return `+${digits}`;
 }
 
-function buildWhatsAppSessionLabel(profile: any): string {
-  if (!profile?.connected) return "Principal (não conectado)";
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
 
   const digits = extractWaNumberFromJid(profile?.jid);
   const pretty = formatBRPhoneFromDigits(digits);
 
-  return `Principal • ${pretty || "Conectado"}`;
+  return `${sessionName} • ${pretty || "Conectado"}`;
 }
 
 // ============================================================================
@@ -539,66 +539,88 @@ const addToast = (
 
 
     try {
-        const [
-  autoRes,
-  clientRes,
-  msgRes,
-  srvRes,
-  appRes,
-  waProfRes,
-] = await Promise.all([
-  supabaseBrowser
-    .from("billing_automations")
-    .select(`*, message_template:message_templates(id, name)`)
-    .eq("tenant_id", tid)
-    .order("created_at", { ascending: false }),
+      const [
+        autoRes,
+        clientRes,
+        msgRes,
+        srvRes,
+        appRes,
+        waProfRes,
+        waProfRes2, // ✅ Nova variável que receberá a Sessão 2
+      ] = await Promise.all([
+        // 1. Busca Automações (autoRes)
+        supabaseBrowser
+          .from("billing_automations")
+          .select(`*, message_template:message_templates(id, name)`)
+          .eq("tenant_id", tid)
+          .order("created_at", { ascending: false }),
 
-  
-supabaseBrowser
-    .from("vw_clients_list_active")
-    .select(`
-      id,
-      display_name:client_name,
-      whatsapp_username,
-      server_id,
-      server_name,
-      plan_label:plan_name,
-      vencimento,
-      created_at,
-      computed_status,
-      apps_names,
-      username,
-      secondary_display_name,
-      secondary_whatsapp_username,
-      price_amount
-    `)
-    .eq("tenant_id", tid),
+        // 2. Busca Clientes (clientRes)
+        supabaseBrowser
+          .from("vw_clients_list_active")
+          .select(`
+            id,
+            display_name:client_name,
+            whatsapp_username,
+            server_id,
+            server_name,
+            plan_label:plan_name,
+            vencimento,
+            created_at,
+            computed_status,
+            apps_names,
+            username,
+            secondary_display_name,
+            secondary_whatsapp_username,
+            price_amount
+          `)
+          .eq("tenant_id", tid),
 
-  supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
-  supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
-  supabaseBrowser.from("apps").select("id, name").eq("tenant_id", tid),
+        // 3. Busca Templates (msgRes)
+        supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
+        
+        // 4. Busca Servidores (srvRes)
+        supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+        
+        // 5. Busca Apps (appRes)
+        supabaseBrowser.from("apps").select("id, name").eq("tenant_id", tid),
 
-  fetch("/api/whatsapp/profile", { cache: "no-store" }).then(async (r) => {
-    const j = await r.json().catch(() => ({} as any));
-    return { ok: r.ok, json: j };
-  }),
-]);
+        // 6. Busca Perfil WhatsApp Sessão 1 (waProfRes)
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).then(async (r) => {
+          const j = await r.json().catch(() => ({} as any));
+          return { ok: r.ok, json: j };
+        }),
 
-const autoData = autoRes.data;
-const clientData = clientRes.data;
+        // 7. Busca Perfil WhatsApp Sessão 2 (waProfRes2)
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(async (r) => {
+          const j = await r.json().catch(() => ({} as any));
+          return { ok: r.ok, json: j };
+        }),
+      ]);
+
+      const autoData = autoRes.data;
+      const clientData = clientRes.data;
 
 
 const sessions: SelectOption[] = (() => {
-  // se a API falhar, assume desconectado
-  if (!waProfRes?.ok) {
-    return [{ id: "default", label: "Principal (não conectado)" }];
-  }
+        const result: SelectOption[] = [];
 
-  const profile = waProfRes.json || {};
-  const label = buildWhatsAppSessionLabel(profile);
+        // ✅ Monta a Sessão 1 (ID "default")
+        if (!waProfRes?.ok) {
+          result.push({ id: "default", label: "Sessão 1 (não conectado)" });
+        } else {
+          result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes.json, "Sessão 1") });
+        }
 
-  return [{ id: "default", label }];
-})();
+        // ✅ Monta a Sessão 2 (ID "session2")
+        if (!waProfRes2?.ok) {
+          result.push({ id: "session2", label: "Sessão 2 (não conectado)" });
+        } else {
+          result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, "Sessão 2") });
+        }
+
+        return result;
+      })();
 
 
 
