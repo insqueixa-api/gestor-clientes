@@ -698,27 +698,16 @@ if (wa.dont_message_until) {
         }
       }
 
-      // ✅ CRON FIX: Se não tem dono no job (automático), puxa o ID do dono do tenant
-      let sessionUserId = job.created_by;
-      if (!sessionUserId) {
-        const { data: owner } = await sb
-          .from("tenant_members")
-          .select("user_id")
-          .eq("tenant_id", job.tenant_id)
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        sessionUserId = owner?.user_id || "system";
-      }
-      const sessionUserIdStr = String(sessionUserId);
+      const sessionUserId = String(job.created_by || "system");
       
-      // ✅ Avalia qual sessão o envio pediu e gera a chave correta
+      // ✅ NOVO: Avalia qual sessão o envio pediu e gera a chave correta
       const targetSession = String((job as any).whatsapp_session || "default");
       let sessionKey = "";
       if (targetSession === "session2") {
-        sessionKey = crypto.createHash("sha256").update(`${job.tenant_id}:${sessionUserIdStr}:2`).digest("hex");
+        // Mesma lógica do makeSessionKey2 que você tem na rota de validação
+        sessionKey = crypto.createHash("sha256").update(`${job.tenant_id}:${sessionUserId}:2`).digest("hex");
       } else {
-        sessionKey = makeSessionKey(job.tenant_id, sessionUserIdStr);
+        sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
       }
       
       let successCount = 0;
