@@ -81,6 +81,17 @@ export default function AdminServersPage() {
 
   const [syncingServerId, setSyncingServerId] = useState<string | null>(null);
 
+  // ✅ NOVO: Estados para guardar os nomes das sessões do WhatsApp
+  const [waLabel1, setWaLabel1] = useState("Contato Principal");
+  const [waLabel2, setWaLabel2] = useState("Contato Secundário");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWaLabel1(localStorage.getItem("wa_label_1") || "Contato Principal");
+      setWaLabel2(localStorage.getItem("wa_label_2") || "Contato Secundário");
+    }
+  }, []);
+
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -677,7 +688,19 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
   </span>
 </div>
 
-
+{/* ✅ INÍCIO DO NOVO BLOCO: PORTAL (SESSÃO WHATSAPP) */}
+<div className="flex justify-between items-center">
+  <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
+    <span className="text-emerald-500" title="WhatsApp do Portal">
+      <IconChat />
+    </span>
+    Portal
+  </span>
+  <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
+    {server.whatsapp_session === "session2" ? waLabel2 : waLabel1}
+  </span>
+</div>
+{/* ✅ FIM DO NOVO BLOCO */}
 
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500 dark:text-white/50">🧩 Painel</span>
@@ -821,6 +844,8 @@ function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
+function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
+
 
 // Ícone LIGADO (Verde, com raio)
 export function IconPlug() {
