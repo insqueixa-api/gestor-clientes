@@ -250,8 +250,13 @@ sock.ev.on("messages.upsert", ({ messages }) => {
       sessData.status = "connected";
       sessData.qr = null;
       sessData.retries = 0;
-      sessData.jid = sock.user?.id || null;
-      sessData.pushName = sock.user?.name || null;
+      
+      const rawJid = sock.user?.id || "";
+      const cleanPhone = rawJid.split(":")[0].split("@")[0];
+      sessData.jid = rawJid || null;
+
+      // Nome provisório: Tenta o nome imediato, se não tiver, usa o número para a UI não travar
+      sessData.pushName = sock.user?.name || (cleanPhone ? `+${cleanPhone}` : "Sem Nome");
       console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Conectado: ${sessData.pushName}`);
 
       // Tenta buscar foto de perfil
@@ -261,20 +266,39 @@ sock.ev.on("messages.upsert", ({ messages }) => {
         }
       } catch {}
 
-      // ✅ Baileys às vezes não popula sock.user?.name imediatamente — retry após 5s
-      if (!sessData.pushName) {
-        setTimeout(async () => {
+      // Rastreador persistente para capturar o nome real (Normal ou Business)
+      let nameAttempts = 0;
+      const nameTracker = setInterval(async () => {
+        nameAttempts++;
+        const currentName = sock.user?.name; // Tenta capturar o nome do WhatsApp Normal
+
+        if (currentName && currentName !== sessData.pushName && currentName !== `+${cleanPhone}`) {
+          sessData.pushName = currentName;
+          console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome (Normal) capturado: ${currentName}`);
+          clearInterval(nameTracker);
+          return;
+        }
+
+        // Na 3ª tentativa (após ~9s), se ainda não tem nome normal, checa se é Business
+        if (nameAttempts === 3 && sessData.jid && (!currentName || sessData.pushName === `+${cleanPhone}`)) {
           try {
-            const name = sock.user?.name || null;
-            if (name) {
-              sessData.pushName = name;
-              console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 pushName atualizado: ${name}`);
+            const bizProfile = await sock.getBusinessProfile(sessData.jid);
+            if (bizProfile?.name) {
+              sessData.pushName = bizProfile.name;
+              console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome (Business) capturado: ${bizProfile.name}`);
+              clearInterval(nameTracker);
+              return;
             }
           } catch (e) {
-            console.error(`[WA][${sessionKey.slice(0, 8)}] Retry pushName falhou:`, e?.message);
+            // Não é business ou falhou, ignora silenciosamente
           }
-        }, 5000);
-      }
+        }
+
+        // Desiste após 10 tentativas (30 segundos) para não rodar infinito
+        if (nameAttempts >= 50) {
+          clearInterval(nameTracker);
+        }
+      }, 5000);
     }
 
     if (connection === "close") {
