@@ -449,11 +449,22 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
   // Mensagem (Mantido conforme original)
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
   const [messageText, setMessageText] = useState("");
+  const [selectedSessionNow, setSelectedSessionNow] = useState("default"); // ✅ NOVO
 
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; clientId: string | null }>({ open: false, clientId: null });
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
   const [scheduling, setScheduling] = useState(false);
+  const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default"); // ✅ NOVO
+
+  // ✅ Helper para obter os nomes das sessões personalizados pelo usuário
+  const getSessionOptions = () => {
+    if (typeof window === "undefined") return [{ id: "default", label: "Sessão 1" }, { id: "session2", label: "Sessão 2" }];
+    return [
+      { id: "default", label: localStorage.getItem("wa_label_1") || "Contato Principal" },
+      { id: "session2", label: localStorage.getItem("wa_label_2") || "Contato Secundário" }
+    ];
+  };
 
   // ✅ Templates (mensagens prontas)
   type MessageTemplate = { id: string; name: string; content: string };
@@ -1343,8 +1354,8 @@ body: JSON.stringify({
    tenant_id: tenantId,
    client_id: showSendNow.clientId,
    message: msg,
-   whatsapp_session: "default", 
-   message_template_id: selectedTemplateNowId, // ✅ ESTE É O NOME CERTO
+   whatsapp_session: selectedSessionNow, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+   message_template_id: selectedTemplateNowId, 
 }),
 });
 
@@ -1422,8 +1433,8 @@ body: JSON.stringify({
    client_id: showScheduleMsg.clientId,
    message: msg,
    send_at: sendAtIso,
-   whatsapp_session: "default",
-   message_template_id: selectedTemplateScheduleId, // ✅ ESTE É O NOME CERTO
+   whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
+   message_template_id: selectedTemplateScheduleId, 
 }),
 });
 
@@ -2376,6 +2387,7 @@ return (
   setShowSendNow({ open: false, clientId: null });
   setSelectedTemplateNowId("");
   setMessageText("");
+  setSelectedSessionNow("default"); // ✅ Reseta a sessão ao fechar
 }}
 >
           <div className="space-y-4">
@@ -2384,6 +2396,22 @@ return (
                <div className="text-sm text-sky-900 dark:text-sky-200">
                  Esta mensagem será enviada <strong>imediatamente</strong> via WhatsApp.
                </div>
+            </div>
+
+            {/* ✅ Select da Sessão WhatsApp */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                Sessão de Envio
+              </label>
+              <select
+                value={selectedSessionNow}
+                onChange={(e) => setSelectedSessionNow(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm font-medium"
+              >
+                {getSessionOptions().map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* ✅ Select de template (opcional) */}
@@ -2457,6 +2485,7 @@ return (
   setSelectedTemplateScheduleId("");
   setScheduleText("");
   setScheduleDate("");
+  setSelectedSessionSchedule("default"); // ✅ Reseta a sessão ao fechar
 }}
 >
           <div className="space-y-5">
@@ -2465,6 +2494,22 @@ return (
                <div className="text-sm text-purple-900 dark:text-purple-200">
                  Programe avisos ou cobranças para o futuro.
                </div>
+            </div>
+
+            {/* ✅ Select da Sessão WhatsApp */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                Sessão de Envio
+              </label>
+              <select
+                value={selectedSessionSchedule}
+                onChange={(e) => setSelectedSessionSchedule(e.target.value)}
+                className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm font-medium"
+              >
+                {getSessionOptions().map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
             </div>
 
             <div>
