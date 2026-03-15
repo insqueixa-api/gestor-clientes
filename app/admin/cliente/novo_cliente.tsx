@@ -11,10 +11,11 @@ type SelectOption = {
 };
 
 export type ClientData = {
-  id?: string;
-  client_name: string;
-  username: string;
-  server_password?: string;
+  id?: string;
+  created_at?: string; // ✅ ADICIONADO
+  client_name: string;
+  username: string;
+  server_password?: string;
   whatsapp_e164?: string;
   whatsapp_username?: string;
   whatsapp_opt_in?: boolean;
@@ -1158,13 +1159,18 @@ if (isTrialMode && defaultBRL) {
   setTestHours(2);
 }
 
-        // ===== PREFILL EDIÇÃO =====
+// ===== PREFILL EDIÇÃO =====
 
 if (clientToEdit) {
-  setName((clientToEdit.client_name || "").trim());
+  setName((clientToEdit.client_name || "").trim());
 
-  // ✅ TABELA DO CLIENTE (prefill)
-  // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
+  // ✅ POPULAR DATA DE CADASTRO DO BANCO
+  if (clientToEdit.created_at) {
+    setCreatedAt(isoToLocalDateTimeInputValue(clientToEdit.created_at));
+  }
+
+  // ✅ TABELA DO CLIENTE (prefill)
+  // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
   const clientPlanTableId = (clientToEdit as any)?.plan_table_id || null;
 if (clientPlanTableId) {
   const exists = allTables.some((t) => t.id === clientPlanTableId);
@@ -1854,16 +1860,14 @@ async function executeSave() {
 
 
       let finalTechnology = technology;
+      if (technology === "Personalizado") finalTechnology = customTechnology.trim();
 
-      if (technology === "Personalizado") finalTechnology = customTechnology.trim();
+      // ✅ Converte a data de cadastro para envio
+      const finalCreatedAt = createdAt ? localDateTimeToISO(createdAt) : null;
 
-
-
-      // Dados do RPC
-
-      const { data: userRes } = await supabaseBrowser.auth.getUser();
-
-      const createdBy = userRes?.user?.id;
+      // Dados do RPC
+      const { data: userRes } = await supabaseBrowser.auth.getUser();
+      const createdBy = userRes?.user?.id;
 
 
 
@@ -1942,44 +1946,29 @@ const { error } = await supabaseBrowser.rpc("update_client", {
 
 
 
-        // ✅ ATUALIZAR M3U_URL (também na edição)
+        // ✅ ATUALIZAR M3U_URL E DATA DE CADASTRO (também na edição)
+const patchEdit: any = {};
+if (m3uUrl && m3uUrl.trim()) patchEdit.m3u_url = m3uUrl;
+if (finalCreatedAt) patchEdit.created_at = finalCreatedAt;
 
-if (m3uUrl && m3uUrl.trim()) {
-
-  console.log("🟢 [EDIÇÃO] Atualizando M3U:", m3uUrl);
-
-  
-
-  // ✅ Delay de segurança
-
-  await new Promise(resolve => setTimeout(resolve, 50));
-
-  
-
-  const { data: m3uResult, error: m3uErr } = await supabaseBrowser
-
-    .from("clients")
-
-    .update({ m3u_url: m3uUrl })
-
-    .eq("id", clientId)
-
-    .eq("tenant_id", tid)
-
-    .select();
-
-  
-
-  if (m3uErr) {
-
-    console.error("❌ Erro ao atualizar M3U:", m3uErr);
-
-  } else {
-
-    console.log("✅ M3U atualizado com sucesso!", m3uResult);
-
-  }
-
+if (Object.keys(patchEdit).length > 0) {
+  console.log("🟢 [EDIÇÃO] Atualizando dados extras (M3U / Data):", patchEdit);
+  
+  // ✅ Delay de segurança
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  const { data: patchResult, error: patchErr } = await supabaseBrowser
+    .from("clients")
+    .update(patchEdit)
+    .eq("id", clientId)
+    .eq("tenant_id", tid)
+    .select();
+  
+  if (patchErr) {
+    console.error("❌ Erro ao atualizar M3U/Data:", patchErr);
+  } else {
+    console.log("✅ M3U/Data atualizado com sucesso!", patchResult);
+  }
 }
 
 
@@ -2823,25 +2812,17 @@ console.log("🔵 DEBUG M3U antes de salvar:", {
 
 
 
-// ✅ UPDATE ÚNICO (evita 2 writes): m3u_url + external_user_id
-
+// ✅ UPDATE ÚNICO (evita writes extras): m3u_url + external_user_id + created_at
 const finalM3u = (apiM3uUrl || m3uUrl || "").trim();
-
 const finalExternalUserId = (apiExternalUserId || externalUserId || "").trim();
 
+if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
+  const patch: any = {};
+  if (finalM3u) patch.m3u_url = finalM3u;
+  if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
+  if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
 
-
-if (clientId && (finalM3u || finalExternalUserId)) {
-
-  const patch: any = {};
-
-  if (finalM3u) patch.m3u_url = finalM3u;
-
-  if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
-
-
-
-  console.log("🟢 Salvando PATCH no banco:", patch);
+  console.log("🟢 Salvando PATCH no banco:", patch);
 
 
 
