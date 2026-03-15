@@ -37,6 +37,33 @@ type Props = {
   onSuccess: () => void;
 };
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // --- COMPONENTES VISUAIS INTERNOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -87,10 +114,16 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
   const [currency, setCurrency] = useState<Currency>("BRL");
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [credits, setCredits] = useState<string>("");
-  const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
+const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
   const [panelValue, setPanelValue] = useState("");
   const [integration, setIntegration] = useState("");
   const [dnsList, setDnsList] = useState<string[]>(["", "", "", "", "", ""]);
+
+  // ✅ NOVO: Controle de Sessão
+  const [selectedSession, setSelectedSession] = useState("default");
+  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+    { id: "default", label: "Carregando..." }
+  ]);
 
   // ✅ integrações disponíveis (para o Select)
   type IntegrationOption = {
@@ -130,6 +163,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       else setPanelValue("");
 
       setIntegration(server.panel_integration || "");
+      setSelectedSession((server as any).whatsapp_session || "default"); // ✅ Busca do banco se existir
 
       const loadedDns = [...(server.dns || [])];
       while (loadedDns.length < 6) loadedDns.push("");
@@ -137,16 +171,35 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
     }
   }, [server]);
 
-    // ✅ carregar integrações para o Select
+    // ✅ carregar integrações para o Select e Sessões do Whatsapp
   useEffect(() => {
     let alive = true;
 
-    async function loadIntegrations() {
+    async function loadAuxData() {
       try {
         setLoadingIntegrations(true);
         const tenantId = await getCurrentTenantId();
         if (!tenantId) return;
 
+        // 1. Carrega as sessões
+        try {
+          const [res1, res2] = await Promise.all([
+            fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+            fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+          ]);
+          const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+          const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+          const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+          const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+          if (alive) {
+            setSessionOptions([
+              { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+              { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+            ]);
+          }
+        } catch (e) {}
+
+        // 2. Carrega as integrações
 // ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
         const { data, error } = await supabaseBrowser
           .from("vw_server_integrations")
@@ -166,14 +219,13 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       }
     }
 
-    loadIntegrations();
+    loadAuxData();
 
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server?.id]);
-
 
   const handleDnsChange = (idx: number, val: string) => {
     const newDns = [...dnsList];
@@ -239,7 +291,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
       const parsedUnitPrice = parseFloat(unitPrice);
       const safeUnitPrice = Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0 ? parsedUnitPrice : null;
 
-      const payload = {
+const payload = {
         tenant_id: tenantId,
         name: name.trim(),
         slug: finalSlug,
@@ -249,6 +301,7 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
         panel_web_url: panelType === "WEB" ? safePanelValue : null,
         panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null,
         panel_integration: integration || null,
+        whatsapp_session: selectedSession, // ✅ Envia pro banco
         dns: cleanDns,
         ...(safeUnitPrice !== null ? { avg_credit_cost_brl: safeUnitPrice } : {}),
       };
@@ -599,7 +652,19 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4 duration-500">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4 duration-500">
+
+            <div className="space-y-1">
+              <Label>Sessão para o Portal</Label>
+              <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
+                {sessionOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </Select>
+              <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
+                 Define de qual WhatsApp o portal do cliente enviará as confirmações e PIX.
+              </p>
+            </div>
 
             <div className="space-y-1">
               <Label>Api integração</Label>
