@@ -437,7 +437,16 @@ async function saveWaConfig() {
             setLicenseStatus(saasData.license_status || "ACTIVE");
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
-            setWhatsappSessions(saasData.whatsapp_sessions ?? 1); // ✅ NOVO
+            const sessions = saasData.whatsapp_sessions ?? 1;
+            setWhatsappSessions(sessions);
+
+            // ✅ Se não tem 2 sessões habilitadas, derruba a sessão 2 imediatamente
+            if (sessions < 2) {
+              setShowSession2(false);
+              localStorage.removeItem("wa_show_session2");
+              // Desconecta silenciosamente — ignora erro (pode já estar desconectada)
+              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
+            }
           }
         }
 
@@ -2203,7 +2212,7 @@ function WhatsAppSession2Panel({
                         <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
                           {waSessionLabel}
                         </span>
-                        <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-slate-300 hover:text-slate-500 dark:hover:text-white/60 transition-colors shrink-0" title="Renomear sessão">
+                        <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Renomear sessão">
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                       </div>
