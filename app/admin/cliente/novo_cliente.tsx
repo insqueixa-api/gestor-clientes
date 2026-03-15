@@ -1311,23 +1311,28 @@ if (clientPlanTableId) {
   setNotes(clientToEdit.notes || "");  // ✅ OBSERVAÇÕES: não confiar no clientToEdit vindo da view/lista
 
   // (muitas views não trazem notes, aí parece que "sumiu")
-  try {
-    if (clientToEdit.id) {
-      const { data: nrow, error: nerr } = await supabaseBrowser
-  .from("clients")
-  .select("notes, external_user_id")
-  .eq("tenant_id", tid)
-  .eq("id", clientToEdit.id)
-  .maybeSingle();
+  try {
+    if (clientToEdit.id) {
+      const { data: nrow, error: nerr } = await supabaseBrowser
+  .from("clients")
+  .select("notes, external_user_id, created_at") // ✅ ADICIONADO created_at
+  .eq("tenant_id", tid)
+  .eq("id", clientToEdit.id)
+  .maybeSingle();
 
 if (!nerr) {
-  setNotes((nrow?.notes || "").toString());
-  setExternalUserId(String(nrow?.external_user_id || "").trim());
+  setNotes((nrow?.notes || "").toString());
+  setExternalUserId(String(nrow?.external_user_id || "").trim());
+  
+  // ✅ SE ACHOU A DATA NO BANCO, ATUALIZA A TELA AQUI:
+  if (nrow?.created_at) {
+    setCreatedAt(isoToLocalDateTimeInputValue(nrow.created_at));
+  }
 } else {
-  setNotes(clientToEdit.notes || "");
-  setExternalUserId(String((clientToEdit as any)?.external_user_id || "").trim());
+  setNotes(clientToEdit.notes || "");
+  setExternalUserId(String((clientToEdit as any)?.external_user_id || "").trim());
 }
-    } else {
+    } else {
       setNotes(clientToEdit.notes || "");
     }
   } catch {
