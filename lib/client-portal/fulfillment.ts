@@ -139,7 +139,7 @@ export async function runFulfillment(params: FulfillmentParams) {
   // 2) Servidor
   const { data: srv, error: sErr } = await supabaseAdmin
     .from("servers")
-    .select("id,name,panel_integration")
+    .select("id,name,panel_integration,whatsapp_session") // ✅ ADICIONADO: whatsapp_session
     .eq("tenant_id", tenantId)
     .eq("id", client.server_id)
     .single();
@@ -380,6 +380,9 @@ credits_used: months * qtyScreens,
   }
 
   // 7) WhatsApp
+  let messageToSend = "";
+  const targetSession = srv.whatsapp_session || "default";
+
   try {
     const { data: tmpl } = await supabaseAdmin
       .from("message_templates")
@@ -390,22 +393,54 @@ credits_used: months * qtyScreens,
       .limit(1)
       .maybeSingle();
 
-    const msg = String(tmpl?.content || "").trim();
-    if (!msg) throw new Error("Template de pagamento não encontrado.");
+    messageToSend = String(tmpl?.content || "").trim();
+    if (!messageToSend) throw new Error("Template de pagamento não encontrado.");
 
-    await fetch(`${origin}/api/whatsapp/envio_agora`, {
+    const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
       method: "POST",
       headers: { ...headers, Accept: "application/json" },
       cache: "no-store",
       body: JSON.stringify({
         tenant_id: tenantId,
         client_id: client.id,
-        message: msg,
-        whatsapp_session: "default",
+        message: messageToSend,
+        whatsapp_session: targetSession,
       }),
     });
+
+    // Avalia se o servidor (VM) estava offline ou se deu erro 500
+    const waJson = await waRes.json().catch(() => null);
+    if (!waRes.ok || waJson?.ok === false) {
+      throw new Error("A API de envio imediato recusou a mensagem ou VM estava offline.");
+    }
+
   } catch (e) {
-    safeServerLog("fulfillment: failed whatsapp", (e as any)?.message);
+    safeServerLog("fulfillment: failed whatsapp immediate", (e as any)?.message);
+    
+    // ✅ PLANO B: Se falhou (mas temos a mensagem montada), salva direto na fila do Cron (+2 min)
+    if (messageToSend) {
+      try {
+        const retryDate = new Date(Date.now() + 2 * 60 * 1000); // Exato momento de agora + 2 minutos
+        
+        await supabaseAdmin.from("client_message_jobs").insert({
+          tenant_id: tenantId,
+          client_id: client.id,
+          message: messageToSend,
+          send_at: retryDate.toISOString(), // Salva em UTC corretamente
+          status: "SCHEDULED",
+          whatsapp_session: targetSession,
+          created_by: "system_fulfillment" // Identifica que foi o robô quem agendou
+        });
+        
+        prodLog("fulfillment.whatsapp_retry_scheduled", { 
+          tenant: tenantId.slice(-6),
+          client_id: String(client.id).slice(-6)
+        });
+      } catch (retryErr) {
+        // Se der problema até pra salvar no banco, engole em silêncio. A TV já foi paga e liberada.
+        safeServerLog("fulfillment: failed to schedule retry", (retryErr as any)?.message);
+      }
+    }
   }
 
   prodLog("fulfillment.done", {

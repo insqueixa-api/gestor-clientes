@@ -694,7 +694,7 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
     <span className="text-emerald-500" title="WhatsApp do Portal">
       <IconChat />
     </span>
-    Portal
+    WhatsApp Portal
   </span>
   <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
     {server.whatsapp_session === "session2" ? waLabel2 : waLabel1}
