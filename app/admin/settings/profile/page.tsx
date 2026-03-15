@@ -231,9 +231,11 @@ export default function ProfileSettingsPage() {
   const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
   // ✅ NOVO: Estados da Assinatura
-  const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
+const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
+  const [whatsappSessions, setWhatsappSessions] = useState(1);  // ✅ NOVO
+  const [showSession2, setShowSession2] = useState(false);       // ✅ NOVO
 
   // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
 const canPairWhatsApp = !!userId && !!tenantId;
@@ -420,7 +422,7 @@ async function saveWaConfig() {
         if (currentTenantId) {
           const { data: saasData } = await supabaseBrowser
             .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance")
+            .select("license_status, expires_at, credit_balance, whatsapp_sessions")
             .eq("id", currentTenantId)
             .maybeSingle();
             
@@ -428,6 +430,7 @@ async function saveWaConfig() {
             setLicenseStatus(saasData.license_status || "ACTIVE");
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
+            setWhatsappSessions(saasData.whatsapp_sessions ?? 1); // ✅ NOVO
           }
         }
 
@@ -1515,79 +1518,26 @@ return (
                   </p>
 
                   <div className="flex flex-col gap-3 pt-1">
+                    {/* 1. Servidores */}
                     <button
                       type="button"
                       onClick={() => {
                         const action = actionModal;
                         setActionModal(null);
-                        if (action === "export") void handleExportClients();
-                        else if (action === "template") handleDownloadTemplate();
-                        else if (action === "import") importFileRef.current?.click();
+                        if (action === "export") void handleExportServers();
+                        else if (action === "template") handleDownloadTemplateServers();
+                        else if (action === "import") importServerFileRef.current?.click();
                       }}
                       className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-2xl">👥</span>
+                      <span className="text-2xl">🖥️</span>
                       <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Clientes</div>
-                        <div className="text-[11px] font-medium text-slate-400">Dados cadastrais dos clientes</div>
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Servidores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Cadastros dos seus servidores e painéis</div>
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const action = actionModal;
-                        setActionModal(null);
-                        if (action === "export") void handleExportResellers();
-                        else if (action === "template") handleDownloadTemplateResellers();
-                        else if (action === "import") importResellerFileRef.current?.click();
-                      }}
-                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-2xl">🤝</span>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Revendedores</div>
-                        <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const action = actionModal;
-                        setActionModal(null);
-                        if (action === "export") void handleExportApps();
-                        else if (action === "template") handleDownloadTemplateApps();
-                        else if (action === "import") importAppsFileRef.current?.click();
-                      }}
-                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-2xl">📱</span>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Aplicativos</div>
-                        <div className="text-[11px] font-medium text-slate-400">Apps vinculados aos clientes</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const action = actionModal;
-                        setActionModal(null);
-                        if (action === "export") void handleExportAuto();
-                        else if (action === "template") handleDownloadTemplateAuto();
-                        else if (action === "import") importAutoFileRef.current?.click();
-                      }}
-                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-2xl">💵</span>
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Automações</div>
-                        <div className="text-[11px] font-medium text-slate-400">Regras de cobrança no WhatsApp</div>
-                      </div>
-                    </button>
-
-                    {/* ✅ Mensagens */}
+                    {/* 2. Mensagens */}
                     <button
                       type="button"
                       onClick={() => {
@@ -1608,22 +1558,79 @@ return (
                       </div>
                     </button>
 
-                    {/* ✅ Servidores */}
+                    {/* 3. Automações */}
                     <button
                       type="button"
                       onClick={() => {
                         const action = actionModal;
                         setActionModal(null);
-                        if (action === "export") void handleExportServers();
-                        else if (action === "template") handleDownloadTemplateServers();
-                        else if (action === "import") importServerFileRef.current?.click();
+                        if (action === "export") void handleExportAuto();
+                        else if (action === "template") handleDownloadTemplateAuto();
+                        else if (action === "import") importAutoFileRef.current?.click();
                       }}
                       className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
                     >
-                      <span className="text-2xl">🖥️</span>
+                      <span className="text-2xl">💵</span>
                       <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Servidores</div>
-                        <div className="text-[11px] font-medium text-slate-400">Cadastros dos seus servidores e painéis</div>
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Automações</div>
+                        <div className="text-[11px] font-medium text-slate-400">Regras de cobrança no WhatsApp</div>
+                      </div>
+                    </button>
+
+                    {/* 4. Clientes */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportClients();
+                        else if (action === "template") handleDownloadTemplate();
+                        else if (action === "import") importFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">👥</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Clientes</div>
+                        <div className="text-[11px] font-medium text-slate-400">Dados cadastrais dos clientes</div>
+                      </div>
+                    </button>
+
+                    {/* 5. Aplicativos */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportApps();
+                        else if (action === "template") handleDownloadTemplateApps();
+                        else if (action === "import") importAppsFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">📱</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Aplicativos</div>
+                        <div className="text-[11px] font-medium text-slate-400">Apps vinculados aos clientes</div>
+                      </div>
+                    </button>
+
+                    {/* 6. Revendedores */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportResellers();
+                        else if (action === "template") handleDownloadTemplateResellers();
+                        else if (action === "import") importResellerFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">🤝</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Revendedores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
                       </div>
                     </button>
                   </div>
@@ -1678,9 +1685,20 @@ return (
         {/* === COLUNA DIREITA (SIDEBAR) === */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
-          <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
-            WhatsApp Web
-          </h3>
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              WhatsApp Web — Sessão 1
+            </h3>
+            {whatsappSessions >= 2 && !showSession2 && (
+              <button
+                type="button"
+                onClick={() => setShowSession2(true)}
+                className="h-6 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors"
+              >
+                + Nova Sessão
+              </button>
+            )}
+          </div>
 
           <div className="flex flex-col gap-3">
 
@@ -1869,6 +1887,16 @@ return (
           </div>
         </div>
 
+
+
+{/* ✅ SESSÃO 2 — só renderiza se o tenant tem 2 sessões E o usuário clicou em "+ Nova Sessão" */}
+          {whatsappSessions >= 2 && showSession2 && (
+            <WhatsAppSession2Panel
+              canPair={canPairWhatsApp}
+              addToast={addToast}
+            />
+          )}
+
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Segurança</h3>
             <div>
@@ -1907,5 +1935,264 @@ function IconWhatsApp() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
     </svg>
+  );
+}
+// ============================================================================
+// SESSÃO WHATSAPP 2 — Componente autônomo, zero impacto na sessão 1
+// ============================================================================
+function WhatsAppSession2Panel({
+  canPair,
+  addToast,
+}: {
+  canPair: boolean;
+  addToast: (type: "success" | "error", title: string, msg?: string) => void;
+}) {
+  const [waLoading, setWaLoading]           = useState(false);
+  const [waConnected, setWaConnected]       = useState(false);
+  const [waQrDataUrl, setWaQrDataUrl]       = useState<string | null>(null);
+  const [waLastError, setWaLastError]       = useState<string | null>(null);
+  const [waConfigExpanded, setWaConfigExpanded] = useState(false);
+  const [waPushName, setWaPushName]         = useState<string | null>(null);
+  const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
+  const waLastProfileFetchRef               = useRef<number>(0);
+  const [waStatusText, setWaStatusText]     = useState<string | null>(null);
+  const [waRejectCalls, setWaRejectCalls]   = useState(true);
+  const [waRejectMessage, setWaRejectMessage] = useState(
+    "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊"
+  );
+  const [waSavingConfig, setWaSavingConfig] = useState(false);
+  const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
+
+  async function fetchWaConfig() {
+    try {
+      const res = await fetch("/api/whatsapp/config2", { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setWaRejectCalls(json.rejectCalls ?? true);
+        setWaRejectMessage(json.rejectMessage ?? "");
+        setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
+      }
+    } catch {}
+  }
+
+  async function saveWaConfig() {
+    setWaSavingConfig(true);
+    try {
+      const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.replace(/\D/g, "")).filter(Boolean);
+      const res = await fetch("/api/whatsapp/config2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
+      });
+      if (res.ok) addToast("success", "Configuração salva", "Sessão 2 atualizada.");
+      else addToast("error", "Erro", "Falha ao salvar configuração da sessão 2.");
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    } finally {
+      setWaSavingConfig(false);
+    }
+  }
+
+  async function fetchWaStatus() {
+    try {
+      setWaLastError(null);
+      const res = await fetch("/api/whatsapp/status2", { cache: "no-store" });
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(json?.error || "Falha ao consultar status sessão 2");
+      setWaConnected(!!json.connected);
+      setWaStatusText(json.status ?? null);
+      if (!json.connected) { setWaPushName(null); setWaProfilePicUrl(null); }
+      return !!json.connected;
+    } catch (e: any) {
+      setWaLastError(e?.message);
+      setWaConnected(false);
+      return false;
+    }
+  }
+
+  async function fetchWaProfile() {
+    try {
+      const res = await fetch("/api/whatsapp/profile2", { cache: "no-store" });
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok) return;
+      setWaPushName(json.pushName ?? null);
+      setWaProfilePicUrl(json.pictureUrl ?? null);
+    } catch {}
+  }
+
+  async function refreshPanel() {
+    setWaLoading(true);
+    try {
+      const connected = await fetchWaStatus();
+      if (connected) {
+        setWaQrDataUrl(null);
+        const now = Date.now();
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        if (!waPushName || !waProfilePicUrl || now - waLastProfileFetchRef.current > ONE_DAY) {
+          await fetchWaProfile();
+          await fetchWaConfig();
+          waLastProfileFetchRef.current = now;
+        }
+        return;
+      }
+      const res = await fetch("/api/whatsapp/qr2", { cache: "no-store" });
+      const json = await res.json().catch(() => ({} as any));
+      setWaQrDataUrl(json?.qr || null);
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!confirm("Desconectar a 2ª sessão do WhatsApp?")) return;
+    setWaLoading(true);
+    try {
+      setWaLastError(null);
+      const res = await fetch("/api/whatsapp/disconnect2", { method: "POST", cache: "no-store" });
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(json?.error || "Falha ao desconectar sessão 2");
+      addToast("success", "Sessão 2 desconectada", "2ª sessão WhatsApp removida.");
+      setWaConnected(false); setWaStatusText(null); setWaQrDataUrl(null);
+      setWaPushName(null); setWaProfilePicUrl(null);
+      await refreshPanel();
+    } catch (e: any) {
+      setWaLastError(e?.message);
+      addToast("error", "Falha ao desconectar", e.message);
+    } finally {
+      setWaLoading(false);
+    }
+  }
+
+  // Polling idêntico ao da sessão 1
+  useEffect(() => {
+    if (!canPair) return;
+    let stopped = false;
+    let timer: any = null;
+    const INTERVAL_CONNECTED    = 5 * 60 * 1000;
+    const INTERVAL_DISCONNECTED = 8 * 1000;
+    const INTERVAL_HIDDEN       = 10 * 60 * 1000;
+    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const scheduleNext = (ms: number) => { clear(); timer = setTimeout(() => { void tick(); }, ms); };
+    const tick = async () => {
+      if (stopped) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        scheduleNext(INTERVAL_HIDDEN); return;
+      }
+      await refreshPanel();
+      scheduleNext(waConnected ? INTERVAL_CONNECTED : INTERVAL_DISCONNECTED);
+    };
+    void tick();
+    const onVis = () => { if (document.visibilityState === "visible") void tick(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { stopped = true; clear(); document.removeEventListener("visibilitychange", onVis); };
+  }, [canPair, waConnected]);
+
+  return (
+    <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
+      <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
+        WhatsApp Web — Sessão 2
+      </h3>
+
+      <div className="flex flex-col gap-3">
+        {!canPair ? (
+          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs">
+            Você precisa estar logado para conectar o WhatsApp.
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className={`text-[11px] font-bold px-2 py-1 rounded border ${waConnected ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"}`}>
+                {waConnected ? "✅ Conectado" : "⚠️ Não conectado"}
+              </span>
+              <button type="button" onClick={() => void refreshPanel()} disabled={waLoading}
+                className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50">
+                {waLoading ? "Atualizando..." : "Atualizar"}
+              </button>
+            </div>
+
+            {!!waLastError && (
+              <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs">{waLastError}</div>
+            )}
+
+            <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
+              {waConnected && (
+                <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
+                        className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
+                        </svg>
+                      </button>
+                      <button type="button" onClick={() => setWaRejectCalls(v => !v)}
+                        className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
+                  </div>
+                  {waRejectCalls && waConfigExpanded && (
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
+                      <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                      <div className="pt-1">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Números permitidos:</label>
+                        <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
+                          placeholder={"553199999999\n553188888888"}
+                          className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                      </div>
+                    </div>
+                  )}
+                  {waConfigExpanded && (
+                    <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig}
+                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50">
+                      {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {waConnected ? (
+                <div className="flex items-center gap-4 py-1">
+                  <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                    {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Foto" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400">WA</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-slate-800 dark:text-white truncate">2ª Sessão</div>
+                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                      {waPushName ? `Conectado como: ${waPushName}` : "WhatsApp conectado ✅"}
+                    </div>
+                    {!!waStatusText && <div className="text-[11px] text-slate-400 dark:text-white/40">Status: {waStatusText}</div>}
+                  </div>
+                </div>
+              ) : waQrDataUrl ? (
+                <div className="flex flex-col items-center gap-2">
+                  <img src={waQrDataUrl} alt="QR Code" className="w-full max-w-[220px] rounded bg-white p-2" />
+                  <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
+                    Abra o WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 dark:text-white/60 text-center">QR ainda não disponível. Clique em <b>Atualizar</b>.</div>
+              )}
+            </div>
+
+            {waConnected ? (
+              <button type="button" onClick={() => void handleDisconnect()} disabled={waLoading}
+                className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                {waLoading ? "Processando..." : "🔌 Desconectar Sessão 2"}
+              </button>
+            ) : (
+              <button type="button" onClick={() => void refreshPanel()} disabled={waLoading}
+                className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar Sessão 2"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
