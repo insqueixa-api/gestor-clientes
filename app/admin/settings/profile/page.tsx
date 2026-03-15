@@ -719,10 +719,16 @@ if (!qr) {
 }
 // backend já retorna base64 pronto
 setWaQrDataUrl(qr);
-  } finally {
-    setWaLoading(false);
+} finally {
+      setWaLoading(false);
+    }
+    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s (Baileys demora a popular)
+    if (!waPushName) {
+      setTimeout(async () => {
+        await fetchWaProfile();
+      }, 3000);
+    }
   }
-}
 
 
 
@@ -1865,8 +1871,8 @@ return (
         </div>
       )}
         <div className="text-xs text-slate-500 dark:text-white/60 truncate">
-          {waPushName ? `Conectado como: ${waPushName}` : "WhatsApp conectado ✅"}
-        </div>
+                      {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
+                    </div>
         {!!waStatusText && (
           <div className="text-[11px] text-slate-400 dark:text-white/40">
             Status: {waStatusText}
@@ -2031,7 +2037,7 @@ function WhatsAppSession2Panel({
     }
   }
 
-  async function fetchWaStatus() {
+async function fetchWaStatus() {
     try {
       setWaLastError(null);
       const res = await fetch("/api/whatsapp/status2", { cache: "no-store" });
@@ -2076,8 +2082,14 @@ function WhatsAppSession2Panel({
       const res = await fetch("/api/whatsapp/qr2", { cache: "no-store" });
       const json = await res.json().catch(() => ({} as any));
       setWaQrDataUrl(json?.qr || null);
-    } finally {
+} finally {
       setWaLoading(false);
+    }
+    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s (Baileys demora a popular)
+    if (!waPushName) {
+      setTimeout(async () => {
+        await fetchWaProfile();
+      }, 3000);
     }
   }
 
@@ -2218,7 +2230,7 @@ function WhatsAppSession2Panel({
                       </div>
                     )}
                     <div className="text-xs text-slate-500 dark:text-white/60 truncate">
-                      {waPushName ? `Conectado como: ${waPushName}` : "WhatsApp conectado ✅"}
+                      {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
                     </div>
                     {!!waStatusText && <div className="text-[11px] text-slate-400 dark:text-white/40">Status: {waStatusText}</div>}
                   </div>
