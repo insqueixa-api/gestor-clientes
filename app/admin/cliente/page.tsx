@@ -19,6 +19,33 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   window.console.error = () => {};
 }
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // Helper para calcular diferença de dias (Fuso SP)
 const APP_FIELD_LABELS: Record<string, string> = {
   date: "Vencimento",
@@ -457,14 +484,32 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
   const [scheduling, setScheduling] = useState(false);
   const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default"); // ✅ NOVO
 
-  // ✅ Helper para obter os nomes das sessões personalizados pelo usuário
-  const getSessionOptions = () => {
-    if (typeof window === "undefined") return [{ id: "default", label: "Sessão 1" }, { id: "session2", label: "Sessão 2" }];
-    return [
-      { id: "default", label: localStorage.getItem("wa_label_1") || "Contato Principal" },
-      { id: "session2", label: localStorage.getItem("wa_label_2") || "Contato Secundário" }
-    ];
-  };
+  // ✅ NOVO: Opções de sessão dinâmicas (Busca os telefones reais da VM)
+  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+    { id: "default", label: "Carregando..." }
+  ]);
+
+  async function loadWhatsAppSessions() {
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+      ]);
+
+      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+
+      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+
+      setSessionOptions([
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+        { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+      ]);
+    } catch (e) {
+      console.error("Erro ao carregar sessões", e);
+    }
+  }
 
   // ✅ Templates (mensagens prontas)
   type MessageTemplate = { id: string; name: string; content: string };
@@ -600,6 +645,7 @@ async function loadData() {
 
     if (tid) {
       await loadMessageTemplates(tid);
+      await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista
     }
 
     // ✅ Usa a RPC segura para carregar os Locais (Overrides) + Globais visíveis!
@@ -1434,7 +1480,7 @@ body: JSON.stringify({
    message: msg,
    send_at: sendAtIso,
    whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
-   message_template_id: selectedTemplateScheduleId, 
+   message_template_id: selectedTemplateScheduleId,
 }),
 });
 
@@ -2408,7 +2454,7 @@ return (
                 onChange={(e) => setSelectedSessionNow(e.target.value)}
                 className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm font-medium"
               >
-                {getSessionOptions().map(s => (
+                {sessionOptions.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
@@ -2506,7 +2552,7 @@ return (
                 onChange={(e) => setSelectedSessionSchedule(e.target.value)}
                 className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm font-medium"
               >
-                {getSessionOptions().map(s => (
+                {sessionOptions.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
