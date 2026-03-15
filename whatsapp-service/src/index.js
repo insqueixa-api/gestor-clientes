@@ -27,7 +27,13 @@ if (!API_TOKEN) {
 app.use(express.json());
 
 // ── Logs de acesso simples ───────────────────────────────────
+// ── Logs de acesso simples ───────────────────────────────────
 app.use((req, res, next) => {
+  // ✅ Pula o log se for a rota de health para não sujar o terminal
+  if (req.path === "/health") {
+    return next();
+  }
+
   const start = Date.now();
   res.on("finish", () => {
     const ms = Date.now() - start;
