@@ -1465,66 +1465,35 @@ style={{ maxHeight: "90dvh" }}
 
 <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}></div>
 
-                  <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}>
-                      {/* ... (Inputs de Tecnologia e Toggle Notification igual ao código original, apenas mantenha dentro desse padding reduzido) ... */}
-<div>
-                          <Label>Tecnologia</Label>
-                          {technology === "Personalizado" ? (
-                              <div className="flex gap-1">
-                                <Input value={customTechnology} onChange={(e) => setCustomTechnology(e.target.value)} placeholder="Digite..." autoFocus />
-                                <button onClick={() => { setTechnology("IPTV"); setCustomTechnology(""); }} className="px-3 text-slate-400 hover:text-rose-500 border rounded-lg dark:border-white/10 transition-colors">✕</button>
-                              </div>
-                          ) : (
-                              <Select 
-                                value={technology} 
-                                onChange={(e) => { const v = e.target.value; if(v==="Personalizado"){setTechnology("Personalizado");setCustomTechnology("");}else setTechnology(v); }}
-                                disabled={integrationProvider === "FAST" || integrationProvider === "NATV"}
-                                className={integrationProvider === "FAST" || integrationProvider === "NATV" ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
-                              >
-                                {integrationProvider === "FAST" || integrationProvider === "NATV" ? (
-                                    <option value="IPTV">IPTV</option>
-                                ) : integrationProvider === "ELITE" ? (
-                                    <>
-                                      <option value="IPTV">IPTV</option>
-                                      <option value="P2P">P2P</option>
-                                    </>
-                                ) : (
-                                    <>
-                                      <option value="IPTV">IPTV</option>
-                                      <option value="P2P">P2P</option>
-                                      <option value="OTT">OTT</option>
-                                      {!["IPTV", "P2P", "OTT", "Personalizado"].includes(technology) && <option value={technology}>{technology}</option>}
-                                      <option value="Personalizado">Outro...</option>
-                                    </>
-                                )}
-                              </Select>
-                          )}
-                      </div>
+                  {/* WhatsApp: Toggle, Sessão e Modelo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                       
-                      
+                      {/* Botão de Ligar/Desligar Envio */}
                       <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Whats?</span>
                           <Switch checked={sendWhats} onChange={setSendWhats} label="" />
                       </div>
 
+                      {/* Seletor de Sessão e Modelo (Só aparecem se o envio estiver ligado) */}
                       {sendWhats && (
-                          <div className="animate-in fade-in zoom-in duration-200 space-y-3 pt-1">
-                              <div>
-                                <Label>Sessão de Disparo (WhatsApp)</Label>
-                                <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
-                                  {sessionOptions.map(s => (
-                                    <option key={s.id} value={s.id}>{s.label}</option>
-                                  ))}
-                                </Select>
+                          <>
+                              <div className="animate-in fade-in zoom-in duration-200">
+                                  <Label>Sessão de Disparo</Label>
+                                  <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
+                                      {sessionOptions.map(s => (
+                                          <option key={s.id} value={s.id}>{s.label}</option>
+                                      ))}
+                                  </Select>
                               </div>
-                              <div>
-                                <Label>Modelo</Label>
-                                <Select value={selectedTemplateId} onChange={(e) => { const id = e.target.value; setSelectedTemplateId(id); const tpl = templates.find(t => t.id === id); if(tpl) setMessageContent(tpl.content); }}>
-                                    <option value="">-- Personalizado --</option>
-                                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                </Select>
+
+                              <div className="animate-in fade-in zoom-in duration-200">
+                                  <Label>Modelo</Label>
+                                  <Select value={selectedTemplateId} onChange={(e) => { const id = e.target.value; setSelectedTemplateId(id); const tpl = templates.find(t => t.id === id); if(tpl) setMessageContent(tpl.content); }}>
+                                      <option value="">-- Personalizado --</option>
+                                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  </Select>
                               </div>
-                          </div>
+                          </>
                       )}
                   </div>
 
