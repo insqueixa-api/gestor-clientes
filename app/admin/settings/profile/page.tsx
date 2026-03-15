@@ -1747,13 +1747,13 @@ return (
                   </span>
 
                   <button
-  type="button"
-  onClick={() => void refreshWhatsAppPanel(true)} // ✅ Força a geração ao clicar
-  disabled={waLoading}
-  className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
->
-  {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
-</button>
+                    type="button"
+                    onClick={() => void refreshWhatsAppPanel()} // Aqui NÃO TEM o true
+                    disabled={waLoading}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    {waLoading ? "Atualizando..." : "Atualizar"}
+                  </button>
                 </div>
 
                 {!!waLastError && (
@@ -1904,24 +1904,24 @@ return (
 
 
                 {waConnected ? (
-  <button
-    type="button"
-    onClick={() => void handleDisconnectWhatsApp()}
-    disabled={waLoading}
-    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
-  >
-    {waLoading ? "Processando..." : "🔌 Desconectar Sessão 1"}
-  </button>
-) : (
-  <button
-    type="button"
-    onClick={() => void refreshWhatsAppPanel()}
-    disabled={waLoading}
-    className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
-  >
-    {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
-  </button>
-)}
+                  <button
+                    type="button"
+                    onClick={() => void handleDisconnectWhatsApp()}
+                    disabled={waLoading}
+                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                  >
+                    {waLoading ? "Processando..." : "🔌 Desconectar Sessão 1"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void refreshWhatsAppPanel(true)} // ✅ AQUI SIM TEM O TRUE!
+                    disabled={waLoading}
+                    className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                  >
+                    {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
+                  </button>
+                )}
 
 
                 
