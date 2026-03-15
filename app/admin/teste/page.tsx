@@ -14,6 +14,33 @@ import RecargaCliente from "../cliente/recarga_cliente";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // --- TIPOS ---
 type TrialStatus = "Ativo" | "Vencido" | "Arquivado";
 type SortKey = "name" | "due" | "status" | "server";
@@ -302,6 +329,121 @@ const [scheduleDate, setScheduleDate] = useState("");
   });
 
   const [scheduling, setScheduling] = useState(false); // Loading do botão agendar
+  const [sendingNow, setSendingNow] = useState(false); // ✅ NOVO: Loading do botão enviar agora
+
+  // ✅ NOVO: Controle de Sessão
+  const [selectedSessionNow, setSelectedSessionNow] = useState("default");
+  const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default");
+  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+    { id: "default", label: "Carregando..." }
+  ]);
+
+  async function loadWhatsAppSessions() {
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+      ]);
+      const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+      const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+      const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+      const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+      setSessionOptions([
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+        { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+      ]);
+    } catch (e) {}
+  }
+
+  // ✅ FUNÇÕES DE DISPARO REAIS 
+  async function handleSendMessageNow() {
+    if (!tenantId || !showSendNow.trialId) return;
+    if (sendingNow) return;
+
+    const msg = (messageText || "").trim();
+    if (!msg) return addToast("error", "Mensagem vazia", "Digite uma mensagem antes de enviar.");
+
+    try {
+      setSendingNow(true);
+      const { data: session } = await supabaseBrowser.auth.getSession();
+      const token = session.session?.access_token;
+
+      const res = await fetch("/api/whatsapp/envio_agora", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        body: JSON.stringify({
+           tenant_id: tenantId,
+           client_id: showSendNow.trialId,
+           message: msg,
+           whatsapp_session: selectedSessionNow,
+           message_template_id: selectedTemplateNowId,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Falha ao enviar");
+
+      addToast("success", "Enviado", "Mensagem enviada com sucesso.");
+      setShowSendNow({ open: false, trialId: null });
+      setMessageText("");
+      setSelectedTemplateNowId("");
+      setSelectedSessionNow("default");
+    } catch (e: any) {
+      addToast("error", "Falha no Envio", "O servidor recusou o envio da mensagem.");
+    } finally {
+      setSendingNow(false);
+    }
+  }
+
+  async function handleScheduleMessageAction() {
+    if (!tenantId || !showScheduleMsg.trialId) return;
+    if (scheduling) return;
+
+    const msg = (scheduleText || "").trim();
+    if (!msg) return addToast("error", "Mensagem vazia", "Digite uma mensagem antes de agendar.");
+    if (!scheduleDate) return addToast("error", "Data obrigatória", "Selecione data e hora.");
+
+    try {
+      setScheduling(true);
+      const sendAtIso = `${scheduleDate}:00`; 
+      const check = new Date(`${scheduleDate}:00-03:00`).getTime();
+      if (!Number.isFinite(check) || check <= Date.now()) {
+        addToast("error", "Data inválida", "Escolha uma data/hora no futuro.");
+        return;
+      }
+
+      const { data: session } = await supabaseBrowser.auth.getSession();
+      const token = session.session?.access_token;
+
+      const res = await fetch("/api/whatsapp/envio_programado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        body: JSON.stringify({
+           tenant_id: tenantId,
+           client_id: showScheduleMsg.trialId,
+           message: msg,
+           send_at: sendAtIso,
+           whatsapp_session: selectedSessionSchedule,
+           message_template_id: selectedTemplateScheduleId,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Falha ao agendar");
+
+      addToast("success", "Agendado", "Mensagem programada com sucesso.");
+      setShowScheduleMsg({ open: false, trialId: null });
+      setScheduleText("");
+      setScheduleDate("");
+      setSelectedTemplateScheduleId("");
+      setSelectedSessionSchedule("default");
+      await loadScheduledForClients(tenantId, rows.map((r) => r.id));
+    } catch (e: any) {
+      addToast("error", "Falha no Agendamento", "Não foi possível registrar a mensagem na fila.");
+    } finally {
+      setScheduling(false);
+    }
+  }
 
   function closeAllPopups() {
     setMsgMenuForId(null);
@@ -581,10 +723,11 @@ const mapped: TrialRow[] = typed.map((r) => {
 
 setRows(mapped);
   
-  // ✅ Carrega templates e agendamentos reais
+// ✅ Carrega templates e agendamentos reais
   if (tid) {
     await loadMessageTemplates(tid);
     await loadScheduledForClients(tid, mapped.map(m => m.id));
+    await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão
   }
 
   setLoading(false);
@@ -1382,8 +1525,26 @@ onClick={(e) => {
     setShowSendNow({ open: false, trialId: null });
     setSelectedTemplateNowId("");
     setMessageText("");
+    setSelectedSessionNow("default"); // ✅ Reseta ao fechar
   }}>
     <div className="space-y-4">
+
+      {/* ✅ Select da Sessão WhatsApp */}
+      <div>
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Sessão de Envio
+        </label>
+        <select
+          value={selectedSessionNow}
+          onChange={(e) => setSelectedSessionNow(e.target.value)}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors"
+        >
+          {sessionOptions.map(s => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* ✅ Select de Template */}
       <div>
         <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
@@ -1425,15 +1586,11 @@ onClick={(e) => {
           Cancelar
         </button>
         <button
-          onClick={() => {
-             // Lógica de envio (igual você já tinha ou chamar handleSendMessage se criar)
-             // ...
-             addToast("success", "Enviado", "Mensagem enviada com sucesso.");
-             setShowSendNow({ open: false, trialId: null });
-          }}
-          className="px-4 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2 text-sm shadow-lg shadow-sky-900/20"
+          onClick={handleSendMessageNow}
+          disabled={sendingNow}
+          className="px-4 py-2 rounded-lg bg-sky-600 text-white font-bold hover:bg-sky-500 flex items-center gap-2 text-sm shadow-lg shadow-sky-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <IconSend /> Enviar
+          <IconSend /> {sendingNow ? "Enviando..." : "Enviar"}
         </button>
       </div>
     </div>
@@ -1447,8 +1604,26 @@ onClick={(e) => {
     setSelectedTemplateScheduleId("");
     setScheduleText("");
     setScheduleDate("");
+    setSelectedSessionSchedule("default"); // ✅ Reseta ao fechar
   }}>
     <div className="space-y-4">
+
+      {/* ✅ Select da Sessão WhatsApp */}
+      <div>
+        <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+          Sessão de Envio
+        </label>
+        <select
+          value={selectedSessionSchedule}
+          onChange={(e) => setSelectedSessionSchedule(e.target.value)}
+          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm font-medium text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors"
+        >
+          {sessionOptions.map(s => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div>
         <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Data e Hora do Envio</label>
         <input
@@ -1503,20 +1678,11 @@ onClick={(e) => {
           Cancelar
         </button>
         <button
-          onClick={async () => {
-             // Lógica de agendamento (Exemplo simples, ajustar com sua API real)
-             if(!scheduleDate || !scheduleText) return addToast("error", "Erro", "Preencha todos os campos");
-             
-             // ... call api ...
-             addToast("success", "Agendado", "Mensagem programada.");
-             setShowScheduleMsg({ open: false, trialId: null });
-             
-             // Recarregar os ícones piscantes
-             if(tenantId) await loadScheduledForClients(tenantId, rows.map(r => r.id));
-          }}
-          className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2 text-sm shadow-lg shadow-purple-900/20"
+          onClick={handleScheduleMessageAction}
+          disabled={scheduling}
+          className="px-6 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 flex items-center gap-2 text-sm shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <IconClock /> Agendar
+          <IconClock /> {scheduling ? "Agendando..." : "Agendar"}
         </button>
       </div>
     </div>
