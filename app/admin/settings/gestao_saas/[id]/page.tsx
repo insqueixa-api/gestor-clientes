@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { createPortal } from "react-dom";
+
 
 type SaasTenant = {
   id: string; name: string; role: string;
   expires_at: string | null; license_active: boolean; is_trial: boolean;
   credit_balance: number; license_status: string;
+  whatsapp_sessions: number;          // ✅ NOVO
   responsible_name: string | null; contact_email: string | null;
   phone_e164: string | null; whatsapp_username: string | null;
   parent_tenant_id: string | null;
@@ -70,10 +71,8 @@ export default function GestaoSaasDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [master, setMaster] = useState<SaasTenant | null>(null);
-  const [children, setChildren] = useState<SaasTenant[]>([]);
+const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -86,14 +85,15 @@ export default function GestaoSaasDetailPage() {
 
       const all = (data as SaasTenant[]) ?? [];
       const thisMaster = all.find(t => t.id === id) ?? null;
-      const network = all.filter(t => t.parent_tenant_id === id);
-      network.sort((a, b) => a.name.localeCompare(b.name));
 
-      setMaster(thisMaster);
-      setChildren(network);
+      // Conta filhos sem expor quem são (só o número)
+      const networkCount = all.filter(t => t.parent_tenant_id === id).length;
+
+      setMaster(thisMaster ? { ...thisMaster, _networkCount: networkCount } : null);
       setLoading(false);
     }
     load();
+    void loadHistory();
   }, [id]);
 
   async function loadHistory() {
@@ -109,13 +109,20 @@ export default function GestaoSaasDetailPage() {
   }
 
   const typeLabel: Record<string, string> = {
-    purchase: "Compra", consume: "Consumo", grant: "Recebido", refund: "Reembolso",
+    purchase:       "Compra",
+    consume:        "Consumo",
+    grant:          "Recebido",
+    refund:         "Reembolso",
+    session_add:    "Sessão Adicionada",   // ✅
+    session_remove: "Sessão Removida",     // ✅
   };
   const typeStyle: Record<string, string> = {
-    purchase: "text-sky-600 dark:text-sky-400",
-    consume:  "text-rose-600 dark:text-rose-400",
-    grant:    "text-emerald-600 dark:text-emerald-400",
-    refund:   "text-purple-600 dark:text-purple-400",
+    purchase:       "text-sky-600 dark:text-sky-400",
+    consume:        "text-rose-600 dark:text-rose-400",
+    grant:          "text-emerald-600 dark:text-emerald-400",
+    refund:         "text-purple-600 dark:text-purple-400",
+    session_add:    "text-emerald-600 dark:text-emerald-400",  // ✅
+    session_remove: "text-amber-600 dark:text-amber-400",      // ✅
   };
 
   if (loading) return (
@@ -147,19 +154,12 @@ export default function GestaoSaasDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 justify-end shrink-0">
-          <button
-            onClick={() => { setShowHistory(true); void loadHistory(); }}
-            className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
-          >
-            <IconClock /> <span className="hidden sm:inline">Histórico</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* INFO DO MASTER */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-4 text-sm">
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
             <StatusBadge status={master.license_status} />
@@ -170,7 +170,29 @@ export default function GestaoSaasDetailPage() {
           </div>
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
-            <div className="font-bold text-emerald-600 dark:text-emerald-400">{master.credit_balance}</div>
+            <div className="font-bold text-emerald-600 dark:text-emerald-400">
+              {Number(master.credit_balance).toFixed(1).replace(".0", "")}
+            </div>
+          </div>
+          {/* ✅ Sessões WhatsApp */}
+          <div>
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Sessões WA</div>
+            <div className="flex items-center gap-1.5">
+              <div className="flex gap-0.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className={`w-2.5 h-2.5 rounded-full ${(master.whatsapp_sessions ?? 1) >= 2 ? "bg-emerald-500" : "bg-slate-200 dark:bg-white/10"}`} />
+              </div>
+              <span className="text-xs font-bold text-slate-600 dark:text-white/70">
+                {master.whatsapp_sessions ?? 1}/2
+              </span>
+            </div>
+          </div>
+          {/* ✅ Rede (só contagem) */}
+          <div>
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Na Rede</div>
+            <div className="font-bold text-slate-700 dark:text-white">
+              {master._networkCount ?? 0}
+            </div>
           </div>
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">E-mail</div>
@@ -181,13 +203,9 @@ export default function GestaoSaasDetailPage() {
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
             {master.whatsapp_username ? (
-              <a
-                href={`https://wa.me/${master.whatsapp_username.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate hover:underline flex items-center gap-1"
-                title="Abrir no WhatsApp"
-              >
+              <a href={`https://wa.me/${master.whatsapp_username.replace(/\D/g, '')}`}
+                target="_blank" rel="noreferrer"
+                className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate hover:underline flex items-center gap-1">
                 @{master.whatsapp_username}
               </a>
             ) : (
@@ -197,124 +215,60 @@ export default function GestaoSaasDetailPage() {
         </div>
       </div>
 
-      {/* TABELA READ-ONLY */}
-      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+      {/* ✅ HISTÓRICO INLINE */}
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-          <div className="text-sm font-bold text-slate-800 dark:text-white">
-            Rede
-            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-              {children.length}
+          <div className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            Histórico
+            <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-500/10 text-slate-600 dark:text-white/50 text-xs font-bold">
+              {transactions.length}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 dark:text-white/30 font-medium uppercase tracking-wider">Somente leitura</span>
         </div>
 
-        {children.length === 0 ? (
+        {loadingHistory ? (
+          <div className="py-16 text-center text-slate-400 animate-pulse">Carregando histórico...</div>
+        ) : transactions.length === 0 ? (
           <div className="py-16 text-center text-slate-400 dark:text-white/30 text-sm">
-            Nenhum associado nesta rede.
+            Nenhuma movimentação encontrada.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[600px]">
-              <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
+            <table className="w-full text-sm text-left min-w-[500px]">
+              <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase tracking-wider text-slate-400 dark:text-white/40 border-b border-slate-100 dark:border-white/5">
                 <tr>
-                  <th className="px-4 py-3">Revenda / Contato</th>
-                  <th className="px-4 py-3">Perfil</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Validade</th>
-                  <th className="px-4 py-3">Créditos</th>
+                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Valor</th>
+                  <th className="px-4 py-3">Descrição</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {children.map(t => {
-                  const days = daysUntil(t.expires_at);
-                  return (
-                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-700 dark:text-white truncate">{t.name}</div>
-                        {t.whatsapp_username && (
-                          <div className="text-xs text-emerald-600 dark:text-emerald-500/80">@{t.whatsapp_username}</div>
-                        )}
-                        <div className="text-[10px] text-slate-400 font-mono">{t.contact_email || "—"}</div>
-                      </td>
-                      <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
-                      <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
-                      <td className="px-4 py-3">
-                        {t.expires_at ? (
-                          <div className="flex flex-col">
-                            <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
-                            {days !== null && (
-                              <span className={`text-[10px] font-bold ${days < 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-slate-400"}`}>
-                                {days < 0 ? `Expirou há ${Math.abs(days)}d` : days === 0 ? "Expira hoje" : `${days}d restantes`}
-                              </span>
-                            )}
-                          </div>
-                        ) : <span className="text-slate-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-sm font-bold ${t.credit_balance > 0 ? "text-slate-700 dark:text-white" : "text-slate-400 dark:text-white/30"}`}>
-                          {t.credit_balance}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {transactions.map(tx => (
+                  <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+                      {fmtDateTime(tx.created_at)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-bold ${typeStyle[tx.type] ?? "text-slate-500"}`}>
+                        {typeLabel[tx.type] ?? tx.type}
+                      </span>
+                    </td>
+                    <td className={`px-4 py-3 font-bold text-sm whitespace-nowrap ${typeStyle[tx.type] ?? "text-slate-500"}`}>
+                      {Number(tx.amount) > 0 ? "+" : ""}{Number(tx.amount).toFixed(1).replace(".0", "")}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/50">
+                      {tx.description}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
-            
-            {/* ✅ Espaço fixo no final da lista, garantindo o respiro da tela */}
             <div className="h-24 md:h-20" />
-
           </div>
         )}
       </div>
-
-      {/* MODAL HISTÓRICO */}
-      {showHistory && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[80dvh]">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center shrink-0">
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-white">Histórico de Créditos</h3>
-                <p className="text-xs text-slate-400">{master.name}</p>
-              </div>
-              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white"><IconX /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {loadingHistory ? (
-                <div className="py-10 text-center text-slate-400 animate-pulse">Carregando...</div>
-              ) : transactions.length === 0 ? (
-                <div className="py-10 text-center text-slate-400">Nenhuma transação.</div>
-              ) : (
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 dark:bg-white/5 text-[10px] uppercase tracking-wider text-slate-400 sticky top-0 border-b border-slate-100 dark:border-white/5">
-                    <tr>
-                      <th className="px-4 py-3">Data</th>
-                      <th className="px-4 py-3">Tipo</th>
-                      <th className="px-4 py-3">Valor</th>
-                      <th className="px-4 py-3">Descrição</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                    {transactions.map(tx => (
-                      <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
-                        <td className="px-4 py-3 text-xs text-slate-500 font-mono">{fmtDateTime(tx.created_at)}</td>
-                        <td className="px-4 py-3"><span className={`text-xs font-bold ${typeStyle[tx.type] ?? "text-slate-500"}`}>{typeLabel[tx.type] ?? tx.type}</span></td>
-                        <td className={`px-4 py-3 font-bold text-sm ${typeStyle[tx.type] ?? "text-slate-500"}`}>{tx.amount > 0 ? "+" : ""}{tx.amount}</td>
-                        <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/50">{tx.description}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end shrink-0">
-              <button onClick={() => setShowHistory(false)} className="px-5 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/20 transition">Fechar</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      
     </div>
   );
 }
