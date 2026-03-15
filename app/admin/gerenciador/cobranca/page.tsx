@@ -601,22 +601,25 @@ const addToast = (
       const autoData = autoRes.data;
       const clientData = clientRes.data;
 
-
-const sessions: SelectOption[] = (() => {
+      const sessions: SelectOption[] = (() => {
         const result: SelectOption[] = [];
+
+        // ✅ Busca os nomes que o usuário personalizou no front-end
+        const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato principal" : "Contato principal";
+        const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
 
         // ✅ Monta a Sessão 1 (ID "default")
         if (!waProfRes?.ok) {
-          result.push({ id: "default", label: "Sessão 1 (não conectado)" });
+          result.push({ id: "default", label: `${name1} (não conectado)` });
         } else {
-          result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes.json, "Sessão 1") });
+          result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes.json, name1) });
         }
 
         // ✅ Monta a Sessão 2 (ID "session2")
         if (!waProfRes2?.ok) {
-          result.push({ id: "session2", label: "Sessão 2 (não conectado)" });
+          result.push({ id: "session2", label: `${name2} (não conectado)` });
         } else {
-          result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, "Sessão 2") });
+          result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, name2) });
         }
 
         return result;

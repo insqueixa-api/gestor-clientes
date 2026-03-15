@@ -642,7 +642,15 @@ if (!tenantId || !message || !recipientType || !recipientId) {
     }
   }
 
-  const sessionKey = makeSessionKey(tenantId, authedUserId);
+  // ✅ NOVO: Lê a sessão requisitada do body e gera a chave correspondente
+  const targetSession = String((body as any).whatsapp_session || "default");
+  let sessionKey = "";
+  
+  if (targetSession === "session2") {
+    sessionKey = crypto.createHash("sha256").update(`${tenantId}:${authedUserId}:2`).digest("hex");
+  } else {
+    sessionKey = makeSessionKey(tenantId, authedUserId);
+  }
 
   safeServerLog("[WA][send_now]", {
     tenantId,

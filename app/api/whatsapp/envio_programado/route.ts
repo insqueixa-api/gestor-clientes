@@ -690,7 +690,7 @@ if ((job as any).automation_id && automationConfig) {
         continue;
       }
 
-      if (wa.dont_message_until) {
+if (wa.dont_message_until) {
         const until = new Date(wa.dont_message_until);
         if (!isNaN(until.getTime()) && until > new Date()) {
           await sb.from("client_message_jobs").update({ status: "FAILED", error_message: `Conta em pausa até ${wa.dont_message_until}` }).eq("id", job.id);
@@ -699,7 +699,16 @@ if ((job as any).automation_id && automationConfig) {
       }
 
       const sessionUserId = String(job.created_by || "system");
-      const sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
+      
+      // ✅ NOVO: Avalia qual sessão o envio pediu e gera a chave correta
+      const targetSession = String((job as any).whatsapp_session || "default");
+      let sessionKey = "";
+      if (targetSession === "session2") {
+        // Mesma lógica do makeSessionKey2 que você tem na rota de validação
+        sessionKey = crypto.createHash("sha256").update(`${job.tenant_id}:${sessionUserId}:2`).digest("hex");
+      } else {
+        sessionKey = makeSessionKey(job.tenant_id, sessionUserId);
+      }
       
       let successCount = 0;
       let lastError = "";
