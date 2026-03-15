@@ -105,6 +105,33 @@ const PLAN_MONTHS: Record<string, number> = {
   ANNUAL: 12,
 };
 
+// --- HELPERS WHATSAPP ---
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
+}
+
 // --- HELPERS ---
 function onlyDigits(raw: string) {
   return raw.replace(/\D+/g, "");
@@ -776,6 +803,32 @@ const [templates, setTemplates] = useState<MessageTemplate[]>([]);
 const [selectedTemplateId, setSelectedTemplateId] = useState("");
 const [messageContent, setMessageContent] = useState("");
 
+// ✅ NOVO: Controle de Sessão
+const [selectedSession, setSelectedSession] = useState("default");
+const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
+  { id: "default", label: "Carregando..." }
+]);
+
+async function loadWhatsAppSessions() {
+  try {
+    const [res1, res2] = await Promise.all([
+      fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+      fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+    ]);
+
+    const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+    const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+
+    const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+    const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+
+    setSessionOptions([
+      { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+      { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
+    ]);
+  } catch (e) {}
+}
+
   useEffect(() => {
     if (isEditing) return;
     if (registerRenewal) {
@@ -1015,11 +1068,15 @@ useEffect(() => {
   })();
 }, [serverId]);
 
-  useEffect(() => {
+useEffect(() => {
     let alive = true;
     async function load() {
       try {
         const tid = await getCurrentTenantId();
+
+        if (tid) {
+          await loadWhatsAppSessions(); // ✅ Carrega as sessões para o Select
+        }
 
         // 1. Servidores
         const srvRes = await supabaseBrowser
@@ -3011,29 +3068,17 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
 
 
     const res = await fetch("/api/whatsapp/envio_agora", {
-
       method: "POST",
-
       headers: {
-
         "Content-Type": "application/json",
-
         Authorization: `Bearer ${token}`,
-
       },
-
       body: JSON.stringify({
-
         tenant_id: tid,
-
         client_id: clientId,
-
         message: messageContent,
-
-        whatsapp_session: "default",
-
+        whatsapp_session: selectedSession, // ✅ Usando a sessão selecionada
       }),
-
     });
 
 
@@ -3167,29 +3212,17 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
 
 
         const res = await fetch("/api/whatsapp/envio_agora", {
-
           method: "POST",
-
           headers: {
-
             "Content-Type": "application/json",
-
             Authorization: `Bearer ${token}`,
-
           },
-
           body: JSON.stringify({
-
             tenant_id: tid,
-
             client_id: clientId,
-
             message: messageContent,
-
-            whatsapp_session: "default",
-
+            whatsapp_session: selectedSession, // ✅ Usando a sessão selecionada
           }),
-
         });
 
 
@@ -3798,6 +3831,19 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                 </div>
 
 
+
+                {/* ✅ SELEÇÃO DA SESSÃO DE WHATSAPP */}
+                <div>
+                   <Label>Sessão de Disparo (WhatsApp)</Label>
+                   <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
+                     {sessionOptions.map(s => (
+                       <option key={s.id} value={s.id}>{s.label}</option>
+                     ))}
+                   </Select>
+                   <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
+                     Sessão usada para enviar a mensagem de Boas Vindas, Teste ou Pagamento.
+                   </p>
+                </div>
 
                 {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
 
