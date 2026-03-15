@@ -188,7 +188,7 @@ const sessData = {
     }
   }, 5 * 60 * 1000); // 5 minutos em milissegundos
 
-  const sock = makeWASocket({
+const sock = makeWASocket({
     version,
     auth: state,
     logger: baileysLogger,
@@ -199,6 +199,13 @@ const sessData = {
     keepAliveIntervalMs: 25_000,
     retryRequestDelayMs: 2_000,
     markOnlineOnConnect: false,
+    // ✅ PREVENÇÃO CONTRA "Aguardando mensagem..."
+    maxMsgRetryCount: 15,
+    getMessage: async (key) => {
+      // Retorna vazio apenas para acionar o gatilho interno do Baileys
+      // que força o celular a reenviar as chaves de descriptografia.
+      return { conversation: "" };
+    },
   });
 
 sessData.socket = sock;
