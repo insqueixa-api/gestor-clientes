@@ -189,12 +189,12 @@ function formatBRPhoneFromDigits(digits: string): string {
 }
 
 function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-
+  if (!profile?.connected) return `${sessionName} (Desconectado)`;
   const digits = extractWaNumberFromJid(profile?.jid);
   const pretty = formatBRPhoneFromDigits(digits);
-
-  return `${sessionName} • ${pretty || "Conectado"}`;
+  
+  // ✅ Formatação limpa: Nome da Sessão  |  Número
+  return pretty ? `${sessionName}  |  ${pretty}` : `${sessionName} (Conectado)`;
 }
 
 // ============================================================================
