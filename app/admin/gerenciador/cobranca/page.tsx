@@ -1149,6 +1149,11 @@ const getRuleText = () => {
                         <span>Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong></span>
                     </div>
                 )}
+                {/* ✅ SESSÃO DO WHATSAPP AQUI */}
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70 pt-1 border-t border-slate-200 dark:border-white/5">
+                    <span className="text-base">📱</span>
+                    <span>Sessão: <strong>{data.whatsapp_session === "session2" ? "Secundária (2)" : "Principal (1)"}</strong></span>
+                </div>
             </div>
 
             {/* Métricas e Botões */}
