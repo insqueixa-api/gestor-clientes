@@ -1014,11 +1014,15 @@ return (
 
            {filtered.map((auto) => {
   const impacted = impactedByRule.get(auto.id) ?? [];
+  // ✅ BUSCA O LABEL COMPLETO QUE A API JÁ GEROU (NOME | NÚMERO)
+  const sessionInfo = auxData.sessions.find(s => s.id === (auto.whatsapp_session || "default"));
+
   return (
     <AutomationCard 
       key={auto.id} 
       data={auto}
       impactCount={impacted.length}
+      sessionLabel={sessionInfo?.label} // ✅ ENVIA O TEXTO COMPLETO PRO FILHO
       onToggle={() => toggleActive(auto)}
       onDelete={() => handleDelete(auto.id)}
       onEdit={() => setWizardState({ show: true, editingRule: auto })}
@@ -1081,7 +1085,8 @@ function AutomationCard({
     // ✅ Adicionadas as props que faltavam na chamada do componente pai
     onEdit, 
     onControl, 
-    onShowLogs 
+    onShowLogs, 
+    sessionLabel // ✅ ADICIONE ESTA LINHA AQUI
 }: any) {
     
 const getRuleText = () => {
@@ -1149,22 +1154,13 @@ const getRuleText = () => {
                         <span>Envio às <strong>{data.schedule_time?.slice(0, 5)}</strong></span>
                     </div>
                 )}
-                {/* ✅ SESSÃO DO WHATSAPP AQUI (Nome Dinâmico) */}
-                {(() => {
-                    const isS2 = data.whatsapp_session === "session2";
-                    const customName = typeof window !== "undefined" 
-                        ? localStorage.getItem(isS2 ? "wa_label_2" : "wa_label_1") || (isS2 ? "Contato Secundário" : "Contato principal")
-                        : (isS2 ? "Contato Secundário" : "Contato principal");
-
-                    return (
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70 pt-2 mt-1 border-t border-slate-200 dark:border-white/5">
-                            <span className="text-base">📱</span>
-                            <span className="truncate" title={customName}>
-                                Sessão: <strong className="text-slate-700 dark:text-white/90">{customName}</strong>
-                            </span>
-                        </div>
-                    );
-                })()}
+                {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-white/70 pt-2 mt-1 border-t border-slate-200 dark:border-white/5">
+                    <span className="text-base">📱</span>
+                    <span className="truncate" title={sessionLabel}>
+                        Sessão: <strong className="text-slate-700 dark:text-white/90">{sessionLabel || "Carregando..."}</strong>
+                    </span>
+                </div>
             </div>
 
             {/* Métricas e Botões */}
