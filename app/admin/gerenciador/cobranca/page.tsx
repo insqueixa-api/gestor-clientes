@@ -872,16 +872,16 @@ const handleManualRun = async (rule: Automation) => {
     if (!tid) return;
 
     try {
-      const templateId = rule.message_template_id || (rule.message_template as any)?.id;
-      if (!templateId) throw new Error("Esta regra não tem um template de mensagem vinculado.");
+const templateId = rule.message_template_id || (rule.message_template as any)?.id;
+      if (!templateId) throw new Error("Esta regra não tem um template de mensagem vinculado.");
 
-      const { data: tpl, error: tplErr } = await supabaseBrowser
-        .from("message_templates")
-        .select("content")
-        .eq("id", templateId)
-        .single();
+      const { data: tpl, error: tplErr } = await supabaseBrowser
+        .from("message_templates")
+        .select("content, image_url") // ✅ AGORA PUXA A IMAGEM TAMBÉM
+        .eq("id", templateId)
+        .single();
 
-      if (tplErr || !tpl) throw new Error("Falha ao carregar o texto do template.");
+      if (tplErr || !tpl) throw new Error("Falha ao carregar o texto do template.");
 
       // ======================================================
       // ✅ LÓGICA DE AGENDAMENTO (ESCADINHA DE HORÁRIOS)
@@ -903,10 +903,9 @@ return {
   client_id: client.id,
   automation_id: rule.id,
 
-  // ✅ ESSENCIAL: liga o job ao template escolhido
   message_template_id: templateId,
-
   message: tpl.content,
+  image_url: tpl.image_url || null, // ✅ SALVA A IMAGEM NA FILA (CRON)
   status: "SCHEDULED",
   send_at: currentSendAt.toISOString(),
   whatsapp_session: rule.whatsapp_session || "default",

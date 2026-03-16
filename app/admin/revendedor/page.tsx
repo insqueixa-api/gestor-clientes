@@ -63,7 +63,7 @@ type ScheduledMsg = {
 };
 
 
-type MessageTemplate = { id: string; name: string; content: string };
+type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
 
 // Financeiro por venda (server_credit_sales) - agregação no front
 type VwResellerFinanceAgg = {
@@ -318,10 +318,10 @@ export default function RevendaPage() {
     return session.access_token;
   }
 
-  async function loadMessageTemplates(tid: string) {
+async function loadMessageTemplates(tid: string) {
   const { data, error } = await supabaseBrowser
     .from("message_templates")
-    .select("id,name,content")
+    .select("id,name,content,image_url") // ✅ NOVO: image_url
     .eq("tenant_id", tid)
     .order("name", { ascending: true });
 
@@ -335,6 +335,7 @@ export default function RevendaPage() {
     id: String(r.id),
     name: String(r.name ?? ""),
     content: String(r.content ?? ""),
+    image_url: r.image_url || null, // ✅ NOVO: Mapeamento da Imagem
   }));
 
   setMessageTemplates(list);
@@ -1496,10 +1497,28 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               </div>
             </div>
 
+            {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
+            {(() => {
+              const tpl = messageTemplates.find((t) => t.id === selectedTemplateNowId);
+              if (!tpl?.image_url) return null;
+              return (
+                <div className="animate-in fade-in zoom-in-95 duration-200">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                    Imagem Anexada
+                  </span>
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              );
+            })()}
+
             <textarea
               value={messageText}
+              disabled={!!selectedTemplateNowId}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
               placeholder="Digite a mensagem..."
             />
 
@@ -1585,14 +1604,32 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
               />
             </div>
 
+            {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}
+            {(() => {
+              const tpl = messageTemplates.find((t) => t.id === selectedTemplateScheduleId);
+              if (!tpl?.image_url) return null;
+              return (
+                <div className="animate-in fade-in zoom-in-95 duration-200">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                    Imagem Anexada
+                  </span>
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              );
+            })()}
+
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">
                 Mensagem
               </label>
               <textarea
                 value={scheduleText}
+                disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => setScheduleText(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors"
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-white outline-none min-h-25 focus:border-emerald-500/50 transition-colors disabled:opacity-70"
                 placeholder="Mensagem agendada..."
               />
             </div>

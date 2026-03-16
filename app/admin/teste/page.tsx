@@ -312,9 +312,9 @@ const [showAppModal, setShowAppModal] = useState(false);
 const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
 
-  // ✅ NOVOS ESTADOS (Igual Cliente)
+// ✅ NOVOS ESTADOS (Igual Cliente)
   type ScheduledMsg = { id: string; client_id: string; send_at: string; message: string; status?: string | null };
-  type MessageTemplate = { id: string; name: string; content: string };
+  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
 
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
@@ -581,7 +581,7 @@ setAppModal({
   async function loadMessageTemplates(tid: string) {
     const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id,name,content")
+      .select("id,name,content,image_url") // ✅ NOVO: image_url
       .eq("tenant_id", tid)
       .order("name", { ascending: true });
 
@@ -595,6 +595,7 @@ setAppModal({
       id: String(r.id),
       name: String(r.name ?? "Sem nome"),
       content: String(r.content ?? ""),
+      image_url: r.image_url || null, // ✅ NOVO: mapeamento da imagem
     })) as MessageTemplate[];
 
     setMessageTemplates(mapped);
@@ -1568,8 +1569,26 @@ onClick={(e) => {
         </select>
       </div>
 
+      {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
+      {(() => {
+        const tpl = messageTemplates.find((t) => t.id === selectedTemplateNowId);
+        if (!tpl?.image_url) return null;
+        return (
+          <div className="animate-in fade-in zoom-in-95 duration-200">
+            <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              Imagem Anexada
+            </span>
+            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        );
+      })()}
+
       <textarea
         value={messageText}
+        disabled={!!selectedTemplateNowId}
         onChange={(e) => {
           if (selectedTemplateNowId) setSelectedTemplateNowId("");
           setMessageText(e.target.value);
@@ -1657,10 +1676,28 @@ onClick={(e) => {
         </select>
       </div>
 
+      {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}
+      {(() => {
+        const tpl = messageTemplates.find((t) => t.id === selectedTemplateScheduleId);
+        if (!tpl?.image_url) return null;
+        return (
+          <div className="animate-in fade-in zoom-in-95 duration-200">
+            <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+              Imagem Anexada
+            </span>
+            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        );
+      })()}
+
       <div>
         <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1 uppercase">Mensagem</label>
         <textarea
           value={scheduleText}
+          disabled={!!selectedTemplateScheduleId}
           onChange={(e) => {
             if (selectedTemplateScheduleId) setSelectedTemplateScheduleId("");
             setScheduleText(e.target.value);
