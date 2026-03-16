@@ -353,7 +353,22 @@ valor_plano: c.price_amount === null || c.price_amount === undefined ? "" : Stri
     r.cadastro_hora,
   ]);
 
-  const worksheet = XLSX.utils.aoa_to_sheet([exportHeaders, ...dataAsArrays]);
+const worksheet = XLSX.utils.aoa_to_sheet([exportHeaders, ...dataAsArrays]);
+  
+  // ✅ Forçar colunas de telefone a serem lidas como Texto no Excel
+  // Índices (0-based): 2 (Telefone principal), 3 (WhatsApp Username), 6 (Secundário Telefone), 7 (Secundário WhatsApp)
+  const textColumns = [2, 3, 6, 7]; 
+  
+  for (let R = 1; R <= dataAsArrays.length; R++) { // Começa do 1 para pular o cabeçalho
+    textColumns.forEach(C => {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      if (worksheet[cellAddress]) {
+        worksheet[cellAddress].t = 's'; // Garante que o tipo de dado é string
+        worksheet[cellAddress].z = '@'; // Define o formato da célula no Excel como "Texto"
+      }
+    });
+  }
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
   

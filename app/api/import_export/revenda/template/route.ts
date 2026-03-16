@@ -45,12 +45,23 @@ export async function GET() {
       "• Exclua a linha de exemplo e estas instruções antes de importar. Elas estão aqui apenas para referência."
     ];
 
-    const worksheet = XLSX.utils.aoa_to_sheet([
+const worksheet = XLSX.utils.aoa_to_sheet([
       headers,
       exampleRow,
       [], 
       ...notes.map((n) => [n]),
     ]);
+
+    // ✅ Forçar colunas de telefone e WhatsApp da linha de exemplo a serem Texto
+    // Índices: 1 (Telefone principal), 2 (Whatsapp Username)
+    const textColumns = [1, 2]; 
+    textColumns.forEach(C => {
+      const cellAddress = XLSX.utils.encode_cell({ r: 1, c: C });
+      if (worksheet[cellAddress]) {
+        worksheet[cellAddress].t = 's';
+        worksheet[cellAddress].z = '@'; // Formato de Texto
+      }
+    });
 
     worksheet["!cols"] = [
       { wch: 25 }, // Nome

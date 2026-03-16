@@ -115,7 +115,23 @@ export async function GET(req: Request) {
       return rowData;
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+    
+    // ✅ Forçar colunas de telefone a serem lidas como Texto no Excel
+    // Índices (0-based): 1 (Telefone principal), 2 (Whatsapp Username)
+    const textColumns = [1, 2]; 
+    
+    // Pula o cabeçalho (linha 0), vai até o total de linhas geradas
+    for (let R = 1; R <= rows.length; R++) { 
+      textColumns.forEach(C => {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (worksheet[cellAddress]) {
+          worksheet[cellAddress].t = 's'; // Garante que o tipo de dado é string
+          worksheet[cellAddress].z = '@'; // Define o formato da célula no Excel como "Texto"
+        }
+      });
+    }
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Revendedores");
 

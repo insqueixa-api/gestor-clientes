@@ -90,9 +90,20 @@ export async function GET() {
   const dueCellAddr = XLSX.utils.encode_cell({ r: 1, c: 16 });
   if (worksheet[dueCellAddr]) worksheet[dueCellAddr].z = "DD/MM/YYYY";
 
-  // Aplica formato DD/MM/YYYY na célula de exemplo da coluna Data de cadastro (linha 2, col 24)
+// Aplica formato DD/MM/YYYY na célula de exemplo da coluna Data de cadastro (linha 2, col 24)
   const createdCellAddr = XLSX.utils.encode_cell({ r: 1, c: 23 });
   if (worksheet[createdCellAddr]) worksheet[createdCellAddr].z = "DD/MM/YYYY";
+
+  // ✅ Forçar colunas de telefone e ID Externo da linha de exemplo a serem Texto
+  // Índices: 2 (Telefone principal), 3 (Whatsapp Username), 6 (Secundário Telefone), 7 (Secundário Whatsapp), 22 (ID Externo)
+  const textColumns = [2, 3, 6, 7, 22]; 
+  textColumns.forEach(C => {
+    const cellAddress = XLSX.utils.encode_cell({ r: 1, c: C });
+    if (worksheet[cellAddress]) {
+      worksheet[cellAddress].t = 's';
+      worksheet[cellAddress].z = '@'; // Formato de Texto
+    }
+  });
 
   // ✅ Largura das colunas para melhor leitura
   worksheet["!cols"] = [

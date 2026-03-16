@@ -525,6 +525,7 @@ const get = (key: string): string => {
         const idx = colIndex.get(normalizeHeader(key));
         if (idx === undefined) return "";
         const val = r[idx];
+        
         if (val instanceof Date) {
           const dd = String(val.getDate()).padStart(2, "0");
           const mm = String(val.getMonth() + 1).padStart(2, "0");
@@ -535,7 +536,23 @@ const get = (key: string): string => {
           if (val.getFullYear() <= 1900) return `${hh}:${min}`;
           return `${dd}/${mm}/${yyyy}`;
         }
-        return (val ?? "").toString().trim();
+
+        // ✅ Tratamento 1: Se a biblioteca leu como número, forçamos a string completa sem notação científica
+        if (typeof val === "number") {
+          return val.toLocaleString("fullwide", { useGrouping: false });
+        }
+
+        let valStr = (val ?? "").toString().trim();
+        
+        // ✅ Tratamento 2: Se leu como string mas está no formato científico (ex: "5,52199E+12" ou "5.52199e12")
+        if (/^\d+(?:[.,]\d+)?e\+?\d+$/i.test(valStr)) {
+          const parsedNum = Number(valStr.replace(",", "."));
+          if (!Number.isNaN(parsedNum)) {
+            return parsedNum.toLocaleString("fullwide", { useGrouping: false });
+          }
+        }
+
+        return valStr;
       };
 
       const parsed: ParsedRow = {

@@ -85,10 +85,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_headers", missing, hint: "Faltam colunas obrigatórias." }, { status: 400 });
   }
 
-  const getCell = (row: any[], key: string): string => {
+const getCell = (row: any[], key: string): string => {
     const idx = colIndex.get(normalizeHeader(key));
     if (idx === undefined) return "";
-    return (row[idx] ?? "").toString().trim();
+    const val = row[idx];
+
+    // ✅ Tratamento 1: Se a biblioteca leu como número, forçamos a string completa sem notação científica
+    if (typeof val === "number") {
+      return val.toLocaleString("fullwide", { useGrouping: false });
+    }
+
+    let valStr = (val ?? "").toString().trim();
+    
+    // ✅ Tratamento 2: Se leu como string mas está no formato científico (ex: "5,52199E+12" ou "5.52199e12")
+    if (/^\d+(?:[.,]\d+)?e\+?\d+$/i.test(valStr)) {
+      const parsedNum = Number(valStr.replace(",", "."));
+      if (!Number.isNaN(parsedNum)) {
+        return parsedNum.toLocaleString("fullwide", { useGrouping: false });
+      }
+    }
+
+    return valStr;
   };
 
   const { data: serversData, error: srvErr } = await supabase.from("servers").select("id, name").eq("tenant_id", tenant_id);
