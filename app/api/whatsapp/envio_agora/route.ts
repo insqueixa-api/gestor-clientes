@@ -528,7 +528,8 @@ if (!tenantId || !message) {
 // ✅ INTERNAL: resolve um user_id real do tenant para gerar x-session-key válido
 if (internal) {
   const senderUserId = await resolveTenantSenderUserId(sb, tenantId);
-  authedUserId = senderUserId || "internal";
+  // Alinhado com o padrão de segurança do Cron
+  authedUserId = senderUserId || "system"; 
 }
 
 
@@ -698,8 +699,9 @@ if (!tenantId || !message || !recipientType || !recipientId) {
 
     // ✅ 2. CORREÇÃO DO LINK: O "if (!internal)" foi REMOVIDO para gerar o link também nas automações/webhook!
     try {
-      // Se for internal (automático), authedUserId é vazio, então mandamos explícito NULL para não dar erro de formato UUID no banco.
-      const safeUserId = authedUserId ? authedUserId : null;
+      // ✅ BLINDAGEM ANTI-CRASH: Garante que só envia para o banco se for um UUID válido (se for "system", vira NULL)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authedUserId);
+      const safeUserId = isUuid ? authedUserId : null;
       const actionLabel = internal ? "Envio automático" : "Envio manual";
 
       const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
