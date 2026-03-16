@@ -121,7 +121,17 @@ function fmtDateTime(s?: string | null) {
 }
 function daysUntil(s?: string | null): number | null {
   if (!s) return null;
-  return Math.ceil((new Date(s).getTime() - Date.now()) / 86400000);
+  
+  // ✅ Calcula a diferença exata em dias corridos no fuso de São Paulo (ignora horas)
+  const target = new Date(s);
+  const now = new Date();
+
+  // Força as duas datas para o formato YYYY-MM-DD em SP e joga para o meio-dia (evita bugs de fuso)
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const targetDate = new Date(`${fmt.format(target)}T12:00:00Z`);
+  const nowDate = new Date(`${fmt.format(now)}T12:00:00Z`);
+
+  return Math.round((targetDate.getTime() - nowDate.getTime()) / 86400000);
 }
 
 // ============================================================
