@@ -636,7 +636,7 @@ setWaStatusText(json.status ?? null);
 if (!json.connected) {
   setWaPushName(null);
   setWaProfilePicUrl(null);
-  setWaSessionLabel("Contato principal");
+  // ✅ NÃO RESETA O LABEL AQUI! Mantém o nome customizado ("Suporte", etc) salvo no localStorage.
 }
 
 // ✅ Agora retornamos um objeto para sabermos qual é o status exato lá na VM
@@ -1120,7 +1120,7 @@ setWaQr(null);
 setWaQrDataUrl(null);
 setWaPushName(null);
 setWaProfilePicUrl(null);
-setWaSessionLabel("Contato principal");
+// ✅ Mantém o nome da sessão intacto para quando você conectar de novo!
 
 // força refresh da UI
 await refreshWhatsAppPanel();
@@ -2047,10 +2047,17 @@ async function fetchWaStatus() {
       const res = await fetch("/api/whatsapp/status2", { cache: "no-store" });
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(json?.error || "Falha ao consultar status sessão 2");
+      
       setWaConnected(!!json.connected);
       setWaStatusText(json.status ?? null);
-      if (!json.connected) { setWaPushName(null); setWaProfilePicUrl(null); }
-      return { connected: !!json.connected, status: json.status }; // ✅ Retorna objeto
+      
+      if (!json.connected) { 
+        setWaPushName(null); 
+        setWaProfilePicUrl(null); 
+        // ✅ Tal como na Sessão 1, garantimos que NUNCA se faz reset ao nome (waSessionLabel) aqui!
+      }
+      
+      return { connected: !!json.connected, status: json.status };
     } catch (e: any) {
       setWaLastError(e?.message);
       setWaConnected(false);
@@ -2108,9 +2115,16 @@ async function fetchWaStatus() {
       const res = await fetch("/api/whatsapp/disconnect2", { method: "POST", cache: "no-store" });
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) throw new Error(json?.error || "Falha ao desconectar sessão 2");
+      
       addToast("success", "Sessão 2 desconectada", "2ª sessão WhatsApp removida.");
-      setWaConnected(false); setWaStatusText(null); setWaQrDataUrl(null);
-      setWaPushName(null); setWaProfilePicUrl(null);
+      
+      // ✅ Limpa a UI imediatamente, mas mantém o nome personalizado intacto!
+      setWaConnected(false); 
+      setWaStatusText(null); 
+      setWaQrDataUrl(null);
+      setWaPushName(null); 
+      setWaProfilePicUrl(null);
+      
       await refreshPanel();
     } catch (e: any) {
       setWaLastError(e?.message);

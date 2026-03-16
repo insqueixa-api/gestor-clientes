@@ -194,11 +194,16 @@ const sock = makeWASocket({
     logger: baileysLogger,
     printQRInTerminal: false,
     browser: ["UniGestor", "Chrome", "120.0.0"],
-    connectTimeoutMs: 30_000,
-    defaultQueryTimeoutMs: 20_000,
-    keepAliveIntervalMs: 25_000,
-    retryRequestDelayMs: 2_000,
+    
+    // ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
+    connectTimeoutMs: 60_000,        // 1 min para tentar conectar (antes era 30s)
+    defaultQueryTimeoutMs: 60_000,   // 1 min de tolerância para o WA responder (antes era 20s)
+    keepAliveIntervalMs: 60_000,     // Ping apenas a cada 1 min (antes era 25s) — evita falsas quedas!
+    retryRequestDelayMs: 5_000,      // Espera 5s antes de tentar de novo
+    
     markOnlineOnConnect: false,
+    generateHighQualityLinkPreview: true, // Garante envio de links mais bonitos
+    
     // ✅ PREVENÇÃO CONTRA "Aguardando mensagem..."
     maxMsgRetryCount: 15,
     getMessage: async (key) => {
@@ -330,17 +335,21 @@ if (connection === "open") {
         ? lastDisconnect.error.output?.statusCode
         : null;
 
+// ✅ NOVO: Aceita mais tentativas antes de jogar a toalha (aumentado para 10)
+      // ✅ NOVO: Aceita mais tentativas antes de jogar a toalha (aumentado para 10)
       const shouldReconnect =
         statusCode !== DisconnectReason.loggedOut &&
         statusCode !== DisconnectReason.forbidden &&
-        sessData.retries < 5;
+        sessData.retries < 10; 
 
       console.log(`[WA][${sessionKey.slice(0, 8)}] Desconectado (${statusCode}), reconectar: ${shouldReconnect}`);
 
       if (shouldReconnect) {
         sessData.status = "connecting";
         sessData.retries++;
-        const delay = Math.min(sessData.retries * 3000, 15000);
+        // ✅ Espera 10 segundos na primeira tentativa, até o limite de 30s nas próximas.
+        // Isso impede que ele tente reconectar num loop desesperado que trava o Baileys.
+        const delay = Math.min(sessData.retries * 10000, 30000); 
         setTimeout(() => createSession(sessionKey), delay);
       } else {
         sessData.status = "disconnected";

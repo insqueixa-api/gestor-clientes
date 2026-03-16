@@ -86,8 +86,13 @@ app.all("/status", authMiddleware, async (req, res) => {
     return res.json({ connected: false, status: "disconnected" });
   }
 
+  // ✅ Se estiver no meio de uma reconexão ou carregando (connecting),
+  // avisamos que está "conneting" mas não setamos connected: false abruptamente
+  // se ele ainda não esgotou as tentativas.
+  const isConnectedOrReconnecting = sess.status === "connected" || sess.status === "connecting";
+
   return res.json({
-    connected: sess.status === "connected",
+    connected: isConnectedOrReconnecting,
     status: sess.status,
   });
 });
