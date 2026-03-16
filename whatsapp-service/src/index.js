@@ -209,7 +209,8 @@ app.post("/send", authMiddleware, async (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
-  const { phone, message } = req.body || {};
+  // ✅ EXTRAI A IMAGEM TAMBÉM
+  const { phone, message, image_url } = req.body || {};
   if (!phone || !message) {
     return res.status(400).json({ error: "phone e message são obrigatórios" });
   }
@@ -220,7 +221,8 @@ app.post("/send", authMiddleware, async (req, res) => {
   }
 
   try {
-    const result = await sendMessage(sessionKey, phone, message);
+    // ✅ PASSA A IMAGEM PARA A FUNÇÃO (SE EXISTIR)
+    const result = await sendMessage(sessionKey, phone, message, image_url);
     return res.json(result);
   } catch (e) {
     console.error(`[SEND] Erro:`, e?.message);

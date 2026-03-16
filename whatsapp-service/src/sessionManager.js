@@ -439,7 +439,8 @@ function deleteSessionFiles(sessionKey) {
   }
 }
 
-async function sendMessage(sessionKey, phone, message) {
+// ✅ AGORA RECEBE O imageUrl COMO TERCEIRO PARÂMETRO (OPCIONAL)
+async function sendMessage(sessionKey, phone, message, imageUrl = null) {
   const sess = sessions.get(sessionKey);
   if (!sess || sess.status !== "connected") {
     throw new Error("Sessão não conectada");
@@ -448,7 +449,20 @@ async function sendMessage(sessionKey, phone, message) {
   // Normaliza número para JID do WhatsApp
   const jid = normalizeJid(phone);
 
-  const result = await sess.socket.sendMessage(jid, { text: message });
+  let result;
+  
+  // ✅ LÓGICA DO BAILEYS: Se tem imagem, manda como mídia. Se não, manda só texto.
+  if (imageUrl) {
+    result = await sess.socket.sendMessage(jid, { 
+      image: { url: imageUrl }, 
+      caption: message 
+    });
+  } else {
+    result = await sess.socket.sendMessage(jid, { 
+      text: message 
+    });
+  }
+
   return {
     ok: true,
     messageId: result?.key?.id || null,
