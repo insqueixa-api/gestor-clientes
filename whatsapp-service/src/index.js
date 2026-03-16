@@ -28,10 +28,12 @@ app.use(express.json());
 
 // ── Logs de acesso inteligentes (Silencia o Polling) ───────────
 app.use((req, res, next) => {
-  // ✅ Lista de rotas que NÃO devem gerar log no terminal (evita spam)
-  const quietPaths = ["/health", "/status", "/profile", "/sessions"];
+  // ✅ Pula o log se a URL COMEÇAR com alguma dessas rotas (ignora os parâmetros)
+  const isQuiet = ["/health", "/status", "/profile", "/sessions"].some(path => 
+    req.url.startsWith(path) || req.path.startsWith(path)
+  );
   
-  if (quietPaths.includes(req.path)) {
+  if (isQuiet) {
     return next();
   }
 
