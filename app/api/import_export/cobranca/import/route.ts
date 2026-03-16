@@ -100,10 +100,10 @@ export async function POST(req: Request) {
     return val.split(",").map(v => mapStatus[normalizeStr(v)]).filter(Boolean);
   };
 
-  const parseDays = (val: string) => {
+const parseDays = (val: string) => {
     if (!val) return [];
     const mapDays: Record<string, number> = { "seg": 1, "ter": 2, "qua": 3, "qui": 4, "sex": 5, "sab": 6, "dom": 0 };
-    return val.split(",").map(v => mapDays[normalizeStr(v.substring(0,3))]).filter(v => v !== undefined);
+    return val.split(",").map(v => mapDays[normalizeStr(v).substring(0, 3)]).filter(v => v !== undefined);
   };
 
   let inserted = 0;
