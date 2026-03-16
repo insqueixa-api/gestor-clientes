@@ -272,6 +272,7 @@ type ScheduleBody = {
   message: string;
   send_at: string; // ISO (pode vir sem TZ do front)
   whatsapp_session?: string | null;
+  image_url?: string | null; // ✅ NOVO: Suporte a imagens no agendamento
 };
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
@@ -580,6 +581,7 @@ const { data: tenants, error: tenantsErr } = await sb
     reseller_id,
     whatsapp_session,
     message,
+    image_url, 
     send_at,
     created_by,
     automation_id,
@@ -770,7 +772,11 @@ if (wa.dont_message_until) {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ phone: contact.number, message: renderedMessage }),
+          body: JSON.stringify({ 
+            phone: contact.number, 
+            message: renderedMessage,
+            ...((job as any).image_url ? { image_url: String((job as any).image_url) } : {}) // ✅ Envia a imagem para a VM se existir
+          }),
         });
 
         if (!res.ok) {
@@ -862,6 +868,18 @@ if (wa.dont_message_until) {
 
   const tenantId = String((body as any).tenant_id || "").trim();
   const message = String((body as any).message || "").trim();
+  const messageTemplateId = String((body as any).message_template_id || "").trim();
+  let imageUrl = String((body as any).image_url || "").trim() || null;
+
+  // ✅ Se veio o ID do template mas não veio a imagem, busca no banco para garantir
+  if (!imageUrl && messageTemplateId) {
+    try {
+      const { data: tpl } = await sb.from("message_templates").select("image_url").eq("id", messageTemplateId).single();
+      if (tpl?.image_url) imageUrl = tpl.image_url;
+    } catch (e) {
+      safeServerLog("[WA][scheduled] falha ao buscar imagem do template", e);
+    }
+  }
 
   // ✅ pode vir sem TZ do front
   const sendAtRaw = String((body as any).send_at || "").trim();
@@ -928,6 +946,7 @@ if (wa.dont_message_until) {
   const insertPayload: any = {
     tenant_id: tenantId,
     message,
+    image_url: imageUrl, // ✅ Grava a imagem na fila do Cron
     send_at: sendAtUtc, // ✅ grava UTC no banco
     status: "SCHEDULED",
     whatsapp_session: (body as any).whatsapp_session ?? "default",

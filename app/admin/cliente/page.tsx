@@ -511,8 +511,8 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
     }
   }
 
-  // ✅ Templates (mensagens prontas)
-  type MessageTemplate = { id: string; name: string; content: string };
+// ✅ Templates (mensagens prontas)
+  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");       // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>(""); // modal agendar
@@ -612,7 +612,7 @@ if (error) {
     // ✅ Ajuste APENAS se sua tabela tiver outro nome/colunas
     const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id,name,content")
+      .select("id,name,content,image_url") // ✅ NOVO: image_url
       .eq("tenant_id", tid)
       .order("name", { ascending: true });
 
@@ -626,6 +626,7 @@ if (error) {
       id: String(r.id),
       name: String(r.name ?? "Sem nome"),
       content: String(r.content ?? ""),
+      image_url: r.image_url || null, // ✅ NOVO: Mapeia a imagem
     })) as MessageTemplate[];
 
     setMessageTemplates(mapped);
@@ -2487,8 +2488,25 @@ return (
         {t.name}
       </option>
     ))}
-  </select>
+ </select>
 </div>
+
+{/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
+{(() => {
+  const tpl = messageTemplates.find((t) => t.id === selectedTemplateNowId);
+  if (!tpl?.image_url) return null;
+  return (
+    <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
+      <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        Imagem Anexada
+      </span>
+      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+      </div>
+    </div>
+  );
+})()}
 
 <textarea
   value={messageText}
@@ -2599,6 +2617,23 @@ return (
     ))}
   </select>
 </div>
+
+{/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}
+{(() => {
+  const tpl = messageTemplates.find((t) => t.id === selectedTemplateScheduleId);
+  if (!tpl?.image_url) return null;
+  return (
+    <div className="mb-2 animate-in fade-in zoom-in-95 duration-200">
+      <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+        Imagem Anexada
+      </span>
+      <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+      </div>
+    </div>
+  );
+})()}
 
 <textarea
   value={scheduleText}
