@@ -11,6 +11,8 @@ function IconEye() { return <svg width="16" height="16" viewBox="0 0 24 24" fill
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>; }
 function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
+function IconImage() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>; }
+function IconUpload() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>; }
 
 // --- DEFINIÇÃO DAS TAGS (REORGANIZADO) ---
 const TAG_GROUPS = [
@@ -112,7 +114,8 @@ type MessageTemplate = {
   name: string;
   content: string;
   updated_at: string;
-  is_system_default: boolean; // ✅ NOVO
+  is_system_default: boolean; 
+  image_url: string | null; // ✅ NOVO: URL da imagem
 };
 
 // ============================================================================
@@ -148,7 +151,7 @@ export default function MessagesPage() {
 
   let query = supabaseBrowser
     .from("message_templates")
-    .select("id, name, content, updated_at, is_system_default")
+    .select("id, name, content, updated_at, is_system_default, image_url") // ✅ ADICIONADO: image_url
     .eq("tenant_id", tid)
     .order("is_system_default", { ascending: false })
     .order("updated_at", { ascending: false });
@@ -178,9 +181,19 @@ export default function MessagesPage() {
     if (!confirm("Tem certeza que deseja excluir este modelo permanentemente?")) return;
 
     const tid = await getCurrentTenantId();
-    if (!tid) {
-      setLoading(false);
-      return;
+    if (!tid) return;
+
+    // ✅ Encontra o template para ver se tem imagem
+    const tpl = messages.find(m => m.id === id);
+    if (tpl?.image_url) {
+      try {
+        const oldPath = tpl.image_url.split('/chat_media/')[1];
+        if (oldPath) {
+          await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
+        }
+      } catch (e) {
+        console.error("Falha ao remover imagem antiga do storage", e);
+      }
     }
 
     const { error } = await supabaseBrowser
@@ -188,11 +201,12 @@ export default function MessagesPage() {
       .delete()
       .eq("id", id)
       .eq("tenant_id", tid);
+
     if (error) addToast("error", "Erro ao excluir", error.message);
     else {
       addToast("success", "Excluído", "Modelo removido.");
       loadMessages();
-      setShowPreview(false); // Fecha preview se estiver aberto
+      setShowPreview(false);
     }
   }
 
@@ -458,10 +472,17 @@ function PreviewModal({
           </button>
         </div>
 
-        {/* Conteúdo da Mensagem */}
+{/* Conteúdo da Mensagem */}
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
-          <div className="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 font-mono leading-relaxed bg-white dark:bg-[#0d1117] p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm min-h-full">
-            {template.content}
+          <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 font-mono leading-relaxed bg-white dark:bg-[#0d1117] p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm min-h-full">
+            {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
+            {template.image_url && (
+              <div className="relative w-full max-w-sm mx-auto bg-slate-100 dark:bg-black/40 rounded-lg overflow-hidden border border-slate-200 dark:border-white/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={template.image_url} alt="Imagem da mensagem" className="w-full h-auto object-cover" />
+              </div>
+            )}
+            <div>{template.content}</div>
           </div>
         </div>
 
@@ -501,10 +522,54 @@ function EditorModal({
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
-  const [name, setName] = useState(templateToEdit?.name || "");
+const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
+  
+  // ✅ NOVO: Controle de Imagem
+  const [previewUrl, setPreviewUrl] = useState<string | null>(templateToEdit?.image_url || null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ Motor de Compressão Frontend (Gera JPEGs super leves)
+  async function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 800; // Resolução ideal para WhatsApp
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          } else if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Falha na compressão"));
+          }, "image/jpeg", 0.75); // 75% de Qualidade
+        };
+        img.onerror = (e) => reject(e);
+      };
+      reader.onerror = (e) => reject(e);
+    });
+  }
 
   // ✅ Descobre se o template aberto é bloqueado para troca de nome
   const isProtected = templateToEdit?.is_system_default || (templateToEdit?.name && PROTECTED_TEMPLATES.includes(templateToEdit.name));
@@ -538,10 +603,42 @@ function EditorModal({
       const tid = await getCurrentTenantId();
       if (!tid) throw new Error("Sessão inválida.");
 
+      let finalImageUrl = templateToEdit?.image_url || null;
+
+      // 1. Se o usuário deletou a foto antiga
+      if (!previewUrl && templateToEdit?.image_url) {
+        const oldPath = templateToEdit.image_url.split('/chat_media/')[1];
+        if (oldPath) await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
+        finalImageUrl = null;
+      }
+
+      // 2. Se o usuário escolheu uma nova foto
+      if (imageFile) {
+        const compressedBlob = await compressImage(imageFile);
+        const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.-]/g, "")}.jpg`;
+        const filePath = `${tid}/templates/${fileName}`;
+
+        const { error: uploadErr } = await supabaseBrowser.storage
+          .from("chat_media")
+          .upload(filePath, compressedBlob, { contentType: "image/jpeg", upsert: true });
+        
+        if (uploadErr) throw new Error("Falha ao fazer upload da imagem: " + uploadErr.message);
+
+        const { data: pubData } = supabaseBrowser.storage.from("chat_media").getPublicUrl(filePath);
+        finalImageUrl = pubData.publicUrl;
+
+        // Limpa a foto anterior do banco para não pesar no seu SaaS
+        if (templateToEdit?.image_url) {
+           const oldPath = templateToEdit.image_url.split('/chat_media/')[1];
+           if (oldPath) await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
+        }
+      }
+
       const payload = {
         tenant_id: tid,
         name,
         content,
+        image_url: finalImageUrl, // ✅ Grava o Link Público
         updated_at: new Date().toISOString(),
       };
 
@@ -706,16 +803,66 @@ return createPortal(
             </div>
 
             <div className="flex-1 flex flex-col">
-              <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
-                Conteúdo da Mensagem
-              </label>
+              <div className="flex justify-between items-end mb-2">
+                <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">
+                  Conteúdo da Mensagem
+                </label>
+
+                {/* ✅ BOTÃO E INPUT OCULTO PARA IMAGEM */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setImageFile(file);
+                      setPreviewUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+                {!previewUrl && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[11px] font-bold hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                  >
+                    <IconUpload /> Adicionar Imagem
+                  </button>
+                )}
+              </div>
+
+              {/* ✅ PREVIEW DA IMAGEM UPLOADADA */}
+              {previewUrl && (
+                <div className="relative mb-3 w-max group animate-in fade-in zoom-in-95 duration-200">
+                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <IconImage />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPreviewUrl(null);
+                      setImageFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white shadow-md flex items-center justify-center hover:scale-110 transition-transform"
+                    title="Remover Imagem"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               <div className="flex-1 relative group">
                 <textarea
                   ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Olá {primeiro_nome}, sua fatura..."
-                  className="w-full h-full min-h-[300px] p-4 sm:p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
+                  className="w-full h-full min-h-[220px] sm:min-h-[300px] p-4 sm:p-5 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed text-sm font-mono shadow-inner"
                 />
 
               </div>
