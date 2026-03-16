@@ -374,6 +374,10 @@ type SendNowBody = {
 
   message: string;
   whatsapp_session?: string | null; // mantido
+  
+  // ✅ NOVO: Suporte a imagens
+  message_template_id?: string | null;
+  image_url?: string | null;
 };
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
@@ -520,9 +524,27 @@ try {
 
 const tenantId = String((body as any).tenant_id || "").trim();
 const message = String((body as any).message || "").trim();
+const messageTemplateId = String((body as any).message_template_id || "").trim();
+let imageUrl = String((body as any).image_url || "").trim() || null;
 
 if (!tenantId || !message) {
   return NextResponse.json({ error: "tenant_id e message são obrigatórios" }, { status: 400 });
+}
+
+// ✅ Se veio o ID do template mas não veio a imagem, busca no banco para garantir
+if (!imageUrl && messageTemplateId) {
+  try {
+    const { data: tpl } = await sb
+      .from("message_templates")
+      .select("image_url")
+      .eq("id", messageTemplateId)
+      .single();
+    if (tpl?.image_url) {
+      imageUrl = tpl.image_url;
+    }
+  } catch (e) {
+    safeServerLog("[WA][send_now] falha ao buscar imagem do template", e);
+  }
 }
 
 // ✅ INTERNAL: resolve um user_id real do tenant para gerar x-session-key válido
@@ -743,6 +765,7 @@ if (!tenantId || !message || !recipientType || !recipientId) {
         body: JSON.stringify({
           phone: contact.number,
           message: renderedMessage,
+          ...(imageUrl ? { image_url: imageUrl } : {}) // ✅ Envia a imagem se existir
         }),
       });
 
