@@ -26,11 +26,12 @@ if (!API_TOKEN) {
 
 app.use(express.json());
 
-// ── Logs de acesso simples ───────────────────────────────────
-// ── Logs de acesso simples ───────────────────────────────────
+// ── Logs de acesso inteligentes (Silencia o Polling) ───────────
 app.use((req, res, next) => {
-  // ✅ Pula o log se for a rota de health para não sujar o terminal
-  if (req.path === "/health") {
+  // ✅ Lista de rotas que NÃO devem gerar log no terminal (evita spam)
+  const quietPaths = ["/health", "/status", "/profile", "/sessions"];
+  
+  if (quietPaths.includes(req.path)) {
     return next();
   }
 
@@ -72,8 +73,8 @@ app.get("/sessions", authMiddleware, (req, res) => {
   res.json({ sessions: getAllSessions() });
 });
 
-// ── GET /status ──────────────────────────────────────────────
-app.get("/status", authMiddleware, async (req, res) => {
+// ── ANY /status (Suporta GET e POST para evitar 404) ──────────
+app.all("/status", authMiddleware, async (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
