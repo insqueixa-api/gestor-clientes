@@ -74,10 +74,11 @@ interface PlanTable {
 }
 
 interface MessageTemplate {
-  id: string;
-  name: string;
-  content: string;
-}
+   id: string;
+   name: string;
+   content: string;
+   image_url?: string | null; // ✅ NOVO: Suporte à imagem
+ }
 
 const APP_FIELD_LABELS: Record<string, string> = {
   date: "Vencimento",
@@ -1108,10 +1109,10 @@ useEffect(() => {
           .eq("is_active", true);
         if (!alive) return;
 
-        // ✅ 4) Templates (para mensagem automática / teste)
+// ✅ 4) Templates (para mensagem automática / teste)
   const { data: tmplData, error: tmplErr } = await supabaseBrowser
   .from("message_templates")
-  .select("id, name, content")
+  .select("id, name, content, image_url") // ✅ AGORA TRAZ A IMAGEM
   .eq("tenant_id", tid)
   .order("name", { ascending: true });
 if (!alive) return;
@@ -3067,6 +3068,15 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
 
 
 
+// ✅ BUSCA O TEMPLATE INTEIRO PARA PEGAR A IMAGEM (se foi escolhido um modelo)
+    let imageUrlToSend = null;
+    if (selectedTemplateId) {
+      const tpl = templates.find((t) => t.id === selectedTemplateId);
+      if (tpl && tpl.image_url) {
+        imageUrlToSend = tpl.image_url;
+      }
+    }
+
     const res = await fetch("/api/whatsapp/envio_agora", {
       method: "POST",
       headers: {
@@ -3077,6 +3087,8 @@ if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && 
         tenant_id: tid,
         client_id: clientId,
         message: messageContent,
+        message_template_id: selectedTemplateId || null,
+        image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
         whatsapp_session: selectedSession, // ✅ Usando a sessão selecionada
       }),
     });
@@ -3211,6 +3223,15 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
 
 
 
+        // ✅ BUSCA O TEMPLATE INTEIRO PARA PEGAR A IMAGEM (se foi escolhido um modelo)
+        let paymentImageUrl = null;
+        if (selectedTemplateId) {
+          const tpl = templates.find((t) => t.id === selectedTemplateId);
+          if (tpl && tpl.image_url) {
+            paymentImageUrl = tpl.image_url;
+          }
+        }
+
         const res = await fetch("/api/whatsapp/envio_agora", {
           method: "POST",
           headers: {
@@ -3221,6 +3242,8 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
             tenant_id: tid,
             client_id: clientId,
             message: messageContent,
+            message_template_id: selectedTemplateId || null,
+            image_url: paymentImageUrl, // ✅ ENVIA A IMAGEM AQUI!
             whatsapp_session: selectedSession, // ✅ Usando a sessão selecionada
           }),
         });

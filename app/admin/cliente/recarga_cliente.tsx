@@ -663,7 +663,7 @@ let baseDate: Date;
           // ✅ CORREÇÃO: Carregar templates e pré-selecionar
           const { data: tmplData } = await supabaseBrowser
             .from("message_templates")
-            .select("id, name, content")
+            .select("id, name, content, image_url") // ✅ AGORA TRAZ A IMAGEM
             .eq("tenant_id", tid)
             .order("name", { ascending: true });
 
@@ -1187,6 +1187,15 @@ if (registerPayment && renewAutomatic) {
           const { data: session } = await supabaseBrowser.auth.getSession();
           const token = session.session?.access_token;
 
+          // ✅ BUSCA O TEMPLATE INTEIRO PARA PEGAR A IMAGEM (se foi escolhido um modelo)
+          let imageUrlToSend = null;
+          if (selectedTemplateId) {
+            const tpl = templates.find((t: any) => t.id === selectedTemplateId);
+            if (tpl && (tpl as any).image_url) {
+              imageUrlToSend = (tpl as any).image_url;
+            }
+          }
+
           const res = await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: {
@@ -1197,6 +1206,8 @@ if (registerPayment && renewAutomatic) {
               tenant_id: tid,
               client_id: clientId,
               message: messageContent,
+              message_template_id: selectedTemplateId || null, // Opcional, para histórico
+              image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
               whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida
             }),
           });

@@ -381,12 +381,14 @@ credits_used: months * qtyScreens,
 
   // 7) WhatsApp
   let messageToSend = "";
+  let imageToSend: string | null = null; // ✅ Variável para guardar a imagem
+  let templateIdToSend: string | null = null; // ✅ Variável para guardar o ID do template
   const targetSession = srv.whatsapp_session || "default";
 
   try {
     const { data: tmpl } = await supabaseAdmin
       .from("message_templates")
-      .select("content")
+      .select("id, content, image_url") // ✅ AGORA BUSCA A IMAGEM E O ID
       .eq("tenant_id", tenantId)
       .or("name.ilike.%pagamento%,name.ilike.%pago%,name.ilike.%realizado%")
       .order("name", { ascending: true })
@@ -394,6 +396,8 @@ credits_used: months * qtyScreens,
       .maybeSingle();
 
     messageToSend = String(tmpl?.content || "").trim();
+    imageToSend = tmpl?.image_url || null; // ✅ Guarda a imagem
+    templateIdToSend = tmpl?.id || null;   // ✅ Guarda o ID
     if (!messageToSend) throw new Error("Template de pagamento não encontrado.");
 
     const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
@@ -404,6 +408,8 @@ credits_used: months * qtyScreens,
         tenant_id: tenantId,
         client_id: client.id,
         message: messageToSend,
+        image_url: imageToSend, // ✅ ENVIA A IMAGEM NO ENVIO IMEDIATO
+        message_template_id: templateIdToSend, // ✅ OPCIONAL: Envia o ID para constar no histórico
         whatsapp_session: targetSession,
       }),
     });
@@ -426,6 +432,8 @@ credits_used: months * qtyScreens,
           tenant_id: tenantId,
           client_id: client.id,
           message: messageToSend,
+          image_url: imageToSend, // ✅ SALVA A IMAGEM NO AGENDAMENTO DO CRON
+          message_template_id: templateIdToSend, // ✅ SALVA O ID DO TEMPLATE
           send_at: retryDate.toISOString(), // Salva em UTC corretamente
           status: "SCHEDULED",
           whatsapp_session: targetSession,
