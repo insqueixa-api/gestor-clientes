@@ -626,18 +626,20 @@ const get = (key: string): string => {
       const labelRaw = (parsed.tabela_preco_label || "").trim();
 
       if (labelRaw) {
-        const labelKey = normText(labelRaw);
-        if (duplicatePlanTableLabels.has(labelKey)) {
-          throw new Error(`Tabela Preco ambígua (nome duplicado no tenant): "${labelRaw}". Deixe os nomes únicos.`);
+        // Agora busca APENAS o nome exato digitado na planilha
+        const exactKey = normText(labelRaw) + "|" + parsed.currency;
+
+        if (duplicatePlanTableLabels.has(exactKey)) {
+          throw new Error(`Tabela Preco ambígua (nome duplicado na mesma moeda): "${labelRaw}".`);
         }
-        const pt = planTableByLabel.get(labelKey);
+
+        const pt = planTableByLabel.get(exactKey);
+
         if (!pt) {
-          throw new Error(`Tabela Preco não encontrada no tenant: "${labelRaw}".`);
+          throw new Error(`Tabela Preco não encontrada no tenant: "${labelRaw}". Deixe em branco para usar a padrão ou use o nome exato (ex: "Padrão BRL").`);
         }
         if ((pt.currency || "").toUpperCase() !== parsed.currency) {
-          throw new Error(
-            `Tabela Preco "${pt.name}" é da moeda ${pt.currency}, mas a linha está com Currency=${parsed.currency}.`
-          );
+          throw new Error(`Tabela Preco "${pt.name}" é da moeda ${pt.currency}, mas a linha está com Currency=${parsed.currency}.`);
         }
         plan_table_id = pt.id;
       } else {
