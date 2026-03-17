@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 
@@ -262,6 +262,12 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
 const [copiedCode, setCopiedCode] = useState(false);
 const [copiedKey, setCopiedKey] = useState(false);
 const [copiedField, setCopiedField] = useState<string | null>(null);
+
+const [stripeReady, setStripeReady] = useState(false);
+const [stripeLoading, setStripeLoading] = useState(false);
+const stripeRef = useRef<any>(null);
+const cardElementRef = useRef<any>(null);
+const cardMountRef = useRef<HTMLDivElement>(null);
 
 function copyField(key: string, value: string) {
   navigator.clipboard.writeText(value ?? "");
@@ -657,21 +663,84 @@ if (fulfillment === "done") {
     setPollingInterval(interval);
   }
 
-  // Limpar polling ao desmontar
+// Limpar polling ao desmontar
   useEffect(() => {
     return () => {
       if (pollingInterval) clearInterval(pollingInterval);
     };
   }, [pollingInterval]);
 
+  // Carregar Stripe.js uma vez
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as any).Stripe) { setStripeReady(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://js.stripe.com/v3/";
+    script.onload = () => setStripeReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Montar card element quando modal Stripe abrir
+  useEffect(() => {
+    if (!paymentModal || !paymentData || paymentData.payment_method !== "stripe") return;
+    if (!stripeReady || !cardMountRef.current) return;
+    if (!(window as any).Stripe) return;
+
+    const stripe = (window as any).Stripe(paymentData.publishable_key);
+    stripeRef.current = stripe;
+    const elements = stripe.elements();
+    const card = elements.create("card", {
+      style: {
+        base: {
+          fontSize: "16px",
+          color: "#1e293b",
+          fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          "::placeholder": { color: "#94a3b8" },
+        },
+      },
+      hidePostalCode: true,
+    });
+    card.mount(cardMountRef.current);
+    cardElementRef.current = card;
+
+    return () => { try { card.unmount(); } catch {} };
+  }, [paymentModal, paymentData, stripeReady]);
+
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
   const supportPhone = sessionData?.admin_whatsapp || "";
+
+  async function handleStripeConfirm() {
+    if (!stripeRef.current || !cardElementRef.current || !paymentData) return;
+    setStripeLoading(true);
+    try {
+      const result = await stripeRef.current.confirmCardPayment(paymentData.client_secret, {
+        payment_method: { card: cardElementRef.current },
+      });
+
+      if (result.error) {
+        alert(result.error.message || "Erro ao processar cartão.");
+        return;
+      }
+
+      if (result.paymentIntent?.status === "succeeded") {
+        // Pagamento confirmado — mostra "renovando" e inicia polling
+        setPaymentPhase("renewing");
+        startPolling(String(paymentData.payment_id));
+      }
+    } catch (e: any) {
+      debugErr("stripe confirm error:", e?.message);
+      alert("Erro ao processar pagamento. Tente novamente.");
+    } finally {
+      setStripeLoading(false);
+    }
+  }
 
   function PaymentModal() {
     if (!paymentModal || !paymentData) return null;
 
-    const isOnline = paymentData.payment_method === "online";
+const isOnline = paymentData.payment_method === "online";
     const isManual = paymentData.payment_method === "manual";
+    const isStripe = paymentData.payment_method === "stripe";
 
 const effectiveGatewayType: string =
   paymentData.gateway_type ||
@@ -856,6 +925,93 @@ return (
                   >
                     Cancelar
                   </button>
+                )}
+              </div>
+            </>
+          )}
+
+{/* Stripe - Cartão Internacional */}
+          {isStripe && !isApproved && !isRejected && (
+            <>
+              <div className="bg-gradient-to-r from-indigo-600 to-violet-600 py-3 px-6 text-white text-center">
+                <h2 className="text-xl font-bold mb-1">
+                  {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : "Pagar com Cartão"}
+                </h2>
+                <p className="text-sm text-white/80">
+                  {paymentPhase === "renewing" ? "Renovação em andamento…" : paymentData.gateway_name || "Stripe"}
+                </p>
+              </div>
+
+              <div className="px-5 pt-5 pb-4 space-y-4">
+
+                {paymentPhase !== "renewing" && (
+                  <>
+                    {/* Valor */}
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total a pagar</p>
+                      <p className="text-3xl font-black text-slate-800">
+                        {formatMoney(paymentData.price_amount ?? 0, paymentData.currency ?? selectedAccount?.price_currency ?? "EUR")}
+                      </p>
+                    </div>
+
+                    {/* Card Element */}
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Dados do Cartão</p>
+                      <div
+                        ref={cardMountRef}
+                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                      />
+                      {!stripeReady && (
+                        <p className="text-xs text-slate-400 mt-1">Carregando formulário seguro...</p>
+                      )}
+                    </div>
+
+                    {/* Botão Confirmar */}
+                    <button
+                      onClick={handleStripeConfirm}
+                      disabled={stripeLoading || !stripeReady}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {stripeLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Processando...
+                        </>
+                      ) : (
+                        <>🔒 Confirmar Pagamento</>
+                      )}
+                    </button>
+
+                    <p className="text-center text-[10px] text-slate-400">
+                      Pagamento processado com segurança via Stripe
+                    </p>
+
+                    <button
+                      onClick={() => {
+                        setPaymentModal(false);
+                        setPaymentData(null);
+                        setPaymentStatus("pending");
+                        setPaymentPhase("awaiting_payment");
+                      }}
+                      className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+
+                {/* Renovando */}
+                {paymentPhase === "renewing" && (
+                  <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
+                    <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-indigo-800">Processando renovação...</p>
+                      <p className="text-xs text-indigo-600">Atualizando sua assinatura no servidor.</p>
+                    </div>
+                  </div>
                 )}
               </div>
             </>
