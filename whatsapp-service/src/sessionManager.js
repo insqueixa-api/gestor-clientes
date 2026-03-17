@@ -174,7 +174,8 @@ const sessData = {
     pushName: null,
     pictureUrl: null,
     retries: 0,
-    qrTimeout: null, // ✅ NOVO: Controle de tempo limite
+    qrTimeout: null, 
+    nameTracker: null, // ✅ NOVO: Guarda o ID do rastreador para podermos matá-lo
   };
   sessions.set(sessionKey, sessData);
 
@@ -296,26 +297,31 @@ if (connection === "open") {
       } catch {}
 
       // Rastreador persistente para capturar o nome real (Normal ou Business)
+      // ✅ BLINDAGEM: Mata qualquer rastreador antigo antes de criar um novo
+      if (sessData.nameTracker) {
+        clearInterval(sessData.nameTracker);
+      }
+
       let nameAttempts = 0;
-      const nameTracker = setInterval(async () => {
+      sessData.nameTracker = setInterval(async () => {
         nameAttempts++;
         const currentName = sock.user?.name; // Tenta capturar o nome do WhatsApp Normal
 
         if (currentName && currentName !== sessData.pushName && currentName !== `+${cleanPhone}`) {
           sessData.pushName = currentName;
-          console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome (Normal) capturado: ${currentName}`);
-          clearInterval(nameTracker);
+          console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome capturado: ${currentName}`);
+          clearInterval(sessData.nameTracker);
           return;
         }
 
-        // Na 3ª tentativa (após ~9s), se ainda não tem nome normal, checa se é Business
+        // Na 3ª tentativa (após ~15s), se ainda não tem nome normal, checa se é Business
         if (nameAttempts === 3 && sessData.jid && (!currentName || sessData.pushName === `+${cleanPhone}`)) {
           try {
             const bizProfile = await sock.getBusinessProfile(sessData.jid);
             if (bizProfile?.name) {
               sessData.pushName = bizProfile.name;
-              console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome (Business) capturado: ${bizProfile.name}`);
-              clearInterval(nameTracker);
+              console.log(`[WA][${sessionKey.slice(0, 8)}] 📛 Nome Business capturado: ${bizProfile.name}`);
+              clearInterval(sessData.nameTracker);
               return;
             }
           } catch (e) {
@@ -323,9 +329,9 @@ if (connection === "open") {
           }
         }
 
-        // Desiste após 10 tentativas (30 segundos) para não rodar infinito
-        if (nameAttempts >= 50) {
-          clearInterval(nameTracker);
+        // Desiste após 10 tentativas (50 segundos)
+        if (nameAttempts >= 10) {
+          clearInterval(sessData.nameTracker);
         }
       }, 5000);
     }
