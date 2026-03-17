@@ -42,10 +42,11 @@
     price_amount: number | null;
   }
 
-  interface MessageTemplate {
+interface MessageTemplate {
     id: string;
     name: string;
     content: string;
+    image_url?: string | null; // ✅ ADICIONADO: Suporte oficial à imagem no TypeScript
   }
 
   interface PlanTableItem {
@@ -1116,6 +1117,10 @@ console.log("✅ Renovação automática concluída:", {
         p_whatsapp_snooze_until: null,
         p_is_archived: false,
         p_technology: finalTechnology,
+        
+        // ✅ Prevenção contra erro de "schema cache"
+        p_clear_whatsapp_snooze_until: false,
+        p_clear_secondary: false,
       };
       
       // ✅ Atualiza o ID externo no banco caso o Sync da Elite o tenha resgatado (via trigger/RPC ou direto no supabase)
@@ -1172,6 +1177,7 @@ if (registerPayment && renewAutomatic) {
     p_status: "PAID",
     p_notes: serverNotesAuto, // ✅ Vai para a view do SERVIDOR (Com nome e obs)
     p_new_vencimento: apiVencimento,
+    p_is_automatic: true, // ✅ CRÍTICO: Faltava essa flag aqui para não quebrar a assinatura no banco!
     p_message: clientMessageAuto, // ✅ Vai para a linha do tempo do CLIENTE (Sem nome)
     p_unit_price: Number((totalBrl / monthsToRenew).toFixed(2)),
     p_total_amount: totalBrl,
@@ -1190,9 +1196,9 @@ if (registerPayment && renewAutomatic) {
           // ✅ BUSCA O TEMPLATE INTEIRO PARA PEGAR A IMAGEM (se foi escolhido um modelo)
           let imageUrlToSend = null;
           if (selectedTemplateId) {
-            const tpl = templates.find((t: any) => t.id === selectedTemplateId);
-            if (tpl && (tpl as any).image_url) {
-              imageUrlToSend = (tpl as any).image_url;
+            const tpl = templates.find(t => t.id === selectedTemplateId);
+            if (tpl && tpl.image_url) {
+              imageUrlToSend = tpl.image_url;
             }
           }
 

@@ -1993,6 +1993,9 @@ function WhatsAppSession2Panel({
   const [waLoading, setWaLoading]           = useState(false);
   const [waConnected, setWaConnected]       = useState(false);
   const [waQrDataUrl, setWaQrDataUrl]       = useState<string | null>(null);
+  
+  // ✅ NOVO: Controla se o painel está minimizado/dormente (true) ou buscando QR (false)
+  const [isDormant, setIsDormant]           = useState(true);
   const [waLastError, setWaLastError]       = useState<string | null>(null);
   const [waConfigExpanded, setWaConfigExpanded] = useState(false);
   const [waPushName, setWaPushName]         = useState<string | null>(null);
@@ -2075,10 +2078,14 @@ async function fetchWaStatus() {
     } catch {}
   }
 
-  async function refreshPanel(forceQr = false) { // ✅ Adicionado parâmetro
+async function refreshPanel(forceQr = false) { 
     setWaLoading(true);
     try {
       const { connected, status } = await fetchWaStatus();
+      
+      // ✅ Se a VM disser que já tá conectada, acorda o painel!
+      if (connected) setIsDormant(false);
+      
       if (connected) {
         setWaQrDataUrl(null);
         const now = Date.now();
@@ -2119,13 +2126,16 @@ async function fetchWaStatus() {
       addToast("success", "Sessão 2 desconectada", "2ª sessão WhatsApp removida.");
       
       // ✅ Limpa a UI imediatamente, mas mantém o nome personalizado intacto!
-      setWaConnected(false); 
+setWaConnected(false); 
       setWaStatusText(null); 
       setWaQrDataUrl(null);
       setWaPushName(null); 
       setWaProfilePicUrl(null);
       
-      await refreshPanel();
+      setIsDormant(true); // ✅ Ao desconectar, volta a dormir e para de pingar a VM
+      
+      // ✅ Removido o refreshPanel() daqui para não ficar forçando a barra
+    
     } catch (e: any) {
       setWaLastError(e?.message);
       addToast("error", "Falha ao desconectar", e.message);
@@ -2136,7 +2146,9 @@ async function fetchWaStatus() {
 
   // Polling idêntico ao da sessão 1
   useEffect(() => {
-    if (!canPair) return;
+    // ✅ Se não puder parear ou estiver dormindo, não faz polling nenhum
+    if (!canPair || isDormant) return;
+    
     let stopped = false;
     let timer: any = null;
     const INTERVAL_CONNECTED    = 5 * 60 * 1000;
@@ -2185,99 +2197,120 @@ async function fetchWaStatus() {
               <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs">{waLastError}</div>
             )}
 
-            <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
-              {waConnected && (
-                <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
-                        className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
-                        </svg>
-                      </button>
-                      <button type="button" onClick={() => setWaRejectCalls(v => !v)}
-                        className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
-                      </button>
-                    </div>
-                  </div>
-                  {waRejectCalls && waConfigExpanded && (
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
-                      <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                      <div className="pt-1">
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Números permitidos:</label>
-                        <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
-                          placeholder={"553199999999\n553188888888"}
-                          className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
-                      </div>
-                    </div>
-                  )}
-                  {waConfigExpanded && (
-                    <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig}
-                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50">
-                      {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {waConnected ? (
-                <div className="flex items-center gap-4 py-1">
-                  <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
-                    {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Foto" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400">WA</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {waSessionLabelEditing ? (
-                      <input
-                        autoFocus
-                        value={waSessionLabel}
-                        onChange={e => setWaSessionLabel(e.target.value)}
-                        onBlur={() => { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); }}
-                        onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); } }}
-                        className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                          {waSessionLabel}
-                        </span>
-                        <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Renomear sessão">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </button>
-                      </div>
-                    )}
-                    <div className="text-xs text-slate-500 dark:text-white/60 truncate">
-                      {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
-                    </div>
-                    {!!waStatusText && <div className="text-[11px] text-slate-400 dark:text-white/40">Status: {waStatusText}</div>}
-                  </div>
-                </div>
-              ) : waQrDataUrl ? (
-                <div className="flex flex-col items-center gap-2">
-                  <img src={waQrDataUrl} alt="QR Code" className="w-full max-w-[220px] rounded bg-white p-2" />
-                  <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
-                    Abra o WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie.
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-slate-500 dark:text-white/60 text-center">QR ainda não disponível. Clique em <b>Atualizar</b>.</div>
-              )}
-            </div>
-
-            {waConnected ? (
-              <button type="button" onClick={() => void handleDisconnect()} disabled={waLoading}
-                className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
-                {waLoading ? "Processando..." : "🔌 Desconectar Sessão 2"}
-              </button>
+            {/* ✅ Se estiver dormindo e desconectado, esconde toda a bagunça */}
+            {isDormant && !waConnected ? (
+              <div className="text-center py-2">
+                <button type="button" 
+                  onClick={() => {
+                    setIsDormant(false);
+                    void refreshPanel(true);
+                  }} 
+                  disabled={waLoading} 
+                  className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+                >
+                  {waLoading ? "Gerando..." : "📲 Iniciar e Gerar QR da Sessão 2"}
+                </button>
+                <p className="text-[10px] text-slate-400 mt-2">
+                  A segunda sessão ficará pausada até você iniciar o pareamento.
+                </p>
+              </div>
             ) : (
-              <button type="button" onClick={() => void refreshPanel(true)} disabled={waLoading} 
-  className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
-  {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar Sessão 2"}
-</button>
+              <>
+                <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
+                  {waConnected && (
+                    <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
+                            className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
+                            </svg>
+                          </button>
+                          <button type="button" onClick={() => setWaRejectCalls(v => !v)}
+                            className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
+                          </button>
+                        </div>
+                      </div>
+                      {waRejectCalls && waConfigExpanded && (
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
+                          <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                          <div className="pt-1">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Números permitidos:</label>
+                            <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
+                              placeholder={"553199999999\n553188888888"}
+                              className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                          </div>
+                        </div>
+                      )}
+                      {waConfigExpanded && (
+                        <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig}
+                          className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50">
+                          {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {waConnected ? (
+                    <div className="flex items-center gap-4 py-1">
+                      <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                        {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Foto" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400">WA</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {waSessionLabelEditing ? (
+                          <input
+                            autoFocus
+                            value={waSessionLabel}
+                            onChange={e => setWaSessionLabel(e.target.value)}
+                            onBlur={() => { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); }}
+                            onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_2", waSessionLabel); setWaSessionLabelEditing(false); } }}
+                            className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                              {waSessionLabel}
+                            </span>
+                            <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Renomear sessão">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                          </div>
+                        )}
+                        <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                          {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
+                        </div>
+                        {!!waStatusText && <div className="text-[11px] text-slate-400 dark:text-white/40">Status: {waStatusText}</div>}
+                      </div>
+                    </div>
+                  ) : waQrDataUrl ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <img src={waQrDataUrl} alt="QR Code" className="w-full max-w-[220px] rounded bg-white p-2" />
+                      <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
+                        Abra o WhatsApp → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-500 dark:text-white/60 text-center">QR ainda não disponível. Clique em <b>Atualizar</b>.</div>
+                  )}
+                </div>
+
+                {waConnected ? (
+                  <button type="button" onClick={() => void handleDisconnect()} disabled={waLoading}
+                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                    {waLoading ? "Processando..." : "🔌 Desconectar Sessão 2"}
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => void refreshPanel(true)} disabled={waLoading} 
+                    className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                    {waLoading ? "Gerando..." : "📲 Atualizar QR Code"}
+                  </button>
+                )}
+              </>
             )}
           </>
         )}
