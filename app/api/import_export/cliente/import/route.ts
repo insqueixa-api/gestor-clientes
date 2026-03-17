@@ -733,7 +733,9 @@ const get = (key: string): string => {
           p_is_trial: false,
           p_notes: parsed.obs || null,
 
-          p_phone_primary_e164: phoneE164,
+          p_name_prefix: parsed.saudacao || null, // ✅ Saudação principal injetada direto no create
+          p_phone_e164: phoneE164, // ✅ Nome corrigido para bater com o banco
+          p_app_ids: null, // ✅ Adicionado para evitar erro de assinatura no Postgres
           
           // ✅ Injecção do Contato Secundário no CREATE
           p_secondary_name_prefix: parsed.secundario_saudacao || null,
