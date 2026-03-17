@@ -481,8 +481,16 @@ export async function POST(req: Request) {
   for (const pt of (planTables ?? []) as any[]) {
     const id = String(pt.id);
     const name = String(pt.name ?? "").trim();
-    const labelKey = normText(name);
+    
+    // 🔥 IGNORA A TABELA SaaS PARA IMPORTAÇÃO DE CLIENTES
+    if (normText(name) === "saas") {
+       continue;
+    }
+
     const cur = String(pt.currency ?? "").toUpperCase();
+    
+    // ✅ Chave composta: nome + moeda. Permite existir "Padrão" pra BRL e "Padrão" pra USD sem dar conflito.
+    const labelKey = normText(name) + "|" + cur; 
     const isDefault = !!pt.is_system_default;
 
     if (labelKey) {
