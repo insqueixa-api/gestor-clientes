@@ -403,88 +403,82 @@ if (insErr || !inserted) {
         }
 
         // ======================
-        // WISE
+        // STRIPE (Cartão Internacional)
         // ======================
-        if (gateway.type === "wise") {
-          const quoteRes = await fetch(
-            `https://api.transferwise.com/v3/profiles/${gateway.config.profile_id}/quotes`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${gateway.config.api_token}`,
-              },
-              body: JSON.stringify({
-                sourceCurrency: gateway.config.source_currency || "BRL",
-                targetCurrency: currency,
-                sourceAmount: Number(computedPrice),
-                targetAmount: null,
-                payOut: "BALANCE",
-              }),
-            }
-          );
+        if (gateway.type === "stripe") {
+          const secretKey = String(gateway?.config?.secret_key || "").trim();
+          const publishableKey = String(gateway?.config?.publishable_key || "").trim();
 
-          if (!quoteRes.ok) {
-            const quoteErr = await quoteRes.text().catch(() => "");
-            safeServerLog("create-payment: Wise quote error", quoteRes.status, quoteErr);
-            lastError = "Falha ao criar cotação no gateway";
+          if (!secretKey || !publishableKey) {
+            safeServerLog("create-payment: stripe missing keys");
+            lastError = "Gateway misconfigured";
             continue;
           }
 
-          const quoteData = await quoteRes.json().catch(() => ({} as any));
-          const quoteId = quoteData?.id;
+          const stripeParams = new URLSearchParams();
+          stripeParams.append("amount", String(Math.round(Number(computedPrice) * 100)));
+          stripeParams.append("currency", currency.toLowerCase());
+          stripeParams.append("payment_method_types[]", "card");
+          stripeParams.append("description", `${displayName} - Plano ${planLabel} - ${serverName}`);
+          stripeParams.append("metadata[client_id]", client_id);
+          stripeParams.append("metadata[tenant_id]", String(sess.tenant_id));
+          stripeParams.append("metadata[period]", period);
+          stripeParams.append("metadata[gateway_id]", String(gateway.id));
 
-          if (!quoteId) {
-            lastError = "Falha ao criar cotação no gateway";
-            continue;
-          }
-
-          const { data: inserted, error: insErr } = await supabaseAdmin
-            .from("client_portal_payments")
-            .insert({
-              tenant_id: sess.tenant_id,
-              client_id,
-
-              gateway_type: gateway.type,
-              payment_method: "manual",
-
-              mp_payment_id: String(quoteId),
-              period,
-              plan_label: planLabel,
-              price_amount: Number(computedPrice),
-              price_currency: currency,
-              status: "pending",
-            })
-            .select("id, mp_payment_id")
-            .single();
-
-          if (insErr || !inserted) {
-            safeServerLog("create-payment: insert Wise payment error", insErr?.message);
-            return jsonError("Erro interno", 500);
-          }
-
-          return NextResponse.json(
-            {
-              ok: true,
-              payment_method: "manual",
-              gateway_name: gateway.name,
-              payment_id: String(quoteId),
-              internal_payment_id: inserted.id,
-              instructions: `Transferência via Wise
-
-Valor: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(computedPrice))}
-Taxa estimada: ${new Intl.NumberFormat("en-US", { style: "currency", currency: gateway.config.source_currency || "BRL" }).format(quoteData?.fee ?? 0)}
-Você receberá: ${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(quoteData?.targetAmount ?? 0)}
-
-Use o ID da cotação para fazer a transferência no app Wise:
-Quote ID: ${quoteId}
-
-Após realizar a transferência, envie o comprovante pelo WhatsApp para confirmar.`,
-              quote_id: String(quoteId),
-              expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${secretKey}`,
+              "Content-Type": "application/x-www-form-urlencoded",
             },
-            { status: 200, headers: NO_STORE_HEADERS }
-          );
+            body: stripeParams,
+          });
+
+          const stripeData = await stripeRes.json().catch(() => ({} as any));
+
+          if (stripeRes.ok && stripeData?.id && stripeData?.client_secret) {
+            const { data: inserted, error: insErr } = await supabaseAdmin
+              .from("client_portal_payments")
+              .upsert(
+                {
+                  tenant_id: sess.tenant_id,
+                  client_id,
+                  gateway_type: gateway.type,
+                  payment_method: "online",
+                  mp_payment_id: String(stripeData.id),
+                  period,
+                  plan_label: planLabel,
+                  price_amount: Number(computedPrice),
+                  price_currency: currency,
+                  status: "pending",
+                },
+                { onConflict: "tenant_id,gateway_type,mp_payment_id" }
+              )
+              .select("id, mp_payment_id")
+              .single();
+
+            if (insErr || !inserted) {
+              safeServerLog("create-payment: upsert stripe payment error", insErr?.message);
+              return jsonError("Erro interno", 500);
+            }
+
+            return NextResponse.json(
+              {
+                ok: true,
+                payment_method: "stripe",
+                gateway_name: gateway.name,
+                payment_id: String(stripeData.id),
+                internal_payment_id: inserted.id,
+                client_secret: stripeData.client_secret,
+                publishable_key: publishableKey,
+              },
+              { status: 200, headers: NO_STORE_HEADERS }
+            );
+          }
+
+          safeServerLog("create-payment: stripe error", stripeRes.status, stripeData?.error?.message);
+          lastError = "Falha ao criar pagamento no gateway";
+          continue;
         }
       } catch (err: any) {
         safeServerLog(`create-payment: gateway error (${gateway?.type})`, err?.message);
