@@ -127,10 +127,10 @@ function combineCadastro(diaBR: string, hora: string): string | null {
 function normText(v: any): string {
   return (v ?? "")
     .toString()
-    .trim()
-    .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "") // 🔥 Arranca TODOS os espaços e quebras invisíveis (Padrão BRL vira padraobrl)
+    .toLowerCase();
 }
 
 function mapPlanLabelToPeriod(planLabel: string | null): string | null {
