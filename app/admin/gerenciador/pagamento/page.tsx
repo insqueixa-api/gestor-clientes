@@ -18,7 +18,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 // ✅ Atualizado: Separados os fallbacks internacionais
-type GatewayType = "mercadopago" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
+type GatewayType = "mercadopago" | "stripe" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
 
 interface PaymentGateway {
   id: string;
@@ -87,6 +87,41 @@ const GATEWAY_META: GatewayMeta[] = [
   },
   
   
+ {
+    type: "stripe",
+    label: "Stripe",
+    description: "Cartão de crédito/débito internacional via API.",
+    currencies: ["EUR", "USD"],
+    is_online: true,
+    icon: "💳",
+    color: "from-indigo-500 to-violet-500",
+    fields: [
+      {
+        key: "publishable_key",
+        label: "Chave Publicável",
+        type: "text",
+        placeholder: "pk_test_... ou pk_live_...",
+        hint: "Stripe Dashboard → Desenvolvedores → Chaves de API → Chave publicável",
+        required: true,
+      },
+      {
+        key: "secret_key",
+        label: "Chave Secreta",
+        type: "password",
+        placeholder: "sk_test_... ou sk_live_...",
+        hint: "Stripe Dashboard → Desenvolvedores → Chaves de API → Chave secreta",
+        required: true,
+      },
+      {
+        key: "webhook_secret",
+        label: "Webhook Secret",
+        type: "password",
+        placeholder: "whsec_...",
+        hint: "Gerado ao cadastrar o endpoint do webhook no Stripe Dashboard",
+        required: false,
+      },
+    ],
+  },
   {
     type: "pix_manual",
     label: "PIX Manual",
@@ -148,11 +183,11 @@ const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: João Silva",
         required: true,
       },
-      {
+{
         key: "bank_name",
         label: "Nome do Banco",
         type: "text",
-        placeholder: "Ex: Wise, Nomad, etc.",
+        placeholder: "Ex: Revolut, N26, Bunq...",
         required: true,
       },
       {
@@ -199,7 +234,7 @@ const GATEWAY_META: GatewayMeta[] = [
         key: "bank_name",
         label: "Nome do Banco",
         type: "text",
-        placeholder: "Ex: Wise, Nomad, etc.",
+        placeholder: "Ex: Revolut, Mercury, Nomad...",
         required: true,
       },
       {
@@ -327,6 +362,7 @@ function GatewayModal({
       const supabase = supabaseBrowser;
 
       const isFallbackType = selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd";
+// stripe nunca é fallback — já coberto pois não entra nessa condição
 
       const basePayload = {
         name: meta.label,
