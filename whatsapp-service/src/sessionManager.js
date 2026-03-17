@@ -196,11 +196,11 @@ const sock = makeWASocket({
     printQRInTerminal: false,
     browser: ["UniGestor", "Chrome", "120.0.0"],
     
-    // ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
-    connectTimeoutMs: 60_000,        // 1 min para tentar conectar (antes era 30s)
-    defaultQueryTimeoutMs: 60_000,   // 1 min de tolerância para o WA responder (antes era 20s)
-    keepAliveIntervalMs: 60_000,     // Ping apenas a cada 1 min (antes era 25s) — evita falsas quedas!
-    retryRequestDelayMs: 5_000,      // Espera 5s antes de tentar de novo
+// ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
+    connectTimeoutMs: 60_000,        
+    defaultQueryTimeoutMs: 60_000,   
+    keepAliveIntervalMs: 30_000,     // ✅ Manda o "Alô?" a cada 30s para manter o túnel aceso
+    retryRequestDelayMs: 5_000,
     
     markOnlineOnConnect: false,
     generateHighQualityLinkPreview: true, // Garante envio de links mais bonitos
