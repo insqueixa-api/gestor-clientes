@@ -1936,6 +1936,7 @@ return (
           {whatsappSessions >= 2 && showSession2 && (
             <WhatsAppSession2Panel
               canPair={canPairWhatsApp}
+              tenantId={tenantId} // ✅ Passando a credencial
               addToast={addToast}
             />
           )}
@@ -1985,9 +1986,11 @@ function IconWhatsApp() {
 // ============================================================================
 function WhatsAppSession2Panel({
   canPair,
+  tenantId, // ✅ Recebendo
   addToast,
 }: {
   canPair: boolean;
+  tenantId: string | null; // ✅ Nova prop
   addToast: (type: "success" | "error", title: string, msg?: string) => void;
 }) {
   const [waLoading, setWaLoading]           = useState(false);
@@ -2081,6 +2084,21 @@ async function fetchWaStatus() {
 async function refreshPanel(forceQr = false) { 
     setWaLoading(true);
     try {
+      // ✅ VALIDAÇÃO ANTI-MALANDRO: Se clicou no botão de QR, confere no banco antes!
+      if (forceQr && tenantId) {
+        const { data } = await supabaseBrowser
+          .from("vw_saas_tenants")
+          .select("whatsapp_sessions")
+          .eq("id", tenantId)
+          .maybeSingle();
+
+        if (!data || data.whatsapp_sessions < 2) {
+          addToast("error", "Acesso Revogado", "Sua 2ª sessão não está mais habilitada. Procure seu Gestor.");
+          setTimeout(() => window.location.reload(), 2500); // 🛑 Recarrega a página para sumir com o painel!
+          return; 
+        }
+      }
+
       const { connected, status } = await fetchWaStatus();
       
       // ✅ Se a VM disser que já tá conectada, acorda o painel!

@@ -635,8 +635,17 @@ if (tenantsRes.error) {
         p_tenant_id: t.id,
       });
       if (error) throw error;
+      
       addToast("success", "Sessão removida.", `${t.name} voltou para 1 sessão.`);
       loadData();
+
+      // ✅ O ATIRADOR DE ELITE: Manda um sinal pro backend derrubar a VM do cliente imediatamente
+      fetch("/api/saas/force-wa-disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_tenant_id: t.id, session_number: 2 })
+      }).catch(() => {});
+
     } catch (e: any) {
       addToast("error", "Erro ao remover sessão", e.message);
     }
