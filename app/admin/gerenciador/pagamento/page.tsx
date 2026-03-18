@@ -311,8 +311,8 @@ const GATEWAY_HELP: Record<string, {
     link: "https://www.mercadopago.com.br/developers/pt/docs",
     linkLabel: "Acessar documentação do Mercado Pago →",
     steps: [
-      "Acesse mercadopago.com.br e crie ou acesse sua conta (PF ou PJ)",
-      "Acesse o painel de desenvolvedores em mercadopago.com.br/developers/pt/docs",
+      "Acesse https://mercadopago.com.br e crie ou acesse sua conta (PF ou PJ)",
+      "Acesse o painel de desenvolvedores em https://mercadopago.com.br/developers/pt/docs",
       "No menu lateral esquerdo, clique em Credenciais",
       "Selecione sua aplicação existente ou clique em + Nova aplicação para criar uma",
       "Dentro da aplicação, clique na aba Produção (não use as credenciais de teste)",
@@ -328,22 +328,23 @@ const GATEWAY_HELP: Record<string, {
       "⚠️ O Access Token é sensível — nunca compartilhe com ninguém",
     ],
   },
+  
   stripe: {
     title: "Como configurar o Stripe",
     link: "https://stripe.com",
     linkLabel: "Criar conta no Stripe →",
     steps: [
-      "Acesse stripe.com e crie sua conta empresarial — clique em 'Start now'",
+      "Acesse https://stripe.com e crie sua conta empresarial — clique em 'Start now'",
       "Preencha nome, e-mail e senha. Em seguida complete o cadastro com dados do CNPJ (MEI é aceito)",
-      "Finalize a ativação da conta: preencha todos os dados de KYC (endereço, dados bancários PJ) em dashboard.stripe.com/settings/account — sem isso as chaves live não funcionam",
-      "Acesse dashboard.stripe.com/apikeys para obter suas chaves",
+      "Finalize a ativação da conta: preencha todos os dados de KYC (endereço, dados bancários PJ) em https://dashboard.stripe.com/settings/account — sem isso as chaves live não funcionam",
+      "Acesse https://dashboard.stripe.com/apikeys para obter suas chaves",
       "Copie a Chave publicável (começa com pk_live_...) e a Chave secreta (começa com sk_live_...)",
       "Cole ambas nos campos correspondentes aqui no UniGestor em Pagamentos → Editar Stripe",
-      "Para o Webhook: acesse diretamente dashboard.stripe.com/webhooks e clique em + Adicionar destino",
+      "Para o Webhook: acesse https://dashboard.stripe.com/webhooks e clique em + Adicionar destino",
       "Cole a URL: https://unigestor.net.br/api/webhooks/stripe",
       "Em 'Selecionar eventos', busque e marque: payment_intent.succeeded — depois clique em Criar",
       "Após criar, clique no webhook criado e copie o Segredo da assinatura (whsec_...) — cole no campo Webhook Secret no UniGestor",
-      "Para Apple Pay / Google Pay: acesse dashboard.stripe.com/settings/payment_method_domains e adicione seu domínio",
+      "Para Apple Pay / Google Pay: acesse https://dashboard.stripe.com/settings/payment_method_domains e adicione seu domínio",
     ],
     warnings: [
       "⚠️ Obrigatório CNPJ para conta de produção (MEI é aceito)",
@@ -355,7 +356,7 @@ const GATEWAY_HELP: Record<string, {
 };
 
 function renderStepWithLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s,]+|(?:www\.)[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+(?:\/[^\s,]*)?|[a-zA-Z0-9-]+\.(?:stripe|mercadopago|stripe\.com|mercadopago\.com)(?:\/[^\s,]*)?)/g;
+  const urlRegex = /https?:\/\/[^\s,)]+/g;
   const parts: (string | React.ReactElement)[] = [];
   let lastIndex = 0;
   let match;
