@@ -269,7 +269,7 @@ const [stripeReady, setStripeReady] = useState(false);
 const [stripeLoading, setStripeLoading] = useState(false);
 const stripeRef = useRef<any>(null);
 const cardElementRef = useRef<any>(null);
-const cardMountRef = useRef<HTMLDivElement>(null);
+const [cardMountEl, setCardMountEl] = useState<HTMLDivElement | null>(null);
 
 function copyField(key: string, value: string) {
   navigator.clipboard.writeText(value ?? "");
@@ -647,7 +647,7 @@ if (fulfillment === "done") {
   // Montar card element quando modal Stripe abrir
   useEffect(() => {
     if (!paymentModal || !paymentData || paymentData.payment_method !== "stripe") return;
-    if (!stripeReady || !cardMountRef.current) return;
+    if (!stripeReady || !cardMountEl) return;
     if (!(window as any).Stripe) return;
 
     const stripe = (window as any).Stripe(paymentData.publishable_key);
@@ -664,11 +664,11 @@ if (fulfillment === "done") {
       },
       hidePostalCode: true,
     });
-    card.mount(cardMountRef.current);
+card.mount(cardMountEl);
     cardElementRef.current = card;
 
     return () => { try { card.unmount(); } catch {} };
-  }, [paymentModal, paymentData, stripeReady]);
+  }, [paymentModal, paymentData, stripeReady, cardMountEl]);
 
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
   const supportPhone = sessionData?.admin_whatsapp || "";
@@ -1034,7 +1034,7 @@ return (
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Dados do Cartão</p>
                       <div
-                        ref={cardMountRef}
+                        ref={setCardMountEl}
                         className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
                       />
                       {!stripeReady && (
