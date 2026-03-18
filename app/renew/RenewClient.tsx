@@ -256,7 +256,9 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "approved" | "rejected">("pending");
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
+const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
+  const [showMethodSelector, setShowMethodSelector] = useState(false);
+  const [pendingRenew, setPendingRenew] = useState<{ price: PlanPrice; period: string } | null>(null);
   
   // ✅ NOVO: Estados para controle visual do botão de copiar
 const [copiedCode, setCopiedCode] = useState(false);
@@ -468,53 +470,16 @@ function copyField(key: string, value: string) {
 
     if (!renewPeriod) return;
 
-    try {
-      setIsProcessingPayment(true); // ✅ Trava o botão
-      
-      // ✅ reset total do modal/fluxo
-      (window as any).__cp_done_scheduled = false; 
-      setPaymentStatus("pending");
-      setPaymentPhase("awaiting_payment");
-      setPaymentData(null);
-
-
-      // Chamar API de criação de pagamento
-      const res = await fetch("/api/client-portal/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_token: session,
-          client_id: selectedAccount.id,
-          period: renewPeriod,
-          screens: selectedAccount.screens, // 🔒 Injeção da quantidade correta de telas
-        }),
-        cache: "no-store",
-      });
-
-      const result = await res.json().catch(() => null);
-
-      if (!result?.ok) {
-        debugErr("create-payment error (dev):", result);
-        alert("Não foi possível criar o pagamento. Tente novamente.");
-        return;
-      }
-
-      // ✅ payload real pode estar em result.data
-      const payment = result.data ?? result;
-
-      setPaymentData(payment);
-      setPaymentModal(true);
-
-      // ✅ iniciar polling usando o payload real
-      if (payment?.payment_method === "online" && payment?.payment_id) {
-        startPolling(String(payment.payment_id));
-      }
-    } catch (err: any) {
-      debugErr("Erro ao renovar (dev):", err?.message || err);
-      alert("Erro ao processar renovação. Tente novamente.");
-    } finally {
-      setIsProcessingPayment(false); // ✅ Liberta o botão (o modal já abriu ou deu erro)
+// BRL: vai direto pro PIX, sem seletor
+    if (selectedAccount.price_currency === "BRL") {
+      setPendingRenew({ price: renewPrice, period: renewPeriod });
+      await handleMethodConfirm("card"); // force_manual: false → cai no MP normalmente
+      return;
     }
+
+    // Internacional: mostra seletor
+    setPendingRenew({ price: renewPrice, period: renewPeriod });
+    setShowMethodSelector(true);
   };
 
   // Polling para verificar status do pagamento
@@ -708,8 +673,56 @@ if (fulfillment === "done") {
 
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
   const supportPhone = sessionData?.admin_whatsapp || "";
+async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
+    if (!pendingRenew || !selectedAccount || !session) return;
+    setShowMethodSelector(false);
+
+    try {
+      setIsProcessingPayment(true);
+      (window as any).__cp_done_scheduled = false;
+      setPaymentStatus("pending");
+      setPaymentPhase("awaiting_payment");
+      setPaymentData(null);
+
+      const res = await fetch("/api/client-portal/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccount.id,
+          period: pendingRenew.period,
+          screens: selectedAccount.screens,
+          force_manual: choice === "manual",
+        }),
+        cache: "no-store",
+      });
+
+      const result = await res.json().catch(() => null);
+
+      if (!result?.ok) {
+        debugErr("create-payment error (dev):", result);
+        alert("Não foi possível criar o pagamento. Tente novamente.");
+        return;
+      }
+
+      const payment = result.data ?? result;
+      setPaymentData(payment);
+      setPaymentModal(true);
+
+      if ((payment?.payment_method === "online" || payment?.payment_method === "stripe") && payment?.payment_id) {
+        startPolling(String(payment.payment_id));
+      }
+    } catch (err: any) {
+      debugErr("Erro ao renovar (dev):", err?.message || err);
+      alert("Erro ao processar renovação. Tente novamente.");
+    } finally {
+      setIsProcessingPayment(false);
+      setPendingRenew(null);
+    }
+  }
 
   async function handleStripeConfirm() {
+    
     if (!stripeRef.current || !cardElementRef.current || !paymentData) return;
     setStripeLoading(true);
     try {
@@ -733,6 +746,65 @@ if (fulfillment === "done") {
     } finally {
       setStripeLoading(false);
     }
+  }
+
+  function MethodSelectorModal() {
+    if (!showMethodSelector || !pendingRenew || !selectedAccount) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-4 px-6 text-white text-center">
+            <h2 className="text-lg font-bold">Como deseja pagar?</h2>
+            <p className="text-sm text-white/70 mt-0.5">
+              {formatMoney(pendingRenew.price.price_amount, selectedAccount.price_currency)}
+            </p>
+          </div>
+
+          <div className="p-4 space-y-3">
+            <button
+              onClick={() => handleMethodConfirm("card")}
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">💳</div>
+              <div>
+                <p className="font-bold text-slate-800">Cartão de Crédito / Débito</p>
+                <p className="text-xs text-slate-500">Visa, Mastercard, Amex...</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleMethodConfirm("apple_google")}
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl shrink-0">📱</div>
+              <div>
+                <p className="font-bold text-slate-800">Apple Pay / Google Pay</p>
+                <p className="text-xs text-slate-500">Utilize a carteira digital do seu dispositivo</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleMethodConfirm("manual")}
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl shrink-0">🏦</div>
+              <div>
+                <p className="font-bold text-slate-800">Transferência Bancária</p>
+                <p className="text-xs text-slate-500">IBAN / SEPA — confirmação manual</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => { setShowMethodSelector(false); setPendingRenew(null); }}
+              className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors pt-1"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   function PaymentModal() {
@@ -1740,7 +1812,7 @@ return (
           return (
             <button
               onClick={handleRenew}
-              disabled={!renewPrice || !renewPrice.price_amount || isProcessingPayment} // ✅ Desativa se estiver a processar
+              disabled={!renewPrice || !renewPrice.price_amount || isProcessingPayment || showMethodSelector}
               className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base sm:text-lg mt-2"
             >
               {isProcessingPayment ? (
@@ -1759,6 +1831,9 @@ return (
             </button>
           );
         })()}
+
+        {/* Seletor de Método */}
+        <MethodSelectorModal />
 
         {/* Modal de Pagamento */}
         <PaymentModal />

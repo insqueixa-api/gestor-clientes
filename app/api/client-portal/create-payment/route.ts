@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
 const session_token = normalizeStr(body?.session_token);
 const client_id = normalizeStr(body?.client_id);
 const period = normalizeStr(body?.period);
+const force_manual = body?.force_manual === true;
 
 // ⚠️ ainda pode vir do front, mas será IGNORADO (opcional: só para log em dev)
 const price_amount_raw = body?.price_amount;
@@ -285,7 +286,34 @@ if (process.env.NODE_ENV !== "production" && price_amount_raw != null) {
         { status: 200, headers: NO_STORE_HEADERS }
       );
     }
-    // 4) Tentar criar pagamento com cada gateway
+// 4a) Se cliente escolheu manual explicitamente, pula gateways online
+    if (force_manual) {
+      const { data: manual, error: manErr } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("*")
+        .eq("tenant_id", sess.tenant_id)
+        .eq("is_active", true)
+        .eq("is_manual_fallback", true)
+        .contains("currency", [currency])
+        .limit(1)
+        .maybeSingle();
+
+      if (!manual || manErr) return jsonError("Nenhum método de pagamento manual configurado", 503);
+
+      return NextResponse.json(
+        {
+          ok: true,
+          payment_method: "manual",
+          price_amount: computedPrice,
+          currency,
+          ...manual.config,
+          gateway_type: manual.type,
+        },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
+    }
+
+    // 4b) Tentar criar pagamento com cada gateway
     let lastError: any = null;
 
     for (const gateway of gateways) {
@@ -462,7 +490,7 @@ if (insErr || !inserted) {
               return jsonError("Erro interno", 500);
             }
 
-            return NextResponse.json(
+return NextResponse.json(
               {
                 ok: true,
                 payment_method: "stripe",
@@ -471,6 +499,8 @@ if (insErr || !inserted) {
                 internal_payment_id: inserted.id,
                 client_secret: stripeData.client_secret,
                 publishable_key: publishableKey,
+                price_amount: Number(computedPrice),
+                currency,
               },
               { status: 200, headers: NO_STORE_HEADERS }
             );
