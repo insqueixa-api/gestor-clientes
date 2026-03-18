@@ -297,6 +297,129 @@ const PRIORITY_LABELS: Record<number, string> = {
   2: "Secundário",
 };
 
+// ─── HELP CONTENT ─────────────────────────────────────────────────────────────
+
+const GATEWAY_HELP: Record<string, {
+  title: string;
+  link: string;
+  linkLabel: string;
+  steps: string[];
+  warnings?: string[];
+}> = {
+  mercadopago: {
+    title: "Como configurar o Mercado Pago",
+    link: "https://www.mercadopago.com.br/developers/pt/docs",
+    linkLabel: "Acessar documentação do Mercado Pago →",
+    steps: [
+      "Acesse mercadopago.com.br e crie ou acesse sua conta (PF ou PJ)",
+      "Vá em: mercadopago.com.br/developers/pt/docs",
+      "No menu lateral, clique em Credenciais",
+      "Selecione sua aplicação (ou crie uma nova)",
+      "Clique na aba Produção",
+      "Copie o Access Token (começa com APP_USR-...)",
+      "Cole o Access Token no campo correspondente aqui no UniGestor",
+      "Para o Webhook: no painel do desenvolvedor, vá em Webhooks",
+      "Clique em + Adicionar webhook",
+      "Cole a URL: https://unigestor.net.br/api/webhooks/mercadopago",
+      "Marque o evento Pagamentos (payment) e salve",
+    ],
+  },
+  stripe: {
+    title: "Como configurar o Stripe",
+    link: "https://stripe.com",
+    linkLabel: "Criar conta no Stripe →",
+    steps: [
+      "Acesse stripe.com e crie sua conta empresarial",
+      "Complete o cadastro com dados do CNPJ (pode ser MEI)",
+      "Aguarde a aprovação da conta (geralmente imediato)",
+      "No dashboard, vá em Desenvolvedores → Chaves de API",
+      "Copie a Chave publicável (pk_live_...) e a Chave secreta (sk_live_...)",
+      "Cole ambas nos campos correspondentes aqui no UniGestor",
+      "Para o Webhook: vá em Desenvolvedores → Webhooks → + Adicionar destino",
+      "Cole a URL do webhook: https://unigestor.net.br/api/webhooks/stripe",
+      "Selecione o evento: payment_intent.succeeded",
+      "Copie o Segredo da assinatura (whsec_...) e cole no campo Webhook Secret",
+      "Em Configurações → Domínios de forma de pagamento → adicione seu domínio (para Apple/Google Pay)",
+    ],
+    warnings: [
+      "⚠️ Obrigatório CNPJ para conta de produção (MEI é aceito)",
+      "⚠️ Use pk_live_ e sk_live_ — as chaves pk_test_ são apenas para testes",
+      "⚠️ Chaves de teste e produção são diferentes — não misture",
+    ],
+  },
+};
+
+function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
+  const help = GATEWAY_HELP[type];
+  if (!help) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-t-xl flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800 dark:text-white">📖 {help.title}</h2>
+            <a
+              href={help.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline mt-0.5 inline-block"
+            >
+              {help.linkLabel}
+            </a>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+          >
+            <IconX />
+          </button>
+        </div>
+
+        {/* Steps */}
+        <div className="p-5 overflow-y-auto space-y-4">
+          <ol className="space-y-3">
+            {help.steps.map((step, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">{step}</span>
+              </li>
+            ))}
+          </ol>
+
+          {help.warnings && help.warnings.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-white/10">
+              {help.warnings.map((w, i) => (
+                <p key={i} className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2">
+                  {w}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-b-xl">
+          <button
+            onClick={onClose}
+            className="w-full h-9 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
 function Label({ children }: { children: ReactNode }) {
   return (
@@ -338,10 +461,12 @@ function GatewayModal({
   gateway,
   onClose,
   onSave,
+  addToast,
 }: {
   gateway: PaymentGateway | null;
   onClose: () => void;
   onSave: () => void;
+  addToast: (type: "success" | "error", title: string, message?: string) => void;
 }) {
   const isEdit = !!gateway;
 
@@ -355,6 +480,7 @@ function GatewayModal({
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
   const meta = GATEWAY_META.find((m) => m.type === selectedType);
+  const [helpType, setHelpType] = useState<string | null>(null);
 
   async function handleSave() {
     if (!selectedType || !meta) return;
@@ -413,6 +539,7 @@ function GatewayModal({
       }
 
       onSave();
+      addToast("success", isEdit ? "Integração atualizada" : "Integração criada", `${meta.label} configurado com sucesso.`);
       onClose();
     } catch (err: any) {
       setError(err?.message ?? "Erro ao salvar.");
@@ -455,58 +582,78 @@ function GatewayModal({
             <div className="space-y-3">
               <Label>Tipo de Integração</Label>
 
+              {helpType && (
+                <HelpModal type={helpType} onClose={() => setHelpType(null)} />
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {GATEWAY_META.map((m) => {
                   const selected = selectedType === m.type;
+                  const hasHelp = !!GATEWAY_HELP[m.type];
                   return (
-                    <button
-                      key={m.type}
-                      type="button"
-                      onClick={() => {
-                        setSelectedType(m.type);
-                        setForm({});
-                        setError(null);
-                      }}
-                      className={`p-4 rounded-xl border text-left transition-all ${
-                        selected
-                          ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
-                          : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] hover:bg-slate-50 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xl">
-                          {m.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-800 dark:text-white text-sm">
-                            {m.label}
+                    <div key={m.type} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedType(m.type);
+                          setForm({});
+                          setError(null);
+                        }}
+                        className={`w-full p-4 rounded-xl border text-left transition-all ${
+                          selected
+                            ? "border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-500/10"
+                            : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] hover:bg-slate-50 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-xl shrink-0">
+                            {m.icon}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-white/60 mt-0.5 leading-tight">
-                            {m.description}
-                          </div>
-
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {m.currencies.map((c) => (
+                          <div className="min-w-0 pr-6">
+                            <div className="font-bold text-slate-800 dark:text-white text-sm">
+                              {m.label}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-white/60 mt-0.5 leading-tight">
+                              {m.description}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {m.currencies.map((c) => (
+                                <span
+                                  key={c}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+                                >
+                                  {c}
+                                </span>
+                              ))}
                               <span
-                                key={c}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10"
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  m.is_online
+                                    ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
+                                    : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
+                                }`}
                               >
-                                {c}
+                                {m.is_online ? "Online" : "Manual"}
                               </span>
-                            ))}
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                m.is_online
-                                  ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
-                                  : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
-                              }`}
-                            >
-                              {m.is_online ? "Online" : "Manual"}
-                            </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+
+                      {/* Botão de ajuda */}
+                      {hasHelp && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHelpType(m.type);
+                          }}
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/50 hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center justify-center text-xs font-bold"
+                          title="Como obter as credenciais"
+                        >
+                          ?
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -1069,6 +1216,7 @@ export default function PagamentosPage() {
             setEditingGateway(null);
           }}
           onSave={fetchGateways}
+          addToast={addToast}
         />
       )}
 
