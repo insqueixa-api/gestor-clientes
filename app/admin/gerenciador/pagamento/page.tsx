@@ -355,7 +355,7 @@ const GATEWAY_HELP: Record<string, {
 };
 
 function renderStepWithLinks(text: string) {
-  const urlRegex = /\b(https?:\/\/[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|net|org|br|io|dev|com\.br)(?:\/[^\s]*)?)\b/g;
+  const urlRegex = /(https?:\/\/[^\s,]+|[a-zA-Z0-9][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+)+(?:\/[^\s,]*)?)/g;
   const parts: (string | React.ReactElement)[] = [];
   let lastIndex = 0;
   let match;
