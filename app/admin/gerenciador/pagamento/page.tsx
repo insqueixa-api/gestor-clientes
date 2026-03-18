@@ -312,16 +312,20 @@ const GATEWAY_HELP: Record<string, {
     linkLabel: "Acessar documentação do Mercado Pago →",
     steps: [
       "Acesse mercadopago.com.br e crie ou acesse sua conta (PF ou PJ)",
-      "Vá em: mercadopago.com.br/developers/pt/docs",
-      "No menu lateral, clique em Credenciais",
-      "Selecione sua aplicação (ou crie uma nova)",
-      "Clique na aba Produção",
-      "Copie o Access Token (começa com APP_USR-...)",
-      "Cole o Access Token no campo correspondente aqui no UniGestor",
-      "Para o Webhook: no painel do desenvolvedor, vá em Webhooks",
-      "Clique em + Adicionar webhook",
-      "Cole a URL: https://unigestor.net.br/api/webhooks/mercadopago",
-      "Marque o evento Pagamentos (payment) e salve",
+      "Acesse o painel de desenvolvedores em mercadopago.com.br/developers/pt/docs",
+      "No menu lateral esquerdo, clique em Credenciais",
+      "Selecione sua aplicação existente ou clique em + Nova aplicação para criar uma",
+      "Dentro da aplicação, clique na aba Produção (não use as credenciais de teste)",
+      "Copie o Access Token — começa com APP_USR-... e é uma string longa",
+      "Cole o Access Token no campo correspondente aqui no UniGestor em Pagamentos → Mercado Pago",
+      "Para o Webhook: no menu lateral, clique em Webhooks → Configurar notificações",
+      "Em URL de produção, cole: https://unigestor.net.br/api/webhooks/mercadopago",
+      "Marque o evento Pagamentos (payment) na lista de eventos e clique em Salvar",
+      "Recomendado: configure também uma Chave Secreta no campo Webhook Secret do UniGestor para maior segurança",
+    ],
+    warnings: [
+      "⚠️ Use sempre as credenciais de Produção — as credenciais de teste não processam pagamentos reais",
+      "⚠️ O Access Token é sensível — nunca compartilhe com ninguém",
     ],
   },
   stripe: {
@@ -329,25 +333,50 @@ const GATEWAY_HELP: Record<string, {
     link: "https://stripe.com",
     linkLabel: "Criar conta no Stripe →",
     steps: [
-      "Acesse stripe.com e crie sua conta empresarial",
-      "Complete o cadastro com dados do CNPJ (pode ser MEI)",
-      "Aguarde a aprovação da conta (geralmente imediato)",
-      "No dashboard, vá em Desenvolvedores → Chaves de API",
-      "Copie a Chave publicável (pk_live_...) e a Chave secreta (sk_live_...)",
-      "Cole ambas nos campos correspondentes aqui no UniGestor",
-      "Para o Webhook: vá em Desenvolvedores → Webhooks → + Adicionar destino",
-      "Cole a URL do webhook: https://unigestor.net.br/api/webhooks/stripe",
-      "Selecione o evento: payment_intent.succeeded",
-      "Copie o Segredo da assinatura (whsec_...) e cole no campo Webhook Secret",
-      "Em Configurações → Domínios de forma de pagamento → adicione seu domínio (para Apple/Google Pay)",
+      "Acesse stripe.com e crie sua conta empresarial — clique em 'Start now'",
+      "Preencha nome, e-mail e senha. Em seguida complete o cadastro com dados do CNPJ (MEI é aceito)",
+      "Finalize a ativação da conta: preencha todos os dados de KYC (endereço, dados bancários PJ) em dashboard.stripe.com/settings/account — sem isso as chaves live não funcionam",
+      "Acesse dashboard.stripe.com/apikeys para obter suas chaves",
+      "Copie a Chave publicável (começa com pk_live_...) e a Chave secreta (começa com sk_live_...)",
+      "Cole ambas nos campos correspondentes aqui no UniGestor em Pagamentos → Editar Stripe",
+      "Para o Webhook: acesse diretamente dashboard.stripe.com/webhooks e clique em + Adicionar destino",
+      "Cole a URL: https://unigestor.net.br/api/webhooks/stripe",
+      "Em 'Selecionar eventos', busque e marque: payment_intent.succeeded — depois clique em Criar",
+      "Após criar, clique no webhook criado e copie o Segredo da assinatura (whsec_...) — cole no campo Webhook Secret no UniGestor",
+      "Para Apple Pay / Google Pay: acesse dashboard.stripe.com/settings/payment_method_domains e adicione seu domínio",
     ],
     warnings: [
       "⚠️ Obrigatório CNPJ para conta de produção (MEI é aceito)",
-      "⚠️ Use pk_live_ e sk_live_ — as chaves pk_test_ são apenas para testes",
-      "⚠️ Chaves de teste e produção são diferentes — não misture",
+      "⚠️ Use pk_live_ e sk_live_ — as chaves pk_test_ são apenas para testes e não processam pagamentos reais",
+      "⚠️ Chaves de teste e produção são diferentes — não misture os ambientes",
+      "⚠️ Sem completar o KYC da conta, os pagamentos serão bloqueados pelo Stripe",
     ],
   },
 };
+
+function renderStepWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (urlRegex.test(part)) {
+      urlRegex.lastIndex = 0;
+      const href = part.startsWith("http") ? part : `https://${part}`;
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-emerald-600 dark:text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-700 break-all"
+        >
+          {part}
+        </a>
+      );
+    }
+    urlRegex.lastIndex = 0;
+    return part;
+  });
+}
 
 function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
   const help = GATEWAY_HELP[type];
@@ -391,7 +420,9 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
                 <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
-                <span className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">{step}</span>
+                <span className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">
+                  {renderStepWithLinks(step)}
+                </span>
               </li>
             ))}
           </ol>
