@@ -275,6 +275,8 @@ const [cardNumberMountEl, setCardNumberMountEl] = useState<HTMLDivElement | null
 const [cardExpiryMountEl, setCardExpiryMountEl] = useState<HTMLDivElement | null>(null);
 const [cardCvcMountEl, setCardCvcMountEl] = useState<HTMLDivElement | null>(null);
 const [stripeStep, setStripeStep] = useState<1 | 2>(1);
+const [paymentRequest, setPaymentRequest] = useState<any>(null);
+const [prButtonMountEl, setPrButtonMountEl] = useState<HTMLDivElement | null>(null);
 
 function copyField(key: string, value: string) {
   navigator.clipboard.writeText(value ?? "");
@@ -692,7 +694,76 @@ cardNumber.mount(cardNumberMountEl);
     };
   }, [paymentModal, paymentData, stripeReady, cardNumberMountEl, cardExpiryMountEl, cardCvcMountEl]);
 
-// ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
+// Montar PaymentRequestButton (Apple Pay / Google Pay)
+  useEffect(() => {
+    if (!paymentModal || !paymentData || paymentData.payment_method !== "apple_google") return;
+    if (!stripeReady || !prButtonMountEl) return;
+    if (!(window as any).Stripe) return;
+
+    const stripe = (window as any).Stripe(paymentData.publishable_key);
+    stripeRef.current = stripe;
+
+    const pr = stripe.paymentRequest({
+      country: "BR",
+      currency: (paymentData.currency || "eur").toLowerCase(),
+      total: {
+        label: paymentData.gateway_name || "UniGestor",
+        amount: Math.round((paymentData.price_amount ?? 0) * 100),
+      },
+      requestPayerName: false,
+      requestPayerEmail: false,
+    });
+
+    pr.canMakePayment().then((result: any) => {
+      if (!result) {
+        // Dispositivo não suporta Apple/Google Pay — cai no cartão normal
+        setPaymentData((prev: any) => ({ ...prev, payment_method: "stripe" }));
+        return;
+      }
+
+      const elements = stripe.elements();
+      const prButton = elements.create("paymentRequestButton", {
+        paymentRequest: pr,
+        style: { paymentRequestButton: { height: "52px", borderRadius: "12px" } },
+      });
+      prButton.mount(prButtonMountEl);
+
+      pr.on("paymentmethod", async (ev: any) => {
+        const { error, paymentIntent } = await stripe.confirmCardPayment(
+          paymentData.client_secret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false }
+        );
+
+        if (error) {
+          ev.complete("fail");
+          alert(error.message || "Erro ao processar pagamento.");
+          return;
+        }
+
+        ev.complete("success");
+
+        if (paymentIntent.status === "succeeded") {
+          setPaymentPhase("renewing");
+          startPolling(String(paymentData.payment_id));
+        } else if (paymentIntent.status === "requires_action") {
+          const { error: actionError } = await stripe.confirmCardPayment(paymentData.client_secret);
+          if (actionError) {
+            alert(actionError.message || "Autenticação necessária falhou.");
+            return;
+          }
+          setPaymentPhase("renewing");
+          startPolling(String(paymentData.payment_id));
+        }
+      });
+
+      setPaymentRequest(pr);
+    });
+
+    return () => { try { prButtonMountEl.innerHTML = ""; } catch {} };
+  }, [paymentModal, paymentData, stripeReady, prButtonMountEl]);
+
+// ✅ REGRA DO SUPORTE: Pega estritamente o do admin.
   const supportPhone = sessionData?.admin_whatsapp || "";
 async function handleMethodConfirmDirect(
     choice: "card" | "apple_google" | "manual",
@@ -732,6 +803,10 @@ async function handleMethodConfirmDirect(
       }
 
       const payment = result.data ?? result;
+      // Apple/Google Pay usa o mesmo PaymentIntent do Stripe mas com UI diferente
+      if (choice === "apple_google" && payment.payment_method === "stripe") {
+        payment.payment_method = "apple_google";
+      }
       setPaymentData(payment);
       setStripeStep(1);
       setPaymentModal(true);
@@ -1163,6 +1238,83 @@ return (
                     <div>
                       <p className="text-sm font-bold text-indigo-800">Processando renovação...</p>
                       <p className="text-xs text-indigo-600">Atualizando sua assinatura no servidor.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Apple Pay / Google Pay */}
+          {paymentData.payment_method === "apple_google" && !isApproved && !isRejected && (
+            <>
+              <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-3 px-6 text-white text-center">
+                <h2 className="text-xl font-bold mb-1">
+                  {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : "Apple Pay / Google Pay"}
+                </h2>
+                <p className="text-sm text-white/80">
+                  {paymentPhase === "renewing" ? "Renovação em andamento…" : paymentData.gateway_name || "Stripe"}
+                </p>
+              </div>
+
+              <div className="px-5 pt-5 pb-4 space-y-4">
+                {paymentPhase !== "renewing" && (
+                  <>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total a pagar</p>
+                      <p className="text-3xl font-black text-slate-800">
+                        {formatMoney(paymentData.price_amount ?? 0, paymentData.currency ?? "EUR")}
+                      </p>
+                    </div>
+
+                    {(paymentData.beneficiary_name || paymentData.institution) && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-lg">🔒</div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Pagamento para</p>
+                          {paymentData.beneficiary_name && (
+                            <p className="text-sm font-bold text-slate-800 truncate">{paymentData.beneficiary_name}</p>
+                          )}
+                          <p className="text-xs text-slate-500">{paymentData.institution || "Stripe"}</p>
+                        </div>
+                        <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Seguro</span>
+                      </div>
+                    )}
+
+                    {/* div sempre renderizado para o ref funcionar */}
+                    <div ref={setPrButtonMountEl} className={`min-h-[52px] ${paymentRequest ? "" : "hidden"}`} />
+                    {!paymentRequest && (
+                      <div className="flex items-center justify-center py-4 gap-2 text-slate-400 text-sm">
+                        <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                        Verificando disponibilidade...
+                      </div>
+                    )}
+
+                    <p className="text-center text-[10px] text-slate-400">
+                      Pagamento processado com segurança via Stripe
+                    </p>
+
+                    <button
+                      onClick={() => {
+                        setPaymentModal(false);
+                        setPaymentData(null);
+                        setPaymentStatus("pending");
+                        setPaymentPhase("awaiting_payment");
+                        setStripeStep(1);
+                      }}
+                      className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+
+                {paymentPhase === "renewing" && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+                    <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Processando renovação...</p>
+                      <p className="text-xs text-slate-500">Atualizando sua assinatura no servidor.</p>
                     </div>
                   </div>
                 )}
