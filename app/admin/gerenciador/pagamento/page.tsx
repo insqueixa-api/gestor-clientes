@@ -355,27 +355,36 @@ const GATEWAY_HELP: Record<string, {
 };
 
 function renderStepWithLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/g;
-  const parts = text.split(urlRegex);
-  return parts.map((part, i) => {
-    if (urlRegex.test(part)) {
-      urlRegex.lastIndex = 0;
-      const href = part.startsWith("http") ? part : `https://${part}`;
-      return (
-        <a
-          key={i}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-emerald-600 dark:text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-700 break-all"
-        >
-          {part}
-        </a>
-      );
+  const urlRegex = /\b(https?:\/\/[^\s]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.(?:com|net|org|br|io|dev|com\.br)(?:\/[^\s]*)?)\b/g;
+  const parts: (string | React.ReactElement)[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
     }
-    urlRegex.lastIndex = 0;
-    return part;
-  });
+    const url = match[0];
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    parts.push(
+      <a
+        key={match.index}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-emerald-600 dark:text-emerald-400 font-medium underline underline-offset-2 hover:text-emerald-700 break-all"
+      >
+        {url}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
 }
 
 function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
