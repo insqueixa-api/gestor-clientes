@@ -873,7 +873,7 @@ async function handleMethodConfirmDirect(
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
                   <p className="font-bold text-slate-800">Cartão de Crédito / Débito</p>
                 </div>
-                <p className="text-xs text-slate-500 mb-1">Visa, Mastercard, Amex...</p>
+                <p className="text-xs text-slate-500 mb-1">Somente Visa ou Mastercard</p>
                 <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Renovação Automática</span>
               </div>
             </button>
