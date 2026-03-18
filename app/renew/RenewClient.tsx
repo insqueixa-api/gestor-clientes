@@ -713,7 +713,8 @@ async function handleMethodConfirmDirect(
       setPaymentData(payment);
       setPaymentModal(true);
 
-      if ((payment?.payment_method === "online" || payment?.payment_method === "stripe") && payment?.payment_id) {
+      // Stripe: NÃO inicia polling aqui — só após confirmCardPayment ter sucesso
+      if (payment?.payment_method === "online" && payment?.payment_id) {
         startPolling(String(payment.payment_id));
       }
     } catch (err: any) {
