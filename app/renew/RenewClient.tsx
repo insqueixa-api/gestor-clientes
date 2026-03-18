@@ -1838,10 +1838,10 @@ return (
         })()}
 
         {/* Seletor de Método */}
-        <MethodSelectorModal />
+        {MethodSelectorModal()}
 
-        {/* Modal de Pagamento */}
-        <PaymentModal />
+       {/* Modal de Pagamento */}
+        {PaymentModal()}
       </div>
     </div>
   );
