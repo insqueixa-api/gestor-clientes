@@ -355,7 +355,7 @@ const GATEWAY_HELP: Record<string, {
 };
 
 function renderStepWithLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s,]+|[a-zA-Z0-9][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+)+(?:\/[^\s,]*)?)/g;
+  const urlRegex = /(https?:\/\/[^\s,]+|(?:www\.)[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+(?:\/[^\s,]*)?|[a-zA-Z0-9-]+\.(?:stripe|mercadopago|stripe\.com|mercadopago\.com)(?:\/[^\s,]*)?)/g;
   const parts: (string | React.ReactElement)[] = [];
   let lastIndex = 0;
   let match;
