@@ -672,13 +672,18 @@ if (fulfillment === "done") {
     const cardExpiry = elements.create("cardExpiry", { style });
     const cardCvc = elements.create("cardCvc", { style });
 
-    cardNumber.mount(cardNumberMountEl);
+cardNumber.mount(cardNumberMountEl);
     cardExpiry.mount(cardExpiryMountEl);
     cardCvc.mount(cardCvcMountEl);
 
     cardNumberRef.current = cardNumber;
     cardExpiryRef.current = cardExpiry;
     cardCvcRef.current = cardCvc;
+
+    // Auto-avanço de validade → CVC
+    cardExpiry.on("change", (e: any) => {
+      if (e.complete) cardCvc.focus();
+    });
 
     return () => {
       try { cardNumber.unmount(); } catch {}
