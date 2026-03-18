@@ -659,7 +659,7 @@ if (fulfillment === "done") {
 
     const stripe = (window as any).Stripe(paymentData.publishable_key);
     stripeRef.current = stripe;
-    const elements = stripe.elements();
+    const elements = stripe.elements({ disableLink: true });
 
     const style = {
       base: {
