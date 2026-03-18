@@ -268,8 +268,13 @@ const [copiedField, setCopiedField] = useState<string | null>(null);
 const [stripeReady, setStripeReady] = useState(false);
 const [stripeLoading, setStripeLoading] = useState(false);
 const stripeRef = useRef<any>(null);
-const cardElementRef = useRef<any>(null);
-const [cardMountEl, setCardMountEl] = useState<HTMLDivElement | null>(null);
+const cardNumberRef = useRef<any>(null);
+const cardExpiryRef = useRef<any>(null);
+const cardCvcRef = useRef<any>(null);
+const [cardNumberMountEl, setCardNumberMountEl] = useState<HTMLDivElement | null>(null);
+const [cardExpiryMountEl, setCardExpiryMountEl] = useState<HTMLDivElement | null>(null);
+const [cardCvcMountEl, setCardCvcMountEl] = useState<HTMLDivElement | null>(null);
+const [stripeStep, setStripeStep] = useState<1 | 2>(1);
 
 function copyField(key: string, value: string) {
   navigator.clipboard.writeText(value ?? "");
@@ -644,31 +649,43 @@ if (fulfillment === "done") {
     document.head.appendChild(script);
   }, []);
 
-  // Montar card element quando modal Stripe abrir
+  // Montar 3 card elements quando modal Stripe abrir
   useEffect(() => {
     if (!paymentModal || !paymentData || paymentData.payment_method !== "stripe") return;
-    if (!stripeReady || !cardMountEl) return;
+    if (!stripeReady || !cardNumberMountEl || !cardExpiryMountEl || !cardCvcMountEl) return;
     if (!(window as any).Stripe) return;
 
     const stripe = (window as any).Stripe(paymentData.publishable_key);
     stripeRef.current = stripe;
     const elements = stripe.elements();
-    const card = elements.create("card", {
-      style: {
-        base: {
-          fontSize: "16px",
-          color: "#1e293b",
-          fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          "::placeholder": { color: "#94a3b8" },
-        },
-      },
-      hidePostalCode: true,
-    });
-card.mount(cardMountEl);
-    cardElementRef.current = card;
 
-    return () => { try { card.unmount(); } catch {} };
-  }, [paymentModal, paymentData, stripeReady, cardMountEl]);
+    const style = {
+      base: {
+        fontSize: "16px",
+        color: "#1e293b",
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        "::placeholder": { color: "#94a3b8" },
+      },
+    };
+
+    const cardNumber = elements.create("cardNumber", { style, showIcon: true });
+    const cardExpiry = elements.create("cardExpiry", { style });
+    const cardCvc = elements.create("cardCvc", { style });
+
+    cardNumber.mount(cardNumberMountEl);
+    cardExpiry.mount(cardExpiryMountEl);
+    cardCvc.mount(cardCvcMountEl);
+
+    cardNumberRef.current = cardNumber;
+    cardExpiryRef.current = cardExpiry;
+    cardCvcRef.current = cardCvc;
+
+    return () => {
+      try { cardNumber.unmount(); } catch {}
+      try { cardExpiry.unmount(); } catch {}
+      try { cardCvc.unmount(); } catch {}
+    };
+  }, [paymentModal, paymentData, stripeReady, cardNumberMountEl, cardExpiryMountEl, cardCvcMountEl]);
 
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
   const supportPhone = sessionData?.admin_whatsapp || "";
@@ -711,6 +728,7 @@ async function handleMethodConfirmDirect(
 
       const payment = result.data ?? result;
       setPaymentData(payment);
+      setStripeStep(1);
       setPaymentModal(true);
 
       // Stripe: NÃO inicia polling aqui — só após confirmCardPayment ter sucesso
@@ -727,12 +745,11 @@ async function handleMethodConfirmDirect(
   }
 
   async function handleStripeConfirm() {
-    
-    if (!stripeRef.current || !cardElementRef.current || !paymentData) return;
+    if (!stripeRef.current || !cardNumberRef.current || !paymentData) return;
     setStripeLoading(true);
     try {
       const result = await stripeRef.current.confirmCardPayment(paymentData.client_secret, {
-        payment_method: { card: cardElementRef.current },
+        payment_method: { card: cardNumberRef.current },
       });
 
       if (result.error) {
@@ -772,9 +789,12 @@ async function handleMethodConfirmDirect(
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">💳</div>
-              <div>
-                <p className="font-bold text-slate-800">Cartão de Crédito / Débito</p>
-                <p className="text-xs text-slate-500">Visa, Mastercard, Amex...</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <p className="font-bold text-slate-800">Cartão de Crédito / Débito</p>
+                </div>
+                <p className="text-xs text-slate-500 mb-1">Visa, Mastercard, Amex...</p>
+                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Renovação Automática</span>
               </div>
             </button>
 
@@ -783,20 +803,22 @@ async function handleMethodConfirmDirect(
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl shrink-0">📱</div>
-              <div>
-                <p className="font-bold text-slate-800">Apple Pay / Google Pay</p>
-                <p className="text-xs text-slate-500">Utilize a carteira digital do seu dispositivo</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800 mb-0.5">Apple Pay / Google Pay</p>
+                <p className="text-xs text-slate-500 mb-1">Utilize a carteira digital do seu dispositivo</p>
+                <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Renovação Automática</span>
               </div>
             </button>
 
             <button
               onClick={() => handleMethodConfirmDirect("manual")}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl shrink-0">🏦</div>
-              <div>
-                <p className="font-bold text-slate-800">Transferência Bancária</p>
-                <p className="text-xs text-slate-500">IBAN / SEPA — confirmação manual</p>
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">🏦</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800 mb-0.5">Transferência Bancária</p>
+                <p className="text-xs text-slate-500 mb-1">IBAN / SEPA — confirmação via suporte</p>
+                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">⚠️ Renovação Manual</span>
               </div>
             </button>
 
@@ -1012,7 +1034,7 @@ return (
             <>
               <div className="bg-gradient-to-r from-indigo-600 to-violet-600 py-3 px-6 text-white text-center">
                 <h2 className="text-xl font-bold mb-1">
-                  {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : "Pagar com Cartão"}
+                  {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : stripeStep === 1 ? "Dados do Cartão" : "Confirmar Pagamento"}
                 </h2>
                 <p className="text-sm text-white/80">
                   {paymentPhase === "renewing" ? "Renovação em andamento…" : paymentData.gateway_name || "Stripe"}
@@ -1031,36 +1053,84 @@ return (
                       </p>
                     </div>
 
-                    {/* Card Element */}
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Dados do Cartão</p>
-                      <div
-                        ref={setCardMountEl}
-                        className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
-                      />
-                      {!stripeReady && (
-                        <p className="text-xs text-slate-400 mt-1">Carregando formulário seguro...</p>
-                      )}
-                    </div>
+                    {/* Trust signals */}
+                    {(paymentData.beneficiary_name || paymentData.institution) && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-lg">🔒</div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Pagamento para</p>
+                          {paymentData.beneficiary_name && (
+                            <p className="text-sm font-bold text-slate-800 truncate">{paymentData.beneficiary_name}</p>
+                          )}
+                          <p className="text-xs text-slate-500">{paymentData.institution || "Stripe"}</p>
+                        </div>
+                        <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Seguro</span>
+                      </div>
+                    )}
 
-                    {/* Botão Confirmar */}
-                    <button
-                      onClick={handleStripeConfirm}
-                      disabled={stripeLoading || !stripeReady}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {stripeLoading ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Processando...
-                        </>
-                      ) : (
-                        <>🔒 Confirmar Pagamento</>
-                      )}
-                    </button>
+                    {/* 2-step card fields */}
+                    <div className="relative">
+                      {/* Step 1: Número do cartão */}
+                      <div className={stripeStep === 1 ? "space-y-3" : "absolute top-0 left-0 w-full opacity-0 pointer-events-none space-y-3"}>
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Número do Cartão</p>
+                          <div
+                            ref={setCardNumberMountEl}
+                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                          />
+                        </div>
+                        <button
+                          onClick={() => setStripeStep(2)}
+                          disabled={!stripeReady}
+                          className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          Continuar →
+                        </button>
+                      </div>
+
+                      {/* Step 2: Validade + CVC */}
+                      <div className={stripeStep === 2 ? "space-y-3" : "absolute top-0 left-0 w-full opacity-0 pointer-events-none space-y-3"}>
+                        <button
+                          onClick={() => setStripeStep(1)}
+                          className="text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
+                        >
+                          ← Voltar
+                        </button>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Validade</p>
+                            <div
+                              ref={setCardExpiryMountEl}
+                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">CVC</p>
+                            <div
+                              ref={setCardCvcMountEl}
+                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus-within:border-indigo-500 transition-colors min-h-[46px]"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleStripeConfirm}
+                          disabled={stripeLoading || !stripeReady}
+                          className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {stripeLoading ? (
+                            <>
+                              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              Processando...
+                            </>
+                          ) : (
+                            <>🔒 Confirmar Pagamento</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
                     <p className="text-center text-[10px] text-slate-400">
                       Pagamento processado com segurança via Stripe
@@ -1072,6 +1142,7 @@ return (
                         setPaymentData(null);
                         setPaymentStatus("pending");
                         setPaymentPhase("awaiting_payment");
+                        setStripeStep(1);
                       }}
                       className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
                     >

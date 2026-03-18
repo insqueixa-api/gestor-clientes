@@ -501,6 +501,8 @@ return NextResponse.json(
                 publishable_key: publishableKey,
                 price_amount: Number(computedPrice),
                 currency,
+                beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
+                institution: String(gateway?.config?.institution || "").trim() || "Stripe",
               },
               { status: 200, headers: NO_STORE_HEADERS }
             );
