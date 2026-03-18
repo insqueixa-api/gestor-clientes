@@ -472,8 +472,7 @@ function copyField(key: string, value: string) {
 
 // BRL: vai direto pro PIX, sem seletor
     if (selectedAccount.price_currency === "BRL") {
-      setPendingRenew({ price: renewPrice, period: renewPeriod });
-      await handleMethodConfirm("card"); // force_manual: false → cai no MP normalmente
+      await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
       return;
     }
 
@@ -673,8 +672,13 @@ if (fulfillment === "done") {
 
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin. 
   const supportPhone = sessionData?.admin_whatsapp || "";
-async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
-    if (!pendingRenew || !selectedAccount || !session) return;
+async function handleMethodConfirmDirect(
+    choice: "card" | "apple_google" | "manual",
+    overridePrice?: PlanPrice,
+    overridePeriod?: string
+  ) {
+    const resolvedPeriod = overridePeriod ?? pendingRenew?.period;
+    if (!resolvedPeriod || !selectedAccount || !session) return;
     setShowMethodSelector(false);
 
     try {
@@ -690,7 +694,7 @@ async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
         body: JSON.stringify({
           session_token: session,
           client_id: selectedAccount.id,
-          period: pendingRenew.period,
+          period: resolvedPeriod,
           screens: selectedAccount.screens,
           force_manual: choice === "manual",
         }),
@@ -763,7 +767,7 @@ async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
 
           <div className="p-4 space-y-3">
             <button
-              onClick={() => handleMethodConfirm("card")}
+              onClick={() => handleMethodConfirmDirect("card")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">💳</div>
@@ -774,7 +778,7 @@ async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
             </button>
 
             <button
-              onClick={() => handleMethodConfirm("apple_google")}
+              onClick={() => handleMethodConfirmDirect("apple_google")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-xl shrink-0">📱</div>
@@ -785,7 +789,7 @@ async function handleMethodConfirm(choice: "card" | "apple_google" | "manual") {
             </button>
 
             <button
-              onClick={() => handleMethodConfirm("manual")}
+              onClick={() => handleMethodConfirmDirect("manual")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl shrink-0">🏦</div>
