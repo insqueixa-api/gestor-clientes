@@ -156,7 +156,9 @@ type ClientDetail = {
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
-  dont_message_until: string | null;
+dont_message_until: string | null;
+
+  name_prefix?: string | null; // ✅ ADICIONADO: Saudação Principal
 
   // ✅ NOVOS CAMPOS SECUNDÁRIOS ADICIONADOS AQUI
   secondary_display_name?: string | null;
@@ -333,12 +335,14 @@ const tid = await getCurrentTenantId();
       let dbSecName: string | null = null;
       let dbSecPhone: string | null = null;
       let dbSecUsername: string | null = null;
+      let dbNamePrefix: string | null = null; // ✅ NOVA VARIÁVEL PARA O PREFIXO
 
       try {
         // 1) pega ID da tabela e notes direto da tabela clients
         const c = await supabaseBrowser
         .from("clients")
-        .select("plan_table_id, notes, price_currency, m3u_url, created_at, secondary_display_name, secondary_phone_e164, secondary_whatsapp_username") // ✅ AGORA PUXA OS SECUNDÁRIOS
+        // ✅ INCLUÍDO O name_prefix NA BUSCA
+        .select("plan_table_id, notes, price_currency, m3u_url, created_at, secondary_display_name, secondary_phone_e164, secondary_whatsapp_username, name_prefix") 
         .eq("tenant_id", tid)
         .eq("id", clientIdSafe)
         .maybeSingle();
@@ -359,6 +363,7 @@ const tid = await getCurrentTenantId();
         dbSecName = (c.data as any).secondary_display_name ?? null;
         dbSecPhone = (c.data as any).secondary_phone_e164 ?? null;
         dbSecUsername = (c.data as any).secondary_whatsapp_username ?? null;
+        dbNamePrefix = (c.data as any).name_prefix ?? null; // ✅ PEGA O PREFIXO DO BANCO
       }
 
 
@@ -413,6 +418,8 @@ plan_table_name: finalTableName ?? null,
         whatsapp_username: row.whatsapp_username ?? null,
         whatsapp_opt_in: typeof row.whatsapp_opt_in === "boolean" ? row.whatsapp_opt_in : true,
         dont_message_until: row.dont_message_until ?? null,
+        
+        name_prefix: dbNamePrefix ?? (row as any).name_prefix ?? null, // ✅ MAPEIA O PREFIXO PRINCIPAL
 
         // ✅ MAPEIA OS SECUNDÁRIOS (Puxa da fonte da verdade primeiro)
         secondary_display_name: dbSecName ?? (row as any).secondary_display_name ?? null,
@@ -1021,6 +1028,8 @@ const EVENT_LABELS: Record<string, string> = {
             secondary_phone_e164: client.secondary_phone_e164 ?? undefined,
             secondary_whatsapp_username: client.secondary_whatsapp_username ?? undefined,
             dont_message_until: client.dont_message_until ?? undefined,
+            
+            name_prefix: client.name_prefix ?? undefined, // ✅ REPASSA A SAUDAÇÃO PRINCIPAL PARA O MODAL!
 
             server_id: client.server_id,
             screens: client.screens,

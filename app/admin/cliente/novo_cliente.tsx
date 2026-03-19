@@ -1221,8 +1221,8 @@ if (isTrialMode && defaultBRL) {
 // ===== PREFILL EDIÇÃO =====
 if (clientToEdit) {
   setName((clientToEdit.client_name || "").trim());
-  setSalutation(clientToEdit.name_prefix || ""); // ✅ CORREÇÃO: Carrega a saudação principal
-
+  setSalutation(clientToEdit.name_prefix || ""); // ⬅️ ISSO AQUI É OBRIGATÓRIO PARA A SAUDAÇÃO APARECER!
+  
   // ✅ POPULAR DATA DE CADASTRO DO BANCO
   if (clientToEdit.created_at) {
     setCreatedAt(isoToLocalDateTimeInputValue(clientToEdit.created_at));

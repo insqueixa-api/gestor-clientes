@@ -77,7 +77,7 @@ whatsapp_username: string | null;
   secondary_name_prefix?: string | null;
   secondary_phone_e164?: string | null;
   secondary_whatsapp_username?: string | null;
-
+name_prefix?: string | null; // ✅ ADICIONADO AQUI
   apps_names: string[] | null;
 
   notes: string | null;
@@ -110,6 +110,7 @@ whatsapp: string;
   dont_message_until?: string;
   secondary_display_name?: string;
   secondary_name_prefix?: string;
+  name_prefix?: string;
   secondary_phone_e164?: string;
   secondary_whatsapp_username?: string;
   server_password?: string;
@@ -651,19 +652,27 @@ const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_tria
 const ids = typed.map((r) => String(r.id)).filter(Boolean);
 
 let notesMap: Record<string, string> = {};
+let prefixMap: Record<string, string> = {}; // ✅ NOVO MAPA PARA PREFIXOS
+
 try {
   if (ids.length > 0) {
     const { data: cData, error: cErr } = await supabaseBrowser
       .from("clients")
-      .select("id, notes")
+      .select("id, notes, name_prefix") // ✅ ADICIONADO name_prefix NO SELECT
       .eq("tenant_id", tid)
       .in("id", ids);
 
     if (!cErr && cData) {
       for (const row of (cData as any[]) || []) {
         const id = String(row.id);
+        
+        // Notes
         const n = row.notes;
         notesMap[id] = typeof n === "string" ? n : "";
+        
+        // Name Prefix
+        const pref = row.name_prefix;
+        prefixMap[id] = typeof pref === "string" ? pref : "";
       }
     } else if (cErr) {
       console.error("Falha ao carregar notes do clients:", cErr);
@@ -705,6 +714,7 @@ const mapped: TrialRow[] = typed.map((r) => {
   whatsapp: String(r.whatsapp_e164 ?? ""),
   whatsapp_username: r.whatsapp_username ?? undefined,
   whatsapp_opt_in: typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+  name_prefix: prefixMap[id] ?? (r as any).name_prefix ?? undefined,
   dont_message_until: r.dont_message_until ?? undefined,
   secondary_display_name: r.secondary_display_name ?? undefined,
   secondary_name_prefix: r.secondary_name_prefix ?? undefined,
@@ -845,11 +855,12 @@ useEffect(() => {
     const payload: ClientData = {
       id: r.id,
       client_name: r.name,
+      name_prefix: r.name_prefix, // ✅ AQUI ESTAVA FALTANDO! (Repassa a saudação)
       username: r.username,
       server_id: r.server_id,
       screens: 1,
 
-whatsapp_e164: r.whatsapp,
+      whatsapp_e164: r.whatsapp,
       whatsapp_username: r.whatsapp_username,
       whatsapp_opt_in: r.whatsapp_opt_in,
       dont_message_until: r.dont_message_until,
@@ -859,7 +870,7 @@ whatsapp_e164: r.whatsapp,
       secondary_whatsapp_username: r.secondary_whatsapp_username,
 
       server_password: r.server_password,
-      m3u_url: r.m3u_url, // ✅ ADICIONAR
+      m3u_url: r.m3u_url, 
 
       vencimento: r.vencimento,
       notes: r.notes ?? "",

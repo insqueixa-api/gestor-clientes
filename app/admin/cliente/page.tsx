@@ -1116,15 +1116,23 @@ const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
 
   // ✅ fonte da verdade: buscar do clients (porque a view NÃO tem tudo)
 let dbM3uUrl: string | undefined = undefined;
+let dbNamePrefix: string | undefined = undefined; // ✅ NOVO: Saudação Principal
 
 try {
   if (tenantId) {
     const { data, error } = await supabaseBrowser
   .from("clients")
-  .select("plan_table_id, price_currency, m3u_url")
+  .select("plan_table_id, price_currency, m3u_url, name_prefix") // ✅ ADICIONADO name_prefix
   .eq("tenant_id", tenantId)
   .eq("id", r.id)
   .maybeSingle();
+
+if (!error && data) {
+  dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
+  dbPriceCurrency = (data as any).price_currency ?? dbPriceCurrency;
+  dbM3uUrl = (data as any).m3u_url ?? undefined;
+  dbNamePrefix = (data as any).name_prefix ?? undefined; // ✅ RECEBE DO BANCO
+}
 
 if (!error && data) {
   dbPlanTableId = (data as any).plan_table_id ?? dbPlanTableId;
@@ -1141,6 +1149,7 @@ if (!error && data) {
   const payload: ClientData = {
     id: r.id,
     client_name: r.name,
+    name_prefix: dbNamePrefix, // ✅ AGORA SIM! Repassa a saudação pro Modal
     username: r.username,
     server_id: r.server_id,
     screens: r.screens,
