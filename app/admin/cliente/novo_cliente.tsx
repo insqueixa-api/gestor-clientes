@@ -11,11 +11,12 @@ type SelectOption = {
 };
 
 export type ClientData = {
-  id?: string;
-  created_at?: string; // ✅ ADICIONADO
-  client_name: string;
-  username: string;
-  server_password?: string;
+  id?: string;
+  created_at?: string; 
+  client_name: string;
+  name_prefix?: string | null; // ✅ ADICIONADO AQUI PARA O TYPESCRIPT PARAR DE RECLAMAR
+  username: string;
+  server_password?: string;
   whatsapp_e164?: string;
   whatsapp_username?: string;
   whatsapp_opt_in?: boolean;
@@ -1218,14 +1219,14 @@ if (isTrialMode && defaultBRL) {
 }
 
 // ===== PREFILL EDIÇÃO =====
-
 if (clientToEdit) {
-  setName((clientToEdit.client_name || "").trim());
+  setName((clientToEdit.client_name || "").trim());
+  setSalutation(clientToEdit.name_prefix || ""); // ✅ CORREÇÃO: Carrega a saudação principal
 
-  // ✅ POPULAR DATA DE CADASTRO DO BANCO
-  if (clientToEdit.created_at) {
-    setCreatedAt(isoToLocalDateTimeInputValue(clientToEdit.created_at));
-  }
+  // ✅ POPULAR DATA DE CADASTRO DO BANCO
+  if (clientToEdit.created_at) {
+    setCreatedAt(isoToLocalDateTimeInputValue(clientToEdit.created_at));
+  }
 
   // ✅ TABELA DO CLIENTE (prefill)
   // prioridade absoluta: plan_table_id do cliente, se existir e estiver na lista "tables"
@@ -3362,21 +3363,16 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 <div
-
   className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
-
-  onClick={onClose}
-
+  onPointerDown={(e) => {
+    // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
+    if (e.target === e.currentTarget) onClose();
+  }}
 >
-
 <div
-
   className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
-
   style={{ maxHeight: "90dvh" }}
-
-  onClick={(e) => e.stopPropagation()}
-
+  onPointerDown={(e) => e.stopPropagation()} // Impede que o clique dentro do modal vaze para o fundo
 >
 
           {/* HEADER */}

@@ -135,18 +135,19 @@ function buildTemplateVars(params: { recipientType: "client" | "reseller"; recip
   const row = params.recipientRow || {};
 
   // 1. DADOS BÁSICOS DINÂMICOS (Principal ou Secundário)
-  // ✅ Adicionado fallback para 'display_name' (usado nas Revendas)
-  const displayName = params.isSecondary
-    ? String(row.secondary_display_name || "").trim()
-    : String(row.display_name || row.client_name || row.name || "").trim();
+  let displayName = "";
+  let namePrefix = "";
+
+  if (params.isSecondary) {
+    displayName = String(row.secondary_display_name || row.secondary_first_name || "").trim();
+    namePrefix = String(row.secondary_name_prefix || "").trim();
+  } else {
+    displayName = String(row.display_name || row.client_name || row.first_name || row.name || "").trim();
+    namePrefix = String(row.name_prefix || row.saudacao || "").trim();
+  }
 
   const primeiroNome = displayName.split(" ")[0] || "";
-
-  const namePrefix = params.isSecondary
-    ? String(row.secondary_name_prefix || "").trim()
-    : String(row.name_prefix || row.saudacao || "").trim();
-    
-  const saudacao = namePrefix ? namePrefix : "";
+  const saudacao = namePrefix || "";
 
   // 2. DATAS
   const createdAt = safeDate(row.created_at);
