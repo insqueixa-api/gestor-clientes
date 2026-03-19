@@ -1270,13 +1270,16 @@ setTimeout(() => {
         <div
           // ✅ LAYOUT: Items-end no mobile (sheet), center no desktop. Sem padding no mobile.
           className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
-          onClick={onClose}
+          onPointerDown={(e) => {
+            // Só fecha se começar o clique exatamente no fundo escuro
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
           <div
             // ✅ Ajuste Max Width e Altura
             className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
-style={{ maxHeight: "90dvh" }}
-            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: "90dvh" }}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             {/* HEADER (MANTÉM IGUAL) */}
             <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
@@ -1482,36 +1485,44 @@ style={{ maxHeight: "90dvh" }}
 
 <div className={`grid grid-cols-1 ${sendWhats ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 items-end`}></div>
 
-                  {/* WhatsApp: Toggle, Sessão e Modelo */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                      
-                      {/* Botão de Ligar/Desligar Envio */}
-                      <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar Whats?</span>
-                          <Switch checked={sendWhats} onChange={setSendWhats} label="" />
-                      </div>
+                  {/* WhatsApp: Toggle, Modelo e Sessão */}
+                  <div className="flex flex-col gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
+                          {/* Botão de Ligar/Desligar Envio */}
+                          <div onClick={() => setSendWhats(!sendWhats)} className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-white/70 tracking-tight">Enviar Mensagem?</span>
+                              <Switch checked={sendWhats} onChange={setSendWhats} label="" />
+                          </div>
 
-                      {/* Seletor de Sessão e Modelo (Só aparecem se o envio estiver ligado) */}
-                      {sendWhats && (
-                          <>
-                              <div className="animate-in fade-in zoom-in duration-200">
-                                  <Label>Sessão de Disparo</Label>
+                          {/* Seletor de Modelo (Na mesma linha do Toggle no Mobile) */}
+                          {sendWhats && (
+                              <div className="animate-in fade-in zoom-in duration-200 col-span-1 sm:col-span-1">
+                                  <Select 
+                                      value={selectedTemplateId} 
+                                      onChange={(e) => { 
+                                          const id = e.target.value; 
+                                          setSelectedTemplateId(id); 
+                                          const tpl = templates.find(t => t.id === id); 
+                                          if(tpl) setMessageContent(tpl.content); 
+                                      }}
+                                  >
+                                      <option value="">-- Manual --</option>
+                                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  </Select>
+                              </div>
+                          )}
+                          
+                          {/* Seletor de Sessão (No Desktop fica do lado, no Mobile vai pra baixo) */}
+                          {sendWhats && (
+                              <div className="animate-in fade-in zoom-in duration-200 col-span-2 sm:col-span-1">
                                   <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
                                       {sessionOptions.map(s => (
                                           <option key={s.id} value={s.id}>{s.label}</option>
                                       ))}
                                   </Select>
                               </div>
-
-                              <div className="animate-in fade-in zoom-in duration-200">
-                                  <Label>Modelo</Label>
-                                  <Select value={selectedTemplateId} onChange={(e) => { const id = e.target.value; setSelectedTemplateId(id); const tpl = templates.find(t => t.id === id); if(tpl) setMessageContent(tpl.content); }}>
-                                      <option value="">-- Personalizado --</option>
-                                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                  </Select>
-                              </div>
-                          </>
-                      )}
+                          )}
+                      </div>
                   </div>
 
                   {/* OBSERVAÇÕES */}
