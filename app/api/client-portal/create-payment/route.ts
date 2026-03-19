@@ -209,28 +209,33 @@ const { data: item, error: itemErr } = await supabaseAdmin
 
 if (itemErr || !item) return jsonError("Plano não encontrado", 404);
 
-// 3) calcula preço pelo número de telas
+// 3) calcula preço pelo número de telas (SEM MULTIPLICAÇÃO)
 const screens = Number((client as any).screens || 1);
-
-const exact = (item as any).plan_table_item_prices?.find((p: any) => p.screens_count === screens);
-const fallback = (item as any).plan_table_item_prices?.find((p: any) => p.screens_count === 1);
-
-let computedPrice =
-  exact?.price_amount ??
-  (fallback?.price_amount ? Number(fallback.price_amount) * screens : 0);
-
-// 4) override do cliente (mesma regra do seu get-prices)
 const clientOverride = Number((client as any).price_amount || 0);
 const clientPlanLabel = String((client as any).plan_label || "").trim();
 
+let computedPrice = 0;
+
+// Regra 1: Se o cliente tem um preço fixado (Override) no cadastro E está renovando o mesmo plano
 if (clientOverride > 0 && PERIOD_LABELS[period] === clientPlanLabel) {
   computedPrice = clientOverride;
+} 
+// Regra 2: Busca ESTRITAMENTE o valor para esta quantidade exata de telas na tabela
+else {
+  const exact = (item as any).plan_table_item_prices?.find(
+    (p: any) => p.screens_count === screens
+  );
+  
+  if (!exact || exact.price_amount == null) {
+    safeServerLog(`create-payment: preco inexistente para ${screens} telas no periodo ${period}`);
+    return jsonError(`Preço não configurado para ${screens} tela(s). Entre em contato com o suporte.`, 400);
+  }
+  
+  computedPrice = Number(exact.price_amount);
 }
 
-computedPrice = Number(computedPrice);
-
 if (!Number.isFinite(computedPrice) || computedPrice <= 0) {
-  return jsonError("Valor inválido", 400);
+  return jsonError("Valor inválido ou zerado.", 400);
 }
 
 // (opcional) log dev se o front mandou um valor diferente

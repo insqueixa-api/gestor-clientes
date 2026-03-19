@@ -163,29 +163,35 @@ if (!planTableId) {
       return jsonError("Erro interno", 500);
     }
 
-    // 5. Processar preços com override do cliente
-    const prices = (priceData || []).map((item: any) => {
-      const exact = item.plan_table_item_prices?.find(
-        (p: any) => p.screens_count === client.screens
-      );
-      const fallback = item.plan_table_item_prices?.find(
-        (p: any) => p.screens_count === 1
-      );
+    // 5. Processar preços (Sem multiplicações)
+    const prices = (priceData || [])
+      .map((item: any) => {
+        let price = 0;
 
-      let price =
-        exact?.price_amount ??
-        (fallback?.price_amount ? fallback.price_amount * client.screens : 0);
+        // Regra 1: Se é o plano atual do cliente e ele tem um preço fixado (Override), usamos ele.
+        if (client.price_amount > 0 && PERIOD_LABELS[item.period] === client.plan_label) {
+          price = client.price_amount;
+        } 
+        // Regra 2: Busca ESTRITAMENTE o valor para esta quantidade de telas na tabela
+        else {
+          const exact = item.plan_table_item_prices?.find(
+            (p: any) => p.screens_count === client.screens
+          );
+          
+          if (exact && exact.price_amount != null) {
+            price = exact.price_amount;
+          }
+        }
 
-      // Override: se o cliente tem price_amount definido E o período bate com o plano atual
-      if (client.price_amount && PERIOD_LABELS[item.period] === client.plan_label) {
-        price = client.price_amount;
-      }
+        return {
+          period: item.period,
+          price_amount: Number(price),
+        };
+      })
+      // Só devolve para a tela os planos que realmente têm preço configurado
+      .filter((p: any) => p.price_amount > 0);
 
-      return {
-        period: item.period,
-        price_amount: Number(price),
-      };
-    });
+      
 
 // 6. Descobrir se é Elite para aplicar a trava
     let isElite = false;
