@@ -144,6 +144,7 @@ whatsapp_e164: string | null;
 
   apps_names: string[] | null; // View retorna array de texto
   alerts_open: number | null;
+  min_app_expiry: string | null; // ✅ ADICIONADO: Nova coluna da View
 
   notes: string | null;
 
@@ -185,6 +186,7 @@ type ClientRow = {
   archived: boolean;
   alertsCount: number;
   apps: string[]; // ✅ Novo campo para a lista de apps
+  minAppExpiry: string | null; // ✅ ADICIONADO: Propriedade para o filtro usar
 
   // --- DADOS PARA O MODAL DE EDIÇÃO ---
   server_id: string;
@@ -371,6 +373,8 @@ function ClientePageContent() {
       setServerFilter("Todos");
       setPlanFilter("Todos");
       setDueFilter("Todos");
+      setAppFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
+      setAppDueFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
       setArchivedFilter("Não");
       
       // Reseta ordenação para o padrão inteligente
@@ -423,8 +427,10 @@ const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, bo
   const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>("Todos");
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">("Não");
   const [serverFilter, setServerFilter] = useState("Todos");
-  const [planFilter, setPlanFilter] = useState("Todos");
+const [planFilter, setPlanFilter] = useState("Todos");
   const [dueFilter, setDueFilter] = useState("Todos");
+  const [appFilter, setAppFilter] = useState("Todos"); // ✅ Filtro por nome do App
+  const [appDueFilter, setAppDueFilter] = useState("Todos"); // ✅ Filtro por vencimento do App
 
 // ✅ Mobile: menu de filtros
 const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -724,6 +730,7 @@ if (appsData && appsData.length > 0) {
         archived: Boolean(r.client_is_archived),
         alertsCount: Number(r.alerts_open || 0),
         apps: r.apps_names || [],
+        minAppExpiry: r.min_app_expiry || null, // ✅ CORRIGIDO: Sem o (as any) porque tipamos ali em cima
 
         server_id: String(r.server_id ?? ""),
         // ✅ ADICIONADO: Mapeia o ID vindo da view
@@ -906,6 +913,18 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
     if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
     if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
     if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
+
+    // ✅ Filtro por Nome do Aplicativo
+    if (appFilter !== "Todos" && !r.apps?.includes(appFilter)) return false;
+
+    // ✅ Filtro por Vencimento do Aplicativo (Próximos 15 ou 30 dias)
+    // ✅ CORREÇÃO: Deixando `diff > 15` ele inclui os vencidos e os próximos 15 dias.
+    if (appDueFilter !== "Todos") {
+      if (!r.minAppExpiry) return false;
+      const diff = getDiffDays(r.minAppExpiry);
+      if (appDueFilter === "15" && diff > 15) return false;
+      if (appDueFilter === "30" && diff > 30) return false;
+    }
 
     if (dueFilter !== "Todos") {
         const diff = getDiffDays(r.dueISODate);
@@ -1687,7 +1706,7 @@ return (
     )}
   </div>
 
-  <div className="w-[190px]">
+  <div className="w-[180px]">
     <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "Todos" | ClientStatus)}>
       <option value="Todos">Status (Todos)</option>
       <option value="Ativo">Ativo</option>
@@ -1695,7 +1714,7 @@ return (
     </Select>
   </div>
 
-  <div className="w-[220px]">
+  <div className="w-[180px]">
     <Select value={serverFilter} onChange={(e) => setServerFilter(e.target.value)}>
       <option value="Todos">Servidor (Todos)</option>
       {uniqueServers.map((s) => (
@@ -1704,7 +1723,7 @@ return (
     </Select>
   </div>
 
-  <div className="w-[190px]">
+  <div className="w-[180px]">
     <Select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
       <option value="Todos">Plano (Todos)</option>
       {uniqueplano.map((p) => (
@@ -1713,7 +1732,7 @@ return (
     </Select>
   </div>
 
-<div className="w-[210px]">
+  <div className="w-[180px]">
     <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
       <option value="Todos">Vencimento (Todos)</option>
       <option value="Venceu há 2 dias">Venceu há 2 dias</option>
@@ -1725,25 +1744,43 @@ return (
     </Select>
   </div>
 
-<button
-  onClick={() => {
-    // Limpa filtros
-    setSearch("");
-    setStatusFilter("Todos");
-    setServerFilter("Todos");
-    setPlanFilter("Todos");
-    setDueFilter("Todos");
-    setArchivedFilter("Não");
-    
-    // ✅ RESETA ORDENAÇÃO (Volta para o padrão inteligente)
-    setSortKey("due");
-    setSortDir("asc");
-    setIsDefaultSort(true);
-  }}
-  className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
->
-  <IconX /> Limpar
-</button>
+  {/* ✅ Select de Aplicativos Cadastrados */}
+  <div className="w-[180px]">
+    <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
+      <option value="Todos">Aplicativo (Todos)</option>
+      {Object.values(appsIndex.byId).map((app) => (
+        <option key={app.id} value={app.name}>{app.name}</option>
+      ))}
+    </Select>
+  </div>
+
+  {/* ✅ Select de Vencimento dos Apps */}
+  <div className="w-[180px]">
+    <Select value={appDueFilter} onChange={(e) => setAppDueFilter(e.target.value)}>
+      <option value="Todos">Venc. App (Todos)</option>
+      <option value="15">Próximos 15 dias</option>
+      <option value="30">Próximos 30 dias</option>
+    </Select>
+  </div>
+
+  <button
+    onClick={() => {
+      setSearch("");
+      setStatusFilter("Todos");
+      setServerFilter("Todos");
+      setPlanFilter("Todos");
+      setDueFilter("Todos");
+      setAppFilter("Todos");
+      setAppDueFilter("Todos");
+      setArchivedFilter("Não");
+      setSortKey("due");
+      setSortDir("asc");
+      setIsDefaultSort(true);
+    }}
+    className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+  >
+    <IconX /> Limpar
+  </button>
 </div>
 
 
@@ -1811,10 +1848,7 @@ return (
     </Select>
 
     {/* ✅ Vencimento */}
-    <Select
-      value={dueFilter}
-      onChange={(e) => setDueFilter(e.target.value)}
-    >
+    <Select value={dueFilter} onChange={(e) => setDueFilter(e.target.value)}>
       <option value="Todos">Vencimento (Todos)</option>
       <option value="Venceu há 2 dias">Venceu há 2 dias</option>
       <option value="Venceu Ontem">Venceu Ontem</option>
@@ -1824,32 +1858,45 @@ return (
       <option value="Mês Atual">Mês Atual</option>
     </Select>
 
+    {/* ✅ Filtros de App no Mobile */}
+    <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
+      <option value="Todos">Aplicativo (Todos)</option>
+      {Object.values(appsIndex.byId).map((app) => (
+        <option key={app.id} value={app.name}>{app.name}</option>
+      ))}
+    </Select>
+
+    <Select value={appDueFilter} onChange={(e) => setAppDueFilter(e.target.value)}>
+      <option value="Todos">Venc. App (Todos)</option>
+      <option value="15">App vence em 15 dias</option>
+      <option value="30">App vence em 30 dias</option>
+    </Select>
+
     {/* ✅ Limpar */}
     <button
-  onClick={() => {
-    setSearch("");
-    setStatusFilter("Todos");
-    setServerFilter("Todos");
-    setPlanFilter("Todos");
-    setDueFilter("Todos");
-    setArchivedFilter("Não");
-    
-    // ✅ RESETA ORDENAÇÃO
-    setSortKey("due");
-    setSortDir("asc");
-    setIsDefaultSort(true);
-    
-    setMobileFiltersOpen(false);
-  }}
-  className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
->
-  <IconX /> Limpar
-</button>
+      onClick={() => {
+        setSearch("");
+        setStatusFilter("Todos");
+        setServerFilter("Todos");
+        setPlanFilter("Todos");
+        setDueFilter("Todos");
+        setAppFilter("Todos"); 
+        setAppDueFilter("Todos"); 
+        setArchivedFilter("Não");
+        
+        // RESETA ORDENAÇÃO
+        setSortKey("due");
+        setSortDir("asc");
+        setIsDefaultSort(true);
+        
+        setMobileFiltersOpen(false);
+      }}
+      className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+    >
+      <IconX /> Limpar
+    </button>
   </div>
 )}
-
-
-
 
       </div>
 
