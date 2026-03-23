@@ -85,18 +85,26 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
   const [saving, setSaving] = useState(false);
 
   // Carregar dados iniciais
-  useEffect(() => {
+useEffect(() => {
     async function loadData() {
       if (isEditing && plan) {
         setName(plan.name);
         setCurrency(plan.currency);
         setOriginalCurrency(plan.currency);
-        
         await loadItemsFromPlan(plan.id, plan.currency);
+      } else if (isSaasCredits) {
+        // saas_credits não clona nada — inicializa estrutura fixa direto
+        setItems(CREDIT_TIERS.map((tier) => ({
+          itemId: `temp-${tier}`,
+          period: tier,
+          credits: 0,
+          price1: "",
+          price2: "",
+          price3: "",
+        })));
       }
       setLoading(false);
     }
-    
     loadData();
   }, [plan, isEditing]);
 

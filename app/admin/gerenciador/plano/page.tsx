@@ -457,28 +457,65 @@ useEffect(() => {
         </div>
       )}
 
-            {!loading && (
-        <div
-          className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-            <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
-              Lista de Tabelas{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
-                {filteredPlans.length}
-              </span>
-            </div>
-          </div>
+            {!loading && (() => {
+        const groups = [
+          {
+            key: "iptv",
+            label: "Tabelas IPTV",
+            icon: <IconTV />,
+            color: "text-sky-500",
+            plans: filteredPlans.filter((p) => p.table_type === "iptv"),
+          },
+          {
+            key: "saas",
+            label: "Tabelas SaaS",
+            icon: <IconWpp />,
+            color: "text-purple-500",
+            plans: filteredPlans.filter((p) => p.table_type === "saas"),
+          },
+          {
+            key: "saas_credits",
+            label: "Venda Créditos SaaS",
+            icon: <IconCoins />,
+            color: "text-emerald-500",
+            plans: filteredPlans.filter((p) => p.table_type === "saas_credits"),
+          },
+        ].filter((g) => g.plans.length > 0);
 
-          {filteredPlans.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 dark:text-white/40 italic">
-              Nenhuma tabela encontrada.
+        if (groups.length === 0) {
+          return (
+            <div
+              className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                Nenhuma tabela encontrada.
+              </div>
             </div>
-          ) : (
-            <div className="p-4 sm:p-5">
-              <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                {filteredPlans.map((plan) => {
+          );
+        }
+
+        return (
+          <div className="space-y-6" onClick={(e) => e.stopPropagation()}>
+            {groups.map((group) => (
+              <div
+                key={group.key}
+                className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
+              >
+                {/* Cabeçalho do grupo */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                  <span className={`${group.color}`}>{group.icon}</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+                    {group.label}
+                  </span>
+                  <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                    {group.plans.length}
+                  </span>
+                </div>
+
+                <div className="p-4 sm:p-5">
+                  <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                    {group.plans.map((plan) => {
                   const isExpanded = !!expanded[plan.id];
 
                   return (
@@ -660,11 +697,13 @@ useEffect(() => {
                     </div>
                   );
                 })}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
 
       {/* Modal Unificado */}
