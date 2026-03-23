@@ -268,12 +268,12 @@ const GATEWAY_META: GatewayMeta[] = [
         required: false,
       },
       {
-        key: "routing_number",
-        label: "Routing number",
-        type: "text",
-        placeholder: "Ex: 084009519",
-        required: true,
-      },
+        key: "routing_number",
+        label: "Routing number (Opcional)",
+        type: "text",
+        placeholder: "Ex: 084009519",
+        required: false,
+      },
       {
         key: "swift_bic",
         label: "Swift/BIC",
