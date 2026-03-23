@@ -261,8 +261,8 @@ export default function SaasRenewModal({
         if (tmplData && alive) {
           setTemplates(tmplData);
           const def =
+            tmplData.find(t => t.name.toLowerCase().includes("saas pagamento realizado")) ||
             tmplData.find(t => t.name.toLowerCase().includes("saas renov")) ||
-            tmplData.find(t => t.name.toLowerCase().includes("renov")) ||
             null;
           if (def) {
             setSelectedTemplateId(def.id);
