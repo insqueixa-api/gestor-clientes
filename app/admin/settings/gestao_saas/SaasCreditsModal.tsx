@@ -324,6 +324,8 @@ export default function SaasCreditsModal({
         p_to_tenant_id: targetTenantId,
         p_amount: selectedTier.credits,
         p_description: notes.trim() || `Compra de ${selectedTier.credits} créditos SaaS`,
+        p_price_amount: effectivePrice ?? null,
+        p_price_currency: currency,
       });
       if (error) throw new Error(error.message);
 

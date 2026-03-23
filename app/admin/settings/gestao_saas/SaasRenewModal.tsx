@@ -336,8 +336,28 @@ export default function SaasRenewModal({
         p_tenant_id: targetTenantId,
         p_days: selectedTier.days,
         p_description: notes.trim() || `Renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
+        p_price_amount: effectivePrice ?? null,
+        p_price_currency: currency,
       });
       if (error) throw new Error(error.message);
+
+      // Registra valor financeiro na transação
+      if (effectivePrice && effectivePrice > 0) {
+        const myTid = await getCurrentTenantId();
+        const { data: { user } } = await supabaseBrowser.auth.getUser();
+        await supabaseBrowser
+          .from("saas_credit_transactions")
+          .update({
+            price_amount: effectivePrice,
+            price_currency: currency,
+          })
+          .eq("tenant_id", targetTenantId)
+          .eq("ref_tenant_id", myTid)
+          .eq("type", "consume")
+          .is("price_amount", null)
+          .order("created_at", { ascending: false })
+          .limit(1);
+      }
 
       // WhatsApp
       if (sendWhats && messageContent.trim()) {
