@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
-import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ ADICIONADO
+import { useConfirm } from "@/app/admin/HookuseConfirm";
+import SaasCreditsModal from "./SaasCreditsModal";
 
 // ============================================================
 // HELPERS DE TELEFONE (igual ao ResellerFormModal)
@@ -992,7 +993,11 @@ const sortedTenants = useMemo(() => {
         />
       )}
       {creditsTarget && (
-        <CreditsModal tenant={creditsTarget}
+        <SaasCreditsModal
+          tenantId={creditsTarget.id}
+          tenantName={creditsTarget.name}
+          creditsPlanTableId={(creditsTarget as any).credits_plan_table_id ?? null}
+          currentBalance={creditsTarget.credit_balance}
           onClose={() => setCreditsTarget(null)}
           onSuccess={() => { setCreditsTarget(null); loadData(); addToast("success", "Créditos enviados!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -1990,72 +1995,6 @@ function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
   );
 }
 
-// ============================================================
-// MODAL: CRÉDITOS
-// ============================================================
-function CreditsModal({ tenant, onClose, onSuccess, onError }: {
-  tenant: SaasTenant; onClose: () => void; onSuccess: () => void; onError: (m: string) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [amount, setAmount] = useState(10);
-  const [description, setDescription] = useState("Recarga de créditos");
-
-  const handleTransfer = async () => {
-    if (amount <= 0) { onError("Valor deve ser maior que zero."); return; }
-    setSaving(true);
-    const { error } = await supabaseBrowser.rpc("saas_transfer_credits", {
-      p_to_tenant_id: tenant.id, p_amount: amount, p_description: description,
-    });
-    setSaving(false);
-    if (error) onError(error.message); else onSuccess();
-  };
-
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
-          <h3 className="font-bold text-base text-slate-800 dark:text-white">Enviar Créditos</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-white"><IconX /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="text-center">
-            <div className="font-bold text-slate-800 dark:text-white">{tenant.name}</div>
-            <div className="text-xs text-slate-400 mt-0.5">Saldo atual: <strong>{tenant.credit_balance}</strong></div>
-          </div>
-          <div>
-            <FieldLabel>Quantidade</FieldLabel>
-            <div className="grid grid-cols-4 gap-2 mt-1 mb-2">
-              {[5, 10, 30, 50].map(v => (
-                <button key={v} onClick={() => setAmount(v)}
-                  className={`py-2 rounded-lg border text-xs font-bold transition-all ${amount === v ? "bg-sky-500 border-sky-500 text-white" : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"}`}>
-                  {v}
-                </button>
-              ))}
-            </div>
-            <FieldInput type="number" min={1} value={amount} onChange={e => setAmount(Number(e.target.value))} className="text-center" />
-          </div>
-          <div>
-            <FieldLabel>Descrição</FieldLabel>
-            <FieldInput value={description} onChange={e => setDescription(e.target.value)} />
-          </div>
-          <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-lg p-3 text-center">
-            <div className="text-xs text-slate-400 mb-1">Saldo após envio</div>
-            <div className="text-2xl font-bold text-sky-600 dark:text-sky-400">{tenant.credit_balance + amount}</div>
-          </div>
-        </div>
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-3">
-          <button onClick={onClose} className="text-slate-500 dark:text-white/50 font-bold text-xs uppercase">Cancelar</button>
-          <button onClick={handleTransfer} disabled={saving}
-            className="px-5 py-2.5 bg-sky-600 text-white font-bold rounded-lg text-xs uppercase hover:bg-sky-500 transition disabled:opacity-50">
-            {saving ? "Enviando..." : `Enviar ${amount} créditos`}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
 
 // ============================================================
 // MODAL: HISTÓRICO

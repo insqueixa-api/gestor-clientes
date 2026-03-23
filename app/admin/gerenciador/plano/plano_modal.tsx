@@ -140,7 +140,16 @@ useEffect(() => {
         };
       });
       
-      const ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+      // saas_credits usa tiers próprios, não PERIOD_ORDER
+      const isCreditTable = matrix.some(m => m.period.startsWith("C_"));
+      
+      let ordered: EditableItem[];
+      if (isCreditTable) {
+        const tierOrder = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
+        ordered = tierOrder.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+      } else {
+        ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+      }
       setItems(ordered);
     }
   }
@@ -277,8 +286,9 @@ useEffect(() => {
 if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
         // ✅ Atualiza preços - TRAVADO COM TENANT E SEM NEGATIVOS
+        const maxScreens = isSaasCredits ? 1 : 3;
         for (const row of items) {
-          for (let screen = 1; screen <= 3; screen++) {
+          for (let screen = 1; screen <= maxScreens; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
             if (val === "") continue;
             
