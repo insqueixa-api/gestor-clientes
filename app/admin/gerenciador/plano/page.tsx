@@ -329,11 +329,12 @@ useEffect(() => {
           <div className="relative">
             <button
               onClick={() => {
-                if (userRole === "SUPERADMIN" || userRole === "MASTER") {
-                  setDropdownOpen((v) => !v);
-                } else {
+                if (userRole === "USER") {
                   setNewTableType("iptv");
                   setIsNewOpen(true);
+                } else {
+                  // SUPERADMIN, MASTER ou ainda carregando (null) → dropdown
+                  setDropdownOpen((v) => !v);
                 }
               }}
               className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
