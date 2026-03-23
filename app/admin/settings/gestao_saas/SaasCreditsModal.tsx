@@ -23,10 +23,11 @@ interface MessageTemplate {
 }
 
 interface Props {
-  tenantId: string;        // o tenant que vai RECEBER os créditos
+  tenantId: string;
   tenantName: string;
-  creditsPlanTableId: string | null; // credits_plan_table_id do tenant
+  creditsPlanTableId: string | null;
   currentBalance: number;
+  isTrial: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
@@ -113,6 +114,7 @@ export default function SaasCreditsModal({
   tenantName,
   creditsPlanTableId,
   currentBalance,
+  isTrial,
   onClose,
   onSuccess,
   onError,
@@ -154,8 +156,9 @@ export default function SaasCreditsModal({
   }, [customPrice, selectedTier]);
 
   const canSave = useMemo(() => {
+    if (isTrial) return false;
     return !!(selectedTier && effectivePrice && effectivePrice > 0 && myTenantId);
-  }, [selectedTier, effectivePrice, myTenantId]);
+  }, [isTrial, selectedTier, effectivePrice, myTenantId]);
 
   // ── Carrega sessões WA ──
   async function loadSessions() {
@@ -376,6 +379,10 @@ export default function SaasCreditsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white dark:bg-[#161b22]">
           {loading ? (
             <div className="py-12 text-center text-slate-400 animate-pulse">Carregando pacotes...</div>
+          ) : isTrial ? (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium">
+              ⛔ Revendedor em período de teste. Renove a licença antes de vender créditos.
+            </div>
           ) : !creditsPlanTableId ? (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm font-medium">
               Este revendedor não tem uma tabela de créditos vinculada. Configure em Editar Perfil.

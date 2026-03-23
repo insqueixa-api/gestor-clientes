@@ -996,8 +996,9 @@ const sortedTenants = useMemo(() => {
         <SaasCreditsModal
           tenantId={creditsTarget.id}
           tenantName={creditsTarget.name}
-          creditsPlanTableId={(creditsTarget as any).credits_plan_table_id ?? null}
+          creditsPlanTableId={creditsTarget.credits_plan_table_id ?? null}
           currentBalance={creditsTarget.credit_balance}
+          isTrial={creditsTarget.is_trial}
           onClose={() => setCreditsTarget(null)}
           onSuccess={() => { setCreditsTarget(null); loadData(); addToast("success", "Créditos enviados!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -1475,8 +1476,8 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
       const { data } = await supabaseBrowser
         .from("plan_tables")
         .select("id, name, table_type")
-        .eq("is_system_default", true)
-        .in("table_type", ["saas", "saas_credits"]);
+        .in("table_type", ["saas", "saas_credits"])
+        .eq("is_active", true);
 
       if (!data) return;
       setSaasTables(data.filter((t: any) => t.table_type === "saas"));

@@ -345,8 +345,7 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
             .single();
 
           if (itemError || !newItem) {
-            console.error("Erro ao inserir item:", item.period, itemError?.message);
-            continue;
+            throw new Error(`Erro ao salvar item "${item.period}": ${itemError?.message || "resposta vazia"}`);
           }
           // saas_credits: só screens_count=1 (o preço do pacote)
           const pricesToInsert = isSaasCredits
