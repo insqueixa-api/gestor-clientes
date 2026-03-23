@@ -122,10 +122,14 @@ export default function SaasCreditsModal({
   const [saving, setSaving] = useState(false);
   const [loadingText, setLoadingText] = useState("Processando...");
 
-  // Tiers do plano
+// Tiers do plano
   const [tiers, setTiers] = useState<CreditTier[]>([]);
   const [currency, setCurrency] = useState<Currency>("BRL");
   const [selectedTier, setSelectedTier] = useState<CreditTier | null>(null);
+
+  // Seletor de tabela
+  const [availableTables, setAvailableTables] = useState<{ id: string; name: string; currency: Currency }[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>(creditsPlanTableId ?? "");
 
   // Preço customizado (editável)
   const [customPrice, setCustomPrice] = useState<string>("");
@@ -183,18 +187,33 @@ export default function SaasCreditsModal({
 
         await loadSessions();
 
+        // Busca todas as tabelas saas_credits disponíveis para o superadmin
+        const { data: allTables } = await supabaseBrowser
+          .from("plan_tables")
+          .select("id, name, currency")
+          .eq("table_type", "saas_credits")
+          .eq("is_active", true);
+
+        if (allTables && alive) {
+          setAvailableTables(allTables as any);
+        }
+
+        // Tabela ativa: a do tenant ou a primeira disponível
+        const activeTableId = creditsPlanTableId ?? allTables?.[0]?.id ?? null;
+        if (activeTableId && alive) setSelectedTableId(activeTableId);
+
         // Carrega tiers do plano de créditos do tenant alvo
-        if (creditsPlanTableId) {
+        if (activeTableId) {
           const { data: items } = await supabaseBrowser
             .from("plan_table_items")
             .select(`id, period, prices:plan_table_item_prices(screens_count, price_amount)`)
-            .eq("plan_table_id", creditsPlanTableId);
+            .eq("plan_table_id", activeTableId);
 
           // Carrega moeda da tabela
           const { data: tbl } = await supabaseBrowser
             .from("plan_tables")
             .select("currency")
-            .eq("id", creditsPlanTableId)
+            .eq("id", activeTableId)
             .single();
 
           if (tbl?.currency) setCurrency(tbl.currency as Currency);
@@ -248,6 +267,42 @@ export default function SaasCreditsModal({
     })();
     return () => { alive = false; };
   }, [creditsPlanTableId]);
+
+  // ── Recarrega tiers quando muda a tabela ──
+  useEffect(() => {
+    if (!selectedTableId) return;
+    (async () => {
+      const { data: items } = await supabaseBrowser
+        .from("plan_table_items")
+        .select(`id, period, prices:plan_table_item_prices(screens_count, price_amount)`)
+        .eq("plan_table_id", selectedTableId);
+
+      const { data: tbl } = await supabaseBrowser
+        .from("plan_tables")
+        .select("currency")
+        .eq("id", selectedTableId)
+        .single();
+
+      if (tbl?.currency) setCurrency(tbl.currency as Currency);
+
+      if (items) {
+        const mapped: CreditTier[] = TIER_ORDER
+          .map(period => {
+            const item = (items as any[]).find(i => i.period === period);
+            if (!item) return null;
+            const priceRow = item.prices?.find((p: any) => p.screens_count === 1);
+            return { period, credits: TIER_LABELS[period] ?? 0, price: priceRow?.price_amount ?? null };
+          })
+          .filter(Boolean) as CreditTier[];
+
+        setTiers(mapped);
+        setSelectedTier(null);
+        setCustomPrice("");
+        const first = mapped.find(t => t.price !== null);
+        if (first) setSelectedTier(first);
+      }
+    })();
+  }, [selectedTableId]);
 
   // ── Quando muda tier: reseta preço customizado ──
   function selectTier(tier: CreditTier) {
@@ -327,6 +382,24 @@ export default function SaasCreditsModal({
             </div>
           ) : (
             <>
+              {/* SELETOR DE TABELA */}
+              {availableTables.length > 1 && (
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <span className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                    Tabela de Preços
+                  </span>
+                  <select
+                    value={selectedTableId}
+                    onChange={e => setSelectedTableId(e.target.value)}
+                    className="h-8 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors min-w-[160px]"
+                  >
+                    {availableTables.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} {t.currency}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* PACOTES — ROW 1: 10 a 100 */}
               <div>
                 <Label>Pacotes Pequenos</Label>
