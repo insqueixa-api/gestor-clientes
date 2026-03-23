@@ -337,14 +337,17 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
               tenant_id: tenantId,
               plan_table_id: newTableId,
               period: item.period,
-              months: monthsMap[item.period] ?? 0,
-              credits_base: item.credits,
+              months: monthsMap[item.period] ?? 1,
+              // saas_credits não tem créditos reais — usa 1 para satisfazer a constraint
+              credits_base: isSaasCredits ? 1 : (item.credits || 1),
             })
             .select()
             .single();
 
-          if (itemError || !newItem) continue;
-
+          if (itemError || !newItem) {
+            console.error("Erro ao inserir item:", item.period, itemError?.message);
+            continue;
+          }
           // saas_credits: só screens_count=1 (o preço do pacote)
           const pricesToInsert = isSaasCredits
             ? [{ tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) }]
