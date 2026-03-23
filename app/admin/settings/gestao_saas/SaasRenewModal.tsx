@@ -463,23 +463,21 @@ export default function SaasRenewModal({
                       )}
                     </div>
 
-                    {!isSuperadmin && (
-                      <div className="text-right">
-                        <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-1">
-                          Valor
-                        </div>
-                        <div className="flex items-center gap-1 justify-end">
-                          <span className="text-xs font-bold text-slate-400">{currency}</span>
-                          <input
-                            value={customPrice || (selectedTier.price !== null ? String(selectedTier.price).replace(".", ",") : "")}
-                            onChange={e => setCustomPrice(e.target.value)}
-                            placeholder="0,00"
-                            className="w-24 h-8 px-2 text-right bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold text-emerald-600 dark:text-emerald-400 outline-none focus:border-emerald-500/50"
-                          />
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 text-right">preço editável</div>
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-1">
+                        Valor
                       </div>
-                    )}
+                      <div className="flex items-center gap-1 justify-end">
+                        <span className="text-xs font-bold text-slate-400">{currency}</span>
+                        <input
+                          value={customPrice || (selectedTier.price !== null ? String(selectedTier.price).replace(".", ",") : "")}
+                          onChange={e => setCustomPrice(e.target.value)}
+                          placeholder="0,00"
+                          className="w-24 h-8 px-2 text-right bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold text-emerald-600 dark:text-emerald-400 outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 text-right">preço editável</div>
+                    </div>
                   </div>
                 </div>
               )}
