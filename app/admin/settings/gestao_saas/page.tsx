@@ -1444,7 +1444,15 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   mode === "edit" ? (tenant?.role === "USER" ? "USER" : "MASTER") : "MASTER"
 );
   const [trialDays, setTrialDays] = useState(7);
-  const [creditsInitial, setCreditsInitial] = useState(0);
+
+  const trialExpires = useMemo(() => {
+    const now = new Date();
+    const target = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+    return new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit", month: "2-digit", year: "numeric",
+    }).format(target) + " às 23:59";
+  }, [trialDays]);
 
   // Contato
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
@@ -1492,6 +1500,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Pré-preenche telefone no modo edit
   useEffect(() => {
@@ -1560,7 +1569,7 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
               password,
               role,
               trial_days: trialDays,
-              credits_initial: creditsInitial,
+              credits_initial: 0,
               responsible_name: responsibleName.trim() || name.trim(),
               phone_e164: phoneE164 || null,
               whatsapp_username: waUsername.trim() || null,
@@ -1657,7 +1666,23 @@ if (error) throw new Error(error.message);
                 </div>
                 <div>
                   <FieldLabel>Senha *</FieldLabel>
-                  <FieldInput type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mín. 8 caracteres" />
+                  <div className="relative">
+                    <FieldInput
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Mín. 8 caracteres"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white/80 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <IconEyeOff /> : <IconEye />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div>
@@ -1690,11 +1715,14 @@ if (error) throw new Error(error.message);
                     <option value={5}>5 dias</option>
                     <option value={7}>7 dias (Máximo)</option>
                   </select>
-                  <p className="text-[10px] text-slate-400 mt-1">Selecione o limite do teste.</p>
                 </div>
                 <div>
-                  <FieldLabel>Créditos Iniciais</FieldLabel>
-                  <FieldInput type="number" min={0} value={creditsInitial} onChange={e => setCreditsInitial(Number(e.target.value))} />
+                  <FieldLabel>Vencimento do Teste</FieldLabel>
+                  <div className="h-10 w-full px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white">
+                    {trialDays === 0 ? (
+                      <span className="text-slate-400 dark:text-white/30 font-normal">Sem teste</span>
+                    ) : trialExpires}
+                  </div>
                 </div>
               </div>
             </>
@@ -2148,6 +2176,21 @@ function IconRestore() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 12a9 9 0 1 1-3-6.7" />
       <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}
+function IconEye() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
+      <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+    </svg>
+  );
+}
+function IconEyeOff() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/>
     </svg>
   );
 }
