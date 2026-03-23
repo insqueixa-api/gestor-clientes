@@ -374,7 +374,6 @@ function ClientePageContent() {
       setPlanFilter("Todos");
       setDueFilter("Todos");
       setAppFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
-      setAppDueFilter("Todos"); // ✅ CORREÇÃO: Faltou aqui
       setArchivedFilter("Não");
       
       // Reseta ordenação para o padrão inteligente
@@ -429,8 +428,8 @@ const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, bo
   const [serverFilter, setServerFilter] = useState("Todos");
 const [planFilter, setPlanFilter] = useState("Todos");
   const [dueFilter, setDueFilter] = useState("Todos");
-  const [appFilter, setAppFilter] = useState("Todos"); // ✅ Filtro por nome do App
-  const [appDueFilter, setAppDueFilter] = useState("Todos"); // ✅ Filtro por vencimento do App
+
+  const [appFilter, setAppFilter] = useState("Todos"); // ✅ Filtro Único: Vencimento ou Nome
 
 // ✅ Mobile: menu de filtros
 const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -914,16 +913,16 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
     if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
     if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
 
-    // ✅ Filtro por Nome do Aplicativo
-    if (appFilter !== "Todos" && !r.apps?.includes(appFilter)) return false;
-
-    // ✅ Filtro por Vencimento do Aplicativo (Próximos 15 ou 30 dias)
-    // ✅ CORREÇÃO: Deixando `diff > 15` ele inclui os vencidos e os próximos 15 dias.
-    if (appDueFilter !== "Todos") {
-      if (!r.minAppExpiry) return false;
-      const diff = getDiffDays(r.minAppExpiry);
-      if (appDueFilter === "15" && diff > 15) return false;
-      if (appDueFilter === "30" && diff > 30) return false;
+    // ✅ Filtro Único de Aplicativos (Vencimento ou Nome do App)
+    if (appFilter !== "Todos") {
+      if (appFilter === "15_dias" || appFilter === "30_dias") {
+        if (!r.minAppExpiry) return false;
+        const diff = getDiffDays(r.minAppExpiry);
+        if (appFilter === "15_dias" && diff > 15) return false;
+        if (appFilter === "30_dias" && diff > 30) return false;
+      } else {
+        if (!r.apps?.includes(appFilter)) return false;
+      }
     }
 
     if (dueFilter !== "Todos") {
@@ -954,8 +953,8 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
     }
 
     return true;
-  });
-}, [rows, search, statusFilter, serverFilter, planFilter, dueFilter]);
+});
+}, [rows, search, statusFilter, serverFilter, planFilter, dueFilter, appFilter]); // ✅ BUG CORRIGIDO: AppFilter adicionado nas dependências
 
 
   useEffect(() => {
@@ -1744,39 +1743,36 @@ return (
     </Select>
   </div>
 
-  {/* ✅ Select de Aplicativos Cadastrados */}
-  <div className="w-[180px]">
+  {/* ✅ Select Único de Aplicativos e Vencimentos */}
+  <div className="w-[190px]">
     <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
-      <option value="Todos">Aplicativo (Todos)</option>
-      {Object.values(appsIndex.byId).map((app) => (
-        <option key={app.id} value={app.name}>{app.name}</option>
-      ))}
+      <option value="Todos">Aplicativos (Todos)</option>
+      <option value="15_dias">Vencendo em 15 dias</option>
+      <option value="30_dias">Vencendo em 30 dias</option>
+      <optgroup label="Filtrar por nome">
+        {Object.values(appsIndex.byId).map((app) => (
+          <option key={app.id} value={app.name}>{app.name}</option>
+        ))}
+      </optgroup>
     </Select>
   </div>
 
-  {/* ✅ Select de Vencimento dos Apps */}
-  <div className="w-[180px]">
-    <Select value={appDueFilter} onChange={(e) => setAppDueFilter(e.target.value)}>
-      <option value="Todos">Venc. App (Todos)</option>
-      <option value="15">Próximos 15 dias</option>
-      <option value="30">Próximos 30 dias</option>
-    </Select>
-  </div>
-
-  <button
-    onClick={() => {
-      setSearch("");
-      setStatusFilter("Todos");
-      setServerFilter("Todos");
-      setPlanFilter("Todos");
-      setDueFilter("Todos");
-      setAppFilter("Todos");
-      setAppDueFilter("Todos");
-      setArchivedFilter("Não");
-      setSortKey("due");
-      setSortDir("asc");
-      setIsDefaultSort(true);
-    }}
+<button
+  onClick={() => {
+    // Limpa filtros
+    setSearch("");
+    setStatusFilter("Todos");
+    setServerFilter("Todos");
+    setPlanFilter("Todos");
+    setDueFilter("Todos");
+    setAppFilter("Todos");
+    setArchivedFilter("Não");
+    
+    // ✅ RESETA ORDENAÇÃO
+    setSortKey("due");
+    setSortDir("asc");
+    setIsDefaultSort(true);
+  }}
     className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
   >
     <IconX /> Limpar
@@ -1858,18 +1854,16 @@ return (
       <option value="Mês Atual">Mês Atual</option>
     </Select>
 
-    {/* ✅ Filtros de App no Mobile */}
+    {/* ✅ Filtro Único de Aplicativos no Mobile */}
     <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
-      <option value="Todos">Aplicativo (Todos)</option>
-      {Object.values(appsIndex.byId).map((app) => (
-        <option key={app.id} value={app.name}>{app.name}</option>
-      ))}
-    </Select>
-
-    <Select value={appDueFilter} onChange={(e) => setAppDueFilter(e.target.value)}>
-      <option value="Todos">Venc. App (Todos)</option>
-      <option value="15">App vence em 15 dias</option>
-      <option value="30">App vence em 30 dias</option>
+      <option value="Todos">Aplicativos (Todos)</option>
+      <option value="15_dias">Vencendo em 15 dias</option>
+      <option value="30_dias">Vencendo em 30 dias</option>
+      <optgroup label="Filtrar por nome">
+        {Object.values(appsIndex.byId).map((app) => (
+          <option key={app.id} value={app.name}>{app.name}</option>
+        ))}
+      </optgroup>
     </Select>
 
     {/* ✅ Limpar */}
@@ -1880,11 +1874,10 @@ return (
         setServerFilter("Todos");
         setPlanFilter("Todos");
         setDueFilter("Todos");
-        setAppFilter("Todos"); 
-        setAppDueFilter("Todos"); 
+        setAppFilter("Todos");
         setArchivedFilter("Não");
         
-        // RESETA ORDENAÇÃO
+        // ✅ RESETA ORDENAÇÃO
         setSortKey("due");
         setSortDir("asc");
         setIsDefaultSort(true);
