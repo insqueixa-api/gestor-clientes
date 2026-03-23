@@ -71,6 +71,7 @@ interface PlanTable {
   name: string;
   currency: Currency;
   is_system_default?: boolean | null;
+  table_type?: string | null;
   items: PlanTableItem[];
 }
 
@@ -1103,11 +1104,12 @@ useEffect(() => {
         const tRes = await supabaseBrowser
           .from("plan_tables")
           .select(
-            `id, name, currency, is_system_default,
+            `id, name, currency, is_system_default, table_type,
              items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`
           )
           .eq("tenant_id", tid)
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .eq("table_type", "iptv");
         if (!alive) return;
 
 // ✅ 4) Templates (para mensagem automática / teste)
