@@ -46,6 +46,8 @@ export async function POST(req: Request) {
     phone_e164,
     whatsapp_username,
     notes,
+    saas_plan_table_id,
+    credits_plan_table_id,
   } = body;
 
   if (!name || !email || !password || !role) {
@@ -106,6 +108,20 @@ export async function POST(req: Request) {
       { error: "provision_failed", hint: rpcErr.message },
       { status: 500 }
     );
+  }
+
+  // Salva tabelas de plano SaaS no tenant recém-criado
+  if (newTenantId && (saas_plan_table_id || credits_plan_table_id)) {
+    const planPatch: Record<string, string | null> = {};
+    if (saas_plan_table_id) planPatch.saas_plan_table_id = saas_plan_table_id;
+    if (role === "MASTER" && credits_plan_table_id) {
+      planPatch.credits_plan_table_id = credits_plan_table_id;
+    }
+    await adminSupabase
+      .from("tenants")
+      .update(planPatch)
+      .eq("id", newTenantId);
+    // Falha silenciosa — não bloqueia a criação, pode corrigir depois no edit
   }
 
   return NextResponse.json({ ok: true, tenant_id: newTenantId, user_id: newUserId });

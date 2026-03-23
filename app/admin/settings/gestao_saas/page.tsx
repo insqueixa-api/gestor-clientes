@@ -87,7 +87,9 @@ type SaasTenant = {
   notes: string | null;
   auth_email: string | null;
 last_sign_in_at: string | null;
-  whatsapp_sessions: number;       // ✅ NOVO
+  whatsapp_sessions: number;
+  saas_plan_table_id: string | null;
+  credits_plan_table_id: string | null;
   alertsCount?: number;
 };
 
@@ -1448,6 +1450,38 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
 
+  // Tabelas de plano SaaS
+  const [saasTables, setSaasTables] = useState<{ id: string; name: string }[]>([]);
+  const [creditsTables, setCreditsTables] = useState<{ id: string; name: string }[]>([]);
+  const [saasPlanTableId, setSaasPlanTableId] = useState<string>(tenant?.saas_plan_table_id ?? "");
+  const [creditsPlanTableId, setCreditsPlanTableId] = useState<string>(tenant?.credits_plan_table_id ?? "");
+
+  // Carrega tabelas disponíveis (saas e saas_credits, system_default=true)
+  useEffect(() => {
+    async function loadPlanTables() {
+      const { data } = await supabaseBrowser
+        .from("plan_tables")
+        .select("id, name, table_type")
+        .eq("is_system_default", true)
+        .in("table_type", ["saas", "saas_credits"]);
+
+      if (!data) return;
+      setSaasTables(data.filter((t: any) => t.table_type === "saas"));
+      setCreditsTables(data.filter((t: any) => t.table_type === "saas_credits"));
+
+      // Pré-seleciona o padrão se ainda vazio
+      if (!saasPlanTableId) {
+        const def = data.find((t: any) => t.table_type === "saas");
+        if (def) setSaasPlanTableId(def.id);
+      }
+      if (!creditsPlanTableId) {
+        const def = data.find((t: any) => t.table_type === "saas_credits");
+        if (def) setCreditsPlanTableId(def.id);
+      }
+    }
+    loadPlanTables();
+  }, []);
+
   // Telefone (igual ao ResellerFormModal)
   const [phoneDisplay, setPhoneDisplay] = useState("");
   const [phoneE164, setPhoneE164] = useState(tenant?.phone_e164 ?? "");
@@ -1518,21 +1552,23 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
     try {
       if (mode === "new") {
         const res = await fetch("/api/saas/provision", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            email: email.trim().toLowerCase(),
-            password,
-            role,
-            trial_days: trialDays,
-            credits_initial: creditsInitial,
-            responsible_name: responsibleName.trim() || name.trim(),
-            phone_e164: phoneE164 || null,
-            whatsapp_username: waUsername.trim() || null,
-            notes: notes.trim() || null,
-          }),
-        });
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: name.trim(),
+              email: email.trim().toLowerCase(),
+              password,
+              role,
+              trial_days: trialDays,
+              credits_initial: creditsInitial,
+              responsible_name: responsibleName.trim() || name.trim(),
+              phone_e164: phoneE164 || null,
+              whatsapp_username: waUsername.trim() || null,
+              notes: notes.trim() || null,
+              saas_plan_table_id: saasPlanTableId || null,
+              credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
+            }),
+          });
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
@@ -1552,6 +1588,19 @@ if (error) throw new Error(error.message);
           p_role: role,
         });
         if (roleErr) throw new Error(roleErr.message);
+
+        // Salva tabelas de plano diretamente em tenants
+        const planPatch: any = { saas_plan_table_id: saasPlanTableId || null };
+        if (role === "MASTER") {
+          planPatch.credits_plan_table_id = creditsPlanTableId || null;
+        } else {
+          planPatch.credits_plan_table_id = null; // USER não tem tabela de créditos
+        }
+        const { error: planErr } = await supabaseBrowser
+          .from("tenants")
+          .update(planPatch)
+          .eq("id", tenant!.id);
+        if (planErr) throw new Error(`Erro ao salvar tabelas: ${planErr.message}`);
 
         // Atualiza email se preenchido
         if (newEmail.trim() && newEmail.trim() !== email) {
@@ -1762,6 +1811,45 @@ if (error) throw new Error(error.message);
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Tabelas de Plano SaaS */}
+          <SectionTitle>Tabelas de Plano</SectionTitle>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Tabela de Renovação SaaS — todos (MASTER e USER) */}
+            <div>
+              <FieldLabel>Renovação SaaS</FieldLabel>
+              <select
+                value={saasPlanTableId}
+                onChange={e => setSaasPlanTableId(e.target.value)}
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+              >
+                <option value="">— Selecionar —</option>
+                {saasTables.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">Usada na renovação do painel SaaS.</p>
+            </div>
+
+            {/* Tabela de Créditos — apenas MASTER */}
+            {role === "MASTER" && (
+              <div>
+                <FieldLabel>Venda de Créditos SaaS</FieldLabel>
+                <select
+                  value={creditsPlanTableId}
+                  onChange={e => setCreditsPlanTableId(e.target.value)}
+                  className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                >
+                  <option value="">— Selecionar —</option>
+                  {creditsTables.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">Usada quando o MASTER compra créditos.</p>
+              </div>
+            )}
           </div>
 
           {/* Notas */}
