@@ -23,14 +23,16 @@ type PlanRow = {
   name: string;
   currency: "BRL" | "USD" | "EUR";
   is_active: boolean;
-is_system_default: boolean;
+  is_system_default: boolean;
   is_master_only: boolean;
+  table_type: "iptv" | "saas" | "saas_credits";
   created_at: string;
   items: Item[];
 };
 
 type Props = {
   plan?: PlanRow | null;
+  newTableType?: "iptv" | "saas" | "saas_credits" | null;
   onClose: () => void;
   onSuccess: () => void;
 };
@@ -54,6 +56,12 @@ const PERIOD_LABELS: Record<string, string> = {
   ANNUAL: "Anual",
 };
 
+const CREDIT_TIERS = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"] as const;
+const CREDIT_TIER_LABELS: Record<string, string> = {
+  C_10:"10 cr", C_20:"20 cr", C_30:"30 cr", C_50:"50 cr", C_100:"100 cr",
+  C_150:"150 cr", C_200:"200 cr", C_300:"300 cr", C_400:"400 cr", C_500:"500 cr",
+};
+
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">
@@ -62,8 +70,12 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
-const isEditing = !!plan;
+export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: Props) {
+  const isEditing = !!plan;
+  const effectiveType = plan?.table_type ?? newTableType ?? "iptv";
+  const isSaasCredits = effectiveType === "saas_credits";
+  const isSaas = effectiveType === "saas";
+  const isMasterOnly = plan?.is_master_only ?? isSaas;
   
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
@@ -131,8 +143,22 @@ const isEditing = !!plan;
     const tenantId = await getCurrentTenantId();
     const supabase = supabaseBrowser;
 
+    // saas_credits: estrutura fixa de tiers, sem clonar
+    if (isSaasCredits) {
+      setItems(CREDIT_TIERS.map((tier) => ({
+        itemId: `temp-${tier}`,
+        period: tier,
+        credits: 0,
+        price1: "",
+        price2: "",
+        price3: "",
+      })));
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data: defaultTable } = await supabase
+      const query = supabase
         .from("plan_tables")
         .select(`
           id,
@@ -148,9 +174,12 @@ const isEditing = !!plan;
           )
         `)
         .eq("tenant_id", tenantId)
-        .eq("currency", curr)
-        .eq("is_system_default", true)
-        .single();
+        .eq("is_system_default", true);
+
+      // saas clona da tabela is_master_only=true; iptv clona pela moeda
+      const { data: defaultTable } = isSaas
+        ? await query.eq("is_master_only", true).single()
+        : await query.eq("currency", curr).eq("is_master_only", false).single();
 
       if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
         const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
@@ -196,13 +225,12 @@ const isEditing = !!plan;
 
   // Quando muda moeda na criação ou edição
   useEffect(() => {
+    if (isSaasCredits) return; // créditos não dependem de moeda
     if (isEditing) {
-      // Na edição, só clona se a moeda mudou do original
       if (currency !== originalCurrency) {
         cloneFromDefault(currency);
       }
     } else {
-      // Na criação, sempre clona da padrão
       cloneFromDefault(currency);
     }
   }, [currency]);
@@ -264,7 +292,9 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
             name: name.trim(),
             currency: currency,
             is_system_default: false,
-            is_active: true
+            is_active: true,
+            is_master_only: isSaas,
+            table_type: effectiveType,
           })
           .select()
           .single();
@@ -276,6 +306,12 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
           MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
         };
 
+        const getSafeNum = (val: string) => {
+          if (!val) return null;
+          const n = Number(val);
+          return n >= 0 ? n : 0;
+        };
+
         for (const item of items) {
           const { data: newItem, error: itemError } = await supabase
             .from("plan_table_items")
@@ -283,41 +319,22 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
               tenant_id: tenantId,
               plan_table_id: newTableId,
               period: item.period,
-              months: monthsMap[item.period],
-              credits_base: item.credits
+              months: monthsMap[item.period] ?? 0,
+              credits_base: item.credits,
             })
             .select()
             .single();
 
           if (itemError || !newItem) continue;
 
-          // ✅ Bloqueio de inserção de valores negativos
-          const getSafeNum = (val: string) => {
-             if (!val) return null;
-             const n = Number(val);
-             return n >= 0 ? n : 0; // Força 0 se tentarem hackear enviando negativo
-          };
-
-          const pricesToInsert = [
-            { 
-              tenant_id: tenantId, 
-              plan_table_item_id: newItem.id, 
-              screens_count: 1, 
-              price_amount: getSafeNum(item.price1) 
-            },
-            { 
-              tenant_id: tenantId, 
-              plan_table_item_id: newItem.id, 
-              screens_count: 2, 
-              price_amount: getSafeNum(item.price2) 
-            },
-            { 
-              tenant_id: tenantId, 
-              plan_table_item_id: newItem.id, 
-              screens_count: 3, 
-              price_amount: getSafeNum(item.price3) 
-            },
-          ];
+          // saas_credits: só screens_count=1 (o preço do pacote)
+          const pricesToInsert = isSaasCredits
+            ? [{ tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) }]
+            : [
+                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) },
+                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 2, price_amount: getSafeNum(item.price2) },
+                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 3, price_amount: getSafeNum(item.price3) },
+              ];
 
           await supabase.from("plan_table_item_prices").insert(pricesToInsert);
         }
@@ -343,7 +360,13 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
         {/* HEADER - Título simples, botões menores no mobile */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
           <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-            {isEditing ? "Editar Tabela" : "Nova Tabela"}
+            {isEditing
+              ? "Editar Tabela"
+              : isSaasCredits
+              ? "Nova Tabela — Venda Créditos SaaS"
+              : isSaas
+              ? "Nova Tabela SaaS"
+              : "Nova Tabela IPTV"}
           </h2>
 
           <div className="flex gap-2 sm:gap-3">
@@ -408,15 +431,59 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
           {/* Matriz de Preços */}
           <div className="p-4 sm:p-6 space-y-8">
-            {loading ? (
+           {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
-                {isEditing ? "Carregando dados..." : "Clonando tabela padrão..."}
+                {isEditing ? "Carregando dados..." : "Preparando tabela..."}
               </div>
+            ) : isSaasCredits ? (
+              /* ── Créditos SaaS: dois grupos de 5 ── */
+              [
+                { label: "Pacotes Pequenos", tiers: CREDIT_TIERS.slice(0, 5) },
+                { label: "Pacotes Grandes",  tiers: CREDIT_TIERS.slice(5) },
+              ].map(({ label, tiers }) => (
+                <div key={label} className="animate-in slide-in-from-left-2 duration-300">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                    {label}
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                    {tiers.map((tier) => {
+                      const item = items.find(i => i.period === tier);
+                      if (!item) return null;
+                      return (
+                        <div
+                          key={tier}
+                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all"
+                        >
+                          <div className="flex justify-between items-center w-full mb-1">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">Pacote</span>
+                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              {CREDIT_TIER_LABELS[tier]}
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
+                              {formatCurrency(currency)}
+                            </span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.price1}
+                              onChange={(e) => handlePriceChange(tier, "price1", e.target.value)}
+                              className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5"
+                              placeholder="0,00"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
             ) : (
-              (plan?.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
+              (isMasterOnly ? [1, 2] : [1, 2, 3]).map((screenCount) => (
   <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
     <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-      Preços para {screenCount} {plan?.is_master_only
+      Preços para {screenCount} {isMasterOnly
         ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
         : screenCount === 1 ? 'tela' : 'telas'}
     </h3>

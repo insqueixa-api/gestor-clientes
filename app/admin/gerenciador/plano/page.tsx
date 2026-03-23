@@ -26,11 +26,19 @@ export type PlanRow = {
   is_active: boolean;
   is_system_default: boolean;
   is_master_only: boolean;
+  table_type: "iptv" | "saas" | "saas_credits";
   created_at: string;
   items: Item[];
 };
 
 const PERIOD_ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
+
+const CREDIT_TIERS_ROW1 = ["C_10", "C_20", "C_30", "C_50", "C_100"] as const;
+const CREDIT_TIERS_ROW2 = ["C_150", "C_200", "C_300", "C_400", "C_500"] as const;
+const CREDIT_TIER_LABELS: Record<string, string> = {
+  C_10: "10 cr", C_20: "20 cr", C_30: "30 cr", C_50: "50 cr", C_100: "100 cr",
+  C_150: "150 cr", C_200: "200 cr", C_300: "300 cr", C_400: "400 cr", C_500: "500 cr",
+};
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -48,16 +56,22 @@ export default function PlanosPage() {
   const [editingPlan, setEditingPlan] = useState<PlanRow | null>(null);
 
   // ✅ controle de expand/minimize por tabela (default: minimizada)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  // ✅ NOVO: busca (padrão admin)
+const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
+  const [userRole, setUserRole] = useState<"SUPERADMIN" | "MASTER" | "USER" | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [newTableType, setNewTableType] = useState<"iptv" | "saas" | "saas_credits" | null>(null);
 
   const filteredPlans = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return plano;
+    // USER não enxerga tabelas SaaS nem Créditos SaaS
+    let plans = userRole === "USER"
+      ? plano.filter((p) => p.table_type === "iptv")
+      : plano;
 
-    return plano.filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return plans;
+
+    return plans.filter((p) => {
       const hay = [
         p.name,
         p.currency,
@@ -69,7 +83,7 @@ export default function PlanosPage() {
 
       return hay.includes(q);
     });
-  }, [plano, search]);
+  }, [plano, search, userRole]);
 
 
   // --- Carregamento de Dados (Integral) ---
@@ -261,9 +275,26 @@ async function fetchPlano() {
     }
   }
 
-  useEffect(() => {
+useEffect(() => {
+    fetchRole();
     fetchPlano();
   }, []);
+
+  async function fetchRole() {
+    try {
+      const supabase = supabaseBrowser;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (profile?.role) setUserRole(profile.role);
+    } catch (e) {
+      console.error("Erro ao buscar role:", e);
+    }
+  }
 
   const formatMoney = (amount: number | null, currency: string) => {
     if (amount === null || amount === undefined) return "--";
@@ -295,14 +326,90 @@ async function fetchPlano() {
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <button
-            onClick={() => setIsNewOpen(true)}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-          >
-            <span>+</span> Nova Tabela
-          </button>
-        </div>
-      </div>
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (userRole === "SUPERADMIN" || userRole === "MASTER") {
+                  setDropdownOpen((v) => !v);
+                } else {
+                  setNewTableType("iptv");
+                  setIsNewOpen(true);
+                }
+              }}
+              className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+            >
+              <span>+</span> Nova Tabela
+            </button>
+
+            {dropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 z-40 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden min-w-[230px]">
+                  <div className="px-3 py-2 text-[10px] font-bold uppercase text-slate-400 dark:text-white/30 tracking-wider border-b border-slate-100 dark:border-white/5">
+                    Tipo de Tabela
+                  </div>
+
+                  {/* Opção 1 — IPTV */}
+                  <button
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setNewTableType("iptv");
+                      setIsNewOpen(true);
+                    }}
+                  >
+                    <span className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-500 shrink-0">
+                      <IconTV />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700 dark:text-white">Tabela IPTV</div>
+                      <div className="text-[10px] text-slate-400 dark:text-white/30">Renovação de cliente</div>
+                    </div>
+                  </button>
+
+                  {/* Opção 2 — SaaS */}
+                  <button
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setNewTableType("saas");
+                      setIsNewOpen(true);
+                    }}
+                  >
+                    <span className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 shrink-0">
+                      <IconWpp />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700 dark:text-white">Tabela SaaS</div>
+                      <div className="text-[10px] text-slate-400 dark:text-white/30">Renovação de SaaS</div>
+                    </div>
+                  </button>
+
+                  {/* Opção 3 — Créditos SaaS */}
+                  <button
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setNewTableType("saas_credits");
+                      setIsNewOpen(true);
+                    }}
+                  >
+                    <span className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
+                      <IconCoins />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700 dark:text-white">Venda Créditos SaaS</div>
+                      <div className="text-[10px] text-slate-400 dark:text-white/30">Pacotes de créditos</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>      </div>
 
       {/* Barra de Busca (padrão admin) */}
       <div
@@ -471,7 +578,46 @@ async function fetchPlano() {
                         </div>
                       </div>
 
-                      {isExpanded && (
+                      {isExpanded && plan.table_type === "saas_credits" ? (
+                        /* ── Créditos SaaS ── */
+                        <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
+                          {[
+                            { label: "Pacotes Pequenos", tiers: CREDIT_TIERS_ROW1 },
+                            { label: "Pacotes Grandes",  tiers: CREDIT_TIERS_ROW2  },
+                          ].map(({ label, tiers }) => (
+                            <div key={label} className="animate-in slide-in-from-left-2 duration-300">
+                              <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                                {label}
+                              </h3>
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                {tiers.map((tier) => {
+                                  const item  = plan.items.find((i) => i.period === tier);
+                                  const price = item?.prices?.find((p) => p.screens_count === 1)?.price_amount ?? null;
+                                  return (
+                                    <div
+                                      key={tier}
+                                      className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
+                                    >
+                                      <div className="flex justify-between items-center w-full mb-1">
+                                        <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
+                                          Pacote
+                                        </span>
+                                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                          {CREDIT_TIER_LABELS[tier]}
+                                        </span>
+                                      </div>
+                                      <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                        {formatMoney(price, plan.currency)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : isExpanded ? (
+                        /* ── IPTV / SaaS (comportamento original) ── */
                         <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
                           {(plan.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                             <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
@@ -509,7 +655,7 @@ async function fetchPlano() {
                             </div>
                           ))}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   );
                 })}
@@ -522,15 +668,18 @@ async function fetchPlano() {
 
       {/* Modal Unificado */}
 {(isNewOpen || editingPlan) && (
-  <PlanoModal 
-    plan={editingPlan} // Se null = modo criação, se objeto = modo edição
+  <PlanoModal
+    plan={editingPlan}
+    newTableType={newTableType}
     onClose={() => {
       setIsNewOpen(false);
       setEditingPlan(null);
+      setNewTableType(null);
     }}
     onSuccess={() => {
       setIsNewOpen(false);
       setEditingPlan(null);
+      setNewTableType(null);
       fetchPlano();
     }}
   />
@@ -542,6 +691,30 @@ function IconX() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+function IconTV() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="3" width="20" height="14" rx="2"/>
+      <path d="M8 21h8M12 17v4"/>
+    </svg>
+  );
+}
+function IconWpp() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/>
+    </svg>
+  );
+}
+function IconCoins() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="8" cy="8" r="6"/>
+      <path d="M18.09 10.37A6 6 0 1 0 10.34 18"/>
+      <path d="M7 6h1v4"/>
     </svg>
   );
 }
