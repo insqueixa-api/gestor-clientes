@@ -7,6 +7,7 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 import { getCurrentTenantId } from "@/lib/tenant";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import SaasCreditsModal from "./SaasCreditsModal";
+import SaasRenewModal from "./SaasRenewModal";
 
 // ============================================================
 // HELPERS DE TELEFONE (igual ao ResellerFormModal)
@@ -986,7 +987,13 @@ const sortedTenants = useMemo(() => {
         />
       )}
       {renewTarget && (
-        <RenewModal tenant={renewTarget} myRole={myRole}
+        <SaasRenewModal
+          tenantId={renewTarget.id}
+          tenantName={renewTarget.name}
+          saasPlanTableId={renewTarget.saas_plan_table_id ?? null}
+          currentExpiry={renewTarget.expires_at}
+          whatsappSessions={renewTarget.whatsapp_sessions}
+          isSuperadmin={myRole.toUpperCase() === "SUPERADMIN"}
           onClose={() => setRenewTarget(null)}
           onSuccess={() => { setRenewTarget(null); loadData(); addToast("success", "Licença renovada!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -1912,90 +1919,6 @@ if (error) throw new Error(error.message);
     document.body
   );
 }
-
-// ============================================================
-// MODAL: RENOVAR
-// ============================================================
-function RenewModal({ tenant, myRole, onClose, onSuccess, onError }: {
-  tenant: SaasTenant; myRole: string;
-  onClose: () => void; onSuccess: () => void; onError: (m: string) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const PERIODS = [
-    { label: "Mensal",     days: 30  },
-    { label: "Bimestral",  days: 60  },
-    { label: "Trimestral", days: 90  },
-    { label: "Semestral",  days: 180 },
-    { label: "Anual",      days: 365 },
-  ];
-  const [selectedDays, setSelectedDays] = useState(30);
-  const creditsNeeded = Math.ceil(selectedDays / 30) * (tenant.whatsapp_sessions ?? 1);
-  const isSuperadmin = myRole.toUpperCase() === "SUPERADMIN";
-
-  const handleRenew = async () => {
-    setSaving(true);
-    const { error } = await supabaseBrowser.rpc("saas_renew_license", {
-      p_tenant_id: tenant.id, p_days: selectedDays, p_description: `Renovação de ${selectedDays} dias`,
-    });
-    setSaving(false);
-    if (error) onError(error.message); else onSuccess();
-  };
-
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
-          <h3 className="font-bold text-base text-slate-800 dark:text-white">Renovar Licença</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-white"><IconX /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="text-center">
-            <div className="font-bold text-slate-800 dark:text-white">{tenant.name}</div>
-            <div className="text-xs text-slate-400 mt-0.5">Validade atual: {tenant.expires_at ? fmtDate(tenant.expires_at) : "sem data"}</div>
-          </div>
-          <div>
-            <FieldLabel>Período</FieldLabel>
-            <div className="flex flex-col gap-2 mt-1">
-              {PERIODS.map(p => (
-                <button key={p.days} onClick={() => setSelectedDays(p.days)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm font-bold transition-all ${
-                    selectedDays === p.days
-                      ? "bg-emerald-500 border-emerald-500 text-white"
-                      : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5"
-                  }`}>
-                  <span>{p.label}</span>
-                  <span className={`text-xs font-bold ${selectedDays === p.days ? "text-white/80" : "text-slate-400"}`}>
-                    {isSuperadmin ? "Gratuito" : (() => {
-                      const c = Math.ceil(p.days / 30) * (tenant.whatsapp_sessions ?? 1);
-                      return `${c} crédito${c > 1 ? "s" : ""}${(tenant.whatsapp_sessions ?? 1) > 1 ? " (2 sessões)" : ""}`;
-                    })()}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-          {!isSuperadmin && (
-            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg p-3 text-center">
-              <div className="text-xs text-slate-400 mb-1">Total a descontar</div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{creditsNeeded}</div>
-              <div className="text-xs text-slate-400">crédito{creditsNeeded > 1 ? "s" : ""} para {selectedDays} dias</div>
-            </div>
-          )}
-        </div>
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-3">
-          <button onClick={onClose} className="text-slate-500 dark:text-white/50 font-bold text-xs uppercase">Cancelar</button>
-          <button onClick={handleRenew} disabled={saving}
-            className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-lg text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50">
-            {saving ? "Renovando..." : `Renovar — ${PERIODS.find(p => p.days === selectedDays)?.label}`}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
 
 // ============================================================
 // MODAL: HISTÓRICO
