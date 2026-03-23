@@ -147,8 +147,43 @@ export default function SaasRenewModal({
   const [currency, setCurrency] = useState("BRL");
   const [selectedPeriod, setSelectedPeriod] = useState("MONTHLY");
 
-  // Preço customizável
+  // Seletor de tabela
+  const [availableTables, setAvailableTables] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTableId, setSelectedTableId] = useState<string>(saasPlanTableId ?? "");
+
+  // ── Preço customizável ──
   const [customPrice, setCustomPrice] = useState("");
+
+  // ── Recarrega tiers quando muda a tabela ──
+  useEffect(() => {
+    if (!selectedTableId) return;
+    (async () => {
+      const { data: tbl } = await supabaseBrowser
+        .from("plan_tables")
+        .select("currency")
+        .eq("id", selectedTableId)
+        .single();
+      if (tbl?.currency) setCurrency(tbl.currency);
+
+      const { data: items } = await supabaseBrowser
+        .from("plan_table_items")
+        .select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`)
+        .eq("plan_table_id", selectedTableId);
+
+      if (items) {
+        const mapped: PlanTier[] = PERIODS.map(p => {
+          const item = (items as any[]).find(i => i.period === p.period);
+          if (!item) return null;
+          const priceRow = item.prices?.find((pr: any) => pr.screens_count === 1);
+          return { period: p.period, days: p.days, label: p.label, price: priceRow?.price_amount ?? null, credits: item.credits_base ?? 0 };
+        }).filter(Boolean) as PlanTier[];
+
+        setTiers(mapped);
+        setCustomPrice("");
+        setSelectedPeriod(mapped.find(t => t.price !== null)?.period ?? "MONTHLY");
+      }
+    })();
+  }, [selectedTableId]);
 
   // WhatsApp
   const [sendWhats, setSendWhats] = useState(true);
@@ -215,12 +250,24 @@ export default function SaasRenewModal({
 
         await loadSessions();
 
+        // Busca todas as tabelas saas disponíveis
+        const { data: allTables } = await supabaseBrowser
+          .from("plan_tables")
+          .select("id, name")
+          .eq("table_type", "saas")
+          .eq("is_active", true);
+
+        if (allTables && alive) setAvailableTables(allTables as any);
+
+        const activeTableId = saasPlanTableId ?? allTables?.[0]?.id ?? null;
+        if (activeTableId && alive) setSelectedTableId(activeTableId);
+
         // Carrega tiers do plano de renovação
-        if (saasPlanTableId) {
+        if (activeTableId) {
           const { data: tbl } = await supabaseBrowser
             .from("plan_tables")
             .select("currency")
-            .eq("id", saasPlanTableId)
+            .eq("id", activeTableId)
             .single();
 
           if (tbl?.currency && alive) setCurrency(tbl.currency);
@@ -228,7 +275,7 @@ export default function SaasRenewModal({
           const { data: items } = await supabaseBrowser
             .from("plan_table_items")
             .select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`)
-            .eq("plan_table_id", saasPlanTableId);
+            .eq("plan_table_id", activeTableId);
 
           if (items && alive) {
             const mapped: PlanTier[] = PERIODS.map(p => {
@@ -351,6 +398,24 @@ export default function SaasRenewModal({
             </div>
           ) : (
             <>
+              {/* SELETOR DE TABELA */}
+              {availableTables.length > 1 && (
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <span className="text-xs font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                    Tabela de Preços
+                  </span>
+                  <select
+                    value={selectedTableId}
+                    onChange={e => setSelectedTableId(e.target.value)}
+                    className="h-8 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors min-w-[160px]"
+                  >
+                    {availableTables.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* PERÍODOS */}
               <div>
                 <FieldLabel>Período</FieldLabel>
@@ -368,13 +433,11 @@ export default function SaasRenewModal({
                     >
                       <span>{tier.label}</span>
                       <div className="flex items-center gap-3">
-                        {!isSuperadmin && (
-                          <span className={`text-xs font-bold ${selectedPeriod === tier.period ? "text-white/80" : "text-slate-400"}`}>
-                            {tier.credits * whatsappSessions} cr{whatsappSessions > 1 ? ` (${whatsappSessions} sessões)` : ""}
-                          </span>
-                        )}
+                        <span className={`text-xs font-bold ${selectedPeriod === tier.period ? "text-white/80" : "text-slate-400"}`}>
+                          {tier.credits * whatsappSessions} cr{whatsappSessions > 1 ? ` (${whatsappSessions} sessões)` : ""}
+                        </span>
                         <span className={`text-sm font-bold ${selectedPeriod === tier.period ? "text-white" : "text-slate-700 dark:text-white"}`}>
-                          {isSuperadmin ? "Gratuito" : tier.price !== null ? fmtMoney(currency, tier.price) : "—"}
+                          {tier.price !== null ? fmtMoney(currency, tier.price) : "—"}
                         </span>
                       </div>
                     </button>
