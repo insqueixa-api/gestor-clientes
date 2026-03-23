@@ -147,7 +147,11 @@ const [expanded, setExpanded] = useState<Record<string, boolean>>({});
       if (!newItem) continue;
 
       // Insere preços ZERADOS
-      const screens = tpl.is_master_only ? [1, 2] : [1, 2, 3];
+      const screens = tpl.is_master_only
+        ? [1, 2]
+        : tpl.table_type === "saas_credits"
+        ? [1]
+        : [1, 2, 3];
       await supabase.from("plan_table_item_prices").insert(
         screens.map(s => ({
           tenant_id: tenantId,
@@ -527,7 +531,9 @@ useEffect(() => {
                       <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                         <div className="flex items-center gap-3">
                           <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-                            {plan.is_system_default ? plan.name.split(" ")[0] : plan.name}
+                            {plan.is_system_default && plan.table_type === "iptv"
+                              ? plan.name.split(" ")[0]
+                              : plan.name}
                           </h2>
 
                           <div className="flex items-center gap-2">
