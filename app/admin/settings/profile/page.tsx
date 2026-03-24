@@ -256,6 +256,9 @@ const [waQr, setWaQr] = useState<string | null>(null);
 const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
 const [waLastError, setWaLastError] = useState<string | null>(null);
 
+// ✅ NOVO: Controle de dormência da Sessão 1
+const [waIsDormant, setWaIsDormant] = useState(true);
+
 const [waConfigExpanded, setWaConfigExpanded] = useState(false);
 
 // UI: info da sessão WhatsApp (vem do /api/whatsapp/status)
@@ -492,13 +495,22 @@ async function saveWaConfig() {
       } finally {
         setLoading(false);
       }
+
+      // ✅ Descobre se já estava conectado ou conectando e acorda o painel sozinho
+      fetchWaStatus().then(async ({ connected, status }) => {
+        if (connected || status === "qr" || status === "connecting") {
+          setWaIsDormant(false);
+          await refreshWhatsAppPanel(false, false);
+        }
+      });
+
     }
     load();
   }, []);
 
   useEffect(() => {
-  if (!tenantId) return;
-  if (!canPairWhatsApp) return;
+  // ✅ Interrompe o polling imediatamente se o painel estiver dormente
+  if (!tenantId || !canPairWhatsApp || waIsDormant) return;
 
   let stopped = false;
   let timer: any = null;
@@ -530,8 +542,8 @@ async function saveWaConfig() {
       return;
     }
 
-    // roda o refresh
-    await refreshWhatsAppPanel();
+    // ✅ Roda o refresh de forma totalmente invisível (sem loading chato)
+    await refreshWhatsAppPanel(false, false);
 
     // agenda próximo check baseado no status atual
     scheduleNext(waConnected ? INTERVAL_CONNECTED : INTERVAL_DISCONNECTED);
@@ -554,7 +566,7 @@ async function saveWaConfig() {
     clear();
     document.removeEventListener("visibilitychange", onVis);
   };
-}, [tenantId, canPairWhatsApp, waConnected]);
+}, [tenantId, canPairWhatsApp, waConnected, waIsDormant]); // ✅ Inserido aqui
 
 
 
@@ -695,13 +707,14 @@ setWaPushName(json.pushName ?? null);
 }
 
 
-// ✅ Adicionado o parâmetro forceQr
-async function refreshWhatsAppPanel(forceQr = false) {
-  setWaLoading(true);
+// ✅ Adicionado o parâmetro showVisualLoading para rodar em background
+async function refreshWhatsAppPanel(forceQr = false, showVisualLoading = true) {
+  if (showVisualLoading) setWaLoading(true);
   try {
     const { connected, status } = await fetchWaStatus();
 
 if (connected) {
+  setWaIsDormant(false); // ✅ Acorda o painel caso descubra que está conectado
   setWaQr(null);
   setWaQrDataUrl(null);
   const now = Date.now();
@@ -730,7 +743,7 @@ if (forceQr || status === "qr" || status === "connecting") {
 }
 
 } finally {
-      setWaLoading(false);
+      if (showVisualLoading) setWaLoading(false);
     }
     // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s
     if (!waPushName) {
@@ -1128,8 +1141,8 @@ setWaPushName(null);
 setWaProfilePicUrl(null);
 // ✅ Mantém o nome da sessão intacto para quando você conectar de novo!
 
-// força refresh da UI
-await refreshWhatsAppPanel();
+// ✅ Bota a sessão pra dormir para parar de martelar a VM à toa
+setWaIsDormant(true);
 
 } catch (e: any) {
   const msg = e?.message || "Erro ao desconectar";
@@ -1769,9 +1782,29 @@ return (
                   </div>
                 )}
 
-<div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
-  {waConnected && (
-  <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+                {/* ✅ Tela de dormência da Sessão 1 */}
+                {waIsDormant && !waConnected ? (
+                  <div className="text-center py-2">
+                    <button
+                      type="button" 
+                      onClick={() => {
+                        setWaIsDormant(false);
+                        void refreshWhatsAppPanel(true);
+                      }} 
+                      disabled={waLoading} 
+                      className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+                    >
+                      {waLoading ? "Gerando..." : "📲 Iniciar e Gerar QR"}
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      O painel ficará pausado até você iniciar o pareamento.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
+                      {waConnected && (
+                      <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
     <div className="flex items-center justify-between">
       <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
       <div className="flex items-center gap-2">
@@ -1927,15 +1960,18 @@ return (
                     className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
                   >
                     {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
-                  </button>
-                )}
-
-
-                
-              </>
+              </button>
             )}
-          </div>
-        </div>
+
+          </>
+        )}
+
+
+            
+          </>
+        )}
+      </div>
+    </div>
 
 
 
