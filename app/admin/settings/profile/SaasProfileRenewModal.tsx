@@ -15,12 +15,6 @@ interface PlanTier {
   credits: number;
 }
 
-interface MessageTemplate {
-  id: string;
-  name: string;
-  content: string;
-}
-
 interface Props {
   tenantId: string;
   role: "MASTER" | "USER";
@@ -58,46 +52,6 @@ function calcNewExpiry(currentExpiry: string | null, days: number): string {
   return result.toLocaleDateString("pt-BR", { timeZone: BILLING_TZ });
 }
 
-// --- HELPERS WHATSAPP ---
-function extractWaNumberFromJid(jid?: unknown): string {
-  if (typeof jid !== "string") return "";
-  return jid.split("@")[0]?.split(":")[0]?.replace(/\D/g, "") ?? "";
-}
-function formatBRPhoneFromDigits(digits: string): string {
-  if (!digits) return "";
-  if (digits.startsWith("55") && digits.length >= 12) {
-    const ddd = digits.slice(2, 4);
-    const rest = digits.slice(4);
-    if (rest.length === 9) return `+55 (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8) return `+55 (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-  }
-  return `+${digits}`;
-}
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
-}
-
-function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
-    />
-  );
-}
-
-function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
-      className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"}`}
-      aria-pressed={checked}>
-      <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
-    </button>
-  );
-}
 
 // ============================================================
 // MODAL PRINCIPAL
@@ -127,18 +81,8 @@ export default function SaasProfileRenewModal({
   const [currency, setCurrency] = useState("BRL");
   const [selectedPeriod, setSelectedPeriod] = useState("MONTHLY");
 
-  // WhatsApp
-  const [sendWhats, setSendWhats] = useState(true);
-  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [messageContent, setMessageContent] = useState("");
-  const [selectedSession, setSelectedSession] = useState("default");
-  const [sessionOptions, setSessionOptions] = useState<{ id: string; label: string }[]>([
-    { id: "default", label: "Carregando..." },
-  ]);
-  const [notes, setNotes] = useState("");
-
-  const isFirstRender = useRef(true);
+  
+  
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -162,24 +106,7 @@ export default function SaasProfileRenewModal({
     return calcNewExpiry(currentExpiry, selectedTier.days);
   }, [selectedTier, currentExpiry]);
 
-  // ── Carrega sessões WA ──
-  async function loadSessions() {
-    try {
-      const [r1, r2] = await Promise.all([
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null),
-      ]);
-      const p1 = r1?.ok ? await r1.json().catch(() => ({})) : {};
-      const p2 = r2?.ok ? await r2.json().catch(() => ({})) : {};
-      const n1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
-      const n2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
-      setSessionOptions([
-        { id: "default", label: buildWhatsAppSessionLabel(p1, n1) },
-        { id: "session2", label: buildWhatsAppSessionLabel(p2, n2) },
-      ]);
-    } catch {}
-  }
-
+  
   // ── Carrega tiers quando entra em "own_balance" ──
   useEffect(() => {
     if (step !== "own_balance") return;
@@ -189,17 +116,12 @@ export default function SaasProfileRenewModal({
     (async () => {
       setLoading(true);
       try {
-        const [, tblRes, itemsRes, tmplRes] = await Promise.all([
-          loadSessions(),
+        const [tblRes, itemsRes] = await Promise.all([
           supabaseBrowser.from("plan_tables").select("currency").eq("id", saasPlanTableId).single(),
           supabaseBrowser.from("plan_table_items")
             .select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`)
             .eq("plan_table_id", saasPlanTableId),
-          supabaseBrowser.from("message_templates").select("id, name, content")
-            .eq("tenant_id", tenantId).order("name", { ascending: true }),
         ]);
-
-        if (!alive) return;
 
         if ((tblRes as any).data?.currency) setCurrency((tblRes as any).data.currency);
 
@@ -214,16 +136,6 @@ export default function SaasProfileRenewModal({
           setTiers(mapped);
           const first = mapped.find(t => t.price !== null);
           if (first) setSelectedPeriod(first.period);
-        }
-
-        const tmplData = (tmplRes as any).data;
-        if (tmplData) {
-          setTemplates(tmplData);
-          const def =
-            tmplData.find((t: any) => t.name.toLowerCase().includes("saas pagamento")) ||
-            tmplData.find((t: any) => t.name.toLowerCase().includes("saas renov")) ||
-            null;
-          if (def) { setSelectedTemplateId(def.id); setMessageContent(def.content); }
         }
       } finally {
         if (alive) setLoading(false);
@@ -248,30 +160,13 @@ export default function SaasProfileRenewModal({
       const { error: rpcErr } = await supabaseBrowser.rpc("saas_renew_license", {
         p_tenant_id: tenantId,
         p_days: selectedTier.days,
-        p_description: notes.trim() || `Auto-renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
+        p_description: `Auto-renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
         p_price_amount: null,
         p_price_currency: null,
       });
       if (rpcErr) throw new Error(rpcErr.message);
 
-      // WhatsApp
-      if (sendWhats && messageContent.trim()) {
-        setLoadingText("Enviando WhatsApp...");
-        try {
-          const { data: sess } = await supabaseBrowser.auth.getSession();
-          const token = sess?.session?.access_token;
-          await fetch("/api/whatsapp/envio_agora", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              tenant_id: tenantId,
-              message: messageContent,
-              message_template_id: selectedTemplateId || null,
-              whatsapp_session: selectedSession,
-            }),
-          });
-        } catch {}
-      }
+      
 
       setLoadingText("Concluído!");
       setTimeout(() => { onSuccess(); onClose(); }, 500);
@@ -446,41 +341,7 @@ export default function SaasProfileRenewModal({
                     </div>
                   )}
 
-                  {/* WHATSAPP */}
-                  <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSendWhats(v => !v)}>
-                      <Switch checked={sendWhats} onChange={setSendWhats} />
-                      <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar aviso de renovação?</span>
-                    </div>
-                    {sendWhats && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-200">
-                        <Select value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
-                          {sessionOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                        </Select>
-                        <Select value={selectedTemplateId} onChange={e => {
-                          const id = e.target.value;
-                          setSelectedTemplateId(id);
-                          const tpl = templates.find(t => t.id === id);
-                          if (tpl) setMessageContent(tpl.content);
-                        }}>
-                          <option value="">-- Personalizado --</option>
-                          {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* OBSERVAÇÕES */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-tight">
-                      Observações (opcional)
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                      className="w-full h-14 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
-                    />
-                  </div>
+                  
                 </>
               )}
             </div>
