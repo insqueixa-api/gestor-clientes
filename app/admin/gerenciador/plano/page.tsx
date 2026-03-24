@@ -626,7 +626,7 @@ useEffect(() => {
                             </button>
                           )}
 
-                          {plan.is_system_default && (
+                          {(plan.is_system_default || plano.filter(p => p.table_type === plan.table_type).length === 1) && (
                             <div className="p-1.5 opacity-20 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center cursor-not-allowed">
                               <svg className="w-4 h-4 text-slate-500 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
