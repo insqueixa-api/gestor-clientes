@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createBgClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -25,15 +26,10 @@ function isNextRedirectError(err: unknown): boolean {
 
 async function fetchFx(
   base: "USD" | "EUR",
-  to: "BRL"
+  to: "BRL",
+  origin: string
 ): Promise<{ rate: number; date: string }> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "http";
-
-  if (!host) throw new Error("Host não disponível para montar URL absoluta do FX.");
-
-  const url = `${proto}://${host}/api/fx?base=${encodeURIComponent(
+  const url = `${origin}/api/fx?base=${encodeURIComponent(
     base
   )}&to=${encodeURIComponent(to)}`;
 
@@ -61,15 +57,23 @@ async function fetchFx(
 }
 
 async function refreshFxIfNeeded(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  token: string,
+  userId: string,
+  origin: string
 ): Promise<void> {
   try {
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData.user) return;
+    // ✅ Usa o client do supabase-js (sem cookies) para evitar crash no Next.js após o redirect
+    const supabaseBg = createBgClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }
+    );
 
-    const userId = userData.user.id;
-
-    const { data: member, error: memberErr } = await supabase
+    const { data: member, error: memberErr } = await supabaseBg
       .from("tenant_members")
       .select("tenant_id")
       .eq("user_id", userId)
@@ -80,7 +84,7 @@ async function refreshFxIfNeeded(
     const tenantId = member.tenant_id;
     const today = todayISO();
 
-    const { data: existingFx, error: fxErr } = await supabase
+    const { data: existingFx, error: fxErr } = await supabaseBg
       .from("tenant_fx_rates")
       .select("as_of_date")
       .eq("tenant_id", tenantId)
@@ -91,11 +95,11 @@ async function refreshFxIfNeeded(
     if (existingFx && existingFx.length > 0) return;
 
     const [usd, eur] = await Promise.all([
-      fetchFx("USD", "BRL"),
-      fetchFx("EUR", "BRL"),
+      fetchFx("USD", "BRL", origin),
+      fetchFx("EUR", "BRL", origin),
     ]);
 
-    const { error: rpcErr } = await supabase.rpc("set_tenant_fx_rates", {
+    const { error: rpcErr } = await supabaseBg.rpc("set_tenant_fx_rates", {
       p_tenant_id: tenantId,
       p_usd_to_brl: usd.rate,
       p_eur_to_brl: eur.rate,
@@ -138,16 +142,30 @@ export async function loginAction(
 
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) return { error: error.message };
+    if (error || !data.user || !data.session) {
+      return { error: error?.message || "Erro de autenticação" };
+    }
 
-    await refreshFxIfNeeded(supabase);
+    // ✅ Obtém origin, token e userID ANTES do background task e do redirect
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    const origin = `${proto}://${host}`;
+    
+    const token = data.session.access_token;
+    const userId = data.user.id;
 
-    // ✅ IMPORTANTE: não deixe o catch capturar o redirect
+    // ✅ Dispara o background task sem 'await' (Fire and Forget seguro)
+    refreshFxIfNeeded(token, userId, origin).catch((err) =>
+      console.warn("[FX BG Error]", err)
+    );
+
+    // ✅ Redireciona imediatamente
     redirect("/admin");
   } catch (err: unknown) {
     // ✅ Se for redirect, re-lança para o Next finalizar a navegação
