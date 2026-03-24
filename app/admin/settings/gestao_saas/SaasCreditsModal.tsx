@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -178,6 +178,8 @@ export default function SaasCreditsModal({
     } catch {}
   }
 
+  const isFirstRenderCredits = useRef(true);
+
   // ── Load principal ──
   useEffect(() => {
     let alive = true;
@@ -188,79 +190,44 @@ export default function SaasCreditsModal({
         if (!alive) return;
         setMyTenantId(tid);
 
-        await loadSessions();
+        const activeTableId = creditsPlanTableId ?? null;
 
-        // Busca todas as tabelas saas_credits disponíveis para o superadmin
-        const { data: allTables } = await supabaseBrowser
-          .from("plan_tables")
-          .select("id, name, currency")
-          .eq("table_type", "saas_credits")
-          .eq("is_active", true);
+        // Tudo em paralelo — sessões WA não bloqueiam o resto
+        const [, allTablesRes, tblRes, itemsRes, tmplRes] = await Promise.all([
+          loadSessions(),
+          supabaseBrowser.from("plan_tables").select("id, name, currency").eq("table_type", "saas_credits").eq("is_active", true),
+          activeTableId ? supabaseBrowser.from("plan_tables").select("currency").eq("id", activeTableId).single() : Promise.resolve({ data: null }),
+          activeTableId ? supabaseBrowser.from("plan_table_items").select(`id, period, prices:plan_table_item_prices(screens_count, price_amount)`).eq("plan_table_id", activeTableId) : Promise.resolve({ data: null }),
+          supabaseBrowser.from("message_templates").select("id, name, content").eq("tenant_id", tid).order("name", { ascending: true }),
+        ]);
 
-        if (allTables && alive) {
-          setAvailableTables(allTables as any);
+        if (!alive) return;
+
+        if ((allTablesRes as any).data) setAvailableTables((allTablesRes as any).data);
+        if (activeTableId) setSelectedTableId(activeTableId);
+        if ((tblRes as any).data?.currency) setCurrency((tblRes as any).data.currency as Currency);
+
+        const items = (itemsRes as any).data;
+        if (items) {
+          const mapped: CreditTier[] = TIER_ORDER.map(period => {
+            const item = (items as any[]).find(i => i.period === period);
+            if (!item) return null;
+            const priceRow = item.prices?.find((p: any) => p.screens_count === 1);
+            return { period, credits: TIER_LABELS[period] ?? 0, price: priceRow?.price_amount ?? null };
+          }).filter(Boolean) as CreditTier[];
+          setTiers(mapped);
+          const first = mapped.find(t => t.price !== null);
+          if (first) setSelectedTier(first);
         }
 
-        // Tabela ativa: a do tenant ou a primeira disponível
-        const activeTableId = creditsPlanTableId ?? allTables?.[0]?.id ?? null;
-        if (activeTableId && alive) setSelectedTableId(activeTableId);
-
-        // Carrega tiers do plano de créditos do tenant alvo
-        if (activeTableId) {
-          const { data: items } = await supabaseBrowser
-            .from("plan_table_items")
-            .select(`id, period, prices:plan_table_item_prices(screens_count, price_amount)`)
-            .eq("plan_table_id", activeTableId);
-
-          // Carrega moeda da tabela
-          const { data: tbl } = await supabaseBrowser
-            .from("plan_tables")
-            .select("currency")
-            .eq("id", activeTableId)
-            .single();
-
-          if (tbl?.currency) setCurrency(tbl.currency as Currency);
-
-          if (items) {
-            const mapped: CreditTier[] = TIER_ORDER
-              .map(period => {
-                const item = (items as any[]).find(i => i.period === period);
-                if (!item) return null;
-                const priceRow = item.prices?.find((p: any) => p.screens_count === 1);
-                return {
-                  period,
-                  credits: TIER_LABELS[period] ?? 0,
-                  price: priceRow?.price_amount ?? null,
-                };
-              })
-              .filter(Boolean) as CreditTier[];
-
-            if (alive) {
-              setTiers(mapped);
-              // Pré-seleciona o primeiro tier com preço
-              const first = mapped.find(t => t.price !== null);
-              if (first) setSelectedTier(first);
-            }
-          }
-        }
-
-        // Templates — pré-seleciona "SaaS Recarga Realizada"
-        const { data: tmplData } = await supabaseBrowser
-          .from("message_templates")
-          .select("id, name, content")
-          .eq("tenant_id", tid)
-          .order("name", { ascending: true });
-
-        if (tmplData && alive) {
+        const tmplData = (tmplRes as any).data;
+        if (tmplData) {
           setTemplates(tmplData);
           const def =
-            tmplData.find(t => t.name.toLowerCase().includes("saas recarga")) ||
-            tmplData.find(t => t.name.toLowerCase().includes("recarga saas")) ||
+            tmplData.find((t: any) => t.name.toLowerCase().includes("saas recarga")) ||
+            tmplData.find((t: any) => t.name.toLowerCase().includes("recarga saas")) ||
             null;
-          if (def) {
-            setSelectedTemplateId(def.id);
-            setMessageContent(def.content);
-          }
+          if (def) { setSelectedTemplateId(def.id); setMessageContent(def.content); }
         }
       } catch (e: any) {
         onError(e?.message || "Erro ao carregar plano de créditos");
@@ -271,9 +238,10 @@ export default function SaasCreditsModal({
     return () => { alive = false; };
   }, [creditsPlanTableId]);
 
-  // ── Recarrega tiers quando muda a tabela ──
+  // ── Recarrega tiers quando muda a tabela (ignora primeiro render) ──
   useEffect(() => {
     if (!selectedTableId) return;
+    if (isFirstRenderCredits.current) { isFirstRenderCredits.current = false; return; }
     (async () => {
       const { data: items } = await supabaseBrowser
         .from("plan_table_items")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -154,9 +154,10 @@ export default function SaasRenewModal({
   // ── Preço customizável ──
   const [customPrice, setCustomPrice] = useState("");
 
-  // ── Recarrega tiers quando muda a tabela ──
+  // ── Recarrega tiers quando muda a tabela (ignora primeiro render) ──
   useEffect(() => {
     if (!selectedTableId) return;
+    if (isFirstRenderRenew.current) { isFirstRenderRenew.current = false; return; }
     (async () => {
       const { data: tbl } = await supabaseBrowser
         .from("plan_tables")
@@ -240,6 +241,8 @@ export default function SaasRenewModal({
     } catch {}
   }
 
+  const isFirstRenderRenew = useRef(true);
+
   // ── Load principal ──
   useEffect(() => {
     let alive = true;
@@ -247,74 +250,44 @@ export default function SaasRenewModal({
       try {
         setLoading(true);
         const tid = await getCurrentTenantId();
+        const activeTableId = saasPlanTableId ?? null;
 
-        await loadSessions();
+        // Tudo em paralelo
+        const [, allTablesRes, tblRes, itemsRes, tmplRes] = await Promise.all([
+          loadSessions(),
+          supabaseBrowser.from("plan_tables").select("id, name").eq("table_type", "saas").eq("is_active", true),
+          activeTableId ? supabaseBrowser.from("plan_tables").select("currency").eq("id", activeTableId).single() : Promise.resolve({ data: null }),
+          activeTableId ? supabaseBrowser.from("plan_table_items").select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`).eq("plan_table_id", activeTableId) : Promise.resolve({ data: null }),
+          supabaseBrowser.from("message_templates").select("id, name, content").eq("tenant_id", tid).order("name", { ascending: true }),
+        ]);
 
-        // Busca todas as tabelas saas disponíveis
-        const { data: allTables } = await supabaseBrowser
-          .from("plan_tables")
-          .select("id, name")
-          .eq("table_type", "saas")
-          .eq("is_active", true);
+        if (!alive) return;
 
-        if (allTables && alive) setAvailableTables(allTables as any);
+        if ((allTablesRes as any).data) setAvailableTables((allTablesRes as any).data);
+        if (activeTableId) setSelectedTableId(activeTableId);
+        if ((tblRes as any).data?.currency) setCurrency((tblRes as any).data.currency);
 
-        const activeTableId = saasPlanTableId ?? allTables?.[0]?.id ?? null;
-        if (activeTableId && alive) setSelectedTableId(activeTableId);
-
-        // Carrega tiers do plano de renovação
-        if (activeTableId) {
-          const { data: tbl } = await supabaseBrowser
-            .from("plan_tables")
-            .select("currency")
-            .eq("id", activeTableId)
-            .single();
-
-          if (tbl?.currency && alive) setCurrency(tbl.currency);
-
-          const { data: items } = await supabaseBrowser
-            .from("plan_table_items")
-            .select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`)
-            .eq("plan_table_id", activeTableId);
-
-          if (items && alive) {
-            const mapped: PlanTier[] = PERIODS.map(p => {
-              const item = (items as any[]).find(i => i.period === p.period);
-              if (!item) return null;
-              // SaaS usa screens_count=1 para 1 sessão, screens_count=2 para 2 sessões
-              const priceRow = item.prices?.find((pr: any) => pr.screens_count === 1);
-              return {
-                period: p.period,
-                days: p.days,
-                label: p.label,
-                price: priceRow?.price_amount ?? null,
-                credits: item.credits_base ?? 0,
-              };
-            }).filter(Boolean) as PlanTier[];
-
-            setTiers(mapped);
-            const first = mapped.find(t => t.price !== null);
-            if (first) setSelectedPeriod(first.period);
-          }
+        const items = (itemsRes as any).data;
+        if (items) {
+          const mapped: PlanTier[] = PERIODS.map(p => {
+            const item = (items as any[]).find(i => i.period === p.period);
+            if (!item) return null;
+            const priceRow = item.prices?.find((pr: any) => pr.screens_count === 1);
+            return { period: p.period, days: p.days, label: p.label, price: priceRow?.price_amount ?? null, credits: item.credits_base ?? 0 };
+          }).filter(Boolean) as PlanTier[];
+          setTiers(mapped);
+          const first = mapped.find(t => t.price !== null);
+          if (first) setSelectedPeriod(first.period);
         }
 
-        // Templates — pré-seleciona "SaaS Renovação"
-        const { data: tmplData } = await supabaseBrowser
-          .from("message_templates")
-          .select("id, name, content")
-          .eq("tenant_id", tid)
-          .order("name", { ascending: true });
-
-        if (tmplData && alive) {
+        const tmplData = (tmplRes as any).data;
+        if (tmplData) {
           setTemplates(tmplData);
           const def =
-            tmplData.find(t => t.name.toLowerCase().includes("saas pagamento realizado")) ||
-            tmplData.find(t => t.name.toLowerCase().includes("saas renov")) ||
+            tmplData.find((t: any) => t.name.toLowerCase().includes("saas pagamento realizado")) ||
+            tmplData.find((t: any) => t.name.toLowerCase().includes("saas renov")) ||
             null;
-          if (def) {
-            setSelectedTemplateId(def.id);
-            setMessageContent(def.content);
-          }
+          if (def) { setSelectedTemplateId(def.id); setMessageContent(def.content); }
         }
       } catch (e: any) {
         onError(e?.message || "Erro ao carregar plano");
@@ -340,24 +313,6 @@ export default function SaasRenewModal({
         p_price_currency: currency,
       });
       if (error) throw new Error(error.message);
-
-      // Registra valor financeiro na transação
-      if (effectivePrice && effectivePrice > 0) {
-        const myTid = await getCurrentTenantId();
-        const { data: { user } } = await supabaseBrowser.auth.getUser();
-        await supabaseBrowser
-          .from("saas_credit_transactions")
-          .update({
-            price_amount: effectivePrice,
-            price_currency: currency,
-          })
-          .eq("tenant_id", targetTenantId)
-          .eq("ref_tenant_id", myTid)
-          .eq("type", "consume")
-          .is("price_amount", null)
-          .order("created_at", { ascending: false })
-          .limit(1);
-      }
 
       // WhatsApp
       if (sendWhats && messageContent.trim()) {
