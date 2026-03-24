@@ -630,39 +630,6 @@ return (
         </>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-                Receita SaaS (Mês)
-              </h3>
-              <div className="sv w-full">
-                <SimpleBarChart
-                  data={chartSaasRevenueData}
-                  colorClass="from-violet-400 to-violet-600"
-                  label="BRL"
-                  heightClass="h-40 sm:h-56"
-                />
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-                Novos Revendedores SaaS
-              </h3>
-              <div className="sv w-full">
-                <SimpleBarChart
-                  data={chartSaasResellersData}
-                  colorClass="from-amber-400 to-amber-600"
-                  label="Revendas"
-                  heightClass="h-40 sm:h-56"
-                />
-              </div>
-            </div>
-          </div>
-
-
-<SectionTitle title="GRÁFICOS" />
-
       {/* GRÁFICOS */}
       <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
 
@@ -719,13 +686,48 @@ return (
       </div>
 
       {/* RANKINGS */}
-<div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-  <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
-  <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
-</div>
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+        <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
+        <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
+      </div>
+
+      {/* GRÁFICOS SAAS */}
+      {showSaas && (
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
+              Receita SaaS (Mês)
+            </h3>
+            <div className="sv w-full">
+              <SimpleBarChart
+                data={chartSaasRevenueData}
+                colorClass="from-violet-400 to-violet-600"
+                label="BRL"
+                heightClass="h-40 sm:h-56"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
+              Novos Revendedores SaaS
+            </h3>
+            <div className="sv w-full">
+              <SimpleBarChart
+                data={chartSaasResellersData}
+                colorClass="from-amber-400 to-amber-600"
+                label="Revendas"
+                heightClass="h-40 sm:h-56"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
 
 /* =====================
    COMPONENTES VISUAIS
