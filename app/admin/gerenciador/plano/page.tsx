@@ -102,34 +102,36 @@ const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // Busca todas as tabelas padrão do sistema
   const { data: defaults } = await supabase
     .from("plan_tables")
-    .select(`id, name, currency, is_master_only,
+    .select(`id, name, currency, is_master_only, table_type,
       items:plan_table_items (
-        id, period, months, credits_base
+        id, period, credits_base
       )`)
     .eq("is_system_default", true);
 
   if (!defaults || defaults.length === 0) return;
 
-  const monthsMap: Record<string, number> = {
-    MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
-  };
+  let newSaasPlanTableId: string | null = null;
+  let newCreditsPlanTableId: string | null = null;
 
   for (const tpl of defaults as any[]) {
-    // Cria a tabela para o tenant
     const { data: newTable } = await supabase
       .from("plan_tables")
       .insert({
-  tenant_id: tenantId,
-  name: tpl.name,
-  currency: tpl.currency,
-  is_system_default: true,
-  is_master_only: tpl.is_master_only ?? false,
-  is_active: true,
-})
+        tenant_id: tenantId,
+        name: tpl.name,
+        currency: tpl.currency,
+        table_type: tpl.table_type,
+        is_system_default: false,
+        is_master_only: tpl.is_master_only ?? false,
+        is_active: true,
+      })
       .select("id")
       .single();
 
     if (!newTable) continue;
+
+    if (tpl.table_type === "saas") newSaasPlanTableId = newTable.id;
+    if (tpl.table_type === "saas_credits") newCreditsPlanTableId = newTable.id;
 
     for (const item of (tpl.items || []) as any[]) {
       const { data: newItem } = await supabase
@@ -138,7 +140,6 @@ const [expanded, setExpanded] = useState<Record<string, boolean>>({});
           tenant_id: tenantId,
           plan_table_id: newTable.id,
           period: item.period,
-          months: monthsMap[item.period] ?? 1,
           credits_base: item.credits_base,
         })
         .select("id")
@@ -146,12 +147,12 @@ const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
       if (!newItem) continue;
 
-      // Insere preços ZERADOS
-      const screens = tpl.is_master_only
-        ? [1, 2]
-        : tpl.table_type === "saas_credits"
+      const screens = tpl.table_type === "saas_credits"
         ? [1]
+        : tpl.is_master_only
+        ? [1, 2]
         : [1, 2, 3];
+
       await supabase.from("plan_table_item_prices").insert(
         screens.map(s => ({
           tenant_id: tenantId,
@@ -161,6 +162,14 @@ const [expanded, setExpanded] = useState<Record<string, boolean>>({});
         }))
       );
     }
+  }
+
+  // Vincula as tabelas SaaS ao tenant
+  if (newSaasPlanTableId || newCreditsPlanTableId) {
+    const update: Record<string, string> = {};
+    if (newSaasPlanTableId) update.saas_plan_table_id = newSaasPlanTableId;
+    if (newCreditsPlanTableId) update.credits_plan_table_id = newCreditsPlanTableId;
+    await supabase.from("tenants").update(update).eq("id", tenantId);
   }
 }
 
