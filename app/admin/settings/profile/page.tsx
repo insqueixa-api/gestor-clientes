@@ -5,6 +5,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import Link from "next/link";
+import SaasProfileRenewModal from "./SaasProfileRenewModal";
 import QRCode from "qrcode";
 
 // ============================================================================
@@ -234,11 +235,15 @@ export default function ProfileSettingsPage() {
 const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
+  const [saasPlanTableId, setSaasPlanTableId] = useState<string | null>(null);
   const [whatsappSessions, setWhatsappSessions] = useState(1);  // ✅ NOVO
   const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
   });
+
+  // ✅ NOVO: Controle do modal de renovação
+  const [showRenewModal, setShowRenewModal] = useState(false);
 
   // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
 const canPairWhatsApp = !!userId && !!tenantId;
@@ -299,7 +304,7 @@ async function saveWaConfig() {
     if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
     else addToast("error", "Erro", "Falha ao salvar configuração.");
 } catch (e: any) {
-        addToast("error", "Erro ao carregar", e.message);
+        addToast("error", "Erro ao salvar", e.message);
   } finally {
     setWaSavingConfig(false);
   }
@@ -429,7 +434,7 @@ async function saveWaConfig() {
         if (currentTenantId) {
           const { data: saasData } = await supabaseBrowser
             .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance, whatsapp_sessions")
+            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
             .eq("id", currentTenantId)
             .maybeSingle();
             
@@ -437,6 +442,7 @@ async function saveWaConfig() {
             setLicenseStatus(saasData.license_status || "ACTIVE");
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
+            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
             const sessions = saasData.whatsapp_sessions ?? 1;
             setWhatsappSessions(sessions);
 
@@ -808,7 +814,7 @@ const [exporting, setExporting] = useState(false);
       }
 addToast("success", "Sucesso", summary);
       setTimeout(() => window.location.reload(), 1200);
-    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingApps(false); }
   }
 
   // --- ✅ NOVAS FUNÇÕES DE SERVIDORES ---
@@ -1360,7 +1366,7 @@ return (
     {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
     {role !== "SUPERADMIN" && (
       <button
-        onClick={() => alert("Abrir checkout ou modal de pagamento")} 
+        onClick={() => setShowRenewModal(true)}
         className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-900/20"
       >
         <IconMoney /> Renovar
@@ -1952,6 +1958,22 @@ return (
           </div>
         </div>
       </div>
+    {showRenewModal && tenantId && (
+        <SaasProfileRenewModal
+          tenantId={tenantId}
+          role={role as "MASTER" | "USER"}
+          saasPlanTableId={saasPlanTableId}
+          creditBalance={creditBalance}
+          currentExpiry={expiresAt}
+          whatsappSessions={whatsappSessions}
+          onClose={() => setShowRenewModal(false)}
+          onSuccess={() => {
+            setShowRenewModal(false);
+            addToast("success", "Renovado!", "Sua licença foi renovada com sucesso.");
+            setTimeout(() => window.location.reload(), 1500);
+          }}
+        />
+      )}
     </div>
   );
 }
