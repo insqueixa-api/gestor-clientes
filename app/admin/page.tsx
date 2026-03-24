@@ -208,10 +208,18 @@ export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
   // Views only
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: roleData } = await supabase.rpc("saas_my_role");
+  const [authRes, { data: roleData }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.rpc("saas_my_role"),
+  ]);
+  const user = authRes.data.user;
   const myRole = (roleData ?? "USER").toUpperCase();
   const showSaas = myRole === "SUPERADMIN" || myRole === "MASTER";
+
+  const memberResult = user
+    ? await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle()
+    : null;
+  const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
 
   const [
     kpisRes,
@@ -245,12 +253,12 @@ export default async function AdminDashboardPage() {
       .select("*")
       .order("clients_count", { ascending: false })
       .limit(5),
-    showSaas
-      ? supabase.from("vw_saas_dashboard_finance_cards").select("*").limit(1)
-      : Promise.resolve({ data: null }),
-    showSaas
-      ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").order("day", { ascending: true })
-      : Promise.resolve({ data: null }),
+    (showSaas && myTenantId
+      ? supabase.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", myTenantId).maybeSingle()
+      : Promise.resolve({ data: null })) as Promise<any>,
+    (showSaas && myTenantId
+      ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").eq("tenant_id", myTenantId).order("day", { ascending: true })
+      : Promise.resolve({ data: null })) as Promise<any>,
   ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
@@ -266,7 +274,8 @@ export default async function AdminDashboardPage() {
   };
   type VwSaasDaily = { day: string; renewal_brl: number | null; credits_brl: number | null; new_resellers: number | null; };
 
-  const saasFinance = ((saasFinanceRes as any)?.data?.[0] ?? null) as VwSaasFinance | null;
+  // maybeSingle retorna o objeto direto, não array
+  const saasFinance = ((saasFinanceRes as any)?.data ?? null) as VwSaasFinance | null;
   const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
