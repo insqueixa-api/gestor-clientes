@@ -552,22 +552,27 @@ useEffect(() => {
                             </span>
 
                             {/* Badges de Status (Tones Suaves) */}
-                            {plan.is_system_default ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
-                                Padrão do Sistema
-                              </span>
-                            ) : (
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
-                                ${
-                                  plan.is_active
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                    : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-white/20"
-                                }`}
-                              >
-                                {plan.is_active ? "Ativa" : "Inativa"}
-                              </span>
-                            )}
+                            {(() => {
+                              // É "Padrão" se for system_default OU se for a única tabela daquele type no tenant
+                              const isDefault = plan.is_system_default ||
+                                plano.filter(p => p.table_type === plan.table_type).length === 1;
+                              return isDefault ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                  Padrão do Sistema
+                                </span>
+                              ) : (
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
+                                  ${
+                                    plan.is_active
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                      : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-white/20"
+                                  }`}
+                                >
+                                  {plan.is_active ? "Ativa" : "Inativa"}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -605,7 +610,7 @@ useEffect(() => {
                             </svg>
                           </button>
 
-                          {!plan.is_system_default && (
+                          {!plan.is_system_default && plano.filter(p => p.table_type === plan.table_type).length > 1 && (
                             <button
                               onClick={() => handleDelete(plan)}
                               className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
