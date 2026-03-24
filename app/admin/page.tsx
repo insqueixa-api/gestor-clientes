@@ -208,6 +208,11 @@ export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
   // Views only
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: roleData } = await supabase.rpc("saas_my_role");
+  const myRole = (roleData ?? "USER").toUpperCase();
+  const showSaas = myRole === "SUPERADMIN" || myRole === "MASTER";
+
   const [
     kpisRes,
     dueRes,
@@ -216,6 +221,8 @@ export default async function AdminDashboardPage() {
     paymentsRes,
     topServersRes,
     topAppsRes,
+    saasFinanceRes,
+    saasDailyRes,
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -238,10 +245,29 @@ export default async function AdminDashboardPage() {
       .select("*")
       .order("clients_count", { ascending: false })
       .limit(5),
+    showSaas
+      ? supabase.from("vw_saas_dashboard_finance_cards").select("*").limit(1)
+      : Promise.resolve({ data: null }),
+    showSaas
+      ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").order("day", { ascending: true })
+      : Promise.resolve({ data: null }),
   ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
+
+  type VwSaasFinance = {
+    renewal_today_qty: number | null; renewal_today_brl: number | null;
+    credits_today_qty: number | null; credits_today_brl: number | null;
+    renewal_month_qty: number | null; renewal_month_brl: number | null;
+    credits_month_qty: number | null; credits_month_brl: number | null;
+    renewal_prev_qty:  number | null; renewal_prev_brl:  number | null;
+    credits_prev_qty:  number | null; credits_prev_brl:  number | null;
+  };
+  type VwSaasDaily = { day: string; renewal_brl: number | null; credits_brl: number | null; new_resellers: number | null; };
+
+  const saasFinance = ((saasFinanceRes as any)?.data?.[0] ?? null) as VwSaasFinance | null;
+  const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -325,6 +351,39 @@ for (const r of paymentsRows) {
     reseller: toNumber(r.reseller_paid_brl),
   });
 }
+
+const saasDailyMap = new Map<string, { renewal: number; credits: number; resellers: number }>();
+  for (const r of saasDailyRows) {
+    const key = normalizeDayKey(r.day);
+    saasDailyMap.set(key, {
+      renewal: toNumber(r.renewal_brl),
+      credits: toNumber(r.credits_brl),
+      resellers: toNumber(r.new_resellers),
+    });
+  }
+
+  const chartSaasRevenueData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
+    const total = found.renewal + found.credits;
+    return {
+      label: String(dayNum),
+      value: total,
+      displayValue: total,
+      tooltipTitle: spTitleFromISO(iso),
+      tooltipContent: `Renovações: ${fmtBRL(found.renewal)} • Créditos: ${fmtBRL(found.credits)} • Total: ${fmtBRL(total)}`,
+    };
+  });
+
+  const chartSaasResellersData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
+    return {
+      label: String(dayNum),
+      value: found.resellers,
+      displayValue: found.resellers,
+      tooltipTitle: spTitleFromISO(iso),
+      tooltipContent: `${fmtInt(found.resellers)} novo(s) revendedor(es)`,
+    };
+  });
 
 const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
   const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
@@ -526,6 +585,81 @@ return (
 }
         />
       </div>
+
+{/* REVENDA SAAS — só SUPERADMIN e MASTER */}
+      {showSaas && (
+        <>
+          <SectionTitle title="REVENDA SAAS" />
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+
+            {/* Hoje */}
+            <MetricCardView
+              title="SaaS Recebido Hoje"
+              accent="green"
+              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_today_qty)})`}
+              leftValue={fmtBRL(toNumber(saasFinance?.renewal_today_brl))}
+              rightLabel={`Créditos (${toNumber(saasFinance?.credits_today_qty)})`}
+              rightValue={fmtBRL(toNumber(saasFinance?.credits_today_brl))}
+              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl))}`}
+            />
+
+            {/* Mês Atual */}
+            <MetricCardView
+              title="SaaS Faturamento (Mês)"
+              accent="green"
+              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_month_qty)})`}
+              leftValue={fmtBRL(toNumber(saasFinance?.renewal_month_brl))}
+              rightLabel={`Créditos (${toNumber(saasFinance?.credits_month_qty)})`}
+              rightValue={fmtBRL(toNumber(saasFinance?.credits_month_brl))}
+              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl))}`}
+            />
+
+            {/* Mês Anterior */}
+            <MetricCardView
+              title="SaaS Mês Anterior"
+              accent="gray"
+              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_prev_qty)})`}
+              leftValue={fmtBRL(toNumber(saasFinance?.renewal_prev_brl))}
+              rightLabel={`Créditos (${toNumber(saasFinance?.credits_prev_qty)})`}
+              rightValue={fmtBRL(toNumber(saasFinance?.credits_prev_brl))}
+              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl))}`}
+            />
+
+
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
+                Receita SaaS (Mês)
+              </h3>
+              <div className="sv w-full">
+                <SimpleBarChart
+                  data={chartSaasRevenueData}
+                  colorClass="from-violet-400 to-violet-600"
+                  label="BRL"
+                  heightClass="h-40 sm:h-56"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
+                Novos Revendedores SaaS
+              </h3>
+              <div className="sv w-full">
+                <SimpleBarChart
+                  data={chartSaasResellersData}
+                  colorClass="from-amber-400 to-amber-600"
+                  label="Revendas"
+                  heightClass="h-40 sm:h-56"
+                />
+              </div>
+            </div>
+          </div>
+
 
 <SectionTitle title="GRÁFICOS" />
 
