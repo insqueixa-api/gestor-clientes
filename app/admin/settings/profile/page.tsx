@@ -1475,8 +1475,8 @@ return (
                     )}
                 </div>
                 <div>
-                     <Label>Membro desde</Label>
-                    <div className="h-10 px-3 flex items-center text-slate-500 dark:text-white/50 text-xs">
+                    <Label>Membro desde</Label>
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-slate-600 dark:text-white/70 text-sm opacity-70 cursor-not-allowed">
                         {createdAt || "—"}
                     </div>
                 </div>
@@ -1488,11 +1488,12 @@ return (
                 <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
                   Detalhes da Assinatura
                 </div>
-                <div className="flex flex-wrap gap-10">
+                {/* Alterado para Grid para alinhar com os inputs acima */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {/* 1. Status */}
                   <div>
                     <Label>Status</Label>
-                    <div className="h-10 flex items-center">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center opacity-90 cursor-default">
                       <StatusBadge status={licenseStatus} />
                     </div>
                   </div>
@@ -1500,7 +1501,7 @@ return (
                   {/* 2. Validade */}
                   <div>
                     <Label>Validade</Label>
-                    <div className="h-10 flex items-center text-sm font-bold text-slate-700 dark:text-white">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white opacity-90 cursor-default">
                       {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
                     </div>
                   </div>
@@ -1509,7 +1510,7 @@ return (
                   {role === "MASTER" && (
                     <div>
                       <Label>Saldo de Créditos</Label>
-                      <div className="h-10 flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400 opacity-90 cursor-default">
                         {creditBalance}
                       </div>
                     </div>
