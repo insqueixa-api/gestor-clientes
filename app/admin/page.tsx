@@ -685,13 +685,7 @@ return (
         </div>
       </div>
 
-      {/* RANKINGS */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-        <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
-        <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
-      </div>
-
-      {/* GRÁFICOS SAAS */}
+{/* GRÁFICOS SAAS */}
       {showSaas && (
         <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
@@ -723,6 +717,13 @@ return (
           </div>
         </div>
       )}
+
+
+      {/* RANKINGS */}
+<div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+  <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
+  <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
+</div>
     </div>
   );
 }
