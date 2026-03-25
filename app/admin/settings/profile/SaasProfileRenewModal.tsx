@@ -265,39 +265,21 @@ export default function SaasProfileRenewModal({
   // ── Carrega tiers quando entra em "own_balance" ──
   useEffect(() => {
     if (step !== "own_balance") return;
-    if (!saasPlanTableId) return;
-
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const [tblRes, itemsRes] = await Promise.all([
-          supabaseBrowser.from("plan_tables").select("currency").eq("id", saasPlanTableId).single(),
-          supabaseBrowser.from("plan_table_items")
-            .select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`)
-            .eq("plan_table_id", saasPlanTableId),
-        ]);
-
-        if ((tblRes as any).data?.currency) setCurrency((tblRes as any).data.currency);
-
-        const items = (itemsRes as any).data;
-        if (items) {
-          const mapped: PlanTier[] = PERIODS.map(p => {
-            const item = (items as any[]).find(i => i.period === p.period);
-            if (!item) return null;
-            const priceRow = item.prices?.find((pr: any) => pr.screens_count === 1);
-            return { period: p.period, days: p.days, label: p.label, price: priceRow?.price_amount ?? null, credits: item.credits_base ?? 0 };
-          }).filter(Boolean) as PlanTier[];
-          setTiers(mapped);
-          const first = mapped.find(t => t.price !== null);
-          if (first) setSelectedPeriod(first.period);
-        }
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [step, saasPlanTableId, tenantId]);
+    
+    // Para renovação com saldo próprio, o custo em créditos é fixo
+    // e independe de tabelas monetárias.
+    const staticTiers: PlanTier[] = [
+      { period: "MONTHLY", days: 30, label: "Mensal", price: null, credits: 1 },
+      { period: "BIMONTHLY", days: 60, label: "Bimestral", price: null, credits: 2 },
+      { period: "QUARTERLY", days: 90, label: "Trimestral", price: null, credits: 3 },
+      { period: "SEMIANNUAL", days: 180, label: "Semestral", price: null, credits: 6 },
+      { period: "ANNUAL", days: 365, label: "Anual", price: null, credits: 12 },
+    ];
+    
+    setTiers(staticTiers);
+    setSelectedPeriod("MONTHLY");
+    setLoading(false);
+  }, [step]);
 
   // ── Salvar renovação com saldo próprio ──
   async function handleSaveOwnBalance() {
@@ -586,10 +568,6 @@ export default function SaasProfileRenewModal({
             <div className="space-y-5">
               {loading ? (
                 <div className="py-12 text-center text-slate-400 animate-pulse">Carregando plano...</div>
-              ) : !saasPlanTableId ? (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
-                  Tabela de renovação não configurada. Contate seu gestor.
-                </div>
               ) : (
                 <>
                   {error && (
@@ -767,7 +745,7 @@ export default function SaasProfileRenewModal({
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-sm hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
             {step === "select" || step === "auto" || step === "buy_credits" ? "Fechar" : "Cancelar"}
           </button>
-          {step === "own_balance" && !loading && saasPlanTableId && (
+          {step === "own_balance" && !loading && (
             <button onClick={handleSaveOwnBalance} disabled={!selectedTier || !hasSufficientBalance || saving}
               className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-50 transition-all flex items-center gap-2">
               {saving && <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
