@@ -44,7 +44,7 @@ const { data: member, error: memberErr } = await supabase
   .eq("user_id", user.id)
   .maybeSingle();
 
-if (!member?.tenant_id) return NextResponse.json({  
+if (!member?.tenant_id) return NextResponse.json({
   ok: false, error: "sem member", 
   userId: user.id, 
   member,
