@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     // ── Body ──────────────────────────────────────────────────
     const body = await req.json().catch(() => ({} as any));
-    const payment_type: string = String(body?.payment_type || "").trim(); // renewal | credits
+    const payment_type: string = String(body?.payment_type || "").trim();
     const period: string       = String(body?.period || "").trim().toUpperCase();
     const force_manual         = body?.force_manual === true;
 
@@ -63,16 +63,25 @@ export async function POST(req: NextRequest) {
     // ── Tenant do usuário ─────────────────────────────────────
     const { data: member } = await supabase
       .from("tenant_members")
-      .select("tenant_id, tenants(whatsapp_sessions)")
+      .select("tenant_id")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
+    if (!member?.tenant_id) return jsonError("Tenant não encontrado", 404);
 
     const myTenantId = String(member.tenant_id);
-    const myTenant = member.tenants as any;
-    const whatsappSessions = Number(myTenant?.whatsapp_sessions || 1);
 
+    const { data: myTenantRow } = await supabase
+      .from("tenants")
+      .select("name, whatsapp_sessions, saas_plan_table_id, credits_plan_table_id")
+      .eq("id", myTenantId)
+      .single();
+
+    if (!myTenantRow) return jsonError("Tenant não encontrado", 404);
+
+    const whatsappSessions = Number(myTenantRow.whatsapp_sessions || 1);
+
+    // ── Tenant pai via saas_network ───────────────────────────
     const { data: network } = await supabase
       .from("saas_network")
       .select("parent_tenant_id")
@@ -82,20 +91,12 @@ export async function POST(req: NextRequest) {
     const parentTenantId = String(network?.parent_tenant_id || "");
     if (!parentTenantId) return jsonError("Sem tenant pai configurado", 400);
 
-    // ── Tabela de preços do PAI ───────────────────────────────
-    const { data: myTenantRow } = await supabase
-  .from("tenants")
-  .select("saas_plan_table_id, credits_plan_table_id")
-  .eq("id", myTenantId)
-  .single();
+    // ── Tabela de preços (salva no filho, não no pai) ─────────
+    const planTableId = payment_type === "renewal"
+      ? String(myTenantRow.saas_plan_table_id || "")
+      : String(myTenantRow.credits_plan_table_id || "");
 
-if (!myTenantRow) return jsonError("Tenant não encontrado", 404);
-
-const planTableId = payment_type === "renewal"
-  ? String(myTenantRow.saas_plan_table_id || "")
-  : String(myTenantRow.credits_plan_table_id || "");
-
-    if (!planTableId) return jsonError("Tabela de preços do pai não configurada", 400);
+    if (!planTableId) return jsonError("Tabela de preços não configurada", 400);
 
     // ── Preço ─────────────────────────────────────────────────
     const { data: planTable } = await supabase
@@ -115,8 +116,6 @@ const planTableId = payment_type === "renewal"
 
     if (!item) return jsonError("Período não encontrado na tabela de preços", 404);
 
-    // Renovação: preço depende do número de sessões WhatsApp
-    // Créditos: screens_count = 1 sempre
     const screensCount = payment_type === "renewal" ? whatsappSessions : 1;
     const priceRow = (item as any).prices?.find((p: any) => p.screens_count === screensCount);
     const computedPrice = Number(priceRow?.price_amount || 0);
@@ -183,12 +182,12 @@ const planTableId = payment_type === "renewal"
             },
             body: JSON.stringify({
               transaction_amount: computedPrice,
-              description: `${myTenant.name} · ${periodLabel}`,
+              description: `${myTenantRow.name} · ${periodLabel}`,
               payment_method_id: "pix",
               payer: {
                 email: `${user.email || myTenantId}`,
-                first_name: String(myTenant.name || "Revenda").split(" ")[0],
-                last_name:  String(myTenant.name || "").split(" ").slice(1).join(" ") || "SaaS",
+                first_name: String(myTenantRow.name || "Revenda").split(" ")[0],
+                last_name:  String(myTenantRow.name || "").split(" ").slice(1).join(" ") || "SaaS",
               },
               notification_url: webhookUrl,
               metadata: {
@@ -209,19 +208,19 @@ const planTableId = payment_type === "renewal"
           const { data: inserted } = await supabase
             .from("saas_portal_payments")
             .upsert({
-              tenant_id:        myTenantId,
-              parent_tenant_id: parentTenantId,
-              gateway_type:     "mercadopago",
-              payment_method:   "online",
-              mp_payment_id:    String(mpData.id),
+              tenant_id:         myTenantId,
+              parent_tenant_id:  parentTenantId,
+              gateway_type:      "mercadopago",
+              payment_method:    "online",
+              mp_payment_id:     String(mpData.id),
               payment_type,
               period,
-              credits_amount:   creditsAmount,
+              credits_amount:    creditsAmount,
               whatsapp_sessions: whatsappSessions,
               days,
-              price_amount:     computedPrice,
-              price_currency:   currency,
-              status:           "pending",
+              price_amount:      computedPrice,
+              price_currency:    currency,
+              status:            "pending",
             }, { onConflict: "parent_tenant_id,gateway_type,mp_payment_id" })
             .select("id")
             .single();
@@ -230,13 +229,13 @@ const planTableId = payment_type === "renewal"
 
           return NextResponse.json({
             ok: true,
-            payment_method:   "online",
-            gateway_name:     gateway.name,
-            payment_id:       String(mpData.id),
+            payment_method:      "online",
+            gateway_name:        gateway.name,
+            payment_id:          String(mpData.id),
             internal_payment_id: inserted.id,
-            pix_qr_code:      mpData.point_of_interaction?.transaction_data?.qr_code,
-            pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,
-            expires_at:       new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            pix_qr_code:         mpData.point_of_interaction?.transaction_data?.qr_code,
+            pix_qr_code_base64:  mpData.point_of_interaction?.transaction_data?.qr_code_base64,
+            expires_at:          new Date(Date.now() + 30 * 60 * 1000).toISOString(),
           }, { headers: NO_STORE });
         }
 
@@ -250,7 +249,7 @@ const planTableId = payment_type === "renewal"
           params.append("amount", String(Math.round(computedPrice * 100)));
           params.append("currency", currency.toLowerCase());
           params.append("payment_method_types[]", "card");
-          params.append("description", `${myTenant.name} · ${periodLabel}`);
+          params.append("description", `${myTenantRow.name} · ${periodLabel}`);
           params.append("metadata[payment_source]", "saas_portal");
           params.append("metadata[buyer_tenant_id]", myTenantId);
           params.append("metadata[seller_tenant_id]", parentTenantId);
@@ -270,23 +269,37 @@ const planTableId = payment_type === "renewal"
           const { data: inserted } = await supabase
             .from("saas_portal_payments")
             .upsert({
-              tenant_id: myTenantId, parent_tenant_id: parentTenantId,
-              gateway_type: "stripe", payment_method: "online",
-              mp_payment_id: String(stripeData.id), payment_type, period,
-              credits_amount: creditsAmount, whatsapp_sessions: whatsappSessions,
-              days, price_amount: computedPrice, price_currency: currency, status: "pending",
+              tenant_id:         myTenantId,
+              parent_tenant_id:  parentTenantId,
+              gateway_type:      "stripe",
+              payment_method:    "online",
+              mp_payment_id:     String(stripeData.id),
+              payment_type,
+              period,
+              credits_amount:    creditsAmount,
+              whatsapp_sessions: whatsappSessions,
+              days,
+              price_amount:      computedPrice,
+              price_currency:    currency,
+              status:            "pending",
             }, { onConflict: "parent_tenant_id,gateway_type,mp_payment_id" })
-            .select("id").single();
+            .select("id")
+            .single();
 
           if (!inserted) return jsonError("Erro interno", 500);
 
           return NextResponse.json({
-            ok: true, payment_method: "stripe", gateway_name: gateway.name,
-            payment_id: String(stripeData.id), internal_payment_id: inserted.id,
-            client_secret: stripeData.client_secret, publishable_key: publishableKey,
-            price_amount: computedPrice, currency,
-            beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
-            institution: String(gateway?.config?.institution || "Stripe").trim(),
+            ok: true,
+            payment_method:      "stripe",
+            gateway_name:        gateway.name,
+            payment_id:          String(stripeData.id),
+            internal_payment_id: inserted.id,
+            client_secret:       stripeData.client_secret,
+            publishable_key:     publishableKey,
+            price_amount:        computedPrice,
+            currency,
+            beneficiary_name:    String(gateway?.config?.beneficiary_name || "").trim() || null,
+            institution:         String(gateway?.config?.institution || "Stripe").trim(),
           }, { headers: NO_STORE });
         }
       } catch (e: any) {
@@ -295,7 +308,7 @@ const planTableId = payment_type === "renewal"
       }
     }
 
-    // Fallback manual
+    // ── Fallback manual ───────────────────────────────────────
     const { data: manual } = await supabase
       .from("payment_gateways")
       .select("*")
@@ -303,7 +316,8 @@ const planTableId = payment_type === "renewal"
       .eq("is_active", true)
       .eq("is_manual_fallback", true)
       .contains("currency", [currency])
-      .limit(1).maybeSingle();
+      .limit(1)
+      .maybeSingle();
 
     if (manual) {
       return NextResponse.json({

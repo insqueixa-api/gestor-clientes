@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store", Pragma: "no-cache", Expires: "0" };
 
 const PERIODS = [
-  { period: "MONTHLY", days: 30, label: "Mensal" },
-  { period: "BIMONTHLY", days: 60, label: "Bimestral" },
-  { period: "QUARTERLY", days: 90, label: "Trimestral" },
-  { period: "SEMIANNUAL", days: 180, label: "Semestral" },
-  { period: "ANNUAL", days: 365, label: "Anual" },
+  { period: "MONTHLY",    days: 30,  label: "Mensal"     },
+  { period: "BIMONTHLY",  days: 60,  label: "Bimestral"  },
+  { period: "QUARTERLY",  days: 90,  label: "Trimestral" },
+  { period: "SEMIANNUAL", days: 180, label: "Semestral"  },
+  { period: "ANNUAL",     days: 365, label: "Anual"      },
 ];
 const CREDIT_TIERS = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
 const CREDIT_LABELS: Record<string, number> = {
@@ -36,19 +36,24 @@ export async function POST(req: NextRequest) {
 
     const { data: member } = await supabase
       .from("tenant_members")
-      .select("tenant_id, tenants(whatsapp_sessions)")
+      .select("tenant_id")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!member?.tenant_id) return NextResponse.json({ 
-  ok: false, error: "sem member", userId: user.id, member 
-}, { status: 404, headers: NO_STORE });
+    if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
 
     const myTenantId = String(member.tenant_id);
-    const myTenant = member.tenants as any;
-    const whatsappSessions = Number(myTenant?.whatsapp_sessions || 1);
 
-    // Busca pai via saas_network
+    const { data: myTenantRow } = await supabase
+      .from("tenants")
+      .select("whatsapp_sessions, saas_plan_table_id, credits_plan_table_id")
+      .eq("id", myTenantId)
+      .single();
+
+    if (!myTenantRow) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
+
+    const whatsappSessions = Number(myTenantRow.whatsapp_sessions || 1);
+
     const { data: network } = await supabase
       .from("saas_network")
       .select("parent_tenant_id")
@@ -58,25 +63,9 @@ export async function POST(req: NextRequest) {
     const parentTenantId = String(network?.parent_tenant_id || "");
     if (!parentTenantId) return NextResponse.json({ ok: false, error: "Sem tenant pai configurado" }, { status: 400, headers: NO_STORE });
 
-    const { data: myTenantRow, error: tenantErr } = await supabase
-  .from("tenants")
-  .select("saas_plan_table_id, credits_plan_table_id")
-  .eq("id", myTenantId)
-  .single();
-
-if (tenantErr || !myTenantRow) {
-  return NextResponse.json({
-    ok: false,
-    error: "debug",
-    myTenantId,
-    tenantErr: tenantErr?.message ?? null,
-    memberTenantId: member?.tenant_id ?? null,
-  }, { status: 404, headers: NO_STORE });
-}
-
-const planTableId = payment_type === "renewal"
-  ? String(myTenantRow?.saas_plan_table_id || "")
-  : String(myTenantRow?.credits_plan_table_id || "");
+    const planTableId = payment_type === "renewal"
+      ? String(myTenantRow.saas_plan_table_id || "")
+      : String(myTenantRow.credits_plan_table_id || "");
 
     if (!planTableId) return NextResponse.json({ ok: true, tiers: [], currency: "BRL" }, { headers: NO_STORE });
 
