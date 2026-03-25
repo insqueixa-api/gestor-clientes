@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = makeAdmin();
 
+    // Lemos o payload e validamos logo de cara
+    const body = await req.json().catch(() => ({} as any));
+    const payment_id = String(body?.payment_id || "").trim();
+    if (!payment_id) return NextResponse.json({ ok: false, error: "payment_id obrigatório" }, { status: 400, headers: NO_STORE });
+
     // Auth
     const token = (req.headers.get("authorization") || "").replace("Bearer ", "").trim();
     if (!token) return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401, headers: NO_STORE });
@@ -44,10 +49,6 @@ export async function POST(req: NextRequest) {
     if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
 
     const myTenantId = String(member.tenant_id);
-
-    const body = await req.json().catch(() => ({} as any));
-    const payment_id = String(body?.payment_id || "").trim();
-    if (!payment_id) return NextResponse.json({ ok: false, error: "payment_id obrigatório" }, { status: 400, headers: NO_STORE });
 
     // Busca pagamento
     const { data: payment, error: payErr } = await supabase
@@ -77,35 +78,43 @@ export async function POST(req: NextRequest) {
       }, { headers: NO_STORE });
     }
 
-    // Atualiza status via MP se ainda não aprovado
+    // Atualiza status se ainda não aprovado
     if (status !== "approved") {
-      const { data: gateway } = await supabase
-        .from("payment_gateways")
-        .select("config")
-        .eq("tenant_id", payment.parent_tenant_id)
-        .eq("type", "mercadopago")
-        .eq("is_active", true)
-        .maybeSingle();
+      // Só faz o "ping" ativo se o pagamento foi gerado via Mercado Pago
+      if (payment.gateway_type === "mercadopago") {
+        const { data: gateway } = await supabase
+          .from("payment_gateways")
+          .select("config")
+          .eq("tenant_id", payment.parent_tenant_id)
+          .eq("type", "mercadopago")
+          .eq("is_active", true)
+          .maybeSingle();
 
-      const mpToken = String(gateway?.config?.access_token || "").trim();
-      if (mpToken) {
-        const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${payment_id}`, {
-          headers: { Authorization: `Bearer ${mpToken}` },
-        });
-        const mpData = await mpRes.json().catch(() => ({} as any));
-        const newStatus = String(mpData?.status || "").toLowerCase();
-        if (newStatus && newStatus !== status) {
-          await supabase.from("saas_portal_payments").update({ status: newStatus })
-            .eq("id", payment.id);
-          if (newStatus !== "approved") {
-            return NextResponse.json({ ok: true, status: newStatus, phase: "awaiting_payment" }, { headers: NO_STORE });
+        const mpToken = String(gateway?.config?.access_token || "").trim();
+        if (mpToken) {
+          const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${payment_id}`, {
+            headers: { Authorization: `Bearer ${mpToken}` },
+          });
+          const mpData = await mpRes.json().catch(() => ({} as any));
+          const newStatus = String(mpData?.status || "").toLowerCase();
+          
+          if (newStatus && newStatus !== status) {
+            await supabase.from("saas_portal_payments").update({ status: newStatus })
+              .eq("id", payment.id);
+            
+            if (newStatus !== "approved") {
+              return NextResponse.json({ ok: true, status: newStatus, phase: "awaiting_payment" }, { headers: NO_STORE });
+            }
+            // Se aprovou agora, atualiza a variável local para descer para o fulfillment
+            payment.status = "approved";
+          } else {
+            return NextResponse.json({ ok: true, status, phase: "awaiting_payment" }, { headers: NO_STORE });
           }
-          // approved → cai no bloco abaixo
-          payment.status = "approved";
         } else {
           return NextResponse.json({ ok: true, status, phase: "awaiting_payment" }, { headers: NO_STORE });
         }
       } else {
+        // Se for Stripe ou Manual, apenas aguardamos o Webhook oficial (não fazemos ping)
         return NextResponse.json({ ok: true, status, phase: "awaiting_payment" }, { headers: NO_STORE });
       }
     }

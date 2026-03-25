@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+
+// ── IMPORTS IPTV ──────────────────────────────────────────────
 import {
-  runFulfillment,
-  markFulfillmentDone,
-  markFulfillmentError,
-  tryAcquireFulfillmentLock,
+  runFulfillment as runIptvFulfillment,
+  markFulfillmentDone as markIptvDone,
+  markFulfillmentError as markIptvError,
+  tryAcquireFulfillmentLock as tryAcquireIptvLock,
   prodLog,
 } from "@/lib/client-portal/fulfillment";
+
+// ── IMPORTS SAAS ──────────────────────────────────────────────
+import { 
+  runSaasFulfillment, 
+  markSaasDone, 
+  markSaasError, 
+  tryAcquireSaasLock 
+} from "@/lib/saas-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +32,7 @@ function safeMsg(err: unknown) {
   return s.length > 140 ? s.slice(0, 140) + "…" : s;
 }
 
-// ─── VERIFICAÇÃO DE ASSINATURA ────────────────────────────────────────────────
+// ─── VERIFICAÇÃO DE ASSINATURA STRIPE ─────────────────────────────────────────
 function parseStripeSig(sig: string) {
   const out: Record<string, string> = {};
   for (const part of sig.split(",")) {
@@ -32,14 +42,13 @@ function parseStripeSig(sig: string) {
   return { t: out.t || "", v1: out.v1 || "" };
 }
 
-function verifyStripeWebhook(rawBody: string, sig: string, secret: string): boolean {
+function verifyStripeSignature(rawBody: string, sig: string, secret: string): boolean {
   const { t, v1 } = parseStripeSig(sig);
   if (!t || !v1) return false;
 
   const tsNum = Number(t);
   if (!Number.isFinite(tsNum)) return false;
 
-  // Rejeita se o timestamp tiver mais de 5 minutos (protege contra replay attacks)
   if (Math.abs(Math.floor(Date.now() / 1000) - tsNum) > 300) return false;
 
   const expected = crypto
@@ -54,114 +63,123 @@ function verifyStripeWebhook(rawBody: string, sig: string, secret: string): bool
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    // ⚠️ OBRIGATÓRIO: req.text() para verificação de assinatura (não req.json())
     const rawBody = await req.text();
     const sig = req.headers.get("stripe-signature") || "";
 
-    if (!sig) {
-      return NextResponse.json({ ok: false }, { status: 400 });
-    }
+    if (!sig) return NextResponse.json({ ok: false }, { status: 400 });
 
-    // Parse antecipado (pré-verificação) apenas para lookup do tenant
     let event: any;
-    try {
-      event = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ ok: false }, { status: 400 });
-    }
+    try { event = JSON.parse(rawBody); } catch { return NextResponse.json({ ok: false }, { status: 400 }); }
 
-    // Só processa pagamentos confirmados
-    if (event?.type !== "payment_intent.succeeded") {
-      return NextResponse.json({ ok: true });
-    }
+    if (event?.type !== "payment_intent.succeeded") return NextResponse.json({ ok: true });
 
     const paymentIntentId = String(event?.data?.object?.id || "");
     if (!paymentIntentId) return NextResponse.json({ ok: true });
 
     prodLog("stripe.webhook.received", { pi_suffix: paymentIntentId.slice(-6) });
+    const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
 
-    // 1) Buscar pagamento no banco pelo PaymentIntent ID
-    const { data: payment, error: payErr } = await supabaseAdmin
+    // =========================================================================
+    // 1) ROTA IPTV (CLIENTES FINAIS)
+    // =========================================================================
+    const { data: iptvPayment } = await supabaseAdmin
       .from("client_portal_payments")
-      .select(
-        "id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento"
-      )
+      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento")
       .eq("mp_payment_id", paymentIntentId)
       .eq("gateway_type", "stripe")
-      .single();
+      .maybeSingle();
 
-    if (payErr || !payment) {
-      // Pagamento não encontrado — ignorar silenciosamente
+    if (iptvPayment) {
+      if (iptvPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
+
+      const { data: gateways } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("config")
+        .eq("tenant_id", iptvPayment.tenant_id)
+        .eq("type", "stripe")
+        .eq("is_active", true)
+        .order("priority", { ascending: true })
+        .limit(1);
+
+      const webhookSecret = String(gateways?.[0]?.config?.webhook_secret || "").trim();
+
+      if (webhookSecret) {
+        if (!verifyStripeSignature(rawBody, sig, webhookSecret)) {
+          prodLog("stripe.webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
+          return NextResponse.json({ ok: false }, { status: 401 });
+        }
+      }
+
+      await supabaseAdmin.from("client_portal_payments")
+        .update({ status: "approved", fulfillment_status: "pending" })
+        .eq("id", iptvPayment.id)
+        .neq("fulfillment_status", "done");
+
+      if (origin) {
+        const lock = await tryAcquireIptvLock(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
+        if (lock.acquired) {
+          try {
+            const { expDateISO } = await runIptvFulfillment({ supabaseAdmin, tenantId: iptvPayment.tenant_id, origin, payment: iptvPayment });
+            await markIptvDone(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, expDateISO);
+          } catch (e: any) {
+            await markIptvError(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, e?.message || "Falha no fulfillment Stripe");
+          }
+        }
+      }
       return NextResponse.json({ ok: true });
     }
 
-    // Idempotência: se já foi processado, sai
-    if (payment.fulfillment_status === "done") {
+    // =========================================================================
+    // 2) ROTA SAAS (REVENDEDORES)
+    // =========================================================================
+    const { data: saasPayment } = await supabaseAdmin
+      .from("saas_portal_payments")
+      .select("*")
+      .eq("mp_payment_id", paymentIntentId)
+      .eq("gateway_type", "stripe")
+      .maybeSingle();
+
+    if (saasPayment) {
+      if (saasPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
+
+      // No SaaS, a grana vai pro PAI (parent_tenant_id), então buscamos o gateway DELE
+      const { data: gateways } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("config")
+        .eq("tenant_id", saasPayment.parent_tenant_id)
+        .eq("type", "stripe")
+        .eq("is_active", true)
+        .limit(1);
+
+      const webhookSecret = String(gateways?.[0]?.config?.webhook_secret || "").trim();
+
+      if (webhookSecret) {
+        if (!verifyStripeSignature(rawBody, sig, webhookSecret)) {
+          prodLog("stripe.saas_webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
+          return NextResponse.json({ ok: false }, { status: 401 });
+        }
+      }
+
+      await supabaseAdmin.from("saas_portal_payments")
+        .update({ status: "approved", fulfillment_status: "pending" })
+        .eq("id", saasPayment.id)
+        .neq("fulfillment_status", "done");
+
+      if (origin) {
+        const lock = await tryAcquireSaasLock(supabaseAdmin, saasPayment.tenant_id, saasPayment.id);
+        if (lock.acquired) {
+          try {
+            const { newExpiresAt } = await runSaasFulfillment({ supabaseAdmin, payment: saasPayment });
+            await markSaasDone(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, newExpiresAt);
+          } catch (e: any) {
+            await markSaasError(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, e?.message || "Falha no fulfillment Stripe SaaS");
+          }
+        }
+      }
       return NextResponse.json({ ok: true });
     }
 
-    // 2) Buscar webhook_secret do gateway Stripe deste tenant
-    const { data: gateways } = await supabaseAdmin
-      .from("payment_gateways")
-      .select("config")
-      .eq("tenant_id", payment.tenant_id)
-      .eq("type", "stripe")
-      .eq("is_active", true)
-      .order("priority", { ascending: true })
-      .limit(1);
-
-    const webhookSecret = String(gateways?.[0]?.config?.webhook_secret || "").trim();
-
-    // 3) Verificar assinatura (se o tenant configurou o webhook_secret)
-    if (webhookSecret) {
-      if (!verifyStripeWebhook(rawBody, sig, webhookSecret)) {
-        prodLog("stripe.webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
-        return NextResponse.json({ ok: false }, { status: 401 });
-      }
-    }
-
-    prodLog("stripe.webhook.verified", {
-      pi_suffix: paymentIntentId.slice(-6),
-      tenant: String(payment.tenant_id).slice(-6),
-    });
-
-    // 4) Marcar como aprovado e preparar fulfillment
-    await supabaseAdmin
-      .from("client_portal_payments")
-      .update({ status: "approved", fulfillment_status: "pending" })
-      .eq("id", payment.id)
-      .neq("fulfillment_status", "done"); // nunca sobrescreve um done
-
-    const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
-    if (!origin) return NextResponse.json({ ok: true });
-
-    // 5) Lock + Fulfillment (mesmo padrão do MP)
-    const lock = await tryAcquireFulfillmentLock(supabaseAdmin, payment.tenant_id, payment.id);
-
-    prodLog("stripe.webhook.lock_result", {
-      acquired: lock.acquired,
-      payment_row_id: String(payment.id).slice(-6),
-    });
-
-    if (lock.acquired) {
-      try {
-        const { expDateISO } = await runFulfillment({
-          supabaseAdmin,
-          tenantId: payment.tenant_id,
-          origin,
-          payment,
-        });
-        await markFulfillmentDone(supabaseAdmin, payment.tenant_id, payment.id, expDateISO);
-      } catch (e: any) {
-        await markFulfillmentError(
-          supabaseAdmin,
-          payment.tenant_id,
-          payment.id,
-          e?.message || "Falha no fulfillment via webhook Stripe"
-        );
-      }
-    }
-
+    // Se o pagamento não existir em nenhuma das duas tabelas, devolve OK silencioso.
     return NextResponse.json({ ok: true });
 
   } catch (err) {
@@ -172,7 +190,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    message: "Webhook Stripe ativo",
+    message: "Webhook Stripe Unificado (IPTV + SaaS) Ativo",
     timestamp: isoNow(),
   });
 }

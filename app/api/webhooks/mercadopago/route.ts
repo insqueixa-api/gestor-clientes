@@ -2,7 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-import { runFulfillment, markFulfillmentDone, markFulfillmentError, tryAcquireFulfillmentLock, prodLog } from "@/lib/client-portal/fulfillment";
+// ── IMPORTS IPTV ──────────────────────────────────────────────
+import { 
+  runFulfillment as runIptvFulfillment, 
+  markFulfillmentDone as markIptvDone, 
+  markFulfillmentError as markIptvError, 
+  tryAcquireFulfillmentLock as tryAcquireIptvLock, 
+  prodLog 
+} from "@/lib/client-portal/fulfillment";
+
+// ── IMPORTS SAAS ──────────────────────────────────────────────
+import { 
+  runSaasFulfillment, 
+  markSaasDone, 
+  markSaasError, 
+  tryAcquireSaasLock 
+} from "@/lib/saas-portal/fulfillment";
 
 function parseMpSignature(sig: string) {
   const parts = sig.split(",").map(s => s.trim());
@@ -22,7 +37,7 @@ function safeEqualHex(a: string, b: string) {
 
 function verifyMpWebhook(req: NextRequest, paymentId: string) {
   const secret = String(process.env.MERCADOPAGO_WEBHOOK_SECRET || "").trim();
-  if (!secret) return true;
+  if (!secret) return true; // Se não tiver secret configurado, ignora a trava
 
   const sig = req.headers.get("x-signature") || "";
   const reqId = req.headers.get("x-request-id") || "";
@@ -69,121 +84,138 @@ export async function POST(req: NextRequest) {
     const paymentId = body?.data?.id ? String(body.data.id) : "";
     if (!paymentId) return NextResponse.json({ ok: true });
 
-if (!verifyMpWebhook(req, paymentId)) {
+    if (!verifyMpWebhook(req, paymentId)) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
 
     prodLog("webhook.received", { payment_id_suffix: paymentId.slice(-6) });
 
-    // 1) Buscar pagamento no nosso banco (pode estar in_process devido ao frontend)
-    const { data: payment, error: payErr } = await supabaseAdmin
-      .from("client_portal_payments")
-      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento")
-      .eq("mp_payment_id", paymentId)
-      .single();
+    // =========================================================================
+    // 1) ROTA IPTV (CLIENTES FINAIS)
+    // =========================================================================
+    const { data: iptvPayment } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id, tenant_id, client_id, mp_payment_id, status, fulfillment_status, period, plan_label, price_amount, price_currency, new_vencimento")
+      .eq("mp_payment_id", paymentId)
+      .maybeSingle();
 
-    // Se não achou ou a renovação já foi concluída, sai silenciosamente.
-    // ATENÇÃO: NÃO abortamos se o status for "approved", pois o frontend pode
-    // ter marcado como aprovado e morrido antes de finalizar o fulfillment!
-    if (payErr || !payment || payment.fulfillment_status === "done") {
-      return NextResponse.json({ ok: true });
-    }
+    if (iptvPayment) {
+      if (iptvPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
 
-    prodLog("webhook.payment_found", {
-      payment_row_id: String(payment.id).slice(-6),
-      tenant: String(payment.tenant_id).slice(-6),
-      current_status: payment.status,
-    });
+      prodLog("webhook.iptv_payment_found", { payment_row: String(iptvPayment.id).slice(-6) });
 
-    // 2) Buscar gateway MP ativo do tenant
-    const { data: gateways } = await supabaseAdmin
-      .from("payment_gateways")
-      .select("id, name, type, config, priority")
-      .eq("tenant_id", payment.tenant_id)
-      .eq("type", "mercadopago")
-      .eq("is_active", true)
-      .eq("is_online", true)
-      .order("priority", { ascending: true })
-      .limit(1);
+      const { data: gateways } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("config")
+        .eq("tenant_id", iptvPayment.tenant_id)
+        .eq("type", "mercadopago")
+        .eq("is_active", true)
+        .eq("is_online", true)
+        .order("priority", { ascending: true })
+        .limit(1);
 
-    const gateway = gateways?.[0] as any;
-    const accessToken = gateway?.config?.access_token;
+      const accessToken = gateways?.[0]?.config?.access_token;
+      if (!accessToken) return NextResponse.json({ ok: true });
 
-    if (!accessToken) {
-      return NextResponse.json({ ok: true });
-    }
-
-    // 3) Consultar status no MP (fonte de verdade)
-    const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const mpPayment = await mpRes.json().catch(() => ({} as any));
-    const mpStatus = String(mpPayment?.status ?? "").toLowerCase();
-
-    if (!mpRes.ok || !mpStatus) {
-      return NextResponse.json({ ok: true });
-    }
-
-    // Se não aprovado: atualiza status ruim e sai
-    if (mpStatus !== "approved") {
-      const finalBad = ["rejected", "cancelled", "refunded", "charged_back"];
-      if (finalBad.includes(mpStatus)) {
-        await supabaseAdmin
-          .from("client_portal_payments")
-          .update({ status: mpStatus })
-          .eq("id", payment.id);
-      }
-      return NextResponse.json({ ok: true });
-    }
-
-    prodLog("webhook.mp_approved", {
-      payment_id_suffix: paymentId.slice(-6),
-      tenant: String(payment.tenant_id).slice(-6),
-    });
-
-    // 4) Marca approved e prepara para o fulfillment
-    // Igual ao frontend: se fulfillment_status for nulo, iniciamos como pending para o lock funcionar
-    const updatePayload: any = { status: "approved" };
-    if (!payment.fulfillment_status) {
-      updatePayload.fulfillment_status = "pending";
-    }
-
-    await supabaseAdmin
-      .from("client_portal_payments")
-      .update(updatePayload)
-      .eq("id", payment.id);
-
-    const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
-
-    if (origin) {
-      const lock = await tryAcquireFulfillmentLock(supabaseAdmin, payment.tenant_id, payment.id);
-
-      prodLog("webhook.lock_result", {
-        acquired: lock.acquired,
-        payment_row_id: String(payment.id).slice(-6),
+      const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (lock.acquired) {
-        try {
-          const { expDateISO } = await runFulfillment({
-            supabaseAdmin,
-            tenantId: payment.tenant_id,
-            origin,
-            payment,
-          });
-          await markFulfillmentDone(supabaseAdmin, payment.tenant_id, payment.id, expDateISO);
-        } catch (e: any) {
-          await markFulfillmentError(
-            supabaseAdmin,
-            payment.tenant_id,
-            payment.id,
-            e?.message || "Falha no fulfillment via webhook"
-          );
+      const mpPayment = await mpRes.json().catch(() => ({} as any));
+      const mpStatus = String(mpPayment?.status ?? "").toLowerCase();
+
+      if (!mpRes.ok || !mpStatus) return NextResponse.json({ ok: true });
+
+      if (mpStatus !== "approved") {
+        const finalBad = ["rejected", "cancelled", "refunded", "charged_back"];
+        if (finalBad.includes(mpStatus)) {
+          await supabaseAdmin.from("client_portal_payments").update({ status: mpStatus }).eq("id", iptvPayment.id);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Preparar Fulfillment IPTV
+      const updatePayload: any = { status: "approved" };
+      if (!iptvPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
+      await supabaseAdmin.from("client_portal_payments").update(updatePayload).eq("id", iptvPayment.id);
+
+      const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
+      if (origin) {
+        const lock = await tryAcquireIptvLock(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
+        if (lock.acquired) {
+          try {
+            const { expDateISO } = await runIptvFulfillment({ supabaseAdmin, tenantId: iptvPayment.tenant_id, origin, payment: iptvPayment });
+            await markIptvDone(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, expDateISO);
+          } catch (e: any) {
+            await markIptvError(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, e?.message || "Falha no fulfillment");
+          }
         }
       }
+      return NextResponse.json({ ok: true });
     }
 
+    // =========================================================================
+    // 2) ROTA SAAS (REVENDEDORES)
+    // =========================================================================
+    const { data: saasPayment } = await supabaseAdmin
+      .from("saas_portal_payments")
+      .select("*")
+      .eq("mp_payment_id", paymentId)
+      .maybeSingle();
+
+    if (saasPayment) {
+      if (saasPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
+
+      prodLog("webhook.saas_payment_found", { payment_row: String(saasPayment.id).slice(-6) });
+
+      // No SaaS, a grana vai pro PAI (parent_tenant_id), então buscamos o gateway DELE
+      const { data: gateways } = await supabaseAdmin
+        .from("payment_gateways")
+        .select("config")
+        .eq("tenant_id", saasPayment.parent_tenant_id)
+        .eq("type", "mercadopago")
+        .eq("is_active", true)
+        .eq("is_online", true)
+        .limit(1);
+
+      const accessToken = gateways?.[0]?.config?.access_token;
+      if (!accessToken) return NextResponse.json({ ok: true });
+
+      const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const mpPayment = await mpRes.json().catch(() => ({} as any));
+      const mpStatus = String(mpPayment?.status ?? "").toLowerCase();
+
+      if (!mpRes.ok || !mpStatus) return NextResponse.json({ ok: true });
+
+      if (mpStatus !== "approved") {
+        const finalBad = ["rejected", "cancelled", "refunded", "charged_back"];
+        if (finalBad.includes(mpStatus)) {
+          await supabaseAdmin.from("saas_portal_payments").update({ status: mpStatus }).eq("id", saasPayment.id);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Preparar Fulfillment SaaS
+      const updatePayload: any = { status: "approved" };
+      if (!saasPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
+      await supabaseAdmin.from("saas_portal_payments").update(updatePayload).eq("id", saasPayment.id);
+
+      const lock = await tryAcquireSaasLock(supabaseAdmin, saasPayment.tenant_id, saasPayment.id);
+      if (lock.acquired) {
+        try {
+          const { newExpiresAt } = await runSaasFulfillment({ supabaseAdmin, payment: saasPayment });
+          await markSaasDone(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, newExpiresAt);
+        } catch (e: any) {
+          await markSaasError(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, e?.message || "Falha no fulfillment");
+        }
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Se o pagamento não existir em nenhuma das duas tabelas, devolve OK pro MP parar de tentar
     return NextResponse.json({ ok: true });
 
   } catch (err) {
@@ -194,7 +226,7 @@ if (!verifyMpWebhook(req, paymentId)) {
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    message: "Webhook Mercado Pago ativo",
+    message: "Webhook Mercado Pago Unificado (IPTV + SaaS) Ativo",
     timestamp: isoNow(),
   });
 }

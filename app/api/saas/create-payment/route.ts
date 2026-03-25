@@ -131,11 +131,15 @@ export async function POST(req: NextRequest) {
     if (!item) return jsonError("Período não encontrado na tabela de preços", 404);
 
     const screensCount = payment_type === "renewal" ? whatsappSessions : 1;
-    const priceRow = (item as any).prices?.find((p: any) => p.screens_count === screensCount);
+    
+    // Tenta achar o preço exato para a quantidade de sessões. Se não achar, usa o preço base de 1 sessão.
+    const priceRow = (item as any).prices?.find((p: any) => p.screens_count === screensCount) 
+                  ?? (item as any).prices?.find((p: any) => p.screens_count === 1);
+                  
     const computedPrice = Number(priceRow?.price_amount || 0);
 
     if (!computedPrice || computedPrice <= 0) {
-      return jsonError(`Preço não configurado para ${screensCount} sessão(ões)`, 400);
+      return jsonError(`Preço não configurado para o período selecionado.`, 400);
     }
 
     const days          = payment_type === "renewal" ? (DAYS_BY_PERIOD[period] || 30) : null;
@@ -143,6 +147,29 @@ export async function POST(req: NextRequest) {
     const periodLabel   = payment_type === "renewal"
       ? (PERIOD_LABELS[period] || period)
       : `${creditsAmount} créditos`;
+
+    // ── Validação de Estoque (Créditos) do Pai ────────────────
+    const { data: parentVw } = await supabase
+      .from("vw_saas_tenants")
+      .select("role, credit_balance")
+      .eq("id", parentTenantId)
+      .single();
+
+    const parentRole = String(parentVw?.role || "").toUpperCase();
+    const parentBalance = Number(parentVw?.credit_balance || 0);
+
+    let creditsNeeded = 0;
+    if (payment_type === "renewal") {
+      const creditsBase = Number((item as any).credits_base || 1);
+      creditsNeeded = creditsBase * whatsappSessions;
+    } else {
+      creditsNeeded = Number(creditsAmount || 0);
+    }
+
+    // Se o Pai não for SUPERADMIN, ele precisa ter saldo suficiente para cobrir a transação
+    if (parentRole !== "SUPERADMIN" && parentBalance < creditsNeeded) {
+      return jsonError("Seu gestor não possui saldo de créditos suficiente para liberar esta transação no momento. Por favor, contate-o.", 403);
+    }
 
     // ── Gateway do PAI ────────────────────────────────────────
     const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
