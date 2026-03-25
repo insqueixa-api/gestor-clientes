@@ -117,11 +117,17 @@ export async function POST(req: Request) {
     if (role === "MASTER" && credits_plan_table_id) {
       planPatch.credits_plan_table_id = credits_plan_table_id;
     }
-    await adminSupabase
+    const { error: planErr } = await adminSupabase
       .from("tenants")
       .update(planPatch)
-      .eq("id", newTenantId);
-    // Falha silenciosa — não bloqueia a criação, pode corrigir depois no edit
+      .eq("id", String(newTenantId));
+
+    if (planErr) {
+      console.error("[provision] Falha ao salvar plan tables:", planErr.message, {
+        newTenantId, planPatch
+      });
+      // Não bloqueia criação mas agora loga o erro
+    }
   }
 
   return NextResponse.json({ ok: true, tenant_id: newTenantId, user_id: newUserId });

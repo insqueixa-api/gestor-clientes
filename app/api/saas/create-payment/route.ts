@@ -81,7 +81,6 @@ export async function POST(req: NextRequest) {
 
     const parentTenantId = String(network?.parent_tenant_id || "");
     if (!parentTenantId) return jsonError("Sem tenant pai configurado", 400);
-    if (!parentTenantId) return NextResponse.json({ ok: false, error: "Sem tenant pai configurado" }, { status: 400, headers: NO_STORE });
 
     // ── Tabela de preços do PAI ───────────────────────────────
     const { data: myTenantRow } = await supabase
