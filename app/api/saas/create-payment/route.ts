@@ -84,17 +84,17 @@ export async function POST(req: NextRequest) {
     if (!parentTenantId) return NextResponse.json({ ok: false, error: "Sem tenant pai configurado" }, { status: 400, headers: NO_STORE });
 
     // ── Tabela de preços do PAI ───────────────────────────────
-    const { data: parentTenant } = await supabase
-      .from("tenants")
-      .select("saas_plan_table_id, credits_plan_table_id")
-      .eq("id", parentTenantId)
-      .single();
+    const { data: myTenantRow } = await supabase
+  .from("tenants")
+  .select("saas_plan_table_id, credits_plan_table_id")
+  .eq("id", myTenantId)
+  .single();
 
-    if (!parentTenant) return jsonError("Tenant pai não encontrado", 404);
+if (!myTenantRow) return jsonError("Tenant não encontrado", 404);
 
-    const planTableId = payment_type === "renewal"
-      ? String(parentTenant.saas_plan_table_id || "")
-      : String(parentTenant.credits_plan_table_id || "");
+const planTableId = payment_type === "renewal"
+  ? String(myTenantRow.saas_plan_table_id || "")
+  : String(myTenantRow.credits_plan_table_id || "");
 
     if (!planTableId) return jsonError("Tabela de preços do pai não configurada", 400);
 
