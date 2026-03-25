@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
+    if (!member?.tenant_id) return NextResponse.json({ 
+  ok: false, error: "sem member", userId: user.id, member 
+}, { status: 404, headers: NO_STORE });
 
     const myTenantId = String(member.tenant_id);
     const myTenant = member.tenants as any;
@@ -56,11 +58,21 @@ export async function POST(req: NextRequest) {
     const parentTenantId = String(network?.parent_tenant_id || "");
     if (!parentTenantId) return NextResponse.json({ ok: false, error: "Sem tenant pai configurado" }, { status: 400, headers: NO_STORE });
 
-    const { data: myTenantRow } = await supabase
+    const { data: myTenantRow, error: tenantErr } = await supabase
   .from("tenants")
   .select("saas_plan_table_id, credits_plan_table_id")
   .eq("id", myTenantId)
   .single();
+
+if (tenantErr || !myTenantRow) {
+  return NextResponse.json({
+    ok: false,
+    error: "debug",
+    myTenantId,
+    tenantErr: tenantErr?.message ?? null,
+    memberTenantId: member?.tenant_id ?? null,
+  }, { status: 404, headers: NO_STORE });
+}
 
 const planTableId = payment_type === "renewal"
   ? String(myTenantRow?.saas_plan_table_id || "")
