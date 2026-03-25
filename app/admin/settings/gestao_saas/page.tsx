@@ -972,7 +972,7 @@ const sortedTenants = useMemo(() => {
       {/* MODAIS */}
       {showNew && (
         <TenantFormModal
-          mode="new" myRole={myRole}
+          mode="new" myRole={myRole} parentTenantId={tenantId}
           onClose={() => setShowNew(false)}
           onSuccess={() => { setShowNew(false); loadData(); addToast("success", "Revenda criada!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -980,7 +980,7 @@ const sortedTenants = useMemo(() => {
       )}
       {editTarget && (
         <TenantFormModal
-          mode="edit" tenant={editTarget} myRole={myRole}
+          mode="edit" tenant={editTarget} myRole={myRole} parentTenantId={tenantId}
           onClose={() => setEditTarget(null)}
           onSuccess={() => { setEditTarget(null); loadData(); addToast("success", "Perfil atualizado!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -1437,10 +1437,11 @@ function TenantRow({
 // MODAL: NOVO TENANT / EDITAR PERFIL
 // (com validação de telefone igual ao ResellerFormModal)
 // ============================================================
-function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: {
+function TenantFormModal({ mode, tenant, myRole, parentTenantId, onClose, onSuccess, onError }: {
   mode: "new" | "edit";
   tenant?: SaasTenant;
   myRole: string;
+  parentTenantId: string | null;
   onClose: () => void;
   onSuccess: () => void;
   onError: (m: string) => void;
@@ -1480,9 +1481,12 @@ function TenantFormModal({ mode, tenant, myRole, onClose, onSuccess, onError }: 
   // Carrega tabelas disponíveis (saas e saas_credits, system_default=true)
   useEffect(() => {
     async function loadPlanTables() {
+      if (!parentTenantId) return;
+
       const { data } = await supabaseBrowser
         .from("plan_tables")
         .select("id, name, table_type")
+        .eq("tenant_id", parentTenantId)
         .in("table_type", ["saas", "saas_credits"])
         .eq("is_active", true);
 
@@ -1611,18 +1615,27 @@ if (error) throw new Error(error.message);
         });
         if (roleErr) throw new Error(roleErr.message);
 
-        // Salva tabelas de plano diretamente em tenants
-        const planPatch: any = { saas_plan_table_id: saasPlanTableId || null };
-        if (role === "MASTER") {
-          planPatch.credits_plan_table_id = creditsPlanTableId || null;
-        } else {
-          planPatch.credits_plan_table_id = null; // USER não tem tabela de créditos
+        // Chama API de bypass do RLS para atualizar as tabelas de plano
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess?.session?.access_token;
+        
+        const resPlans = await fetch("/api/saas/update-child-plans", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            child_tenant_id: tenant!.id,
+            saas_plan_table_id: saasPlanTableId || null,
+            credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
+          }),
+        });
+        
+        if (!resPlans.ok) {
+          const planData = await resPlans.json().catch(() => ({}));
+          throw new Error(planData.error || "Falha ao vincular tabelas de plano.");
         }
-        const { error: planErr } = await supabaseBrowser
-          .from("tenants")
-          .update(planPatch)
-          .eq("id", tenant!.id);
-        if (planErr) throw new Error(`Erro ao salvar tabelas: ${planErr.message}`);
 
         // Atualiza email se preenchido
         if (newEmail.trim() && newEmail.trim() !== email) {
