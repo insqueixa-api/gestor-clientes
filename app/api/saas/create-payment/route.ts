@@ -71,13 +71,20 @@ export async function POST(req: NextRequest) {
 
     const myTenantId = String(member.tenant_id);
 
-    const { data: myTenantRow } = await supabase
+    const { data: myTenantRow, error: tenantErr } = await supabase
       .from("tenants")
       .select("name, whatsapp_sessions, saas_plan_table_id, credits_plan_table_id")
       .eq("id", myTenantId)
       .single();
 
-    if (!myTenantRow) return jsonError("Tenant não encontrado", 404);
+    if (tenantErr || !myTenantRow) {
+      return NextResponse.json({ 
+        ok: false, 
+        error: "Tenant não encontrado",
+        details: tenantErr?.message || "Sem dados retornados",
+        myTenantId
+      }, { status: 404, headers: NO_STORE });
+    }
 
     const whatsappSessions = Number(myTenantRow.whatsapp_sessions || 1);
 
