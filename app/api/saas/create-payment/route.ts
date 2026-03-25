@@ -63,18 +63,25 @@ export async function POST(req: NextRequest) {
     // ── Tenant do usuário ─────────────────────────────────────
     const { data: member } = await supabase
       .from("tenant_members")
-      .select("tenant_id, tenants(id, name, parent_tenant_id, saas_plan_table_id, credits_plan_table_id, whatsapp_sessions)")
+      .select("tenant_id, tenants(whatsapp_sessions)")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!member?.tenant_id) return jsonError("Tenant não encontrado", 404);
+    if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
 
-    const myTenantId    = String(member.tenant_id);
-    const myTenant      = member.tenants as any;
-    const parentTenantId = String(myTenant?.parent_tenant_id || "");
+    const myTenantId = String(member.tenant_id);
+    const myTenant = member.tenants as any;
     const whatsappSessions = Number(myTenant?.whatsapp_sessions || 1);
 
+    const { data: network } = await supabase
+      .from("saas_network")
+      .select("parent_tenant_id")
+      .eq("child_tenant_id", myTenantId)
+      .maybeSingle();
+
+    const parentTenantId = String(network?.parent_tenant_id || "");
     if (!parentTenantId) return jsonError("Sem tenant pai configurado", 400);
+    if (!parentTenantId) return NextResponse.json({ ok: false, error: "Sem tenant pai configurado" }, { status: 400, headers: NO_STORE });
 
     // ── Tabela de preços do PAI ───────────────────────────────
     const { data: parentTenant } = await supabase
