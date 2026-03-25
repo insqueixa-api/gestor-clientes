@@ -53,6 +53,127 @@ function calcNewExpiry(currentExpiry: string | null, days: number): string {
 }
 
 
+// ── Componente de pagamento reutilizável dentro do modal ──
+function PaymentUI({
+  paymentData, paymentPhase, copiedPix, setCopiedPix,
+  stripeStep, setStripeStep, stripeLoading, stripeReady,
+  handleStripeConfirm, cardNumberEl, setCardNumberEl,
+  cardExpiryEl, setCardExpiryEl, cardCvcEl, setCardCvcEl,
+  fmtMoney, onCancel,
+}: any) {
+  const isOnline = paymentData.payment_method === "online";
+  const isStripe = paymentData.payment_method === "stripe";
+
+  if (paymentPhase === "done") {
+    return (
+      <div className="py-8 flex flex-col items-center gap-4 text-center">
+        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/10 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div className="text-base font-bold text-slate-800 dark:text-white">Concluído com sucesso! ✅</div>
+        <p className="text-xs text-slate-400">Atualizando...</p>
+      </div>
+    );
+  }
+
+  if (paymentPhase === "error") {
+    return (
+      <div className="py-8 flex flex-col items-center gap-4 text-center">
+        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </div>
+        <div className="text-base font-bold text-slate-800 dark:text-white">Falha no pagamento</div>
+        <button onClick={onCancel} className="text-sm text-slate-400 hover:text-slate-600">Tentar novamente</button>
+      </div>
+    );
+  }
+
+  if (paymentPhase === "renewing") {
+    return (
+      <div className="py-8 flex flex-col items-center gap-4 text-center">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <div className="text-sm font-bold text-slate-700 dark:text-white">Processando...</div>
+        <div className="text-xs text-slate-400">Aguarde enquanto concluímos sua solicitação.</div>
+      </div>
+    );
+  }
+
+  // PIX
+  if (isOnline) return (
+    <div className="space-y-4">
+      <div className="text-center text-sm font-bold text-emerald-600 dark:text-emerald-400">Pague com PIX</div>
+      {paymentData.pix_qr_code_base64 && (
+        <div className="flex justify-center">
+          <img src={`data:image/png;base64,${paymentData.pix_qr_code_base64}`} alt="QR PIX"
+            className="w-48 h-48 rounded bg-white p-2 border border-slate-200" />
+        </div>
+      )}
+      {paymentData.pix_qr_code && (
+        <div className="relative">
+          <input readOnly value={paymentData.pix_qr_code}
+            className="w-full pr-24 pl-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-mono text-slate-700 dark:text-white outline-none" />
+          <button onClick={() => { navigator.clipboard.writeText(paymentData.pix_qr_code); setCopiedPix(true); setTimeout(() => setCopiedPix(false), 3000); }}
+            className={`absolute right-1 top-1 bottom-1 px-3 text-white font-bold text-xs rounded-md transition-all ${copiedPix ? "bg-emerald-500" : "bg-blue-500"}`}>
+            {copiedPix ? "✅ Copiado" : "📋 Copiar"}
+          </button>
+        </div>
+      )}
+      <div className="flex items-center gap-2 p-3 bg-sky-50 dark:bg-sky-500/10 rounded-xl border border-sky-200 dark:border-sky-500/20">
+        <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+        <p className="text-xs font-bold text-sky-700 dark:text-sky-300">Aguardando confirmação do pagamento...</p>
+      </div>
+      <button onClick={onCancel} className="w-full text-xs text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
+    </div>
+  );
+
+  // Stripe
+  if (isStripe) return (
+    <div className="space-y-4">
+      <div className="text-center">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total</p>
+        <p className="text-2xl font-black text-slate-800 dark:text-white">
+          {fmtMoney(paymentData.price_amount, paymentData.currency)}
+        </p>
+      </div>
+      <div className="relative">
+        <div className={stripeStep === 1 ? "space-y-3" : "hidden"}>
+          <p className="text-xs font-bold text-slate-400 uppercase">Número do Cartão</p>
+          <div ref={setCardNumberEl} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl min-h-[46px]" />
+          <button onClick={() => setStripeStep(2)} disabled={!stripeReady}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl disabled:opacity-60">
+            Continuar →
+          </button>
+        </div>
+        <div className={stripeStep === 2 ? "space-y-3" : "hidden"}>
+          <button onClick={() => setStripeStep(1)} className="text-xs text-slate-400 hover:text-slate-600">← Voltar</button>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase mb-2">Validade</p>
+              <div ref={setCardExpiryEl} className="px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl min-h-[46px]" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase mb-2">CVC</p>
+              <div ref={setCardCvcEl} className="px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl min-h-[46px]" />
+            </div>
+          </div>
+          <button onClick={handleStripeConfirm} disabled={stripeLoading || !stripeReady}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
+            {stripeLoading ? <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Processando...</> : <>🔒 Confirmar Pagamento</>}
+          </button>
+        </div>
+      </div>
+      <button onClick={onCancel} className="w-full text-xs text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
+    </div>
+  );
+
+  return null;
+}
+
+
 // ============================================================
 // MODAL PRINCIPAL
 // ============================================================
@@ -76,10 +197,44 @@ export default function SaasProfileRenewModal({
   const [loadingText, setLoadingText] = useState("Renovando...");
   const [error, setError] = useState<string | null>(null);
 
-  // Plano
+  // Plano (own_balance)
   const [tiers, setTiers] = useState<PlanTier[]>([]);
   const [currency, setCurrency] = useState("BRL");
   const [selectedPeriod, setSelectedPeriod] = useState("MONTHLY");
+
+  // Plano do pai (auto + buy_credits)
+  const [parentTiers, setParentTiers] = useState<PlanTier[]>([]);
+  const [parentCurrency, setParentCurrency] = useState("BRL");
+  const [parentSelectedPeriod, setParentSelectedPeriod] = useState("MONTHLY");
+  const [parentLoading, setParentLoading] = useState(false);
+
+  // Créditos do pai
+  const CREDIT_TIERS = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
+  const CREDIT_LABELS: Record<string, number> = {
+    C_10:10,C_20:20,C_30:30,C_50:50,C_100:100,
+    C_150:150,C_200:200,C_300:300,C_400:400,C_500:500,
+  };
+  const [creditTiers, setCreditTiers] = useState<{period:string;credits:number;price:number|null}[]>([]);
+  const [selectedCreditTier, setSelectedCreditTier] = useState<string>("C_10");
+
+  // Payment UI (auto + buy_credits)
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentPhase, setPaymentPhase] = useState<"awaiting"|"renewing"|"done"|"error">("awaiting");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [copiedPix, setCopiedPix] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stripe
+  const [stripeReady, setStripeReady] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeStep, setStripeStep] = useState<1|2>(1);
+  const stripeRef = useRef<any>(null);
+  const cardNumberRef = useRef<any>(null);
+  const cardExpiryRef = useRef<any>(null);
+  const cardCvcRef = useRef<any>(null);
+  const [cardNumberEl, setCardNumberEl] = useState<HTMLDivElement|null>(null);
+  const [cardExpiryEl, setCardExpiryEl] = useState<HTMLDivElement|null>(null);
+  const [cardCvcEl, setCardCvcEl] = useState<HTMLDivElement|null>(null);
 
   
   
@@ -177,6 +332,161 @@ export default function SaasProfileRenewModal({
     }
   }
 
+  // ── Carrega preços do pai para auto/buy_credits ──
+  useEffect(() => {
+    if (step !== "auto" && step !== "buy_credits") return;
+    let alive = true;
+    (async () => {
+      setParentLoading(true);
+      try {
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess?.session?.access_token;
+        const res = await fetch("/api/saas/get-parent-prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ payment_type: step === "auto" ? "renewal" : "credits" }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!alive || !result?.ok) return;
+
+        if (step === "auto") {
+          setParentTiers(result.tiers || []);
+          setParentCurrency(result.currency || "BRL");
+          const first = (result.tiers || []).find((t: any) => t.price !== null);
+          if (first) setParentSelectedPeriod(first.period);
+        } else {
+          setCreditTiers(result.tiers || []);
+          setParentCurrency(result.currency || "BRL");
+          const first = (result.tiers || []).find((t: any) => t.price !== null);
+          if (first) setSelectedCreditTier(first.period);
+        }
+      } finally {
+        if (alive) setParentLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [step]);
+
+  // ── Stripe.js ──
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as any).Stripe) { setStripeReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://js.stripe.com/v3/";
+    s.onload = () => setStripeReady(true);
+    document.head.appendChild(s);
+  }, []);
+
+  // ── Montar Stripe Elements ──
+  useEffect(() => {
+    if (!paymentData || paymentData.payment_method !== "stripe") return;
+    if (!stripeReady || !cardNumberEl || !cardExpiryEl || !cardCvcEl) return;
+
+    const stripe = (window as any).Stripe(paymentData.publishable_key);
+    stripeRef.current = stripe;
+    const elements = stripe.elements({ disableLink: true });
+    const style = { base: { fontSize: "16px", color: "#1e293b", "::placeholder": { color: "#94a3b8" } } };
+
+    const cn = elements.create("cardNumber", { style, showIcon: true });
+    const ce = elements.create("cardExpiry", { style });
+    const cv = elements.create("cardCvc", { style });
+
+    cn.mount(cardNumberEl); ce.mount(cardExpiryEl); cv.mount(cardCvcEl);
+    cardNumberRef.current = cn; cardExpiryRef.current = ce; cardCvcRef.current = cv;
+    ce.on("change", (e: any) => { if (e.complete) cv.focus(); });
+
+    return () => { try { cn.unmount(); ce.unmount(); cv.unmount(); } catch {} };
+  }, [paymentData, stripeReady, cardNumberEl, cardExpiryEl, cardCvcEl]);
+
+  // ── Cleanup polling ──
+  useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
+
+  function startPolling(paymentId: string) {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const token = sess?.session?.access_token;
+        const res = await fetch("/api/saas/payment-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ payment_id: paymentId }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!result?.ok) return;
+
+        const phase = String(result.phase || "").toLowerCase();
+        if (phase === "awaiting_payment") { setPaymentPhase("awaiting"); return; }
+        if (phase === "renewing") { setPaymentPhase("renewing"); return; }
+        if (phase === "done") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setPaymentPhase("done");
+          setTimeout(() => { onSuccess(); onClose(); }, 3000);
+        }
+        if (phase === "error") {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setPaymentPhase("error");
+        }
+      } catch {}
+    }, 3000);
+  }
+
+  async function handleCreatePayment(paymentType: "renewal" | "credits") {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    setPaymentData(null);
+    setPaymentPhase("awaiting");
+    setStripeStep(1);
+
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+
+      const period = paymentType === "renewal" ? parentSelectedPeriod : selectedCreditTier;
+
+      const res = await fetch("/api/saas/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ payment_type: paymentType, period }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!result?.ok) { setError(result?.error || "Erro ao criar pagamento"); return; }
+
+      setPaymentData(result);
+      if (result.payment_method === "online" && result.payment_id) {
+        startPolling(String(result.payment_id));
+      }
+    } catch (e: any) {
+      setError(e?.message || "Erro ao criar pagamento");
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function handleStripeConfirm() {
+    if (!stripeRef.current || !cardNumberRef.current || !paymentData) return;
+    setStripeLoading(true);
+    try {
+      const result = await stripeRef.current.confirmCardPayment(paymentData.client_secret, {
+        payment_method: { card: cardNumberRef.current },
+      });
+      if (result.error) { alert(result.error.message || "Erro no cartão."); return; }
+      if (result.paymentIntent?.status === "succeeded") {
+        setPaymentPhase("renewing");
+        startPolling(String(paymentData.payment_id));
+      }
+    } catch (e: any) {
+      alert(e?.message || "Erro ao processar pagamento.");
+    } finally {
+      setStripeLoading(false);
+    }
+  }
+
+  function fmtMoney(amount: number, cur: string) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur || "BRL" })
+      .format(amount).replace(/^US(\$)/, "$1");
+  }
+
   if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
@@ -251,7 +561,7 @@ export default function SaasProfileRenewModal({
                   <div className="text-sm font-bold text-slate-700 dark:text-white">Renovação Automática</div>
                   <div className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Pagamento via PIX, cartão ou boleto</div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">Em breve</span>
+                
               </button>
 
               {/* Opção 3: Comprar Créditos */}
@@ -266,7 +576,7 @@ export default function SaasProfileRenewModal({
                   <div className="text-sm font-bold text-slate-700 dark:text-white">Comprar Créditos</div>
                   <div className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Adicione créditos à sua conta</div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-100 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">Em breve</span>
+                
               </button>
             </div>
           )}
@@ -347,35 +657,107 @@ export default function SaasProfileRenewModal({
             </div>
           )}
 
-          {/* ── STEP: RENOVAÇÃO AUTOMÁTICA (placeholder) ── */}
+          {/* ── STEP: RENOVAÇÃO AUTOMÁTICA ── */}
           {step === "auto" && (
-            <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-3xl">🔄</div>
-              <div>
-                <div className="text-base font-bold text-slate-700 dark:text-white">Renovação Automática</div>
-                <div className="text-sm text-slate-400 dark:text-white/40 mt-1 max-w-xs">
-                  Em breve você poderá renovar automaticamente via PIX, cartão de crédito ou boleto.
-                </div>
-              </div>
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-sky-100 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-500/20">
-                Em desenvolvimento
-              </span>
+            <div className="space-y-4">
+              {/* Payment UI — aparece após criar pagamento */}
+              {paymentData ? (
+                <PaymentUI
+                  paymentData={paymentData} paymentPhase={paymentPhase}
+                  copiedPix={copiedPix} setCopiedPix={setCopiedPix}
+                  stripeStep={stripeStep} setStripeStep={setStripeStep}
+                  stripeLoading={stripeLoading} stripeReady={stripeReady}
+                  handleStripeConfirm={handleStripeConfirm}
+                  cardNumberEl={cardNumberEl} setCardNumberEl={setCardNumberEl}
+                  cardExpiryEl={cardExpiryEl} setCardExpiryEl={setCardExpiryEl}
+                  cardCvcEl={cardCvcEl} setCardCvcEl={setCardCvcEl}
+                  fmtMoney={fmtMoney}
+                  onCancel={() => {
+                    if (pollingRef.current) clearInterval(pollingRef.current);
+                    setPaymentData(null); setPaymentPhase("awaiting");
+                  }}
+                />
+              ) : parentLoading ? (
+                <div className="py-12 text-center text-slate-400 animate-pulse">Carregando planos...</div>
+              ) : (
+                <>
+                  {error && <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm">{error}</div>}
+                  <div className="flex flex-col gap-2">
+                    {parentTiers.map(tier => (
+                      <button key={tier.period} type="button"
+                        onClick={() => setParentSelectedPeriod(tier.period)}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-bold transition-all ${
+                          parentSelectedPeriod === tier.period
+                            ? "bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-500/20"
+                            : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-sky-500/50"
+                        }`}
+                      >
+                        <span>{tier.label}</span>
+                        <span className="font-bold">
+                          {tier.price !== null ? fmtMoney(tier.price, parentCurrency) : "—"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {parentTiers.length === 0 && (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
+                      Nenhum plano disponível. Contate seu gestor.
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
-          {/* ── STEP: COMPRAR CRÉDITOS (placeholder) ── */}
+          {/* ── STEP: COMPRAR CRÉDITOS ── */}
           {step === "buy_credits" && (
-            <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-3xl">💳</div>
-              <div>
-                <div className="text-base font-bold text-slate-700 dark:text-white">Comprar Créditos</div>
-                <div className="text-sm text-slate-400 dark:text-white/40 mt-1 max-w-xs">
-                  Em breve você poderá comprar pacotes de créditos diretamente pelo painel.
-                </div>
-              </div>
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-violet-100 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">
-                Em desenvolvimento
-              </span>
+            <div className="space-y-4">
+              {paymentData ? (
+                <PaymentUI
+                  paymentData={paymentData} paymentPhase={paymentPhase}
+                  copiedPix={copiedPix} setCopiedPix={setCopiedPix}
+                  stripeStep={stripeStep} setStripeStep={setStripeStep}
+                  stripeLoading={stripeLoading} stripeReady={stripeReady}
+                  handleStripeConfirm={handleStripeConfirm}
+                  cardNumberEl={cardNumberEl} setCardNumberEl={setCardNumberEl}
+                  cardExpiryEl={cardExpiryEl} setCardExpiryEl={setCardExpiryEl}
+                  cardCvcEl={cardCvcEl} setCardCvcEl={setCardCvcEl}
+                  fmtMoney={fmtMoney}
+                  onCancel={() => {
+                    if (pollingRef.current) clearInterval(pollingRef.current);
+                    setPaymentData(null); setPaymentPhase("awaiting");
+                  }}
+                />
+              ) : parentLoading ? (
+                <div className="py-12 text-center text-slate-400 animate-pulse">Carregando pacotes...</div>
+              ) : (
+                <>
+                  {error && <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm">{error}</div>}
+                  <div className="grid grid-cols-2 gap-2">
+                    {creditTiers.map(t => (
+                      <button key={t.period} type="button"
+                        onClick={() => setSelectedCreditTier(t.period)}
+                        className={`flex flex-col items-center py-3 rounded-xl border text-xs font-bold transition-all ${
+                          selectedCreditTier === t.period
+                            ? "bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-500/20"
+                            : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-violet-500/50"
+                        }`}
+                      >
+                        <span className="text-base font-black">{t.credits}</span>
+                        <span className="text-[10px] mt-0.5 opacity-80">créditos</span>
+                        <span className="font-bold mt-1">
+                          {t.price !== null ? fmtMoney(t.price, parentCurrency) : "—"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {creditTiers.length === 0 && (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
+                      Nenhum pacote disponível. Contate seu gestor.
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -386,18 +768,24 @@ export default function SaasProfileRenewModal({
             {step === "select" || step === "auto" || step === "buy_credits" ? "Fechar" : "Cancelar"}
           </button>
           {step === "own_balance" && !loading && saasPlanTableId && (
-            <button
-              onClick={handleSaveOwnBalance}
-              disabled={!selectedTier || !hasSufficientBalance || saving}
-              className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-50 transition-all flex items-center gap-2"
-            >
-              {saving && (
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-              )}
+            <button onClick={handleSaveOwnBalance} disabled={!selectedTier || !hasSufficientBalance || saving}
+              className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 disabled:opacity-50 transition-all flex items-center gap-2">
+              {saving && <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
               {saving ? loadingText : `Renovar — ${selectedTier?.label ?? ""}`}
+            </button>
+          )}
+          {step === "auto" && !parentLoading && !paymentData && parentTiers.length > 0 && (
+            <button onClick={() => handleCreatePayment("renewal")} disabled={isProcessing}
+              className="px-6 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
+              {isProcessing && <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+              {isProcessing ? "Aguarde..." : "Pagar e Renovar"}
+            </button>
+          )}
+          {step === "buy_credits" && !parentLoading && !paymentData && creditTiers.length > 0 && (
+            <button onClick={() => handleCreatePayment("credits")} disabled={isProcessing}
+              className="px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm shadow-lg disabled:opacity-50 transition-all flex items-center gap-2">
+              {isProcessing && <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+              {isProcessing ? "Aguarde..." : "Pagar e Receber Créditos"}
             </button>
           )}
         </div>
