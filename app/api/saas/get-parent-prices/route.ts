@@ -34,13 +34,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({} as any));
     const payment_type = String(body?.payment_type || "renewal");
 
-    const { data: member } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  return NextResponse.json({ ok: false, error: "SERVICE_ROLE_KEY ausente" }, { status: 500, headers: NO_STORE });
+}
 
-    if (!member?.tenant_id) return NextResponse.json({ ok: false, error: "Tenant não encontrado" }, { status: 404, headers: NO_STORE });
+const { data: member, error: memberErr } = await supabase
+  .from("tenant_members")
+  .select("tenant_id")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+if (!member?.tenant_id) return NextResponse.json({ 
+  ok: false, error: "sem member", 
+  userId: user.id, 
+  member,
+  memberErr: memberErr?.message ?? null,
+  hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+}, { status: 404, headers: NO_STORE });
 
     const myTenantId = String(member.tenant_id);
 
