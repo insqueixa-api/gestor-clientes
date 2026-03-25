@@ -149,14 +149,23 @@ export async function POST(req: NextRequest) {
       : `${creditsAmount} créditos`;
 
     // ── Validação de Estoque (Créditos) do Pai ────────────────
-    const { data: parentVw } = await supabase
-      .from("vw_saas_tenants")
-      .select("role, credit_balance")
-      .eq("id", parentTenantId)
-      .single();
+    // Buscamos direto na tabela raiz para evitar bloqueios de view na service_role
+    const { data: parentNetwork } = await supabase
+      .from("saas_network")
+      .select("parent_tenant_id")
+      .eq("child_tenant_id", parentTenantId)
+      .maybeSingle();
 
-    const parentRole = String(parentVw?.role || "").toUpperCase();
-    const parentBalance = Number(parentVw?.credit_balance || 0);
+    // Se o pai não tem "pai", ele é o SUPERADMIN (topo da cadeia)
+    const isParentSuperadmin = !parentNetwork?.parent_tenant_id;
+
+    const { data: parentCredits } = await supabase
+      .from("saas_credits")
+      .select("balance")
+      .eq("tenant_id", parentTenantId)
+      .maybeSingle();
+
+    const parentBalance = Number(parentCredits?.balance || 0);
 
     let creditsNeeded = 0;
     if (payment_type === "renewal") {
@@ -167,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Se o Pai não for SUPERADMIN, ele precisa ter saldo suficiente para cobrir a transação
-    if (parentRole !== "SUPERADMIN" && parentBalance < creditsNeeded) {
+    if (!isParentSuperadmin && parentBalance < creditsNeeded) {
       return jsonError("Seu gestor não possui saldo de créditos suficiente para liberar esta transação no momento. Por favor, contate-o.", 403);
     }
 
