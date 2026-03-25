@@ -69,7 +69,14 @@ if (!member?.tenant_id) return NextResponse.json({
       }, { status: 404, headers: NO_STORE });
     }
 
-    const whatsappSessions = Number(myTenantRow.whatsapp_sessions || 1);
+    // Busca a quantidade real de sessões do tenant na view
+    const { data: vwTenant } = await supabase
+      .from("vw_saas_tenants")
+      .select("whatsapp_sessions")
+      .eq("id", myTenantId)
+      .maybeSingle();
+      
+    const whatsappSessions = Number(vwTenant?.whatsapp_sessions || 1);
 
     const { data: network } = await supabase
       .from("saas_network")

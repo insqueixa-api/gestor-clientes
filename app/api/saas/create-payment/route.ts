@@ -86,7 +86,14 @@ export async function POST(req: NextRequest) {
       }, { status: 404, headers: NO_STORE });
     }
 
-    const whatsappSessions = Number(myTenantRow.whatsapp_sessions || 1);
+    // Busca a quantidade real de sessões do tenant na view para a cobrança
+    const { data: vwTenant } = await supabase
+      .from("vw_saas_tenants")
+      .select("whatsapp_sessions")
+      .eq("id", myTenantId)
+      .maybeSingle();
+      
+    const whatsappSessions = Number(vwTenant?.whatsapp_sessions || 1);
 
     // ── Tenant pai via saas_network ───────────────────────────
     const { data: network } = await supabase
