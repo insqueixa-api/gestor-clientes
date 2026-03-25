@@ -123,14 +123,14 @@
       const { data: newTable } = await supabase
         .from("plan_tables")
         .insert({
-          tenant_id: tenantId,
-          name: tpl.name,
-          currency: tpl.currency,
-          table_type: tpl.table_type,
-          is_system_default: false,
-          is_master_only: tpl.is_master_only ?? false,
-          is_active: true,
-        })
+        tenant_id: tenantId,
+        name: tpl.name,
+        currency: tpl.currency,
+        table_type: tpl.table_type,
+        is_system_default: true,
+        is_master_only: tpl.is_master_only ?? false,
+        is_active: true,
+      })
         .select("id")
         .single();
 
@@ -553,27 +553,22 @@
                               </span>
 
                               {/* Badges de Status (Tones Suaves) */}
-                              {(() => {
-                                // É "Padrão" se for system_default OU se for a única tabela daquele type no tenant
-                                const isDefault = plan.is_system_default ||
-                                  plano.filter(p => p.table_type === plan.table_type).length === 1;
-                                return isDefault ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
-                                    Padrão do Sistema
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
-                                    ${
-                                      plan.is_active
-                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                        : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-white/20"
-                                    }`}
-                                  >
-                                    {plan.is_active ? "Ativa" : "Inativa"}
-                                  </span>
-                                );
-                              })()}
+                              {plan.is_system_default ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                Padrão do Sistema
+                              </span>
+                            ) : (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
+                                ${
+                                  plan.is_active
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                    : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10 dark:text-white/20"
+                                }`}
+                              >
+                                {plan.is_active ? "Ativa" : "Inativa"}
+                              </span>
+                            )}
                             </div>
                           </div>
 
@@ -611,7 +606,7 @@
                               </svg>
                             </button>
 
-                            {!plan.is_system_default && plano.filter(p => p.table_type === plan.table_type).length > 1 && (
+                            {!plan.is_system_default && (
                               <button
                                 onClick={() => handleDelete(plan)}
                                 className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
@@ -627,7 +622,7 @@
                               </button>
                             )}
 
-                            {(plan.is_system_default || plano.filter(p => p.table_type === plan.table_type).length === 1) && (
+                            {plan.is_system_default && (
                               <div className="p-1.5 opacity-20 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center cursor-not-allowed">
                                 <svg className="w-4 h-4 text-slate-500 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
