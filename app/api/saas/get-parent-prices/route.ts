@@ -55,28 +55,28 @@ if (!member?.tenant_id) return NextResponse.json({
     const myTenantId = String(member.tenant_id);
 
     const { data: myTenantRow, error: tenantErr } = await supabase
-      .from("tenants")
-      .select("whatsapp_sessions, saas_plan_table_id, credits_plan_table_id")
-      .eq("id", myTenantId)
-      .single();
+      .from("tenants")
+      .select("saas_plan_table_id, credits_plan_table_id")
+      .eq("id", myTenantId)
+      .single();
 
-    if (tenantErr || !myTenantRow) {
-      return NextResponse.json({ 
-        ok: false, 
-        error: "Tenant não encontrado", 
-        details: tenantErr?.message || "Sem dados retornados",
-        myTenantId
-      }, { status: 404, headers: NO_STORE });
-    }
+    if (tenantErr || !myTenantRow) {
+      return NextResponse.json({ 
+        ok: false, 
+        error: "Tenant não encontrado", 
+        details: tenantErr?.message || "Sem dados retornados",
+        myTenantId
+      }, { status: 404, headers: NO_STORE });
+    }
 
-    // Busca a quantidade real de sessões do tenant na view
-    const { data: vwTenant } = await supabase
-      .from("vw_saas_tenants")
-      .select("whatsapp_sessions")
-      .eq("id", myTenantId)
-      .maybeSingle();
-      
-    const whatsappSessions = Number(vwTenant?.whatsapp_sessions || 1);
+    // Busca a quantidade exata direto na tabela de licenças
+    const { data: licenseRow } = await supabase
+      .from("saas_licenses")
+      .select("whatsapp_sessions")
+      .eq("tenant_id", myTenantId)
+      .maybeSingle();
+      
+    const whatsappSessions = Number(licenseRow?.whatsapp_sessions || 1);
 
     const { data: network } = await supabase
       .from("saas_network")
