@@ -394,7 +394,7 @@ return (
               <>
                 {/* A ordem define o topo da tela */}
                 {renderGroup("Mensagens Padrão (IPTV)", "📺", iptvDefaults)}
-               
+                {renderGroup("Mensagens Personalizadas", "💬", customMessages)}
                 {/* SaaS só é renderizado se for isMaster e se a lista não estiver vazia */}
                 {isMaster && renderGroup("Mensagens Padrão (SaaS)", "☁️", saasDefaults)}
               </>
