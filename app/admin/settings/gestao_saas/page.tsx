@@ -315,7 +315,8 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
       setTenantId(tid);
       
       if (tid) {
-        const { data: tpls } = await supabaseBrowser.from("message_templates").select("id,name,content").eq("tenant_id", tid);
+        // ✅ Traz a categoria também
+        const { data: tpls } = await supabaseBrowser.from("message_templates").select("id,name,content,category").eq("tenant_id", tid);
         setMessageTemplates(tpls || []);
       }
 
@@ -1047,7 +1048,10 @@ const sortedTenants = useMemo(() => {
                 className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
               >
                 <option value="">Selecionar...</option>
-                {messageTemplates.map((t) => (
+                {messageTemplates
+                  // Filtra apenas SaaS (pela nova categoria ou pelo nome, caso não tenha salvo ainda)
+                  .filter((t: any) => t.category === "Revenda SaaS" || String(t.name).toUpperCase().includes("SAAS"))
+                  .map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
@@ -1128,7 +1132,9 @@ const sortedTenants = useMemo(() => {
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
                 >
                   <option value="">Selecionar mensagem pronta (opcional)...</option>
-                  {messageTemplates.map((t) => (
+                  {messageTemplates
+                    .filter((t: any) => t.category === "Revenda SaaS" || String(t.name).toUpperCase().includes("SAAS"))
+                    .map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>

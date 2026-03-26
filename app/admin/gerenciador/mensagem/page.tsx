@@ -127,8 +127,32 @@ type MessageTemplate = {
   content: string;
   updated_at: string;
   is_system_default: boolean; 
-  image_url: string | null; // ✅ NOVO: URL da imagem
+  image_url: string | null; 
+  category?: string | null; // ✅ NOVO: Categoria
 };
+
+// ✅ Categorias do Sistema
+const MESSAGE_CATEGORIES = [
+  "Cliente IPTV",
+  "Revenda IPTV",
+  "Revenda SaaS",
+  "Vencimentos",
+  "Promoções",
+  "Manutenção",
+  "Fidelidade",
+  "Geral"
+];
+
+// ✅ Reconhecedor Automático (Não quebra o que já existe e mapeia as protegidas automaticamente)
+function getTemplateCategory(msg: MessageTemplate) {
+  if (msg.category && msg.category !== 'Geral') return msg.category;
+  
+  if (msg.name === "Pagamento Realizado" || msg.name === "Teste - Boas-vindas") return "Cliente IPTV";
+  if (msg.name === "Recarga Revenda") return "Revenda IPTV";
+  if (msg.name === "SaaS Pagamento Realizado" || msg.name === "SaaS Recarga Realizada") return "Revenda SaaS";
+  
+  return msg.category || "Geral";
+}
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
@@ -165,10 +189,9 @@ export default function MessagesPage() {
 
   let query = supabaseBrowser
     .from("message_templates")
-    .select("id, name, content, updated_at, is_system_default, image_url") // ✅ ADICIONADO: image_url
+    .select("id, name, content, updated_at, is_system_default, image_url, category") // ✅ Busca a Categoria
     .eq("tenant_id", tid)
     .order("is_system_default", { ascending: false })
-    .order("updated_at", { ascending: false });
 
   // Usuários comuns não veem templates master_only
   if (!isMasterOrAdmin) {
@@ -325,11 +348,6 @@ return (
       ) : (
         <div className="space-y-6">
           {(() => {
-            // ✅ Separação Lógica dos Grupos
-            const iptvDefaults = filteredMessages.filter(m => m.is_system_default && !m.name.toUpperCase().includes("SAAS"));
-            const customMessages = filteredMessages.filter(m => !m.is_system_default);
-            const saasDefaults = filteredMessages.filter(m => m.is_system_default && m.name.toUpperCase().includes("SAAS"));
-
             // Função auxiliadora para renderizar os blocos separados
             const renderGroup = (title: string, icon: string, items: MessageTemplate[]) => {
               if (items.length === 0) return null;
@@ -392,11 +410,25 @@ return (
 
             return (
               <>
-                {/* A ordem define o topo da tela */}
-                {renderGroup("Mensagens Padrão (IPTV)", "📺", iptvDefaults)}
-                {renderGroup("Mensagens Personalizadas", "💬", customMessages)}
-                {/* SaaS só é renderizado se for isMaster e se a lista não estiver vazia */}
-                {isMaster && renderGroup("Mensagens Padrão (SaaS)", "☁️", saasDefaults)}
+                {MESSAGE_CATEGORIES.map(cat => {
+                  // Oculta a categoria SaaS inteira se não for Master
+                  if (cat === "Revenda SaaS" && !isMaster) return null;
+                  
+                  const items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+                  if (items.length === 0) return null;
+
+                  // Define os ícones automaticamente
+                  let icon = "💬";
+                  if (cat === "Cliente IPTV") icon = "📺";
+                  else if (cat === "Revenda IPTV") icon = "🤝";
+                  else if (cat === "Revenda SaaS") icon = "☁️";
+                  else if (cat === "Vencimentos") icon = "📅";
+                  else if (cat === "Promoções") icon = "🎉";
+                  else if (cat === "Manutenção") icon = "⚙️";
+                  else if (cat === "Fidelidade") icon = "⭐";
+
+                  return <div key={cat}>{renderGroup(cat, icon, items)}</div>;
+                })}
               </>
             );
           })()}
@@ -524,6 +556,7 @@ function EditorModal({
 }) {
 const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
+  const [category, setCategory] = useState(templateToEdit ? getTemplateCategory(templateToEdit) : "Geral"); // ✅ Inicia com a categoria certa
   
   // ✅ Controle de Grupos Minimizados (inicia tudo fechado/vazio)
   const [openDesktopGroups, setOpenDesktopGroups] = useState<number[]>([]);
@@ -644,7 +677,8 @@ const [name, setName] = useState(templateToEdit?.name || "");
         tenant_id: tid,
         name,
         content,
-        image_url: finalImageUrl, // ✅ Grava o Link Público
+        category, // ✅ Salva a categoria no banco
+        image_url: finalImageUrl, 
         updated_at: new Date().toISOString(),
       };
 
@@ -809,6 +843,23 @@ return createPortal(
                   🔒 Este é um modelo fundamental do sistema. O nome não pode ser alterado, apenas o seu conteúdo.
                 </p>
               )}
+            </div>
+
+            {/* ✅ NOVO: Seletor de Categoria */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
+                Categoria da Mensagem
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
+              >
+                {MESSAGE_CATEGORIES.map(cat => {
+                  if (cat === "Revenda SaaS" && !isMaster) return null;
+                  return <option key={cat} value={cat}>{cat}</option>;
+                })}
+              </select>
             </div>
 
             <div className="flex-1 flex flex-col">
