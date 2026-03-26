@@ -130,7 +130,7 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any; isSecondary?: boolean }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller" | "saas"; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date();
   const row = params.recipientRow || {};
 
@@ -242,6 +242,15 @@ chave_pix_manual: "",
 
 valor_fatura: valorFaturaStr,
 
+// ☁️ SaaS Revenda
+saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
+saas_plano: "Plano Assinado",
+saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
+saas_nova_validade: row.saas_nova_validade ? toBRDate(new Date(row.saas_nova_validade)) : (row.expires_at ? toBRDate(new Date(row.expires_at)) : ""),
+saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
+saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
+saas_perfil: String(row.role || "USER"),
+saas_whatsapp_sessoes: String(row.whatsapp_sessions || "1"),
 
     nome: displayName,
     tipo_destino: params.recipientType,
@@ -256,25 +265,39 @@ function getBearerToken(req: Request): string | null {
 
 type ScheduleBody = {
   tenant_id: string;
-
-  // ✅ legado
   client_id?: string;
-
-  // ✅ novo
   reseller_id?: string;
-
-  // ✅ padrão (opcional)
+  saas_id?: string; // ✅ NOVO
   recipient_id?: string;
-  recipient_type?: "client" | "reseller";
-
-  // ✅ novo (opcional)
+  recipient_type?: "client" | "reseller" | "saas"; // ✅ NOVO
   message_template_id?: string;
-
   message: string;
-  send_at: string; // ISO (pode vir sem TZ do front)
+  send_at: string; 
   whatsapp_session?: string | null;
-  image_url?: string | null; // ✅ NOVO: Suporte a imagens no agendamento
+  image_url?: string | null; 
 };
+
+// ✅ NOVA FUNÇÃO: Busca exclusiva para SaaS
+async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string) {
+  const { data, error } = await sb
+    .from("vw_saas_tenants")
+    .select("*")
+    .eq("id", saasId)
+    .maybeSingle();
+
+  if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
+
+  const phoneMain = normalizeToPhone(data.whatsapp_username || data.phone_e164);
+  const phones = [];
+  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
+
+  return {
+    phones,
+    whatsapp_opt_in: true, // Avisos de sistema
+    dont_message_until: null,
+    row: data,
+  };
+}
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
   let rowData: any = null;
@@ -671,7 +694,7 @@ if ((job as any).automation_id && automationConfig) {
       const rawClientId = String((job as any).client_id || "").trim();
       const rawResellerId = String((job as any).reseller_id || "").trim();
 
-      let recipientType: "client" | "reseller" | null = null;
+      let recipientType: "client" | "reseller" | "saas" | null = null; // ✅ Adicionado o "saas"
       let recipientId = "";
 
       if (rawResellerId) {
@@ -690,11 +713,19 @@ if ((job as any).automation_id && automationConfig) {
         continue;
       }
 
-      // ✅ pega WhatsApp e linha pra tags
-      const wa =
-        recipientType === "reseller"
-          ? await fetchResellerWhatsApp(sb, job.tenant_id, recipientId)
-          : await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
+      // ✅ pega WhatsApp e linha pra tags (Com suporte híbrido para SaaS usando reseller_id)
+      let wa;
+      if (recipientType === "reseller") {
+        try {
+          wa = await fetchResellerWhatsApp(sb, job.tenant_id, recipientId);
+        } catch (e: any) {
+          // Se não encontrou na view de revendas IPTV, é porque esse ID pertence a um Tenant SaaS!
+          wa = await fetchSaasWhatsApp(sb, job.tenant_id, recipientId);
+          recipientType = "saas"; // Atualiza o tipo em memória para o buildTemplateVars saber preencher as tags certas
+        }
+      } else {
+        wa = await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
+      }
 
       // ✅ validações
       if (!wa.phones || wa.phones.length === 0) {
@@ -750,11 +781,11 @@ if (wa.dont_message_until) {
       // ✅ Loop de envios para os contatos vinculados à conta
       for (const contact of wa.phones) {
         const vars = buildTemplateVars({
-          recipientType,
+          recipientType: recipientType as "client" | "reseller" | "saas", // ✅ Informando o TypeScript com certeza
           recipientRow: wa.row,
           isSecondary: contact.is_secondary,
         });
-        Object.assign(vars, manualPaymentVars); // ✅ Injeta o PIX e o IBAN na mensagem final
+        Object.assign(vars, manualPaymentVars);
 
         // Gera token exclusivo do contato atual no loop
         try {
@@ -901,16 +932,20 @@ if (wa.dont_message_until) {
 
   const rawClientId = String((body as any).client_id || "").trim();
   const rawResellerId = String((body as any).reseller_id || "").trim();
-  const rawTestId = String((body as any).test_id || "").trim(); // ✅ Adicionado
+  const rawSaasId = String((body as any).saas_id || "").trim(); // ✅ NOVO: SaaS
+  const rawTestId = String((body as any).test_id || "").trim(); 
   const rawRecipientId = String((body as any).recipient_id || "").trim();
   const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-  let recipientType: "client" | "reseller" | null = null;
+  let recipientType: "client" | "reseller" | "saas" | null = null;
   let recipientId = "";
 
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
-    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test" || rawRecipientType === "saas")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : rawRecipientType === "saas" ? "saas" : "client";
     recipientId = rawRecipientId;
+  } else if (rawSaasId) {
+    recipientType = "saas";
+    recipientId = rawSaasId;
   } else if (rawResellerId) {
     recipientType = "reseller";
     recipientId = rawResellerId;
@@ -918,14 +953,13 @@ if (wa.dont_message_until) {
     recipientType = "client";
     recipientId = rawClientId;
   } else if (rawTestId) {
-    // ✅ Testes moram na view de clientes, então tratamos como client
     recipientType = "client";
     recipientId = rawTestId;
   }
 
   if (!tenantId || !message || !sendAtRaw || !recipientType || !recipientId) {
     return NextResponse.json(
-      { error: "tenant_id, message, send_at e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
+      { error: "tenant_id, message, send_at e destino válido são obrigatórios" },
       { status: 400 }
     );
   }
@@ -939,8 +973,10 @@ if (wa.dont_message_until) {
   }
 
   // ✅ validações iguais ao dispatch
-  const wa =
-    recipientType === "reseller" ? await fetchResellerWhatsApp(sb, tenantId, recipientId) : await fetchClientWhatsApp(sb, tenantId, recipientId);
+  let wa: any;
+  if (recipientType === "saas") wa = await fetchSaasWhatsApp(sb, tenantId, recipientId);
+  else if (recipientType === "reseller") wa = await fetchResellerWhatsApp(sb, tenantId, recipientId);
+  else wa = await fetchClientWhatsApp(sb, tenantId, recipientId);
 
   if (!wa.phones || wa.phones.length === 0) {
     return NextResponse.json({ error: `${recipientType === "reseller" ? "Revenda" : "Cliente"} sem whatsapp_username` }, { status: 400 });
@@ -972,7 +1008,8 @@ if (wa.dont_message_until) {
 const mtid = String((body as any).message_template_id || "").trim();
 if (mtid) insertPayload.message_template_id = mtid;
 
-  if (recipientType === "reseller") insertPayload.reseller_id = recipientId;
+  // ✅ SALVANDO SaaS NO CAMPO DE RESELLER (Bypass para não precisar alterar estrutura de banco)
+  if (recipientType === "reseller" || recipientType === "saas") insertPayload.reseller_id = recipientId;
   else insertPayload.client_id = recipientId;
 
   const { error: insErr } = await sb.from("client_message_jobs").insert(insertPayload);

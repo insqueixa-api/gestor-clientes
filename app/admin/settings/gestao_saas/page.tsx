@@ -424,7 +424,7 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        reseller_id: showSendNow.resellerId, 
+        saas_id: showSendNow.resellerId, // ✅ Use saas_id
         message: messageText, 
         whatsapp_session: "default"
       };
@@ -434,7 +434,7 @@ if (tenantsRes.error) {
       }
 
       // ✅ APONTA PARA A ROTA NOVA EXCLUSIVA DE REVENDEDOR
-      const res = await fetch("/api/whatsapp/envio_agora_revenda", {
+      const res = await fetch("/api/whatsapp/envio_agora", {
         method: "POST", 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -466,7 +466,7 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        reseller_id: showScheduleMsg.resellerId, 
+        saas_id: showScheduleMsg.resellerId, // ✅ Ajustado para saas_id
         message: scheduleText, 
         send_at: scheduleDate, 
         whatsapp_session: "default"
@@ -476,8 +476,8 @@ if (tenantsRes.error) {
         payload.message_template_id = selectedTemplateScheduleId;
       }
 
-      // ✅ APONTA PARA A ROTA NOVA EXCLUSIVA DE REVENDEDOR
-      const res = await fetch("/api/whatsapp/envio_agendado_revenda", {
+      // ✅ APONTA PARA A ROTA ORIGINAL (HÍBRIDA)
+      const res = await fetch("/api/whatsapp/envio_agendado", {
         method: "POST", 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),

@@ -238,7 +238,7 @@ async function fetchManualPaymentVars(sb: any, tenantId: string): Promise<Record
 }
 
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any; isSecondary?: boolean }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller" | "saas"; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
 
@@ -335,23 +335,33 @@ const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}`
     revenda_dns: row.reseller_dns || "",
 
     // 💰 Financeiro
-    venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "", // ✅ NOVO
-    link_pagamento: linkPagamento,
-    pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", 
-    valor_fatura: valorFaturaStr,
-    moeda_cliente: String(row.price_currency || "").trim(),
-    pix_manual_cnpj: "",
-    pix_manual_cpf: "",
-    pix_manual_email: "",
-    pix_manual_phone: "",
-    pix_manual_aleatoria: "",
-    transfer_iban: "",
-    transfer_swift: "",
+      venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "", // ✅ NOVO
+      link_pagamento: linkPagamento,
+      pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", 
+      valor_fatura: valorFaturaStr,
+      moeda_cliente: String(row.price_currency || "").trim(),
+      pix_manual_cnpj: "",
+      pix_manual_cpf: "",
+      pix_manual_email: "",
+      pix_manual_phone: "",
+      pix_manual_aleatoria: "",
+      transfer_iban: "",
+      transfer_swift: "",
 
-    // Legado
-    nome: displayName,
-    tipo_destino: params.recipientType,
-  };
+      // ☁️ SaaS Revenda
+      saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
+      saas_plano: "Plano Assinado",
+      saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
+      saas_nova_validade: row.saas_nova_validade ? toBRDate(new Date(row.saas_nova_validade)) : (row.expires_at ? toBRDate(new Date(row.expires_at)) : ""),
+      saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
+      saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
+      saas_perfil: String(row.role || "USER"),
+      saas_whatsapp_sessoes: String(row.whatsapp_sessions || "1"),
+
+      // Legado
+      nome: displayName,
+      tipo_destino: params.recipientType,
+    };
 }
 
 function getBearerToken(req: Request): string | null {
@@ -362,24 +372,44 @@ function getBearerToken(req: Request): string | null {
 
 type SendNowBody = {
   tenant_id: string;
-
-  // ✅ compat legado (cliente)
   client_id?: string;
-
-  // ✅ novo (revenda)
   reseller_id?: string;
-
-  // ✅ opcional (futuro/padrão)
+  saas_id?: string; // ✅ NOVO: Destino SaaS
   recipient_id?: string;
-  recipient_type?: "client" | "reseller";
-
+  recipient_type?: "client" | "reseller" | "saas"; // ✅ NOVO: SaaS
   message: string;
-  whatsapp_session?: string | null; // mantido
-  
-  // ✅ NOVO: Suporte a imagens
+  whatsapp_session?: string | null;
   message_template_id?: string | null;
   image_url?: string | null;
+  new_expires_at?: string | null; // ✅ NOVO: Data após renovação
+  credits_recharged?: number | string | null;
 };
+
+// ✅ NOVA FUNÇÃO: Busca de dados exclusiva para SaaS
+async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any) {
+  const { data, error } = await sb
+    .from("vw_saas_tenants")
+    .select("*")
+    .eq("id", saasId)
+    .maybeSingle();
+
+  if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
+
+  const phoneMain = normalizeToPhone(data.whatsapp_username || data.phone_e164);
+  const phones = [];
+  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
+
+  // Injeta valores vindos direto do front-end na memória (ex: renovação que acabou de ocorrer)
+  if (extraCredits != null) data.venda_creditos = extraCredits;
+  if (extraNewExpiry != null) data.saas_nova_validade = extraNewExpiry;
+
+  return {
+    phones,
+    whatsapp_opt_in: true, // Avisos de sistema não dependem de opt-in comum
+    dont_message_until: null,
+    row: data,
+  };
+}
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
   let rowData: any = null;
@@ -411,6 +441,8 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
     row: rowData,
   };
 }
+
+
 
 async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: string, resellerServerId?: string, creditsRecharged?: string) {
   const tryViews = ["vw_resellers_list_active", "vw_resellers_list_archived"];
@@ -603,23 +635,22 @@ if (!internal) {
 // 4) Identificação do destino
 // =========================
 
-// ✅ aceita 3 formatos:
-// 1) legado: client_id
-// 2) novo: reseller_id
-// 3) padrão: recipient_id + recipient_type
-
 const rawClientId = String((body as any).client_id || "").trim();
   const rawResellerId = String((body as any).reseller_id || "").trim();
-  const rawTestId = String((body as any).test_id || "").trim(); // ✅ Adicionado
+  const rawTestId = String((body as any).test_id || "").trim(); 
+  const rawSaasId = String((body as any).saas_id || "").trim(); // ✅ NOVO: Identificador do SaaS
   const rawRecipientId = String((body as any).recipient_id || "").trim();
   const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-  let recipientType: "client" | "reseller" | null = null;
+  let recipientType: "client" | "reseller" | "saas" | null = null;
   let recipientId = "";
 
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
-    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test" || rawRecipientType === "saas")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : rawRecipientType === "saas" ? "saas" : "client";
     recipientId = rawRecipientId;
+  } else if (rawSaasId) {
+    recipientType = "saas";
+    recipientId = rawSaasId;
   } else if (rawResellerId) {
     recipientType = "reseller";
     recipientId = rawResellerId;
@@ -627,27 +658,30 @@ const rawClientId = String((body as any).client_id || "").trim();
     recipientType = "client";
     recipientId = rawClientId;
   } else if (rawTestId) {
-    // ✅ Testes moram na view de clientes, então tratamos como client
     recipientType = "client";
     recipientId = rawTestId;
   }
 
 if (!tenantId || !message || !recipientType || !recipientId) {
   return NextResponse.json(
-    { error: "tenant_id, message e (client_id OU reseller_id OU recipient_id+recipient_type) são obrigatórios" },
+    { error: "tenant_id, message e destino válido (client_id, reseller_id ou saas_id) são obrigatórios" },
     { status: 400 }
   );
 }
 
-
   const rawResellerServerId = String((body as any).reseller_server_id || "").trim();
   const rawCredits = (body as any).credits_recharged != null ? String((body as any).credits_recharged) : undefined;
+  const rawNewExpiry = (body as any).new_expires_at != null ? String((body as any).new_expires_at) : undefined; // ✅ NOVO
 
-  // ✅ pega SEMPRE do destino certo (passando servidor e créditos se existirem)
-  const wa =
-    recipientType === "reseller"
-      ? await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits)
-      : await fetchClientWhatsApp(sb, tenantId, recipientId);
+  // ✅ pega SEMPRE do destino certo
+  let wa: any;
+  if (recipientType === "saas") {
+    wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry);
+  } else if (recipientType === "reseller") {
+    wa = await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits);
+  } else {
+    wa = await fetchClientWhatsApp(sb, tenantId, recipientId);
+  }
 
   // Validação 1: Conta sem números salvos
   if (!wa.phones || wa.phones.length === 0) {
