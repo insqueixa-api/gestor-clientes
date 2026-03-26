@@ -100,10 +100,13 @@ const TAG_GROUPS = [
     color: "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400",
     tags: [
       { label: "{saas_nome_revenda}", desc: "Nome do Revendedor SaaS" },
-      { label: "{saas_plano}", desc: "Plano do SaaS" },
-      { label: "{saas_vencimento}", desc: "Data de Vencimento do SaaS" },
-      { label: "{saas_creditos_comprados}", desc: "Créditos recarregados no Painel" },
+      { label: "{saas_plano}", desc: "Plano Assinado do SaaS" },
+      { label: "{saas_vencimento}", desc: "Data Atual de Vencimento" },
+      { label: "{saas_nova_validade}", desc: "Nova Validade (Após Renovar)" },
+      { label: "{saas_creditos_comprados}", desc: "Qtd. de Créditos Painel SaaS" },
       { label: "{saas_valor}", desc: "Valor da fatura do sistema" },
+      { label: "{saas_perfil}", desc: "Perfil (Master ou User)" },
+      { label: "{saas_whatsapp_sessoes}", desc: "Quantidade de Sessões WA (Ex: 2)" },
     ],
   },
 ];
@@ -134,6 +137,7 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isMaster, setIsMaster] = useState(false); // ✅ NOVO ESTADO
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -157,6 +161,7 @@ export default function MessagesPage() {
   // Detecta role para filtrar templates exclusivos de Master/Admin
   const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
   const isMasterOrAdmin = roleData === "superadmin" || roleData === "master";
+  setIsMaster(isMasterOrAdmin); // ✅ SALVA NO ESTADO AQUI
 
   let query = supabaseBrowser
     .from("message_templates")
@@ -318,104 +323,87 @@ return (
           <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Crie um novo modelo ou ajuste sua busca.</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden">
-          {/* Header da lista (padrão cliente) */}
-          <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/60 dark:bg-white/5">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-sm font-bold text-slate-700 dark:text-white truncate">
-                Lista de Modelos
-              </h2>
-<span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-  {filteredMessages.length}
-</span>
+        <div className="space-y-6">
+          {(() => {
+            // ✅ Separação Lógica dos Grupos
+            const iptvDefaults = filteredMessages.filter(m => m.is_system_default && !m.name.toUpperCase().includes("SAAS"));
+            const customMessages = filteredMessages.filter(m => !m.is_system_default);
+            const saasDefaults = filteredMessages.filter(m => m.is_system_default && m.name.toUpperCase().includes("SAAS"));
 
-            </div>
-            <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
-              Selecione para destacar
-            </div>
-          </div>
-
-          {/* GRID: 2 Colunas (Desktop) / 1 Coluna (Mobile) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
-            {filteredMessages.map((msg) => {
-              const isSelected = selectedTemplate?.id === msg.id;
-              // ✅ Protege se for default ou se tiver um dos nomes obrigatórios
-              const isProtected = msg.is_system_default || PROTECTED_TEMPLATES.includes(msg.name);
-
+            // Função auxiliadora para renderizar os blocos separados
+            const renderGroup = (title: string, icon: string, items: MessageTemplate[]) => {
+              if (items.length === 0) return null;
               return (
-                <div
-                  key={msg.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedTemplate(msg)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setSelectedTemplate(msg);
-                  }}
-                  className={[
-                    "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-white dark:bg-[#161b22]",
-                    isSelected
-                      ? "bg-emerald-50/70 dark:bg-emerald-500/10"
-                      : "hover:bg-slate-50 dark:hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  {/* Esquerda: Nome + Data */}
-                  <div className="min-w-0 flex-1 pr-2">
+                <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-3 sm:px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/60 dark:bg-white/5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={[
-                          "inline-flex w-2 h-2 rounded-full shrink-0",
-                          isSelected ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20",
-                        ].join(" ")}
-                      />
-                      <h3
-                        className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate"
-                        title={msg.name}
-                      >
-                        {msg.name}
-                      </h3>
+                      <span className="text-lg">{icon}</span>
+                      <h2 className="text-sm font-bold text-slate-700 dark:text-white truncate">
+                        {title}
+                      </h2>
+                      <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                        {items.length}
+                      </span>
                     </div>
-                    <div className="mt-1 text-[10px] sm:text-xs text-slate-500 dark:text-white/50 ml-4">
-                      Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider hidden sm:block">
+                      Selecione para destacar
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:gap-[1px] bg-slate-100 dark:bg-white/5">
+                    {items.map((msg) => {
+                      const isSelected = selectedTemplate?.id === msg.id;
+                      const isProtected = msg.is_system_default || PROTECTED_TEMPLATES.includes(msg.name);
 
-                  {/* Direita: Ações travadas na mesma linha, usando os SVGs do Cliente */}
-                  <div className="flex items-center justify-end gap-1.5 shrink-0">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all"
-                      title="Ver"
-                    >
-                      <IconEye />
-                    </button>
-                    
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all"
-                      title="Editar"
-                    >
-                      <IconEdit />
-                    </button>
-
-                    {/* 🔒 Trava o botão de apagar */}
-                    {!isProtected && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }}
-                        className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all"
-                        title="Excluir"
-                      >
-                        <IconTrash />
-                      </button>
-                    )}
+                      return (
+                        <div
+                          key={msg.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedTemplate(msg)}
+                          onKeyDown={(e) => { if (e.key === "Enter") setSelectedTemplate(msg); }}
+                          className={[
+                            "w-full flex items-center justify-between gap-2 px-3 sm:px-5 py-3 transition-colors cursor-pointer bg-white dark:bg-[#161b22]",
+                            isSelected ? "bg-emerald-50/70 dark:bg-emerald-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5",
+                          ].join(" ")}
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={["inline-flex w-2 h-2 rounded-full shrink-0", isSelected ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"].join(" ")} />
+                              <h3 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate" title={msg.name}>{msg.name}</h3>
+                            </div>
+                            <div className="mt-1 text-[10px] sm:text-xs text-slate-500 dark:text-white/50 ml-4">
+                              Atualizado: {new Date(msg.updated_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-1.5 shrink-0">
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowPreview(true); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all" title="Ver"><IconEye /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedTemplate(msg); setShowEditor(true); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all" title="Editar"><IconEdit /></button>
+                            {!isProtected && (
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(msg.id); }} className="flex items-center justify-center w-8 h-8 rounded-lg border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all" title="Excluir"><IconTrash /></button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
-            })}
-          </div>
+            };
+
+            return (
+              <>
+                {/* A ordem define o topo da tela */}
+                {renderGroup("Mensagens Padrão (IPTV)", "📺", iptvDefaults)}
+                {renderGroup("Mensagens Personalizadas", "💬", customMessages)}
+                {/* SaaS só é renderizado se for isMaster e se a lista não estiver vazia */}
+                {isMaster && renderGroup("Mensagens Padrão (SaaS)", "☁️", saasDefaults)}
+              </>
+            );
+          })()}
         </div>
       )}
 
-      {/* Espaço fixo pós-lista (evita cortar popups/toasts no fim, igual padrão) */}
+      {/* Espaço fixo pós-lista */}
       <div className="h-24 md:h-20" />
 
 
@@ -423,6 +411,7 @@ return (
       {showEditor && (
         <EditorModal
           templateToEdit={selectedTemplate}
+          isMaster={isMaster} // ✅ Passando a prop para esconder variáveis SaaS
           onClose={() => setShowEditor(false)}
           onSuccess={() => {
             setShowEditor(false);
@@ -522,11 +511,13 @@ function PreviewModal({
 // ============================================================================
 function EditorModal({
   templateToEdit,
+  isMaster, // ✅ NOVA PROP
   onClose,
   onSuccess,
   onError,
 }: {
   templateToEdit?: MessageTemplate | null;
+  isMaster: boolean; // ✅ NOVA PROP
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
@@ -680,8 +671,11 @@ const [name, setName] = useState(templateToEdit?.name || "");
     }
   };
 
+  // ✅ Filtra dinamicamente as tags (Tira a tag do SaaS para quem for User comum)
+  const allowedTagGroups = isMaster ? TAG_GROUPS : TAG_GROUPS.filter(g => g.title !== "☁️ SaaS Revenda (Sistema)");
+
   const filteredMobileTags = useMemo(() => {
-    const all = TAG_GROUPS.flatMap((group) =>
+    const all = allowedTagGroups.flatMap((group) => // ✅ USANDO A VARIÁVEL FILTRADA AQUI
       group.tags.map((tag) => ({
         ...tag,
         groupTitle: group.title,
@@ -894,7 +888,7 @@ return createPortal(
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
-              {TAG_GROUPS.map((group, idx) => {
+              {allowedTagGroups.map((group, idx) => {
                 const isOpen = openDesktopGroups.includes(idx);
                 return (
                   <div key={idx} className="bg-white dark:bg-[#1c2128] rounded-xl border border-slate-200 dark:border-white/5 overflow-hidden transition-all shadow-sm">
