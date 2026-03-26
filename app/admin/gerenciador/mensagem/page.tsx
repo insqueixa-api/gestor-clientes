@@ -74,29 +74,38 @@ const TAG_GROUPS = [
     ],
   },
 {
-  title: "💰 Financeiro",
-  color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
-  tags: [
-    { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" }, // ✅ NOVO
-    { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
-    { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
-    { label: "{valor_fatura}", desc: "Valor da renovação" },
-    { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
+    title: "💰 Financeiro",
+    color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
+    tags: [
+      { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
+      { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
+      { label: "{pin_cliente}", desc: "PIN da Área do Cliente (4 dígitos)" },
+      { label: "{valor_fatura}", desc: "Valor da renovação" },
+      { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
 
-    // ✅ PIX Manual
-    { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
-    { label: "{pix_manual_cpf}", desc: "Chave PIX (tipo CPF)" },
-    { label: "{pix_manual_email}", desc: "Chave PIX (tipo E-mail)" },
-    { label: "{pix_manual_phone}", desc: "Chave PIX (tipo Telefone)" },
-    { label: "{pix_manual_aleatoria}", desc: "Chave PIX Aleatória" },
+      // ✅ PIX Manual
+      { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
+      { label: "{pix_manual_cpf}", desc: "Chave PIX (tipo CPF)" },
+      { label: "{pix_manual_email}", desc: "Chave PIX (tipo E-mail)" },
+      { label: "{pix_manual_phone}", desc: "Chave PIX (tipo Telefone)" },
+      { label: "{pix_manual_aleatoria}", desc: "Chave PIX Aleatória" },
 
-    // ✅ Transferência Internacional Manual
-    { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },
-    { label: "{transfer_swift}", desc: "Código SWIFT/BIC (Conta Int.)" },
-  ],
-},
-
-
+      // ✅ Transferência Internacional Manual
+      { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },
+      { label: "{transfer_swift}", desc: "Código SWIFT/BIC (Conta Int.)" },
+    ],
+  },
+  {
+    title: "☁️ SaaS Revenda (Sistema)",
+    color: "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400",
+    tags: [
+      { label: "{saas_nome_revenda}", desc: "Nome do Revendedor SaaS" },
+      { label: "{saas_plano}", desc: "Plano do SaaS" },
+      { label: "{saas_vencimento}", desc: "Data de Vencimento do SaaS" },
+      { label: "{saas_creditos_comprados}", desc: "Créditos recarregados no Painel" },
+      { label: "{saas_valor}", desc: "Valor da fatura do sistema" },
+    ],
+  },
 ];
 
 // --- Nomes Protegidos pelo Sistema ---
@@ -525,6 +534,12 @@ function EditorModal({
 const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
   
+  // ✅ Controle de Grupos Minimizados (inicia tudo fechado/vazio)
+  const [openDesktopGroups, setOpenDesktopGroups] = useState<number[]>([]);
+  const toggleDesktopGroup = (idx: number) => {
+    setOpenDesktopGroups(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
+  };
+
   // ✅ NOVO: Controle de Imagem
   const [previewUrl, setPreviewUrl] = useState<string | null>(templateToEdit?.image_url || null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -878,29 +893,41 @@ return createPortal(
               <p className="text-[10px] text-slate-400 mt-1">Clique para inserir no texto</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
-              {TAG_GROUPS.map((group, idx) => (
-                <div key={idx}>
-                  {/* REMOVIDA CONDICIONAL DE COR - AGORA É PADRÃO */}
-                  <h4 className="text-[10px] font-bold text-slate-400 dark:text-white/40 mb-2 uppercase flex items-center gap-2 tracking-wider ml-1">
-                    {group.title}
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    {group.tags.map((tag) => (
-                      <button
-                        key={tag.label}
-                        onClick={() => insertTag(tag.label)}
-                        className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-white/5 hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-white dark:bg-[#1c2128]`}
-                      >
-                        <span className="font-mono text-xs font-bold tracking-tight">{tag.label}</span>
-                        <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
-                          {tag.desc}
-                        </span>
-                      </button>
-                    ))}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
+              {TAG_GROUPS.map((group, idx) => {
+                const isOpen = openDesktopGroups.includes(idx);
+                return (
+                  <div key={idx} className="bg-white dark:bg-[#1c2128] rounded-xl border border-slate-200 dark:border-white/5 overflow-hidden transition-all shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggleDesktopGroup(idx)}
+                      className={`w-full flex items-center justify-between p-3 text-left transition-colors ${isOpen ? 'bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5' : 'hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                    >
+                      <h4 className="text-[10px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-wider">
+                        {group.title}
+                      </h4>
+                      <span className="text-slate-400 text-xs">{isOpen ? "▲" : "▼"}</span>
+                    </button>
+                    
+                    {isOpen && (
+                      <div className="p-3 grid grid-cols-1 gap-2 bg-slate-50/30 dark:bg-black/10">
+                        {group.tags.map((tag) => (
+                          <button
+                            key={tag.label}
+                            onClick={() => insertTag(tag.label)}
+                            className={`text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-white/5 hover:brightness-95 hover:shadow-sm active:scale-95 transition-all flex flex-col group ${group.color} bg-white dark:bg-[#1c2128]`}
+                          >
+                            <span className="font-mono text-xs font-bold tracking-tight">{tag.label}</span>
+                            <span className="text-[10px] opacity-60 group-hover:opacity-100 mt-0.5 font-medium">
+                              {tag.desc}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
