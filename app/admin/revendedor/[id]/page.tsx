@@ -355,6 +355,19 @@ const historyRes = await supabaseBrowser
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resellerId]);
 
+  // ✅ NOVO: Lê a fila de Toasts gerada pelo QuickRechargeModal
+  useEffect(() => {
+    if (loading) return;
+    try {
+      const key = "resellers_list_toasts";
+      const raw = window.sessionStorage.getItem(key);
+      if (!raw) return;
+      const arr = JSON.parse(raw) as { type: "success" | "error"; title: string; message?: string }[];
+      window.sessionStorage.removeItem(key);
+      for (const t of arr) { addToast(t.type, t.title, t.message); }
+    } catch { /* ignora */ }
+  }, [loading]);
+
   // --- AÇÕES ---
   async function handleDeleteLink(resellerServerId: string, serverName?: string | null) {
     // ✅ 3. Agora o 'confirm' existe e aceita o objeto
