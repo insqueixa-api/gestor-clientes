@@ -432,23 +432,46 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
     if (data) {
       const phone = normalizeToPhone((data as any).whatsapp_username);
       
-      // ✅ NOVO: Busca dados de servidor, usuário e créditos
-      let serverQuery = sb.from("reseller_servers").select("server_username, last_recharge_credits, servers(name)").eq("tenant_id", tenantId).eq("reseller_id", resellerId);
+      // ✅ NOVO: Busca dados de servidor, usuário, ID e créditos
+      let serverQuery = sb.from("reseller_servers")
+        .select("id, server_username, last_recharge_credits, servers(name)")
+        .eq("tenant_id", tenantId)
+        .eq("reseller_id", resellerId);
       
-      // Se enviou da recarga agorinha, busca exato o servidor da recarga. Se for envio avulso/manual, busca o último mexido.
+      // Se enviou da recarga agorinha, busca exato o servidor da recarga. Se for envio avulso/manual, busca o último criado.
       if (resellerServerId) {
           serverQuery = serverQuery.eq("id", resellerServerId);
       } else {
-          serverQuery = serverQuery.order("updated_at", { ascending: false }).limit(1);
+          // 🔹 CORREÇÃO 1: Usar 'created_at' porque 'updated_at' não existe na tabela reseller_servers
+          serverQuery = serverQuery.order("created_at", { ascending: false }).limit(1);
       }
       
-      const { data: rsData } = await serverQuery.maybeSingle();
+      const { data: rsData, error: rsErr } = await serverQuery.maybeSingle();
+
+      if (rsErr) {
+         safeServerLog("[WA] Erro ao buscar reseller_servers", rsErr.message);
+      }
 
       if (rsData) {
         data.usuario_revenda = rsData.server_username;
-        // Prioriza os créditos exatos que vieram da tela agorinha, se não tiver, pega o que ficou guardado no banco
-        data.venda_creditos = creditsRecharged != null ? creditsRecharged : rsData.last_recharge_credits;
         data.servidor_nome = rsData.servers?.name;
+
+        // 🔹 CORREÇÃO 2: Garantir os créditos no disparo manual
+        if (creditsRecharged != null) {
+          // Cenário 1: Disparo automático direto do Modal de Recarga
+          data.venda_creditos = creditsRecharged;
+        } else {
+          // Cenário 2: Envio manual (Send Now) -> Busca a última compra real pelo histórico validado
+          const { data: lastSale } = await sb.from("server_credit_sales")
+            .select("credits_sold")
+            .eq("tenant_id", tenantId)
+            .eq("reseller_server_id", rsData.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          data.venda_creditos = lastSale?.credits_sold ?? rsData.last_recharge_credits ?? "";
+        }
       }
 
       return {

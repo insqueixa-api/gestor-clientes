@@ -323,19 +323,33 @@ async function fetchResellerWhatsApp(sb: any, tenantId: string, resellerId: stri
       const phone = normalizeToPhone((data as any).whatsapp_username);
       
       // ✅ NOVO: Busca dados adicionais do vínculo com o servidor (o mais recente)
-      const { data: rsData } = await sb
+      const { data: rsData, error: rsErr } = await sb
         .from("reseller_servers")
-        .select("server_username, last_recharge_credits, servers(name)")
+        .select("id, server_username, last_recharge_credits, servers(name)")
         .eq("tenant_id", tenantId)
         .eq("reseller_id", resellerId)
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false }) // 🔹 CORREÇÃO 1: updated_at não existe
         .limit(1)
         .maybeSingle();
 
+      if (rsErr) {
+         safeServerLog("[WA] Erro ao buscar reseller_servers no agendamento", rsErr.message);
+      }
+
       if (rsData) {
         data.usuario_revenda = rsData.server_username;
-        data.venda_creditos = rsData.last_recharge_credits;
-        data.servidor_nome = rsData.servers?.name;
+        data.servidor_nome = rsData.servers?.name || (Array.isArray(rsData.servers) ? rsData.servers[0]?.name : "");
+
+        // 🔹 CORREÇÃO 2: Sempre busca a última compra real pelo histórico validado
+        const { data: lastSale } = await sb.from("server_credit_sales")
+          .select("credits_sold")
+          .eq("tenant_id", tenantId)
+          .eq("reseller_server_id", rsData.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        data.venda_creditos = lastSale?.credits_sold ?? rsData.last_recharge_credits ?? "";
       }
 
       return {
