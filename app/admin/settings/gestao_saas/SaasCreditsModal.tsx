@@ -501,30 +501,21 @@ export default function SaasCreditsModal({
                         ))}
                       </Select>
                       <Select
-                        value={selectedTemplateId}
-                        onChange={e => {
-                          const id = e.target.value;
-                          setSelectedTemplateId(id);
-                          const tpl = templates.find(t => t.id === id);
-                          if (tpl) setMessageContent(tpl.content);
-                        }}
-                      >
-                        <option value="">-- Personalizado --</option>
-                        {Object.entries(
-                          templates
-                            .filter(t => t.category === "Revenda SaaS" || String(t.name).toUpperCase().includes("SAAS"))
-                            .reduce((acc, t) => {
-                              const cat = t.category || "Geral";
-                              if (!acc[cat]) acc[cat] = [];
-                              acc[cat].push(t);
-                              return acc;
-                            }, {} as Record<string, typeof templates>)
-                        ).map(([catName, tmpls]) => (
-                          <optgroup  >
-                            
-                          </optgroup>
+                      value={selectedTemplateId}
+                      onChange={e => {
+                        const id = e.target.value;
+                        setSelectedTemplateId(id);
+                        const tpl = templates.find(t => t.id === id);
+                        if (tpl) setMessageContent(tpl.content);
+                      }}
+                    >
+                      <option value="">-- Personalizado --</option>
+                      {templates
+                        .filter(t => t.category === "Revenda SaaS" || String(t.name).toUpperCase().includes("SAAS"))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
-                      </Select>
+                    </Select>
                     </div>
 
                     {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE */}
