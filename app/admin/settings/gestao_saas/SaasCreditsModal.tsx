@@ -324,16 +324,16 @@ export default function SaasCreditsModal({
             }
           }
 
-          // ✅ ROTA UNIFICADA DO SISTEMA COM O saas_id
+          // ✅ ROTA UNIFICADA DO SISTEMA COM reseller_id
           await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
               tenant_id: myTenantId,
-              saas_id: targetTenantId, 
+              reseller_id: targetTenantId, // ✅ CORREÇÃO: A API espera reseller_id
               message: messageContent,
               message_template_id: selectedTemplateId || null,
-              image_url: imageUrlToSend, // ✅ ENVIANDO A IMAGEM!
+              image_url: imageUrlToSend, 
               whatsapp_session: selectedSession,
             }),
           });

@@ -482,9 +482,9 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        saas_id: showSendNow.resellerId, // ou showScheduleMsg.resellerId
-        message: messageText, // ou scheduleText
-        whatsapp_session: selectedSessionNow // ✅ No Agendado coloque: selectedSessionSchedule
+        reseller_id: showSendNow.resellerId, // ✅ CORREÇÃO: A API espera reseller_id
+        message: messageText, 
+        whatsapp_session: selectedSessionNow
       };
       
       if (selectedTemplateNowId) {
@@ -524,10 +524,10 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        saas_id: showScheduleMsg.resellerId, // ✅ Ajustado para saas_id
+        reseller_id: showScheduleMsg.resellerId, // ✅ CORREÇÃO: A API espera reseller_id
         message: scheduleText, 
         send_at: scheduleDate, 
-        whatsapp_session: "default"
+        whatsapp_session: selectedSessionSchedule
       };
       
       if (selectedTemplateScheduleId) {
