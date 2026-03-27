@@ -79,7 +79,8 @@ interface MessageTemplate {
    id: string;
    name: string;
    content: string;
-   image_url?: string | null; // ✅ NOVO: Suporte à imagem
+   image_url?: string | null; 
+   category?: string | null; // ✅ Busca a Categoria
  }
 
 const APP_FIELD_LABELS: Record<string, string> = {
@@ -1115,7 +1116,7 @@ useEffect(() => {
 // ✅ 4) Templates (para mensagem automática / teste)
   const { data: tmplData, error: tmplErr } = await supabaseBrowser
   .from("message_templates")
-  .select("id, name, content, image_url") // ✅ AGORA TRAZ A IMAGEM
+  .select("id, name, content, image_url, category") // ✅ AGORA TRAZ A CATEGORIA
   .eq("tenant_id", tid)
   .order("name", { ascending: true });
 if (!alive) return;
@@ -1123,7 +1124,17 @@ if (!alive) return;
 if (tmplErr) {
   console.warn("Erro ao carregar templates:", tmplErr.message);
 } else {
-  const list = (tmplData || []) as MessageTemplate[];
+  // Fallback automático caso a categoria ainda não tenha sido salva no banco
+  const list = ((tmplData as any[]) || []).map((r) => {
+    let cat = r.category || "Geral";
+    if (!r.category || r.category === "Geral") {
+      if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
+      else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
+      else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
+    }
+    return { ...r, category: cat };
+  }) as MessageTemplate[];
+  
   setTemplates(list);
 
   // ✅ TRIAL: por padrão liga envio e seleciona template "Teste..."
@@ -4490,33 +4501,34 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                 <div className="animate-in fade-in zoom-in duration-200 shrink-0">
 
                                   <Select
-
                                     value={selectedTemplateId}
-
                                     onChange={(e) => {
-
                                       const id = e.target.value;
-
                                       setSelectedTemplateId(id);
-
                                       const tpl = templates.find((t) => t.id === id);
-
                                       setMessageContent(tpl?.content || "");
-
                                     }}
-
                                     className="h-10 w-full"
-
                                   >
-
                                     <option value="">-- Personalizado --</option>
-
-                                    {templates.map((t) => (
-
-                                      <option key={t.id} value={t.id}>{t.name}</option>
-
+                                    {Object.entries(
+                                      templates
+                                        // 1. Esconde mensagens de Revendas
+                                        .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+                                        // 2. Agrupa por categoria
+                                        .reduce((acc, t) => {
+                                          const cat = t.category || "Geral";
+                                          if (!acc[cat]) acc[cat] = [];
+                                          acc[cat].push(t);
+                                          return acc;
+                                        }, {} as Record<string, typeof templates>)
+                                    ).map(([catName, tmpls]) => (
+                                      <optgroup key={catName} label={`— ${catName} —`}>
+                                        {tmpls.map((t) => (
+                                          <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                      </optgroup>
                                     ))}
-
                                   </Select>
 
                                 </div>
@@ -4690,33 +4702,34 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   <div className="animate-in fade-in zoom-in duration-200">
 
                                     <Select
-
                                       value={selectedTemplateId}
-
                                       onChange={(e) => {
-
                                         const id = e.target.value;
-
                                         setSelectedTemplateId(id);
-
                                         const tpl = templates.find((t) => t.id === id);
-
                                         setMessageContent(tpl?.content || "");
-
                                       }}
-
                                       className="h-10 w-full"
-
                                     >
-
                                       <option value="">-- Selecione um modelo --</option>
-
-                                      {templates.map((t) => (
-
-                                        <option key={t.id} value={t.id}>{t.name}</option>
-
+                                      {Object.entries(
+                                        templates
+                                          // 1. Esconde mensagens de Revendas
+                                          .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+                                          // 2. Agrupa por categoria
+                                          .reduce((acc, t) => {
+                                            const cat = t.category || "Geral";
+                                            if (!acc[cat]) acc[cat] = [];
+                                            acc[cat].push(t);
+                                            return acc;
+                                          }, {} as Record<string, typeof templates>)
+                                      ).map(([catName, tmpls]) => (
+                                        <optgroup key={catName} label={`— ${catName} —`}>
+                                          {tmpls.map((t) => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                          ))}
+                                        </optgroup>
                                       ))}
-
                                     </Select>
 
                                   </div>
