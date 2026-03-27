@@ -46,7 +46,8 @@ interface MessageTemplate {
     id: string;
     name: string;
     content: string;
-    image_url?: string | null; // ✅ ADICIONADO: Suporte oficial à imagem no TypeScript
+    image_url?: string | null; 
+    category?: string | null; // ✅ NOVO: Busca a Categoria
   }
 
   interface PlanTableItem {
@@ -663,16 +664,27 @@ let baseDate: Date;
             setCustomTechnology(tecRaw);
           }
 
-          // ✅ CORREÇÃO: Carregar templates e pré-selecionar
+          // ✅ CORREÇÃO: Carregar templates, categoria e pré-selecionar
           const { data: tmplData } = await supabaseBrowser
             .from("message_templates")
-            .select("id, name, content, image_url") // ✅ AGORA TRAZ A IMAGEM
+            .select("id, name, content, image_url, category") // ✅ AGORA TRAZ A CATEGORIA
             .eq("tenant_id", tid)
             .order("name", { ascending: true });
 
   if (tmplData) {
-            setTemplates(tmplData);
-            const defaultTpl = tmplData.find(t => t.name.toLowerCase().includes("pagamento realizado"));
+            // Fallback automático caso a categoria ainda não tenha sido salva no banco
+            const mappedTpls = tmplData.map((r: any) => {
+              let cat = r.category || "Geral";
+              if (!r.category || r.category === "Geral") {
+                if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
+                else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
+                else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
+              }
+              return { ...r, category: cat };
+            });
+
+            setTemplates(mappedTpls);
+            const defaultTpl = mappedTpls.find(t => t.name.toLowerCase().includes("pagamento realizado"));
             if (defaultTpl) {
               setSelectedTemplateId(defaultTpl.id);
               setMessageContent(defaultTpl.content);
@@ -1509,7 +1521,25 @@ setTimeout(() => {
                                       }}
                                   >
                                       <option value="">-- Manual --</option>
-                                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                      {Object.entries(
+                                        templates
+                                          // 1. Esconde mensagens de Revendas
+                                          .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+                                          // 2. Agrupa
+                                          .reduce((acc, t) => {
+                                            const cat = t.category || "Geral";
+                                            if (!acc[cat]) acc[cat] = [];
+                                            acc[cat].push(t);
+                                            return acc;
+                                          }, {} as Record<string, typeof templates>)
+                                      ).map(([catName, tmpls]) => (
+                                        // 3. Renderiza com os separadores visuais
+                                        <optgroup key={catName} label={`— ${catName} —`}>
+                                          {tmpls.map((t) => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                          ))}
+                                        </optgroup>
+                                      ))}
                                   </Select>
                               </div>
                           )}

@@ -517,7 +517,7 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
   }
 
 // ✅ Templates (mensagens prontas)
-  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
+  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; // ✅ Busca a Categoria
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");       // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>(""); // modal agendar
@@ -614,10 +614,9 @@ if (error) {
 
 
   async function loadMessageTemplates(tid: string) {
-    // ✅ Ajuste APENAS se sua tabela tiver outro nome/colunas
     const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id,name,content,image_url") // ✅ NOVO: image_url
+      .select("id,name,content,image_url,category") // ✅ Busca category
       .eq("tenant_id", tid)
       .order("name", { ascending: true });
 
@@ -627,12 +626,23 @@ if (error) {
       return;
     }
 
-    const mapped = ((data as any[]) || []).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? "Sem nome"),
-      content: String(r.content ?? ""),
-      image_url: r.image_url || null, // ✅ NOVO: Mapeia a imagem
-    })) as MessageTemplate[];
+    const mapped = ((data as any[]) || []).map((r) => {
+      // Fallback automático caso a categoria ainda não tenha sido salva no banco
+      let cat = r.category || "Geral";
+      if (!r.category || r.category === "Geral") {
+        if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
+        else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
+        else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
+      }
+
+      return {
+        id: String(r.id),
+        name: String(r.name ?? "Sem nome"),
+        content: String(r.content ?? ""),
+        image_url: r.image_url || null,
+        category: cat,
+      };
+    }) as MessageTemplate[];
 
     setMessageTemplates(mapped);
   }
@@ -2517,27 +2527,41 @@ return (
   </label>
 
   <select
-    value={selectedTemplateNowId}
-    onChange={(e) => {
-      const id = e.target.value;
-      setSelectedTemplateNowId(id);
+  value={selectedTemplateNowId}
+  onChange={(e) => {
+    const id = e.target.value;
+    setSelectedTemplateNowId(id);
 
-      if (id) {
-        const tpl = messageTemplates.find((t) => t.id === id);
-        setMessageText(tpl?.content ?? "");
-      } else {
-        setMessageText("");
-      }
-    }}
-    className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
-  >
-    <option value="">Selecionar...</option>
-    {messageTemplates.map((t) => (
-      <option key={t.id} value={t.id}>
-        {t.name}
-      </option>
-    ))}
- </select>
+    if (id) {
+      const tpl = messageTemplates.find((t) => t.id === id);
+      setMessageText(tpl?.content ?? "");
+    } else {
+      setMessageText("");
+    }
+  }}
+  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
+>
+  <option value="">Selecionar...</option>
+  {Object.entries(
+    messageTemplates
+      // 1. Oculta tudo de Revenda IPTV e SaaS
+      .filter((t) => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+      // 2. Agrupa por categoria
+      .reduce((acc, t) => {
+        const cat = t.category || "Geral";
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(t);
+        return acc;
+      }, {} as Record<string, typeof messageTemplates>)
+  ).map(([catName, tmpls]) => (
+    // 3. Renderiza o separador visual
+    <optgroup key={catName} label={`— ${catName} —`}>
+      {tmpls.map((t) => (
+        <option key={t.id} value={t.id}>{t.name}</option>
+      ))}
+    </optgroup>
+  ))}
+</select>
 </div>
 
 {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
@@ -2644,27 +2668,41 @@ return (
   </label>
 
   <select
-    value={selectedTemplateScheduleId}
-    onChange={(e) => {
-      const id = e.target.value;
-      setSelectedTemplateScheduleId(id);
+  value={selectedTemplateScheduleId}
+  onChange={(e) => {
+    const id = e.target.value;
+    setSelectedTemplateScheduleId(id);
 
-      if (id) {
-        const tpl = messageTemplates.find((t) => t.id === id);
-        setScheduleText(tpl?.content ?? "");
-      } else {
-        setScheduleText("");
-      }
-    }}
-    className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm"
-  >
-    <option value="">Selecionar...</option>
-    {messageTemplates.map((t) => (
-      <option key={t.id} value={t.id}>
-        {t.name}
-      </option>
-    ))}
-  </select>
+    if (id) {
+      const tpl = messageTemplates.find((t) => t.id === id);
+      setScheduleText(tpl?.content ?? "");
+    } else {
+      setScheduleText("");
+    }
+  }}
+  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-purple-500 transition-colors text-sm mb-3"
+>
+  <option value="">Selecionar mensagem pronta (opcional)...</option>
+  {Object.entries(
+    messageTemplates
+      // 1. Oculta tudo de Revenda IPTV e SaaS
+      .filter((t) => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+      // 2. Agrupa por categoria
+      .reduce((acc, t) => {
+        const cat = t.category || "Geral";
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(t);
+        return acc;
+      }, {} as Record<string, typeof messageTemplates>)
+  ).map(([catName, tmpls]) => (
+    // 3. Renderiza o separador visual
+    <optgroup key={catName} label={`— ${catName} —`}>
+      {tmpls.map((t) => (
+        <option key={t.id} value={t.id}>{t.name}</option>
+      ))}
+    </optgroup>
+  ))}
+</select>
 </div>
 
 {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}

@@ -315,7 +315,7 @@ const [scheduleDate, setScheduleDate] = useState("");
 
 // ✅ NOVOS ESTADOS (Igual Cliente)
   type ScheduledMsg = { id: string; client_id: string; send_at: string; message: string; status?: string | null };
-  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
+  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; // ✅ Categoria
 
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
@@ -582,7 +582,7 @@ setAppModal({
   async function loadMessageTemplates(tid: string) {
     const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id,name,content,image_url") // ✅ NOVO: image_url
+      .select("id,name,content,image_url,category") // ✅ Busca category
       .eq("tenant_id", tid)
       .order("name", { ascending: true });
 
@@ -592,12 +592,21 @@ setAppModal({
       return;
     }
 
-    const mapped = ((data as any[]) || []).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? "Sem nome"),
-      content: String(r.content ?? ""),
-      image_url: r.image_url || null, // ✅ NOVO: mapeamento da imagem
-    })) as MessageTemplate[];
+    const mapped = ((data as any[]) || []).map((r) => {
+      let cat = r.category || "Geral";
+      if (!r.category || r.category === "Geral") {
+        if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
+        else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
+        else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
+      }
+      return {
+        id: String(r.id),
+        name: String(r.name ?? "Sem nome"),
+        content: String(r.content ?? ""),
+        image_url: r.image_url || null,
+        category: cat,
+      };
+    }) as MessageTemplate[];
 
     setMessageTemplates(mapped);
   }
@@ -1567,15 +1576,31 @@ onClick={(e) => {
           onChange={(e) => {
             const id = e.target.value;
             setSelectedTemplateNowId(id);
-            const tpl = messageTemplates.find((t) => t.id === id);
-            if (tpl) setMessageText(tpl.content);
-            else setMessageText("");
+            if (id) {
+              const tpl = messageTemplates.find((t) => t.id === id);
+              setMessageText(tpl?.content ?? "");
+            } else {
+              setMessageText("");
+            }
           }}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 transition-colors"
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-sky-500 transition-colors text-sm"
         >
           <option value="">Selecionar...</option>
-          {messageTemplates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {Object.entries(
+            messageTemplates
+              .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+              .reduce((acc, t) => {
+                const cat = t.category || "Geral";
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(t);
+                return acc;
+              }, {} as Record<string, typeof messageTemplates>)
+          ).map(([catName, tmpls]) => (
+            <optgroup key={catName} label={`— ${catName} —`}>
+              {tmpls.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>
@@ -1674,15 +1699,31 @@ onClick={(e) => {
           onChange={(e) => {
             const id = e.target.value;
             setSelectedTemplateScheduleId(id);
-            const tpl = messageTemplates.find((t) => t.id === id);
-            if (tpl) setScheduleText(tpl.content);
-            else setScheduleText("");
+            if (id) {
+              const tpl = messageTemplates.find((t) => t.id === id);
+              setScheduleText(tpl?.content ?? "");
+            } else {
+              setScheduleText("");
+            }
           }}
-          className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 transition-colors"
+          className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
         >
           <option value="">Selecionar...</option>
-          {messageTemplates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {Object.entries(
+            messageTemplates
+              .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+              .reduce((acc, t) => {
+                const cat = t.category || "Geral";
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(t);
+                return acc;
+              }, {} as Record<string, typeof messageTemplates>)
+          ).map(([catName, tmpls]) => (
+            <optgroup key={catName} label={`— ${catName} —`}>
+              {tmpls.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>
