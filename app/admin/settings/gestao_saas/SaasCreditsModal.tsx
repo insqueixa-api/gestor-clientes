@@ -20,6 +20,8 @@ interface MessageTemplate {
   id: string;
   name: string;
   content: string;
+  image_url?: string | null; 
+  category?: string | null; // ✅ Busca a Categoria
 }
 
 interface Props {
@@ -198,7 +200,7 @@ export default function SaasCreditsModal({
           supabaseBrowser.from("plan_tables").select("id, name, currency").eq("table_type", "saas_credits").eq("is_active", true),
           activeTableId ? supabaseBrowser.from("plan_tables").select("currency").eq("id", activeTableId).single() : Promise.resolve({ data: null }),
           activeTableId ? supabaseBrowser.from("plan_table_items").select(`id, period, prices:plan_table_item_prices(screens_count, price_amount)`).eq("plan_table_id", activeTableId) : Promise.resolve({ data: null }),
-          supabaseBrowser.from("message_templates").select("id, name, content").eq("tenant_id", tid).order("name", { ascending: true }),
+          supabaseBrowser.from("message_templates").select("id, name, content, image_url, category").eq("tenant_id", tid).order("name", { ascending: true }),
         ]);
 
         if (!alive) return;
@@ -222,10 +224,20 @@ export default function SaasCreditsModal({
 
         const tmplData = (tmplRes as any).data;
         if (tmplData) {
-          setTemplates(tmplData);
+          const mappedTpls = tmplData.map((r: any) => {
+            let cat = r.category || "Geral";
+            if (!r.category || r.category === "Geral") {
+              if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
+              else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
+              else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
+            }
+            return { ...r, category: cat };
+          });
+
+          setTemplates(mappedTpls);
           const def =
-            tmplData.find((t: any) => t.name.toLowerCase().includes("saas recarga")) ||
-            tmplData.find((t: any) => t.name.toLowerCase().includes("recarga saas")) ||
+            mappedTpls.find((t: any) => t.name.toLowerCase().includes("saas recarga")) ||
+            mappedTpls.find((t: any) => t.name.toLowerCase().includes("recarga saas")) ||
             null;
           if (def) { setSelectedTemplateId(def.id); setMessageContent(def.content); }
         }
@@ -303,14 +315,25 @@ export default function SaasCreditsModal({
         try {
           const { data: sess } = await supabaseBrowser.auth.getSession();
           const token = sess?.session?.access_token;
-          await fetch("/api/whatsapp/envio_agora_revenda", {
+
+          let imageUrlToSend = null;
+          if (selectedTemplateId) {
+            const tpl = templates.find(t => t.id === selectedTemplateId);
+            if (tpl && tpl.image_url) {
+              imageUrlToSend = tpl.image_url;
+            }
+          }
+
+          // ✅ ROTA UNIFICADA DO SISTEMA COM O saas_id
+          await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
               tenant_id: myTenantId,
-              reseller_id: targetTenantId,
+              saas_id: targetTenantId, 
               message: messageContent,
               message_template_id: selectedTemplateId || null,
+              image_url: imageUrlToSend, // ✅ ENVIANDO A IMAGEM!
               whatsapp_session: selectedSession,
             }),
           });
@@ -470,27 +493,59 @@ export default function SaasCreditsModal({
                 </div>
 
                 {sendWhats && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-200">
-                    <Select value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
-                      {sessionOptions.map(s => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
-                      ))}
-                    </Select>
-                    <Select
-                      value={selectedTemplateId}
-                      onChange={e => {
-                        const id = e.target.value;
-                        setSelectedTemplateId(id);
-                        const tpl = templates.find(t => t.id === id);
-                        if (tpl) setMessageContent(tpl.content);
-                      }}
-                    >
-                      <option value="">-- Personalizado --</option>
-                      {templates.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </Select>
-                  </div>
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-200">
+                      <Select value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
+                        {sessionOptions.map(s => (
+                          <option key={s.id} value={s.id}>{s.label}</option>
+                        ))}
+                      </Select>
+                      <Select
+                        value={selectedTemplateId}
+                        onChange={e => {
+                          const id = e.target.value;
+                          setSelectedTemplateId(id);
+                          const tpl = templates.find(t => t.id === id);
+                          if (tpl) setMessageContent(tpl.content);
+                        }}
+                      >
+                        <option value="">-- Personalizado --</option>
+                        {Object.entries(
+                          templates
+                            .filter(t => t.category === "Revenda SaaS" || String(t.name).toUpperCase().includes("SAAS"))
+                            .reduce((acc, t) => {
+                              const cat = t.category || "Geral";
+                              if (!acc[cat]) acc[cat] = [];
+                              acc[cat].push(t);
+                              return acc;
+                            }, {} as Record<string, typeof templates>)
+                        ).map(([catName, tmpls]) => (
+                          <optgroup key={catName} label={`— ${catName} —`}>
+                            {tmpls.map((t) => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </Select>
+                    </div>
+
+                    {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE */}
+                    {(() => {
+                      const tpl = templates.find((t) => t.id === selectedTemplateId);
+                      if (!tpl?.image_url) return null;
+                      return (
+                        <div className="animate-in fade-in zoom-in-95 duration-200 mt-2">
+                          <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                            Imagem Anexada
+                          </span>
+                          <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
 
