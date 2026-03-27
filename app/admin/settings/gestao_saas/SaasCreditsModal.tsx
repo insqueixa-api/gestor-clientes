@@ -520,10 +520,8 @@ export default function SaasCreditsModal({
                               return acc;
                             }, {} as Record<string, typeof templates>)
                         ).map(([catName, tmpls]) => (
-                          <optgroup key={catName} >
-                            {tmpls.map((t) => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
+                          <optgroup  >
+                            
                           </optgroup>
                         ))}
                       </Select>
