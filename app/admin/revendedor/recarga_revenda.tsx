@@ -12,6 +12,7 @@ interface MessageTemplate {
   id: string;
   name: string;
   content: string;
+  category?: string; // ✅ Adicionada a categoria
 }
 
 // ✅ Helper para Toast na Listagem Principal
@@ -371,7 +372,7 @@ if (!alive) return;
         // ✅ BUSCAR TEMPLATES E PRÉ-SELECIONAR "RECARGA REVENDA"
         const { data: tmplData } = await supabaseBrowser
           .from("message_templates")
-          .select("id, name, content")
+          .select("id, name, content, category") // ✅ Buscando a categoria
           .eq("tenant_id", tid)
           .order("name", { ascending: true });
 
@@ -810,7 +811,9 @@ const payload = {
                         className="h-9 w-full text-xs font-semibold text-slate-600 dark:text-white/70"
                       >
                         <option value="">-- Personalizado --</option>
-                        {templates.map((t) => (
+                        {templates
+                          .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda") // ✅ FILTRA SÓ REVENDA IPTV
+                          .map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </Select>

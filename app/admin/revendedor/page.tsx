@@ -63,7 +63,7 @@ type ScheduledMsg = {
 };
 
 
-type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null }; // ✅ NOVO: image_url
+type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; // ✅ Busca a Categoria
 
 // Financeiro por venda (server_credit_sales) - agregação no front
 type VwResellerFinanceAgg = {
@@ -321,7 +321,7 @@ export default function RevendaPage() {
 async function loadMessageTemplates(tid: string) {
   const { data, error } = await supabaseBrowser
     .from("message_templates")
-    .select("id,name,content,image_url") // ✅ NOVO: image_url
+    .select("id,name,content,image_url,category") // ✅ NOVO: Busca category
     .eq("tenant_id", tid)
     .order("name", { ascending: true });
 
@@ -335,7 +335,8 @@ async function loadMessageTemplates(tid: string) {
     id: String(r.id),
     name: String(r.name ?? ""),
     content: String(r.content ?? ""),
-    image_url: r.image_url || null, // ✅ NOVO: Mapeamento da Imagem
+    image_url: r.image_url || null,
+    category: r.category || "Geral", // ✅ Salvando no front
   }));
 
   setMessageTemplates(list);
@@ -1490,10 +1491,13 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
                   <option value="">Selecionar...</option>
-                  {messageTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                {messageTemplates
+                  // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
+                  .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda")
+                  .map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
               </div>
             </div>
 
@@ -1585,11 +1589,14 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                   }}
                   className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors text-sm"
                 >
-                  <option value="">Selecionar...</option>
-                  {messageTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  <option value="">Selecionar mensagem pronta (opcional)...</option>
+                {messageTemplates
+                  // ✅ FILTRA SOMENTE REVENDA IPTV (Ou pelo nome caso ainda não tenha salvo)
+                  .filter((t) => t.category === "Revenda IPTV" || t.name === "Recarga Revenda")
+                  .map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
               </div>
             </div>
 
