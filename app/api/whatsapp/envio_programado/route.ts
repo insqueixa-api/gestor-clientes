@@ -278,8 +278,14 @@ type ScheduleBody = {
 };
 
 // ✅ NOVA FUNÇÃO: Busca exclusiva para SaaS
-async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string) {
-  const { data, error } = await sb
+async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, userToken?: string) {
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const anonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+  const sbUser = userToken
+    ? createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
+    : sb;
+
+  const { data, error } = await sbUser
     .from("vw_saas_tenants")
     .select("*")
     .eq("id", saasId)
@@ -287,7 +293,7 @@ async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string) {
 
   if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
 
-  const phoneMain = normalizeToPhone(data.whatsapp_username || data.phone_e164);
+  const phoneMain = normalizeToPhone(data.whatsapp_username);
   const phones = [];
   if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
 
@@ -720,7 +726,7 @@ if ((job as any).automation_id && automationConfig) {
           wa = await fetchResellerWhatsApp(sb, job.tenant_id, recipientId);
         } catch (e: any) {
           // Se não encontrou na view de revendas IPTV, é porque esse ID pertence a um Tenant SaaS!
-          wa = await fetchSaasWhatsApp(sb, job.tenant_id, recipientId);
+          wa = await fetchSaasWhatsApp(sb, job.tenant_id, recipientId); // sem token — cron usa service role direto na tabela (ok pois saas no cron usa reseller_id como fallback)
           recipientType = "saas"; // Atualiza o tipo em memória para o buildTemplateVars saber preencher as tags certas
         }
       } else {
@@ -974,7 +980,8 @@ if (wa.dont_message_until) {
 
   // ✅ validações iguais ao dispatch
   let wa: any;
-  if (recipientType === "saas") wa = await fetchSaasWhatsApp(sb, tenantId, recipientId);
+  const rawUserToken = getBearerToken(req) || undefined;
+if (recipientType === "saas") wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawUserToken);
   else if (recipientType === "reseller") wa = await fetchResellerWhatsApp(sb, tenantId, recipientId);
   else wa = await fetchClientWhatsApp(sb, tenantId, recipientId);
 
