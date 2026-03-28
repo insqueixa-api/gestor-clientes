@@ -122,6 +122,7 @@ last_sign_in_at: string | null;
   whatsapp_sessions: number;
   saas_plan_table_id: string | null;
   credits_plan_table_id: string | null;
+  auto_whatsapp_session?: string | null;
   alertsCount?: number;
 };
 
@@ -1551,7 +1552,7 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
 }) {
   const [saving, setSaving] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [selectedSession, setSelectedSession] = useState("default"); // ✅ NOVO
+  const [selectedSession, setSelectedSession] = useState(tenant?.auto_whatsapp_session || "default");
 
   // Conta
   const [name, setName] = useState(tenant?.name ?? "");
