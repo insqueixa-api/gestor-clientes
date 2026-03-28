@@ -33,6 +33,7 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
+  onToast: (type: "success" | "error", title: string, msg?: string) => void;
 }
 
 // ============================================================
@@ -120,6 +121,7 @@ export default function SaasCreditsModal({
   onClose,
   onSuccess,
   onError,
+  onToast,
 }: Props) {
   const [myTenantId, setMyTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -342,10 +344,12 @@ export default function SaasCreditsModal({
           });
           if (!waRes.ok) {
             const waJson = await waRes.json().catch(() => ({}));
-            onError(`Créditos enviados, mas WhatsApp falhou: ${waJson?.error || waRes.status}`);
+            onToast("error", "WhatsApp falhou", waJson?.error || String(waRes.status));
+          } else {
+            onToast("success", "WhatsApp enviado!", "Comprovante enviado com sucesso.");
           }
         } catch (e: any) {
-          onError(`Créditos enviados, mas WhatsApp falhou: ${e?.message}`);
+          onToast("error", "WhatsApp falhou", e?.message);
         }
       }
 

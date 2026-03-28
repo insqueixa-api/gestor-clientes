@@ -34,6 +34,7 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
+  onToast: (type: "success" | "error", title: string, msg?: string) => void;
 }
 
 // ============================================================
@@ -139,6 +140,7 @@ export default function SaasRenewModal({
   onClose,
   onSuccess,
   onError,
+  onToast,
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -365,10 +367,12 @@ export default function SaasRenewModal({
           });
           if (!waRes.ok) {
             const waJson = await waRes.json().catch(() => ({}));
-            onError(`Licença renovada, mas WhatsApp falhou: ${waJson?.error || waRes.status}`);
+            onToast("error", "WhatsApp falhou", waJson?.error || String(waRes.status));
+          } else {
+            onToast("success", "WhatsApp enviado!", "Aviso de renovação enviado com sucesso.");
           }
         } catch (e: any) {
-          onError(`Licença renovada, mas WhatsApp falhou: ${e?.message}`);
+          onToast("error", "WhatsApp falhou", e?.message);
         }
       }
 

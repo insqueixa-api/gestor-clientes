@@ -1058,6 +1058,7 @@ const sortedTenants = useMemo(() => {
           onClose={() => setRenewTarget(null)}
           onSuccess={() => { setRenewTarget(null); loadData(); addToast("success", "Licença renovada!"); }}
           onError={m => addToast("error", "Erro", m)}
+          onToast={addToast}
         />
       )}
       {creditsTarget && (
@@ -1070,6 +1071,7 @@ const sortedTenants = useMemo(() => {
           onClose={() => setCreditsTarget(null)}
           onSuccess={() => { setCreditsTarget(null); loadData(); addToast("success", "Créditos enviados!"); }}
           onError={m => addToast("error", "Erro", m)}
+          onToast={addToast}
         />
       )}
 
