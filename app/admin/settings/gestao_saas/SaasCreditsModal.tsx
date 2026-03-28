@@ -325,22 +325,28 @@ export default function SaasCreditsModal({
           }
 
           // ✅ ROTA UNIFICADA DO SISTEMA COM O saas_id
-          await fetch("/api/whatsapp/envio_agora", {
+          const waRes = await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
-  tenant_id: myTenantId,
-  saas_id: targetTenantId,
-  message: messageContent,
-  message_template_id: selectedTemplateId || null,
-  image_url: imageUrlToSend,
-  whatsapp_session: selectedSession,
-  credits_recharged: selectedTier.credits,
-  last_invoice_amount: effectivePrice,
-  saas_plan_label: "Créditos Avulsos",
-}),
+              tenant_id: myTenantId,
+              saas_id: targetTenantId, 
+              message: messageContent,
+              message_template_id: selectedTemplateId || null,
+              image_url: imageUrlToSend,
+              whatsapp_session: selectedSession,
+              credits_recharged: selectedTier.credits,
+              last_invoice_amount: effectivePrice,
+              saas_plan_label: "Créditos Avulsos",
+            }),
           });
-        } catch {}
+          if (!waRes.ok) {
+            const waJson = await waRes.json().catch(() => ({}));
+            onError(`Créditos enviados, mas WhatsApp falhou: ${waJson?.error || waRes.status}`);
+          }
+        } catch (e: any) {
+          onError(`Créditos enviados, mas WhatsApp falhou: ${e?.message}`);
+        }
       }
 
       setLoadingText("Concluído!");
