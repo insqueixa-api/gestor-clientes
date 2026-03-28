@@ -244,9 +244,8 @@ valor_fatura: valorFaturaStr,
 
 // ☁️ SaaS Revenda
 saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
-saas_plano: "Plano Assinado",
+saas_plano: String(row.saas_plan_label || ""),
 saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
-saas_nova_validade: row.saas_nova_validade ? toBRDate(new Date(row.saas_nova_validade)) : (row.expires_at ? toBRDate(new Date(row.expires_at)) : ""),
 saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
 saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
 saas_perfil: String(row.role || "USER"),
@@ -292,6 +291,31 @@ async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, user
     .maybeSingle();
 
   if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
+
+  // Busca última transação financeira para preencher saas_valor, saas_plano e saas_creditos
+  try {
+    const { data: lastTx } = await sbUser
+      .from("saas_credit_transactions")
+      .select("type, amount, price_amount, price_currency, description")
+      .eq("ref_tenant_id", saasId)
+      .in("type", ["sale_renewal", "sale_credits"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastTx) {
+      data.last_invoice_amount = lastTx.price_amount;
+      data.price_currency = lastTx.price_currency;
+
+      if (lastTx.type === "sale_renewal") {
+        // "Renovação Bimestral · 2 crédito(s)" → "Bimestral"
+        const match = String(lastTx.description || "").match(/Renova[çc]ão\s+(\w+)/i);
+        data.saas_plan_label = match ? match[1] : "";
+      } else if (lastTx.type === "sale_credits") {
+        data.venda_creditos = String(lastTx.amount ?? "");
+      }
+    }
+  } catch {}
 
   const phoneMain = normalizeToPhone(data.whatsapp_username);
   const phones = [];

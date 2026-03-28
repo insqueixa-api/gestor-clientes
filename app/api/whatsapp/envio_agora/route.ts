@@ -350,9 +350,8 @@ const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}`
 
       // ☁️ SaaS Revenda
       saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
-      saas_plano: "Plano Assinado",
+      saas_plano: String(row.saas_plan_label || ""),
       saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
-      saas_nova_validade: row.saas_nova_validade ? toBRDate(new Date(row.saas_nova_validade)) : (row.expires_at ? toBRDate(new Date(row.expires_at)) : ""),
       saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
       saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
       saas_perfil: String(row.role || "USER"),
@@ -386,7 +385,8 @@ type SendNowBody = {
 };
 
 // ✅ NOVA FUNÇÃO: Busca de dados exclusiva para SaaS
-async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any, userToken?: string) {
+async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any, userToken?: string, extraInvoiceAmount?: any, extraPlanLabel?: any) {
+ 
   // Usa o token do usuário para que auth.uid() funcione na view
   const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const anonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
@@ -402,13 +402,40 @@ async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extr
 
   if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
 
+  // Busca última transação financeira para preencher saas_valor, saas_plano e saas_creditos
+  try {
+    const { data: lastTx } = await sbUser
+      .from("saas_credit_transactions")
+      .select("type, amount, price_amount, price_currency, description")
+      .eq("ref_tenant_id", saasId)
+      .in("type", ["sale_renewal", "sale_credits"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastTx) {
+      data.last_invoice_amount = lastTx.price_amount;
+      data.price_currency = lastTx.price_currency;
+
+      if (lastTx.type === "sale_renewal") {
+        // "Renovação Bimestral · 2 crédito(s)" → "Bimestral"
+        const match = String(lastTx.description || "").match(/Renova[çc]ão\s+(\w+)/i);
+        data.saas_plan_label = match ? match[1] : "";
+      } else if (lastTx.type === "sale_credits") {
+        data.venda_creditos = String(lastTx.amount ?? "");
+      }
+    }
+  } catch {}
+
+  // Injeta valores do body (sobrescreve o histórico quando vierem preenchidos)
+  if (extraCredits != null) data.venda_creditos = extraCredits;
+  if (extraNewExpiry != null) data.saas_nova_validade = extraNewExpiry;
+  if (extraInvoiceAmount != null) data.last_invoice_amount = extraInvoiceAmount;
+  if (extraPlanLabel != null) data.saas_plan_label = extraPlanLabel;
+
   const phoneMain = normalizeToPhone(data.whatsapp_username);
   const phones = [];
   if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
-
-  // Injeta valores vindos direto do front-end na memória
-  if (extraCredits != null) data.venda_creditos = extraCredits;
-  if (extraNewExpiry != null) data.saas_nova_validade = extraNewExpiry;
 
   return {
     phones,
@@ -678,13 +705,15 @@ if (!tenantId || !message || !recipientType || !recipientId) {
 
   const rawResellerServerId = String((body as any).reseller_server_id || "").trim();
   const rawCredits = (body as any).credits_recharged != null ? String((body as any).credits_recharged) : undefined;
-  const rawNewExpiry = (body as any).new_expires_at != null ? String((body as any).new_expires_at) : undefined; // ✅ NOVO
+const rawNewExpiry = (body as any).new_expires_at != null ? String((body as any).new_expires_at) : undefined;
+const rawInvoiceAmount = (body as any).last_invoice_amount != null ? String((body as any).last_invoice_amount) : undefined;
+const rawPlanLabel = (body as any).saas_plan_label != null ? String((body as any).saas_plan_label) : undefined;
 
   // ✅ pega SEMPRE do destino certo
   let wa: any;
   if (recipientType === "saas") {
     const rawUserToken = getBearerToken(req) || undefined;
-wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry, rawUserToken);
+wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry, rawUserToken, rawInvoiceAmount, rawPlanLabel);
   } else if (recipientType === "reseller") {
     wa = await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits);
   } else {
