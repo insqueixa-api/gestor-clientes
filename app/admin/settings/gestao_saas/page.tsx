@@ -10,7 +10,7 @@ import SaasCreditsModal from "./SaasCreditsModal";
 import SaasRenewModal from "./SaasRenewModal";
 
 // ============================================================
-// HELPERS DE TELEFONE (igual ao ResellerFormModal)
+// HELPERS DE TELEFONE (igual ao ResellerFormModal) 
 // ============================================================
 const COUNTRIES = [
   { name: "Brasil",         code: "55"  },
@@ -26,6 +26,7 @@ const COUNTRIES = [
   { name: "Argentina",      code: "54"  },
   { name: "Colômbia",       code: "57"  },
   { name: "Chile",          code: "56"  },
+  
 ];
 
 function splitE164(e164: string) {
@@ -482,9 +483,9 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        reseller_id: showSendNow.resellerId, // ✅ CORREÇÃO: A API espera reseller_id
-        message: messageText, 
-        whatsapp_session: selectedSessionNow
+        saas_id: showSendNow.resellerId, // ou showScheduleMsg.resellerId
+        message: messageText, // ou scheduleText
+        whatsapp_session: selectedSessionNow // ✅ No Agendado coloque: selectedSessionSchedule
       };
       
       if (selectedTemplateNowId) {
@@ -524,10 +525,10 @@ if (tenantsRes.error) {
       
       const payload: any = {
         tenant_id: tenantId, 
-        reseller_id: showScheduleMsg.resellerId, // ✅ CORREÇÃO: A API espera reseller_id
+        saas_id: showScheduleMsg.resellerId, // ✅ Ajustado para saas_id
         message: scheduleText, 
         send_at: scheduleDate, 
-        whatsapp_session: selectedSessionSchedule
+        whatsapp_session: "default"
       };
       
       if (selectedTemplateScheduleId) {
