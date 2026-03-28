@@ -1664,6 +1664,7 @@ if (error) throw error;
                                         <option value="">Selecione...</option>
                                         {auxData.templates
                                           .filter((t: any) => {
+                                            if (t.label === "Recarga Revenda") return false;
                                             if (form.target_audience === "saas") {
                                               return t.category === "Revenda SaaS" || String(t.label).toUpperCase().includes("SAAS");
                                             }
