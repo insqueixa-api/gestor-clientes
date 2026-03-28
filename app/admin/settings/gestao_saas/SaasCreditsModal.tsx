@@ -329,13 +329,16 @@ export default function SaasCreditsModal({
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
-              tenant_id: myTenantId,
-              saas_id: targetTenantId, 
-              message: messageContent,
-              message_template_id: selectedTemplateId || null,
-              image_url: imageUrlToSend, // ✅ ENVIANDO A IMAGEM!
-              whatsapp_session: selectedSession,
-            }),
+  tenant_id: myTenantId,
+  saas_id: targetTenantId,
+  message: messageContent,
+  message_template_id: selectedTemplateId || null,
+  image_url: imageUrlToSend,
+  whatsapp_session: selectedSession,
+  credits_recharged: selectedTier.credits,
+  last_invoice_amount: effectivePrice,
+  saas_plan_label: "Créditos Avulsos",
+}),
           });
         } catch {}
       }

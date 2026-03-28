@@ -343,18 +343,26 @@ export default function SaasRenewModal({
           }
 
           // ✅ ROTA UNIFICADA DO SISTEMA COM O saas_id
-          await fetch("/api/whatsapp/envio_agora", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              tenant_id: myTid,
-              saas_id: targetTenantId, 
-              message: messageContent,
-              message_template_id: selectedTemplateId || null,
-              image_url: imageUrlToSend, // ✅ ENVIANDO A IMAGEM!
-              whatsapp_session: selectedSession,
-            }),
-          });
+          const base = currentExpiry ? new Date(currentExpiry) : new Date();
+const isActive = currentExpiry ? new Date(currentExpiry) > new Date() : false;
+const start = isActive ? base : new Date();
+const newExpiryIso = new Date(start.getTime() + selectedTier.days * 24 * 60 * 60 * 1000).toISOString();
+
+await fetch("/api/whatsapp/envio_agora", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  body: JSON.stringify({
+    tenant_id: myTid,
+    saas_id: targetTenantId,
+    message: messageContent,
+    message_template_id: selectedTemplateId || null,
+    image_url: imageUrlToSend,
+    whatsapp_session: selectedSession,
+    new_expires_at: newExpiryIso,
+    last_invoice_amount: effectivePrice,
+    saas_plan_label: selectedTier.label,
+  }),
+});
         } catch {}
       }
 
