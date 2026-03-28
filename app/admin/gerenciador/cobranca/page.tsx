@@ -39,6 +39,7 @@ type Automation = {
   whatsapp_session?: string;
   delay_min?: number;
   delay_max?: number;
+  target_audience?: "clients" | "saas";
 };
 
 // Tipo simplificado de cliente para cálculo de impacto
@@ -496,9 +497,10 @@ const handleGlobalPause = async () => {
 
 export default function BillingPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
-  const [clients, setClients] = useState<ClientLight[]>([]); // Todos os clientes para calculo local
+  const [clients, setClients] = useState<ClientLight[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
   
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{show: boolean, editingRule: Automation | null}>({ show: false, editingRule: null });
@@ -540,14 +542,16 @@ const addToast = (
 
     try {
       const [
+        roleRes,
         autoRes,
         clientRes,
         msgRes,
         srvRes,
         appRes,
         waProfRes,
-        waProfRes2, // ✅ Nova variável que receberá a Sessão 2
+        waProfRes2,
       ] = await Promise.all([
+        supabaseBrowser.rpc("saas_my_role"),
         // 1. Busca Automações (autoRes)
         supabaseBrowser
           .from("billing_automations")
@@ -577,7 +581,7 @@ const addToast = (
           .eq("tenant_id", tid),
 
         // 3. Busca Templates (msgRes)
-        supabaseBrowser.from("message_templates").select("id, name").eq("tenant_id", tid),
+        supabaseBrowser.from("message_templates").select("id, name, category").eq("tenant_id", tid),
         
         // 4. Busca Servidores (srvRes)
         supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
@@ -597,6 +601,9 @@ const addToast = (
           return { ok: r.ok, json: j };
         }),
       ]);
+
+      const roleVal = String(roleRes.data ?? "").toLowerCase();
+      setIsMasterOrAdmin(roleVal === "superadmin" || roleVal === "master");
 
       const autoData = autoRes.data;
       const clientData = clientRes.data;
@@ -632,7 +639,7 @@ const addToast = (
         const uniquePlans = Array.from(new Set((clientData || []).map((c: any) => c.plan_label).filter(Boolean)));
 
         setAuxData({
-  templates: msgRes.data?.map((m: any) => ({ id: m.id, label: m.name })) || [],
+  templates: msgRes.data?.map((m: any) => ({ id: m.id, label: m.name, category: m.category })) || [],
   servers: srvRes.data?.map((s: any) => ({ id: s.id, label: s.name })) || [],
   plans: uniquePlans.map((p) => ({ id: String(p), label: String(p) })) || [],
   apps: appRes.data?.map((a: any) => ({ id: a.id, label: a.name })) || [],
@@ -1041,7 +1048,8 @@ return (
       {wizardState.show && (
         <AutomationWizard 
             auxData={auxData}
-            editingRule={wizardState.editingRule} // ✅ Passa a regra
+            editingRule={wizardState.editingRule}
+            isMasterOrAdmin={isMasterOrAdmin}
             onClose={() => setWizardState({ show: false, editingRule: null })}
             onSuccess={() => { setWizardState({ show: false, editingRule: null }); loadData(); addToast("success", "Salvo", "Regra atualizada."); }}
             onError={(msg) => addToast("error", "Erro", msg)}
@@ -1114,6 +1122,11 @@ const getRuleText = () => {
                         <span className={`text-[10px] font-bold ${data.is_automatic ? 'text-purple-500' : 'text-amber-500'}`}>
                             {data.is_automatic ? 'AUTO' : 'MANUAL'}
                         </span>
+                        {data.target_audience === "saas" && (
+                          <span className="text-[10px] font-bold text-teal-500 bg-teal-500/10 px-1.5 py-0.5 rounded">
+                            ☁️ SaaS
+                          </span>
+                        )}
                         {/* ✅ VISUAL DO STATUS (Se estiver rodando, mostra aqui) */}
                         {status === "RUNNING" && (
                         <span className="text-[10px] font-bold text-white bg-emerald-500 px-1.5 py-0.5 rounded animate-pulse">
@@ -1443,7 +1456,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 // ============================================================================
 // WIZARD DE CRIAÇÃO (MANTIDO E OTIMIZADO)
 // ============================================================================
-function AutomationWizard({ auxData, editingRule, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
+function AutomationWizard({ auxData, editingRule, isMasterOrAdmin, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, isMasterOrAdmin?: boolean, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
     // ✅ PROTEÇÃO SSR
     if (typeof document === "undefined") return null;
 
@@ -1453,6 +1466,7 @@ function AutomationWizard({ auxData, editingRule, onClose, onSuccess, onError }:
     const [form, setForm] = useState({
         name: "",
         type: "Vencimento",
+        target_audience: "clients" as "clients" | "saas",
         message_template_id: "",
         whatsapp_session: "default",
         delay_min: 15,
@@ -1480,6 +1494,7 @@ function AutomationWizard({ auxData, editingRule, onClose, onSuccess, onError }:
                 name: editingRule.name,
                 type: editingRule.type,
                 // Tenta pegar o ID direto ou do objeto aninhado se vier do join
+                target_audience: editingRule.target_audience || "clients",
                 message_template_id: editingRule.message_template_id || editingRule.message_template?.id || "",
                 whatsapp_session: editingRule.whatsapp_session || "default",
                 delay_min: editingRule.delay_min || 15,
@@ -1536,6 +1551,7 @@ const payload = {
   tenant_id: tid,
   name: form.name,
   type: form.type,
+  target_audience: form.target_audience,
   // ✅ Força a desativar se não tiver mensagem vinculada
   is_active: form.message_template_id ? form.is_active : false,
   is_automatic: form.is_automatic,
@@ -1605,9 +1621,32 @@ if (error) throw error;
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     {step === 1 && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 md:col-span-1">
-                                    <Label>Nome da Cobrança</Label>
+                        {isMasterOrAdmin && (
+                          <div>
+                            <Label>Destinatário</Label>
+                            <div className="flex gap-2 mt-1">
+                              {(["clients", "saas"] as const).map(aud => (
+                                <button
+                                  key={aud}
+                                  type="button"
+                                  onClick={() => setForm({ ...form, target_audience: aud, message_template_id: "" })}
+                                  className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
+                                    form.target_audience === aud
+                                      ? aud === "clients"
+                                        ? "bg-sky-500 border-sky-500 text-white"
+                                        : "bg-teal-500 border-teal-500 text-white"
+                                      : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500"
+                                  }`}
+                                >
+                                  {aud === "clients" ? "👤 Clientes IPTV" : "☁️ Revenda SaaS"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2 md:col-span-1">
+                                <Label>Nome da Cobrança</Label>
                                     <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ex: Aviso Vencimento" autoFocus />
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
@@ -1623,7 +1662,14 @@ if (error) throw error;
                                     <Label>Mensagem</Label>
                                     <Select value={form.message_template_id} onChange={e => setForm({...form, message_template_id: e.target.value})}>
                                         <option value="">Selecione...</option>
-                                        {auxData.templates.map((t:any) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                        {auxData.templates
+                                          .filter((t: any) => {
+                                            if (form.target_audience === "saas") {
+                                              return t.category === "Revenda SaaS" || String(t.label).toUpperCase().includes("SAAS");
+                                            }
+                                            return t.category !== "Revenda SaaS" && !String(t.label).toUpperCase().includes("SAAS");
+                                          })
+                                          .map((t:any) => <option key={t.id} value={t.id}>{t.label}</option>)}
                                     </Select>
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
