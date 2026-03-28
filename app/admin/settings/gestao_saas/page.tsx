@@ -2014,21 +2014,21 @@ if (error) throw new Error(error.message);
           {/* Envio e Notas */}
           <SectionTitle>Envio e Observações</SectionTitle>
           
-          {mode === "new" && (
-            <div>
-              <FieldLabel>Sessão de Disparo (WhatsApp)</FieldLabel>
-              <select
-                value={selectedSession}
-                onChange={e => setSelectedSession(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors mb-1"
-              >
-                {sessionOptions.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-400 mb-4">Sessão que será usada caso uma mensagem de boas-vindas seja disparada.</p>
-            </div>
-          )}
+          <div>
+            <FieldLabel>Sessão de Disparo (WhatsApp)</FieldLabel>
+            <select
+              value={selectedSession}
+              onChange={e => setSelectedSession(e.target.value)}
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors mb-1"
+            >
+              {sessionOptions.map(s => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 mb-4">
+              {mode === "new" ? "Sessão que será usada caso uma mensagem de boas-vindas seja disparada." : "Sessão que será usada nos disparos automáticos para este revendedor."}
+            </p>
+          </div>
 
           <FieldLabel>Observações Internas</FieldLabel>
           <textarea
