@@ -208,6 +208,67 @@ export async function POST(req: NextRequest) {
         try {
           const { newExpiresAt } = await runSaasFulfillment({ supabaseAdmin, payment: saasPayment });
           await markSaasDone(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, newExpiresAt);
+
+          // ── Disparo WhatsApp do pai para o filho (fire-and-forget) ──
+          try {
+            const PERIOD_LABELS: Record<string, string> = {
+              MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
+              SEMIANNUAL: "Semestral", ANNUAL: "Anual",
+            };
+
+            // Busca sessão configurada no tenant filho e template do pai
+            const [tenantRes, tmplRes] = await Promise.all([
+              supabaseAdmin
+                .from("tenants")
+                .select("auto_whatsapp_session")
+                .eq("id", saasPayment.tenant_id)
+                .maybeSingle(),
+              supabaseAdmin
+                .from("message_templates")
+                .select("id, content")
+                .eq("tenant_id", saasPayment.parent_tenant_id)
+                .ilike("name", saasPayment.payment_type === "renewal" ? "%saas pagamento realizado%" : "%saas recarga%")
+                .maybeSingle(),
+            ]);
+
+            const waSession = tenantRes.data?.auto_whatsapp_session || "default";
+            const template = tmplRes.data;
+
+            if (template?.content) {
+              const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
+              const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+
+              const waBody: Record<string, any> = {
+                tenant_id: saasPayment.parent_tenant_id,
+                saas_id: saasPayment.tenant_id,
+                message: template.content,
+                message_template_id: template.id,
+                whatsapp_session: waSession,
+                last_invoice_amount: saasPayment.price_amount,
+              };
+
+              if (saasPayment.payment_type === "renewal") {
+                waBody.saas_plan_label = PERIOD_LABELS[saasPayment.period] || saasPayment.period || "";
+                if (newExpiresAt) waBody.new_expires_at = newExpiresAt;
+              } else if (saasPayment.payment_type === "credits") {
+                waBody.credits_recharged = saasPayment.credits_amount;
+                waBody.saas_plan_label = "Créditos Avulsos";
+              }
+
+              await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-internal-secret": internalSecret,
+                },
+                body: JSON.stringify(waBody),
+              });
+            }
+          } catch (waErr: any) {
+            prodLog("webhook.saas_wa_dispatch_failed", { error: String(waErr?.message || waErr).slice(0, 200) });
+          }
+          // ── Fim disparo WhatsApp ──
+
         } catch (e: any) {
           await markSaasError(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, e?.message || "Falha no fulfillment");
         }
