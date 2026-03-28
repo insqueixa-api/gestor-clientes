@@ -386,22 +386,27 @@ type SendNowBody = {
 };
 
 // ✅ NOVA FUNÇÃO: Busca de dados exclusiva para SaaS
-async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any) {
-  const { data: profile, error } = await sb
-    .from("saas_profiles")
+async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any, userToken?: string) {
+  // Usa o token do usuário para que auth.uid() funcione na view
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const anonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+  const sbUser = userToken
+    ? createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
+    : sb;
+
+  const { data, error } = await sbUser
+    .from("vw_saas_tenants")
     .select("*")
-    .eq("tenant_id", saasId)
+    .eq("id", saasId)
     .maybeSingle();
 
-  if (error || !profile) throw new Error("Revenda SaaS não encontrada no banco");
-
-  const data = { ...profile, id: saasId };
+  if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
 
   const phoneMain = normalizeToPhone(data.whatsapp_username);
   const phones = [];
   if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
 
-  // Injeta valores vindos direto do front-end na memória (ex: renovação que acabou de ocorrer)
+  // Injeta valores vindos direto do front-end na memória
   if (extraCredits != null) data.venda_creditos = extraCredits;
   if (extraNewExpiry != null) data.saas_nova_validade = extraNewExpiry;
 
@@ -678,7 +683,8 @@ if (!tenantId || !message || !recipientType || !recipientId) {
   // ✅ pega SEMPRE do destino certo
   let wa: any;
   if (recipientType === "saas") {
-    wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry);
+    const rawUserToken = getBearerToken(req) || undefined;
+wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry, rawUserToken);
   } else if (recipientType === "reseller") {
     wa = await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits);
   } else {
