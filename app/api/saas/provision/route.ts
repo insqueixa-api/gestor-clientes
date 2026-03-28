@@ -48,6 +48,7 @@ export async function POST(req: Request) {
     notes,
     saas_plan_table_id,
     credits_plan_table_id,
+    whatsapp_session,
   } = body;
 
   if (!name || !email || !password || !role) {
@@ -111,12 +112,13 @@ export async function POST(req: Request) {
   }
 
   // Salva tabelas de plano SaaS no tenant recém-criado
-  if (newTenantId && (saas_plan_table_id || credits_plan_table_id)) {
+  if (newTenantId && (saas_plan_table_id || credits_plan_table_id || whatsapp_session)) {
     const planPatch: Record<string, string | null> = {};
     if (saas_plan_table_id) planPatch.saas_plan_table_id = saas_plan_table_id;
     if (role === "MASTER" && credits_plan_table_id) {
       planPatch.credits_plan_table_id = credits_plan_table_id;
     }
+    if (whatsapp_session) planPatch.auto_whatsapp_session = whatsapp_session;
     const { error: planErr } = await adminSupabase
       .from("tenants")
       .update(planPatch)

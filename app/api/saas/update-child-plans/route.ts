@@ -18,16 +18,19 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ ok: false, error: "Sessão inválida" }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const { child_tenant_id, saas_plan_table_id, credits_plan_table_id } = body;
+    const { child_tenant_id, saas_plan_table_id, credits_plan_table_id, auto_whatsapp_session } = body;
 
     if (!child_tenant_id) return NextResponse.json({ ok: false, error: "ID do filho ausente" }, { status: 400 });
 
+    const patch: Record<string, string | null> = {
+      saas_plan_table_id: saas_plan_table_id || null,
+      credits_plan_table_id: credits_plan_table_id || null,
+    };
+    if (auto_whatsapp_session) patch.auto_whatsapp_session = auto_whatsapp_session;
+
     const { error } = await adminSupabase
       .from("tenants")
-      .update({
-        saas_plan_table_id: saas_plan_table_id || null,
-        credits_plan_table_id: credits_plan_table_id || null,
-      })
+      .update(patch)
       .eq("id", child_tenant_id);
 
     if (error) throw error;

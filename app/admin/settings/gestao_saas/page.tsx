@@ -1734,6 +1734,7 @@ if (error) throw new Error(error.message);
             child_tenant_id: tenant!.id,
             saas_plan_table_id: saasPlanTableId || null,
             credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
+            auto_whatsapp_session: selectedSession,
           }),
         });
         
