@@ -388,20 +388,14 @@ type SendNowBody = {
 // ✅ NOVA FUNÇÃO: Busca de dados exclusiva para SaaS
 async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any) {
   const { data: profile, error } = await sb
-    .from("tenant_profiles")
-    .select("*, tenants!inner(id, name, role)")
+    .from("saas_profiles")
+    .select("*")
     .eq("tenant_id", saasId)
     .maybeSingle();
 
   if (error || !profile) throw new Error("Revenda SaaS não encontrada no banco");
 
-  // Monta um objeto compatível com o restante do código
-  const data = {
-    ...profile,
-    id: saasId,
-    name: profile.tenants?.name || "",
-    role: profile.tenants?.role || "USER",
-  };
+  const data = { ...profile, id: saasId };
 
   const phoneMain = normalizeToPhone(data.whatsapp_username);
   const phones = [];
