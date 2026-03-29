@@ -415,8 +415,12 @@ if (call.from.includes("@lid")) {
 }
 }
 console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
-if (allowed.includes(callerNumber)) {
-  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida (match exato) de ${callerNumber}`);
+const isAllowed = allowed.some(n => 
+  n === callerNumber || 
+  (n.length >= 8 && callerNumber.length >= 8 && n.slice(-8) === callerNumber.slice(-8))
+);
+if (isAllowed) {
+  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
   continue;
 }
 
