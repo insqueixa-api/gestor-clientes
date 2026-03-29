@@ -21,7 +21,6 @@ type Transacao = {
   categoria_id?: string;
   parcela_atual?: number;
   parcela_total?: number;
-  recorrencia: string; 
   is_recorrente?: boolean;
   frequencia?: string;
   recorrencia_id?: string;
@@ -63,13 +62,22 @@ function FinanceiroPageContent() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [contasDB, setContasDB] = useState<any[]>([]);
+  const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
+  const [saldosContas, setSaldosContas] = useState<Record<string, number>>({});
   
+  // Filtros
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [tipoFilter, setTipoFilter] = useState("Todos");
+  const [contaFilter, setContaFilter] = useState("Todos");
+  const [categoriaFilter, setCategoriaFilter] = useState("Todos");
+  const [recorrenciaFilter, setRecorrenciaFilter] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
+  const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
 
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
@@ -83,22 +91,34 @@ function FinanceiroPageContent() {
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
 
-  const carregarTransacoes = async (tid: string, dateObj: Date) => {
+  const carregarDados = async (tid: string, dateObj: Date) => {
     setLoading(true);
     try {
       const y = dateObj.getFullYear();
       const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-      // Busca o mês inteiro
       const startOfMonth = `${y}-${m}-01`;
       const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0).toISOString().split("T")[0];
 
+      // 1. Carrega as Listas de Contas e Categorias
+      const [resContas, resCat] = await Promise.all([
+        supabaseBrowser.from("fin_contas_bancarias").select("*").eq("tenant_id", tid).order("nome"),
+        supabaseBrowser.from("fin_categorias").select("*").eq("tenant_id", tid).order("nome")
+      ]);
+      if (resContas.data) setContasDB(resContas.data);
+      if (resCat.data) setCategoriasDB(resCat.data);
+
+      // 2. Calcula o saldo real de cada conta usando a sua RPC
+      const saldos: Record<string, number> = {};
+      for (const c of resContas.data || []) {
+         const { data: saldo } = await supabaseBrowser.rpc("get_saldo_conta", { p_conta_id: c.id });
+         saldos[c.id] = Number(saldo || 0);
+      }
+      setSaldosContas(saldos);
+
+      // 3. Carrega as transações do mês para a tabela
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
-        .select(`
-          *,
-          fin_contas_bancarias (nome, icone),
-          fin_categorias (nome, icone)
-        `)
+        .select(`*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`)
         .eq("tenant_id", tid)
         .gte("data_vencimento", startOfMonth)
         .lte("data_vencimento", endOfMonth)
@@ -122,13 +142,12 @@ function FinanceiroPageContent() {
         is_recorrente: t.is_recorrente,
         recorrencia_id: t.recorrencia_id,
         frequencia: t.frequencia,
-        recorrencia: t.parcela_total ? "Parcelado" : (t.is_recorrente ? "Recorrente" : "Única"),
         observacoes: t.observacoes
       }));
 
       setTransacoes(formatadas);
     } catch (e: any) {
-      addToast("error", "Erro ao carregar lançamentos", e.message);
+      addToast("error", "Erro ao carregar dados", e.message);
     } finally {
       setLoading(false);
     }
@@ -138,7 +157,7 @@ function FinanceiroPageContent() {
     async function init() {
       const tid = await getCurrentTenantId();
       setTenantId(tid);
-      if (tid) await carregarTransacoes(tid, currentDate);
+      if (tid) await carregarDados(tid, currentDate);
     }
     init();
   }, [currentDate]);
@@ -148,35 +167,30 @@ function FinanceiroPageContent() {
     if (!tenantId) return;
     const nextStatus = t.status === "PAGO" ? "PENDENTE" : "PAGO";
     
-    // Atualiza otimista na UI
     setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: nextStatus } : x));
-    
     const { error } = await supabaseBrowser
       .from("fin_transacoes")
       .update({ status: nextStatus, data_pagamento: nextStatus === "PAGO" ? new Date().toISOString() : null })
-      .eq("id", t.id)
-      .eq("tenant_id", tenantId);
+      .eq("id", t.id).eq("tenant_id", tenantId);
       
     if (error) {
       addToast("error", "Falha na comunicação", "Não foi possível mudar o status.");
-      setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x)); // Reverte
+      setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x)); 
     } else {
       addToast("success", nextStatus === "PAGO" ? "Baixa realizada" : "Marcado como Pendente", `A transação ${t.descricao} foi atualizada.`);
+      carregarDados(tenantId, currentDate); // Recarrega saldos
     }
   };
 
   const handleDelete = async (t: Transacao) => {
     if (!tenantId) return;
-    
-    let msg = `Excluir a transação: ${t.descricao}?`;
     let deleteGrupo = false;
-
     if (t.recorrencia_id) {
        if (confirm(`A transação ${t.descricao} faz parte de um grupo recorrente/parcelado.\n\nDeseja excluir TODAS as próximas cobranças também? (Cancele para excluir apenas a atual)`)) {
          deleteGrupo = true;
        }
     } else {
-      if (!confirm(msg)) return;
+      if (!confirm(`Excluir a transação: ${t.descricao}?`)) return;
     }
 
     try {
@@ -186,7 +200,7 @@ function FinanceiroPageContent() {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
       }
       addToast("success", "Excluído", "Transação(ões) removida(s) com sucesso.");
-      if (tenantId) carregarTransacoes(tenantId, currentDate); // Recarrega do banco
+      if (tenantId) carregarDados(tenantId, currentDate);
     } catch(e) {
       addToast("error", "Erro ao excluir", "Tente novamente.");
     }
@@ -200,29 +214,55 @@ function FinanceiroPageContent() {
     return venc < hoje ? "VENCIDO" : "PENDENTE";
   };
 
-  // CÁLCULOS
-  const receitasPagas = transacoes.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const receitasTotal = transacoes.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
-  const despesasPagas = transacoes.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const despesasTotal = transacoes.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
-  const saldoPago = receitasPagas - despesasPagas;
-  const saldoTotal = receitasTotal - despesasTotal;
+  // FORMATADOR DA TEXTO DA RECORRÊNCIA
+  const formatRecorrencia = (t: Transacao) => {
+    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste automático";
+    if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
+    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
+    return "Lançamento Único";
+  };
 
-  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
+  // FILTROS AVANÇADOS
   const filteredTransacoes = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return transacoes.filter((t) => {
       const cStatus = getComputedStatus(t.status, t.data_vencimento);
+      const recText = formatRecorrencia(t);
+
       if (statusFilter !== "Todos" && cStatus !== statusFilter) return false;
       if (tipoFilter !== "Todos" && t.tipo !== tipoFilter) return false;
+      if (contaFilter !== "Todos" && t.conta_id !== contaFilter) return false;
+      if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter) return false;
+      if (recorrenciaFilter !== "Todos") {
+        if (recorrenciaFilter === "UNICA" && t.is_recorrente) return false;
+        if (recorrenciaFilter === "RECORRENTE" && (!t.is_recorrente || t.parcela_total)) return false;
+        if (recorrenciaFilter === "PARCELADA" && !t.parcela_total) return false;
+      }
+
       if (q) {
-        const hay = [t.descricao, t.categoria_nome, t.conta_nome, t.recorrencia].join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const hay = [t.descricao, t.categoria_nome, t.conta_nome, recText].join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [transacoes, search, statusFilter, tipoFilter]);
+  }, [transacoes, search, statusFilter, tipoFilter, contaFilter, categoriaFilter, recorrenciaFilter]);
+
+  // CÁLCULOS DOS CARDS (Baseados no filtro ativo)
+  const receitasPagas = filteredTransacoes.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
+  const receitasTotal = filteredTransacoes.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
+  const despesasPagas = filteredTransacoes.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
+  const despesasTotal = filteredTransacoes.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
+  
+  // Saldo Atual é o real do Banco. Se tiver conta filtrada, mostra só dela. Se não, soma tudo.
+  let saldoAtualReal = 0;
+  if (contaFilter !== "Todos") {
+    saldoAtualReal = saldosContas[contaFilter] || 0;
+  } else {
+    saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
+  }
+  
+  const saldoPrevisao = saldoAtualReal + (receitasTotal - receitasPagas) - (despesasTotal - despesasPagas);
+  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
@@ -252,9 +292,17 @@ function FinanceiroPageContent() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0">
-        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" isHidden={valuesHidden} icon="📈" footer={`Previsão total: ${fmtBRL(receitasTotal)}`} />
-        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" isHidden={valuesHidden} icon="📉" footer={`Previsão total: ${fmtBRL(despesasTotal)}`} />
-        <MetricCard title="Saldo Atual" value={fmtBRL(saldoPago)} tone={saldoPago >= 0 ? "emerald" : "rose"} isHidden={valuesHidden} icon="💰" footer={`Previsão final do mês: ${fmtBRL(saldoTotal)}`} />
+        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" isHidden={valuesHidden} icon="📈" footer={`Previsão: ${fmtBRL(receitasTotal)}`} />
+        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" isHidden={valuesHidden} icon="📉" footer={`Previsão: ${fmtBRL(despesasTotal)}`} />
+        <MetricCard 
+          title="Saldo Atual" 
+          value={fmtBRL(saldoAtualReal)} 
+          tone={saldoAtualReal >= 0 ? "emerald" : "rose"} 
+          isHidden={valuesHidden} 
+          icon="💰" 
+          footer={`Previsão: ${fmtBRL(saldoPrevisao)}`} 
+          onEdit={() => setShowAjusteSaldo(true)}
+        />
       </div>
 
       <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
@@ -274,49 +322,40 @@ function FinanceiroPageContent() {
           <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição, conta, categoria..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
+          <div className="flex-1 min-w-[200px] relative">
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
-          <div className="w-[180px]">
-            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
-              <option value="Todos">Tipo (Todos)</option>
-              <option value="RECEITA">Apenas Receitas</option>
-              <option value="DESPESA">Apenas Despesas</option>
-            </select>
-          </div>
-          <div className="w-[180px]">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
-              <option value="Todos">Status (Todos)</option>
-              <option value="PAGO">Pagos</option>
-              <option value="PENDENTE">Pendentes (No prazo)</option>
-              <option value="VENCIDO">Vencidos (Atrasados)</option>
-            </select>
-          </div>
-          <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); }} className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2">
+          <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
+            <option value="Todos">Tipo</option>
+            <option value="RECEITA">Receitas</option>
+            <option value="DESPESA">Despesas</option>
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
+            <option value="Todos">Status</option>
+            <option value="PAGO">Pagos</option>
+            <option value="PENDENTE">Pendentes</option>
+            <option value="VENCIDO">Vencidos</option>
+          </select>
+          <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+            <option value="Todos">Conta</option>
+            {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+            <option value="Todos">Categoria</option>
+            {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white truncate">
+            <option value="Todos">Recorrência</option>
+            <option value="UNICA">Única</option>
+            <option value="RECORRENTE">Recorrente</option>
+            <option value="PARCELADA">Parcelada</option>
+          </select>
+          <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); }} className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2">
             <IconX /> Limpar
           </button>
         </div>
-
-        {mobileFiltersOpen && (
-          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
-            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
-              <option value="Todos">Tipo (Todos)</option>
-              <option value="RECEITA">Apenas Receitas</option>
-              <option value="DESPESA">Apenas Despesas</option>
-            </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
-              <option value="Todos">Status (Todos)</option>
-              <option value="PAGO">Pagos</option>
-              <option value="PENDENTE">Pendentes</option>
-              <option value="VENCIDO">Vencidos (Atrasados)</option>
-            </select>
-            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setMobileFiltersOpen(false); }} className="w-full h-10 px-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold flex items-center justify-center gap-2">
-              <IconX /> Limpar Filtros
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
@@ -343,21 +382,21 @@ function FinanceiroPageContent() {
             )}
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
+              const recText = formatRecorrencia(t);
               return (
                 <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setModalData({ open: true, transacao: t })}>
                   
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
-                    {t.parcela_total && <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parcela {t.parcela_atual}/{t.parcela_total}</div>}
                   </td>
 
                   <td className="px-4 py-3 text-center">
                     {t.tipo === "RECEITA" ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20">
                         <IconTrendingUp /> Receita
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20">
                         <IconTrendingDown /> Despesa
                       </span>
                     )}
@@ -387,7 +426,7 @@ function FinanceiroPageContent() {
                   </td>
 
                   <td className="px-4 py-3 text-center">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{t.recorrencia}</span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
                   </td>
 
                   <td className="px-4 py-3 text-right">
@@ -425,23 +464,41 @@ function FinanceiroPageContent() {
           tenantId={tenantId} 
           onClose={() => setModalData({ open: false, transacao: null })} 
           transacaoEdit={modalData.transacao} 
+          contasDB={contasDB}
+          categoriasDB={categoriasDB}
           addToast={addToast} 
-          onSuccess={() => { setModalData({ open: false, transacao: null }); carregarTransacoes(tenantId, currentDate); }}
+          onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }}
+        />
+      )}
+
+      {showAjusteSaldo && tenantId && (
+        <ModalAjusteSaldo 
+          tenantId={tenantId}
+          contas={contasDB}
+          saldos={saldosContas}
+          onClose={() => setShowAjusteSaldo(false)}
+          onSuccess={() => { setShowAjusteSaldo(false); carregarDados(tenantId, currentDate); }}
+          addToast={addToast}
         />
       )}
     </div>
   );
 }
 
-function MetricCard({ title, value, tone, isHidden, icon, footer }: { title: string, value: string, tone: "emerald"|"rose", isHidden: boolean, icon: string, footer: string }) {
+function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", isHidden: boolean, icon: string, footer: string, onEdit?: ()=>void }) {
   const colors = {
     emerald: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
     rose: "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
   };
   return (
-    <div className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[tone]}`}>
+    <div className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[tone]} relative`}>
       <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">{icon} {title}</span>
+        {onEdit && (
+          <button onClick={(e)=>{e.stopPropagation(); onEdit();}} className="p-1 rounded-md bg-white/50 hover:bg-white/80 dark:bg-black/10 dark:hover:bg-black/30 transition-colors" title="Ajustar Saldo">
+            <IconEdit />
+          </button>
+        )}
       </div>
       <div className="p-3 sm:p-4 flex-1">
         <div className={`text-[15px] sm:text-2xl font-bold leading-tight tabular-nums transition-all duration-300 ${isHidden ? "blur-md select-none" : ""}`}>
@@ -470,6 +527,68 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       </div>
     </div>,
     document.body
+  );
+}
+
+// --- SUB-MODAL AJUSTE DE SALDO ---
+function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToast }: { tenantId: string, contas: any[], saldos: Record<string, number>, onClose: ()=>void, onSuccess: ()=>void, addToast: any }) {
+  const [contaId, setContaId] = useState(contas[0]?.id || "");
+  const [novoSaldo, setNovoSaldo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const saldoAtual = saldos[contaId] || 0;
+
+  async function handleSave() {
+    const val = parseFloat(novoSaldo);
+    if (isNaN(val)) return;
+    const diff = val - saldoAtual;
+    
+    if (diff === 0) { onClose(); return; }
+
+    setSalvando(true);
+    try {
+      const isReceita = diff > 0;
+      const { error } = await supabaseBrowser.from("fin_transacoes").insert({
+        tenant_id: tenantId,
+        tipo: isReceita ? "RECEITA" : "DESPESA",
+        descricao: "Ajuste Automático de Saldo",
+        valor: Math.abs(diff),
+        data_vencimento: new Date().toISOString().split("T")[0],
+        data_pagamento: new Date().toISOString(),
+        status: "PAGO",
+        conta_id: contaId,
+        is_recorrente: false,
+        observacoes: "Ajuste automático de saldo"
+      });
+
+      if (error) throw error;
+      addToast("success", "Saldo Ajustado", "O ajuste foi lançado na conta selecionada.");
+      onSuccess();
+    } catch(e: any) { addToast("error", "Erro ao ajustar", e.message); } finally { setSalvando(false); }
+  }
+
+  return (
+    <Modal title="Ajustar Saldo" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">
+          O sistema criará um lançamento de ajuste (Receita ou Despesa) para igualar o saldo do sistema com o seu banco real.
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
+          <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
+            {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome} (Atual: R$ {saldos[c.id] || 0})</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Qual é o saldo real hoje?</label>
+          <input autoFocus type="number" step="0.01" value={novoSaldo} onChange={e=>setNovoSaldo(e.target.value)} placeholder="0.00" className="w-full h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm font-bold focus:border-emerald-500" />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
+          <button onClick={handleSave} disabled={salvando} className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 disabled:opacity-50">Salvar Ajuste</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -569,7 +688,7 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
 }
 
 // --- COMPONENTE DO MODAL DE TRANSAÇÃO (LIGADO AO BANCO) ---
-function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void }) {
+function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess, contasDB, categoriasDB }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void, contasDB: any[], categoriasDB: any[] }) {
   const isEdit = !!transacaoEdit;
   
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
@@ -588,31 +707,18 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
   const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2");
   const [escopoEdicao, setEscopoEdicao] = useState<"UNICA" | "TODAS">("UNICA");
 
-  const [contas, setContas] = useState<any[]>([]);
-  const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
-  const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id || "");
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id || "");
+  const [contas, setContas] = useState<any[]>(contasDB);
+  const [categorias, setCategorias] = useState<any[]>(categoriasDB);
   
-  const [carregandoListas, setCarregandoListas] = useState(true);
+  // Auto-seleciona a primeira conta e categoria caso não seja edição
+  const categoriasAtivas = categorias.filter(c => c.tipo === tipo || c.tipo === "AMBOS");
+  const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""));
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id || "");
+
   const [salvando, setSalvando] = useState(false);
 
   const [showNovaConta, setShowNovaConta] = useState(false);
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
-
-  useEffect(() => {
-    async function fetchListas() {
-      const [resContas, resCat] = await Promise.all([
-        supabaseBrowser.from("fin_contas_bancarias").select("*").eq("tenant_id", tenantId).order("nome"),
-        supabaseBrowser.from("fin_categorias").select("*").eq("tenant_id", tenantId).order("nome")
-      ]);
-      if (resContas.data) setContas(resContas.data);
-      if (resCat.data) setCategoriasDB(resCat.data);
-      setCarregandoListas(false);
-    }
-    if (tenantId) fetchListas();
-  }, [tenantId]);
-
-  const categoriasAtivas = categoriasDB.filter(c => c.tipo === tipo || c.tipo === "AMBOS");
 
   const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === "NOVA") setShowNovaConta(true);
@@ -626,7 +732,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
 
   async function handleSave() {
     if (!descricao.trim() || !valor || !contaSelecionada || !categoriaSelecionada) {
-      addToast("error", "Preencha todos os campos obrigatórios");
+      addToast("error", "Erro", "Preencha todos os campos obrigatórios (Conta e Categoria inclusos)");
       return;
     }
     setSalvando(true);
@@ -704,6 +810,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
       <Modal title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"} onClose={onClose}>
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-5">
           
+          {/* SÓ PODE MUDAR O TIPO SE NÃO FOR AJUSTE DE SALDO E SE NÃO FOR EDIÇÃO */}
           <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/5">
             <button onClick={() => setTipo("DESPESA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📉 Despesa</button>
             <button onClick={() => setTipo("RECEITA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📈 Receita</button>
@@ -737,8 +844,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conta / Carteira</label>
-              <select value={contaSelecionada} onChange={handleContaChange} disabled={carregandoListas} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium disabled:opacity-50">
-                <option value="" disabled>{carregandoListas ? "Carregando..." : "Selecionar Conta"}</option>
+              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
+                <option value="" disabled>Selecionar Conta</option>
                 {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Conta</option>
@@ -746,8 +853,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Categoria</label>
-              <select value={categoriaSelecionada} onChange={handleCategoriaChange} disabled={carregandoListas} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium disabled:opacity-50">
-                <option value="" disabled>{carregandoListas ? "Carregando..." : "Selecionar Categoria"}</option>
+              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
+                <option value="" disabled>Selecionar Categoria</option>
                 {categoriasAtivas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Categoria</option>
@@ -777,10 +884,10 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
                   <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
                   <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
                     <option value="MENSAL">Mês</option>
-                    <option value="BIMESTRAL">2 Meses</option>
-                    <option value="TRIMESTRAL">3 Meses</option>
-                    <option value="SEMESTRAL">6 Meses</option>
-                    <option value="ANUAL">Ano</option>
+                    <option value="BIMESTRAL">2 Meses (Bimestral)</option>
+                    <option value="TRIMESTRAL">3 Meses (Trimestral)</option>
+                    <option value="SEMESTRAL">6 Meses (Semestral)</option>
+                    <option value="ANUAL">Ano (Anual)</option>
                   </select>
                 </div>
               )}
@@ -789,7 +896,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
 
           {isEdit && rTipoInicial !== "UNICA" && (
             <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 space-y-3">
-              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Lançamentos Programados</label>
+              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Conta Programada</label>
               <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                 <label className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
                   <input type="radio" checked={escopoEdicao === "UNICA"} onChange={() => setEscopoEdicao("UNICA")} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
@@ -818,8 +925,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess 
         </div>
       </Modal>
 
-      {showNovaConta && <ModalNovaConta tenantId={tenantId!} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
-      {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId!} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategoriasDB([...categoriasDB, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
+      {showNovaConta && <ModalNovaConta tenantId={tenantId} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
+      {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategorias([...categorias, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
     </>
   );
 }
