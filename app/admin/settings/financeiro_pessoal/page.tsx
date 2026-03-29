@@ -40,11 +40,12 @@ function IconUndo() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 
-function ActionBtn({ tone, onClick, title, children }: { tone: "green"|"amber"|"red", onClick: ()=>void, title: string, children: React.ReactNode }) {
+function ActionBtn({ tone, onClick, title, children }: { tone: "green"|"amber"|"red"|"blue", onClick: ()=>void, title: string, children: React.ReactNode }) {
   const colors = {
-    green: "text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
-    amber: "text-amber-600 bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
-    red: "text-rose-600 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
+    blue: "text-sky-500 bg-sky-50 border-sky-200 hover:bg-sky-100 dark:bg-sky-500/10 dark:border-sky-500/20 dark:hover:bg-sky-500/20",
+    green: "text-emerald-500 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
+    amber: "text-amber-500 bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20 dark:hover:bg-amber-500/20",
+    red: "text-rose-500 bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:border-rose-500/20 dark:hover:bg-rose-500/20",
   };
   return (
     <button onClick={(e) => { e.stopPropagation(); onClick(); }} title={title} className={`p-1.5 rounded-lg border transition-colors ${colors[tone]}`}>
@@ -87,6 +88,7 @@ function FinanceiroPageContent() {
     try {
       const y = dateObj.getFullYear();
       const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      // Busca o mês inteiro
       const startOfMonth = `${y}-${m}-01`;
       const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0).toISOString().split("T")[0];
 
@@ -99,7 +101,8 @@ function FinanceiroPageContent() {
         `)
         .eq("tenant_id", tid)
         .gte("data_vencimento", startOfMonth)
-        .lte("data_vencimento", endOfMonth);
+        .lte("data_vencimento", endOfMonth)
+        .order("data_vencimento", { ascending: true });
 
       if (error) throw error;
 
@@ -218,7 +221,7 @@ function FinanceiroPageContent() {
         if (!hay.includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime());
+    });
   }, [transacoes, search, statusFilter, tipoFilter]);
 
   return (
@@ -317,36 +320,37 @@ function FinanceiroPageContent() {
       </div>
 
       <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
-        <table className="w-full text-left border-collapse min-w-[900px]">
+        <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
               <th className="px-4 py-3">Descrição</th>
               <th className="px-4 py-3 w-28 text-center">Tipo</th>
               <th className="px-4 py-3 text-center">Vencimento</th>
               <th className="px-4 py-3 text-center">Status</th>
-              <th className="px-4 py-3 text-center">Categoria / Conta</th>
+              <th className="px-4 py-3 text-center">Categoria</th>
+              <th className="px-4 py-3 text-center">Conta</th>
+              <th className="px-4 py-3 text-center">Recorrência</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
             {filteredTransacoes.length === 0 && !loading && (
-              <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
             {loading && (
-              <tr><td colSpan={7} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
               return (
                 <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setModalData({ open: true, transacao: t })}>
+                  
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
-                    <div className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-                      <span className="uppercase">{t.recorrencia}</span>
-                      {t.parcela_total && <span>• Parc. {t.parcela_atual}/{t.parcela_total}</span>}
-                    </div>
+                    {t.parcela_total && <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parcela {t.parcela_atual}/{t.parcela_total}</div>}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     {t.tipo === "RECEITA" ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
@@ -358,9 +362,11 @@ function FinanceiroPageContent() {
                       </span>
                     )}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     <span className="font-mono text-slate-600 dark:text-white/80">{t.data_vencimento.split('-').reverse().join('/')}</span>
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     {(() => {
                       let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; 
@@ -369,18 +375,33 @@ function FinanceiroPageContent() {
                       return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{cStatus}</span>;
                     })()}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     <div className="text-xs text-slate-600 dark:text-white/80 font-medium">{t.categoria_nome || "—"}</div>
-                    <div className="text-[10px] text-slate-400">{t.conta_nome || "—"}</div>
                   </td>
+
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10">
+                      {t.conta_nome || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{t.recorrencia}</span>
+                  </td>
+
                   <td className="px-4 py-3 text-right">
                     <span className={`font-bold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
                   </td>
+
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      <ActionBtn tone={t.status === "PAGO" ? "amber" : "green"} title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} onClick={() => handleToggleStatus(t)}>
+                      <ActionBtn 
+                        tone={t.status === "PAGO" ? "amber" : "green"} 
+                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
+                        onClick={() => handleToggleStatus(t)}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
@@ -452,6 +473,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
+// --- SUB-MODAIS DE CADASTRO RÁPIDO ---
 function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: string, onClose: ()=>void, onSave: (novaConta: any)=>void, addToast: any }) {
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("🏦");
@@ -546,6 +568,7 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
   );
 }
 
+// --- COMPONENTE DO MODAL DE TRANSAÇÃO (LIGADO AO BANCO) ---
 function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void }) {
   const isEdit = !!transacaoEdit;
   
