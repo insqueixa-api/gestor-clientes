@@ -392,17 +392,9 @@ function FinanceiroPageContent() {
         <div className="h-10" />
       </div>
 
-      {/* MODAL DE ADICIONAR (Esqueleto Inicial) */}
+      {/* MODAL DE ADICIONAR / EDITAR */}
       {showModalAdd && (
-        <Modal title="Adicionar Lançamento" onClose={() => setShowModalAdd(false)}>
-          <div className="p-4 text-center text-slate-500 h-32 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-xl">
-             Em breve: Formulário completo de Receitas, Despesas e Recorrências.
-          </div>
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
-            <button onClick={() => setShowModalAdd(false)} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60">Cancelar</button>
-            <button className="px-6 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-900/20">Salvar</button>
-          </div>
-        </Modal>
+        <ModalTransacao onClose={() => setShowModalAdd(false)} />
       )}
 
     </div>
@@ -448,6 +440,161 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       </div>
     </div>,
     document.body
+  );
+}
+
+// --- COMPONENTE DO MODAL DE TRANSAÇÃO ---
+function ModalTransacao({ 
+  onClose, 
+  transacaoEdit 
+}: { 
+  onClose: () => void; 
+  transacaoEdit?: Transacao | null;
+}) {
+  const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
+  const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
+  const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
+  const [vencimento, setVencimento] = useState(transacaoEdit?.data_vencimento || new Date().toISOString().split("T")[0]);
+  const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
+  const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
+
+  // Recorrência
+  const [recorrencia, setRecorrencia] = useState(transacaoEdit?.recorrencia || "Única");
+  const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2");
+
+  // Contas Mockadas (Depois virão do banco)
+  const contas = [
+    { id: "1", nome: "Itaú", cor: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400" },
+    { id: "2", nome: "Nubank", cor: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400" },
+    { id: "3", nome: "Inter", cor: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400" },
+    { id: "4", nome: "Mercado Pago", cor: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400" },
+    { id: "5", nome: "Stripe", cor: "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400" },
+  ];
+  const [contaSelecionada, setContaSelecionada] = useState("1");
+
+  // Categorias Mockadas (Depois virão do banco)
+  const categoriasDespesa = [
+    { id: "1", nome: "🚗 Veículo" }, { id: "2", nome: "⚡ Moradia" }, { id: "3", nome: "🛒 Mercado" }, 
+    { id: "4", nome: "💳 Cartão" }, { id: "5", nome: "📚 Educação" }, { id: "6", nome: "🏥 Saúde" }
+  ];
+  const categoriasReceita = [
+    { id: "7", nome: "💼 Salário" }, { id: "8", nome: "💡 Serviços" }, { id: "9", nome: "📈 Investimentos" }
+  ];
+  const categorias = tipo === "DESPESA" ? categoriasDespesa : categoriasReceita;
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState("");
+
+  const isEdit = !!transacaoEdit;
+
+  return (
+    <Modal title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"} onClose={onClose}>
+      <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-5">
+        
+        {/* TABS TIPO */}
+        <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/5">
+          <button
+            onClick={() => setTipo("DESPESA")}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}
+          >
+            📉 Despesa
+          </button>
+          <button
+            onClick={() => setTipo("RECEITA")}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}
+          >
+            📈 Receita
+          </button>
+        </div>
+
+        {/* VALOR E DESCRIÇÃO */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Descrição</label>
+            <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Conta de Luz" className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor (R$)</label>
+            <input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+          </div>
+        </div>
+
+        {/* VENCIMENTO E STATUS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data de Vencimento</label>
+            <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Status</label>
+            <div className="flex bg-slate-50 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/10 p-1 h-11">
+              <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600"}`}>⏳ Pendente</button>
+              <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600"}`}>✅ Pago</button>
+            </div>
+          </div>
+        </div>
+
+        {/* CONTA BANCÁRIA */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Conta / Carteira</label>
+            <button className="text-[10px] font-bold text-emerald-500 hover:text-emerald-600">+ Nova</button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {contas.map(c => (
+              <button key={c.id} onClick={() => setContaSelecionada(c.id)} className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${contaSelecionada === c.id ? `${c.cor} shadow-sm border-current` : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300 dark:hover:border-white/20"}`}>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* CATEGORIA */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Categoria</label>
+            <button className="text-[10px] font-bold text-emerald-500 hover:text-emerald-600">+ Nova</button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {categorias.map(c => (
+              <button key={c.id} onClick={() => setCategoriaSelecionada(c.id)} className={`shrink-0 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${categoriaSelecionada === c.id ? "bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-black dark:border-white" : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:border-slate-300"}`}>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* RECORRÊNCIA */}
+        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
+          <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
+          <div className="flex flex-wrap gap-2">
+            {["Única", "Mensal", "Bimestral", "Trimestral", "Semestral", "Anual", "Parcelado"].map(r => (
+              <button key={r} onClick={() => setRecorrencia(r)} className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all ${recorrencia === r ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400" : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"}`}>
+                {r}
+              </button>
+            ))}
+          </div>
+          {recorrencia === "Parcelado" && (
+             <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 mt-2">
+               <span className="text-xs font-medium text-slate-600 dark:text-white/70">Quantidade de Parcelas:</span>
+               <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-20 h-9 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50" />
+             </div>
+          )}
+        </div>
+
+        {/* OBSERVAÇÕES */}
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Observações</label>
+          <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+        </div>
+        
+      </div>
+
+      <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+        <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
+        <button className={`px-6 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}>
+          {isEdit ? "Salvar Alterações" : "Criar Lançamento"}
+        </button>
+      </div>
+    </Modal>
   );
 }
 
