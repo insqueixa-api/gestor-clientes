@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { EyeToggle } from "@/app/admin/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 // --- TIPOS ---
 type Transacao = {
@@ -16,9 +17,14 @@ type Transacao = {
   status: "PENDENTE" | "PAGO";
   categoria_nome?: string;
   conta_nome?: string;
+  conta_id?: string;
+  categoria_id?: string;
   parcela_atual?: number;
   parcela_total?: number;
   recorrencia: string; 
+  is_recorrente?: boolean;
+  frequencia?: string;
+  recorrencia_id?: string;
   observacoes?: string;
 };
 
@@ -34,7 +40,6 @@ function IconUndo() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 
-// Helper visual para os botões de ação
 function ActionBtn({ tone, onClick, title, children }: { tone: "green"|"amber"|"red", onClick: ()=>void, title: string, children: React.ReactNode }) {
   const colors = {
     green: "text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:hover:bg-emerald-500/20",
@@ -63,7 +68,6 @@ function FinanceiroPageContent() {
   const [tipoFilter, setTipoFilter] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Modal
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
 
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -78,29 +82,110 @@ function FinanceiroPageContent() {
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const tid = await getCurrentTenantId();
-      setTenantId(tid);
-      
-      // ✅ REMOVIDO: Transações Mockadas. A lista inicia vazia.
-      setTransacoes([]);
-      
+  const carregarTransacoes = async (tid: string, dateObj: Date) => {
+    setLoading(true);
+    try {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const startOfMonth = `${y}-${m}-01`;
+      const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0).toISOString().split("T")[0];
+
+      const { data, error } = await supabaseBrowser
+        .from("fin_transacoes")
+        .select(`
+          *,
+          fin_contas_bancarias (nome, icone),
+          fin_categorias (nome, icone)
+        `)
+        .eq("tenant_id", tid)
+        .gte("data_vencimento", startOfMonth)
+        .lte("data_vencimento", endOfMonth);
+
+      if (error) throw error;
+
+      const formatadas: Transacao[] = (data || []).map((t: any) => ({
+        id: t.id,
+        tipo: t.tipo,
+        descricao: t.descricao,
+        valor: t.valor,
+        data_vencimento: t.data_vencimento,
+        status: t.status,
+        categoria_nome: t.fin_categorias ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}` : "",
+        conta_nome: t.fin_contas_bancarias ? `${t.fin_contas_bancarias.icone} ${t.fin_contas_bancarias.nome}` : "",
+        conta_id: t.conta_id,
+        categoria_id: t.categoria_id,
+        parcela_atual: t.parcela_atual,
+        parcela_total: t.parcela_total,
+        is_recorrente: t.is_recorrente,
+        recorrencia_id: t.recorrencia_id,
+        frequencia: t.frequencia,
+        recorrencia: t.parcela_total ? "Parcelado" : (t.is_recorrente ? "Recorrente" : "Única"),
+        observacoes: t.observacoes
+      }));
+
+      setTransacoes(formatadas);
+    } catch (e: any) {
+      addToast("error", "Erro ao carregar lançamentos", e.message);
+    } finally {
       setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    async function init() {
+      const tid = await getCurrentTenantId();
+      setTenantId(tid);
+      if (tid) await carregarTransacoes(tid, currentDate);
+    }
+    init();
   }, [currentDate]);
 
-  // AÇÕES RÁPIDAS
-  const handleToggleStatus = (t: Transacao) => {
-    addToast("success", t.status === "PAGO" ? "Marcado como Pendente" : "Baixa realizada", `A transação ${t.descricao} foi atualizada.`);
-    setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: x.status === "PAGO" ? "PENDENTE" : "PAGO" } : x));
+  // AÇÕES RÁPIDAS COM O BANCO DE DADOS
+  const handleToggleStatus = async (t: Transacao) => {
+    if (!tenantId) return;
+    const nextStatus = t.status === "PAGO" ? "PENDENTE" : "PAGO";
+    
+    // Atualiza otimista na UI
+    setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: nextStatus } : x));
+    
+    const { error } = await supabaseBrowser
+      .from("fin_transacoes")
+      .update({ status: nextStatus, data_pagamento: nextStatus === "PAGO" ? new Date().toISOString() : null })
+      .eq("id", t.id)
+      .eq("tenant_id", tenantId);
+      
+    if (error) {
+      addToast("error", "Falha na comunicação", "Não foi possível mudar o status.");
+      setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x)); // Reverte
+    } else {
+      addToast("success", nextStatus === "PAGO" ? "Baixa realizada" : "Marcado como Pendente", `A transação ${t.descricao} foi atualizada.`);
+    }
   };
-  const handleDelete = (t: Transacao) => {
-    if(confirm(`Excluir a transação: ${t.descricao}?`)) {
-      addToast("success", "Excluído", "Transação removida com sucesso.");
-      setTransacoes(prev => prev.filter(x => x.id !== t.id));
+
+  const handleDelete = async (t: Transacao) => {
+    if (!tenantId) return;
+    
+    let msg = `Excluir a transação: ${t.descricao}?`;
+    let deleteGrupo = false;
+
+    if (t.recorrencia_id) {
+       if (confirm(`A transação ${t.descricao} faz parte de um grupo recorrente/parcelado.\n\nDeseja excluir TODAS as próximas cobranças também? (Cancele para excluir apenas a atual)`)) {
+         deleteGrupo = true;
+       }
+    } else {
+      if (!confirm(msg)) return;
+    }
+
+    try {
+      if (deleteGrupo && t.recorrencia_id) {
+        await supabaseBrowser.from("fin_transacoes").delete().eq("recorrencia_id", t.recorrencia_id).gte("data_vencimento", t.data_vencimento);
+      } else {
+        await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
+      }
+      addToast("success", "Excluído", "Transação(ões) removida(s) com sucesso.");
+      if (tenantId) carregarTransacoes(tenantId, currentDate); // Recarrega do banco
+    } catch(e) {
+      addToast("error", "Erro ao excluir", "Tente novamente.");
     }
   };
 
@@ -122,7 +207,6 @@ function FinanceiroPageContent() {
 
   const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-  // FILTROS
   const filteredTransacoes = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return transacoes.filter((t) => {
@@ -212,7 +296,6 @@ function FinanceiroPageContent() {
           </button>
         </div>
 
-        {/* PAINEL MOBILE FILTROS */}
         {mobileFiltersOpen && (
           <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
             <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
@@ -250,11 +333,13 @@ function FinanceiroPageContent() {
             {filteredTransacoes.length === 0 && !loading && (
               <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
+            {loading && (
+              <tr><td colSpan={7} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
+            )}
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
               return (
                 <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setModalData({ open: true, transacao: t })}>
-                  
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
                     <div className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
@@ -262,7 +347,6 @@ function FinanceiroPageContent() {
                       {t.parcela_total && <span>• Parc. {t.parcela_atual}/{t.parcela_total}</span>}
                     </div>
                   </td>
-
                   <td className="px-4 py-3 text-center">
                     {t.tipo === "RECEITA" ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
@@ -274,11 +358,9 @@ function FinanceiroPageContent() {
                       </span>
                     )}
                   </td>
-
                   <td className="px-4 py-3 text-center">
                     <span className="font-mono text-slate-600 dark:text-white/80">{t.data_vencimento.split('-').reverse().join('/')}</span>
                   </td>
-
                   <td className="px-4 py-3 text-center">
                     {(() => {
                       let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; 
@@ -287,24 +369,18 @@ function FinanceiroPageContent() {
                       return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{cStatus}</span>;
                     })()}
                   </td>
-
                   <td className="px-4 py-3 text-center">
                     <div className="text-xs text-slate-600 dark:text-white/80 font-medium">{t.categoria_nome || "—"}</div>
                     <div className="text-[10px] text-slate-400">{t.conta_nome || "—"}</div>
                   </td>
-
                   <td className="px-4 py-3 text-right">
                     <span className={`font-bold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
                   </td>
-
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      <ActionBtn 
-                        tone={t.status === "PAGO" ? "amber" : "green"} 
-                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
-                        onClick={() => handleToggleStatus(t)}>
+                      <ActionBtn tone={t.status === "PAGO" ? "amber" : "green"} title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} onClick={() => handleToggleStatus(t)}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
@@ -323,8 +399,14 @@ function FinanceiroPageContent() {
         <div className="h-10" />
       </div>
 
-      {modalData.open && (
-        <ModalTransacao onClose={() => setModalData({ open: false, transacao: null })} transacaoEdit={modalData.transacao} />
+      {modalData.open && tenantId && (
+        <ModalTransacao 
+          tenantId={tenantId} 
+          onClose={() => setModalData({ open: false, transacao: null })} 
+          transacaoEdit={modalData.transacao} 
+          addToast={addToast} 
+          onSuccess={() => { setModalData({ open: false, transacao: null }); carregarTransacoes(tenantId, currentDate); }}
+        />
       )}
     </div>
   );
@@ -370,12 +452,24 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
-// --- SUB-MODAIS DE CADASTRO RÁPIDO ---
-function ModalNovaConta({ onClose, onSave }: { onClose: ()=>void, onSave: (nome: string)=>void }) {
+function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: string, onClose: ()=>void, onSave: (novaConta: any)=>void, addToast: any }) {
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("🏦");
+  const [salvando, setSalvando] = useState(false);
   const icones = ["🏦","💳","💵","🪙","🟣","🟠","🟢","🔴","🤝","📱"];
   
+  async function handleSave() {
+    if (!nome.trim()) return;
+    setSalvando(true);
+    try {
+      const { data, error } = await supabaseBrowser.from("fin_contas_bancarias")
+        .insert({ tenant_id: tenantId, nome: nome.trim(), icone }).select().single();
+      if (error) throw error;
+      addToast("success", "Conta criada", "Nova conta adicionada com sucesso.");
+      onSave(data);
+    } catch(e: any) { addToast("error", "Erro ao criar", e.message); } finally { setSalvando(false); }
+  }
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -396,23 +490,38 @@ function ModalNovaConta({ onClose, onSave }: { onClose: ()=>void, onSave: (nome:
               ))}
             </div>
           </div>
-          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors">Salvar Conta</button>
+          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors disabled:opacity-50">
+            {salvando ? "Salvando..." : "Salvar Conta"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function ModalNovaCategoria({ onClose, onSave, tipoFixo }: { onClose: ()=>void, onSave: (nome: string)=>void, tipoFixo: string }) {
+function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: { tenantId: string, onClose: ()=>void, onSave: (novaCat: any)=>void, tipoFixo: string, addToast: any }) {
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("📦");
+  const [salvando, setSalvando] = useState(false);
   const icones = ["🛒","🏥","🚗","📚","🏖️","🏠","💡","🍔","🐶","👗","📱","💻","📦","💰","📈"];
   
+  async function handleSave() {
+    if (!nome.trim()) return;
+    setSalvando(true);
+    try {
+      const { data, error } = await supabaseBrowser.from("fin_categorias")
+        .insert({ tenant_id: tenantId, nome: nome.trim(), icone, tipo: tipoFixo }).select().single();
+      if (error) throw error;
+      addToast("success", "Categoria criada", "Nova categoria adicionada.");
+      onSave(data);
+    } catch(e: any) { addToast("error", "Erro ao criar", e.message); } finally { setSalvando(false); }
+  }
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
-          <span>Nova Categoria de {tipoFixo}</span>
+          <span>Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}</span>
           <button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 space-y-4">
@@ -428,15 +537,16 @@ function ModalNovaCategoria({ onClose, onSave, tipoFixo }: { onClose: ()=>void, 
               ))}
             </div>
           </div>
-          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors">Salvar Categoria</button>
+          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors disabled:opacity-50">
+            {salvando ? "Salvando..." : "Salvar Categoria"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- COMPONENTE DO MODAL DE TRANSAÇÃO ---
-function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; transacaoEdit?: Transacao | null; }) {
+function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void }) {
   const isEdit = !!transacaoEdit;
   
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
@@ -446,39 +556,40 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
-  // Recorrência
   let rTipoInicial: "UNICA"|"RECORRENTE"|"PARCELADA" = "UNICA";
-  if (transacaoEdit?.recorrencia === "Parcelado") rTipoInicial = "PARCELADA";
-  else if (transacaoEdit?.recorrencia && transacaoEdit.recorrencia !== "Única") rTipoInicial = "RECORRENTE";
+  if (transacaoEdit?.is_recorrente && transacaoEdit?.parcela_total) rTipoInicial = "PARCELADA";
+  else if (transacaoEdit?.is_recorrente) rTipoInicial = "RECORRENTE";
 
   const [tipoRecorrencia, setTipoRecorrencia] = useState(rTipoInicial);
-  const [frequencia, setFrequencia] = useState(transacaoEdit?.recorrencia && rTipoInicial === "RECORRENTE" ? transacaoEdit.recorrencia : "Mensal");
+  const [frequencia, setFrequencia] = useState(transacaoEdit?.frequencia || "MENSAL");
   const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2");
   const [escopoEdicao, setEscopoEdicao] = useState<"UNICA" | "TODAS">("UNICA");
 
-  // Contas & Categorias (Mock dinâmico para podermos adicionar)
-  const [contas, setContas] = useState([
-    { id: "1", nome: "🏦 Itaú" }, { id: "2", nome: "🟪 Nubank" }, { id: "3", nome: "🟧 Inter" },
-    { id: "4", nome: "🤝 Mercado Pago" }, { id: "5", nome: "💳 Stripe" },
-  ]);
-  const [contaSelecionada, setContaSelecionada] = useState("1");
-
-  const [categoriasDespesa, setCatDesp] = useState([
-    { id: "1", nome: "💳 Cartão de Crédito" }, { id: "2", nome: "📚 Educação" }, { id: "3", nome: "👨‍👩‍👧 Família" },
-    { id: "4", nome: "🏛️ Impostos e Taxas" }, { id: "6", nome: "🏖️ Lazer" }, { id: "7", nome: "🏠 Moradia" },
-    { id: "9", nome: "🏥 Saúde" }, { id: "10", nome: "⚡ Serviços Essenciais" }, { id: "11", nome: "🚗 Veicular" },
-    { id: "12", nome: "📺 IPTV" }, { id: "13", nome: "📦 Outros" },
-  ]);
-  const [categoriasReceita, setCatRec] = useState([
-    { id: "8", nome: "💼 Salário" }, { id: "5", nome: "📈 Investimentos" }, { id: "14", nome: "💡 Serviços" }
-  ]);
+  const [contas, setContas] = useState<any[]>([]);
+  const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
+  const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id || "");
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id || "");
   
-  const categorias = tipo === "DESPESA" ? categoriasDespesa : categoriasReceita;
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState("");
+  const [carregandoListas, setCarregandoListas] = useState(true);
+  const [salvando, setSalvando] = useState(false);
 
-  // Submodais
   const [showNovaConta, setShowNovaConta] = useState(false);
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
+
+  useEffect(() => {
+    async function fetchListas() {
+      const [resContas, resCat] = await Promise.all([
+        supabaseBrowser.from("fin_contas_bancarias").select("*").eq("tenant_id", tenantId).order("nome"),
+        supabaseBrowser.from("fin_categorias").select("*").eq("tenant_id", tenantId).order("nome")
+      ]);
+      if (resContas.data) setContas(resContas.data);
+      if (resCat.data) setCategoriasDB(resCat.data);
+      setCarregandoListas(false);
+    }
+    if (tenantId) fetchListas();
+  }, [tenantId]);
+
+  const categoriasAtivas = categoriasDB.filter(c => c.tipo === tipo || c.tipo === "AMBOS");
 
   const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === "NOVA") setShowNovaConta(true);
@@ -489,6 +600,81 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
     if (e.target.value === "NOVA") setShowNovaCategoria(true);
     else setCategoriaSelecionada(e.target.value);
   };
+
+  async function handleSave() {
+    if (!descricao.trim() || !valor || !contaSelecionada || !categoriaSelecionada) {
+      addToast("error", "Preencha todos os campos obrigatórios");
+      return;
+    }
+    setSalvando(true);
+    try {
+      if (isEdit) {
+        if (escopoEdicao === "UNICA" || !transacaoEdit.recorrencia_id) {
+          const { error } = await supabaseBrowser.from("fin_transacoes").update({
+            tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs
+          }).eq("id", transacaoEdit.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabaseBrowser.from("fin_transacoes").update({
+            tipo, descricao, valor: Number(valor), conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs
+          }).eq("recorrencia_id", transacaoEdit.recorrencia_id).gte("data_vencimento", transacaoEdit.data_vencimento);
+          if (error) throw error;
+          
+          await supabaseBrowser.from("fin_transacoes").update({ status }).eq("id", transacaoEdit.id);
+        }
+        addToast("success", "Alteração Salva", "Lançamento atualizado com sucesso!");
+      } 
+      else {
+        const isRecorrente = tipoRecorrencia !== "UNICA";
+        const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 12 : 1);
+        const valorInserir = tipoRecorrencia === "PARCELADA" ? Number(valor) / totalMesesOuParcelas : Number(valor);
+        const recorrenciaId = isRecorrente ? crypto.randomUUID() : null; 
+        
+        const inserts = [];
+        const baseDate = new Date(`${vencimento}T12:00:00`);
+
+        for (let i = 1; i <= totalMesesOuParcelas; i++) {
+          const dataVenc = new Date(baseDate);
+          
+          if (i > 1) {
+            if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1));
+            else if (frequencia === "BIMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 2);
+            else if (frequencia === "TRIMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 3);
+            else if (frequencia === "SEMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 6);
+            else if (frequencia === "ANUAL") dataVenc.setFullYear(dataVenc.getFullYear() + (i - 1));
+          }
+
+          inserts.push({
+            tenant_id: tenantId,
+            tipo,
+            descricao,
+            valor: valorInserir,
+            data_vencimento: dataVenc.toISOString().split("T")[0],
+            status: (i === 1 && status === "PAGO") ? "PAGO" : "PENDENTE",
+            data_pagamento: (i === 1 && status === "PAGO") ? new Date().toISOString() : null,
+            conta_id: contaSelecionada,
+            categoria_id: categoriaSelecionada,
+            observacoes: obs,
+            is_recorrente: isRecorrente,
+            frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+            recorrencia_id: recorrenciaId,
+            parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
+            parcela_total: tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null
+          });
+        }
+
+        const { error } = await supabaseBrowser.from("fin_transacoes").insert(inserts);
+        if (error) throw error;
+        addToast("success", "Lançamento Criado", tipoRecorrencia !== "UNICA" ? "Lançamentos programados com sucesso!" : "Lançamento adicionado.");
+      }
+
+      onSuccess();
+    } catch(e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
 
   return (
     <>
@@ -506,7 +692,7 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
               <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Conta de Luz" className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor (R$)</label>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
               <input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
@@ -528,18 +714,18 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conta / Carteira</label>
-              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
-                <option value="" disabled>Selecionar Conta</option>
-                {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              <select value={contaSelecionada} onChange={handleContaChange} disabled={carregandoListas} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium disabled:opacity-50">
+                <option value="" disabled>{carregandoListas ? "Carregando..." : "Selecionar Conta"}</option>
+                {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Conta</option>
               </select>
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Categoria</label>
-              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
-                <option value="" disabled>Selecionar Categoria</option>
-                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              <select value={categoriaSelecionada} onChange={handleCategoriaChange} disabled={carregandoListas} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium disabled:opacity-50">
+                <option value="" disabled>{carregandoListas ? "Carregando..." : "Selecionar Categoria"}</option>
+                {categoriasAtivas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Categoria</option>
               </select>
@@ -549,26 +735,29 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
           {!isEdit && (
             <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
+              
               <div className="flex bg-white dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1">
                 <button onClick={() => setTipoRecorrencia("UNICA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Única</button>
                 <button onClick={() => setTipoRecorrencia("RECORRENTE")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Recorrente</button>
                 <button onClick={() => setTipoRecorrencia("PARCELADA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Parcelado</button>
               </div>
+
               {tipoRecorrencia === "PARCELADA" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
                   <span className="text-xs font-medium text-slate-600 dark:text-white/70">Qtd de Parcelas:</span>
                   <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-20 h-9 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white" />
                 </div>
               )}
+
               {tipoRecorrencia === "RECORRENTE" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
                   <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
                   <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
-                    <option value="Mensal">Mês</option>
-                    <option value="Bimestral">2 Meses</option>
-                    <option value="Trimestral">3 Meses</option>
-                    <option value="Semestral">6 Meses</option>
-                    <option value="Anual">Ano</option>
+                    <option value="MENSAL">Mês</option>
+                    <option value="BIMESTRAL">2 Meses</option>
+                    <option value="TRIMESTRAL">3 Meses</option>
+                    <option value="SEMESTRAL">6 Meses</option>
+                    <option value="ANUAL">Ano</option>
                   </select>
                 </div>
               )}
@@ -577,8 +766,8 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
 
           {isEdit && rTipoInicial !== "UNICA" && (
             <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 space-y-3">
-              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Conta Recorrente</label>
-              <div className="flex gap-4 items-center">
+              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Lançamentos Programados</label>
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                 <label className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
                   <input type="radio" checked={escopoEdicao === "UNICA"} onChange={() => setEscopoEdicao("UNICA")} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
                   Apenas neste mês
@@ -600,15 +789,14 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
 
         <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
-          <button className={`px-6 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}>
-            {isEdit ? "Salvar Alterações" : "Criar Lançamento"}
+          <button onClick={handleSave} disabled={salvando} className={`px-6 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all disabled:opacity-50 ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}>
+            {salvando ? "Processando..." : (isEdit ? "Salvar Alterações" : "Criar Lançamento")}
           </button>
         </div>
       </Modal>
 
-      {/* RENDERIZA OS SUBMODAIS POR CIMA */}
-      {showNovaConta && <ModalNovaConta onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(novoNome) => { setContas([...contas, { id: Date.now().toString(), nome: novoNome }]); setContaSelecionada(Date.now().toString()); setShowNovaConta(false); }} />}
-      {showNovaCategoria && <ModalNovaCategoria tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(novoNome) => { const nova = { id: Date.now().toString(), nome: novoNome }; if(tipo==="DESPESA") setCatDesp([...categoriasDespesa, nova]); else setCatRec([...categoriasReceita, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
+      {showNovaConta && <ModalNovaConta tenantId={tenantId!} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
+      {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId!} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategoriasDB([...categoriasDB, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
     </>
   );
 }
