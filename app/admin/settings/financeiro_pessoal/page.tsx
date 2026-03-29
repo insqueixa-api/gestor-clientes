@@ -73,7 +73,7 @@ function FinanceiroPageContent() {
       // MOCK DE DADOS PARA VISUALIZAÇÃO
       setTransacoes([
         { id: "1", tipo: "RECEITA", descricao: "Salário UniGestor", valor: 15000, data_vencimento: "2026-03-05", status: "PAGO", categoria_nome: "💼 Salário", conta_nome: "Itaú", recorrencia: "Mensal" },
-        { id: "2", tipo: "DESPESA", descricao: "Cartão de Crédito Nubank", valor: 4500.50, data_vencimento: "2026-03-10", status: "PENDENTE", categoria_nome: "💳 Cartão", conta_nome: "Nubank", recorrencia: "Única" },
+        { id: "2", tipo: "DESPESA", descricao: "Cartão de Crédito Nubank", valor: 4500.50, data_vencimento: "2026-04-10", status: "PENDENTE", categoria_nome: "💳 Cartão", conta_nome: "Nubank", recorrencia: "Única" },
         { id: "3", tipo: "DESPESA", descricao: "IPVA do Porsche", valor: 3200, data_vencimento: "2026-03-15", status: "PENDENTE", parcela_atual: 3, parcela_total: 5, categoria_nome: "🚗 Veículo", conta_nome: "Inter", recorrencia: "Parcelado" },
         { id: "4", tipo: "RECEITA", descricao: "Venda de Consultoria", valor: 2500, data_vencimento: "2026-03-20", status: "PENDENTE", categoria_nome: "💡 Serviços", conta_nome: "Stripe", recorrencia: "Única" },
         { id: "5", tipo: "DESPESA", descricao: "Conta de Luz", valor: 350.20, data_vencimento: "2026-03-22", status: "PAGO", categoria_nome: "⚡ Moradia", conta_nome: "Itaú", recorrencia: "Mensal" }
