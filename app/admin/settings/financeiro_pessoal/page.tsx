@@ -458,32 +458,59 @@ function ModalTransacao({
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
-  // Recorrência
-  const [recorrencia, setRecorrencia] = useState(transacaoEdit?.recorrencia || "Única");
-  const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2");
+  // Recorrência Simplificada
+  // Tipos base: "UNICA", "RECORRENTE", "PARCELADA"
+  const [tipoRecorrencia, setTipoRecorrencia] = useState<"UNICA" | "RECORRENTE" | "PARCELADA">("UNICA");
+  const [frequencia, setFrequencia] = useState("Mensal"); // Para quando for Recorrente
+  const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2"); // Para Parcelada
 
   // Contas Mockadas (Depois virão do banco)
   const contas = [
-    { id: "1", nome: "Itaú", cor: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400" },
-    { id: "2", nome: "Nubank", cor: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400" },
-    { id: "3", nome: "Inter", cor: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400" },
-    { id: "4", nome: "Mercado Pago", cor: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400" },
-    { id: "5", nome: "Stripe", cor: "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400" },
+    { id: "1", nome: "Itaú" },
+    { id: "2", nome: "Nubank" },
+    { id: "3", nome: "Inter" },
+    { id: "4", nome: "Mercado Pago" },
+    { id: "5", nome: "Stripe" },
   ];
   const [contaSelecionada, setContaSelecionada] = useState("1");
 
-  // Categorias Mockadas (Depois virão do banco)
-  const categoriasDespesa = [
-    { id: "1", nome: "🚗 Veículo" }, { id: "2", nome: "⚡ Moradia" }, { id: "3", nome: "🛒 Mercado" }, 
-    { id: "4", nome: "💳 Cartão" }, { id: "5", nome: "📚 Educação" }, { id: "6", nome: "🏥 Saúde" }
+  // Categorias Padrão
+  const categorias = [
+    { id: "1", nome: "💳 Cartão de Crédito" },
+    { id: "2", nome: "📚 Educação" },
+    { id: "3", nome: "👨‍👩‍👧 Família" },
+    { id: "4", nome: "🏛️ Impostos e Taxas" },
+    { id: "5", nome: "📈 Investimentos" },
+    { id: "6", nome: "🏖️ Lazer" },
+    { id: "7", nome: "🏠 Moradia" },
+    { id: "8", nome: "💼 Salário" },
+    { id: "9", nome: "🏥 Saúde" },
+    { id: "10", nome: "⚡ Serviços Essenciais" },
+    { id: "11", nome: "🚗 Veicular" },
+    { id: "12", nome: "📺 IPTV" },
+    { id: "13", nome: "📦 Outros" },
   ];
-  const categoriasReceita = [
-    { id: "7", nome: "💼 Salário" }, { id: "8", nome: "💡 Serviços" }, { id: "9", nome: "📈 Investimentos" }
-  ];
-  const categorias = tipo === "DESPESA" ? categoriasDespesa : categoriasReceita;
   const [categoriaSelecionada, setCategoriaSelecionada] = useState("");
 
   const isEdit = !!transacaoEdit;
+
+  // Lida com o clique no Select de Conta/Categoria para interceptar o "+ Nova"
+  const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === "NOVA") {
+      alert("Abrir sub-modal de Nova Conta (em breve)");
+      // setContaSelecionada(""); // ou mantém a anterior
+    } else {
+      setContaSelecionada(e.target.value);
+    }
+  };
+
+  const handleCategoriaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === "NOVA") {
+      alert("Abrir sub-modal de Nova Categoria (em breve)");
+    } else {
+      setCategoriaSelecionada(e.target.value);
+    }
+  };
 
   return (
     <Modal title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"} onClose={onClose}>
@@ -532,50 +559,63 @@ function ModalTransacao({
           </div>
         </div>
 
-        {/* CONTA BANCÁRIA */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Conta / Carteira</label>
-            <button className="text-[10px] font-bold text-emerald-500 hover:text-emerald-600">+ Nova</button>
+        {/* CONTA BANCÁRIA E CATEGORIA */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conta / Carteira</label>
+            <select 
+              value={contaSelecionada} 
+              onChange={handleContaChange} 
+              className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium"
+            >
+              <option value="" disabled>Selecionar Conta</option>
+              {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              <option disabled>──────────</option>
+              <option value="NOVA" className="font-bold text-emerald-600">+ Nova Conta</option>
+            </select>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {contas.map(c => (
-              <button key={c.id} onClick={() => setContaSelecionada(c.id)} className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${contaSelecionada === c.id ? `${c.cor} shadow-sm border-current` : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300 dark:hover:border-white/20"}`}>
-                {c.nome}
-              </button>
-            ))}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Categoria</label>
+            <select 
+              value={categoriaSelecionada} 
+              onChange={handleCategoriaChange} 
+              className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium"
+            >
+              <option value="" disabled>Selecionar Categoria</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              <option disabled>──────────</option>
+              <option value="NOVA" className="font-bold text-emerald-600">+ Nova Categoria</option>
+            </select>
           </div>
         </div>
 
-        {/* CATEGORIA */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Categoria</label>
-            <button className="text-[10px] font-bold text-emerald-500 hover:text-emerald-600">+ Nova</button>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {categorias.map(c => (
-              <button key={c.id} onClick={() => setCategoriaSelecionada(c.id)} className={`shrink-0 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${categoriaSelecionada === c.id ? "bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-black dark:border-white" : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:border-slate-300"}`}>
-                {c.nome}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* RECORRÊNCIA */}
-        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
+        {/* RECORRÊNCIA SIMPLIFICADA */}
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
           <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
-          <div className="flex flex-wrap gap-2">
-            {["Única", "Mensal", "Bimestral", "Trimestral", "Semestral", "Anual", "Parcelado"].map(r => (
-              <button key={r} onClick={() => setRecorrencia(r)} className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all ${recorrencia === r ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400" : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 hover:border-slate-300"}`}>
-                {r}
-              </button>
-            ))}
+          
+          <div className="flex bg-white dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1">
+            <button onClick={() => setTipoRecorrencia("UNICA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-white/50"}`}>Única</button>
+            <button onClick={() => setTipoRecorrencia("RECORRENTE")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-white/50"}`}>Recorrente</button>
+            <button onClick={() => setTipoRecorrencia("PARCELADA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:text-white/50"}`}>Parcelado</button>
           </div>
-          {recorrencia === "Parcelado" && (
-             <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 mt-2">
-               <span className="text-xs font-medium text-slate-600 dark:text-white/70">Quantidade de Parcelas:</span>
+
+          {tipoRecorrencia === "PARCELADA" && (
+             <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
+               <span className="text-xs font-medium text-slate-600 dark:text-white/70">Qtd de Parcelas:</span>
                <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-20 h-9 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50" />
+             </div>
+          )}
+
+          {tipoRecorrencia === "RECORRENTE" && (
+             <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
+               <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
+               <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50">
+                 <option value="Mensal">Mês</option>
+                 <option value="Bimestral">2 Meses (Bimestral)</option>
+                 <option value="Trimestral">3 Meses (Trimestral)</option>
+                 <option value="Semestral">6 Meses (Semestral)</option>
+                 <option value="Anual">Ano (Anual)</option>
+               </select>
              </div>
           )}
         </div>
