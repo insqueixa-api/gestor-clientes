@@ -837,7 +837,7 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
 
         if (portalToken) {
           const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-          vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+          vars.link_pagamento = `${appUrl}/#t=${encodeURIComponent(portalToken)}`;
         }
       } else {
         safeServerLog("[PORTAL][token:v2] erro rpc", tokErr.message);

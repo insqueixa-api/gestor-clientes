@@ -833,7 +833,7 @@ if (wa.dont_message_until) {
             const portalToken = rowTok?.token ? String(rowTok.token) : "";
             if (portalToken) {
               const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").trim().replace(/\/+$/, "");
-              vars.link_pagamento = `${appUrl}?#t=${encodeURIComponent(portalToken)}`;
+              vars.link_pagamento = `${appUrl}/#t=${encodeURIComponent(portalToken)}`;
             }
           }
         } catch (e) {}
