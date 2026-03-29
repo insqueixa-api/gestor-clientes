@@ -370,11 +370,8 @@ if (connection === "open") {
 
   // ── Rejeição de Chamadas ─────────────────────────────────────
   sock.ev.on("call", async (calls) => {
-    console.log(`[WA][CALL_DEBUG] evento recebido, total=${calls.length}`);
     for (const call of calls) {
-      console.log(`[WA][CALL_DEBUG] status=${call.status} from=${call.from} id=${call.id}`);
       if (call.status !== "offer") continue;
-
       const config = getSessionConfig(sessionKey);
       if (!config.rejectCalls) continue;
 
