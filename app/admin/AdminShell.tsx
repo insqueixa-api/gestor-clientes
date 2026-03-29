@@ -301,6 +301,11 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
+            {/* ✅ APARECE APENAS PARA O SUPERADMIN */}
+            {role === "SUPERADMIN" && (
+              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças (Admin)" onClick={() => setOpenMenu(null)} />
+            )}
+
             {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
             {role !== "USER" && (
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
@@ -320,6 +325,11 @@ export default function AdminShell({
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
+            {/* ✅ APARECE APENAS PARA O SUPERADMIN */}
+            {role === "SUPERADMIN" && (
+              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças (Admin)" onClick={() => setOpenMenu(null)} />
+            )}
+
             {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
             {role !== "USER" && (
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
