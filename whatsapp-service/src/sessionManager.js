@@ -64,11 +64,14 @@ function updateSessionConfig(sessionKey, updates) {
           const digits = String(num).replace(/\D/g, "");
           if (!digits) continue;
           try {
+            // Pede à API do WhatsApp as informações do número
             const [info] = await sess.socket.onWhatsApp(`${digits}@s.whatsapp.net`).catch(() => [null]);
-            if (info?.jid) {
-              const jidBase = info.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
-              map.set(jidBase, digits);
-              console.log(`[WA] Número permitido mapeado: ${jidBase} → ${digits}`);
+            
+            // PULO DO GATO: Pega o LID (Identidade Fantasma) e não o JID (Telefone)
+            if (info && info.lid) {
+              const lidBase = String(info.lid).split("@")[0].split(":")[0].replace(/\D/g, "");
+              map.set(lidBase, digits);
+              console.log(`[WA] Sucesso: Telefone ${digits} atrelado ao LID Fantasma ${lidBase}`);
             }
           } catch {}
         }
@@ -405,50 +408,25 @@ if (connection === "open") {
       if (!config.rejectCalls) continue;
 
 // Verifica whitelist
-let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
-const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
+      let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
+      const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
 
-// Se for @lid, tenta resolver para o número real
-if (call.from.includes("@lid")) {
-  const map = lidPhoneMap.get(sessionKey);
-  const resolved = map?.get(callerNumber);
-  if (resolved) {
-    console.log(`[WA][CALL_DEBUG] lid ${callerNumber} resolvido para ${resolved}`);
-    callerNumber = resolved;
-} else {
-  // fallback 1: compara pelos últimos 8 dígitos
-  const suffix = callerNumber.slice(-8);
-  const matchBySlug = allowed.find(n => n.slice(-8) === suffix);
-  if (matchBySlug) {
-    console.log(`[WA][CALL_DEBUG] lid matched por sufixo ${suffix} → ${matchBySlug}`);
-    callerNumber = matchBySlug;
-  } else {
-    // fallback 2: consulta cada número permitido para achar o lid correspondente
-    try {
-  const originalLid = callerNumber;
-  for (const allowedNum of allowed) {
-    const [info] = await sock.onWhatsApp(`${allowedNum}@s.whatsapp.net`).catch(() => [null]);
-    if (info?.jid) {
-      const infoLid = info.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
-      if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
-      lidPhoneMap.get(sessionKey).set(infoLid, allowedNum);
-      saveLidMap(sessionKey);
-      if (infoLid === originalLid) {
-        callerNumber = allowedNum;
-        break;
+      // Se for @lid, traduz para o número real usando nosso mapa (alimentado no saveConfig)
+      if (call.from.includes("@lid")) {
+        const map = lidPhoneMap.get(sessionKey);
+        const resolvedPhone = map?.get(callerNumber);
+        
+        if (resolvedPhone) {
+          console.log(`[WA][CALL_DEBUG] Identidade fantasma ${callerNumber} decodificada para telefone ${resolvedPhone}`);
+          callerNumber = resolvedPhone;
+        }
       }
-    }
-  }
-} catch {}
-  }
-}
-}
-console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
-const isAllowed = allowed.some(n => 
-  n === callerNumber || 
-  (n.length >= 8 && callerNumber.length >= 8 && n.slice(-8) === callerNumber.slice(-8))
-);
-if (isAllowed) {
+
+      console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
+      
+      const isAllowed = allowed.includes(callerNumber);
+      
+      if (isAllowed) {
   console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
   continue;
 }
