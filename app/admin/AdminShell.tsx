@@ -301,8 +301,8 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
-            {/* ✅ APARECE APENAS PARA O SUPERADMIN (Garantindo que ignoramos maiúsculas/minúsculas e espaços) */}
-            {String(role).toUpperCase().trim() === "SUPERADMIN" && (
+            {/* ✅ APARECE APENAS PARA O SUPERADMIN OU MASTER */}
+            {(String(role).toUpperCase().trim() === "SUPERADMIN" || String(role).toUpperCase().trim() === "MASTER") && (
               <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
             )}
 
@@ -325,8 +325,8 @@ export default function AdminShell({
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
-            {/* ✅ APARECE APENAS PARA O SUPERADMIN (Garantindo que ignoramos maiúsculas/minúsculas e espaços) */}
-            {String(role).toUpperCase().trim() === "SUPERADMIN" && (
+            {/* ✅ APARECE APENAS PARA O SUPERADMIN OU MASTER */}
+            {(String(role).toUpperCase().trim() === "SUPERADMIN" || String(role).toUpperCase().trim() === "MASTER") && (
               <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
             )}
 
