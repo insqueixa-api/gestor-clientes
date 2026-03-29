@@ -375,6 +375,9 @@ if (connection === "open") {
       console.log(`[WA][CALL_DEBUG] status=${call.status} from=${call.from} id=${call.id}`);
       if (call.status !== "offer") continue;
 
+      const config = getSessionConfig(sessionKey);
+      if (!config.rejectCalls) continue;
+
 // Verifica whitelist
 let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
 const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
