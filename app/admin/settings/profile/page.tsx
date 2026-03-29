@@ -292,14 +292,15 @@ if (res.ok) {
 }
 
 async function saveWaConfig() {
-  setWaSavingConfig(true);
-  try {
-    const allowedNumbers = waAllowedNumbers
-      .split("\n")
-      .map(n => n.replace(/\D/g, ""))
-      .filter(Boolean);
+    setWaSavingConfig(true);
+    try {
+      // ✅ Agora apenas remove espaços extras, mantendo as letras e nomes
+      const allowedNumbers = waAllowedNumbers
+        .split("\n")
+        .map(n => n.trim())
+        .filter(Boolean);
 
-    const res = await fetch("/api/whatsapp/config", {
+      const res = await fetch("/api/whatsapp/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
@@ -1858,13 +1859,13 @@ return (
         Números que não serão rejeitados:
       </label>
       <textarea
-        value={waAllowedNumbers}
-        onChange={e => setWaAllowedNumbers(e.target.value)}
-        rows={3}
-        placeholder={"553199999999\n553188888888"}
-        className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
-      />
-      <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha, com DDI (ex: 5531...). Chamadas desses números serão permitidas.</p>
+                value={waAllowedNumbers}
+                onChange={e => setWaAllowedNumbers(e.target.value)}
+                rows={3}
+                placeholder={"5521999998888 Nome\n5511999999999 Nome"}
+                className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
+              />
+              <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar (ex: 55219... José).</p>
     </div>
   </div>
 )}
@@ -2091,7 +2092,8 @@ function WhatsAppSession2Panel({
   async function saveWaConfig() {
     setWaSavingConfig(true);
     try {
-      const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.replace(/\D/g, "")).filter(Boolean);
+      // ✅ Agora apenas remove espaços extras, mantendo as letras e nomes
+      const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.trim()).filter(Boolean);
       const res = await fetch("/api/whatsapp/config2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2319,9 +2321,10 @@ setWaConnected(false);
                           <div className="pt-1">
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Números permitidos:</label>
                             <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
-                              placeholder={"553199999999\n553188888888"}
+                              placeholder={"5521999998888 Nome\n5511999999999 Nome"}
                               className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
                           </div>
+                          <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar (ex: 55219... Nome).</p>
                         </div>
                       )}
                       {waConfigExpanded && (
