@@ -6,7 +6,7 @@ import { EyeToggle } from "@/app/admin/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Seu Hook Importado
+import { useConfirm } from "@/app/admin/HookuseConfirm"; 
 
 // --- TIPOS ---
 type Transacao = {
@@ -59,7 +59,6 @@ function FinanceiroPageContent() {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // O Seu Hook Bonitão
   const { confirm, ConfirmUI } = useConfirm();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -81,8 +80,6 @@ function FinanceiroPageContent() {
   // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
-
-  // Exclusão Múltipla Modal Custom
   const [deleteData, setDeleteData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
 
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -165,26 +162,6 @@ function FinanceiroPageContent() {
     init();
   }, [currentDate]);
 
-  // AÇÕES RÁPIDAS
-  const handleToggleStatus = async (t: Transacao) => {
-    if (!tenantId) return;
-    const nextStatus = t.status === "PAGO" ? "PENDENTE" : "PAGO";
-    
-    setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: nextStatus } : x));
-    const { error } = await supabaseBrowser
-      .from("fin_transacoes")
-      .update({ status: nextStatus, data_pagamento: nextStatus === "PAGO" ? new Date().toISOString() : null })
-      .eq("id", t.id).eq("tenant_id", tenantId);
-      
-    if (error) {
-      addToast("error", "Falha na comunicação", "Não foi possível mudar o status.");
-      setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x)); 
-    } else {
-      addToast("success", nextStatus === "PAGO" ? "Baixa realizada" : "Marcado como Pendente", `A transação ${t.descricao} foi atualizada.`);
-      carregarDados(tenantId, currentDate); 
-    }
-  };
-
   const handleExclusaoAprovada = async (t: Transacao, modo: "UNICA" | "TODAS") => {
     if (!tenantId) return;
     try {
@@ -203,10 +180,8 @@ function FinanceiroPageContent() {
 
   const handleDeleteClick = async (t: Transacao) => {
     if (t.recorrencia_id) {
-       // Abre o submodal para ele decidir se exclui só essa ou as futuras
        setDeleteData({ open: true, transacao: t });
     } else {
-      // Exclusão normal usa o seu Componente Nativo Bonitão
       const ok = await confirm({
         title: "Excluir Lançamento",
         subtitle: "Esta ação não pode ser desfeita.",
@@ -228,7 +203,7 @@ function FinanceiroPageContent() {
   };
 
   const formatRecorrencia = (t: Transacao) => {
-    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste automático";
+    if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
     if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
     if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
     return "Lançamento Único";
@@ -273,6 +248,17 @@ function FinanceiroPageContent() {
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
+      
+      {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
+      <style dangerouslySetInnerHTML={{__html: `
+        #dashboard-values[data-values-hidden="true"] .finance-value {
+          filter: blur(8px);
+          opacity: 0.6;
+          pointer-events: none;
+          user-select: none;
+        }
+      `}} />
+
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
       </div>
@@ -299,8 +285,8 @@ function FinanceiroPageContent() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0">
-        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={`Previsão: ${fmtBRL(receitasTotal)}`} />
-        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={`Previsão: ${fmtBRL(despesasTotal)}`} />
+        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={`Previsão total: ${fmtBRL(receitasTotal)}`} />
+        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={`Previsão total: ${fmtBRL(despesasTotal)}`} />
         <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰" footer={`Previsão final do mês: ${fmtBRL(saldoPrevisao)}`} onEdit={() => setShowAjusteSaldo(true)} />
       </div>
 
@@ -310,6 +296,15 @@ function FinanceiroPageContent() {
           <button onClick={() => setModalData({ open: true, transacao: null })} className="hidden md:flex h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all">
             <IconPlus /> Adicionar Lançamento
           </button>
+        </div>
+
+        <div className="md:hidden flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+            {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
+          </div>
+          <button onClick={() => setMobileFiltersOpen((v) => !v)} className="h-10 px-3 rounded-lg border font-bold text-sm border-slate-200 bg-white text-slate-600">Filtros</button>
+          <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
         </div>
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
@@ -358,16 +353,17 @@ function FinanceiroPageContent() {
               <th className="px-4 py-3 text-center">Status</th>
               <th className="px-4 py-3 text-center">Categoria</th>
               <th className="px-4 py-3 text-center">Conta</th>
+              <th className="px-4 py-3 text-center">Recorrência</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
             {filteredTransacoes.length === 0 && !loading && (
-              <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
             {loading && (
-              <tr><td colSpan={8} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
@@ -377,7 +373,6 @@ function FinanceiroPageContent() {
                   
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{recText}</div>
                   </td>
 
                   <td className="px-4 py-3 text-center">
@@ -415,8 +410,11 @@ function FinanceiroPageContent() {
                     </span>
                   </td>
 
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
+                  </td>
+
                   <td className="px-4 py-3 text-right">
-                    {/* 👇 ESSA É A CLASSE QUE FAZ A MÁGICA DE OCULTAR VALORES DATA-VALUES-HIDDEN */}
                     <span className={`font-bold transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
@@ -424,12 +422,22 @@ function FinanceiroPageContent() {
 
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      <ActionBtn tone={t.status === "PAGO" ? "amber" : "green"} title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} onClick={() => handleToggleStatus(t)}>
+                      {/* ✅ Pagar: Abre a Edição com o status invertido pré-selecionado para vc ver o valor antes de confirmar */}
+                      <ActionBtn 
+                        tone={t.status === "PAGO" ? "amber" : "green"} 
+                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
+                        onClick={() => {
+                          setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
+                        }}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
+                      
+                      {/* ✅ Editar: Abre a Edição com o status original */}
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
                         <IconEdit />
                       </ActionBtn>
+                      
+                      {/* ✅ Excluir: Dispara a verificação e abre o ConfirmUI Nativo */}
                       <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
                         <IconTrash />
                       </ActionBtn>
@@ -443,10 +451,8 @@ function FinanceiroPageContent() {
         <div className="h-10" />
       </div>
 
-      {/* ✅ SEU HOOK DE CONFIRMAÇÃO NATIVO AQUI */}
       {ConfirmUI}
 
-      {/* MODAL DE DELETAR RECORRENTE CUSTOMIZADO (3 BOTÕES) */}
       {deleteData.open && deleteData.transacao && (
         <Modal title="Excluir Grupo Recorrente" onClose={() => setDeleteData({ open: false, transacao: null })}>
            <div className="space-y-4">
@@ -474,7 +480,7 @@ function FinanceiroPageContent() {
   );
 }
 
-function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", isHidden?: boolean, icon: string, footer: string, onEdit?: ()=>void }) {
+function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", icon: string, footer: string, onEdit?: ()=>void }) {
   const colors = {
     emerald: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
     rose: "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
@@ -490,13 +496,13 @@ function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { ti
         )}
       </div>
       <div className="p-3 sm:p-4 flex-1">
-        {/* 👇 CLASSE finance-value NO VALOR */}
+        {/* 👇 CLASSE finance-value MÁGICA DO OLHINHO */}
         <div className={`text-[15px] sm:text-2xl font-bold leading-tight tabular-nums transition-all duration-300 finance-value`}>
           {value}
         </div>
       </div>
       <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80 font-medium">
-        {/* 👇 CLASSE finance-value NO FOOTER (Opcional, se quiser borrar a previsão tbm) */}
+        {/* 👇 CLASSE finance-value NO FOOTER DA PREVISÃO */}
         <span className="finance-value">{footer}</span>
       </div>
     </div>
@@ -582,8 +588,7 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
     if (!nome.trim()) return;
     setSalvando(true);
     try {
-      const { data, error } = await supabaseBrowser.from("fin_contas_bancarias")
-        .insert({ tenant_id: tenantId, nome: nome.trim(), icone }).select().single();
+      const { data, error } = await supabaseBrowser.from("fin_contas_bancarias").insert({ tenant_id: tenantId, nome: nome.trim(), icone }).select().single();
       if (error) throw error;
       addToast("success", "Conta criada", "Nova conta adicionada com sucesso.");
       onSave(data);
@@ -604,6 +609,31 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
             <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
           </div>
           <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50">Salvar Conta</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: { title: string, items: any[], onExcluir: (id: string)=>Promise<void>, onClose: ()=>void, addToast: any }) {
+  return (
+    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
+      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between shrink-0">
+          <span>{title}</span><button onClick={onClose}><IconX /></button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1 space-y-2">
+          {items.length === 0 && <div className="text-center text-slate-400 text-sm italic">Nenhum item cadastrado.</div>}
+          {items.map(it => (
+            <div key={it.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+              <span className="text-sm font-medium">{it.icone} {it.nome}</span>
+              <button onClick={async () => {
+                if(confirm(`Tem certeza que deseja excluir '${it.nome}'?`)) {
+                  try { await onExcluir(it.id); } catch(e:any) { addToast("error", "Erro ao excluir", "Pode estar em uso."); }
+                }
+              }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><IconTrash /></button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -675,17 +705,36 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [salvando, setSalvando] = useState(false);
 
   const [showNovaConta, setShowNovaConta] = useState(false);
+  const [showGerenciarContas, setShowGerenciarContas] = useState(false);
+  
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
+  const [showGerenciarCategorias, setShowGerenciarCategorias] = useState(false);
 
   const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === "NOVA") setShowNovaConta(true);
+    else if (e.target.value === "GERENCIAR") setShowGerenciarContas(true);
     else setContaSelecionada(e.target.value);
   };
 
   const handleCategoriaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === "NOVA") setShowNovaCategoria(true);
+    else if (e.target.value === "GERENCIAR") setShowGerenciarCategorias(true);
     else setCategoriaSelecionada(e.target.value);
   };
+
+  async function handleExcluirConta(id: string) {
+    const { error } = await supabaseBrowser.from("fin_contas_bancarias").delete().eq("id", id);
+    if(error) throw error;
+    setContas(prev => prev.filter(c => c.id !== id));
+    if (contaSelecionada === id) setContaSelecionada("");
+  }
+
+  async function handleExcluirCategoria(id: string) {
+    const { error } = await supabaseBrowser.from("fin_categorias").delete().eq("id", id);
+    if(error) throw error;
+    setCategorias(prev => prev.filter(c => c.id !== id));
+    if (categoriaSelecionada === id) setCategoriaSelecionada("");
+  }
 
   async function handleSave() {
     if (!descricao.trim() || !valor || !contaSelecionada || !categoriaSelecionada) {
@@ -805,6 +854,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                 {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Conta</option>
+                <option value="GERENCIAR" className="font-bold text-slate-600 dark:text-white/60">⚙️ Gerenciar Contas</option>
               </select>
             </div>
             <div>
@@ -814,6 +864,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                 {categoriasAtivas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
                 <option disabled>──────────</option>
                 <option value="NOVA" className="font-bold text-emerald-600">+ Nova Categoria</option>
+                <option value="GERENCIAR" className="font-bold text-slate-600 dark:text-white/60">⚙️ Gerenciar Categorias</option>
               </select>
             </div>
           </div>
@@ -840,10 +891,10 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                   <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
                   <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
                     <option value="MENSAL">Mês</option>
-                    <option value="BIMESTRAL">2 Meses (Bimestral)</option>
-                    <option value="TRIMESTRAL">3 Meses (Trimestral)</option>
-                    <option value="SEMESTRAL">6 Meses (Semestral)</option>
-                    <option value="ANUAL">Ano (Anual)</option>
+                    <option value="BIMESTRAL">2 Meses</option>
+                    <option value="TRIMESTRAL">3 Meses</option>
+                    <option value="SEMESTRAL">6 Meses</option>
+                    <option value="ANUAL">Ano</option>
                   </select>
                 </div>
               )}
@@ -883,14 +934,9 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
 
       {showNovaConta && <ModalNovaConta tenantId={tenantId} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
       {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategorias([...categorias, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
+      
+      {showGerenciarContas && <ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={() => setShowGerenciarContas(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirConta(id); }} />}
+      {showGerenciarCategorias && <ModalGerenciarItens title="Gerenciar Categorias" items={categorias} onClose={() => setShowGerenciarCategorias(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirCategoria(id); }} />}
     </>
-  );
-}
-
-export default function FinanceiroPessoalPage() {
-  return (
-    <Suspense fallback={<div className="p-12 text-center text-slate-400 animate-pulse">Carregando Finanças...</div>}>
-      <FinanceiroPageContent />
-    </Suspense>
   );
 }
