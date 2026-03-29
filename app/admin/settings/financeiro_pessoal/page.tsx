@@ -84,13 +84,8 @@ function FinanceiroPageContent() {
       const tid = await getCurrentTenantId();
       setTenantId(tid);
       
-      setTransacoes([
-        { id: "1", tipo: "RECEITA", descricao: "Salário UniGestor", valor: 15000, data_vencimento: "2026-03-05", status: "PAGO", categoria_nome: "💼 Salário", conta_nome: "🏦 Itaú", recorrencia: "Mensal" },
-        { id: "2", tipo: "DESPESA", descricao: "Cartão de Crédito Nubank", valor: 4500.50, data_vencimento: "2026-03-10", status: "PENDENTE", categoria_nome: "💳 Cartão de Crédito", conta_nome: "🟪 Nubank", recorrencia: "Única" },
-        { id: "3", tipo: "DESPESA", descricao: "IPVA do Porsche", valor: 3200, data_vencimento: "2026-03-15", status: "PENDENTE", parcela_atual: 3, parcela_total: 5, categoria_nome: "🚗 Veicular", conta_nome: "🟧 Inter", recorrencia: "Parcelado" },
-        { id: "4", tipo: "RECEITA", descricao: "Venda de Consultoria", valor: 2500, data_vencimento: "2026-03-20", status: "PENDENTE", categoria_nome: "💡 Serviços Essenciais", conta_nome: "💳 Stripe", recorrencia: "Única" },
-        { id: "5", tipo: "DESPESA", descricao: "Conta de Luz", valor: 350.20, data_vencimento: "2026-03-22", status: "PAGO", categoria_nome: "🏠 Moradia", conta_nome: "🏦 Itaú", recorrencia: "Mensal" }
-      ]);
+      // ✅ REMOVIDO: Transações Mockadas. A lista inicia vazia.
+      setTransacoes([]);
       
       setLoading(false);
     }
@@ -194,7 +189,7 @@ function FinanceiroPageContent() {
 
         <div className="hidden md:flex items-center gap-2">
           <div className="flex-1 relative">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição, conta..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por descrição, conta, categoria..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
           <div className="w-[180px]">
@@ -212,10 +207,30 @@ function FinanceiroPageContent() {
               <option value="VENCIDO">Vencidos (Atrasados)</option>
             </select>
           </div>
-          <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); }} className="h-10 px-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold flex items-center gap-2">
+          <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); }} className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2">
             <IconX /> Limpar
           </button>
         </div>
+
+        {/* PAINEL MOBILE FILTROS */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
+            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Tipo (Todos)</option>
+              <option value="RECEITA">Apenas Receitas</option>
+              <option value="DESPESA">Apenas Despesas</option>
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Status (Todos)</option>
+              <option value="PAGO">Pagos</option>
+              <option value="PENDENTE">Pendentes</option>
+              <option value="VENCIDO">Vencidos (Atrasados)</option>
+            </select>
+            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setMobileFiltersOpen(false); }} className="w-full h-10 px-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold flex items-center justify-center gap-2">
+              <IconX /> Limpar Filtros
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
@@ -238,45 +253,52 @@ function FinanceiroPageContent() {
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
               return (
-                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setModalData({ open: true, transacao: t })}>
+                  
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px]">{t.descricao}</div>
+                    <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
                     <div className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
                       <span className="uppercase">{t.recorrencia}</span>
                       {t.parcela_total && <span>• Parc. {t.parcela_atual}/{t.parcela_total}</span>}
                     </div>
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     {t.tipo === "RECEITA" ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
                         <IconTrendingUp /> Receita
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20">
                         <IconTrendingDown /> Despesa
                       </span>
                     )}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     <span className="font-mono text-slate-600 dark:text-white/80">{t.data_vencimento.split('-').reverse().join('/')}</span>
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     {(() => {
-                      let cor = "bg-amber-100 text-amber-700 border-amber-200"; 
-                      if (cStatus === "PAGO") cor = "bg-emerald-100 text-emerald-700 border-emerald-200";
-                      else if (cStatus === "VENCIDO") cor = "bg-rose-100 text-rose-700 border-rose-200";
-                      return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${cor}`}>{cStatus}</span>;
+                      let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; 
+                      if (cStatus === "PAGO") cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20";
+                      else if (cStatus === "VENCIDO") cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20";
+                      return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{cStatus}</span>;
                     })()}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     <div className="text-xs text-slate-600 dark:text-white/80 font-medium">{t.categoria_nome || "—"}</div>
                     <div className="text-[10px] text-slate-400">{t.conta_nome || "—"}</div>
                   </td>
+
                   <td className="px-4 py-3 text-right">
-                    <span className={`font-bold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${t.tipo === "RECEITA" ? "text-emerald-600" : "text-rose-600"}`}>
+                    <span className={`font-bold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
                   </td>
+
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
                       <ActionBtn 
@@ -298,6 +320,7 @@ function FinanceiroPageContent() {
             })}
           </tbody>
         </table>
+        <div className="h-10" />
       </div>
 
       {modalData.open && (
@@ -363,17 +386,17 @@ function ModalNovaConta({ onClose, onSave }: { onClose: ()=>void, onSave: (nome:
         <div className="p-4 space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Conta</label>
-            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 border border-slate-200 rounded-lg outline-none text-sm focus:border-emerald-500" />
+            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
             <div className="flex flex-wrap gap-2">
               {icones.map(i => (
-                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:bg-slate-50"}`}>{i}</button>
+                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>
               ))}
             </div>
           </div>
-          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500">Salvar Conta</button>
+          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors">Salvar Conta</button>
         </div>
       </div>
     </div>
@@ -395,17 +418,17 @@ function ModalNovaCategoria({ onClose, onSave, tipoFixo }: { onClose: ()=>void, 
         <div className="p-4 space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Categoria</label>
-            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 border border-slate-200 rounded-lg outline-none text-sm focus:border-emerald-500" />
+            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
             <div className="flex flex-wrap gap-2">
               {icones.map(i => (
-                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:bg-slate-50"}`}>{i}</button>
+                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>
               ))}
             </div>
           </div>
-          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500">Salvar Categoria</button>
+          <button onClick={() => { if(nome) onSave(`${icone} ${nome}`); }} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors">Salvar Categoria</button>
         </div>
       </div>
     </div>
@@ -473,39 +496,39 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-5">
           
           <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/5">
-            <button onClick={() => setTipo("DESPESA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "DESPESA" ? "bg-white text-rose-600 shadow-sm" : "text-slate-500 hover:text-slate-700"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📉 Despesa</button>
-            <button onClick={() => setTipo("RECEITA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "RECEITA" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📈 Receita</button>
+            <button onClick={() => setTipo("DESPESA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📉 Despesa</button>
+            <button onClick={() => setTipo("RECEITA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📈 Receita</button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Descrição</label>
-              <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Conta de Luz" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500" />
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Descrição</label>
+              <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Conta de Luz" className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Valor (R$)</label>
-              <input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500 ${tipo === "RECEITA" ? "text-emerald-600" : "text-rose-600"}`} />
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor (R$)</label>
+              <input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Vencimento</label>
-              <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 font-mono" />
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data de Vencimento</label>
+              <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Status</label>
-              <div className="flex bg-slate-50 rounded-xl border border-slate-200 p-1 h-11">
-                <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700" : "text-slate-400 hover:text-slate-600"}`}>⏳ Pendente</button>
-                <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700" : "text-slate-400 hover:text-slate-600"}`}>✅ Pago</button>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Status</label>
+              <div className="flex bg-slate-50 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/10 p-1 h-11">
+                <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>⏳ Pendente</button>
+                <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-lg text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Conta / Carteira</label>
-              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Conta / Carteira</label>
+              <select value={contaSelecionada} onChange={handleContaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
                 <option value="" disabled>Selecionar Conta</option>
                 {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 <option disabled>──────────</option>
@@ -513,8 +536,8 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Categoria</label>
-              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 font-medium">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Categoria</label>
+              <select value={categoriaSelecionada} onChange={handleCategoriaChange} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-medium">
                 <option value="" disabled>Selecionar Categoria</option>
                 {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 <option disabled>──────────</option>
@@ -523,25 +546,24 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
             </div>
           </div>
 
-          {/* Oculta edição de recorrência se já for existente (geralmente não se muda parcelamento no meio do caminho) */}
           {!isEdit && (
-            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recorrência e Parcelamento</label>
-              <div className="flex bg-white rounded-lg border border-slate-200 p-1">
-                <button onClick={() => setTipoRecorrencia("UNICA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-50 text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Única</button>
-                <button onClick={() => setTipoRecorrencia("RECORRENTE")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-50 text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Recorrente</button>
-                <button onClick={() => setTipoRecorrencia("PARCELADA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-50 text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Parcelado</button>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
+              <div className="flex bg-white dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1">
+                <button onClick={() => setTipoRecorrencia("UNICA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "UNICA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Única</button>
+                <button onClick={() => setTipoRecorrencia("RECORRENTE")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "RECORRENTE" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Recorrente</button>
+                <button onClick={() => setTipoRecorrencia("PARCELADA")} className={`flex-1 py-1.5 rounded text-xs font-bold transition-all ${tipoRecorrencia === "PARCELADA" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80"}`}>Parcelado</button>
               </div>
               {tipoRecorrencia === "PARCELADA" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-slate-600">Qtd de Parcelas:</span>
-                  <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-20 h-9 px-2 text-center border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-emerald-500" />
+                  <span className="text-xs font-medium text-slate-600 dark:text-white/70">Qtd de Parcelas:</span>
+                  <input type="number" min="2" max="120" value={parcelas} onChange={e => setParcelas(e.target.value)} className="w-20 h-9 px-2 text-center bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white" />
                 </div>
               )}
               {tipoRecorrencia === "RECORRENTE" && (
                 <div className="flex items-center gap-3 animate-in fade-in zoom-in-95">
-                  <span className="text-xs font-medium text-slate-600">Repetir a cada:</span>
-                  <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-emerald-500">
+                  <span className="text-xs font-medium text-slate-600 dark:text-white/70">Repetir a cada:</span>
+                  <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="flex-1 h-9 px-2 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white">
                     <option value="Mensal">Mês</option>
                     <option value="Bimestral">2 Meses</option>
                     <option value="Trimestral">3 Meses</option>
@@ -553,16 +575,15 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
             </div>
           )}
 
-          {/* AVISO DE EDIÇÃO RECORRENTE */}
           {isEdit && rTipoInicial !== "UNICA" && (
-            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
-              <label className="block text-[10px] font-bold text-amber-700 uppercase tracking-wider">⚠️ Alteração em Conta Recorrente</label>
+            <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 space-y-3">
+              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Conta Recorrente</label>
               <div className="flex gap-4 items-center">
-                <label className="flex items-center gap-2 text-sm font-medium text-amber-900 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
                   <input type="radio" checked={escopoEdicao === "UNICA"} onChange={() => setEscopoEdicao("UNICA")} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
                   Apenas neste mês
                 </label>
-                <label className="flex items-center gap-2 text-sm font-medium text-amber-900 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
                   <input type="radio" checked={escopoEdicao === "TODAS"} onChange={() => setEscopoEdicao("TODAS")} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
                   Nesta e nas futuras
                 </label>
@@ -571,14 +592,14 @@ function ModalTransacao({ onClose, transacaoEdit }: { onClose: () => void; trans
           )}
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Observações</label>
-            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 resize-none" />
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Observações</label>
+            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
           
         </div>
 
-        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-200">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
           <button className={`px-6 py-2 rounded-lg text-white text-sm font-bold shadow-lg transition-all ${tipo === "RECEITA" ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"}`}>
             {isEdit ? "Salvar Alterações" : "Criar Lançamento"}
           </button>
