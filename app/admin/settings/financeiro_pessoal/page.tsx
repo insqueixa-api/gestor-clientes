@@ -6,6 +6,7 @@ import { EyeToggle } from "@/app/admin/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Seu Hook Importado
 
 // --- TIPOS ---
 type Transacao = {
@@ -57,7 +58,9 @@ function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [valuesHidden, setValuesHidden] = useState(false);
+
+  // O Seu Hook Bonitão
+  const { confirm, ConfirmUI } = useConfirm();
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -79,6 +82,9 @@ function FinanceiroPageContent() {
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
 
+  // Exclusão Múltipla Modal Custom
+  const [deleteData, setDeleteData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
+
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
@@ -99,7 +105,6 @@ function FinanceiroPageContent() {
       const startOfMonth = `${y}-${m}-01`;
       const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0).toISOString().split("T")[0];
 
-      // 1. Carrega as Listas de Contas e Categorias
       const [resContas, resCat] = await Promise.all([
         supabaseBrowser.from("fin_contas_bancarias").select("*").eq("tenant_id", tid).order("nome"),
         supabaseBrowser.from("fin_categorias").select("*").eq("tenant_id", tid).order("nome")
@@ -107,7 +112,6 @@ function FinanceiroPageContent() {
       if (resContas.data) setContasDB(resContas.data);
       if (resCat.data) setCategoriasDB(resCat.data);
 
-      // 2. Calcula o saldo real de cada conta usando a sua RPC
       const saldos: Record<string, number> = {};
       for (const c of resContas.data || []) {
          const { data: saldo } = await supabaseBrowser.rpc("get_saldo_conta", { p_conta_id: c.id });
@@ -115,7 +119,6 @@ function FinanceiroPageContent() {
       }
       setSaldosContas(saldos);
 
-      // 3. Carrega as transações do mês para a tabela
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
         .select(`*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`)
@@ -162,7 +165,7 @@ function FinanceiroPageContent() {
     init();
   }, [currentDate]);
 
-  // AÇÕES RÁPIDAS COM O BANCO DE DADOS
+  // AÇÕES RÁPIDAS
   const handleToggleStatus = async (t: Transacao) => {
     if (!tenantId) return;
     const nextStatus = t.status === "PAGO" ? "PENDENTE" : "PAGO";
@@ -178,31 +181,41 @@ function FinanceiroPageContent() {
       setTransacoes(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x)); 
     } else {
       addToast("success", nextStatus === "PAGO" ? "Baixa realizada" : "Marcado como Pendente", `A transação ${t.descricao} foi atualizada.`);
-      carregarDados(tenantId, currentDate); // Recarrega saldos
+      carregarDados(tenantId, currentDate); 
     }
   };
 
-  const handleDelete = async (t: Transacao) => {
+  const handleExclusaoAprovada = async (t: Transacao, modo: "UNICA" | "TODAS") => {
     if (!tenantId) return;
-    let deleteGrupo = false;
-    if (t.recorrencia_id) {
-       if (confirm(`A transação ${t.descricao} faz parte de um grupo recorrente/parcelado.\n\nDeseja excluir TODAS as próximas cobranças também? (Cancele para excluir apenas a atual)`)) {
-         deleteGrupo = true;
-       }
-    } else {
-      if (!confirm(`Excluir a transação: ${t.descricao}?`)) return;
-    }
-
     try {
-      if (deleteGrupo && t.recorrencia_id) {
+      if (modo === "TODAS" && t.recorrencia_id) {
         await supabaseBrowser.from("fin_transacoes").delete().eq("recorrencia_id", t.recorrencia_id).gte("data_vencimento", t.data_vencimento);
       } else {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
       }
       addToast("success", "Excluído", "Transação(ões) removida(s) com sucesso.");
-      if (tenantId) carregarDados(tenantId, currentDate);
+      setDeleteData({ open: false, transacao: null });
+      carregarDados(tenantId, currentDate);
     } catch(e) {
       addToast("error", "Erro ao excluir", "Tente novamente.");
+    }
+  };
+
+  const handleDeleteClick = async (t: Transacao) => {
+    if (t.recorrencia_id) {
+       // Abre o submodal para ele decidir se exclui só essa ou as futuras
+       setDeleteData({ open: true, transacao: t });
+    } else {
+      // Exclusão normal usa o seu Componente Nativo Bonitão
+      const ok = await confirm({
+        title: "Excluir Lançamento",
+        subtitle: "Esta ação não pode ser desfeita.",
+        tone: "rose",
+        icon: "🗑️",
+        details: [`Lançamento: ${t.descricao}`, `Valor: R$ ${t.valor.toFixed(2)}`],
+        confirmText: "Sim, excluir",
+      });
+      if (ok) handleExclusaoAprovada(t, "UNICA");
     }
   };
 
@@ -214,7 +227,6 @@ function FinanceiroPageContent() {
     return venc < hoje ? "VENCIDO" : "PENDENTE";
   };
 
-  // FORMATADOR DA TEXTO DA RECORRÊNCIA
   const formatRecorrencia = (t: Transacao) => {
     if (t.observacoes === "Ajuste automático de saldo") return "Ajuste automático";
     if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
@@ -222,7 +234,8 @@ function FinanceiroPageContent() {
     return "Lançamento Único";
   };
 
-  // FILTROS AVANÇADOS
+  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
   const filteredTransacoes = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return transacoes.filter((t) => {
@@ -247,22 +260,16 @@ function FinanceiroPageContent() {
     });
   }, [transacoes, search, statusFilter, tipoFilter, contaFilter, categoriaFilter, recorrenciaFilter]);
 
-  // CÁLCULOS DOS CARDS (Baseados no filtro ativo)
   const receitasPagas = filteredTransacoes.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
   const receitasTotal = filteredTransacoes.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
   const despesasPagas = filteredTransacoes.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
   const despesasTotal = filteredTransacoes.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
   
-  // Saldo Atual é o real do Banco. Se tiver conta filtrada, mostra só dela. Se não, soma tudo.
   let saldoAtualReal = 0;
-  if (contaFilter !== "Todos") {
-    saldoAtualReal = saldosContas[contaFilter] || 0;
-  } else {
-    saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
-  }
+  if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
+  else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
   
   const saldoPrevisao = saldoAtualReal + (receitasTotal - receitasPagas) - (despesasTotal - despesasPagas);
-  const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
@@ -292,17 +299,9 @@ function FinanceiroPageContent() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0">
-        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" isHidden={valuesHidden} icon="📈" footer={`Previsão: ${fmtBRL(receitasTotal)}`} />
-        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" isHidden={valuesHidden} icon="📉" footer={`Previsão: ${fmtBRL(despesasTotal)}`} />
-        <MetricCard 
-          title="Saldo Atual" 
-          value={fmtBRL(saldoAtualReal)} 
-          tone={saldoAtualReal >= 0 ? "emerald" : "rose"} 
-          isHidden={valuesHidden} 
-          icon="💰" 
-          footer={`Previsão: ${fmtBRL(saldoPrevisao)}`} 
-          onEdit={() => setShowAjusteSaldo(true)}
-        />
+        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={`Previsão: ${fmtBRL(receitasTotal)}`} />
+        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={`Previsão: ${fmtBRL(despesasTotal)}`} />
+        <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰" footer={`Previsão final do mês: ${fmtBRL(saldoPrevisao)}`} onEdit={() => setShowAjusteSaldo(true)} />
       </div>
 
       <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
@@ -311,15 +310,6 @@ function FinanceiroPageContent() {
           <button onClick={() => setModalData({ open: true, transacao: null })} className="hidden md:flex h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all">
             <IconPlus /> Adicionar Lançamento
           </button>
-        </div>
-
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
-            {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
-          </div>
-          <button onClick={() => setMobileFiltersOpen((v) => !v)} className="h-10 px-3 rounded-lg border font-bold text-sm border-slate-200 bg-white text-slate-600">Filtros</button>
-          <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
         </div>
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
@@ -368,17 +358,16 @@ function FinanceiroPageContent() {
               <th className="px-4 py-3 text-center">Status</th>
               <th className="px-4 py-3 text-center">Categoria</th>
               <th className="px-4 py-3 text-center">Conta</th>
-              <th className="px-4 py-3 text-center">Recorrência</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
             {filteredTransacoes.length === 0 && !loading && (
-              <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
+              <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
             {loading && (
-              <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
+              <tr><td colSpan={8} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
             {filteredTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
@@ -388,6 +377,7 @@ function FinanceiroPageContent() {
                   
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{recText}</div>
                   </td>
 
                   <td className="px-4 py-3 text-center">
@@ -425,28 +415,22 @@ function FinanceiroPageContent() {
                     </span>
                   </td>
 
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
-                  </td>
-
                   <td className="px-4 py-3 text-right">
-                    <span className={`font-bold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {/* 👇 ESSA É A CLASSE QUE FAZ A MÁGICA DE OCULTAR VALORES DATA-VALUES-HIDDEN */}
+                    <span className={`font-bold transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
                   </td>
 
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      <ActionBtn 
-                        tone={t.status === "PAGO" ? "amber" : "green"} 
-                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
-                        onClick={() => handleToggleStatus(t)}>
+                      <ActionBtn tone={t.status === "PAGO" ? "amber" : "green"} title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} onClick={() => handleToggleStatus(t)}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
                         <IconEdit />
                       </ActionBtn>
-                      <ActionBtn tone="red" title="Excluir" onClick={() => handleDelete(t)}>
+                      <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
                         <IconTrash />
                       </ActionBtn>
                     </div>
@@ -459,33 +443,38 @@ function FinanceiroPageContent() {
         <div className="h-10" />
       </div>
 
+      {/* ✅ SEU HOOK DE CONFIRMAÇÃO NATIVO AQUI */}
+      {ConfirmUI}
+
+      {/* MODAL DE DELETAR RECORRENTE CUSTOMIZADO (3 BOTÕES) */}
+      {deleteData.open && deleteData.transacao && (
+        <Modal title="Excluir Grupo Recorrente" onClose={() => setDeleteData({ open: false, transacao: null })}>
+           <div className="space-y-4">
+             <div className="p-3 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 rounded-xl text-sm text-amber-800 dark:text-amber-300 flex gap-3">
+               <span className="text-xl">⚠️</span>
+               <p>A transação <b>{deleteData.transacao.descricao}</b> faz parte de um grupo recorrente/parcelado.</p>
+             </div>
+             <div className="flex flex-col gap-2 pt-2">
+               <button onClick={() => handleExclusaoAprovada(deleteData.transacao!, "UNICA")} className="px-4 py-3 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">🗑️ Excluir apenas esta ({monthName})</button>
+               <button onClick={() => handleExclusaoAprovada(deleteData.transacao!, "TODAS")} className="px-4 py-3 rounded-lg border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600 hover:bg-rose-100 transition-colors">🗑️ Excluir esta e as futuras</button>
+               <button onClick={() => setDeleteData({ open: false, transacao: null })} className="px-4 py-2 mt-2 text-sm font-bold text-slate-400 hover:text-slate-600">Cancelar</button>
+             </div>
+           </div>
+        </Modal>
+      )}
+
       {modalData.open && tenantId && (
-        <ModalTransacao 
-          tenantId={tenantId} 
-          onClose={() => setModalData({ open: false, transacao: null })} 
-          transacaoEdit={modalData.transacao} 
-          contasDB={contasDB}
-          categoriasDB={categoriasDB}
-          addToast={addToast} 
-          onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }}
-        />
+        <ModalTransacao tenantId={tenantId} onClose={() => setModalData({ open: false, transacao: null })} transacaoEdit={modalData.transacao} contasDB={contasDB} categoriasDB={categoriasDB} addToast={addToast} onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }} />
       )}
 
       {showAjusteSaldo && tenantId && (
-        <ModalAjusteSaldo 
-          tenantId={tenantId}
-          contas={contasDB}
-          saldos={saldosContas}
-          onClose={() => setShowAjusteSaldo(false)}
-          onSuccess={() => { setShowAjusteSaldo(false); carregarDados(tenantId, currentDate); }}
-          addToast={addToast}
-        />
+        <ModalAjusteSaldo tenantId={tenantId} contas={contasDB} saldos={saldosContas} onClose={() => setShowAjusteSaldo(false)} onSuccess={() => { setShowAjusteSaldo(false); carregarDados(tenantId, currentDate); }} addToast={addToast} />
       )}
     </div>
   );
 }
 
-function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", isHidden: boolean, icon: string, footer: string, onEdit?: ()=>void }) {
+function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", isHidden?: boolean, icon: string, footer: string, onEdit?: ()=>void }) {
   const colors = {
     emerald: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
     rose: "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
@@ -501,12 +490,14 @@ function MetricCard({ title, value, tone, isHidden, icon, footer, onEdit }: { ti
         )}
       </div>
       <div className="p-3 sm:p-4 flex-1">
-        <div className={`text-[15px] sm:text-2xl font-bold leading-tight tabular-nums transition-all duration-300 ${isHidden ? "blur-md select-none" : ""}`}>
+        {/* 👇 CLASSE finance-value NO VALOR */}
+        <div className={`text-[15px] sm:text-2xl font-bold leading-tight tabular-nums transition-all duration-300 finance-value`}>
           {value}
         </div>
       </div>
       <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80 font-medium">
-        {footer}
+        {/* 👇 CLASSE finance-value NO FOOTER (Opcional, se quiser borrar a previsão tbm) */}
+        <span className="finance-value">{footer}</span>
       </div>
     </div>
   );
@@ -530,7 +521,6 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
-// --- SUB-MODAL AJUSTE DE SALDO ---
 function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToast }: { tenantId: string, contas: any[], saldos: Record<string, number>, onClose: ()=>void, onSuccess: ()=>void, addToast: any }) {
   const [contaId, setContaId] = useState(contas[0]?.id || "");
   const [novoSaldo, setNovoSaldo] = useState("");
@@ -542,23 +532,15 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
     const val = parseFloat(novoSaldo);
     if (isNaN(val)) return;
     const diff = val - saldoAtual;
-    
     if (diff === 0) { onClose(); return; }
 
     setSalvando(true);
     try {
       const isReceita = diff > 0;
       const { error } = await supabaseBrowser.from("fin_transacoes").insert({
-        tenant_id: tenantId,
-        tipo: isReceita ? "RECEITA" : "DESPESA",
-        descricao: "Ajuste Automático de Saldo",
-        valor: Math.abs(diff),
-        data_vencimento: new Date().toISOString().split("T")[0],
-        data_pagamento: new Date().toISOString(),
-        status: "PAGO",
-        conta_id: contaId,
-        is_recorrente: false,
-        observacoes: "Ajuste automático de saldo"
+        tenant_id: tenantId, tipo: isReceita ? "RECEITA" : "DESPESA", descricao: "Ajuste Automático de Saldo",
+        valor: Math.abs(diff), data_vencimento: new Date().toISOString().split("T")[0], status: "PAGO",
+        data_pagamento: new Date().toISOString(), conta_id: contaId, is_recorrente: false, observacoes: "Ajuste automático de saldo"
       });
 
       if (error) throw error;
@@ -570,9 +552,7 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
   return (
     <Modal title="Ajustar Saldo" onClose={onClose}>
       <div className="space-y-4">
-        <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">
-          O sistema criará um lançamento de ajuste (Receita ou Despesa) para igualar o saldo do sistema com o seu banco real.
-        </div>
+        <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">O sistema criará um lançamento de ajuste para igualar o saldo com o seu banco real.</div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
           <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
@@ -592,7 +572,6 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
   );
 }
 
-// --- SUB-MODAIS DE CADASTRO RÁPIDO ---
 function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: string, onClose: ()=>void, onSave: (novaConta: any)=>void, addToast: any }) {
   const [nome, setNome] = useState("");
   const [icone, setIcone] = useState("🏦");
@@ -619,21 +598,12 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
           <button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 space-y-4">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Conta</label>
-            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" />
-          </div>
+          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: C6 Bank" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">
-              {icones.map(i => (
-                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>
-              ))}
-            </div>
+            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
           </div>
-          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors disabled:opacity-50">
-            {salvando ? "Salvando..." : "Salvar Conta"}
-          </button>
+          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50">Salvar Conta</button>
         </div>
       </div>
     </div>
@@ -650,8 +620,7 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
     if (!nome.trim()) return;
     setSalvando(true);
     try {
-      const { data, error } = await supabaseBrowser.from("fin_categorias")
-        .insert({ tenant_id: tenantId, nome: nome.trim(), icone, tipo: tipoFixo }).select().single();
+      const { data, error } = await supabaseBrowser.from("fin_categorias").insert({ tenant_id: tenantId, nome: nome.trim(), icone, tipo: tipoFixo }).select().single();
       if (error) throw error;
       addToast("success", "Categoria criada", "Nova categoria adicionada.");
       onSave(data);
@@ -662,32 +631,21 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between">
-          <span>Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}</span>
-          <button onClick={onClose}><IconX /></button>
+          <span>Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}</span><button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 space-y-4">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Categoria</label>
-            <input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" />
-          </div>
+          <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome</label><input autoFocus value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: Roupas" className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500" /></div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Ícone</label>
-            <div className="flex flex-wrap gap-2">
-              {icones.map(i => (
-                <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>
-              ))}
-            </div>
+            <div className="flex flex-wrap gap-2">{icones.map(i => <button key={i} onClick={()=>setIcone(i)} className={`w-8 h-8 rounded border text-lg flex items-center justify-center transition-all ${icone === i ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{i}</button>)}</div>
           </div>
-          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-colors disabled:opacity-50">
-            {salvando ? "Salvando..." : "Salvar Categoria"}
-          </button>
+          <button onClick={handleSave} disabled={salvando} className="w-full h-10 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-500 shadow-lg transition-colors disabled:opacity-50">Salvar Categoria</button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- COMPONENTE DO MODAL DE TRANSAÇÃO (LIGADO AO BANCO) ---
 function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess, contasDB, categoriasDB }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void, contasDB: any[], categoriasDB: any[] }) {
   const isEdit = !!transacaoEdit;
   
@@ -710,7 +668,6 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [contas, setContas] = useState<any[]>(contasDB);
   const [categorias, setCategorias] = useState<any[]>(categoriasDB);
   
-  // Auto-seleciona a primeira conta e categoria caso não seja edição
   const categoriasAtivas = categorias.filter(c => c.tipo === tipo || c.tipo === "AMBOS");
   const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""));
   const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id || "");
@@ -810,7 +767,6 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       <Modal title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"} onClose={onClose}>
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-5">
           
-          {/* SÓ PODE MUDAR O TIPO SE NÃO FOR AJUSTE DE SALDO E SE NÃO FOR EDIÇÃO */}
           <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/5">
             <button onClick={() => setTipo("DESPESA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📉 Despesa</button>
             <button onClick={() => setTipo("RECEITA")} disabled={isEdit} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📈 Receita</button>
