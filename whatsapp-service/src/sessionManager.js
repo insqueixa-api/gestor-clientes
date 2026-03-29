@@ -45,13 +45,37 @@ function getSessionConfig(sessionKey) {
 
 function updateSessionConfig(sessionKey, updates) {
   const current = getSessionConfig(sessionKey);
-const next = {
-  ...current,
-  ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
-  ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
-  ...(Array.isArray(updates.allowedNumbers) ? { allowedNumbers: updates.allowedNumbers } : {}),
-};
+  const next = {
+    ...current,
+    ...(updates.rejectCalls !== undefined ? { rejectCalls: !!updates.rejectCalls } : {}),
+    ...(updates.rejectMessage !== undefined ? { rejectMessage: String(updates.rejectMessage) } : {}),
+    ...(Array.isArray(updates.allowedNumbers) ? { allowedNumbers: updates.allowedNumbers } : {}),
+  };
   sessionConfigs.set(sessionKey, next);
+
+  // Quando salvar números permitidos, resolve os lids via socket e salva no mapa
+  if (Array.isArray(updates.allowedNumbers) && updates.allowedNumbers.length > 0) {
+    const sess = sessions.get(sessionKey);
+    if (sess?.socket && sess.status === "connected") {
+      (async () => {
+        if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+        const map = lidPhoneMap.get(sessionKey);
+        for (const num of updates.allowedNumbers) {
+          const digits = String(num).replace(/\D/g, "");
+          if (!digits) continue;
+          try {
+            const [info] = await sess.socket.onWhatsApp(`${digits}@s.whatsapp.net`).catch(() => [null]);
+            if (info?.jid) {
+              const jidBase = info.jid.split("@")[0].split(":")[0].replace(/\D/g, "");
+              map.set(jidBase, digits);
+              console.log(`[WA] Número permitido mapeado: ${jidBase} → ${digits}`);
+            }
+          } catch {}
+        }
+        saveLidMap(sessionKey);
+      })();
+    }
+  }
 
   // persiste no disco
   try {
@@ -234,7 +258,12 @@ sessData.socket = sock;
   }
 }
 
-sock.ev.on("contacts.upsert", (contacts) => { mapContacts(contacts); saveLidMap(sessionKey); });
+sock.ev.on("contacts.upsert", (contacts) => {
+  console.log(`[WA][CONTACTS] upsert ${contacts.length} contatos`);
+  contacts.forEach(c => { if (c.lid) console.log(`[WA][CONTACTS] id=${c.id} lid=${c.lid}`); });
+  mapContacts(contacts); 
+  saveLidMap(sessionKey); 
+});
 sock.ev.on("contacts.set", ({ contacts }) => { mapContacts(contacts); saveLidMap(sessionKey); });
 
 // Captura lid->phone nas mensagens também (constrói o mapa com o tempo)
