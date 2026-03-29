@@ -940,3 +940,11 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
     </>
   );
 }
+
+export default function FinanceiroPessoalPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-slate-400 animate-pulse">Carregando Finanças...</div>}>
+      <FinanceiroPageContent />
+    </Suspense>
+  );
+}
