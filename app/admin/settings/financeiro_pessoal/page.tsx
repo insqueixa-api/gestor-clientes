@@ -96,12 +96,28 @@ function FinanceiroPageContent() {
 
   const fmtBRL = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+  // Função que descobre se a conta atrasou
+  const getComputedStatus = (status: string, vencimentoIso: string) => {
+    if (status === "PAGO") return "PAGO";
+    
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    const [y, m, d] = vencimentoIso.split("-").map(Number);
+    const venc = new Date(y, m - 1, d);
+    venc.setHours(0, 0, 0, 0);
+    
+    return venc < hoje ? "VENCIDO" : "PENDENTE";
+  };
+
   // APLICAÇÃO DOS FILTROS
   const filteredTransacoes = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
     return transacoes.filter((t) => {
-      if (statusFilter !== "Todos" && t.status !== statusFilter) return false;
+      const cStatus = getComputedStatus(t.status, t.data_vencimento);
+
+      if (statusFilter !== "Todos" && cStatus !== statusFilter) return false;
       if (tipoFilter !== "Todos" && t.tipo !== tipoFilter) return false;
       
       if (q) {
@@ -246,8 +262,9 @@ function FinanceiroPageContent() {
           <div className="w-[180px]">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
               <option value="Todos">Status (Todos)</option>
-              <option value="PAGO">Pagos / Concluídos</option>
-              <option value="PENDENTE">Pendentes</option>
+              <option value="PAGO">Pagos</option>
+              <option value="PENDENTE">Pendentes (No prazo)</option>
+              <option value="VENCIDO">Vencidos (Atrasados)</option>
             </select>
           </div>
 
@@ -327,13 +344,22 @@ function FinanceiroPageContent() {
 
                 {/* STATUS */}
                 <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${
-                    t.status === 'PAGO' 
-                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20' 
-                      : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20'
-                  }`}>
-                    {t.status}
-                  </span>
+                  {(() => {
+                    const cStatus = getComputedStatus(t.status, t.data_vencimento);
+                    let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; // Pendente
+                    
+                    if (cStatus === "PAGO") {
+                      cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20";
+                    } else if (cStatus === "VENCIDO") {
+                      cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20";
+                    }
+
+                    return (
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>
+                        {cStatus}
+                      </span>
+                    );
+                  })()}
                 </td>
 
                 {/* CATEGORIA */}
