@@ -961,8 +961,13 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
   const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
   const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
+  const formatValorDisplay = (v: number) => {
+    const [int, dec] = v.toFixed(2).split('.');
+    return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
+  };
+
   const [valorDisplay, setValorDisplay] = useState(
-    transacaoEdit?.valor ? String(transacaoEdit.valor).replace('.', ',') : ""
+    transacaoEdit?.valor ? formatValorDisplay(transacaoEdit.valor) : ""
   );
 
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1086,7 +1091,28 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             tipo, descricao, valor: Number(valor), conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs
           }).eq("recorrencia_id", transacaoEdit.recorrencia_id).gte("data_vencimento", transacaoEdit.data_vencimento);
           if (error) throw error;
-          // Atualiza status E data apenas desta parcela
+
+          // Se o dia mudou, propaga o novo dia para todas as futuras (respeitando último dia do mês)
+          const novoDia = new Date(`${vencimento}T12:00:00`).getDate();
+          const diaOriginal = new Date(`${transacaoEdit.data_vencimento}T12:00:00`).getDate();
+          if (novoDia !== diaOriginal) {
+            const { data: futuras } = await supabaseBrowser
+              .from("fin_transacoes")
+              .select("id, data_vencimento")
+              .eq("recorrencia_id", transacaoEdit.recorrencia_id)
+              .gte("data_vencimento", transacaoEdit.data_vencimento);
+
+            for (const f of futuras || []) {
+              if (f.id === transacaoEdit.id) continue; // esta parcela trata abaixo
+              const [y, m] = f.data_vencimento.split('-').map(Number);
+              const ultimoDia = new Date(y, m, 0).getDate(); // último dia do mês
+              const dia = Math.min(novoDia, ultimoDia);
+              const novaData = `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+              await supabaseBrowser.from("fin_transacoes").update({ data_vencimento: novaData }).eq("id", f.id);
+            }
+          }
+
+          // Atualiza status E data desta parcela
           const { error: err2 } = await supabaseBrowser.from("fin_transacoes").update({
             status, data_vencimento: vencimento
           }).eq("id", transacaoEdit.id);
