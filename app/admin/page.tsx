@@ -231,36 +231,25 @@ export default async function AdminDashboardPage() {
     topAppsRes,
     saasFinanceRes,
     saasDailyRes,
+    purchasesRes // 👈 NOVO
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
     supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
-    supabase
-      .from("vw_dashboard_new_registrations_daily_current_month")
-      .select("*")
-      .order("day", { ascending: true }),
-    supabase
-      .from("vw_dashboard_payments_daily_current_month")
-      .select("*")
-      .order("day", { ascending: true }),
-    supabase
-      .from("vw_dashboard_top_servers_current_month")
-      .select("*")
-      .order("clients_created", { ascending: false })
-      .limit(5),
-    supabase
-      .from("vw_dashboard_top_apps_current_month")
-      .select("*")
-      .order("clients_count", { ascending: false })
-      .limit(5),
+    supabase.from("vw_dashboard_new_registrations_daily_current_month").select("*").order("day", { ascending: true }),
+    supabase.from("vw_dashboard_payments_daily_current_month").select("*").order("day", { ascending: true }),
+    supabase.from("vw_dashboard_top_servers_current_month").select("*").order("clients_created", { ascending: false }).limit(5),
+    supabase.from("vw_dashboard_top_apps_current_month").select("*").order("clients_count", { ascending: false }).limit(5),
     (showSaas && myTenantId
       ? supabase.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", myTenantId).maybeSingle()
       : Promise.resolve({ data: null })) as Promise<any>,
     (showSaas && myTenantId
       ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").eq("tenant_id", myTenantId).order("day", { ascending: true })
       : Promise.resolve({ data: null })) as Promise<any>,
-    // 👇 NOVO: Puxa o histórico de recargas dos últimos 2 meses
-    supabase.from("server_credit_purchases").select("created_at, total_amount_brl").gte("created_at", isoDateFromYMD(todayInSaoPaulo().getMonth() === 0 ? todayInSaoPaulo().getFullYear() - 1 : todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() === 0 ? 12 : todayInSaoPaulo().getMonth(), 1)),
+    // 👇 NOVO: Puxa o histórico de compras com filtro de tenant_id!
+    (myTenantId 
+      ? supabase.from("server_credit_purchases").select("created_at, total_amount_brl").eq("tenant_id", myTenantId).gte("created_at", isoDateFromYMD(new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(), new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1, 1))
+      : Promise.resolve({ data: null })) as Promise<any>,
   ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
@@ -276,12 +265,11 @@ export default async function AdminDashboardPage() {
   };
   type VwSaasDaily = { day: string; renewal_brl: number | null; credits_brl: number | null; new_resellers: number | null; };
 
-  // maybeSingle retorna o objeto direto, não array
   const saasFinance = ((saasFinanceRes as any)?.data ?? null) as VwSaasFinance | null;
   const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
-  
-  // 👇 CÁLCULO DE DESPESAS COM RECARGA 👇
-  const purchasesRows = (arguments[0][9]?.data ?? []) as { created_at: string, total_amount_brl: number }[];
+
+  // 👇 NOVO: Cálculos exatos das despesas
+  const purchasesRows = (purchasesRes?.data ?? []) as { created_at: string, total_amount_brl: number }[];
   let expensesMonthVal = 0;
   let expensesPrevMonthVal = 0;
   
@@ -614,12 +602,17 @@ return (
   </>
 }
           footer={
-  <>
-    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
-
-    <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
-  </>
-}
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+            <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+          </div>
+          <div className="text-emerald-700 dark:text-emerald-400 font-bold">
+            <span className="sm:hidden">Lucro: {fmtBRLNoSymbol((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
+            <span className="hidden sm:inline">Lucro: {fmtBRL((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
+          </div>
+        </div>
+      }
         />
       </div>
 
