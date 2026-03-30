@@ -492,10 +492,15 @@ function FinanceiroPageContent() {
     });
   }, [transacoes, search, statusFilter, tipoFilter, contaFilter, categoriaFilter, recorrenciaFilter]);
 
-  const receitasPagas = filteredTransacoes.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const receitasTotal = filteredTransacoes.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
-  const despesasPagas = filteredTransacoes.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const despesasTotal = filteredTransacoes.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
+  // Base isolada para os cards: ignora todos os filtros, exceto a Conta
+  const transacoesCards = contaFilter !== "Todos" 
+    ? transacoes.filter(t => t.conta_id === contaFilter) 
+    : transacoes;
+
+  const receitasPagas = transacoesCards.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
+  const receitasTotal = transacoesCards.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
+  const despesasPagas = transacoesCards.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
+  const despesasTotal = transacoesCards.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
   
   let saldoAtualReal = 0;
   if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
