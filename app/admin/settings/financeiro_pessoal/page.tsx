@@ -39,6 +39,7 @@ function IconCheck() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function IconUndo() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>; }
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
+function IconCalendar() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>; }
 
 function ActionBtn({ tone, onClick, title, children }: { tone: "green"|"amber"|"red"|"blue", onClick: ()=>void, title: string, children: React.ReactNode }) {
   const colors = {
@@ -168,7 +169,7 @@ function FinanceiroPageContent() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }
 
-  const monthName = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthName = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }).replace(" de ", " ");
   
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
@@ -698,7 +699,7 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
           <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
-            {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome} (Atual: R$ {saldos[c.id] || 0})</option>)}
+            {contas.map(c => <option key={c.id} value={c.id}>{c.icone} {c.nome} (Atual: {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saldos[c.id] || 0)})</option>)}
           </select>
         </div>
         <div>
@@ -1007,6 +1008,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
 
   const [salvando, setSalvando] = useState(false);
 
+  const [showVencimentoPicker, setShowVencimentoPicker] = useState(false);
   const [showNovaConta, setShowNovaConta] = useState(false);
   const [showGerenciarContas, setShowGerenciarContas] = useState(false);
   
@@ -1150,7 +1152,32 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data de Vencimento</label>
-              <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+              <div className="relative">
+                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-11 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+                <button
+                  type="button"
+                  onClick={() => setShowVencimentoPicker(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
+                  title="Abrir calendário"
+                >
+                  <IconCalendar />
+                </button>
+              </div>
+              {showVencimentoPicker && (
+                <ModalDatePicker
+                  currentDate={vencimento ? new Date(`${vencimento}T12:00:00`) : new Date()}
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, '0');
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const y = date.getFullYear();
+                    const iso = `${y}-${m}-${d}`;
+                    setVencimento(iso);
+                    setVencimentoDisplay(`${d}/${m}/${y}`);
+                    setShowVencimentoPicker(false);
+                  }}
+                  onClose={() => setShowVencimentoPicker(false)}
+                />
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Status</label>
