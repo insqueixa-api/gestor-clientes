@@ -717,11 +717,36 @@ function FinanceiroPageContent() {
             {loading && (
               <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
-            {sortedTransacoes.map((t) => {
+            {sortedTransacoes.map((t, index) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
               const recText = formatRecorrencia(t);
-              return (
-                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setModalData({ open: true, transacao: t })}>
+              
+              // Verifica se deve mostrar o divisor de data
+              const isSortedByDate = !sortConfig || sortConfig.key === "data_vencimento";
+              const showDateDivider = isSortedByDate && (index === 0 || sortedTransacoes[index - 1].data_vencimento !== t.data_vencimento);
+              
+              let dateLabel = "";
+              if (showDateDivider) {
+                const [y, m, d] = t.data_vencimento.split('-');
+                const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                const diaSemana = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                dateLabel = `${d}/${m}/${y} - ${diaSemana}`;
+              }
+
+              // Verifica se a linha deve ficar esmaecida
+              const isPago = cStatus === "PAGO";
+              const rowOpacity = isPago ? "opacity-60 hover:opacity-100" : "";
+
+              // Retornamos um array com o divisor (se existir) e a linha da transação
+              return [
+                showDateDivider && (
+                  <tr key={`div-${t.id}`} className="bg-slate-100/80 dark:bg-white/5 border-y border-slate-200 dark:border-white/10">
+                    <td colSpan={9} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-white/60 uppercase tracking-wider">
+                      🗓️ {dateLabel}
+                    </td>
+                  </tr>
+                ),
+                <tr key={t.id} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer ${rowOpacity}`} onClick={() => setModalData({ open: true, transacao: t })}>
                   
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
@@ -746,9 +771,17 @@ function FinanceiroPageContent() {
                   <td className="px-4 py-3 text-center">
                     {(() => {
                       let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; 
-                      if (cStatus === "PAGO") cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20";
-                      else if (cStatus === "VENCIDO") cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20";
-                      return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{cStatus}</span>;
+                      let label = cStatus;
+
+                      // Lógica inteligente para o rótulo de pagamento/recebimento
+                      if (cStatus === "PAGO") {
+                        cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20";
+                        label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
+                      } else if (cStatus === "VENCIDO") {
+                        cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20";
+                      }
+
+                      return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{label}</span>;
                     })()}
                   </td>
 
@@ -774,29 +807,28 @@ function FinanceiroPageContent() {
 
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      {/* ✅ Pagar: Abre a Edição com o status invertido pré-selecionado para vc ver o valor antes de confirmar */}
                       <ActionBtn 
                         tone={t.status === "PAGO" ? "amber" : "green"} 
-                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
+                        title={t.status === "PAGO" 
+                                ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
+                                : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
                         onClick={() => {
                           setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
                         }}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
                       
-                      {/* ✅ Editar: Abre a Edição com o status original */}
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
                         <IconEdit />
                       </ActionBtn>
                       
-                      {/* ✅ Excluir: Dispara a verificação e abre o ConfirmUI Nativo */}
                       <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
                         <IconTrash />
                       </ActionBtn>
                     </div>
                   </td>
                 </tr>
-              );
+              ];
             })}
           </tbody>
         </table>
