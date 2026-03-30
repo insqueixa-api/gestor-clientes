@@ -222,10 +222,15 @@ function FinanceiroPageContent() {
       if (contaFilter !== "Todos" && t.conta_id !== contaFilter) return false;
       if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter) return false;
       if (recorrenciaFilter !== "Todos") {
-        if (recorrenciaFilter === "UNICA" && t.is_recorrente) return false;
-        if (recorrenciaFilter === "RECORRENTE" && (!t.is_recorrente || t.parcela_total)) return false;
-        if (recorrenciaFilter === "PARCELADA" && !t.parcela_total) return false;
-      }
+        const isAjuste = t.observacoes === "Ajuste automático de saldo";
+        if (recorrenciaFilter === "AJUSTE" && !isAjuste) return false;
+        if (recorrenciaFilter !== "AJUSTE") {
+            if (isAjuste) return false; // esconde ajustes nos outros filtros
+            if (recorrenciaFilter === "UNICA" && t.is_recorrente) return false;
+            if (recorrenciaFilter === "RECORRENTE" && (!t.is_recorrente || t.parcela_total)) return false;
+            if (recorrenciaFilter === "PARCELADA" && !t.parcela_total) return false;
+        }
+        }
 
       if (q) {
         const hay = [t.descricao, t.categoria_nome, t.conta_nome, recText].join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -303,9 +308,46 @@ function FinanceiroPageContent() {
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
-          <button onClick={() => setMobileFiltersOpen((v) => !v)} className="h-10 px-3 rounded-lg border font-bold text-sm border-slate-200 bg-white text-slate-600">Filtros</button>
+          <button onClick={() => setMobileFiltersOpen((v) => !v)} className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-white text-slate-600"}`}>
+            Filtros {mobileFiltersOpen ? "▲" : "▼"}
+          </button>
           <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
         </div>
+
+        {mobileFiltersOpen && (
+          <div className="md:hidden flex flex-col gap-2 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Tipo</option>
+              <option value="RECEITA">Receitas</option>
+              <option value="DESPESA">Despesas</option>
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Status</option>
+              <option value="PAGO">Pagos</option>
+              <option value="PENDENTE">Pendentes</option>
+              <option value="VENCIDO">Vencidos</option>
+            </select>
+            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Conta</option>
+              {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Categoria</option>
+              {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+              <option value="Todos">Recorrência</option>
+              <option value="UNICA">Única</option>
+              <option value="RECORRENTE">Recorrente</option>
+              <option value="PARCELADA">Parcelada</option>
+              <option value="AJUSTE">Ajuste Automático</option>
+            </select>
+            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); setMobileFiltersOpen(false); }}
+              className="w-full h-10 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold flex items-center justify-center gap-2">
+              <IconX /> Limpar Filtros
+            </button>
+          </div>
+        )}
 
         <div className="hidden md:flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[200px] relative">
@@ -336,6 +378,7 @@ function FinanceiroPageContent() {
             <option value="UNICA">Única</option>
             <option value="RECORRENTE">Recorrente</option>
             <option value="PARCELADA">Parcelada</option>
+            <option value="AJUSTE">Ajuste Automático</option>
           </select>
           <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); }} className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2">
             <IconX /> Limpar
@@ -615,7 +658,12 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
   );
 }
 
-function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: { title: string, items: any[], onExcluir: (id: string)=>Promise<void>, onClose: ()=>void, addToast: any }) {
+function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: {
+  title: string, items: any[], onExcluir: (id: string) => Promise<void>,
+  onClose: () => void, addToast: any
+}) {
+  const { confirm, ConfirmUI } = useConfirm();
+
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
@@ -623,19 +671,36 @@ function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: { t
           <span>{title}</span><button onClick={onClose}><IconX /></button>
         </div>
         <div className="p-4 overflow-y-auto flex-1 space-y-2">
-          {items.length === 0 && <div className="text-center text-slate-400 text-sm italic">Nenhum item cadastrado.</div>}
+          {items.length === 0 && (
+            <div className="text-center text-slate-400 text-sm italic">Nenhum item cadastrado.</div>
+          )}
           {items.map(it => (
             <div key={it.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
               <span className="text-sm font-medium">{it.icone} {it.nome}</span>
               <button onClick={async () => {
-                if(confirm(`Tem certeza que deseja excluir '${it.nome}'?`)) {
-                  try { await onExcluir(it.id); } catch(e:any) { addToast("error", "Erro ao excluir", "Pode estar em uso."); }
+                const ok = await confirm({
+                  title: "Excluir Item",
+                  subtitle: `Tem certeza que deseja excluir '${it.nome}'?`,
+                  tone: "rose",
+                  icon: "🗑️",
+                  confirmText: "Sim, excluir",
+                });
+                if (ok) {
+                  try { await onExcluir(it.id); } catch (e: any) { addToast("error", "Erro ao excluir", "Pode estar em uso."); }
                 }
-              }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><IconTrash /></button>
+              }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                <IconTrash />
+              </button>
             </div>
           ))}
         </div>
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 shrink-0">
+          <button onClick={onClose} className="w-full py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+            Cancelar
+          </button>
+        </div>
       </div>
+      {ConfirmUI}
     </div>
   );
 }
