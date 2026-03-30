@@ -993,16 +993,22 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
     return `${y}-${m}-${d}`;
   };
 
+  const isoToRaw = (iso: string) => iso ? iso.split('-').reverse().join('') : '';
+  const rawToDisplay = (raw: string) => {
+    if (raw.length >= 5) return raw.slice(0, 2) + '/' + raw.slice(2, 4) + '/' + raw.slice(4);
+    if (raw.length >= 3) return raw.slice(0, 2) + '/' + raw.slice(2);
+    return raw;
+  };
+
+  const [rawDigits, setRawDigits] = useState(isoToRaw(getDefaultDate()));
   const [vencimento, setVencimento] = useState(getDefaultDate());
-  const [vencimentoDisplay, setVencimentoDisplay] = useState(toDisplay(getDefaultDate()));
+  const vencimentoDisplay = rawToDisplay(rawDigits); // ← derivado, não é state
 
   const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let v = e.target.value.replace(/\D/g, '').slice(0, 8);
-    if (v.length >= 5) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
-    else if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
-    setVencimentoDisplay(v);
-    if (v.length === 10) {
-      const [d, m, y] = v.split('/');
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
+    setRawDigits(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4);
       setVencimento(`${y}-${m}-${d}`);
     }
   };
@@ -1233,9 +1239,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                     const d = String(date.getDate()).padStart(2, '0');
                     const m = String(date.getMonth() + 1).padStart(2, '0');
                     const y = date.getFullYear();
-                    const iso = `${y}-${m}-${d}`;
-                    setVencimento(iso);
-                    setVencimentoDisplay(`${d}/${m}/${y}`);
+                    setVencimento(`${y}-${m}-${d}`);
+                    setRawDigits(`${d}${m}${y}`);
                     setShowVencimentoPicker(false);
                   }}
                   onClose={() => setShowVencimentoPicker(false)}
