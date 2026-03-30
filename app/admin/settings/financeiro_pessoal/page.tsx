@@ -6,7 +6,7 @@ import { EyeToggle } from "@/app/admin/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; 
 
 // --- TIPOS ---
 type Transacao = {
@@ -205,13 +205,7 @@ function FinanceiroPageContent() {
   const formatRecorrencia = (t: Transacao) => {
     if (t.observacoes === "Ajuste automático de saldo") return "Ajuste Automático";
     if (t.parcela_total) return `Parcela ${t.parcela_atual}/${t.parcela_total}`;
-    if (t.is_recorrente && t.frequencia) {
-      if (t.frequencia === "MENSAL") return "Mensal";
-      if (t.frequencia === "BIMESTRAL") return "Bimestral";
-      if (t.frequencia === "TRIMESTRAL") return "Trimestral";
-      if (t.frequencia === "SEMESTRAL") return "Semestral";
-      if (t.frequencia === "ANUAL") return "Anual";
-    }
+    if (t.is_recorrente && t.frequencia) return t.frequencia.charAt(0) + t.frequencia.slice(1).toLowerCase();
     return "Lançamento Único";
   };
 
@@ -349,9 +343,8 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
-      {/* ✅ LARGURA TOTAL NO CELULAR (Margens zeradas) */}
-      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto -mx-0 sm:mx-0">
-        <table className="w-full text-left border-collapse min-w-[900px]">
+      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
+        <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
               <th className="px-4 py-3">Descrição</th>
@@ -417,9 +410,8 @@ function FinanceiroPageContent() {
                     </span>
                   </td>
 
-                  {/* ✅ RECORRÊNCIA NA SUA PRÓPRIA COLUNA */}
                   <td className="px-4 py-3 text-center">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
                   </td>
 
                   <td className="px-4 py-3 text-right">
@@ -430,18 +422,22 @@ function FinanceiroPageContent() {
 
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      {/* ✅ Pagar/Desfazer: Abre Modal para Editar e Confirmar */}
+                      {/* ✅ Pagar: Abre a Edição com o status invertido pré-selecionado para vc ver o valor antes de confirmar */}
                       <ActionBtn 
                         tone={t.status === "PAGO" ? "amber" : "green"} 
-                        title={t.status === "PAGO" ? "Desfazer Pagamento (Editar)" : "Confirmar Pagamento (Editar)"} 
+                        title={t.status === "PAGO" ? "Desfazer Pagamento" : "Confirmar Pagamento"} 
                         onClick={() => {
                           setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
                         }}>
                         {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
                       </ActionBtn>
+                      
+                      {/* ✅ Editar: Abre a Edição com o status original */}
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
                         <IconEdit />
                       </ActionBtn>
+                      
+                      {/* ✅ Excluir: Dispara a verificação e abre o ConfirmUI Nativo */}
                       <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
                         <IconTrash />
                       </ActionBtn>
@@ -500,11 +496,13 @@ function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: strin
         )}
       </div>
       <div className="p-3 sm:p-4 flex-1">
+        {/* 👇 CLASSE finance-value MÁGICA DO OLHINHO */}
         <div className={`text-[15px] sm:text-2xl font-bold leading-tight tabular-nums transition-all duration-300 finance-value`}>
           {value}
         </div>
       </div>
       <div className="px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80 font-medium">
+        {/* 👇 CLASSE finance-value NO FOOTER DA PREVISÃO */}
         <span className="finance-value">{footer}</span>
       </div>
     </div>
@@ -617,7 +615,7 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
   );
 }
 
-function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast, confirmDialog }: { title: string, items: any[], onExcluir: (id: string)=>Promise<void>, onClose: ()=>void, addToast: any, confirmDialog: any }) {
+function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: { title: string, items: any[], onExcluir: (id: string)=>Promise<void>, onClose: ()=>void, addToast: any }) {
   return (
     <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
@@ -630,15 +628,8 @@ function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast, confi
             <div key={it.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
               <span className="text-sm font-medium">{it.icone} {it.nome}</span>
               <button onClick={async () => {
-                const ok = await confirmDialog({
-                  title: "Excluir Item",
-                  subtitle: `Tem certeza que deseja excluir '${it.nome}'?`,
-                  tone: "rose",
-                  icon: "🗑️",
-                  confirmText: "Sim, Excluir"
-                });
-                if(ok) {
-                  try { await onExcluir(it.id); } catch(e:any) { addToast("error", "Ação bloqueada", "Este item já está em uso em algum lançamento."); }
+                if(confirm(`Tem certeza que deseja excluir '${it.nome}'?`)) {
+                  try { await onExcluir(it.id); } catch(e:any) { addToast("error", "Erro ao excluir", "Pode estar em uso."); }
                 }
               }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><IconTrash /></button>
             </div>
@@ -702,9 +693,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [tipoRecorrencia, setTipoRecorrencia] = useState(rTipoInicial);
   const [frequencia, setFrequencia] = useState(transacaoEdit?.frequencia || "MENSAL");
   const [parcelas, setParcelas] = useState(transacaoEdit?.parcela_total ? String(transacaoEdit.parcela_total) : "2");
-  
-  // ✅ Agora a opção de edição padrão é alterar TODAS as parcelas futuras
-  const [escopoEdicao, setEscopoEdicao] = useState<"UNICA" | "TODAS">("TODAS"); 
+  const [escopoEdicao, setEscopoEdicao] = useState<"UNICA" | "TODAS">("TODAS"); // ✅ Agora o padrão é alterar TODAS as futuras
 
   const [contas, setContas] = useState<any[]>(contasDB);
   const [categorias, setCategorias] = useState<any[]>(categoriasDB);
@@ -720,8 +709,6 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
   const [showGerenciarCategorias, setShowGerenciarCategorias] = useState(false);
-
-  const { confirm } = useConfirm();
 
   const handleContaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === "NOVA") setShowNovaConta(true);
@@ -948,8 +935,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       {showNovaConta && <ModalNovaConta tenantId={tenantId} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
       {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategorias([...categorias, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
       
-      {showGerenciarContas && <ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={() => setShowGerenciarContas(false)} addToast={addToast} confirmDialog={confirm} onExcluir={async (id) => { await handleExcluirConta(id); }} />}
-      {showGerenciarCategorias && <ModalGerenciarItens title="Gerenciar Categorias" items={categoriasAtivas} onClose={() => setShowGerenciarCategorias(false)} addToast={addToast} confirmDialog={confirm} onExcluir={async (id) => { await handleExcluirCategoria(id); }} />}
+      {showGerenciarContas && <ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={() => setShowGerenciarContas(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirConta(id); }} />}
+      {showGerenciarCategorias && <ModalGerenciarItens title="Gerenciar Categorias" items={categorias} onClose={() => setShowGerenciarCategorias(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirCategoria(id); }} />}
     </>
   );
 }
