@@ -961,24 +961,22 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
   const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
   const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
-  const formatValorDisplay = (v: number) => {
-    const [int, dec] = v.toFixed(2).split('.');
-    return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
+  const centsToDisplay = (cents: number) => {
+    const str = String(cents).padStart(3, '0');
+    const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const dec = str.slice(-2);
+    return (int || '0') + ',' + dec;
   };
 
-  const [valorDisplay, setValorDisplay] = useState(
-    transacaoEdit?.valor ? formatValorDisplay(transacaoEdit.valor) : ""
-  );
+  const initialCents = transacaoEdit?.valor ? Math.round(transacaoEdit.valor * 100) : 0;
+  const [rawCents, setRawCents] = useState(initialCents);
+  const valorDisplay = centsToDisplay(rawCents);
 
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let v = e.target.value.replace(/[^\d,]/g, '');
-    const parts = v.split(',');
-    if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
-    if (parts[1]?.length > 2) v = parts[0] + ',' + parts[1].slice(0, 2);
-    const intPart = (parts[0] || '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const display = intPart + (v.includes(',') ? ',' + (parts[1] ?? '') : '');
-    setValorDisplay(display);
-    setValor(v.replace(/\./g, '').replace(',', '.'));
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+    const cents = parseInt(digits || '0', 10);
+    setRawCents(cents);
+    setValor(String(cents / 100));
   };
   const toDisplay = (iso: string) => iso ? iso.split('-').reverse().join('/') : '';
 
@@ -1214,7 +1212,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
-              <input type="text" inputMode="decimal" value={valorDisplay} onChange={handleValorChange} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+              <input type="text" inputMode="numeric" value={valorDisplay} onChange={handleValorChange} onFocus={(e) => e.target.select()} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
 
