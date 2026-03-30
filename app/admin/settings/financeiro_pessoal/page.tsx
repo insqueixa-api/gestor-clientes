@@ -606,7 +606,7 @@ function FinanceiroPageContent() {
       )}
 
       {modalData.open && tenantId && (
-        <ModalTransacao tenantId={tenantId} onClose={() => setModalData({ open: false, transacao: null })} transacaoEdit={modalData.transacao} contasDB={contasDB} categoriasDB={categoriasDB} addToast={addToast} onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }} />
+        <ModalTransacao tenantId={tenantId} onClose={() => setModalData({ open: false, transacao: null })} transacaoEdit={modalData.transacao} contasDB={contasDB} categoriasDB={categoriasDB} addToast={addToast} pageDate={currentDate} onSuccess={() => { setModalData({ open: false, transacao: null }); carregarDados(tenantId, currentDate); }} />
       )}
 
       {showAjusteSaldo && tenantId && (
@@ -954,7 +954,7 @@ function ModalNovaCategoria({ tenantId, onClose, onSave, tipoFixo, addToast }: {
   );
 }
 
-function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess, contasDB, categoriasDB }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void, contasDB: any[], categoriasDB: any[] }) {
+function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess, contasDB, categoriasDB, pageDate }: { tenantId: string, onClose: () => void; transacaoEdit?: any | null; addToast: any, onSuccess: ()=>void, contasDB: any[], categoriasDB: any[], pageDate?: Date }) {
   const isEdit = !!transacaoEdit;
   
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
@@ -962,10 +962,19 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
   const toDisplay = (iso: string) => iso ? iso.split('-').reverse().join('/') : '';
 
-  const [vencimento, setVencimento] = useState(transacaoEdit?.data_vencimento || new Date().toISOString().split("T")[0]);
-  const [vencimentoDisplay, setVencimentoDisplay] = useState(
-    toDisplay(transacaoEdit?.data_vencimento || new Date().toISOString().split("T")[0])
-  );
+  const getDefaultDate = () => {
+    if (transacaoEdit?.data_vencimento) return transacaoEdit.data_vencimento;
+    const ref = pageDate ?? new Date();
+    const hoje = new Date();
+    // Usa o dia de hoje, mas mês/ano da página
+    const d = String(hoje.getDate()).padStart(2, '0');
+    const m = String(ref.getMonth() + 1).padStart(2, '0');
+    const y = ref.getFullYear();
+    return `${y}-${m}-${d}`;
+  };
+
+  const [vencimento, setVencimento] = useState(getDefaultDate());
+  const [vencimentoDisplay, setVencimentoDisplay] = useState(toDisplay(getDefaultDate()));
 
   const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value.replace(/\D/g, '').slice(0, 8);
