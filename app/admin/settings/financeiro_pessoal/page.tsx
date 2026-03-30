@@ -581,10 +581,10 @@ function FinanceiroPageContent() {
         <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
       </div>
 
-      <div className="sticky top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] pt-4 pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 sm:pt-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm sm:shadow-none transition-colors">
+      <div className="sticky top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] pt-0 pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm sm:shadow-none transition-colors !mt-0">
         <div className="min-w-0 text-left">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
               Finanças Pessoais
             </h1>
             <EyeToggle />
@@ -712,7 +712,7 @@ function FinanceiroPageContent() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40 select-none">
