@@ -261,6 +261,66 @@ function FinanceiroPageContent() {
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
 
+  const sincronizarRendimentos = async (tid: string, dateObj: Date, contas: any[], categorias: any[]) => {
+    // Só sincroniza automaticamente se estivermos visualizando o mês atual real
+    const hoje = new Date();
+    if (dateObj.getMonth() !== hoje.getMonth() || dateObj.getFullYear() !== hoje.getFullYear()) return;
+
+    // Tenta achar as IDs da conta e categorias pelo nome
+    const contaMP = contas.find(c => c.nome.toLowerCase().includes("mercado pago"))?.id;
+    const catIPTV = categorias.find(c => c.nome.toLowerCase().includes("iptv"))?.id;
+    const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
+
+    if (!contaMP) return; // Se não tiver a conta Mercado Pago criada, aborta para não dar erro
+
+    try {
+      // Busca os faturamentos nas views
+      const [resF, resS] = await Promise.all([
+        supabaseBrowser.from("vw_dashboard_finance_cards").select("clients_paid_month_brl_estimated, reseller_paid_month_brl").eq("tenant_id", tid).maybeSingle(),
+        supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("renewal_month_brl, credits_month_brl").eq("tenant_id", tid).maybeSingle()
+      ]);
+
+      const valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
+      const valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
+
+      // Define último dia do mês atual
+      const y = dateObj.getFullYear();
+      const m = dateObj.getMonth();
+      const ultimoDia = new Date(y, m + 1, 0).getDate();
+      const dataVenc = `${y}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+      const mesStart = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+
+      // Função interna para inserir ou atualizar (Upsert)
+      const upsertDinamico = async (descricao: string, valor: number, catId: string) => {
+        if (!catId || valor <= 0) return;
+
+        const { data: existente } = await supabaseBrowser.from("fin_transacoes")
+          .select("id")
+          .eq("tenant_id", tid)
+          .eq("descricao", descricao)
+          .gte("data_vencimento", mesStart)
+          .lte("data_vencimento", dataVenc)
+          .maybeSingle();
+
+        if (existente) {
+          await supabaseBrowser.from("fin_transacoes").update({ valor, data_vencimento: dataVenc, conta_id: contaMP, categoria_id: catId, status: "PAGO" }).eq("id", existente.id);
+        } else {
+          await supabaseBrowser.from("fin_transacoes").insert({
+            tenant_id: tid, tipo: "RECEITA", descricao, valor, data_vencimento: dataVenc, status: "PAGO",
+            conta_id: contaMP, categoria_id: catId, is_recorrente: false, observacoes: "Sincronização Automática"
+          });
+        }
+      };
+
+      await Promise.all([
+        upsertDinamico("Rendimentos IPTV", valorIptv, catIPTV),
+        upsertDinamico("Rendimentos SaaS", valorSaas, catSaaS)
+      ]);
+    } catch (e) {
+      console.error("Erro na sincronização:", e);
+    }
+  };
+
   const carregarDados = async (tid: string, dateObj: Date) => {
     setLoading(true);
     try {
@@ -275,6 +335,9 @@ function FinanceiroPageContent() {
       ]);
       if (resContas.data) setContasDB(resContas.data);
       if (resCat.data) setCategoriasDB(resCat.data);
+
+      // Sincroniza Entradas do Dashboard automaticamente
+      await sincronizarRendimentos(tid, dateObj, resContas.data || [], resCat.data || []);
 
       const saldos: Record<string, number> = {};
       for (const c of resContas.data || []) {
