@@ -262,52 +262,73 @@ function FinanceiroPageContent() {
   const handleToday = () => setCurrentDate(new Date());
 
   const sincronizarRendimentos = async (tid: string, dateObj: Date, contas: any[], categorias: any[]) => {
-    // Só sincroniza automaticamente se estivermos visualizando o mês atual real
     const hoje = new Date();
-    if (dateObj.getMonth() !== hoje.getMonth() || dateObj.getFullYear() !== hoje.getFullYear()) return;
+    
+    // Verifica se estamos olhando para o mês atual
+    const isMesAtual = dateObj.getMonth() === hoje.getMonth() && dateObj.getFullYear() === hoje.getFullYear();
 
-    // Tenta achar as IDs da conta e categorias pelo nome
+    // Calcula qual foi o mês passado
+    const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+    const isMesAnterior = dateObj.getMonth() === mesPassado.getMonth() && dateObj.getFullYear() === mesPassado.getFullYear();
+
+    // Se a view não tem dados para meses mais antigos, abortamos a sincronização para não zerar valores
+    if (!isMesAtual && !isMesAnterior) return;
+
     const contaMP = contas.find(c => c.nome.toLowerCase().includes("mercado pago"))?.id;
     const catIPTV = categorias.find(c => c.nome.toLowerCase().includes("iptv"))?.id;
     const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
 
-    if (!contaMP) return; // Se não tiver a conta Mercado Pago criada, aborta para não dar erro
+    if (!contaMP) return; 
 
     try {
-      // Busca os faturamentos nas views
       const [resF, resS] = await Promise.all([
-        supabaseBrowser.from("vw_dashboard_finance_cards").select("clients_paid_month_brl_estimated, reseller_paid_month_brl").eq("tenant_id", tid).maybeSingle(),
-        supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("renewal_month_brl, credits_month_brl").eq("tenant_id", tid).maybeSingle()
+        supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
+        supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle()
       ]);
 
-      const valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
-      const valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
+      let valorIptv = 0;
+      let valorSaas = 0;
 
-      // Define último dia do mês atual
+      // Pega os valores da view com base no mês que o usuário está visualizando
+      if (isMesAtual) {
+        valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
+        valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
+      } else if (isMesAnterior) {
+        valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
+        valorSaas = Number(resS.data?.renewal_prev_brl || 0) + Number(resS.data?.credits_prev_brl || 0);
+      }
+
       const y = dateObj.getFullYear();
       const m = dateObj.getMonth();
       const ultimoDia = new Date(y, m + 1, 0).getDate();
       const dataVenc = `${y}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
       const mesStart = `${y}-${String(m + 1).padStart(2, '0')}-01`;
 
-      // Função interna para inserir ou atualizar (Upsert)
       const upsertDinamico = async (descricao: string, valor: number, catId: string) => {
         if (!catId || valor <= 0) return;
 
-        const { data: existente } = await supabaseBrowser.from("fin_transacoes")
+        // Pega TODOS os registros com essa descrição no mês, em vez de maybeSingle()
+        const { data: existentes } = await supabaseBrowser.from("fin_transacoes")
           .select("id")
           .eq("tenant_id", tid)
           .eq("descricao", descricao)
           .gte("data_vencimento", mesStart)
-          .lte("data_vencimento", dataVenc)
-          .maybeSingle();
+          .lte("data_vencimento", dataVenc);
 
-        if (existente) {
-          await supabaseBrowser.from("fin_transacoes").update({ valor, data_vencimento: dataVenc, conta_id: contaMP, categoria_id: catId, status: "PAGO" }).eq("id", existente.id);
+        if (existentes && existentes.length > 0) {
+          // Atualiza o primeiro da fila
+          await supabaseBrowser.from("fin_transacoes").update({ valor, data_vencimento: dataVenc, status: "PAGO" }).eq("id", existentes[0].id);
+
+          // AUTO-CURA: Se houverem duplicatas (React Strict Mode), deleta as outras!
+          if (existentes.length > 1) {
+            const idsParaDeletar = existentes.slice(1).map(e => e.id);
+            await supabaseBrowser.from("fin_transacoes").delete().in("id", idsParaDeletar);
+          }
         } else {
+          // Insere marcando visualmente como recorrente
           await supabaseBrowser.from("fin_transacoes").insert({
             tenant_id: tid, tipo: "RECEITA", descricao, valor, data_vencimento: dataVenc, status: "PAGO",
-            conta_id: contaMP, categoria_id: catId, is_recorrente: false, observacoes: "Sincronização Automática"
+            conta_id: contaMP, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
           });
         }
       };
