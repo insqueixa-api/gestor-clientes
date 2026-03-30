@@ -1046,7 +1046,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
   const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
-  const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
+  const [valor, setValor] = useState(transacaoEdit?.valor !== undefined ? String(transacaoEdit.valor) : "0");
   const centsToDisplay = (cents: number) => {
     const str = String(cents).padStart(3, '0');
     const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -1173,7 +1173,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   }
 
   async function handleSave() {
-    if (!descricao.trim() || !valor || !contaSelecionada || !categoriaSelecionada) {
+    if (!descricao.trim() || valor === "" || !contaSelecionada || !categoriaSelecionada) {
       addToast("error", "Erro", "Preencha todos os campos obrigatórios (Conta e Categoria inclusos)");
       return;
     }
