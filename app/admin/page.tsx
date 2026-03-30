@@ -259,6 +259,8 @@ export default async function AdminDashboardPage() {
     (showSaas && myTenantId
       ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").eq("tenant_id", myTenantId).order("day", { ascending: true })
       : Promise.resolve({ data: null })) as Promise<any>,
+    // 👇 NOVO: Puxa o histórico de recargas dos últimos 2 meses
+    supabase.from("server_credit_purchases").select("created_at, total_amount_brl").gte("created_at", isoDateFromYMD(todayInSaoPaulo().getMonth() === 0 ? todayInSaoPaulo().getFullYear() - 1 : todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() === 0 ? 12 : todayInSaoPaulo().getMonth(), 1)),
   ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
@@ -277,6 +279,22 @@ export default async function AdminDashboardPage() {
   // maybeSingle retorna o objeto direto, não array
   const saasFinance = ((saasFinanceRes as any)?.data ?? null) as VwSaasFinance | null;
   const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
+  
+  // 👇 CÁLCULO DE DESPESAS COM RECARGA 👇
+  const purchasesRows = (arguments[0][9]?.data ?? []) as { created_at: string, total_amount_brl: number }[];
+  let expensesMonthVal = 0;
+  let expensesPrevMonthVal = 0;
+  
+  const today = todayInSaoPaulo();
+  for (const row of purchasesRows) {
+    const d = new Date(row.created_at);
+    if (d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
+        expensesMonthVal += toNumber(row.total_amount_brl);
+    } else {
+        expensesPrevMonthVal += toNumber(row.total_amount_brl);
+    }
+  }
+  // 👆 FIM DO CÁLCULO 👇
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -542,15 +560,25 @@ return (
   </>
 }
     footer={
-  <>
-    <span className="sm:hidden">
-      Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
-    </span>
-    <span className="hidden sm:inline">
-      Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
-    </span>
-  </>
-}
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <span className="sm:hidden">
+              Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
+            </span>
+            <span className="hidden sm:inline">
+              Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
+            </span>
+          </div>
+          <div className="text-emerald-700 dark:text-emerald-400 font-bold">
+            <span className="sm:hidden">
+              Lucro: {fmtBRLNoSymbol((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+            </span>
+            <span className="hidden sm:inline">
+              Lucro: {fmtBRL((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+            </span>
+          </div>
+        </div>
+      }
 
         />
 
