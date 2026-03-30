@@ -1415,13 +1415,13 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       } 
       else {
         const isRecorrente = tipoRecorrencia !== "UNICA";
-        const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 12 : 1);
+        // Se for recorrente infinito, lança 120 parcelas (10 anos). 
+        // Se for parcelado, usa o número de parcelas. Senão, 1.
+        const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 120 : 1);
         const valorInserir = tipoRecorrencia === "PARCELADA" ? Number(valor) / totalMesesOuParcelas : Number(valor);
-        const recorrenciaId = isRecorrente ? crypto.randomUUID() : null; 
         
-        const inserts = [];
         const baseDate = new Date(`${vencimento}T12:00:00`);
-        const baseDia = baseDate.getDate(); // ← guarda o dia original antes de qualquer overflow
+        const baseDia = baseDate.getDate();
 
         function addMesesSemOverflow(base: Date, dia: number, meses: number): Date {
           const targetYear = base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
@@ -1430,49 +1430,81 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           return new Date(targetYear, targetMonth, Math.min(dia, ultimoDia), 12, 0, 0);
         }
 
-        for (let i = 1; i <= totalMesesOuParcelas; i++) {
-          let dataVenc: Date;
+        // 1. Inserimos a PRIMEIRA transação para pegar o ID gerado pelo banco
+        const { data: firstTrx, error: firstErr } = await supabaseBrowser.from("fin_transacoes").insert({
+          tenant_id: tenantId,
+          tipo,
+          descricao,
+          valor: valorInserir,
+          data_vencimento: baseDate.toISOString().split("T")[0],
+          status,
+          data_pagamento: status === "PAGO" ? new Date().toISOString() : null,
+          conta_id: contaSelecionada,
+          categoria_id: categoriaSelecionada,
+          observacoes: obs,
+          is_recorrente: isRecorrente,
+          frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+          parcela_atual: tipoRecorrencia === "PARCELADA" ? 1 : null,
+          parcela_total: tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null
+        }).select("id").single();
+
+        if (firstErr) throw firstErr;
+
+        // Se tiver mais de uma parcela, o ID da primeira vira o "recorrencia_id" de TODAS (inclusive dela mesma)
+        if (totalMesesOuParcelas > 1) {
+          const recorrenciaIdReal = firstTrx.id;
           
-          if (i === 1) {
-            dataVenc = new Date(baseDate);
-          } else if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") {
-            dataVenc = addMesesSemOverflow(baseDate, baseDia, i - 1);
-          } else if (frequencia === "BIMESTRAL") {
-            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 2);
-          } else if (frequencia === "TRIMESTRAL") {
-            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 3);
-          } else if (frequencia === "SEMESTRAL") {
-            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 6);
-          } else if (frequencia === "ANUAL") {
-            const y = baseDate.getFullYear() + (i - 1);
-            const m = baseDate.getMonth();
-            const ultimoDia = new Date(y, m + 1, 0).getDate();
-            dataVenc = new Date(y, m, Math.min(baseDia, ultimoDia), 12, 0, 0);
-          } else {
-            dataVenc = new Date(baseDate);
+          // Atualiza a primeira com seu próprio ID
+          await supabaseBrowser.from("fin_transacoes").update({ recorrencia_id: recorrenciaIdReal }).eq("id", recorrenciaIdReal);
+
+          const inserts = [];
+          
+          // Começa do 2, pois a 1 já foi
+          for (let i = 2; i <= totalMesesOuParcelas; i++) {
+            let dataVenc: Date;
+            
+            if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, i - 1);
+            } else if (frequencia === "BIMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 2);
+            } else if (frequencia === "TRIMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 3);
+            } else if (frequencia === "SEMESTRAL") {
+              dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 6);
+            } else if (frequencia === "ANUAL") {
+              const y = baseDate.getFullYear() + (i - 1);
+              const m = baseDate.getMonth();
+              const ultimoDia = new Date(y, m + 1, 0).getDate();
+              dataVenc = new Date(y, m, Math.min(baseDia, ultimoDia), 12, 0, 0);
+            } else {
+              dataVenc = new Date(baseDate);
+            }
+
+            inserts.push({
+              tenant_id: tenantId,
+              tipo,
+              descricao,
+              valor: valorInserir,
+              data_vencimento: dataVenc.toISOString().split("T")[0],
+              status: "PENDENTE", // As futuras sempre nascem pendentes
+              data_pagamento: null,
+              conta_id: contaSelecionada,
+              categoria_id: categoriaSelecionada,
+              observacoes: obs,
+              is_recorrente: isRecorrente,
+              frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+              recorrencia_id: recorrenciaIdReal, // Amarrado na primeira
+              parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
+              parcela_total: tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null
+            });
           }
 
-          inserts.push({
-            tenant_id: tenantId,
-            tipo,
-            descricao,
-            valor: valorInserir,
-            data_vencimento: dataVenc.toISOString().split("T")[0],
-            status: (i === 1 && status === "PAGO") ? "PAGO" : "PENDENTE",
-            data_pagamento: (i === 1 && status === "PAGO") ? new Date().toISOString() : null,
-            conta_id: contaSelecionada,
-            categoria_id: categoriaSelecionada,
-            observacoes: obs,
-            is_recorrente: isRecorrente,
-            frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
-            recorrencia_id: recorrenciaId,
-            parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
-            parcela_total: tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null
-          });
+          if (inserts.length > 0) {
+            const { error: batchErr } = await supabaseBrowser.from("fin_transacoes").insert(inserts);
+            if (batchErr) throw batchErr;
+          }
         }
 
-        const { error } = await supabaseBrowser.from("fin_transacoes").insert(inserts);
-        if (error) throw error;
         addToast("success", "Lançamento Criado", tipoRecorrencia !== "UNICA" ? "Lançamentos programados com sucesso!" : "Lançamento adicionado.");
       }
 
