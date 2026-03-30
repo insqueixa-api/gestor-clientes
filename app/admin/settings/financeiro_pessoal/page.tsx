@@ -582,7 +582,7 @@ function FinanceiroPageContent() {
       </div>
 
       {/* 1. TÍTULO MOBILE: Rola junto com a tela e desaparece */}
-      <div className="min-w-0 text-left pt-1 pb-2 px-3 md:hidden -mt-4">
+      <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
             Finanças Pessoais
@@ -593,7 +593,7 @@ function FinanceiroPageContent() {
 
       {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
       {/* top-14 crava nos exatos 56px da TopBar, fechando qualquer buraco visual */}
-      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] px-3 pb-3 pt-2 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
+      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] px-3 pb-3 pt-0 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
         
         {/* Título Desktop (Só aparece em telas grandes) */}
         <div className="min-w-0 text-left hidden md:block">
