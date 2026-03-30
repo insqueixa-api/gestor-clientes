@@ -54,6 +54,85 @@ function ActionBtn({ tone, onClick, title, children }: { tone: "green"|"amber"|"
   );
 }
 
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+function ModalDatePicker({ currentDate, onSelect, onClose }: {
+  currentDate: Date,
+  onSelect: (date: Date) => void,
+  onClose: () => void
+}) {
+  const [ano, setAno] = useState(currentDate.getFullYear());
+  const mesSelecionado = currentDate.getMonth();
+
+  const anos = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 7 + i);
+
+  return (
+    <div
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[99999] bg-black/50 grid place-items-center p-4"
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <span className="text-sm font-bold text-slate-700 dark:text-white">Selecionar Período</span>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Seletor de Ano */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ano</label>
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg p-1">
+              <button
+                onClick={() => setAno(a => a - 1)}
+                className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <span className="text-sm font-bold text-slate-700 dark:text-white w-16 text-center">{ano}</span>
+              <button
+                onClick={() => setAno(a => a + 1)}
+                className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"
+              >
+                <IconChevronRight />
+              </button>
+            </div>
+          </div>
+
+          {/* Grid de Meses */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mês</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {MESES.map((mes, idx) => {
+                const isSelected = idx === mesSelecionado && ano === currentDate.getFullYear();
+                const isCurrentMonth = idx === new Date().getMonth() && ano === new Date().getFullYear();
+                return (
+                  <button
+                    key={mes}
+                    onClick={() => onSelect(new Date(ano, idx, 1))}
+                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
+                        : isCurrentMonth
+                        ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                        : "text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    {mes.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,6 +155,7 @@ function FinanceiroPageContent() {
   const [categoriaFilter, setCategoriaFilter] = useState("Todos");
   const [recorrenciaFilter, setRecorrenciaFilter] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
@@ -282,11 +362,24 @@ function FinanceiroPageContent() {
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg shadow-sm">
             <button onClick={handlePrevMonth} className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><IconChevronLeft /></button>
-            <div className="px-4 text-sm font-bold capitalize w-40 text-center text-slate-700 dark:text-white">{monthName}</div>
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className="px-4 text-sm font-bold capitalize w-40 text-center text-slate-700 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            >
+              {monthName}
+            </button>
             <button onClick={handleNextMonth} className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><IconChevronRight /></button>
           </div>
           <button onClick={handleToday} className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors">Hoje</button>
         </div>
+
+        {showDatePicker && (
+          <ModalDatePicker
+            currentDate={currentDate}
+            onSelect={(date) => { setCurrentDate(date); setShowDatePicker(false); }}
+            onClose={() => setShowDatePicker(false)}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0">
