@@ -581,7 +581,8 @@ function FinanceiroPageContent() {
         <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
       </div>
 
-      <div className="sticky top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] pt-0 pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm sm:shadow-none transition-colors !mt-0">
+      {/* Usamos -mt-4 para puxar para cima e top-16 (64px) para não entrar debaixo da TopBar ao rolar */}
+      <div className="sticky top-16 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] pt-2 pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm sm:shadow-none transition-colors -mt-4 md:mt-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
@@ -816,7 +817,7 @@ function FinanceiroPageContent() {
                     <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
                   </td>
 
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     <span className={`font-bold transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                     </span>
