@@ -497,6 +497,45 @@ function FinanceiroPageContent() {
     ? transacoes.filter(t => t.conta_id === contaFilter) 
     : transacoes;
 
+  // 👇 NOVO: Controle de Ordenação
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: "asc" | "desc" } | null>(null);
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedTransacoes = useMemo(() => {
+    let sortableItems = [...filteredTransacoes];
+    if (sortConfig !== null) {
+      sortableItems.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Lógicas especiais para campos calculados em tempo real
+        if (sortConfig.key === "status_computed") {
+          aValue = getComputedStatus(a.status, a.data_vencimento);
+          bValue = getComputedStatus(b.status, b.data_vencimento);
+        } else if (sortConfig.key === "recorrencia_formatada") {
+          aValue = formatRecorrencia(a);
+          bValue = formatRecorrencia(b);
+        } else if (sortConfig.key === "descricao") {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredTransacoes, sortConfig]);
+  // 👆 FIM DA ORDENAÇÃO
+
   const receitasPagas = transacoesCards.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
   const receitasTotal = transacoesCards.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
   const despesasPagas = transacoesCards.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
@@ -659,26 +698,26 @@ function FinanceiroPageContent() {
       <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-x-auto sm:mx-0 mx-3">
         <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
-              <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3 w-28 text-center">Tipo</th>
-              <th className="px-4 py-3 text-center">Vencimento</th>
-              <th className="px-4 py-3 text-center">Status</th>
-              <th className="px-4 py-3 text-center">Categoria</th>
-              <th className="px-4 py-3 text-center">Conta</th>
-              <th className="px-4 py-3 text-center">Recorrência</th>
-              <th className="px-4 py-3 text-right">Valor</th>
+            <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40 select-none">
+              <th className="px-4 py-3 cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("descricao")}>Descrição {sortConfig?.key === "descricao" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 w-28 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("tipo")}>Tipo {sortConfig?.key === "tipo" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("data_vencimento")}>Vencimento {sortConfig?.key === "data_vencimento" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("status_computed")}>Status {sortConfig?.key === "status_computed" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("categoria_nome")}>Categoria {sortConfig?.key === "categoria_nome" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("conta_nome")}>Conta {sortConfig?.key === "conta_nome" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-center cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("recorrencia_formatada")}>Recorrência {sortConfig?.key === "recorrencia_formatada" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
+              <th className="px-4 py-3 text-right cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" onClick={() => requestSort("valor")}>Valor {sortConfig?.key === "valor" ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕"}</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
-            {filteredTransacoes.length === 0 && !loading && (
+            {sortedTransacoes.length === 0 && !loading && (
               <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
             {loading && (
               <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
-            {filteredTransacoes.map((t) => {
+            {sortedTransacoes.map((t) => {
               const cStatus = getComputedStatus(t.status, t.data_vencimento);
               const recText = formatRecorrencia(t);
               return (
