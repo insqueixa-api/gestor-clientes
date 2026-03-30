@@ -961,6 +961,20 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
   const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
   const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
+  const [valorDisplay, setValorDisplay] = useState(
+    transacaoEdit?.valor ? String(transacaoEdit.valor).replace('.', ',') : ""
+  );
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let v = e.target.value.replace(/[^\d,]/g, '');
+    const parts = v.split(',');
+    if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
+    if (parts[1]?.length > 2) v = parts[0] + ',' + parts[1].slice(0, 2);
+    const intPart = (parts[0] || '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const display = intPart + (v.includes(',') ? ',' + (parts[1] ?? '') : '');
+    setValorDisplay(display);
+    setValor(v.replace(/\./g, '').replace(',', '.'));
+  };
   const toDisplay = (iso: string) => iso ? iso.split('-').reverse().join('/') : '';
 
   const getDefaultDate = () => {
@@ -1067,12 +1081,16 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           }).eq("id", transacaoEdit.id);
           if (error) throw error;
         } else {
+          // Atualiza campos gerais em todas as futuras
           const { error } = await supabaseBrowser.from("fin_transacoes").update({
             tipo, descricao, valor: Number(valor), conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs
           }).eq("recorrencia_id", transacaoEdit.recorrencia_id).gte("data_vencimento", transacaoEdit.data_vencimento);
           if (error) throw error;
-          
-          await supabaseBrowser.from("fin_transacoes").update({ status }).eq("id", transacaoEdit.id);
+          // Atualiza status E data apenas desta parcela
+          const { error: err2 } = await supabaseBrowser.from("fin_transacoes").update({
+            status, data_vencimento: vencimento
+          }).eq("id", transacaoEdit.id);
+          if (err2) throw err2;
         }
         addToast("success", "Alteração Salva", "Lançamento atualizado com sucesso!");
       } 
@@ -1084,16 +1102,35 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
         
         const inserts = [];
         const baseDate = new Date(`${vencimento}T12:00:00`);
+        const baseDia = baseDate.getDate(); // ← guarda o dia original antes de qualquer overflow
+
+        function addMesesSemOverflow(base: Date, dia: number, meses: number): Date {
+          const targetYear = base.getFullYear() + Math.floor((base.getMonth() + meses) / 12);
+          const targetMonth = (base.getMonth() + meses) % 12;
+          const ultimoDia = new Date(targetYear, targetMonth + 1, 0).getDate();
+          return new Date(targetYear, targetMonth, Math.min(dia, ultimoDia), 12, 0, 0);
+        }
 
         for (let i = 1; i <= totalMesesOuParcelas; i++) {
-          const dataVenc = new Date(baseDate);
+          let dataVenc: Date;
           
-          if (i > 1) {
-            if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1));
-            else if (frequencia === "BIMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 2);
-            else if (frequencia === "TRIMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 3);
-            else if (frequencia === "SEMESTRAL") dataVenc.setMonth(dataVenc.getMonth() + (i - 1) * 6);
-            else if (frequencia === "ANUAL") dataVenc.setFullYear(dataVenc.getFullYear() + (i - 1));
+          if (i === 1) {
+            dataVenc = new Date(baseDate);
+          } else if (tipoRecorrencia === "PARCELADA" || frequencia === "MENSAL") {
+            dataVenc = addMesesSemOverflow(baseDate, baseDia, i - 1);
+          } else if (frequencia === "BIMESTRAL") {
+            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 2);
+          } else if (frequencia === "TRIMESTRAL") {
+            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 3);
+          } else if (frequencia === "SEMESTRAL") {
+            dataVenc = addMesesSemOverflow(baseDate, baseDia, (i - 1) * 6);
+          } else if (frequencia === "ANUAL") {
+            const y = baseDate.getFullYear() + (i - 1);
+            const m = baseDate.getMonth();
+            const ultimoDia = new Date(y, m + 1, 0).getDate();
+            dataVenc = new Date(y, m, Math.min(baseDia, ultimoDia), 12, 0, 0);
+          } else {
+            dataVenc = new Date(baseDate);
           }
 
           inserts.push({
@@ -1145,7 +1182,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
-              <input type="number" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+              <input type="text" inputMode="decimal" value={valorDisplay} onChange={handleValorChange} placeholder="0,00" className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
 
@@ -1153,7 +1190,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data de Vencimento</label>
               <div className="relative">
-                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-11 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+                <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} onFocus={(e) => e.target.select()} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-11 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
                 <button
                   type="button"
                   onClick={() => setShowVencimentoPicker(true)}
