@@ -510,12 +510,13 @@ function FinanceiroPageContent() {
 
   const sortedTransacoes = useMemo(() => {
     let sortableItems = [...filteredTransacoes];
-    if (sortConfig !== null) {
-      sortableItems.sort((a: any, b: any) => {
+    
+    sortableItems.sort((a: any, b: any) => {
+      // 1. Ordem Principal (se o usuário clicou em alguma coluna)
+      if (sortConfig !== null) {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
 
-        // Lógicas especiais para campos calculados em tempo real
         if (sortConfig.key === "status_computed") {
           aValue = getComputedStatus(a.status, a.data_vencimento);
           bValue = getComputedStatus(b.status, b.data_vencimento);
@@ -529,9 +530,25 @@ function FinanceiroPageContent() {
 
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
+      }
+
+      // 2. Cascata 1 (Ou Ordem Inicial): Data de Vencimento
+      if (a.data_vencimento < b.data_vencimento) return -1;
+      if (a.data_vencimento > b.data_vencimento) return 1;
+
+      // 3. Cascata 2: Tipo (Receita sempre em cima de Despesa no mesmo dia)
+      if (a.tipo === "RECEITA" && b.tipo === "DESPESA") return -1;
+      if (a.tipo === "DESPESA" && b.tipo === "RECEITA") return 1;
+
+      // 4. Cascata 3: Descrição (Ordem Alfabética A-Z)
+      const descA = (a.descricao || "").toLowerCase();
+      const descB = (b.descricao || "").toLowerCase();
+      if (descA < descB) return -1;
+      if (descA > descB) return 1;
+
+      return 0; // Se for literalmente o mesmo item
+    });
+
     return sortableItems;
   }, [filteredTransacoes, sortConfig]);
   // 👆 FIM DA ORDENAÇÃO
@@ -632,7 +649,7 @@ function FinanceiroPageContent() {
             </select>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
               <option value="Todos">Status</option>
-              <option value="PAGO">Pagos</option>
+              <option value="PAGO">Pagos / Recebidos</option>
               <option value="PENDENTE">Pendentes</option>
               <option value="VENCIDO">Vencidos</option>
             </select>
@@ -670,7 +687,7 @@ function FinanceiroPageContent() {
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white">
             <option value="Todos">Status</option>
-            <option value="PAGO">Pagos</option>
+            <option value="PAGO">Pagos / Recebidos</option>
             <option value="PENDENTE">Pendentes</option>
             <option value="VENCIDO">Vencidos</option>
           </select>
