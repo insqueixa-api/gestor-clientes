@@ -581,19 +581,33 @@ function FinanceiroPageContent() {
         <ToastNotifications toasts={toasts} removeToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
       </div>
 
-      {/* Usamos -mt-4 para puxar para cima e top-16 (64px) para não entrar debaixo da TopBar ao rolar */}
-      <div className="sticky top-16 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] pt-2 pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm sm:shadow-none transition-colors -mt-4 md:mt-0">
-        <div className="min-w-0 text-left">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+      {/* 1. TÍTULO MOBILE: Rola junto com a tela e desaparece */}
+      <div className="min-w-0 text-left pt-1 pb-2 px-3 md:hidden -mt-4">
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+            Finanças Pessoais
+          </h1>
+          <EyeToggle />
+        </div>
+      </div>
+
+      {/* 2. HEADER STICKY: Botões no Mobile / Título + Botões no Desktop */}
+      {/* top-14 crava nos exatos 56px da TopBar, fechando qualquer buraco visual */}
+      <div className="sticky top-14 md:top-0 z-[40] bg-slate-50 dark:bg-[#0f141a] px-3 pb-3 pt-2 md:pt-0 sm:mx-0 sm:px-0 border-b border-slate-200/50 dark:border-white/5 sm:border-none flex items-center justify-end md:justify-between shadow-sm sm:shadow-none transition-colors">
+        
+        {/* Título Desktop (Só aparece em telas grandes) */}
+        <div className="min-w-0 text-left hidden md:block">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
               Finanças Pessoais
             </h1>
             <EyeToggle />
           </div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 hidden sm:block">Controle exclusivo do SuperAdmin</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Controle exclusivo do SuperAdmin</p>
         </div>
 
-        <div className="flex items-center justify-between w-full md:w-auto gap-2">
+        {/* Botões do Calendário */}
+        <div className="flex items-center w-full md:w-auto gap-2">
           <div className="flex items-center flex-1 md:flex-none justify-between bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg shadow-sm">
             <button onClick={handlePrevMonth} className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><IconChevronLeft /></button>
             <button
@@ -607,7 +621,7 @@ function FinanceiroPageContent() {
           <button onClick={handleToday} className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0">Hoje</button>
         </div>
 
-        {showDatePicker && (    
+        {showDatePicker && (
           <ModalDatePicker
             currentDate={currentDate}
             onSelect={(date) => { setCurrentDate(date); setShowDatePicker(false); }}
