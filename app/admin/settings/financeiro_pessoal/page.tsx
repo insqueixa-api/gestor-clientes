@@ -335,7 +335,7 @@ function FinanceiroPageContent() {
 
       await Promise.all([
         upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico("SaaS - Rendimentos", valorSaas, catSaaS, "RECEITA"),
+        upsertDinamico("SaaS - Rendimentos", valorSaas, catIPTV, "RECEITA"),
         upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA")
       ]);
     } catch (e) {
