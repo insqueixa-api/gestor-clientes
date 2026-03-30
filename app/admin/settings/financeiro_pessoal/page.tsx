@@ -658,26 +658,75 @@ function ModalNovaConta({ tenantId, onClose, onSave, addToast }: { tenantId: str
   );
 }
 
-function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: {
-  title: string, items: any[], onExcluir: (id: string) => Promise<void>,
-  onClose: () => void, addToast: any
+
+const ICONES_DISPONIVEIS = [
+  "🏦","💳","💵","🪙","💰","🏧","💸","📊","🔐","🤝",
+  "🟣","🟠","🟢","🔴","⭐","🌟","📱","💻","🛒","🏥",
+  "🚗","📚","🏖️","🏠","💡","🍔","🐶","👗","📦","📈",
+  "🎮","✈️","🎵","🍕","☕","🏋️","💊","📺","🎁","⚡",
+  "🌮","🎓","👶","🐱","🚌","⛽","🔧","🌿","🎭","🏃",
+  "🍺","🛍️","🎯","🏡","💈","📷","🎸","🧴","🐾","🌈",
+];
+
+function ModalGerenciarItens({ title, items, onExcluir, onEditar, onClose, addToast, groupByTipo }: {
+  title: string,
+  items: any[],
+  onExcluir: (id: string) => Promise<void>,
+  onEditar: (id: string, nome: string, icone: string) => Promise<void>,
+  onClose: () => void,
+  addToast: any,
+  groupByTipo?: boolean
 }) {
   const { confirm, ConfirmUI } = useConfirm();
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editIcone, setEditIcone] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between shrink-0">
-          <span>{title}</span><button onClick={onClose}><IconX /></button>
-        </div>
-        <div className="p-4 overflow-y-auto flex-1 space-y-2">
-          {items.length === 0 && (
-            <div className="text-center text-slate-400 text-sm italic">Nenhum item cadastrado.</div>
-          )}
-          {items.map(it => (
-            <div key={it.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-              <span className="text-sm font-medium">{it.icone} {it.nome}</span>
-              <button onClick={async () => {
+  const receitas = items.filter(i => i.tipo === "RECEITA" || i.tipo === "AMBOS");
+  const despesas = items.filter(i => i.tipo === "DESPESA" || i.tipo === "AMBOS");
+
+  function abrirEdicao(it: any) {
+    setEditandoId(it.id);
+    setEditNome(it.nome);
+    setEditIcone(it.icone);
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setEditNome("");
+    setEditIcone("");
+  }
+
+  async function handleSalvarEdicao(id: string) {
+    if (!editNome.trim()) return;
+    setSalvando(true);
+    try {
+      await onEditar(id, editNome.trim(), editIcone);
+      addToast("success", "Salvo", "Item atualizado com sucesso.");
+      cancelarEdicao();
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function renderItem(it: any) {
+    return (
+      <div key={it.id} className="rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden">
+        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5">
+          <span className="text-sm font-medium">{it.icone} {it.nome}</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => editandoId === it.id ? cancelarEdicao() : abrirEdicao(it)}
+              className={`p-1.5 rounded-lg transition-colors ${editandoId === it.id ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10" : "text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10"}`}
+              title="Editar"
+            >
+              <IconEdit />
+            </button>
+            <button
+              onClick={async () => {
                 const ok = await confirm({
                   title: "Excluir Item",
                   subtitle: `Tem certeza que deseja excluir '${it.nome}'?`,
@@ -688,12 +737,83 @@ function ModalGerenciarItens({ title, items, onExcluir, onClose, addToast }: {
                 if (ok) {
                   try { await onExcluir(it.id); } catch (e: any) { addToast("error", "Erro ao excluir", "Pode estar em uso."); }
                 }
-              }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
-                <IconTrash />
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+              title="Excluir"
+            >
+              <IconTrash />
+            </button>
+          </div>
+        </div>
+
+        {editandoId === it.id && (
+          <div className="p-3 border-t border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nome</label>
+              <input autoFocus value={editNome} onChange={e => setEditNome(e.target.value)} className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 text-slate-800 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ícone</label>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                {ICONES_DISPONIVEIS.map(ic => (
+                  <button key={ic} onClick={() => setEditIcone(ic)} className={`w-8 h-8 rounded border text-base flex items-center justify-center transition-all ${editIcone === ic ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 scale-110" : "border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"}`}>
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={cancelarEdicao} className="flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Cancelar</button>
+              <button onClick={() => handleSalvarEdicao(it.id)} disabled={salvando} className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50">
+                {salvando ? "Salvando..." : "Salvar"}
               </button>
             </div>
-          ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
+      <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 font-bold text-sm bg-slate-50 dark:bg-white/5 flex justify-between shrink-0">
+          <span>{title}</span>
+          <button onClick={onClose}><IconX /></button>
         </div>
+
+        <div className="p-4 overflow-y-auto flex-1 space-y-2">
+          {items.length === 0 && (
+            <div className="text-center text-slate-400 text-sm italic">Nenhum item cadastrado.</div>
+          )}
+
+          {groupByTipo ? (
+            <>
+              {receitas.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 py-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">📈 Receitas</span>
+                    <div className="flex-1 h-px bg-emerald-200 dark:bg-emerald-500/30" />
+                  </div>
+                  {receitas.map(it => renderItem(it))}
+                </>
+              )}
+              {despesas.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 py-1 mt-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">📉 Despesas</span>
+                    <div className="flex-1 h-px bg-rose-200 dark:bg-rose-500/30" />
+                  </div>
+                  {despesas.map(it => renderItem(it))}
+                </>
+              )}
+            </>
+          ) : (
+            items.map(it => renderItem(it))
+          )}
+        </div>
+
         <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 shrink-0">
           <button onClick={onClose} className="w-full py-2 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/60 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
             Cancelar
@@ -747,7 +867,23 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(transacaoEdit?.tipo || "DESPESA");
   const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
   const [valor, setValor] = useState(transacaoEdit?.valor ? String(transacaoEdit.valor) : "");
+  const toDisplay = (iso: string) => iso ? iso.split('-').reverse().join('/') : '';
+
   const [vencimento, setVencimento] = useState(transacaoEdit?.data_vencimento || new Date().toISOString().split("T")[0]);
+  const [vencimentoDisplay, setVencimentoDisplay] = useState(
+    toDisplay(transacaoEdit?.data_vencimento || new Date().toISOString().split("T")[0])
+  );
+
+  const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+    if (v.length >= 5) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+    else if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+    setVencimentoDisplay(v);
+    if (v.length === 10) {
+      const [d, m, y] = v.split('/');
+      setVencimento(`${y}-${m}-${d}`);
+    }
+  };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
@@ -794,11 +930,23 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
     if (contaSelecionada === id) setContaSelecionada("");
   }
 
+  async function handleEditarConta(id: string, nome: string, icone: string) {
+    const { error } = await supabaseBrowser.from("fin_contas_bancarias").update({ nome, icone }).eq("id", id);
+    if(error) throw error;
+    setContas(prev => prev.map(c => c.id === id ? { ...c, nome, icone } : c));
+  }
+
   async function handleExcluirCategoria(id: string) {
     const { error } = await supabaseBrowser.from("fin_categorias").delete().eq("id", id);
     if(error) throw error;
     setCategorias(prev => prev.filter(c => c.id !== id));
     if (categoriaSelecionada === id) setCategoriaSelecionada("");
+  }
+
+  async function handleEditarCategoria(id: string, nome: string, icone: string) {
+    const { error } = await supabaseBrowser.from("fin_categorias").update({ nome, icone }).eq("id", id);
+    if(error) throw error;
+    setCategorias(prev => prev.map(c => c.id === id ? { ...c, nome, icone } : c));
   }
 
   async function handleSave() {
@@ -900,7 +1048,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Data de Vencimento</label>
-              <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
+              <input type="text" inputMode="numeric" value={vencimentoDisplay} onChange={handleVencimentoChange} placeholder="DD/MM/AAAA" maxLength={10} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 font-mono" />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">Status</label>
@@ -1000,8 +1148,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       {showNovaConta && <ModalNovaConta tenantId={tenantId} addToast={addToast} onClose={() => { setShowNovaConta(false); setContaSelecionada(""); }} onSave={(nova) => { setContas([...contas, nova]); setContaSelecionada(nova.id); setShowNovaConta(false); }} />}
       {showNovaCategoria && <ModalNovaCategoria tenantId={tenantId} addToast={addToast} tipoFixo={tipo} onClose={() => { setShowNovaCategoria(false); setCategoriaSelecionada(""); }} onSave={(nova) => { setCategorias([...categorias, nova]); setCategoriaSelecionada(nova.id); setShowNovaCategoria(false); }} />}
       
-      {showGerenciarContas && <ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={() => setShowGerenciarContas(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirConta(id); }} />}
-      {showGerenciarCategorias && <ModalGerenciarItens title="Gerenciar Categorias" items={categorias} onClose={() => setShowGerenciarCategorias(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirCategoria(id); }} />}
+      {showGerenciarContas && <ModalGerenciarItens title="Gerenciar Contas" items={contas} onClose={() => setShowGerenciarContas(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirConta(id); }} onEditar={async (id, nome, icone) => { await handleEditarConta(id, nome, icone); }} />}
+      {showGerenciarCategorias && <ModalGerenciarItens title="Gerenciar Categorias" items={categorias} onClose={() => setShowGerenciarCategorias(false)} addToast={addToast} onExcluir={async (id) => { await handleExcluirCategoria(id); }} onEditar={async (id, nome, icone) => { await handleEditarCategoria(id, nome, icone); }} groupByTipo />}
     </>
   );
 }
