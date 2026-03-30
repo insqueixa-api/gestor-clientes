@@ -139,6 +139,73 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
   );
 }
 
+function ModalDayPicker({ currentDate, onSelect, onClose }: {
+  currentDate: Date,
+  onSelect: (date: Date) => void,
+  onClose: () => void
+}) {
+  const [viewDate, setViewDate] = useState(currentDate);
+
+  const ano = viewDate.getFullYear();
+  const mes = viewDate.getMonth();
+
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const primeiroDiaDaSemana = new Date(ano, mes, 1).getDay();
+
+  const dias = [];
+  for (let i = 0; i < primeiroDiaDaSemana; i++) dias.push(null);
+  for (let i = 1; i <= diasNoMes; i++) dias.push(i);
+
+  const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+  return (
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 z-[99999] bg-black/50 grid place-items-center p-4">
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <span className="text-sm font-bold text-slate-700 dark:text-white">Selecionar Data</span>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 transition-colors"><IconX /></button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg p-1">
+            <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"><IconChevronLeft /></button>
+            <span className="text-sm font-bold text-slate-700 dark:text-white text-center capitalize">{meses[mes]} {ano}</span>
+            <button onClick={() => setViewDate(new Date(ano, mes + 1, 1))} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"><IconChevronRight /></button>
+          </div>
+
+          <div>
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {["D","S","T","Q","Q","S","S"].map((d, i) => <div key={i} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {dias.map((dia, idx) => {
+                if (!dia) return <div key={`empty-${idx}`} />;
+                const isSelected = dia === currentDate.getDate() && mes === currentDate.getMonth() && ano === currentDate.getFullYear();
+                const isToday = dia === new Date().getDate() && mes === new Date().getMonth() && ano === new Date().getFullYear();
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => onSelect(new Date(ano, mes, dia))}
+                    className={`h-8 rounded-lg text-xs font-bold transition-all ${
+                      isSelected
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
+                        : isToday
+                        ? "border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                        : "text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    {dia}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1246,7 +1313,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                 </button>
               </div>
               {showVencimentoPicker && (
-                <ModalDatePicker
+                <ModalDayPicker
                   currentDate={vencimento ? new Date(`${vencimento}T12:00:00`) : new Date()}
                   onSelect={(date) => {
                     const d = String(date.getDate()).padStart(2, '0');
