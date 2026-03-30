@@ -145,6 +145,7 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
   onClose: () => void
 }) {
   const [viewDate, setViewDate] = useState(currentDate);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   const ano = viewDate.getFullYear();
   const mes = viewDate.getMonth();
@@ -169,7 +170,9 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg p-1">
             <button onClick={() => setViewDate(new Date(ano, mes - 1, 1))} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"><IconChevronLeft /></button>
-            <span className="text-sm font-bold text-slate-700 dark:text-white text-center capitalize">{meses[mes]} {ano}</span>
+            <button onClick={() => setShowMonthPicker(true)} className="px-3 py-1 text-sm font-bold text-slate-700 dark:text-white text-center capitalize hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded-md transition-colors">
+              {meses[mes]} {ano}
+            </button>
             <button onClick={() => setViewDate(new Date(ano, mes + 1, 1))} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-white dark:hover:bg-white/10 transition-colors"><IconChevronRight /></button>
           </div>
 
@@ -202,6 +205,17 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
           </div>
         </div>
       </div>
+
+      {showMonthPicker && (
+        <ModalDatePicker
+          currentDate={viewDate}
+          onSelect={(date) => {
+            setViewDate(date);
+            setShowMonthPicker(false);
+          }}
+          onClose={() => setShowMonthPicker(false)}
+        />
+      )}
     </div>
   );
 }
