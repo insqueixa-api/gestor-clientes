@@ -113,7 +113,12 @@ function ModalDatePicker({ currentDate, onSelect, onClose }: {
                 return (
                   <button
                     key={mes}
-                    onClick={() => onSelect(new Date(ano, idx, 1))}
+                    onClick={() => {
+                        const hoje = new Date().getDate();
+                        const ultimoDiaDoMes = new Date(ano, idx + 1, 0).getDate();
+                        const diaCerto = Math.min(hoje, ultimoDiaDoMes);
+                        onSelect(new Date(ano, idx, diaCerto));
+                    }}
                     className={`py-2 rounded-lg text-xs font-bold transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
@@ -1003,12 +1008,22 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const vencimentoDisplay = rawToDisplay(rawDigits); // ← derivado, não é state
 
   const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 8);
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    
+    const raw = input.value.replace(/\D/g, '').slice(0, 8);
     setRawDigits(raw);
     if (raw.length === 8) {
       const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4);
       setVencimento(`${y}-${m}-${d}`);
     }
+    
+    // Restaura o cursor para a posição exata onde estava a digitação
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input) {
+        input.setSelectionRange(cursorPos, cursorPos);
+      }
+    });
   };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
