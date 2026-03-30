@@ -557,7 +557,7 @@ return (
               Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
             </span>
           </div>
-          <div className="text-emerald-700 dark:text-emerald-400 font-bold">
+          <div className={`${(clientsMonthVal + resellerMonthVal) - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
             <span className="sm:hidden">
               Lucro: {fmtBRLNoSymbol((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
             </span>
@@ -607,7 +607,8 @@ return (
             <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
             <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
           </div>
-          <div className="text-emerald-700 dark:text-emerald-400 font-bold">
+          
+          <div className={`${(clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
             <span className="sm:hidden">Lucro: {fmtBRLNoSymbol((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
             <span className="hidden sm:inline">Lucro: {fmtBRL((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
           </div>

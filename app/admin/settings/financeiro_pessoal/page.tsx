@@ -334,9 +334,9 @@ function FinanceiroPageContent() {
       };
 
       await Promise.all([
-        upsertDinamico("Rendimentos IPTV", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico("Rendimentos SaaS", valorSaas, catSaaS, "RECEITA"),
-        upsertDinamico("Custos de Recarga", valorDespesas, catIPTV, "DESPESA")
+        upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
+        upsertDinamico("SaaS - Rendimentos", valorSaas, catSaaS, "RECEITA"),
+        upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA")
       ]);
     } catch (e) {
       console.error("Erro na sincronização:", e);
