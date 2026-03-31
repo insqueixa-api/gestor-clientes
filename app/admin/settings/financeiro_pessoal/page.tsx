@@ -36,6 +36,14 @@ function IconChevronRight() { return <svg width="16" height="16" viewBox="0 0 24
 function IconTrendingUp() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>; }
 function IconTrendingDown() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>; }
 function IconCheck() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>; }
+function IconThumb({ className = "" }) { 
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${className}`}>
+      <path d="M7 10v12"/>
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/>
+    </svg>
+  ); 
+}
 function IconUndo() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>; }
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
@@ -839,16 +847,35 @@ function FinanceiroPageContent() {
 
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                      <ActionBtn 
-                        tone={t.status === "PAGO" ? "amber" : "green"} 
-                        title={t.status === "PAGO" 
-                                ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
-                                : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
-                        onClick={() => {
-                          setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
-                        }}>
-                        {t.status === "PAGO" ? <IconUndo /> : <IconCheck />}
-                      </ActionBtn>
+                      {(() => {
+                        // Define a cor e a posição do joinha baseado no cStatus (Inteligente)
+                        let btnTone: "green" | "amber" | "red" = "amber";
+                        let isUp = false;
+
+                        if (cStatus === "PAGO") {
+                          btnTone = "green";
+                          isUp = true; // Verde pra cima
+                        } else if (cStatus === "VENCIDO") {
+                          btnTone = "red";
+                          isUp = false; // Vermelho pra baixo
+                        } else {
+                          btnTone = "amber";
+                          isUp = false; // Amarelo pra baixo
+                        }
+
+                        return (
+                          <ActionBtn 
+                            tone={btnTone} 
+                            title={t.status === "PAGO" 
+                                    ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
+                                    : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
+                            onClick={() => {
+                              setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
+                            }}>
+                            <IconThumb className={!isUp ? "rotate-180" : ""} />
+                          </ActionBtn>
+                        );
+                      })()}
                       
                       <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
                         <IconEdit />
