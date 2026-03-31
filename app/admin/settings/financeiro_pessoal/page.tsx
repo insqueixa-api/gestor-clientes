@@ -1409,7 +1409,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             .gt("data_vencimento", transacaoEdit.data_vencimento);
           if (errDel) throw errDel;
 
-          // 4. Recria as futuras (limite de 48 para infinitas)
+          // 4. Recria as futuras garantindo 5 anos de fôlego a partir de HOJE
           const baseDate = new Date(`${vencimento}T12:00:00`);
           const baseDia = baseDate.getDate();
 
@@ -1427,7 +1427,13 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           if (tipoRecorrencia === "PARCELADA") {
              parcelasRestantes = pTotal - pAtual;
           } else if (tipoRecorrencia === "RECORRENTE") {
-             parcelasRestantes = 47; // Total 48 (1 editada + 47 recriadas)
+             // Quantos meses faltam para cobrir 5 anos (60 meses) a partir de HOJE?
+             const hoje = new Date();
+             const diffAnos = hoje.getFullYear() - baseDate.getFullYear();
+             const diffMeses = (diffAnos * 12) + (hoje.getMonth() - baseDate.getMonth());
+             
+             // Cria o suficiente para cobrir o buraco do passado + 60 meses no futuro garantido!
+             parcelasRestantes = Math.max(60, diffMeses + 60); 
           }
 
           if (parcelasRestantes > 0) {
@@ -1453,7 +1459,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                 dataVenc = addMesesSemOverflow(baseDate, baseDia, i);
               }
 
-              // Verifica se este mês/ano já estava pago no passado
+              // Verifica se este mês/ano já estava pago na Memória
               const ym = dataVenc.toISOString().substring(0, 7);
               const jaPago = mapPagos[ym];
 
@@ -1486,7 +1492,8 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       } 
       else {
         const isRecorrente = tipoRecorrencia !== "UNICA";
-        const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 48 : 1);
+        // Criação nova gera 60 meses (5 anos) limpos para frente
+        const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 60 : 1);
         const valorInserir = tipoRecorrencia === "PARCELADA" ? Number(valor) / totalMesesOuParcelas : Number(valor);
         
         const baseDate = new Date(`${vencimento}T12:00:00`);
@@ -1569,7 +1576,6 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             if (batchErr) throw batchErr;
           }
         }
-
         addToast("success", "Lançamento Criado", tipoRecorrencia !== "UNICA" ? "Lançamentos programados com sucesso!" : "Lançamento adicionado.");
       }
 
