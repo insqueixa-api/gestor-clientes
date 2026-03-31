@@ -848,19 +848,15 @@ function FinanceiroPageContent() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
                       {(() => {
-                        // Define a cor e a posição do joinha baseado no cStatus (Inteligente)
-                        let btnTone: "green" | "amber" | "red" = "amber";
+                        let btnTone: "green" | "amber" | "red" | "blue" = "blue";
                         let isUp = false;
 
                         if (cStatus === "PAGO") {
                           btnTone = "green";
-                          isUp = true; // Verde pra cima
-                        } else if (cStatus === "VENCIDO") {
-                          btnTone = "red";
-                          isUp = false; // Vermelho pra baixo
+                          isUp = true; // Verde
                         } else {
-                          btnTone = "amber";
-                          isUp = false; // Amarelo pra baixo
+                          btnTone = "blue"; // Azul (Sky) amigável para tudo que ainda precisa ser pago
+                          isUp = false; 
                         }
 
                         return (
@@ -872,7 +868,8 @@ function FinanceiroPageContent() {
                             onClick={() => {
                               setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
                             }}>
-                            <IconThumb className={!isUp ? "rotate-180" : ""} />
+                            {/* O -scale-y-100 faz o espelhamento perfeito virando de cabeça para baixo sem inverter os lados */}
+                            <IconThumb className={!isUp ? "-scale-y-100" : "scale-y-100"} />
                           </ActionBtn>
                         );
                       })()}
