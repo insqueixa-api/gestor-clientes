@@ -1498,7 +1498,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             }
           }
         }
-        addToast("success", "Alteração Salva", "Lançamento atualizado e faturas órfãs removidas!");
+        addToast("success", "Alteração Salva", "Lançamento atualizado com sucesso!");
       } 
       else {
         const isRecorrente = tipoRecorrencia !== "UNICA";
