@@ -1386,28 +1386,42 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           }).eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
 
-          // 2. Busca o histórico de pagamentos (A MEMÓRIA QUE SALVA OS PAGOS)
-          const { data: futurasExistentes } = await supabaseBrowser.from("fin_transacoes")
-            .select("data_vencimento, status, data_pagamento")
-            .eq("recorrencia_id", transacaoEdit.recorrencia_id)
-            .gt("data_vencimento", transacaoEdit.data_vencimento);
+          // 2. Busca histórico oficial E faturas "órfãs" para limpeza total (À Prova de Balas)
+          const [{ data: oficiais }, { data: orfas }] = await Promise.all([
+            supabaseBrowser.from("fin_transacoes").select("id, data_vencimento, status, data_pagamento")
+              .eq("recorrencia_id", transacaoEdit.recorrencia_id)
+              .gt("data_vencimento", transacaoEdit.data_vencimento),
+            supabaseBrowser.from("fin_transacoes").select("id, data_vencimento, status, data_pagamento")
+              .eq("descricao", transacaoEdit.descricao) // Busca pelo nome antigo para caçar órfãs duplicadas
+              .eq("conta_id", transacaoEdit.conta_id)
+              .gt("data_vencimento", transacaoEdit.data_vencimento)
+          ]);
 
           const mapPagos: Record<string, any> = {};
-          if (futurasExistentes) {
-            futurasExistentes.forEach(f => {
+          const idsToDelete = new Set<string>();
+
+          const mergeData = (lista: any[]) => {
+            if (!lista) return;
+            lista.forEach(f => {
+              idsToDelete.add(f.id); // Coloca na lista de extermínio
               if (f.status === "PAGO") {
-                const ym = f.data_vencimento.substring(0, 7); // Mapeia por "Ano-Mês"
-                mapPagos[ym] = { status: f.status, data_pagamento: f.data_pagamento };
+                const ym = f.data_vencimento.substring(0, 7);
+                if (!mapPagos[ym]) mapPagos[ym] = { status: f.status, data_pagamento: f.data_pagamento };
               }
             });
-          }
+          };
 
-          // 3. Apaga as parcelas futuras
-          const { error: errDel } = await supabaseBrowser.from("fin_transacoes")
-            .delete()
-            .eq("recorrencia_id", transacaoEdit.recorrencia_id)
-            .gt("data_vencimento", transacaoEdit.data_vencimento);
-          if (errDel) throw errDel;
+          mergeData(oficiais || []);
+          mergeData(orfas || []);
+
+          // 3. Apaga TODAS as parcelas futuras encontradas (limpa a sujeira do banco)
+          const arrIds = Array.from(idsToDelete);
+          if (arrIds.length > 0) {
+            const { error: errDel } = await supabaseBrowser.from("fin_transacoes")
+              .delete()
+              .in("id", arrIds);
+            if (errDel) throw errDel;
+          }
 
           // 4. Recria as futuras garantindo 5 anos de fôlego a partir de HOJE
           const baseDate = new Date(`${vencimento}T12:00:00`);
@@ -1427,12 +1441,9 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           if (tipoRecorrencia === "PARCELADA") {
              parcelasRestantes = pTotal - pAtual;
           } else if (tipoRecorrencia === "RECORRENTE") {
-             // Quantos meses faltam para cobrir 5 anos (60 meses) a partir de HOJE?
              const hoje = new Date();
              const diffAnos = hoje.getFullYear() - baseDate.getFullYear();
              const diffMeses = (diffAnos * 12) + (hoje.getMonth() - baseDate.getMonth());
-             
-             // Cria o suficiente para cobrir o buraco do passado + 60 meses no futuro garantido!
              parcelasRestantes = Math.max(60, diffMeses + 60); 
           }
 
@@ -1459,17 +1470,16 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                 dataVenc = addMesesSemOverflow(baseDate, baseDia, i);
               }
 
-              // Verifica se este mês/ano já estava pago na Memória
               const ym = dataVenc.toISOString().substring(0, 7);
               const jaPago = mapPagos[ym];
 
               inserts.push({
                 tenant_id: tenantId,
                 tipo,
-                descricao,
+                descricao, // Usamos a descrição que você editou agora (já atualizada)
                 valor: Number(valor),
                 data_vencimento: dataVenc.toISOString().split("T")[0],
-                status: jaPago ? jaPago.status : "PENDENTE", // Restaura a baixa se houver
+                status: jaPago ? jaPago.status : "PENDENTE",
                 data_pagamento: jaPago ? jaPago.data_pagamento : null,
                 conta_id: contaSelecionada,
                 categoria_id: categoriaSelecionada,
@@ -1488,11 +1498,10 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             }
           }
         }
-        addToast("success", "Alteração Salva", "Lançamento atualizado com sucesso!");
+        addToast("success", "Alteração Salva", "Lançamento atualizado e faturas órfãs removidas!");
       } 
       else {
         const isRecorrente = tipoRecorrencia !== "UNICA";
-        // Criação nova gera 60 meses (5 anos) limpos para frente
         const totalMesesOuParcelas = tipoRecorrencia === "PARCELADA" ? Number(parcelas) : (tipoRecorrencia === "RECORRENTE" ? 60 : 1);
         const valorInserir = tipoRecorrencia === "PARCELADA" ? Number(valor) / totalMesesOuParcelas : Number(valor);
         
