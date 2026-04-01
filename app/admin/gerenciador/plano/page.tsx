@@ -119,19 +119,19 @@
     let newCreditsPlanTableId: string | null = null;
 
     for (const tpl of defaults as any[]) {
-      const { data: newTable } = await supabase
-        .from("plan_tables")
-        .insert({
-        tenant_id: tenantId,
-        name: tpl.name,
-        currency: tpl.currency,
-        table_type: tpl.table_type,
-        is_system_default: true,
-        is_master_only: tpl.is_master_only ?? false,
-        is_active: true,
-      })
-        .select("id")
-        .single();
+        const { data: newTable } = await supabase
+          .from("plan_tables")
+          .insert({
+          tenant_id: tenantId,
+          name: tpl.name,
+          currency: tpl.currency,
+          table_type: tpl.table_type,
+          is_system_default: false, // ✅ CORRIGIDO: O clone pertence à revenda, não é um padrão do sistema!
+          is_master_only: tpl.is_master_only ?? false,
+          is_active: true,
+        })
+          .select("id")
+          .single();
 
       if (!newTable) continue;
 

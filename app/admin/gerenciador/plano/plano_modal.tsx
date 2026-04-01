@@ -108,15 +108,16 @@ useEffect(() => {
     loadData();
   }, [plan, isEditing]);
 
-  // Carrega itens de uma tabela (usado na carga inicial e quando muda moeda)
+  // Carrega itens usando os dados já carregados na página principal
   async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
-    // ✅ USA OS DADOS DA MEMÓRIA (Que a página principal já puxou e mastigou)
+    // ✅ USA DADOS DA MEMÓRIA, não bate no banco de dados!
     if (!plan || !plan.items) return;
 
     const matrix = plan.items.map(item => {
-      const p1 = item.prices.find(p => p.screens_count === 1);
-      const p2 = item.prices.find(p => p.screens_count === 2);
-      const p3 = item.prices.find(p => p.screens_count === 3);
+      // ✅ Protegido com fallback (|| []) para evitar falhas caso a listagem falhe no banco
+      const p1 = (item.prices || []).find(p => p.screens_count === 1);
+      const p2 = (item.prices || []).find(p => p.screens_count === 2);
+      const p3 = (item.prices || []).find(p => p.screens_count === 3);
 
       return {
         itemId: item.id,
@@ -128,7 +129,6 @@ useEffect(() => {
       };
     });
     
-    // saas_credits usa tiers próprios, não PERIOD_ORDER
     const isCreditTable = matrix.some(m => m.period.startsWith("C_"));
     
     let ordered: EditableItem[];
@@ -436,7 +436,7 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
             </div>
           </div>
 
-          {/* Matriz de Preços */}
+         {/* Matriz de Preços */}
           <div className="p-4 sm:p-6 space-y-8">
            {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
@@ -487,14 +487,15 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
                 </div>
               ))
             ) : (
+              /* ── IPTV / SaaS (1, 2 ou 3 Telas) ── */
               (isMasterOnly ? [1, 2] : [1, 2, 3]).map((screenCount) => (
-  <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
-    <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-      Preços para {screenCount} {isMasterOnly
-        ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
-        : screenCount === 1 ? 'tela' : 'telas'}
-    </h3>
-                  
+                <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                    Preços para {screenCount} {isMasterOnly
+                      ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
+                      : screenCount === 1 ? 'tela' : 'telas'}
+                  </h3>
+                                
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {PERIOD_ORDER.map((period) => {
                       const item = items.find(i => i.period === period);
