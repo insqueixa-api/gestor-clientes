@@ -1514,50 +1514,66 @@ return (
                 </div>
                 {/* Alterado para Grid para alinhar com os inputs acima */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* 1. Status (Com Alerta Substituindo) */}
+                  {/* 1. Status Dinâmico */}
                   <div>
                     <Label>Status</Label>
-                    <div className="h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 opacity-90 cursor-default">
-                      {(() => {
-                        if (role === "SUPERADMIN" || !expiresAt) {
-                          return <StatusBadge status={licenseStatus} />;
-                        }
+                    {(() => {
+                      // Cores no mesmo padrão do Perfil
+                      const mapColors: Record<string, string> = {
+                        ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+                        TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+                        EXPIRED:  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+                        ARCHIVED: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border-slate-200 dark:border-white/10",
+                        INACTIVE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+                      };
+                      const mapLabels: Record<string, string> = {
+                        ACTIVE: "Ativo", TRIAL: "Trial", EXPIRED: "Expirado", ARCHIVED: "Arquivado", INACTIVE: "Inativo",
+                      };
 
+                      let boxColor = mapColors[licenseStatus] ?? mapColors.INACTIVE;
+                      let boxText = mapLabels[licenseStatus] ?? licenseStatus;
+
+                      if (expiresAt && role !== "SUPERADMIN") {
                         const dias = daysUntil(expiresAt);
-                        if (dias === null) return <StatusBadge status={licenseStatus} />;
+                        if (dias !== null) {
+                          if (dias < 0) {
+                            boxColor = `${mapColors.EXPIRED} animate-pulse`;
+                            boxText = `⚠️ Vencido há ${Math.abs(dias)}d`;
+                          } else if (dias === 0) {
+                            boxColor = `${mapColors.EXPIRED} animate-pulse`;
+                            boxText = "⚠️ Vence Hoje";
+                          } else if (dias <= 7) {
+                            boxColor = mapColors.INACTIVE; // Laranja (Amber)
+                            boxText = `⏳ Vence em ${dias}d`;
+                          }
+                        }
+                      }
 
-                        if (dias < 0) {
-                          return <span className="text-rose-600 dark:text-rose-400 animate-pulse">⚠️ Vencido há {Math.abs(dias)}d</span>;
-                        }
-                        if (dias === 0) {
-                          return <span className="text-rose-600 dark:text-rose-400 animate-pulse">⚠️ Vence Hoje!</span>;
-                        }
-                        if (dias <= 7) {
-                          return <span className="text-amber-600 dark:text-amber-400">⚠️ Vence em {dias} dia(s)</span>;
-                        }
-
-                        // Se estiver tudo ok (> 7 dias), volta a mostrar o StatusBadge normal
-                        return <StatusBadge status={licenseStatus} />;
-                      })()}
-                    </div>
+                      return (
+                        <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${boxColor}`}>
+                          {boxText}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* 2. Vencimento com Cor Dinâmica */}
                   <div>
                     <Label>Vencimento</Label>
                     {(() => {
-                      let textColor = "text-emerald-600 dark:text-emerald-400"; // Verde Padrão
+                      let textColor = "text-slate-700 dark:text-white"; // Padrão cinza se Superadmin
 
                       if (expiresAt && role !== "SUPERADMIN") {
                         const dias = daysUntil(expiresAt);
                         if (dias !== null) {
-                          if (dias <= 0) textColor = "text-rose-600 dark:text-rose-400"; // Vermelho se vencido ou vence hoje
-                          else if (dias <= 7) textColor = "text-amber-600 dark:text-amber-400"; // Laranja se falta 7 dias ou menos
+                          if (dias < 0 || dias === 0) textColor = "text-rose-600 dark:text-rose-400";
+                          else if (dias <= 7) textColor = "text-amber-600 dark:text-amber-400";
+                          else textColor = "text-emerald-600 dark:text-emerald-400"; // Tudo ok, fica verde
                         }
                       }
 
                       return (
-                        <div className={`h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold opacity-90 cursor-default transition-colors ${textColor}`}>
+                        <div className={`h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold cursor-default transition-colors ${textColor}`}>
                           {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
                         </div>
                       );
