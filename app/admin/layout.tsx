@@ -69,11 +69,11 @@ export default async function AdminLayout({
     .maybeSingle<any>();
 
   // 4) Busca os dados da Licença SEPARADAMENTE (Garante que não quebra o Menu)
-  const { data: licenseData } = await supabase
-    .from("saas_licenses")
-    .select("expires_at, credit_balance, saas_plan_table_id, whatsapp_sessions")
-    .eq("tenant_id", member.tenant_id)
-    .maybeSingle<any>();
+  const { data: licenseData } = await supabase
+    .from("vw_saas_tenants") // ✅ AGORA SIM, BUSCA NA VIEW LIBERADA
+    .select("expires_at, credit_balance, saas_plan_table_id, whatsapp_sessions")
+    .eq("id", member.tenant_id) // ✅ NA VIEW A COLUNA SE CHAMA "id"
+    .maybeSingle<any>();
 
   // ✅ SE NÃO FOR FALSO EXPLÍCITO, ESTÁ LIBERADO
   const isFinancialEnabled = tenantRow?.financial_control_enabled !== false;
