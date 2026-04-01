@@ -394,13 +394,37 @@ async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extr
     ? createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
     : sb;
 
-  const { data, error } = await sbUser
-    .from("vw_saas_tenants")
-    .select("*")
-    .eq("id", saasId)
+  const { data: rawData, error } = await sbUser
+  .from("vw_saas_tenants")
+  .select("*")
+  .eq("id", saasId)
+  .maybeSingle();
+
+let data: any = rawData;
+
+  if (error || !data) {
+  // Fallback para chamadas internas sem contexto de auth — busca direto nas tabelas base
+  const { data: memberData } = await sb
+    .from("tenant_members")
+    .select("user_id")
+    .eq("tenant_id", saasId)
+    .eq("role", "owner")
     .maybeSingle();
 
-  if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
+  if (!memberData?.user_id) throw new Error("Revenda SaaS não encontrada no banco");
+
+  const { data: profileData } = await sb
+    .from("profiles")
+    .select("whatsapp_username, display_name")
+    .eq("id", memberData.user_id)
+    .maybeSingle();
+
+  data = {
+    id: saasId,
+    whatsapp_username: profileData?.whatsapp_username || "",
+    name: profileData?.display_name || "",
+  };
+}
 
   // Busca última transação financeira para preencher saas_valor, saas_plano e saas_creditos
   try {
