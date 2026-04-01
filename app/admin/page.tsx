@@ -256,7 +256,7 @@ export default async function AdminDashboardPage() {
           .from("saas_credit_transactions")
           .select("created_at, price_amount")
           .eq("tenant_id", myTenantId)
-          .eq("type", "purchase")
+          .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
   ]);
 
