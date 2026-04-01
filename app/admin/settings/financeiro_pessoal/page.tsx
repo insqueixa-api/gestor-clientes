@@ -279,9 +279,8 @@ function FinanceiroPageContent() {
 
     if (!isMesAtual && !isMesAnterior) return;
 
-    const contaMP = contas.find(c => c.nome.toLowerCase().includes("mercado pago"))?.id;
     const catIPTV = categorias.find(c => c.nome.toLowerCase().includes("iptv"))?.id;
-    const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
+const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
 
     
 
@@ -331,7 +330,9 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           .lte("data_vencimento", dataVenc);
 
         if (existentes && existentes.length > 0) {
-          await supabaseBrowser.from("fin_transacoes").update({ valor, data_vencimento: dataVenc, status: "PAGO", conta_id: contaMP || null }).eq("id", existentes[0].id);
+          await supabaseBrowser.from("fin_transacoes")
+  .update({ valor, data_vencimento: dataVenc, status: "PAGO", conta_id: null })
+  .eq("id", existentes[0].id);
           
           if (existentes.length > 1) {
             const idsParaDeletar = existentes.slice(1).map(e => e.id);
@@ -340,7 +341,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
         } else {
           await supabaseBrowser.from("fin_transacoes").insert({
   tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO",
-  conta_id: contaMP || null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
+  conta_id: null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
 });
         }
       };
