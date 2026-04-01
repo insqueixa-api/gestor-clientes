@@ -456,36 +456,23 @@ async function loadMessageTemplates(tid: string) {
     setLoading(true);
     const tid = await getCurrentTenantId();
     setTenantId(tid);
+    
     if (tid) {
       await loadMessageTemplates(tid);
       await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão para o Select
     }
 
-    const serversRes = await supabaseBrowser
-      .from("servers")
-      .select("id,name")
-      .eq("tenant_id", tid)
-      .order("name", { ascending: true });
-
-    if (!serversRes.error) {
-      const opts = (serversRes.data || []).map((s: any) => ({
-        id: String(s.id),
-        name: String(s.name ?? "Servidor"),
-      }));
-      setServersOptions(opts);
-    } else {
-      setServersOptions([]);
-    }
-
     if (!tid) {
       setRows([]);
+      setServersOptions([]);
       setLoading(false);
       return;
     }
 
     const viewName = archivedFilter === "Sim" ? "vw_resellers_list_archived" : "vw_resellers_list_active";
 
-    const [resellersRes, salesRes] = await Promise.all([
+    // 🚀 Buscamos ABSOLUTAMENTE TUDO de uma vez só! Sem duplicação.
+    const [resellersRes, salesRes, serversDataRes, linksRes] = await Promise.all([
       supabaseBrowser
         .from(viewName)
         .select("*")
@@ -493,9 +480,30 @@ async function loadMessageTemplates(tid: string) {
         .order("display_name", { ascending: true }),
       supabaseBrowser
         .from("server_credit_sales")
-        .select("*")
+        .select("reseller_server_id, server_id, credits_sold")
+        .not("reseller_server_id", "is", null) // ✅ Apenas vendas para revendedores
+        .eq("tenant_id", tid),
+      supabaseBrowser
+        .from("servers")
+        .select("id, name, avg_credit_cost_brl") // ✅ Tudo do servidor de uma vez só
+        .eq("tenant_id", tid)
+        .order("name", { ascending: true }),
+      supabaseBrowser
+        .from("reseller_servers")
+        .select("id, reseller_id, server_id")
         .eq("tenant_id", tid),
     ]);
+
+    // 1. Configurar as opções do select de filtro no topo da tela
+    if (!serversDataRes.error && serversDataRes.data) {
+      const opts = (serversDataRes.data as any[]).map((s) => ({
+        id: String(s.id),
+        name: String(s.name ?? "Servidor"),
+      }));
+      setServersOptions(opts);
+    } else {
+      setServersOptions([]);
+    }
 
     const { data, error } = resellersRes;
 
@@ -507,50 +515,65 @@ async function loadMessageTemplates(tid: string) {
       return;
     }
 
-    const financeMap = new Map<string, VwResellerFinanceAgg>();
+    // 2. Mapa de custo do servidor e nomes
+    const serverCostMap = new Map<string, number>();
+    const serverNameMap = new Map<string, string>();
+    if (serversDataRes.data) {
+      for (const s of serversDataRes.data as any[]) {
+        serverCostMap.set(String(s.id), Number(s.avg_credit_cost_brl || 0));
+        serverNameMap.set(String(s.id), String(s.name || ""));
+      }
+    }
 
-    if (salesRes.error) {
-      console.warn("Falha ao carregar server_credit_sales:", salesRes.error.message);
-    } else {
-      const sales = (salesRes.data || []) as any[];
-      for (const s of sales) {
-        const resellerId = String(s.reseller_id ?? s.p_reseller_id ?? s.reseller ?? "");
+    // 3. Mapa do Vínculo (reseller_server_id -> reseller_id)
+    const rsToResellerMap = new Map<string, string>();
+    if (linksRes.data) {
+      for (const link of linksRes.data as any[]) {
+        rsToResellerMap.set(String(link.id), String(link.reseller_id));
+      }
+    }
+
+    // 4. Calcular Custos agrupados por Revenda
+    const financeMap = new Map<string, number>();
+
+    if (!salesRes.error && salesRes.data) {
+      for (const s of salesRes.data as any[]) {
+        const rsId = String(s.reseller_server_id);
+        const resellerId = rsToResellerMap.get(rsId);
+        
         if (!resellerId) continue;
 
-        const revenue = num(s.revenue_brl_total) || num(s.revenue_brl) || num(s.amount_brl) || num(s.total_brl) || 0;
-        const cost = num(s.cost_brl_total) || num(s.cost_brl) || num(s.cost_total_brl) || num(s.total_cost_brl) || 0;
+        const creditsSold = Number(s.credits_sold || 0);
+        const unitCost = serverCostMap.get(String(s.server_id)) || 0;
+        
+        // Mágica: Quantidade Vendida * Custo Unitário do Servidor
+        const cost = creditsSold * unitCost;
 
-        const cur = financeMap.get(resellerId) || { reseller_id: resellerId, revenue: 0, cost: 0 };
-        cur.revenue += revenue;
-        cur.cost += cost;
-        financeMap.set(resellerId, cur);
+        const currentCost = financeMap.get(resellerId) || 0;
+        financeMap.set(resellerId, currentCost + cost);
       }
     }
 
     const typed = (data || []) as VwResellerRow[];
 
-    const { data: links, error: linksError } = await supabaseBrowser
-      .from("reseller_servers")
-      .select(`reseller_id, servers ( name )`)
-      .eq("tenant_id", tid);
-
-    if (!linksError && links) {
-      const map: Record<string, string[]> = {};
-      links.forEach((row: any) => {
+    // 5. Mapear os servidores vinculados para exibição nas pílulas
+    const mapServers: Record<string, string[]> = {};
+    if (!linksRes.error && linksRes.data) {
+      (linksRes.data as any[]).forEach((row) => {
         const rid = String(row.reseller_id);
-        const name = row.servers?.name;
+        const name = serverNameMap.get(String(row.server_id));
         if (!name) return;
-        if (!map[rid]) map[rid] = [];
-        map[rid].push(name);
-        map[rid] = Array.from(new Set(map[rid])).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+        if (!mapServers[rid]) mapServers[rid] = [];
+        mapServers[rid].push(name);
+        mapServers[rid] = Array.from(new Set(mapServers[rid])).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
       });
-      setServersByReseller(map);
+      setServersByReseller(mapServers);
     }
 
+    // 6. Finalmente, mapear para a Tabela do React
     const mapped: ResellerRow[] = typed.map((r) => {
       const revenue = Number(r.revenue_brl_total || 0);
-      const fin = financeMap.get(String(r.id));
-      const cost = fin ? fin.cost : 0;
+      const cost = financeMap.get(String(r.id)) || 0; // ✅ Puxa direto o custo calculado
       const profit = revenue - cost;
       const archived = Boolean(r.is_archived);
 
