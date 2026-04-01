@@ -778,24 +778,60 @@ export default function SaasProfileRenewModal({
               ) : (
                 <>
                   {error && <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm">{error}</div>}
-                  <div className="grid grid-cols-2 gap-2">
-                    {creditTiers.map(t => (
-                      <button key={t.period} type="button"
-                        onClick={() => setSelectedCreditTier(t.period)}
-                        className={`flex flex-col items-center py-3 rounded-xl border text-xs font-bold transition-all ${
-                          selectedCreditTier === t.period
-                            ? "bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-500/20"
-                            : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-violet-500/50"
-                        }`}
-                      >
-                        <span className="text-base font-black">{t.credits}</span>
-                        <span className="text-[10px] mt-0.5 opacity-80">créditos</span>
-                        <span className="font-bold mt-1">
-                          {t.price !== null ? fmtMoney(t.price, parentCurrency) : "—"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  {(() => {
+  // base = pacote mais barato por crédito (geralmente o menor)
+  const baseTier = creditTiers.reduce((best, t) => {
+    if (t.price === null || t.credits === 0) return best;
+    if (!best || t.price / t.credits > best.price / best.credits) return t;
+    return best;
+  }, null as typeof creditTiers[0] | null);
+  const basePricePerCredit = baseTier ? baseTier.price! / baseTier.credits : null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {creditTiers.map(t => {
+        const isSelected = selectedCreditTier === t.period;
+        const pricePerCredit = (t.price !== null && t.credits > 0) ? t.price / t.credits : null;
+        const discount = (basePricePerCredit && pricePerCredit && t.period !== baseTier?.period)
+          ? ((basePricePerCredit - pricePerCredit) / basePricePerCredit) * 100
+          : null;
+
+        return (
+          <button key={t.period} type="button"
+            onClick={() => setSelectedCreditTier(t.period)}
+            className={`relative flex flex-col items-center py-3 rounded-xl border text-xs font-bold transition-all ${
+              isSelected
+                ? "bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-500/20"
+                : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-violet-500/50"
+            }`}
+          >
+            {/* Badge desconto */}
+            {discount !== null && discount > 0 && (
+              <span className={`absolute top-1.5 right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                isSelected
+                  ? "bg-white/20 text-white"
+                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+              }`}>
+                {discount.toFixed(0)}% OFF
+              </span>
+            )}
+
+            <span className="text-base font-black">{t.credits}</span>
+            <span className="text-[10px] mt-0.5 opacity-80">créditos</span>
+            <span className="font-bold mt-1">
+              {t.price !== null ? fmtMoney(t.price, parentCurrency) : "—"}
+            </span>
+            {pricePerCredit !== null && (
+              <span className={`text-[9px] mt-0.5 ${isSelected ? "text-white/60" : "text-slate-400 dark:text-white/30"}`}>
+                {fmtMoney(pricePerCredit, parentCurrency)}/cr
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+})()}
                   {creditTiers.length === 0 && (
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
                       Nenhum pacote disponível. Contate seu gestor.
