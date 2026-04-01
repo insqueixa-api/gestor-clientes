@@ -205,8 +205,8 @@ export default function SaasRenewModal({
   // Nota
   const [notes, setNotes] = useState("");
 
-  // ✅ Financeiro
-  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? true);
+  // ✅ Controle Financeiro
+  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? false);
 
   // ── Tier selecionado ──
   const selectedTier = useMemo(

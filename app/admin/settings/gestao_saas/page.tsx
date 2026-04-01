@@ -1591,8 +1591,8 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
   
-  // ✅ NOVO ESTADO: Financeiro
-  const [financialControl, setFinancialControl] = useState<boolean>(tenant?.financial_control_enabled ?? true);
+  // ✅ MUDOU: Agora o padrão para novos cadastros é false (desabilitado)
+  const [financialControl, setFinancialControl] = useState<boolean>(tenant?.financial_control_enabled ?? false);
 
   // Tabelas de plano SaaS
   const [saasTables, setSaasTables] = useState<{ id: string; name: string }[]>([]);
@@ -2051,30 +2051,33 @@ if (error) throw new Error(error.message);
             </p>
           </div>
 
-          <div className="mb-4">
-            <FieldLabel>Módulos Adicionais</FieldLabel>
-            <label className="flex items-center gap-3 cursor-pointer mt-2 p-3 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-              <input
-                type="checkbox"
-                checked={financialControl}
-                onChange={(e) => setFinancialControl(e.target.checked)}
-                className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 focus:ring-emerald-500/50"
-              />
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-700 dark:text-white leading-none">Controle Financeiro</span>
-                <span className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Habilita ou desabilita o módulo financeiro para esta revenda.</span>
-              </div>
-            </label>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <FieldLabel>Módulos Adicionais</FieldLabel>
+              <label className="flex items-center gap-3 cursor-pointer mt-1 p-3 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors h-[76px]">
+                <input
+                  type="checkbox"
+                  checked={financialControl}
+                  onChange={(e) => setFinancialControl(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 focus:ring-emerald-500/50 shrink-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-700 dark:text-white leading-none">Controle Financeiro</span>
+                  <span className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Habilita ou desabilita o financeiro.</span>
+                </div>
+              </label>
+            </div>
 
-          <FieldLabel>Observações Internas</FieldLabel>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={3}
-            className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
-            placeholder="Notas internas sobre este tenant..."
-          />
+            <div>
+              <FieldLabel>Observações Internas</FieldLabel>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="w-full h-[76px] p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors mt-1"
+                placeholder="Notas internas sobre esta revenda..."
+              />
+            </div>
+          </div>
         </div>
 
         {/* FOOTER */}

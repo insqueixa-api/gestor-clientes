@@ -156,7 +156,7 @@ export default function SaasCreditsModal({
   const [notes, setNotes] = useState("");
 
   // ✅ Controle Financeiro
-  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? true);
+  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? false);
 
   // ── Preço efetivo (do plano ou customizado) ──
   const effectivePrice = useMemo(() => {
