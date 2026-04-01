@@ -453,7 +453,10 @@ let data: any = rawData;
 
   // Injeta valores do body (sobrescreve o histórico quando vierem preenchidos)
   if (extraCredits != null) data.venda_creditos = extraCredits;
-  if (extraNewExpiry != null) data.saas_nova_validade = extraNewExpiry;
+if (extraNewExpiry != null) {
+  data.saas_nova_validade = extraNewExpiry;
+  data.expires_at = extraNewExpiry; // ← buildTemplateVars lê expires_at para {saas_vencimento}
+}
   if (extraInvoiceAmount != null) data.last_invoice_amount = extraInvoiceAmount;
   if (extraPlanLabel != null) data.saas_plan_label = extraPlanLabel;
 
