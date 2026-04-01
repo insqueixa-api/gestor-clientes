@@ -767,6 +767,30 @@ const sortedTenants = useMemo(() => {
     return map;
   }, [tenants]);
 
+  // ✅ LOADING INICIAL PARA NÃO PISCAR A TELA
+  if (loading && myRole === "") {
+    return <div className="p-12 text-center text-slate-400 animate-pulse">Carregando Gestão SaaS...</div>;
+  }
+
+  // ✅ TELA DE BLOQUEIO PARA USERS COMUNS
+  if (myRole.toUpperCase() === "USER") {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
+          Acesso Restrito
+        </h1>
+        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
+          O módulo de <strong>Gestão SaaS</strong> está disponível apenas para contas com perfil Master ou Administrador.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
