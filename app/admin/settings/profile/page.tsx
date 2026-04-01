@@ -1517,7 +1517,8 @@ return (
                   {/* 1. Status */}
                   <div>
                     <Label>Status</Label>
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center opacity-90 cursor-default">
+                    {/* ✅ Agora a pílula do status fica livre, igual à pílula do Perfil */}
+                    <div className="h-10 flex items-center">
                       <StatusBadge status={licenseStatus} />
                     </div>
                   </div>
@@ -1525,7 +1526,7 @@ return (
                   {/* 2. Vencimento com Alertas */}
                   <div>
                     <Label>Vencimento</Label>
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white opacity-90 cursor-default">
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white cursor-default">
                       {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
                     </div>
                     {expiresAt && role !== "SUPERADMIN" && (() => {
@@ -1553,7 +1554,12 @@ return (
                           </div>
                         );
                       }
-                      return null; // Não exibe alerta se faltarem mais de 7 dias
+                      // ✅ Exibe sempre quantos dias faltam, em formato neutro/verde
+                      return (
+                        <div className="mt-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-1.5 rounded flex items-center gap-1.5">
+                          ✅ Vence em {dias} dia(s)
+                        </div>
+                      );
                     })()}
                   </div>
 
