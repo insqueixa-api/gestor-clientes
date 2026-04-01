@@ -435,12 +435,12 @@ export default function AdminShell({
                       } else if (dias === 0) {
                         return <>Seu painel vence <strong>HOJE</strong>, dia <strong>{dateStr}</strong>!</>;
                       } else {
-                        return <>Seu painel vence na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, você tem <strong>{dias}</strong> dias para antecipar.</>;
+                        return <>Seu painel vence na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, você tem <strong>{dias}</strong> para antecipar a renovação.</>;
                       }
                     })()}
                   </p>
                   <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
-                    Antecipe sua renovação para evitar o bloqueio automático e a interrupção dos seus serviços.
+                    Renove agora mesmo para evitar o bloqueio automático e manter seus serviços funcionando sem interrupções.
                   </p>
                 </div>
             </div>
