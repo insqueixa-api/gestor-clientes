@@ -85,8 +85,10 @@ export default function AdminShell({
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
   
-  // ✅ NOVO: Controle do Modal de Renovação Pelo Sino
+  // ✅ Controle do Modal de Renovação Pelo Sino
   const [showRenewModal, setShowRenewModal] = useState(false);
+  // ✅ Controle do Modal de Aviso (O "Hulk")
+  const [showWarningModal, setShowWarningModal] = useState(false);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -170,21 +172,26 @@ export default function AdminShell({
 
           <div className="flex-1" />
 
-          {/* ✅ SINO DE ALERTA DE VENCIMENTO */}
+          {/* ✅ SINO DE ALERTA DE VENCIMENTO (Estilo Cliente) */}
           {role !== "SUPERADMIN" && (() => {
             const dias = daysUntil(expiresAt);
             if (dias !== null && dias <= 7) {
-              const colorClass = dias <= 0 ? "text-rose-500 bg-rose-500/10 border-rose-500/20" : "text-amber-500 bg-amber-500/10 border-amber-500/20";
+              // Ajuste de cores: Vermelho se vencido/vence hoje, Laranja se falta <= 7 dias
+              const isDanger = dias <= 0;
+              const colorClass = isDanger 
+                ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/30" 
+                : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 dark:hover:bg-amber-500/30";
+                
               const text = dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Vence Hoje!" : `Vence em ${dias}d`;
               
               return (
                 <button
-                  onClick={() => setShowRenewModal(true)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border mr-2 transition-all hover:scale-105 ${colorClass}`}
-                  title="Seu painel está prestes a expirar. Clique para renovar."
+                  onClick={() => setShowWarningModal(true)} // ✅ Agora abre o Aviso primeiro
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-bold transition-colors animate-pulse mr-2 ${colorClass}`}
+                  title="Aviso de Vencimento"
                 >
-                  <span className="animate-pulse text-lg">🔔</span>
-                  <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">{text}</span>
+                  <span className="text-sm leading-none">🔔</span>
+                  <span className="hidden sm:inline tracking-tight">{text}</span>
                 </button>
               );
             }
@@ -396,6 +403,46 @@ export default function AdminShell({
         {children}
       </main>
 
+      {/* ✅ O "HULK" - MODAL DE AVISO DE VENCIMENTO */}
+      {showWarningModal && (
+        <Modal title="⚠️ Aviso de Vencimento" onClose={() => setShowWarningModal(false)}>
+          <div className="space-y-6">
+            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
+                <span className="text-2xl mt-0.5">📢</span>
+                <div>
+                  <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
+                    Seu painel <strong className="text-amber-700 dark:text-amber-400">
+                      {(daysUntil(expiresAt) ?? 0) < 0 ? "está vencido" : "está próximo do vencimento"}
+                    </strong>.
+                  </p>
+                  <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                    Antecipe sua renovação para evitar o bloqueio automático e a interrupção dos seus serviços.
+                  </p>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+              >
+                Fechar
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowWarningModal(false);
+                  setShowRenewModal(true); // ✅ Abre o modal de renovação
+                }}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
+              >
+                Renovar Agora
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* ✅ MODAL DE RENOVAÇÃO DO SINO */}
       {showRenewModal && tenantId && (
         <SaasProfileRenewModal
@@ -417,6 +464,34 @@ export default function AdminShell({
 }
 
 /* --- Componentes Auxiliares --- */
+
+// ✅ Componente Genérico Modal (Copiado da Tela de Clientes)
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
+    >
+      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+          <div className="font-bold text-slate-800 dark:text-white">{title}</div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white">
+            <IconX />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function IconX() { 
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>; 
+}
 
 function DropdownPortal({
   children,
