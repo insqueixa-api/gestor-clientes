@@ -231,7 +231,8 @@ export default async function AdminDashboardPage() {
     topAppsRes,
     saasFinanceRes,
     saasDailyRes,
-    purchasesRes // 👈 NOVO
+    purchasesRes,
+    saasCostRes // ✅ NOVO
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -249,6 +250,13 @@ export default async function AdminDashboardPage() {
     // 👇 NOVO: Puxa o histórico de compras com filtro de tenant_id!
     (myTenantId 
       ? supabase.from("server_credit_purchases").select("created_at, total_amount_brl").eq("tenant_id", myTenantId).gte("created_at", isoDateFromYMD(new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(), new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1, 1))
+      : Promise.resolve({ data: null })) as Promise<any>,
+    (showSaas && myTenantId
+      ? supabase
+          .from("saas_credit_transactions")
+          .select("created_at, price_amount")
+          .eq("tenant_id", myTenantId)
+          .eq("type", "purchase")
       : Promise.resolve({ data: null })) as Promise<any>,
   ]);
 
@@ -283,6 +291,26 @@ export default async function AdminDashboardPage() {
     }
   }
   // 👆 FIM DO CÁLCULO 👇
+
+  // ✅ NOVO — custo SaaS (créditos comprados do pai)
+  const saasCostRows = (saasCostRes?.data ?? []) as { created_at: string; price_amount: number }[];
+  let saasCostTodayVal = 0;
+  let saasCostMonthVal = 0;
+  let saasCostPrevMonthVal = 0;
+
+  for (const row of saasCostRows) {
+    const d = new Date(row.created_at);
+    const amt = toNumber(row.price_amount);
+    const isToday = d.toDateString() === today.toDateString();
+    const isThisMonth = d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    const isPrevMonth =
+      d.getMonth() === (today.getMonth() - 1 + 12) % 12 &&
+      d.getFullYear() === (today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear());
+
+    if (isToday) saasCostTodayVal += amt;
+    if (isThisMonth) saasCostMonthVal += amt;
+    if (isPrevMonth) saasCostPrevMonthVal += amt;
+  }
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -631,7 +659,14 @@ return (
               leftValue={fmtBRL(toNumber(saasFinance?.renewal_today_brl))}
               rightLabel={`Créditos (${toNumber(saasFinance?.credits_today_qty)})`}
               rightValue={fmtBRL(toNumber(saasFinance?.credits_today_brl))}
-              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl))}`}
+              footer={
+  <div className="flex justify-between w-full">
+    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl))}</span>
+    <span className={(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal)}
+    </span>
+  </div>
+}
             />
 
             {/* Mês Atual */}
@@ -642,7 +677,14 @@ return (
               leftValue={fmtBRL(toNumber(saasFinance?.renewal_month_brl))}
               rightLabel={`Créditos (${toNumber(saasFinance?.credits_month_qty)})`}
               rightValue={fmtBRL(toNumber(saasFinance?.credits_month_brl))}
-              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl))}`}
+              footer={
+  <div className="flex justify-between w-full">
+    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl))}</span>
+    <span className={(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal)}
+    </span>
+  </div>
+}
             />
 
             {/* Mês Anterior */}
@@ -653,7 +695,14 @@ return (
               leftValue={fmtBRL(toNumber(saasFinance?.renewal_prev_brl))}
               rightLabel={`Créditos (${toNumber(saasFinance?.credits_prev_qty)})`}
               rightValue={fmtBRL(toNumber(saasFinance?.credits_prev_brl))}
-              footer={`Total: ${fmtBRL(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl))}`}
+              footer={
+  <div className="flex justify-between w-full">
+    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl))}</span>
+    <span className={(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal)}
+    </span>
+  </div>
+}
             />
 
 
