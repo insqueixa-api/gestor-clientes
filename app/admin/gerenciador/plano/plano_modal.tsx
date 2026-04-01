@@ -110,48 +110,35 @@ useEffect(() => {
 
   // Carrega itens de uma tabela (usado na carga inicial e quando muda moeda)
   async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
-    const supabase = supabaseBrowser;
+    // ✅ USA OS DADOS DA MEMÓRIA (Que a página principal já puxou e mastigou)
+    if (!plan || !plan.items) return;
+
+    const matrix = plan.items.map(item => {
+      const p1 = item.prices.find(p => p.screens_count === 1);
+      const p2 = item.prices.find(p => p.screens_count === 2);
+      const p3 = item.prices.find(p => p.screens_count === 3);
+
+      return {
+        itemId: item.id,
+        period: item.period,
+        credits: item.credits_base || 0,
+        price1: p1?.price_amount?.toString() ?? "",
+        price2: p2?.price_amount?.toString() ?? "",
+        price3: p3?.price_amount?.toString() ?? "",
+      };
+    });
     
-    const { data: dbItems } = await supabase
-      .from("plan_table_items")
-      .select("id, period, credits_base")
-      .eq("plan_table_id", planId);
-
-    if (dbItems) {
-      const itemIds = dbItems.map(i => i.id);
-      const { data: dbPrices } = await supabase
-        .from("plan_table_item_prices")
-        .select("plan_table_item_id, screens_count, price_amount")
-        .in("plan_table_item_id", itemIds);
-
-      const priceMap = dbPrices || [];
-      const matrix = dbItems.map(item => {
-        const p1 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 1);
-        const p2 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 2);
-        const p3 = priceMap.find(p => p.plan_table_item_id === item.id && p.screens_count === 3);
-
-        return {
-          itemId: item.id,
-          period: item.period,
-          credits: item.credits_base || 0,
-          price1: p1?.price_amount?.toString() ?? "",
-          price2: p2?.price_amount?.toString() ?? "",
-          price3: p3?.price_amount?.toString() ?? "",
-        };
-      });
-      
-      // saas_credits usa tiers próprios, não PERIOD_ORDER
-      const isCreditTable = matrix.some(m => m.period.startsWith("C_"));
-      
-      let ordered: EditableItem[];
-      if (isCreditTable) {
-        const tierOrder = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
-        ordered = tierOrder.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-      } else {
-        ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-      }
-      setItems(ordered);
+    // saas_credits usa tiers próprios, não PERIOD_ORDER
+    const isCreditTable = matrix.some(m => m.period.startsWith("C_"));
+    
+    let ordered: EditableItem[];
+    if (isCreditTable) {
+      const tierOrder = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
+      ordered = tierOrder.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
+    } else {
+      ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
     }
+    setItems(ordered);
   }
 
   // Clona da tabela padrão (usado na criação e quando muda moeda na edição)

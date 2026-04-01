@@ -94,8 +94,7 @@
   const { data: own } = await supabase
     .from("plan_tables")
     .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("is_system_default", false);
+    .eq("tenant_id", tenantId); // ✅ REMOVIDO o filtro is_system_default para ele encontrar os clones corretamente
 
   if (own && own.length > 0) return; // já tem, não clona
 
