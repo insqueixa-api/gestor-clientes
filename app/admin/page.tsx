@@ -299,18 +299,29 @@ export default async function AdminDashboardPage() {
   let saasCostPrevMonthVal = 0;
 
   for (const row of saasCostRows) {
-    const d = new Date(row.created_at);
-    const amt = toNumber(row.price_amount);
-    const isToday = d.toDateString() === today.toDateString();
-    const isThisMonth = d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-    const isPrevMonth =
-      d.getMonth() === (today.getMonth() - 1 + 12) % 12 &&
-      d.getFullYear() === (today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear());
+  const amt = toNumber(row.price_amount);
 
-    if (isToday) saasCostTodayVal += amt;
-    if (isThisMonth) saasCostMonthVal += amt;
-    if (isPrevMonth) saasCostPrevMonthVal += amt;
-  }
+  // Normaliza para SP (mesmo padrão do resto do dashboard)
+  const spDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ_SP, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(row.created_at));
+  const [sy, sm, sd] = spDate.split("-").map(Number);
+
+  const todayY = today.getFullYear();
+  const todayM = today.getMonth() + 1; // getMonth() é 0-indexed
+  const todayD = today.getDate();
+
+  const prevM = todayM === 1 ? 12 : todayM - 1;
+  const prevY = todayM === 1 ? todayY - 1 : todayY;
+
+  const isToday     = sy === todayY && sm === todayM && sd === todayD;
+  const isThisMonth = sy === todayY && sm === todayM;
+  const isPrevMonth = sy === prevY  && sm === prevM;
+
+  if (isToday)     saasCostTodayVal     += amt;
+  if (isThisMonth) saasCostMonthVal     += amt;
+  if (isPrevMonth) saasCostPrevMonthVal += amt;
+}
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
