@@ -2035,48 +2035,54 @@ if (error) throw new Error(error.message);
           {/* Envio e Notas */}
           <SectionTitle>Envio e Observações</SectionTitle>
           
-          <div>
-            <FieldLabel>Sessão de Disparo (WhatsApp)</FieldLabel>
-            <select
-              value={selectedSession}
-              onChange={e => setSelectedSession(e.target.value)}
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors mb-1"
-            >
-              {sessionOptions.map(s => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
-            </select>
-            <p className="text-[10px] text-slate-400 mb-4">
-              {mode === "new" ? "Sessão que será usada caso uma mensagem de boas-vindas seja disparada." : "Sessão que será usada nos disparos automáticos para este revendedor."}
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. Sessão WhatsApp */}
+            <div>
+              <FieldLabel>Sessão de Disparo (WhatsApp)</FieldLabel>
+              <select
+                value={selectedSession}
+                onChange={e => setSelectedSession(e.target.value)}
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors mb-1"
+              >
+                {sessionOptions.map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">
+                {mode === "new" ? "Sessão para mensagens automáticas." : "Sessão para disparos automáticos."}
+              </p>
+            </div>
+
+            {/* 2. Módulo Financeiro */}
             <div>
               <FieldLabel>Módulos Adicionais</FieldLabel>
-              <label className="flex items-center gap-3 cursor-pointer mt-1 p-3 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors h-[76px]">
+              <label className="flex items-center gap-3 cursor-pointer h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors mb-1">
                 <input
                   type="checkbox"
                   checked={financialControl}
                   onChange={(e) => setFinancialControl(e.target.checked)}
                   className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 focus:ring-emerald-500/50 shrink-0"
                 />
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-700 dark:text-white leading-none">Controle Financeiro</span>
-                  <span className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Habilita ou desabilita o financeiro.</span>
-                </div>
+                <span className="text-sm font-bold text-slate-700 dark:text-white leading-none">
+                  Controle Financeiro
+                </span>
               </label>
+              <p className="text-[10px] text-slate-400">
+                Habilita ou desabilita o painel financeiro.
+              </p>
             </div>
+          </div>
 
-            <div>
-              <FieldLabel>Observações Internas</FieldLabel>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                className="w-full h-[76px] p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors mt-1"
-                placeholder="Notas internas sobre esta revenda..."
-              />
-            </div>
+          <div className="mt-2">
+            <FieldLabel>Observações Internas (Opcional)</FieldLabel>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              className="w-full p-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 resize-none transition-colors"
+              placeholder="Notas internas sobre este revendedor..."
+            />
+          
           </div>
         </div>
 
