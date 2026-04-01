@@ -70,9 +70,9 @@ export default async function AdminLayout({
   // ✅ NOVO: Busca o nome salvo no Perfil (tabela profiles)
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle<{ display_name: string | null }>();
+    .select("display_name, role")
+.eq("id", user.id)
+.maybeSingle<{ display_name: string | null; role: string | null }>();
 
   // ✅ LÓGICA DE PRIORIDADE CORRIGIDA:
   // 1. Nome salvo no perfil
@@ -84,7 +84,12 @@ export default async function AdminLayout({
   const userLabel = profile?.display_name || tenantName || authLabel;
 
   // ✅ NOVO: Pega a role que o banco já buscou lá em cima, padroniza e envia pro AdminShell
-const userRole = member.role === "owner" ? "MASTER" : "USER";
+const userRole =
+  profile?.role === "superadmin" && member.role === "owner"
+    ? "SUPERADMIN"
+    : member.role === "owner"
+    ? "MASTER"
+    : "USER";
 
   return (
     <ThemeProvider defaultTheme="light">

@@ -325,7 +325,7 @@ export default function AdminShell({
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
-            {/* ✅ APARECE APENAS PARA O SUPERADMIN OU MASTER */}
+            {/* ✅ APARECE APENAS PARA O SUPERADMIN*/}
             {String(role).toUpperCase().trim() === "SUPERADMIN" && (
               <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
             )}
