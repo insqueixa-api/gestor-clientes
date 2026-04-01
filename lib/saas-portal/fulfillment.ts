@@ -90,9 +90,18 @@ export async function runSaasFulfillment(params: SaasPaymentFulfillmentParams) {
     newExpiresAt = data ? String(data) : null;
 
     prodLog("saas_fulfillment.renewal_done", {
-      buyer: buyerTenantId.slice(-6),
-      new_expires_at: newExpiresAt,
-    });
+  buyer: buyerTenantId.slice(-6),
+  new_expires_at: newExpiresAt,
+});
+// ✅ NOVO
+await sendSaasWhatsApp({
+  sellerTenantId,
+  buyerTenantId,
+  paymentType: "renewal",
+  newExpiresAt,
+  priceAmount: Number(payment.price_amount),
+  period: String(payment.period || "MONTHLY"),
+});
 
   } else if (payment.payment_type === "credits") {
     /* 1. BUSCA ROBUSTA: O erro inicial de travar a compra é porque o 'credits_amount' 
@@ -128,13 +137,119 @@ export async function runSaasFulfillment(params: SaasPaymentFulfillmentParams) {
     }
 
     prodLog("saas_fulfillment.credits_done", {
-      buyer: buyerTenantId.slice(-6),
-      seller: sellerTenantId.slice(-6),
-      credits,
-    });
+  buyer: buyerTenantId.slice(-6),
+  seller: sellerTenantId.slice(-6),
+  credits,
+});
+
+// ✅ NOVO
+await sendSaasWhatsApp({
+  sellerTenantId,
+  buyerTenantId,
+  paymentType: "credits",
+  credits,
+  priceAmount: Number(payment.price_amount),
+});
   } else {
     throw new Error(`payment_type inválido: ${payment.payment_type}`);
   }
 
   return { newExpiresAt };
+}
+
+// ── ADICIONA após a função prodLog ──────────────────────────
+
+async function sendSaasWhatsApp({
+  sellerTenantId,
+  buyerTenantId,
+  paymentType,
+  newExpiresAt,
+  credits,
+  priceAmount,
+  period,
+}: {
+  sellerTenantId: string;
+  buyerTenantId: string;
+  paymentType: "renewal" | "credits";
+  newExpiresAt?: string | null;
+  credits?: number;
+  priceAmount?: number;
+  period?: string;
+}) {
+  try {
+    const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+    const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+    if (!appUrl || !internalSecret) return;
+
+    // Busca o template do pai para SaaS
+    const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+    const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(supabaseUrl, serviceKey);
+
+    // Busca template de renovação ou créditos do pai
+    const keyword = paymentType === "renewal" ? "saas pagamento realizado" : "saas recarga";
+    const keyword2 = paymentType === "renewal" ? "saas renov" : "recarga saas";
+
+    const { data: templates } = await sb
+      .from("message_templates")
+      .select("id, content, image_url")
+      .eq("tenant_id", sellerTenantId)
+      .order("name", { ascending: true });
+
+    const tpl = (templates || []).find((t: any) =>
+      t.content && (
+        String(t.content).toLowerCase().includes(keyword) ||
+        String(t.content).toLowerCase().includes(keyword2)
+      )
+    ) ?? (templates || []).find((t: any) =>
+      String(t.name || "").toLowerCase().includes(keyword) ||
+      String(t.name || "").toLowerCase().includes(keyword2)
+    );
+
+    if (!tpl?.content) {
+      prodLog("saas_whatsapp.no_template", { seller: sellerTenantId.slice(-6), paymentType });
+      return;
+    }
+
+    const periodLabel: Record<string, string> = {
+      MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
+      SEMIANNUAL: "Semestral", ANNUAL: "Anual",
+    };
+
+    const body: Record<string, any> = {
+      tenant_id: sellerTenantId,
+      saas_id: buyerTenantId,
+      message: tpl.content,
+      message_template_id: tpl.id,
+      image_url: tpl.image_url || null,
+      last_invoice_amount: priceAmount,
+    };
+
+    if (paymentType === "renewal") {
+      body.new_expires_at = newExpiresAt;
+      body.saas_plan_label = period ? (periodLabel[period] ?? period) : "";
+    } else {
+      body.credits_recharged = credits;
+      body.saas_plan_label = "Créditos Avulsos";
+    }
+
+    const res = await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": internalSecret,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      prodLog("saas_whatsapp.failed", { status: res.status, body: txt.slice(0, 200) });
+    } else {
+      prodLog("saas_whatsapp.sent", { buyer: buyerTenantId.slice(-6), paymentType });
+    }
+  } catch (e: any) {
+    prodLog("saas_whatsapp.error", { msg: e?.message });
+  }
 }
