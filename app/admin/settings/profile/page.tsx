@@ -1514,50 +1514,51 @@ return (
                 </div>
                 {/* Alterado para Grid para alinhar com os inputs acima */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* 1. Status */}
+                  {/* 1. Status (Com Alerta Substituindo) */}
                   <div>
                     <Label>Status</Label>
-                    {/* ✅ Agora a pílula do status fica livre, igual à pílula do Perfil */}
-                    <div className="h-10 flex items-center">
-                      <StatusBadge status={licenseStatus} />
+                    <div className="h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 opacity-90 cursor-default">
+                      {(() => {
+                        if (role === "SUPERADMIN" || !expiresAt) {
+                          return <StatusBadge status={licenseStatus} />;
+                        }
+
+                        const dias = daysUntil(expiresAt);
+                        if (dias === null) return <StatusBadge status={licenseStatus} />;
+
+                        if (dias < 0) {
+                          return <span className="text-rose-600 dark:text-rose-400 animate-pulse">⚠️ Vencido há {Math.abs(dias)}d</span>;
+                        }
+                        if (dias === 0) {
+                          return <span className="text-rose-600 dark:text-rose-400 animate-pulse">⚠️ Vence Hoje!</span>;
+                        }
+                        if (dias <= 7) {
+                          return <span className="text-amber-600 dark:text-amber-400">⚠️ Vence em {dias} dia(s)</span>;
+                        }
+
+                        // Se estiver tudo ok (> 7 dias), volta a mostrar o StatusBadge normal
+                        return <StatusBadge status={licenseStatus} />;
+                      })()}
                     </div>
                   </div>
 
-                  {/* 2. Vencimento com Alertas */}
+                  {/* 2. Vencimento com Cor Dinâmica */}
                   <div>
                     <Label>Vencimento</Label>
-                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white cursor-default">
-                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
-                    </div>
-                    {expiresAt && role !== "SUPERADMIN" && (() => {
-                      const dias = daysUntil(expiresAt);
-                      if (dias === null) return null;
-                      
-                      if (dias < 0) {
-                        return (
-                          <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2 py-1.5 rounded flex items-center gap-1.5 animate-pulse">
-                            ⚠️ Vencido há {Math.abs(dias)} dia(s)
-                          </div>
-                        );
+                    {(() => {
+                      let textColor = "text-emerald-600 dark:text-emerald-400"; // Verde Padrão
+
+                      if (expiresAt && role !== "SUPERADMIN") {
+                        const dias = daysUntil(expiresAt);
+                        if (dias !== null) {
+                          if (dias <= 0) textColor = "text-rose-600 dark:text-rose-400"; // Vermelho se vencido ou vence hoje
+                          else if (dias <= 7) textColor = "text-amber-600 dark:text-amber-400"; // Laranja se falta 7 dias ou menos
+                        }
                       }
-                      if (dias === 0) {
-                        return (
-                          <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2 py-1.5 rounded flex items-center gap-1.5 animate-pulse">
-                            ⚠️ Vence Hoje!
-                          </div>
-                        );
-                      }
-                      if (dias <= 7) {
-                        return (
-                          <div className="mt-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-1.5 rounded flex items-center gap-1.5">
-                            ⚠️ Vence em {dias} dia(s)
-                          </div>
-                        );
-                      }
-                      // ✅ Exibe sempre quantos dias faltam, em formato neutro/verde
+
                       return (
-                        <div className="mt-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-1.5 rounded flex items-center gap-1.5">
-                          ✅ Vence em {dias} dia(s)
+                        <div className={`h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold opacity-90 cursor-default transition-colors ${textColor}`}>
+                          {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
                         </div>
                       );
                     })()}
