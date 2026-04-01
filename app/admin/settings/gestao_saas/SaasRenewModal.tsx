@@ -30,6 +30,7 @@ interface Props {
   saasPlanTableId: string | null;
   currentExpiry: string | null;
   whatsappSessions: number;
+  financialControlEnabled?: boolean; // ✅ NOVO
   isSuperadmin: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -136,6 +137,7 @@ export default function SaasRenewModal({
   saasPlanTableId,
   currentExpiry,
   whatsappSessions,
+  financialControlEnabled, // ✅ NOVO
   isSuperadmin,
   onClose,
   onSuccess,
@@ -202,6 +204,9 @@ export default function SaasRenewModal({
 
   // Nota
   const [notes, setNotes] = useState("");
+
+  // ✅ Financeiro
+  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? true);
 
   // ── Tier selecionado ──
   const selectedTier = useMemo(
@@ -325,6 +330,7 @@ export default function SaasRenewModal({
         p_description: notes.trim() || `Renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
         p_price_amount: effectivePrice ?? null,
         p_price_currency: currency,
+        p_financial_control_enabled: financialControl, // ✅ NOVO PARÂMETRO
       });
       if (error) throw new Error(error.message);
 
@@ -497,6 +503,18 @@ export default function SaasRenewModal({
                   </div>
                 </div>
               )}
+
+              {/* ✅ CONTROLE FINANCEIRO */}
+              <div 
+                className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex items-center gap-3 cursor-pointer mb-4" 
+                onClick={() => setFinancialControl(v => !v)}
+              >
+                <Switch checked={financialControl} onChange={setFinancialControl} />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Módulo Financeiro</span>
+                  <span className="text-[10px] text-slate-400 dark:text-white/40">Habilitar ou desabilitar o controle financeiro para esta revenda</span>
+                </div>
+              </div>
 
               {/* WHATSAPP */}
               <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 space-y-3">

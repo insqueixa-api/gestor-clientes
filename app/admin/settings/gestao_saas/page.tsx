@@ -124,6 +124,7 @@ last_sign_in_at: string | null;
   credits_plan_table_id: string | null;
   auto_whatsapp_session?: string | null;
   alertsCount?: number;
+  financial_control_enabled?: boolean; // ✅ NOVO CAMPO
 };
 
 type ScheduledMsg = {
@@ -994,6 +995,7 @@ const sortedTenants = useMemo(() => {
                     <th className="px-4 py-3">Validade</th>
                     <th className="px-4 py-3">Créditos</th>
                     <th className="px-4 py-3">Sessões WA</th>
+                    <th className="px-4 py-3 text-center">Financeiro</th> {/* ✅ NOVA COLUNA */}
                     <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -1055,6 +1057,7 @@ const sortedTenants = useMemo(() => {
           saasPlanTableId={renewTarget.saas_plan_table_id ?? null}
           currentExpiry={renewTarget.expires_at}
           whatsappSessions={renewTarget.whatsapp_sessions}
+          financialControlEnabled={renewTarget.financial_control_enabled} // ✅ NOVO
           isSuperadmin={myRole.toUpperCase() === "SUPERADMIN"}
           onClose={() => setRenewTarget(null)}
           onSuccess={() => { setRenewTarget(null); loadData(); addToast("success", "Licença renovada!"); }}
@@ -1069,6 +1072,7 @@ const sortedTenants = useMemo(() => {
           creditsPlanTableId={creditsTarget.credits_plan_table_id ?? null}
           currentBalance={creditsTarget.credit_balance}
           isTrial={creditsTarget.is_trial}
+          financialControlEnabled={creditsTarget.financial_control_enabled} // ✅ NOVO
           onClose={() => setCreditsTarget(null)}
           onSuccess={() => { setCreditsTarget(null); loadData(); addToast("success", "Créditos enviados!"); }}
           onError={m => addToast("error", "Erro", m)}
@@ -1492,6 +1496,16 @@ function TenantRow({
           </div>
         )}
       </td>
+
+      {/* ✅ NOVA CÉLULA — Controle Financeiro */}
+      <td className="px-4 py-3 text-center">
+        {t.financial_control_enabled ?? true ? (
+           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">Ativo</span>
+        ) : (
+           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10">Inativo</span>
+        )}
+      </td>
+
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity relative">
           
@@ -1576,6 +1590,9 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
   // Contato
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
+  
+  // ✅ NOVO ESTADO: Financeiro
+  const [financialControl, setFinancialControl] = useState<boolean>(tenant?.financial_control_enabled ?? true);
 
   // Tabelas de plano SaaS
   const [saasTables, setSaasTables] = useState<{ id: string; name: string }[]>([]);
@@ -1698,7 +1715,8 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
               notes: notes.trim() || null,
               saas_plan_table_id: saasPlanTableId || null,
               credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
-              whatsapp_session: selectedSession, // ✅ NOVO: Envia a sessão para o backend
+              whatsapp_session: selectedSession, 
+              financial_control_enabled: financialControl, // ✅ NOVO
             }),
           });
         const data = await res.json();
@@ -1711,6 +1729,7 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
+          p_financial_control_enabled: financialControl, // ✅ NOVO (vamos precisar adicionar esse parâmetro na RPC depois)
         });
 if (error) throw new Error(error.message);
 
@@ -2030,6 +2049,22 @@ if (error) throw new Error(error.message);
             <p className="text-[10px] text-slate-400 mb-4">
               {mode === "new" ? "Sessão que será usada caso uma mensagem de boas-vindas seja disparada." : "Sessão que será usada nos disparos automáticos para este revendedor."}
             </p>
+          </div>
+
+          <div className="mb-4">
+            <FieldLabel>Módulos Adicionais</FieldLabel>
+            <label className="flex items-center gap-3 cursor-pointer mt-2 p-3 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+              <input
+                type="checkbox"
+                checked={financialControl}
+                onChange={(e) => setFinancialControl(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-black/20 focus:ring-emerald-500/50"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-slate-700 dark:text-white leading-none">Controle Financeiro</span>
+                <span className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Habilita ou desabilita o módulo financeiro para esta revenda.</span>
+              </div>
+            </label>
           </div>
 
           <FieldLabel>Observações Internas</FieldLabel>

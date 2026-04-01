@@ -10,6 +10,7 @@ type SaasTenant = {
   expires_at: string | null; license_active: boolean; is_trial: boolean;
   credit_balance: number; license_status: string;
   whatsapp_sessions: number;          // ✅ NOVO
+  financial_control_enabled?: boolean; // ✅ NOVO - Controle Financeiro
   responsible_name: string | null; contact_email: string | null;
   phone_e164: string | null; whatsapp_username: string | null;
   parent_tenant_id: string | null;
@@ -159,7 +160,7 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
 
       {/* INFO DO MASTER */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="grid grid-cols-2 sm:grid-cols-7 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-8 gap-4 text-sm">
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
             <StatusBadge status={master.license_status} />
@@ -185,6 +186,21 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
               <span className="text-xs font-bold text-slate-600 dark:text-white/70">
                 {master.whatsapp_sessions ?? 1}/2
               </span>
+            </div>
+          </div>
+          {/* ✅ Controle Financeiro */}
+          <div>
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Financeiro</div>
+            <div className="flex items-center">
+              {master.financial_control_enabled ?? true ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                  Ativo
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10">
+                  Inativo
+                </span>
+              )}
             </div>
           </div>
           {/* ✅ Rede (só contagem) */}

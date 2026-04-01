@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     saas_plan_table_id,
     credits_plan_table_id,
     whatsapp_session,
+    financial_control_enabled, // ✅ NOVO
   } = body;
 
   if (!name || !email || !password || !role) {
@@ -111,14 +112,20 @@ export async function POST(req: Request) {
     );
   }
 
-  // Salva tabelas de plano SaaS no tenant recém-criado
-  if (newTenantId && (saas_plan_table_id || credits_plan_table_id || whatsapp_session)) {
-    const planPatch: Record<string, string | null> = {};
+  // Salva tabelas de plano SaaS e configs adicionais no tenant recém-criado
+  if (newTenantId && (saas_plan_table_id || credits_plan_table_id || whatsapp_session || financial_control_enabled !== undefined)) {
+    const planPatch: Record<string, any> = {}; // ✅ Mudado para 'any' para aceitar boolean
     if (saas_plan_table_id) planPatch.saas_plan_table_id = saas_plan_table_id;
     if (role === "MASTER" && credits_plan_table_id) {
       planPatch.credits_plan_table_id = credits_plan_table_id;
     }
     if (whatsapp_session) planPatch.auto_whatsapp_session = whatsapp_session;
+    
+    // ✅ Adiciona a nova flag de controle financeiro
+    if (financial_control_enabled !== undefined) {
+      planPatch.financial_control_enabled = financial_control_enabled;
+    }
+
     const { error: planErr } = await adminSupabase
       .from("tenants")
       .update(planPatch)

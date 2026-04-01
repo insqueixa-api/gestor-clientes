@@ -30,6 +30,7 @@ interface Props {
   creditsPlanTableId: string | null;
   currentBalance: number;
   isTrial: boolean;
+  financialControlEnabled?: boolean; // ✅ NOVO
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
@@ -118,6 +119,7 @@ export default function SaasCreditsModal({
   creditsPlanTableId,
   currentBalance,
   isTrial,
+  financialControlEnabled, // ✅ NOVO
   onClose,
   onSuccess,
   onError,
@@ -152,6 +154,9 @@ export default function SaasCreditsModal({
 
   // Nota interna
   const [notes, setNotes] = useState("");
+
+  // ✅ Controle Financeiro
+  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? true);
 
   // ── Preço efetivo (do plano ou customizado) ──
   const effectivePrice = useMemo(() => {
@@ -308,6 +313,7 @@ export default function SaasCreditsModal({
         p_description: notes.trim() || `Compra de ${selectedTier.credits} créditos SaaS`,
         p_price_amount: effectivePrice ?? null,
         p_price_currency: currency,
+        p_financial_control_enabled: financialControl, // ✅ NOVO PARÂMETRO
       });
       if (error) throw new Error(error.message);
 
@@ -497,6 +503,18 @@ export default function SaasCreditsModal({
                   </div>
                 </div>
               )}
+
+              {/* ✅ CONTROLE FINANCEIRO */}
+              <div 
+                className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex items-center gap-3 cursor-pointer mb-4" 
+                onClick={() => setFinancialControl(v => !v)}
+              >
+                <Switch checked={financialControl} onChange={setFinancialControl} />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Módulo Financeiro</span>
+                  <span className="text-[10px] text-slate-400 dark:text-white/40">Habilitar ou desabilitar o controle financeiro para esta revenda</span>
+                </div>
+              </div>
 
               {/* WHATSAPP */}
               <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
