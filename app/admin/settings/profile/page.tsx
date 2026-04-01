@@ -12,6 +12,16 @@ import QRCode from "qrcode";
 // HELPERS & CONSTANTES
 // ============================================================================
 
+function daysUntil(s?: string | null): number | null {
+  if (!s) return null;
+  const target = new Date(s);
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const targetDate = new Date(`${fmt.format(target)}T12:00:00Z`);
+  const nowDate = new Date(`${fmt.format(now)}T12:00:00Z`);
+  return Math.round((targetDate.getTime() - nowDate.getTime()) / 86400000);
+}
+
 type DdiOption = { code: string; label: string; flag: string };
 
 const DDI_OPTIONS: DdiOption[] = [
@@ -1512,12 +1522,39 @@ return (
                     </div>
                   </div>
 
-                  {/* 2. Validade */}
+                  {/* 2. Vencimento com Alertas */}
                   <div>
-                    <Label>Validade</Label>
+                    <Label>Vencimento</Label>
                     <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white opacity-90 cursor-default">
-                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR") : "—"}
+                      {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
                     </div>
+                    {expiresAt && role !== "SUPERADMIN" && (() => {
+                      const dias = daysUntil(expiresAt);
+                      if (dias === null) return null;
+                      
+                      if (dias < 0) {
+                        return (
+                          <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2 py-1.5 rounded flex items-center gap-1.5 animate-pulse">
+                            ⚠️ Vencido há {Math.abs(dias)} dia(s)
+                          </div>
+                        );
+                      }
+                      if (dias === 0) {
+                        return (
+                          <div className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2 py-1.5 rounded flex items-center gap-1.5 animate-pulse">
+                            ⚠️ Vence Hoje!
+                          </div>
+                        );
+                      }
+                      if (dias <= 7) {
+                        return (
+                          <div className="mt-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-1.5 rounded flex items-center gap-1.5">
+                            ⚠️ Vence em {dias} dia(s)
+                          </div>
+                        );
+                      }
+                      return null; // Não exibe alerta se faltarem mais de 7 dias
+                    })()}
                   </div>
 
                   {/* 3. Créditos: APENAS MASTER vê */}
