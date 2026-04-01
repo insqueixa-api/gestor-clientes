@@ -95,21 +95,41 @@ export async function runSaasFulfillment(params: SaasPaymentFulfillmentParams) {
     });
 
   } else if (payment.payment_type === "credits") {
-    const credits = Number(payment.credits_amount || 0);
-    if (credits <= 0) throw new Error("credits_amount inválido");
+    /* 1. BUSCA ROBUSTA: O erro inicial de travar a compra é porque o 'credits_amount' 
+      provavelmente vinha zerado/nulo dependendo do checkout.
+    */
+    const credits = Number(payment.credits_amount || payment.credits || payment.quantidade || payment.amount || 0);
+    
+    if (credits <= 0) {
+      throw new Error(`Quantidade de créditos inválida. Payload recebido: ${JSON.stringify(payment)}`);
+    }
 
+    /* 2. REGRA DO SUPERADMIN E FINANCEIRO: 
+      Você tem toda a razão na sua análise! O SuperAdmin tem crédito infinito e o 
+      registro financeiro tem que ir sempre para a conta do pai (seller).
+      
+      PORÉM, como o seu código TS aciona uma função interna do banco de dados (RPC), 
+      essa inteligência e o lançamento no financeiro do pai precisam estar escritos 
+      LÁ DENTRO da função 'saas_purchase_credits_paid' no Supabase.
+      
+      Se essa função barrar a compra do SuperAdmin, o erro vai estourar aqui.
+    */
     const { error } = await supabaseAdmin.rpc("saas_purchase_credits_paid", {
       p_buyer_tenant_id:  buyerTenantId,
-      p_seller_tenant_id: sellerTenantId,
+      p_seller_tenant_id: sellerTenantId, // O "Pai" (recebedor do dinheiro / vendedor dos créditos)
       p_credits_amount:   credits,
       p_description:      `Compra de ${credits} créditos SaaS · pagamento online`,
       p_price_amount:     Number(payment.price_amount),
-      p_price_currency:   String(payment.price_currency),
+      p_price_currency:   String(payment.price_currency || 'BRL'),
     });
-    if (error) throw new Error(error.message);
+    
+    if (error) {
+      throw new Error(`Falha no banco (saas_purchase_credits_paid): ${error.message}`);
+    }
 
     prodLog("saas_fulfillment.credits_done", {
       buyer: buyerTenantId.slice(-6),
+      seller: sellerTenantId.slice(-6),
       credits,
     });
   } else {
