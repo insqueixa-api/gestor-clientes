@@ -665,28 +665,90 @@ export default function SaasProfileRenewModal({
               ) : (
                 <>
                   {error && <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm">{error}</div>}
-                  <div className="flex flex-col gap-2">
-                    {parentTiers.map(tier => (
-                      <button key={tier.period} type="button"
-                        onClick={() => setParentSelectedPeriod(tier.period)}
-                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-bold transition-all ${
-                          parentSelectedPeriod === tier.period
-                            ? "bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-500/20"
-                            : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-sky-500/50"
-                        }`}
-                      >
-                        <span>{tier.label}</span>
-                        <span className="font-bold">
-                          {tier.price !== null ? fmtMoney(tier.price, parentCurrency) : "—"}
-                        </span>
-                      </button>
-                    ))}
+                  {(() => {
+  const monthlyTier = parentTiers.find(t => t.period === "MONTHLY");
+  const monthlyPrice = monthlyTier?.price ?? null;
+  const selectedParentTier = parentTiers.find(t => t.period === parentSelectedPeriod) ?? null;
+  const selectedDays = PERIODS.find(p => p.period === parentSelectedPeriod)?.days ?? 30;
+  const autoNewExpiry = calcNewExpiry(currentExpiry, selectedDays);
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        {parentTiers.map(tier => {
+          const days = PERIODS.find(p => p.period === tier.period)?.days ?? 30;
+          const months = days / 30;
+          const perMonth = tier.price !== null ? tier.price / months : null;
+          const discount = (monthlyPrice && perMonth !== null && tier.period !== "MONTHLY")
+            ? ((monthlyPrice - perMonth) / monthlyPrice) * 100
+            : null;
+          const isSelected = parentSelectedPeriod === tier.period;
+
+          return (
+            <button key={tier.period} type="button"
+              onClick={() => setParentSelectedPeriod(tier.period)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-bold transition-all ${
+                isSelected
+                  ? "bg-sky-500 border-sky-500 text-white shadow-lg shadow-sky-500/20"
+                  : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 hover:border-sky-500/50"
+              }`}
+            >
+              {/* Esquerda: label + badge desconto */}
+              <div className="flex items-center gap-2">
+                <span>{tier.label}</span>
+                {discount !== null && (
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                    discount > 0
+                      ? isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                      : isSelected ? "bg-white/20 text-white" : "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
+                  }`}>
+                    {discount > 0 ? `${discount.toFixed(1)}% OFF` : `+${Math.abs(discount).toFixed(1)}%`}
+                  </span>
+                )}
+              </div>
+
+              {/* Direita: preço total + preço/mês */}
+              <div className="text-right">
+                <div className="font-bold">
+                  {tier.price !== null ? fmtMoney(tier.price, parentCurrency) : "—"}
+                </div>
+                {perMonth !== null && months > 1 && (
+                  <div className={`text-[10px] font-medium ${isSelected ? "text-white/70" : "text-slate-400 dark:text-white/30"}`}>
+                    {fmtMoney(perMonth, parentCurrency)}/mês
                   </div>
-                  {parentTiers.length === 0 && (
-                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
-                      Nenhum plano disponível. Contate seu gestor.
-                    </div>
-                  )}
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Resumo novo vencimento */}
+      {selectedParentTier && (
+        <div className="bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-white/5 mt-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-1">Novo Vencimento</div>
+              <div className="text-xl font-bold text-sky-600 dark:text-sky-400">{autoNewExpiry}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-1">Total</div>
+              <div className="text-xl font-bold text-slate-700 dark:text-white">
+                {selectedParentTier.price !== null ? fmtMoney(selectedParentTier.price, parentCurrency) : "—"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {parentTiers.length === 0 && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 text-sm">
+          Nenhum plano disponível. Contate seu gestor.
+        </div>
+      )}
+    </>
+  );
+})()}
                 </>
               )}
             </div>
