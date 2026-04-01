@@ -55,7 +55,7 @@ function calcNewExpiry(currentExpiry: string | null, days: number): string {
 
 // ── Componente de pagamento reutilizável dentro do modal ──
 function PaymentUI({
-  paymentData, paymentPhase, copiedPix, setCopiedPix,
+  step, paymentData, paymentPhase, copiedPix, setCopiedPix,
   stripeStep, setStripeStep, stripeLoading, stripeReady,
   handleStripeConfirm, cardNumberEl, setCardNumberEl,
   cardExpiryEl, setCardExpiryEl, cardCvcEl, setCardCvcEl,
@@ -81,13 +81,18 @@ function PaymentUI({
   if (paymentPhase === "error") {
     return (
       <div className="py-8 flex flex-col items-center gap-4 text-center">
-        <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <div className="w-16 h-16 bg-amber-100 dark:bg-amber-500/10 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <div className="text-base font-bold text-slate-800 dark:text-white">Falha no pagamento</div>
-        <button onClick={onCancel} className="text-sm text-slate-400 hover:text-slate-600">Tentar novamente</button>
+        <div className="text-base font-bold text-slate-800 dark:text-white">Pagamento Confirmado! ✅</div>
+        <p className="text-sm text-slate-500 dark:text-white/60 px-6">
+          Identificamos seu pagamento, mas houve uma falha ao processar a {step === "auto" ? "renovação" : "entrega dos créditos"}. 
+          <br /><br />
+          <strong>Por favor, entre em contato com seu Master para conclusão manual.</strong>
+        </p>
+        <button onClick={onCancel} className="text-xs text-slate-400 hover:text-slate-600 underline">Fechar</button>
       </div>
     );
   }
@@ -295,12 +300,11 @@ export default function SaasProfileRenewModal({
     try {
       // Renova o próprio tenant — sem price_amount (custo já foi registrado na compra)
       const { error: rpcErr } = await supabaseBrowser.rpc("saas_renew_license", {
-        p_tenant_id: tenantId,
-        p_days: selectedTier.days,
-        p_description: `Auto-renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
-        p_price_amount: null,
-        p_price_currency: null,
-      });
+  p_tenant_id: tenantId,
+  p_days: selectedTier.days,
+  p_description: `Auto-renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`
+  // Preço e Moeda removidos: o Banco decidirá baseado na tabela do cliente
+});
       if (rpcErr) throw new Error(rpcErr.message);
 
       
@@ -641,6 +645,7 @@ export default function SaasProfileRenewModal({
               {/* Payment UI — aparece após criar pagamento */}
               {paymentData ? (
                 <PaymentUI
+                  step={step}
                   paymentData={paymentData} paymentPhase={paymentPhase}
                   copiedPix={copiedPix} setCopiedPix={setCopiedPix}
                   stripeStep={stripeStep} setStripeStep={setStripeStep}
