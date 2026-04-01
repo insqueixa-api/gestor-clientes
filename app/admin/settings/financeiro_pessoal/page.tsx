@@ -297,25 +297,28 @@ function FinanceiroPageContent() {
       const mesStartStr = `${y}-${String(m + 1).padStart(2, '0')}-01T00:00:00.000Z`;
       const mesEndStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}T23:59:59.999Z`;
 
-      const [resF, resS, resPurchases] = await Promise.all([
-        supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
-        supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
-        supabaseBrowser.from("server_credit_purchases").select("total_amount_brl").eq("tenant_id", tid).gte("created_at", mesStartStr).lte("created_at", mesEndStr)
-      ]);
+      const [resF, resS, resPurchases, resSaasCost] = await Promise.all([
+  supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
+  supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
+  supabaseBrowser.from("server_credit_purchases").select("total_amount_brl").eq("tenant_id", tid).gte("created_at", mesStartStr).lte("created_at", mesEndStr),
+  supabaseBrowser.from("saas_credit_transactions").select("price_amount").eq("tenant_id", tid).in("type", ["purchase", "grant"]).gte("created_at", mesStartStr).lte("created_at", mesEndStr)
+]);
 
-      let valorIptv = 0;
-      let valorSaas = 0;
-      let valorDespesas = 0;
+let valorIptv = 0;
+let valorSaas = 0;
+let valorDespesas = 0;
+let valorSaasCusto = 0;
 
       if (isMesAtual) {
-        valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
-        valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
-      } else if (isMesAnterior) {
-        valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
-        valorSaas = Number(resS.data?.renewal_prev_brl || 0) + Number(resS.data?.credits_prev_brl || 0);
-      }
+  valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
+  valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
+} else if (isMesAnterior) {
+  valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
+  valorSaas = Number(resS.data?.renewal_prev_brl || 0) + Number(resS.data?.credits_prev_brl || 0);
+}
 
-      valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
+valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
+valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.price_amount || 0), 0);
 
       const upsertDinamico = async (descricao: string, valor: number, catId: string, tipoMovimento: "RECEITA" | "DESPESA") => {
         if (!catId || valor <= 0) return;
@@ -343,10 +346,11 @@ function FinanceiroPageContent() {
       };
 
       await Promise.all([
-        upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico("SaaS - Rendimentos", valorSaas, catIPTV, "RECEITA"),
-        upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA")
-      ]);
+  upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
+  upsertDinamico("SaaS - Rendimentos", valorSaas, catSaaS || catIPTV, "RECEITA"),
+  upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
+  upsertDinamico("SaaS - Custo de Créditos", valorSaasCusto, catSaaS || catIPTV, "DESPESA"),
+]);
     } catch (e) {
       console.error("Erro na sincronização:", e);
     }
