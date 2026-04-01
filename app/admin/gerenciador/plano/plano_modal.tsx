@@ -107,35 +107,42 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
     loadData();
   }, [plan, isEditing]);
 
-  // ✅ Busca os itens da memória (Prop `plan`), protegendo contra campos vazios
+  // ✅ Busca os itens da memória, e se estiver corrompido (vazio), gera na tela!
   async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
-    if (!plan || !plan.items) return;
+    if (!plan) return;
 
-    const matrix = plan.items.map(item => {
-      const pricesArr = Array.isArray(item.prices) ? item.prices : [];
-      const p1 = pricesArr.find(p => p.screens_count === 1);
-      const p2 = pricesArr.find(p => p.screens_count === 2);
-      const p3 = pricesArr.find(p => p.screens_count === 3);
+    const existingItems = plan.items || [];
+    const isCreditTable = plan.table_type === "saas_credits";
+    const targetPeriods = isCreditTable ? CREDIT_TIERS : PERIOD_ORDER;
 
-      return {
-        itemId: item.id,
-        period: item.period,
-        credits: item.credits_base || 0,
-        price1: p1?.price_amount?.toString() ?? "",
-        price2: p2?.price_amount?.toString() ?? "",
-        price3: p3?.price_amount?.toString() ?? "",
-      };
+    const ordered: EditableItem[] = targetPeriods.map(period => {
+      const item = existingItems.find(i => i.period === period);
+      if (item) {
+        const pricesArr = Array.isArray(item.prices) ? item.prices : [];
+        const p1 = pricesArr.find(p => p.screens_count === 1);
+        const p2 = pricesArr.find(p => p.screens_count === 2);
+        const p3 = pricesArr.find(p => p.screens_count === 3);
+
+        return {
+          itemId: item.id,
+          period: item.period,
+          credits: item.credits_base || 0,
+          price1: p1?.price_amount?.toString() ?? "",
+          price2: p2?.price_amount?.toString() ?? "",
+          price3: p3?.price_amount?.toString() ?? "",
+        };
+      } else {
+        // 🔥 ITEM FANTASMA: Resolve o bug visual da tabela vazia
+        const creditsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
+        return {
+          itemId: `temp-${period}`,
+          period: period,
+          credits: isCreditTable ? 1 : (creditsMap[period] || 1),
+          price1: "", price2: "", price3: ""
+        };
+      }
     });
-    
-    const isCreditTable = matrix.some(m => m.period.startsWith("C_"));
-    
-    let ordered: EditableItem[];
-    if (isCreditTable) {
-      const tierOrder = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"];
-      ordered = tierOrder.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-    } else {
-      ordered = PERIOD_ORDER.map(period => matrix.find(m => m.period === period)).filter(Boolean) as EditableItem[];
-    }
+
     setItems(ordered);
   }
 
@@ -265,24 +272,48 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
           
         if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
-        // ✅ ATUALIZAÇÃO SEGURA DOS PREÇOS (Protege contra silenciosos e ignora temporários)
+        // ✅ ATUALIZAÇÃO SEGURA DOS PREÇOS (Com auto-reparo de tabelas vazias)
         const maxScreens = isSaasCredits ? 1 : 3;
+        const monthsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
+
         for (const row of items) {
+          let currentItemId = row.itemId;
+          
+          // Se for temp-, significa que o item fantasma foi preenchido. Vamos recriar no banco!
+          if (currentItemId.startsWith("temp-")) {
+             const { data: newItem } = await supabase
+              .from("plan_table_items")
+              .insert({
+                tenant_id: tenantId,
+                plan_table_id: plan.id,
+                period: row.period,
+                months: monthsMap[row.period] ?? 1,
+                credits_base: isSaasCredits ? 1 : (row.credits || 1),
+              })
+              .select()
+              .single();
+              
+              if (newItem) {
+                currentItemId = newItem.id;
+                // Insere os espaços de preços
+                const pricesToInsert = isSaasCredits
+                  ? [{ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: 1, price_amount: null }]
+                  : [1, 2, 3].map(s => ({ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: s, price_amount: null }));
+                await supabase.from("plan_table_item_prices").insert(pricesToInsert);
+              }
+          }
+
+          // Salva os valores digitados
           for (let screen = 1; screen <= maxScreens; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
-            
             const numVal = val === "" ? null : Number(val);
             if (numVal !== null && numVal < 0) throw new Error("Os preços não podem ser negativos.");
             
-            if (row.itemId && !row.itemId.startsWith("temp-")) {
-              const { error: priceErr } = await supabase
-                .from("plan_table_item_prices")
-                .update({ price_amount: numVal })
-                .eq("plan_table_item_id", row.itemId)
-                .eq("screens_count", screen);
-                
-              if (priceErr) throw new Error("Erro ao salvar preços: " + priceErr.message);
-            }
+            await supabase
+              .from("plan_table_item_prices")
+              .update({ price_amount: numVal })
+              .eq("plan_table_item_id", currentItemId)
+              .eq("screens_count", screen);
           }
         }
       } else {

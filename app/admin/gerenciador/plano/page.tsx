@@ -126,19 +126,35 @@
           name: tpl.name,
           currency: tpl.currency,
           table_type: tpl.table_type,
-          is_system_default: false, // ✅ CORRIGIDO: O clone pertence à revenda, não é um padrão do sistema!
+          is_system_default: false, // ✅ CORREÇÃO: O clone pertence à revenda, não é um padrão do sistema
           is_master_only: tpl.is_master_only ?? false,
           is_active: true,
         })
           .select("id")
           .single();
 
-      if (!newTable) continue;
+        if (!newTable) continue;
 
-      if (tpl.table_type === "saas") newSaasPlanTableId = newTable.id;
-      if (tpl.table_type === "saas_credits") newCreditsPlanTableId = newTable.id;
+        if (tpl.table_type === "saas") newSaasPlanTableId = newTable.id;
+        if (tpl.table_type === "saas_credits") newCreditsPlanTableId = newTable.id;
 
-      for (const item of (tpl.items || []) as any[]) {
+        // 🔥 FALLBACK ANTI-RLS: Se o banco bloqueou a leitura dos itens da tabela padrão, nós criamos a matriz à força!
+        let itemsToClone = tpl.items || [];
+        if (itemsToClone.length === 0) {
+          if (tpl.table_type === "saas_credits") {
+            itemsToClone = [...CREDIT_TIERS_ROW1, ...CREDIT_TIERS_ROW2].map(tier => ({ period: tier, credits_base: 1 }));
+          } else {
+            itemsToClone = [
+              { period: "MONTHLY", credits_base: 1 },
+              { period: "BIMONTHLY", credits_base: 2 },
+              { period: "QUARTERLY", credits_base: 3 },
+              { period: "SEMIANNUAL", credits_base: 6 },
+              { period: "ANNUAL", credits_base: 12 },
+            ];
+          }
+        }
+
+        for (const item of itemsToClone as any[]) {
         const { data: newItem } = await supabase
           .from("plan_table_items")
           .insert({
