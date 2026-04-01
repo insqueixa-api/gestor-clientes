@@ -326,7 +326,7 @@ export default function AdminShell({
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
             {/* ✅ APARECE APENAS PARA O SUPERADMIN OU MASTER */}
-            {(String(role).toUpperCase().trim() === "SUPERADMIN" || String(role).toUpperCase().trim() === "MASTER") && (
+            {String(role).toUpperCase().trim() === "SUPERADMIN" && (
               <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
             )}
 
