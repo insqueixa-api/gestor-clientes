@@ -67,13 +67,21 @@ export default async function AdminLayout({
     .select(`
       name, 
       financial_control_enabled,
-      saas_licenses(expires_at, credit_balance, saas_plan_table_id, whatsapp_sessions)
-    `) // ✅ BUSCANDO OS DADOS DE LICENÇA (a relação pode variar levemente dependendo do nome da fk, usei a base que estava no seu view)
+      saas_licenses (
+        expires_at, 
+        credit_balance, 
+        saas_plan_table_id, 
+        whatsapp_sessions
+      )
+    `) 
     .eq("id", member.tenant_id)
     .maybeSingle<any>();
     
   // Extrai informações seguras para não quebrar (considerando array ou obj único)
   const licenseData = Array.isArray(tenantRow?.saas_licenses) ? tenantRow.saas_licenses[0] : tenantRow?.saas_licenses;
+
+  // ✅ GARANTE QUE O VALOR BOOLEANO SEJA LIDO CORRETAMENTE
+  const isFinancialEnabled = tenantRow?.financial_control_enabled === true;
 
   // ✅ NOVO: Busca o nome salvo no Perfil (tabela profiles)
   const { data: profile } = await supabase
@@ -105,12 +113,12 @@ const userRole =
         userLabel={userLabel} 
         tenantName={tenantName} 
         role={userRole}
-        financialControlEnabled={tenantRow?.financial_control_enabled ?? false}
-        tenantId={member.tenant_id} // ✅ NOVO
-        expiresAt={licenseData?.expires_at ?? null} // ✅ NOVO
-        creditBalance={licenseData?.credit_balance ?? 0} // ✅ NOVO
-        saasPlanTableId={licenseData?.saas_plan_table_id ?? null} // ✅ NOVO
-        whatsappSessions={licenseData?.whatsapp_sessions ?? 1} // ✅ NOVO
+        financialControlEnabled={isFinancialEnabled} // ✅ Usando a variável corrigida
+        tenantId={member.tenant_id} 
+        expiresAt={licenseData?.expires_at ?? null} 
+        creditBalance={licenseData?.credit_balance ?? 0} 
+        saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
+        whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
       >
         {children}
       </AdminShell>
