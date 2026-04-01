@@ -10,12 +10,18 @@ import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal"; //
 
 function daysUntil(s?: string | null): number | null {
   if (!s) return null;
+  // ✅ Método à prova de balas: extrai DIA/MÊS/ANO exatos no fuso de São Paulo
   const target = new Date(s);
   const now = new Date();
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
-  const targetDate = new Date(`${fmt.format(target)}T12:00:00Z`);
-  const nowDate = new Date(`${fmt.format(now)}T12:00:00Z`);
-  return Math.round((targetDate.getTime() - nowDate.getTime()) / 86400000);
+  const fmt = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  
+  const [d1, m1, y1] = fmt.format(target).split('/');
+  const [d2, m2, y2] = fmt.format(now).split('/');
+  
+  const tDate = new Date(Number(y1), Number(m1) - 1, Number(d1));
+  const nDate = new Date(Number(y2), Number(m2) - 1, Number(d2));
+  
+  return Math.round((tDate.getTime() - nDate.getTime()) / 86400000);
 }
 
 
