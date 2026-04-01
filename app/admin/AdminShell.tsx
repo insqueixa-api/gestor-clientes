@@ -53,12 +53,14 @@ export default function AdminShell({
   children,
   userLabel,
   tenantName,
-  role, // ✅ NOVA PROP
+  role,
+  financialControlEnabled, // ✅ NOVO
 }: {
   children: React.ReactNode;
   userLabel: string;
   tenantName: string;
-  role: string; // ✅ NOVA PROP (ex: "SUPERADMIN", "MASTER", "USER")
+  role: string;
+  financialControlEnabled?: boolean; // ✅ NOVO
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
 
@@ -301,9 +303,9 @@ export default function AdminShell({
             </div>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
-            {/* ✅ APARECE APENAS PARA O SUPERADMIN OU MASTER */}
-            {(String(role).toUpperCase().trim() === "SUPERADMIN" || String(role).toUpperCase().trim() === "MASTER") && (
-              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
+            {/* ✅ APARECE SE O CONTROLE FINANCEIRO ESTIVER HABILITADO */}
+            {financialControlEnabled && (
+              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Controle Financeiro" onClick={() => setOpenMenu(null)} />
             )}
 
             {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
@@ -325,9 +327,9 @@ export default function AdminShell({
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label="👤 Perfil" onClick={() => setOpenMenu(null)} />
             
-            {/* ✅ APARECE APENAS PARA O SUPERADMIN*/}
-            {String(role).toUpperCase().trim() === "SUPERADMIN" && (
-              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Finanças Pessoais" onClick={() => setOpenMenu(null)} />
+            {/* ✅ APARECE SE O CONTROLE FINANCEIRO ESTIVER HABILITADO */}
+            {financialControlEnabled && (
+              <MenuLink href="/admin/settings/financeiro_pessoal" label="💰 Controle Financeiro" onClick={() => setOpenMenu(null)} />
             )}
 
             {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}

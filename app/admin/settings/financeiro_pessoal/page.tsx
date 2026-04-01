@@ -231,6 +231,7 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null); // ✅ NOVO ESTADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const { confirm, ConfirmUI } = useConfirm();
@@ -415,9 +416,29 @@ function FinanceiroPageContent() {
 
   useEffect(() => {
     async function init() {
+      setLoading(true);
       const tid = await getCurrentTenantId();
       setTenantId(tid);
-      if (tid) await carregarDados(tid, currentDate);
+      
+      if (tid) {
+        // ✅ VERIFICA A PERMISSÃO ANTES DE CARREGAR OS DADOS
+        const { data } = await supabaseBrowser
+          .from("tenants")
+          .select("financial_control_enabled")
+          .eq("id", tid)
+          .single();
+
+        if (data?.financial_control_enabled === false) {
+          setIsAuthorized(false);
+          setLoading(false);
+          return; // Para a execução aqui
+        }
+        
+        setIsAuthorized(true);
+        await carregarDados(tid, currentDate);
+      } else {
+        setLoading(false);
+      }
     }
     init();
   }, [currentDate]);
@@ -571,6 +592,34 @@ function FinanceiroPageContent() {
   else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
   
   const saldoPrevisao = saldoAtualReal + (receitasTotal - receitasPagas) - (despesasTotal - despesasPagas);
+
+  // ✅ TELA DE BLOQUEIO SE NÃO AUTORIZADO
+  if (isAuthorized === false) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
+          Acesso Restrito
+        </h1>
+        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
+          O módulo de <strong>Controle Financeiro</strong> não está habilitado para a sua conta no momento.
+        </p>
+        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto mt-2">
+          Entre em contato com o administrador (Master) para solicitar a liberação do seu acesso.
+        </p>
+      </div>
+    );
+  }
+
+  // ✅ LOADING INICIAL PARA NÃO PISCAR A TELA
+  if (loading && isAuthorized === null) {
+    return <div className="p-12 text-center text-slate-400 animate-pulse">Carregando Finanças...</div>;
+  }
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">

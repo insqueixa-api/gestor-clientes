@@ -20,6 +20,7 @@ type TenantMemberRow = {
 
 type TenantRow = {
   name: string | null;
+  financial_control_enabled: boolean | null; // ✅ NOVO
 };
 
 function pickUserLabel(user: {
@@ -60,10 +61,10 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  // 3) Nome do tenant (topo)
+  // 3) Nome e configs do tenant (topo)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name")
+    .select("name, financial_control_enabled") // ✅ BUSCANDO A NOVA COLUNA
     .eq("id", member.tenant_id)
     .maybeSingle<TenantRow>();
 
@@ -93,10 +94,14 @@ const userRole =
 
   return (
     <ThemeProvider defaultTheme="light">
-      <AdminShell userLabel={userLabel} tenantName={tenantName} role={userRole}>
+      <AdminShell 
+        userLabel={userLabel} 
+        tenantName={tenantName} 
+        role={userRole}
+        financialControlEnabled={tenantRow?.financial_control_enabled ?? false} // ✅ REPASSANDO PARA O MENU
+      >
         {children}
       </AdminShell>
     </ThemeProvider>
-
   );
 }
