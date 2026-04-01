@@ -85,7 +85,7 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
   const [saving, setSaving] = useState(false);
 
   // Carregar dados iniciais
-useEffect(() => {
+  useEffect(() => {
     async function loadData() {
       if (isEditing && plan) {
         setName(plan.name);
@@ -93,7 +93,6 @@ useEffect(() => {
         setOriginalCurrency(plan.currency);
         await loadItemsFromPlan(plan.id, plan.currency);
       } else if (isSaasCredits) {
-        // saas_credits não clona nada — inicializa estrutura fixa direto
         setItems(CREDIT_TIERS.map((tier) => ({
           itemId: `temp-${tier}`,
           period: tier,
@@ -108,16 +107,15 @@ useEffect(() => {
     loadData();
   }, [plan, isEditing]);
 
-  // Carrega itens usando os dados já carregados na página principal
+  // ✅ Busca os itens da memória (Prop `plan`), protegendo contra campos vazios
   async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
-    // ✅ USA DADOS DA MEMÓRIA, não bate no banco de dados!
     if (!plan || !plan.items) return;
 
     const matrix = plan.items.map(item => {
-      // ✅ Protegido com fallback (|| []) para evitar falhas caso a listagem falhe no banco
-      const p1 = (item.prices || []).find(p => p.screens_count === 1);
-      const p2 = (item.prices || []).find(p => p.screens_count === 2);
-      const p3 = (item.prices || []).find(p => p.screens_count === 3);
+      const pricesArr = Array.isArray(item.prices) ? item.prices : [];
+      const p1 = pricesArr.find(p => p.screens_count === 1);
+      const p2 = pricesArr.find(p => p.screens_count === 2);
+      const p3 = pricesArr.find(p => p.screens_count === 3);
 
       return {
         itemId: item.id,
@@ -141,13 +139,12 @@ useEffect(() => {
     setItems(ordered);
   }
 
-  // Clona da tabela padrão (usado na criação e quando muda moeda na edição)
+  // Clona da tabela padrão
   async function cloneFromDefault(curr: "BRL" | "USD" | "EUR") {
     setLoading(true);
     const tenantId = await getCurrentTenantId();
     const supabase = supabaseBrowser;
 
-    // saas_credits: estrutura fixa de tiers, sem clonar
     if (isSaasCredits) {
       setItems(CREDIT_TIERS.map((tier) => ({
         itemId: `temp-${tier}`,
@@ -180,16 +177,16 @@ useEffect(() => {
         .eq("tenant_id", tenantId)
         .eq("is_system_default", true);
 
-      // saas clona da tabela is_master_only=true; iptv clona pela moeda
       const { data: defaultTable } = isSaas
         ? await query.eq("is_master_only", true).single()
         : await query.eq("currency", curr).eq("is_master_only", false).single();
 
       if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
         const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
-          const p1 = srcItem.prices?.find((p: any) => p.screens_count === 1);
-          const p2 = srcItem.prices?.find((p: any) => p.screens_count === 2);
-          const p3 = srcItem.prices?.find((p: any) => p.screens_count === 3);
+          const pricesArr = Array.isArray(srcItem.prices) ? srcItem.prices : [];
+          const p1 = pricesArr.find((p: any) => p.screens_count === 1);
+          const p2 = pricesArr.find((p: any) => p.screens_count === 2);
+          const p3 = pricesArr.find((p: any) => p.screens_count === 3);
           
           return {
             itemId: `temp-${srcItem.period}`,
@@ -204,7 +201,6 @@ useEffect(() => {
         const ordered = PERIOD_ORDER.map(period => clonedItems.find(m => m.period === period)).filter(Boolean) as EditableItem[];
         setItems(ordered);
       } else {
-        // Estrutura vazia se não encontrar padrão
         const emptyItems: EditableItem[] = PERIOD_ORDER.map((period) => {
           const creditsMap: Record<string, number> = {
             MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
@@ -227,13 +223,10 @@ useEffect(() => {
     }
   }
 
-  // Quando muda moeda na criação ou edição
   useEffect(() => {
-    if (isSaasCredits) return; // créditos não dependem de moeda
+    if (isSaasCredits) return;
     if (isEditing) {
-      if (currency !== originalCurrency) {
-        cloneFromDefault(currency);
-      }
+      if (currency !== originalCurrency) cloneFromDefault(currency);
     } else {
       cloneFromDefault(currency);
     }
@@ -263,33 +256,37 @@ useEffect(() => {
 
     try {
       if (isEditing && plan) {
-        // ✅ Atualiza nome e moeda (agora sempre pode, exceto sistema) - TRAVADO COM TENANT
+        // Atualiza a Tabela
         const { error: updErr } = await supabase
-  .from("plan_tables")
-  .update({ name: name.trim(), currency })
-  .eq("id", plan.id)
-  .eq("tenant_id", tenantId);
-  
-if (updErr) throw new Error("Falha ao atualizar a tabela.");
+          .from("plan_tables")
+          .update({ name: name.trim(), currency })
+          .eq("id", plan.id)
+          .eq("tenant_id", tenantId);
+          
+        if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
-        // ✅ Atualiza preços - TRAVADO COM TENANT E SEM NEGATIVOS
+        // ✅ ATUALIZAÇÃO SEGURA DOS PREÇOS (Protege contra silenciosos e ignora temporários)
         const maxScreens = isSaasCredits ? 1 : 3;
         for (const row of items) {
           for (let screen = 1; screen <= maxScreens; screen++) {
             const val = row[`price${screen}` as keyof EditableItem] as string;
-            if (val === "") continue;
             
-            const numVal = Number(val);
-            if (numVal < 0) throw new Error("Os preços não podem ser negativos.");
+            const numVal = val === "" ? null : Number(val);
+            if (numVal !== null && numVal < 0) throw new Error("Os preços não podem ser negativos.");
             
-            await supabase
-              .from("plan_table_item_prices")
-              .update({ price_amount: numVal })
-              .match({ plan_table_item_id: row.itemId, screens_count: screen });
+            if (row.itemId && !row.itemId.startsWith("temp-")) {
+              const { error: priceErr } = await supabase
+                .from("plan_table_item_prices")
+                .update({ price_amount: numVal })
+                .eq("plan_table_item_id", row.itemId)
+                .eq("screens_count", screen);
+                
+              if (priceErr) throw new Error("Erro ao salvar preços: " + priceErr.message);
+            }
           }
         }
       } else {
-        // Criação
+        // Criação de Tabela Nova
         const { data: tableData, error: tableError } = await supabase
           .from("plan_tables")
           .insert({
@@ -325,7 +322,6 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
               plan_table_id: newTableId,
               period: item.period,
               months: monthsMap[item.period] ?? 1,
-              // saas_credits não tem créditos reais — usa 1 para satisfazer a constraint
               credits_base: isSaasCredits ? 1 : (item.credits || 1),
             })
             .select()
@@ -334,7 +330,7 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
           if (itemError || !newItem) {
             throw new Error(`Erro ao salvar item "${item.period}": ${itemError?.message || "resposta vazia"}`);
           }
-          // saas_credits: só screens_count=1 (o preço do pacote)
+          
           const pricesToInsert = isSaasCredits
             ? [{ tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) }]
             : [
@@ -364,7 +360,6 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         
-        {/* HEADER - Título simples, botões menores no mobile */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
           <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
             {isEditing
@@ -383,50 +378,47 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
             >
               Cancelar
             </button>
-            
-              <button 
-                onClick={handleSave}
-                disabled={saving || loading}
-                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
-              >
-                {saving ? "Salvando..." : "Salvar"}
-              </button>
-            
+            <button 
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
           
-          {/* Dados Básicos - Moeda editável agora */}
           <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Nome da tabela</Label>
                 <input 
-  value={name}
-  onChange={e => setName(e.target.value)}
-  placeholder="Ex: Tabela especial revenda"
-  disabled={plan?.is_system_default && plan?.is_master_only}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ex: Tabela especial revenda"
+                  disabled={plan?.is_system_default && plan?.is_master_only}
                   className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                 />
               </div>
               <div>
                 <Label>Moeda</Label>
                 <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-  {(['BRL', 'USD', 'EUR'] as const).map(c => (
-    <button
-      key={c}
-      type="button"
-      onClick={() => setCurrency(c)}
-      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
-        ${currency === c 
-          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
-          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
-    >
-      {c}
-    </button>
-  ))}
-</div>
+                  {(['BRL', 'USD', 'EUR'] as const).map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCurrency(c)}
+                      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
+                        ${currency === c 
+                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
+                          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
                 {isEditing && currency !== originalCurrency && (
                   <p className="text-[10px] text-amber-500 mt-2 italic">
                     * Atenção: valores resetados para tabela Padrão {currency}
@@ -436,14 +428,12 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
             </div>
           </div>
 
-         {/* Matriz de Preços */}
           <div className="p-4 sm:p-6 space-y-8">
            {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
                 {isEditing ? "Carregando dados..." : "Preparando tabela..."}
               </div>
             ) : isSaasCredits ? (
-              /* ── Créditos SaaS: dois grupos de 5 ── */
               [
                 { label: "Pacotes Pequenos", tiers: CREDIT_TIERS.slice(0, 5) },
                 { label: "Pacotes Grandes",  tiers: CREDIT_TIERS.slice(5) },
@@ -459,7 +449,7 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
                       return (
                         <div
                           key={tier}
-                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all"
+                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
                         >
                           <div className="flex justify-between items-center w-full mb-1">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">Pacote</span>
@@ -487,7 +477,6 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
                 </div>
               ))
             ) : (
-              /* ── IPTV / SaaS (1, 2 ou 3 Telas) ── */
               (isMasterOnly ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                 <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
@@ -495,7 +484,7 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
                       ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
                       : screenCount === 1 ? 'tela' : 'telas'}
                   </h3>
-                                
+                  
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                     {PERIOD_ORDER.map((period) => {
                       const item = items.find(i => i.period === period);
@@ -549,11 +538,9 @@ if (updErr) throw new Error("Falha ao atualizar a tabela.");
               ? "Altere o nome, moeda e valores conforme necessário" 
               : "Ajuste os valores clonados da tabela padrão"}
           </span>
-          
-            <span className="text-[10px] text-slate-400 dark:text-white/30">
-              A tabela será criada como <strong>ativa</strong> por padrão
-            </span>
-          
+          <span className="text-[10px] text-slate-400 dark:text-white/30">
+            A tabela será criada como <strong>ativa</strong> por padrão
+          </span>
         </div>
       </div>
     </div>,
