@@ -3,7 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react"; // ✅ Adicionado useEffect
+import { supabaseBrowser } from "@/lib/supabase/browser"; // ✅ Import do banco
 import { usePathname } from "next/navigation";
 import React from "react";
 import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal"; // ✅ NOVO IMPORT DO MODAL
@@ -66,6 +67,7 @@ function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: s
   );
 }
 
+
 export default function AdminShell({
   children,
   userLabel,
@@ -96,6 +98,8 @@ export default function AdminShell({
   // ✅ Controle do Modal de Aviso (O "Hulk")
   const [showWarningModal, setShowWarningModal] = useState(false);
 
+  const [localExpiresAt, setLocalExpiresAt] = useState<string | null>(expiresAt ?? null);
+
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
@@ -103,6 +107,7 @@ export default function AdminShell({
   const [managerPos, setManagerPos] = useState<{ top: number; right: number } | null>(null);
   const [settingsPos, setSettingsPos] = useState<{ top: number; right: number } | null>(null);
   const [mobilePos, setMobilePos] = useState<{ top: number; right: number } | null>(null);
+
 
 
   const pathname = usePathname();
@@ -169,37 +174,39 @@ export default function AdminShell({
         {/* Adicionado mx-auto e max-w-screen-2xl */}
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
 
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
-          >
-            <BrandUser userLabel={userLabel} tenantName={tenantName} />
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin"
+              className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
+            >
+              <BrandUser userLabel={userLabel} tenantName={tenantName} />
+            </Link>
+
+            {/* ✅ SINO DE ALERTA DE VENCIMENTO (Apenas o ícone piscando) */}
+            {role !== "SUPERADMIN" && (() => {
+              const dias = daysUntil(localExpiresAt);
+              if (dias !== null && dias <= 7) {
+                const isDanger = dias <= 0;
+                const colorClass = isDanger 
+                  ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30" 
+                  : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30";
+                  
+                return (
+                  <button
+                    onClick={() => setShowWarningModal(true)}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors animate-pulse ${colorClass}`}
+                    title="Aviso de Vencimento"
+                  >
+                    <span className="text-sm leading-none">🔔</span>
+                  </button>
+                );
+              }
+              return null;
+            })()}
+          </div>
 
           <div className="flex-1" />
 
-          {/* ✅ SINO DE ALERTA DE VENCIMENTO (Estilo Alertas Cliente) */}
-          {role !== "SUPERADMIN" && (() => {
-            const dias = daysUntil(expiresAt);
-            if (dias !== null && dias <= 7) {
-              const isDanger = dias <= 0;
-              // Cores idênticas ao "🔔 1" da lista de clientes
-              const colorClass = isDanger 
-                ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200" 
-                : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200";
-                
-              return (
-                <button
-                  onClick={() => setShowWarningModal(true)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold transition-colors animate-pulse mr-2 ${colorClass}`}
-                  title="Seu painel expira em breve. Clique para renovar."
-                >
-                  🔔 {dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Hoje" : `${dias}d`}
-                </button>
-              );
-            }
-            return null;
-          })()}
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
@@ -413,9 +420,24 @@ export default function AdminShell({
                 <span className="text-2xl mt-0.5">📢</span>
                 <div>
                   <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
-                    Seu painel <strong className="text-amber-700 dark:text-amber-400">
-                      {(daysUntil(expiresAt) ?? 0) < 0 ? "está vencido" : "está próximo do vencimento"}
-                    </strong>.
+                    {(() => {
+                      const dias = daysUntil(localExpiresAt) ?? 0;
+                      if (!localExpiresAt) return "Seu painel está próximo do vencimento.";
+                      
+                      // Extrai os dados para a formatação inteligente
+                      const [y, m, d] = localExpiresAt.split("T")[0].split("-").map(Number);
+                      const dateObj = new Date(y, m - 1, d);
+                      const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(dateObj);
+                      const weekDayStr = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(dateObj).replace("-feira", " feira");
+                      
+                      if (dias < 0) {
+                        return <>Seu painel venceu na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, e já está vencido há <strong>{Math.abs(dias)}</strong> dia(s)!</>;
+                      } else if (dias === 0) {
+                        return <>Seu painel vence <strong>HOJE</strong>, dia <strong>{dateStr}</strong>!</>;
+                      } else {
+                        return <>Seu painel vence na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, você tem <strong>{dias}</strong> dias para antecipar.</>;
+                      }
+                    })()}
                   </p>
                   <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
                     Antecipe sua renovação para evitar o bloqueio automático e a interrupção dos seus serviços.
