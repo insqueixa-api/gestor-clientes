@@ -61,12 +61,19 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  // 3) Nome e configs do tenant (topo)
+  // 3) Nome e configs do tenant (topo) + Licença
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, financial_control_enabled") // ✅ BUSCANDO A NOVA COLUNA
+    .select(`
+      name, 
+      financial_control_enabled,
+      saas_licenses(expires_at, credit_balance, saas_plan_table_id, whatsapp_sessions)
+    `) // ✅ BUSCANDO OS DADOS DE LICENÇA (a relação pode variar levemente dependendo do nome da fk, usei a base que estava no seu view)
     .eq("id", member.tenant_id)
-    .maybeSingle<TenantRow>();
+    .maybeSingle<any>();
+    
+  // Extrai informações seguras para não quebrar (considerando array ou obj único)
+  const licenseData = Array.isArray(tenantRow?.saas_licenses) ? tenantRow.saas_licenses[0] : tenantRow?.saas_licenses;
 
   // ✅ NOVO: Busca o nome salvo no Perfil (tabela profiles)
   const { data: profile } = await supabase
@@ -98,7 +105,12 @@ const userRole =
         userLabel={userLabel} 
         tenantName={tenantName} 
         role={userRole}
-        financialControlEnabled={tenantRow?.financial_control_enabled ?? false} // ✅ REPASSANDO PARA O MENU
+        financialControlEnabled={tenantRow?.financial_control_enabled ?? false}
+        tenantId={member.tenant_id} // ✅ NOVO
+        expiresAt={licenseData?.expires_at ?? null} // ✅ NOVO
+        creditBalance={licenseData?.credit_balance ?? 0} // ✅ NOVO
+        saasPlanTableId={licenseData?.saas_plan_table_id ?? null} // ✅ NOVO
+        whatsappSessions={licenseData?.whatsapp_sessions ?? 1} // ✅ NOVO
       >
         {children}
       </AdminShell>

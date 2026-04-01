@@ -5,7 +5,18 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import React from "react"; // Garante que o React.ReactNode funcione
+import React from "react";
+import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal"; // ✅ NOVO IMPORT DO MODAL
+
+function daysUntil(s?: string | null): number | null {
+  if (!s) return null;
+  const target = new Date(s);
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const targetDate = new Date(`${fmt.format(target)}T12:00:00Z`);
+  const nowDate = new Date(`${fmt.format(now)}T12:00:00Z`);
+  return Math.round((targetDate.getTime() - nowDate.getTime()) / 86400000);
+}
 
 
 // Componente que exibe Logo + Nome do Usuário (agora vem do SERVER)
@@ -54,15 +65,28 @@ export default function AdminShell({
   userLabel,
   tenantName,
   role,
-  financialControlEnabled, // ✅ NOVO
+  financialControlEnabled,
+  tenantId, // ✅ NOVAS PROPS
+  expiresAt,
+  creditBalance,
+  saasPlanTableId,
+  whatsappSessions,
 }: {
   children: React.ReactNode;
   userLabel: string;
   tenantName: string;
   role: string;
-  financialControlEnabled?: boolean; // ✅ NOVO
+  financialControlEnabled?: boolean;
+  tenantId?: string;
+  expiresAt?: string | null;
+  creditBalance?: number;
+  saasPlanTableId?: string | null;
+  whatsappSessions?: number;
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
+  
+  // ✅ NOVO: Controle do Modal de Renovação Pelo Sino
+  const [showRenewModal, setShowRenewModal] = useState(false);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -146,7 +170,28 @@ export default function AdminShell({
 
           <div className="flex-1" />
 
-                    <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
+          {/* ✅ SINO DE ALERTA DE VENCIMENTO */}
+          {role !== "SUPERADMIN" && (() => {
+            const dias = daysUntil(expiresAt);
+            if (dias !== null && dias <= 7) {
+              const colorClass = dias <= 0 ? "text-rose-500 bg-rose-500/10 border-rose-500/20" : "text-amber-500 bg-amber-500/10 border-amber-500/20";
+              const text = dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Vence Hoje!" : `Vence em ${dias}d`;
+              
+              return (
+                <button
+                  onClick={() => setShowRenewModal(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border mr-2 transition-all hover:scale-105 ${colorClass}`}
+                  title="Seu painel está prestes a expirar. Clique para renovar."
+                >
+                  <span className="animate-pulse text-lg">🔔</span>
+                  <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">{text}</span>
+                </button>
+              );
+            }
+            return null;
+          })()}
+
+          <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
               <NavLink href="/admin/cliente" label="👥 Clientes" />
@@ -348,10 +393,25 @@ export default function AdminShell({
 
       {/* Adicionado mx-auto e max-w-screen-2xl */}
       <main className="mx-auto w-full max-w-screen-2xl px-2 sm:px-6 lg:px-8 pt-2 pb-6 animate-in fade-in duration-500">
-
-
         {children}
       </main>
+
+      {/* ✅ MODAL DE RENOVAÇÃO DO SINO */}
+      {showRenewModal && tenantId && (
+        <SaasProfileRenewModal
+          tenantId={tenantId}
+          role={role as "MASTER" | "USER"}
+          saasPlanTableId={saasPlanTableId ?? null}
+          creditBalance={creditBalance ?? 0}
+          currentExpiry={expiresAt ?? null}
+          whatsappSessions={whatsappSessions ?? 1}
+          onClose={() => setShowRenewModal(false)}
+          onSuccess={() => {
+            setShowRenewModal(false);
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }
