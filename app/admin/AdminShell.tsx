@@ -178,32 +178,28 @@ export default function AdminShell({
 
           <div className="flex-1" />
 
-          {/* ✅ SINO DE ALERTA DE VENCIMENTO (Estilo Cliente) */}
+          {/* ✅ SINO DE ALERTA DE VENCIMENTO (Estilo Alertas Cliente) */}
           {role !== "SUPERADMIN" && (() => {
             const dias = daysUntil(expiresAt);
             if (dias !== null && dias <= 7) {
-              // Ajuste de cores: Vermelho se vencido/vence hoje, Laranja se falta <= 7 dias
               const isDanger = dias <= 0;
+              // Cores idênticas ao "🔔 1" da lista de clientes
               const colorClass = isDanger 
-                ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/30" 
-                : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 dark:hover:bg-amber-500/30";
+                ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200" 
+                : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200";
                 
-              const text = dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Vence Hoje!" : `Vence em ${dias}d`;
-              
               return (
                 <button
-                  onClick={() => setShowWarningModal(true)} // ✅ Agora abre o Aviso primeiro
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-bold transition-colors animate-pulse mr-2 ${colorClass}`}
-                  title="Aviso de Vencimento"
+                  onClick={() => setShowWarningModal(true)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold transition-colors animate-pulse mr-2 ${colorClass}`}
+                  title="Seu painel expira em breve. Clique para renovar."
                 >
-                  <span className="text-sm leading-none">🔔</span>
-                  <span className="hidden sm:inline tracking-tight">{text}</span>
+                  🔔 {dias < 0 ? `Vencido há ${Math.abs(dias)}d` : dias === 0 ? "Hoje" : `${dias}d`}
                 </button>
               );
             }
             return null;
           })()}
-
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
