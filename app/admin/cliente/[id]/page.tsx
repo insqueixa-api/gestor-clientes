@@ -1099,9 +1099,11 @@ m3u_url: client.m3u_url ?? undefined,
       client_name: client.client_name,
       name_prefix: client.name_prefix ?? undefined,
       username: client.username,
-      server_password: client.server_password ?? undefined,
-      whatsapp_e164: client.whatsapp_e164 ?? undefined,
-      whatsapp_username: client.whatsapp_username ?? undefined,
+server_password: undefined, // ✅ Senha não vem preenchida
+whatsapp_e164: client.whatsapp_e164 ?? undefined,
+whatsapp_username: client.whatsapp_username
+  ? `${client.whatsapp_username}teste` // ✅ Ex: 5583999teste
+  : undefined,
       whatsapp_opt_in: client.whatsapp_opt_in ?? true,
       secondary_display_name: client.secondary_display_name ?? undefined,
       secondary_name_prefix: client.secondary_name_prefix ?? undefined,
