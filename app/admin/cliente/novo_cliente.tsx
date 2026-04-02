@@ -655,7 +655,7 @@ useEffect(() => {
     window.scrollTo(0, modalScrollYRef.current || 0);
   };
 }, []);
-  const isEditing = !!clientToEdit;
+  const isEditing = !!(clientToEdit?.id); // ✅ sem id = criação (ex: Teste Rápido)
   const isTrialMode = mode === "trial";
   const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(initialTab || "dados");
 

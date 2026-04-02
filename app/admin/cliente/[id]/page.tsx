@@ -208,7 +208,8 @@ const clientIdSafe = (clientId ?? "").trim();
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
 
 const [showEditModal, setShowEditModal] = useState(false);
-  const [showRenewModal, setShowRenewModal] = useState(false);
+const [showRenewModal, setShowRenewModal] = useState(false);
+const [showQuickTrialModal, setShowQuickTrialModal] = useState(false); // ✅ NOVO
   
   // ✅ NOVO: Estado para o aviso de alerta antes da renovação
   const [showRenewWarning, setShowRenewWarning] = useState(false);
@@ -698,9 +699,20 @@ const EVENT_LABELS: Record<string, string> = {
           <span className="hidden sm:inline">Editar</span>
         </button>
 
+{/* ✅ Botão Teste Rápido */}
+<button
+  onClick={() => setShowQuickTrialModal(true)}
+  disabled={client.client_is_archived}
+  className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+  title="Criar teste rápido com os dados deste cliente"
+>
+  🧪
+  <span className="hidden sm:inline">Teste Rápido</span>
+</button>
+
 {/* Botão Renovar */}
-        <button
-          onClick={handleRenewClick} // ✅ Alterado para usar a função interceptadora
+<button
+  onClick={handleRenewClick}
           disabled={client.client_is_archived}
           className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
           title="Renovar"
@@ -1077,6 +1089,49 @@ m3u_url: client.m3u_url ?? undefined,
     }}
     />
     )}
+
+{/* ✅ MODAL TESTE RÁPIDO: cria trial novo com dados do cliente atual */}
+{showQuickTrialModal && client && (
+  <NovoCliente
+    mode="trial"
+    clientToEdit={{
+      // ✅ SEM id: o modal entende como criação nova
+      client_name: client.client_name,
+      name_prefix: client.name_prefix ?? undefined,
+      username: client.username,
+      server_password: client.server_password ?? undefined,
+      whatsapp_e164: client.whatsapp_e164 ?? undefined,
+      whatsapp_username: client.whatsapp_username ?? undefined,
+      whatsapp_opt_in: client.whatsapp_opt_in ?? true,
+      secondary_display_name: client.secondary_display_name ?? undefined,
+      secondary_name_prefix: client.secondary_name_prefix ?? undefined,
+      secondary_phone_e164: client.secondary_phone_e164 ?? undefined,
+      secondary_whatsapp_username: client.secondary_whatsapp_username ?? undefined,
+      // ✅ servidor em branco: força o usuário escolher outro
+      server_id: "",
+      screens: 1,
+      plan_name: undefined,
+      price_amount: undefined,
+    }}
+    onClose={() => setShowQuickTrialModal(false)}
+    onSuccess={() => {
+      setShowQuickTrialModal(false);
+      loadData();
+      setTimeout(() => {
+        const raw = window.sessionStorage.getItem("trials_list_toasts");
+        if (raw) {
+          try {
+            const arr = JSON.parse(raw);
+            arr.forEach((t: any) => addToast(t.type, t.title, t.message));
+            window.sessionStorage.removeItem("trials_list_toasts");
+          } catch {}
+        } else {
+          addToast("success", "Teste criado", "Teste rápido registrado com sucesso.");
+        }
+      }, 150);
+    }}
+  />
+)}
 
 {showRenewModal && client && (
   <RecargaCliente
