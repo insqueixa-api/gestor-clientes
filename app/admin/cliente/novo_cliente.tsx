@@ -367,6 +367,12 @@ function formatNational(ddi: string, nationalDigits: string) {
 }
 
 
+// ✅ Extrai o DDI numérico do label do país (ex: "Irlanda (+353)" → "353")
+function extractDdiFromLabel(label: string): string {
+  const match = label.match(/\+(\d+)\)/);
+  return match ? match[1] : "55";
+}
+
 function splitE164(raw: string) {
   const digits = onlyDigits(raw);
   const ddi = inferDDIFromDigits(digits);
@@ -1873,22 +1879,21 @@ async function executeSave() {
       
 
       const rawPrimaryDigits = onlyDigits(primaryPhoneRaw);
-
-      const ddi = inferDDIFromDigits(rawPrimaryDigits);
-
-      const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
-
-      const finalPrimaryE164 = rawPrimaryDigits ? `+${ddi}${nationalDigits}` : "";
+// ✅ Usa o DDI já identificado no label (evita re-inferir errado com número nacional sem prefixo)
+const ddi = rawPrimaryDigits ? extractDdiFromLabel(primaryCountryLabel) : "55";
+const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
+const finalPrimaryE164 = rawPrimaryDigits ? `+${ddi}${nationalDigits}` : "";
 
 
 
       const rawSecondaryDigits = onlyDigits(secondaryPhoneRaw);
-      let finalSecondaryE164 = null;
-      if (rawSecondaryDigits) {
-        const ddi2 = inferDDIFromDigits(rawSecondaryDigits);
-        const nat2 = rawSecondaryDigits.startsWith(ddi2) ? rawSecondaryDigits.slice(ddi2.length) : rawSecondaryDigits;
-        finalSecondaryE164 = `+${ddi2}${nat2}`;
-      }
+let finalSecondaryE164 = null;
+if (rawSecondaryDigits) {
+  // ✅ Mesma lógica: usa o DDI do label para não perder o país
+  const ddi2 = extractDdiFromLabel(secondaryCountryLabel);
+  const nat2 = rawSecondaryDigits.startsWith(ddi2) ? rawSecondaryDigits.slice(ddi2.length) : rawSecondaryDigits;
+  finalSecondaryE164 = `+${ddi2}${nat2}`;
+}
       
       const secName = secondaryName.trim() ? secondaryName.trim() : null;
       const secPrefix = secondarySalutation?.trim() ? secondarySalutation.trim() : null;
