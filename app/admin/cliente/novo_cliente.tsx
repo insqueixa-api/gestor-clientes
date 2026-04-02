@@ -44,8 +44,9 @@ type ModalMode = "client" | "trial";
 
 interface Props {
   clientToEdit?: ClientData | null;
+  sourceClientId?: string; // ✅ Carrega apps de outro cliente sem ativar edição
   mode?: ModalMode;
-  initialTab?: "dados" | "pagamento" | "apps"; // ✅ NOVO: iniciar em uma aba específica
+  initialTab?: "dados" | "pagamento" | "apps";
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -631,7 +632,7 @@ function queueListToast(
   }
 }
 
-export default function NovoCliente({ clientToEdit, mode = "client", initialTab, onClose, onSuccess }: Props) {
+export default function NovoCliente({ clientToEdit, sourceClientId, mode = "client", initialTab, onClose, onSuccess }: Props) {
   // ✅ Scroll lock padrão (não deixa “vazar” e restaura posição)
 const modalScrollYRef = useRef(0);
 
@@ -1420,15 +1421,12 @@ if (!nerr) {
 
   // ✅ CARREGAMENTO DE APPS (NOVA LÓGICA)
 
-  if (clientToEdit.id) {
-
-    const { data: currentApps } = await supabaseBrowser
-
-      .from("client_apps")
-
-      .select("app_id, field_values, apps(name, fields_config)")
-
-      .eq("client_id", clientToEdit.id);
+  const appsSourceId = clientToEdit?.id || sourceClientId || null;
+if (appsSourceId) {
+  const { data: currentApps } = await supabaseBrowser
+    .from("client_apps")
+    .select("app_id, field_values, apps(name, fields_config)")
+    .eq("client_id", appsSourceId);
 
 
 

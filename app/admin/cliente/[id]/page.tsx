@@ -1094,6 +1094,7 @@ m3u_url: client.m3u_url ?? undefined,
 {showQuickTrialModal && client && (
   <NovoCliente
     mode="trial"
+    sourceClientId={client.id} // ✅ Carrega os apps do cliente original
     clientToEdit={{
       // ✅ SEM id: o modal entende como criação nova
       client_name: client.client_name,
