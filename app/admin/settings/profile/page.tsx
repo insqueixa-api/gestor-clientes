@@ -422,7 +422,7 @@ async function saveWaConfig() {
         const saasRole = (roleRes.data ?? "USER").toUpperCase();
 
         let companyName = "";
-        let currentTenantId = null;
+        let currentTenantId: string | null = null;
 
         if (member) {
           setRoleRaw(member.role || null);
@@ -499,6 +499,16 @@ async function saveWaConfig() {
         } else {
           setName(finalName);
         }
+
+      // ✅ Carrega API Keys inline (dentro do try, onde currentTenantId existe)
+      if (currentTenantId) {
+        const { data: keysData } = await supabaseBrowser
+          .from("tenant_api_keys")
+          .select("id, label, is_active, created_at, last_used_at")
+          .eq("tenant_id", currentTenantId)
+          .order("created_at", { ascending: false });
+        setApiKeys((keysData as ApiKey[]) || []);
+      }
 
       } catch (e: any) {
         console.error(e);
@@ -770,6 +780,14 @@ const [exporting, setExporting] = useState(false);
   const [importingApps, setImportingApps] = useState(false);
   const importAppsFileRef = useRef<HTMLInputElement | null>(null);
   const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
+
+// ✅ API Keys
+type ApiKey = { id: string; label: string; is_active: boolean; created_at: string; last_used_at: string | null; };
+const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+const [apiKeyLabel, setApiKeyLabel] = useState("");
+const [generatingKey, setGeneratingKey] = useState(false);
+const [revealedKey, setRevealedKey] = useState<string | null>(null);
+const [apiKeyCopied, setApiKeyCopied] = useState(false);
 
   // ✅ NOVO: Estados e Refs para Revendas
   const [importingReseller, setImportingReseller] = useState(false);
@@ -1071,6 +1089,57 @@ addToast("success", "Sucesso", summary);
       addToast("success", "Sucesso", summary);
       setTimeout(() => window.location.reload(), 1200);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
+  }
+
+  // ✅ API KEYS
+  async function loadApiKeys(tid?: string) {
+  const resolvedId = tid || tenantId;
+  if (!resolvedId) return;
+  const { data } = await supabaseBrowser
+    .from("tenant_api_keys")
+    .select("id, label, is_active, created_at, last_used_at")
+    .eq("tenant_id", resolvedId)
+    .order("created_at", { ascending: false });
+  setApiKeys((data as ApiKey[]) || []);
+}
+
+  async function handleGenerateApiKey() {
+    if (!tenantId || !apiKeyLabel.trim()) return addToast("error", "Label obrigatório", "Dê um nome para identificar esta key.");
+    setGeneratingKey(true);
+    try {
+      const arr = new Uint8Array(32);
+      crypto.getRandomValues(arr);
+      const rawKey = "ugs_" + Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawKey));
+      const keyHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+      const { error } = await supabaseBrowser.from("tenant_api_keys").insert({
+        tenant_id: tenantId,
+        key_hash: keyHash,
+        label: apiKeyLabel.trim(),
+      });
+
+      if (error) throw error;
+      setRevealedKey(rawKey);
+      setApiKeyLabel("");
+      await loadApiKeys();
+    } catch (e: any) {
+      addToast("error", "Erro ao gerar key", e.message);
+    } finally {
+      setGeneratingKey(false);
+    }
+  }
+
+  async function handleRevokeApiKey(id: string) {
+    if (!confirm("Revogar esta API Key? Sistemas que a usam perderão acesso imediatamente.")) return;
+    const { error } = await supabaseBrowser
+      .from("tenant_api_keys")
+      .update({ is_active: false })
+      .eq("id", id)
+      .eq("tenant_id", tenantId!);
+    if (error) return addToast("error", "Erro ao revogar", error.message);
+    addToast("success", "Key revogada", "Acesso bloqueado com sucesso.");
+    await loadApiKeys();
   }
 
   // ------------------------------------
@@ -1787,7 +1856,119 @@ return (
               <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportServerFile(f); }} />
             </div>
           </div>
+
+        {/* ✅ CARD API KEYS */}
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              API Keys — Integração Bot
+            </h3>
+            <span className="text-[10px] px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
+              BETA
+            </span>
+          </div>
+
+          {/* Gerar nova key */}
+          <div className="flex gap-2">
+            <input
+              value={apiKeyLabel}
+              onChange={e => setApiKeyLabel(e.target.value)}
+              placeholder='Ex: "Bot WhatsApp" ou "Sistema XYZ"'
+              className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={handleGenerateApiKey}
+              disabled={generatingKey || !apiKeyLabel.trim()}
+              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {generatingKey ? "Gerando..." : "+ Gerar Key"}
+            </button>
+          </div>
+
+          {/* Lista de keys */}
+          {apiKeys.length > 0 ? (
+            <div className="space-y-2">
+              {apiKeys.map(k => (
+                <div key={k.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border text-sm ${k.is_active ? "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/2 opacity-50"}`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-700 dark:text-white text-xs truncate">{k.label}</span>
+                      {!k.is_active && <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-500/20">REVOGADA</span>}
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-white/30 mt-0.5">
+                      Criada: {new Date(k.created_at).toLocaleDateString("pt-BR")}
+                      {k.last_used_at && ` · Último uso: ${new Date(k.last_used_at).toLocaleDateString("pt-BR")}`}
+                    </div>
+                  </div>
+                  {k.is_active && (
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeApiKey(k.id)}
+                      className="shrink-0 text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
+                    >
+                      Revogar
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 dark:text-white/30 italic">Nenhuma key gerada ainda.</p>
+          )}
+
+          {/* Documentação */}
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center gap-1">
+              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+              Ver documentação da API
+            </summary>
+            <div className="mt-3 space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Endpoint</p>
+                <code className="block font-mono text-[11px] text-sky-700 dark:text-sky-300">POST https://unigestor.net.br/api/public/client-info</code>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Headers</p>
+                <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`Authorization: Bearer ugs_...
+Content-Type: application/json`}</code>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Body</p>
+                <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`{
+  "whatsapp_username": "5521999999999"
+}`}</code>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Campos retornados por cliente</p>
+                <div className="space-y-1 text-slate-500 dark:text-white/50">
+                  {[
+                    ["client_name", "Nome completo"],
+                    ["status", "ACTIVE / OVERDUE / TRIAL / ARCHIVED"],
+                    ["vencimento", "Data formatada (pt-BR)"],
+                    ["vencimento_iso", "ISO 8601 para calcular no bot"],
+                    ["dias_restantes", "Número inteiro de dias"],
+                    ["plan", "Plano e quantidade de telas"],
+                    ["credentials", "{ username, password }"],
+                    ["m3u_url", "Link da playlist M3U"],
+                    ["portal_link", "Link de pagamento com token"],
+                    ["portal_pin", "PIN de acesso (4 dígitos)"],
+                    ["server_name", "Nome do servidor"],
+                    ["technology", "IPTV / P2P / OTT"],
+                    ["phone_primary", "Telefone principal (E.164)"],
+                    ["phone_secondary", "Telefone secundário"],
+                  ].map(([campo, desc]) => (
+                    <div key={campo} className="flex gap-2">
+                      <code className="font-mono text-sky-600 dark:text-sky-400 shrink-0">{campo}</code>
+                      <span>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
+      </div>
 
         {/* === COLUNA DIREITA (SIDEBAR) === */}
         <div className="space-y-6">
@@ -2056,6 +2237,42 @@ return (
           </div>
         </div>
       </div>
+    {/* ✅ MODAL: Exibir key gerada (única vez) */}
+    {revealedKey && (
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-2xl">🔑</div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">API Key gerada!</h3>
+            <p className="text-sm text-slate-500 dark:text-white/60">Copie agora. Por segurança, ela <strong>não será exibida novamente.</strong></p>
+          </div>
+
+          <div className="flex gap-2 items-center p-3 bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg">
+            <code className="flex-1 font-mono text-xs text-sky-700 dark:text-sky-300 break-all select-all">{revealedKey}</code>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(revealedKey);
+                setApiKeyCopied(true);
+                setTimeout(() => setApiKeyCopied(false), 3000);
+              }}
+              className="shrink-0 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all"
+            >
+              {apiKeyCopied ? "✅ Copiado!" : "Copiar"}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setRevealedKey(null)}
+            className="w-full h-10 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    )}
+
     {showRenewModal && tenantId && (
         <SaasProfileRenewModal
           tenantId={tenantId}
