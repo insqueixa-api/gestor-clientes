@@ -8,7 +8,14 @@ const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   Pragma: "no-cache",
   Expires: "0",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
 };
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: NO_STORE_HEADERS });
+}
 
 function makeSupabaseAdmin() {
   const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
