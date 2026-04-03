@@ -1131,16 +1131,28 @@ addToast("success", "Sucesso", summary);
   }
 
   async function handleRevokeApiKey(id: string) {
-    if (!confirm("Revogar esta API Key? Sistemas que a usam perderão acesso imediatamente.")) return;
-    const { error } = await supabaseBrowser
-      .from("tenant_api_keys")
-      .update({ is_active: false })
-      .eq("id", id)
-      .eq("tenant_id", tenantId!);
-    if (error) return addToast("error", "Erro ao revogar", error.message);
-    addToast("success", "Key revogada", "Acesso bloqueado com sucesso.");
-    await loadApiKeys();
-  }
+  if (!confirm("Revogar esta API Key? Sistemas que a usam perderão acesso imediatamente.")) return;
+  const { error } = await supabaseBrowser
+    .from("tenant_api_keys")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("tenant_id", tenantId!);
+  if (error) return addToast("error", "Erro ao revogar", error.message);
+  addToast("success", "Key revogada", "Acesso bloqueado com sucesso.");
+  await loadApiKeys();
+}
+
+async function handleDeleteApiKey(id: string) {
+  if (!confirm("Excluir permanentemente esta key? Esta ação não pode ser desfeita.")) return;
+  const { error } = await supabaseBrowser
+    .from("tenant_api_keys")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", tenantId!);
+  if (error) return addToast("error", "Erro ao excluir", error.message);
+  addToast("success", "Key excluída", "Removida permanentemente.");
+  await loadApiKeys();
+}
 
   // ------------------------------------
 
@@ -1901,15 +1913,24 @@ return (
                       {k.last_used_at && ` · Último uso: ${new Date(k.last_used_at).toLocaleDateString("pt-BR")}`}
                     </div>
                   </div>
-                  {k.is_active && (
-                    <button
-                      type="button"
-                      onClick={() => handleRevokeApiKey(k.id)}
-                      className="shrink-0 text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
-                    >
-                      Revogar
-                    </button>
-                  )}
+                  <div className="flex gap-1 shrink-0">
+  {k.is_active && (
+    <button
+      type="button"
+      onClick={() => handleRevokeApiKey(k.id)}
+      className="text-[10px] font-bold text-amber-500 hover:bg-amber-500/10 px-2 py-1 rounded transition-colors"
+    >
+      Revogar
+    </button>
+  )}
+  <button
+    type="button"
+    onClick={() => handleDeleteApiKey(k.id)}
+    className="text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
+  >
+    Excluir
+  </button>
+</div>
                 </div>
               ))}
             </div>
@@ -1934,11 +1955,32 @@ return (
 Content-Type: application/json`}</code>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-                <p className="font-bold text-slate-600 dark:text-white/70">Body</p>
-                <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`{
+  <p className="font-bold text-slate-600 dark:text-white/70">Body</p>
+  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`{
   "whatsapp_username": "5521999999999"
 }`}</code>
-              </div>
+</div>
+
+<div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+  <p className="font-bold text-slate-600 dark:text-white/70">Exemplo completo (cole no console do navegador)</p>
+  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre overflow-x-auto">{`fetch("https://unigestor.net.br/api/public/client-info", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer SUA_KEY_AQUI",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    whatsapp_username: "5521999999999"
+  })
+})
+.then(r => r.json())
+.then(data => {
+  const w = window.open("about:blank");
+  w.document.write(
+    "<pre>" + JSON.stringify(data, null, 2) + "</pre>"
+  );
+})`}</code>
+</div>
               <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
                 <p className="font-bold text-slate-600 dark:text-white/70">Campos retornados por cliente</p>
                 <div className="space-y-1 text-slate-500 dark:text-white/50">
