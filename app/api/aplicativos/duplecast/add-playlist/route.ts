@@ -12,7 +12,7 @@ const FIELDS = {
     app_id:     "33fa56bb-f3e9-4969-89f1-87b3956b4c1a",
     mac:        "2ae67ff3-be7f-43ab-ad0e-25bbf6f4ff2a",
     device_key: "f_xj5qx",
-    obs:        "f_vemy2",   // ← blesta_sid fica aqui temporariamente
+    obs:        "f_vemy2",   // ← blesta_sid fica aqui temporariamente aqui
   },
   duplexplay: {
     app_id:     "985ae0e8-d8b5-46b2-8f7a-6f14c3cf768e",
@@ -24,7 +24,7 @@ const FIELDS = {
 
 const DUPLECAST_BASE = "https://duplecast.com";
 const ADD_URL        = `${DUPLECAST_BASE}/plugin/duplecast/device_main/add/`;
-const POST_URL       = `${DUPLECAST_BASE}/plugin/duplecast/device_main/`;
+const POST_URL       = `${DUPLECAST_BASE}/plugin/duplecast/device_main/`; 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
