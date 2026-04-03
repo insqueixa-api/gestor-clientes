@@ -12,7 +12,7 @@ const FIELDS = {
     app_id:     "33fa56bb-f3e9-4969-89f1-87b3956b4c1a",
     mac:        "2ae67ff3-be7f-43ab-ad0e-25bbf6f4ff2a",
     device_key: "f_xj5qx",
-    obs:        "f_vemy2",   // ← blesta_sid fica aqui temporariamente aqui
+    obs:        "f_vemy2",   // ← blesta_sid fica aqui temporariamente
   },
   duplexplay: {
     app_id:     "985ae0e8-d8b5-46b2-8f7a-6f14c3cf768e",
@@ -24,10 +24,8 @@ const FIELDS = {
 
 const DUPLECAST_BASE = "https://duplecast.com";
 const ADD_URL        = `${DUPLECAST_BASE}/plugin/duplecast/device_main/add/`;
-const POST_URL       = `${DUPLECAST_BASE}/plugin/duplecast/device_main/`; 
+const POST_URL       = `${DUPLECAST_BASE}/plugin/duplecast/device_main/`;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function extractCsrf(html: string): string | null {
   const m = html.match(/name="_csrf_token"\s+value="([^"]+)"/);
@@ -44,11 +42,11 @@ function isExpired(html: string): boolean {
 // ─── POST /api/aplicativos/duplecast/add-playlist ─────────────────────────────
 //
 // Body:
-//   client_id      (obrigatório) — lê mac + blesta_sid do banco
-//   playlist_name  (obrigatório)
-//   m3u_url        (obrigatório)
-//   pin            (opcional)
-//   app_type       (opcional: "duplecast" | "duplexplay", default "duplecast")
+//   client_id      obrigatório — lê blesta_sid + mac do banco
+//   playlist_name  obrigatório
+//   m3u_url        opcional — se não vier, busca do cadastro do cliente
+//   pin            opcional
+//   app_type       opcional: "duplecast" | "duplexplay" (default: "duplecast")
 //
 export async function POST(req: NextRequest) {
   try {
@@ -61,21 +59,31 @@ export async function POST(req: NextRequest) {
 
     // 2. Body
     const body = await req.json();
-    const {
-      client_id,
-      playlist_name,
-      m3u_url,
-      pin,
-      app_type = "duplecast",
-    } = body;
+    const { client_id, playlist_name, m3u_url, pin, app_type = "duplecast" } = body;
 
     if (!client_id)     return NextResponse.json({ ok: false, error: "client_id é obrigatório." }, { status: 400 });
     if (!playlist_name) return NextResponse.json({ ok: false, error: "playlist_name é obrigatório." }, { status: 400 });
-    if (!m3u_url)       return NextResponse.json({ ok: false, error: "m3u_url é obrigatório." }, { status: 400 });
 
     const cfg = app_type === "duplexplay" ? FIELDS.duplexplay : FIELDS.duplecast;
 
-    // 3. Busca dados do cliente no banco
+    // 3. m3u_url — usa o que veio ou busca do cadastro do cliente
+    let finalM3uUrl = (m3u_url || "").trim();
+    if (!finalM3uUrl) {
+      const { data: clientRow } = await supabaseAdmin
+        .from("clients")
+        .select("m3u_url")
+        .eq("id", client_id)
+        .maybeSingle();
+      finalM3uUrl = clientRow?.m3u_url?.trim() || "";
+    }
+    if (!finalM3uUrl) {
+      return NextResponse.json(
+        { ok: false, error: "m3u_url não encontrado. Preencha o link M3U no cadastro do cliente." },
+        { status: 400 }
+      );
+    }
+
+    // 4. Busca dados do app do cliente no banco
     const { data: appRow, error: appErr } = await supabaseAdmin
       .from("client_apps")
       .select("field_values")
@@ -83,14 +91,12 @@ export async function POST(req: NextRequest) {
       .eq("app_id", cfg.app_id)
       .maybeSingle();
 
-    if (appErr) return NextResponse.json({ ok: false, error: appErr.message }, { status: 500 });
+    if (appErr)  return NextResponse.json({ ok: false, error: appErr.message }, { status: 500 });
     if (!appRow) return NextResponse.json({ ok: false, error: `App ${app_type} não configurado para este cliente.` }, { status: 404 });
 
     const fv = (appRow.field_values || {}) as Record<string, string>;
-
     const mac       = fv[cfg.mac]?.trim()        || "";
-    const deviceKey = fv[cfg.device_key]?.trim() || "";
-    const blestaSid = fv[cfg.obs]?.trim()        || ""; // temporário no campo obs
+    const blestaSid = fv[cfg.obs]?.trim()        || ""; // blesta_sid no campo obs
 
     if (!mac) {
       return NextResponse.json({ ok: false, error: "MAC (Device ID) não preenchido no app do cliente." }, { status: 400 });
@@ -98,14 +104,14 @@ export async function POST(req: NextRequest) {
     if (!blestaSid) {
       return NextResponse.json({
         ok: false,
-        error: "Sessão não encontrada. Cole o blesta_sid no campo Obs do app do cliente.",
+        error: "Sessão não encontrada. Cole o blesta_sid no campo Obs do app DupleCast do cliente.",
         expired: true,
       }, { status: 401 });
     }
 
     const cookie = `blesta_sid=${blestaSid}`;
 
-    // 4. GET → extrai _csrf_token
+    // 5. GET → extrai _csrf_token
     const getRes = await fetch(ADD_URL, {
       method: "GET",
       headers: {
@@ -140,12 +146,12 @@ export async function POST(req: NextRequest) {
       }, { status: 502 });
     }
 
-    // 5. POST → adiciona playlist
+    // 6. POST → adiciona playlist
     const formData = new URLSearchParams({
-      _csrf_token: csrfToken,
+      _csrf_token:  csrfToken,
       form_action:  "generate_m3u_playlist",
       m3u_name:     playlist_name,
-      m3u_playlist: m3u_url,
+      m3u_playlist: finalM3uUrl,
       epg_url:      "",
       note:         "",
       locked:       pin ? "1" : "0",
@@ -186,6 +192,7 @@ export async function POST(req: NextRequest) {
       message: "Playlist adicionada com sucesso no Duplecast.",
       mac,
       app_type,
+      m3u_url: finalM3uUrl,
     });
 
   } catch (err: any) {
