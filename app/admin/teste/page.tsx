@@ -274,7 +274,10 @@ export default function TrialsPage() {
   });
 
   // Filtros
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("search") || "";
+});
   const [showCount, setShowCount] = useState(100);
   const [archivedFilter, setArchivedFilter] = useState<"Não" | "Sim">("Não");
   const [serverFilter, setServerFilter] = useState("Todos");
@@ -615,10 +618,10 @@ setAppModal({
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   function addToast(type: "success" | "error", title: string, message?: string) {
-    const id = Date.now() + Math.floor(Math.random() * 100000);
-    setToasts((prev) => [...prev, { id, type, title, message }]);
-    setTimeout(() => removeToast(id), 4000);
-  }
+  const id = Date.now() + Math.floor(Math.random() * 100000);
+  setToasts((prev) => [...prev, { id, type, title, message }]);
+  setTimeout(() => removeToast(id), 5000);
+}
 
   function removeToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));

@@ -1094,7 +1094,8 @@ m3u_url: client.m3u_url ?? undefined,
 {showQuickTrialModal && client && (
   <NovoCliente
     mode="trial"
-    sourceClientId={client.id} // ✅ Carrega os apps do cliente original
+    defaultSendWhatsapp={false} // ✅ Não notifica o cliente no teste rápido
+    sourceClientId={client.id}
     clientToEdit={{
       // ✅ SEM id: o modal entende como criação nova
       client_name: client.client_name,
@@ -1118,21 +1119,11 @@ whatsapp_username: client.whatsapp_username
     }}
     onClose={() => setShowQuickTrialModal(false)}
     onSuccess={() => {
-      setShowQuickTrialModal(false);
-      loadData();
-      setTimeout(() => {
-        const raw = window.sessionStorage.getItem("trials_list_toasts");
-        if (raw) {
-          try {
-            const arr = JSON.parse(raw);
-            arr.forEach((t: any) => addToast(t.type, t.title, t.message));
-            window.sessionStorage.removeItem("trials_list_toasts");
-          } catch {}
-        } else {
-          addToast("success", "Teste criado", "Teste rápido registrado com sucesso.");
-        }
-      }, 150);
-    }}
+  setShowQuickTrialModal(false);
+  // ✅ Redireciona para tela de testes filtrada pelo nome do cliente
+  // Filtra por nome (nunca muda, mesmo que o username seja alterado pelo servidor)
+  window.location.href = `/admin/teste?search=${encodeURIComponent(client.client_name)}`;
+}}
   />
 )}
 
