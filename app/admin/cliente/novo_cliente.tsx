@@ -1147,7 +1147,7 @@ if (tmplErr) {
 
   // ✅ TRIAL: por padrão liga envio e seleciona template "Teste..."
 if (isTrialMode) {
-  setSendTrialWhats(true);
+  setSendTrialWhats(defaultSendWhatsapp ?? true); // ✅ respeita a prop
   const defaultTpl =
     list.find((t) => (t.name || "").trim().toLowerCase().startsWith("teste")) ||
     list.find((t) => (t.name || "").toLowerCase().includes("teste")) ||
