@@ -109,7 +109,10 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    const cookie = `blesta_sid=${blestaSid}`;
+    const [bSid, cfClearance] = blestaSid.split("|");
+const cookie = cfClearance
+  ? `blesta_sid=${bSid}; cf_clearance=${cfClearance}`
+  : `blesta_sid=${bSid}`;
 
     // 5. GET → extrai _csrf_token
     const getRes = await fetch(ADD_URL, {
