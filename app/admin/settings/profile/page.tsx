@@ -1940,10 +1940,60 @@ return (
 
           {/* Documentação */}
           <details className="group">
-            <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center gap-1">
-              <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-              Ver documentação da API
-            </summary>
+  <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center justify-between gap-1">
+    <span className="flex items-center gap-1">
+      <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+      Ver documentação da API
+    </span>
+    <span className="flex items-center gap-1 not-sr-only" onClick={e => e.preventDefault()}>
+      <button
+        type="button"
+        onClick={() => {
+          const md = `# API de Consulta de Clientes — UniGestor\n\n## Endpoint\n\`\`\`\nPOST https://unigestor.net.br/api/public/client-info\n\`\`\`\n\n## Headers\n\`\`\`\nAuthorization: Bearer SUA_KEY_AQUI\nContent-Type: application/json\n\`\`\`\n\n## Body\n\`\`\`json\n{\n  "whatsapp_username": "5521999999999"\n}\n\`\`\`\n\n## Campos retornados por cliente\n\n| Campo | Descrição |\n|---|---|\n| client_name | Nome completo |\n| status | ACTIVE / OVERDUE / TRIAL / ARCHIVED |\n| vencimento | Data formatada (pt-BR) |\n| vencimento_iso | ISO 8601 para calcular no bot |\n| dias_restantes | Número inteiro de dias |\n| plan | Plano e quantidade de telas |\n| credentials | { username, password } |\n| m3u_url | Link da playlist M3U |\n| portal_link | Link de pagamento com token |\n| portal_pin | PIN de acesso (4 dígitos) |\n| server_name | Nome do servidor |\n| technology | IPTV / P2P / OTT |\n| phone_primary | Telefone principal (E.164) |\n| phone_secondary | Telefone secundário |\n\n## Exemplo completo\n\`\`\`javascript\nfetch("https://unigestor.net.br/api/public/client-info", {\n  method: "POST",\n  headers: {\n    "Authorization": "Bearer SUA_KEY_AQUI",\n    "Content-Type": "application/json"\n  },\n  body: JSON.stringify({\n    whatsapp_username: "5521999999999"\n  })\n})\n.then(r => r.json())\n.then(console.log);\n\`\`\`\n`;
+          const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "unigestor-api-docs.md";
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        className="text-[10px] font-bold px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-colors"
+      >
+        .md
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const collection = {
+            info: { name: "UniGestor API", schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+            item: [{
+              name: "Consultar clientes por WhatsApp",
+              request: {
+                method: "POST",
+                header: [
+                  { key: "Authorization", value: "Bearer SUA_KEY_AQUI" },
+                  { key: "Content-Type", value: "application/json" }
+                ],
+                body: { mode: "raw", raw: JSON.stringify({ whatsapp_username: "5521999999999" }, null, 2), options: { raw: { language: "json" } } },
+                url: { raw: "https://unigestor.net.br/api/public/client-info", protocol: "https", host: ["unigestor", "net", "br"], path: ["api", "public", "client-info"] }
+              }
+            }]
+          };
+          const blob = new Blob([JSON.stringify(collection, null, 2)], { type: "application/json;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "unigestor-postman.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        className="text-[10px] font-bold px-2 py-0.5 rounded border border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
+      >
+        Postman
+      </button>
+    </span>
+  </summary>
             <div className="mt-3 space-y-3 text-xs">
               <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
                 <p className="font-bold text-slate-600 dark:text-white/70">Endpoint</p>
@@ -1962,7 +2012,7 @@ Content-Type: application/json`}</code>
 </div>
 
 <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-  <p className="font-bold text-slate-600 dark:text-white/70">Exemplo completo (cole no console do navegador)</p>
+  <p className="font-bold text-slate-600 dark:text-white/70">Exemplo para testar no console do navegador</p>
   <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre overflow-x-auto">{`fetch("https://unigestor.net.br/api/public/client-info", {
   method: "POST",
   headers: {
@@ -1993,10 +2043,10 @@ Content-Type: application/json`}</code>
                     ["plan", "Plano e quantidade de telas"],
                     ["credentials", "{ username, password }"],
                     ["m3u_url", "Link da playlist M3U"],
-                    ["portal_link", "Link de pagamento com token"],
+                    ["portal_link", "Link do Portal do cliente"],
                     ["portal_pin", "PIN de acesso (4 dígitos)"],
                     ["server_name", "Nome do servidor"],
-                    ["technology", "IPTV / P2P / OTT"],
+                    ["technology", "IPTV / P2P"],
                     ["phone_primary", "Telefone principal (E.164)"],
                     ["phone_secondary", "Telefone secundário"],
                   ].map(([campo, desc]) => (
