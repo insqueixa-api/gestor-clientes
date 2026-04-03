@@ -346,10 +346,18 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
   const phones = [];
   // ✅ Busca o número nas colunas alternativas (Testes rápidos salvam no e164)
   const phoneMain = normalizeToPhone(rowData.whatsapp_username || rowData.whatsapp_e164 || rowData.phone_e164);
-  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
+if (phoneMain) phones.push({
+  number: phoneMain,
+  username: String(rowData.whatsapp_username || phoneMain).trim(),
+  is_secondary: false,
+});
 
-  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
-  if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
+const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
+if (phoneSec) phones.push({
+  number: phoneSec,
+  username: String(rowData.secondary_whatsapp_username || phoneSec).trim(),
+  is_secondary: true,
+});
 
   return {
     phones, 
@@ -823,8 +831,8 @@ if (wa.dont_message_until) {
             const expiresAt = new Date(Date.now() + 43200 * 60 * 1000).toISOString();
             const createdBy = String(job.created_by || "").trim();
             const { data: tokData } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-              p_tenant_id: String(job.tenant_id),
-              p_whatsapp_username: contact.number,
+  p_tenant_id: String(job.tenant_id),
+  p_whatsapp_username: contact.username || contact.number, // ✅ preserva username alfanumérico
               p_created_by: createdBy,
               p_label: contact.is_secondary ? "Cobranca automatica Secundario" : "Cobranca automatica",
               p_expires_at: expiresAt,

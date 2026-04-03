@@ -489,10 +489,18 @@ async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) 
   const phones = [];
   // ✅ Busca o número nas colunas alternativas (Testes rápidos salvam no e164)
   const phoneMain = normalizeToPhone(rowData.whatsapp_username || rowData.whatsapp_e164 || rowData.phone_e164);
-  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
+if (phoneMain) phones.push({
+  number: phoneMain,
+  username: String(rowData.whatsapp_username || phoneMain).trim(), // ✅ raw para portal token
+  is_secondary: false,
+});
 
-  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
-  if (phoneSec) phones.push({ number: phoneSec, is_secondary: true });
+const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
+if (phoneSec) phones.push({
+  number: phoneSec,
+  username: String(rowData.secondary_whatsapp_username || phoneSec).trim(), // ✅ raw para portal token
+  is_secondary: true,
+});
 
   return {
     phones, 
@@ -849,8 +857,8 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
       const actionLabel = internal ? "Envio automático" : "Envio manual";
 
       const { data: tokData, error: tokErr } = await sb.rpc("portal_admin_create_token_for_whatsapp_v2", {
-        p_tenant_id: tenantId,
-        p_whatsapp_username: contact.number, 
+  p_tenant_id: tenantId,
+  p_whatsapp_username: contact.username || contact.number, // ✅ preserva "5521999998888teste"
         p_created_by: safeUserId, // Protegido contra string vazia
         p_label: contact.is_secondary ? `${actionLabel} Secundário` : actionLabel,
         p_expires_at: null,
