@@ -347,11 +347,11 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       };
 
       await Promise.all([
-  upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-  upsertDinamico("SaaS - Rendimentos", valorSaas, catSaaS || catIPTV, "RECEITA"),
-  upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
-  upsertDinamico("SaaS - Custo de Créditos", valorSaasCusto, catSaaS || catIPTV, "DESPESA"),
-]);
+        upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
+        upsertDinamico("SaaS - Venda de Créditos", valorSaas, catSaaS || catIPTV, "RECEITA"),
+        upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
+        upsertDinamico("SaaS - Custo de Créditos", valorSaasCusto, catSaaS || catIPTV, "DESPESA"),
+      ]);
     } catch (e) {
       console.error("Erro na sincronização:", e);
     }

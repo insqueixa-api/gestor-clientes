@@ -354,7 +354,7 @@ export default function AdminShell({
   } 
   onClick={() => setOpenMenu(null)} 
 />
-            <MenuLink href="/admin/gerenciador/cobranca" label="💵 Cobrança" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label="💵 Automação de Cobrança" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/pagamento" label="💳 Formas de pagamento" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/gerenciador/aplicativo" label="📱 Aplicativos" onClick={() => setOpenMenu(null)} />
             <Divider />
@@ -374,7 +374,7 @@ export default function AdminShell({
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
             )}
 
-            <MenuLink href="/admin/settings/api-server" label="🔌 API Servidor" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🔌 API de Integrações" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -398,7 +398,7 @@ export default function AdminShell({
               <MenuLink href="/admin/settings/gestao_saas" label="🚀 Gestão SaaS" onClick={() => setOpenMenu(null)} />
             )}
 
-            <MenuLink href="/admin/settings/api-server" label="🔌 API Servidor" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label="🔌 API de Integrações" onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
