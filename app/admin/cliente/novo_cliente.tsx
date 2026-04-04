@@ -867,8 +867,9 @@ async function loadWhatsAppSessions() {
 
   // ✅ Novos campos de controle por instância
   costType: "paid" | "free" | "partnership";
-  partnerServerId: string;
-  is_minimized?: boolean; // ✅ NOVO
+  partnerServerId: string;
+  is_minimized?: boolean; // ✅ NOVO
+  auto_configure?: boolean; // ✅ Automação na criação
 };
 
 // --- ESTADOS ---
@@ -1799,13 +1800,11 @@ function addAppToClient(app: AppCatalog) {
 
       values: {},
 
-      costType: "paid", 
-
-      partnerServerId: "",
-
-      is_minimized: false // ✅ AGORA O APP NOVO JÁ NASCE ABERTO PRA DIGITAR O MAC
-
-    };
+      costType: "paid", 
+      partnerServerId: "",
+      is_minimized: false, // ✅ AGORA O APP NOVO JÁ NASCE ABERTO PRA DIGITAR O MAC
+      auto_configure: true // ✅ Nasce com a integração marcada para sim
+    };
 
     setSelectedApps(prev => [...prev, newInstance]);
 
@@ -1816,8 +1815,7 @@ function addAppToClient(app: AppCatalog) {
 
 
   // ✅ Nova função para atualizar Custo/Parceria
-
-  function updateAppConfig(instanceId: string, key: "costType" | "partnerServerId", value: string) {
+  function updateAppConfig(instanceId: string, key: "costType" | "partnerServerId" | "auto_configure", value: any) {
 
     setSelectedApps(prev => prev.map(app => {
 
@@ -1844,21 +1842,54 @@ function addAppToClient(app: AppCatalog) {
 
 
 function updateAppFieldValue(instanceId: string, fieldKey: string, value: string) {
-
-  setSelectedApps(prev => prev.map(app => {
-
-    if (app.instanceId !== instanceId) return app;
-
-    return { ...app, values: { ...app.values, [fieldKey]: value } };
-
-  }));
-
+  setSelectedApps(prev => prev.map(app => {
+    if (app.instanceId !== instanceId) return app;
+    return { ...app, values: { ...app.values, [fieldKey]: value } };
+  }));
 }
 
+  // ✅ FUNÇÃO REAL PARA CONFIGURAR O APP NA API
+  async function handleConfigApp(appName: string) {
+    if (!clientToEdit?.id) {
+      addToast("warning", "Atenção", "Salve o cliente primeiro antes de configurar o aplicativo.");
+      return;
+    }
 
+    try {
+      setLoading(true);
+      setLoadingStep("Configurando App...");
 
-  // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
 
+      // Chama a rota de criação
+      const res = await fetch("/api/aplicativos/gerenciaapp/create-device", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          client_id: clientToEdit.id,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Falha ao configurar o aplicativo.");
+      }
+
+      addToast("success", "Integrado!", `Aplicativo configurado com sucesso no painel.`);
+    } catch (error: any) {
+      addToast("error", "Erro na Integração", error.message);
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
 async function executeSave() {
 
     setConfirmModal(null); // Fecha o popup se estiver aberto
@@ -2961,18 +2992,36 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
 
 
         if (selectedApps.length > 0 && clientId) {
+            const toInsert = selectedApps.map(app => ({
+                client_id: clientId, tenant_id: tid, app_id: app.app_id,
+                field_values: { ...app.values, _config_cost: app.costType, _config_partner: app.partnerServerId }
+            }));
+            await supabaseBrowser.from("client_apps").insert(toInsert);
 
-            const toInsert = selectedApps.map(app => ({
-
-                client_id: clientId, tenant_id: tid, app_id: app.app_id,
-
-                field_values: { ...app.values, _config_cost: app.costType, _config_partner: app.partnerServerId }
-
-            }));
-
-            await supabaseBrowser.from("client_apps").insert(toInsert);
-
-        }
+            // ✅ CHAMA A API DO APP SEQUENCIALMENTE ANTES DO WHATSAPP (SÓ NA CRIAÇÃO)
+            if (!isEditing) {
+              const { data: sess } = await supabaseBrowser.auth.getSession();
+              for (const app of selectedApps) {
+                const catApp = catalog.find(c => c.id === app.app_id) as any;
+                if (catApp?.integration_type && app.auto_configure !== false) {
+                  try {
+                    setLoadingStep(`Painel: ${app.name}...`);
+                    const resApp = await fetch("/api/aplicativos/gerenciaapp/create-device", {
+                      method: "POST",
+                      headers: { 
+                        "Content-Type": "application/json", 
+                        ...(sess?.session?.access_token ? { Authorization: `Bearer ${sess.session.access_token}` } : {}) 
+                      },
+                      body: JSON.stringify({ client_id: clientId }) // Amanhã passaremos o app_name aqui também
+                    });
+                    if (!resApp.ok) console.warn("Aviso: Falha ao integrar app silenciosamente", app.name);
+                  } catch (errApp) {
+                    console.error("Falha na automação do App:", app.name, errApp);
+                  }
+                }
+              }
+            }
+        }
 
 // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
 
@@ -4844,30 +4893,50 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                         <div className="mt-4 animate-in slide-in-from-top-2 duration-200">
 
-                          {/* Configuração de Integração do App (Mocks) - Só exibe se o app possuir integração */}
+                          {/* Configuração de Integração do App */}
                           {Boolean((catalog.find(c => c.id === app.app_id) as any)?.integration_type) && (
-                            <div className="flex flex-col sm:flex-row gap-3 bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
-                                <button
-                                    type="button"
-                                    onClick={() => alert("Chamar rota API de configuração")}
-                                    className="flex-1 h-10 px-4 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-                                >
-                                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                    Configurar Aplicativo
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => alert("Deletar configuração")}
-                                    className="flex-1 h-10 px-4 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
-                                >
-                                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Remover Configuração
-                                </button>
+                            <div className="bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
+                              {!isEditing ? (
+                                /* MODO CRIAÇÃO: Apenas o Toggle */
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700 dark:text-white block">Configurar Aplicativo no Painel?</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-white/40">Automatizar criação ao salvar cliente</span>
+                                  </div>
+                                  <Switch
+                                    checked={app.auto_configure ?? true}
+                                    onChange={(v) => updateAppConfig(app.instanceId, "auto_configure", v)}
+                                    label=""
+                                  />
+                                </div>
+                              ) : (
+                                /* MODO EDIÇÃO: Grid cravado em 2 colunas, sem flex-1 para não esmagar ninguem */
+                                <div className="grid grid-cols-2 gap-3">
+                                  <button
+                                      type="button"
+                                      onClick={() => handleConfigApp(app.name)}
+                                      className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                  >
+                                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      </svg>
+                                      <span className="hidden sm:inline">Configurar App</span>
+                                      <span className="sm:hidden">Configurar</span>
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => alert("Deletar configuração")}
+                                      className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                                  >
+                                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                      <span className="hidden sm:inline">Remover Config.</span>
+                                      <span className="sm:hidden">Remover</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
 
