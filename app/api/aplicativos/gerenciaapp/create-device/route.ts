@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
       .eq("is_active", true)
       .maybeSingle();
 
-    const panelEmail    = integRow?.login_email || "";
-    const panelPassword = integRow?.login_password || "";
+const panelEmail    = integRow?.login_email?.trim() || "";
+    const panelPassword = integRow?.login_password?.trim() || "";
 
     if (!panelEmail || !panelPassword) {
       return NextResponse.json({
@@ -227,11 +227,13 @@ export async function POST(req: NextRequest) {
     });
 
     if (!loginRes.ok && loginRes.status !== 302) {
-      return NextResponse.json({
-        ok: false,
-        error: `Falha no login do gerenciaapp.top (HTTP ${loginRes.status}). Verifique as credenciais nas variáveis de ambiente.`
-      }, { status: 502 });
-    }
+      const errTxt = await loginRes.text().catch(() => "");
+      console.error("[Login GerenciaApp] HTTP", loginRes.status, errTxt.slice(0, 300));
+      return NextResponse.json({
+        ok: false,
+        error: `Falha no login do painel (HTTP ${loginRes.status}). Verifique se o e-mail e senha na sua "API de Integrações" estão corretos.`
+      }, { status: 502 });
+    }
 
     // Acumula cookies da resposta de login
     const loginCookies = { ...loginPageCookies };
