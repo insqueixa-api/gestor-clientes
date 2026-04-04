@@ -222,6 +222,10 @@ const fieldsText = fields
   }, 
 
 [search, apps]);
+  // PARA:
+  // Pai = tenant que não tem apps herdados de ninguém
+  const isRootTenant = !apps.some(a => a.tenant_id !== myTenantId);
+
   // --- MANIPULAÇÃO DO MODAL ---
 function openNew() {
     setEditingId(null);
@@ -575,8 +579,8 @@ return (
                 </div>
               </div>
 
-              {/* INTEGRAÇÃO — só visível para apps próprios (não herdados) */}
-              {(!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
+              {/* INTEGRAÇÃO — só visível para o pai, em apps próprios */}
+              {isRootTenant && (!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
                 <div>
                   <Label>Integração automática</Label>
                   <select
