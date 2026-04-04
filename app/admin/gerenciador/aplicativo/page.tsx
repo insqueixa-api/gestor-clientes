@@ -88,6 +88,7 @@ function normalizeApiUrl(url: string) {
 export default function AppManagerPage() {
 const [apps, setApps] = useState<AppData[]>([]);
 const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
+const [configuredIntegrations, setConfiguredIntegrations] = useState<string[]>([]);
 const [search, setSearch] = useState("");
 const [loading, setLoading] = useState(true);
 const [isModalOpen, setIsModalOpen] = useState(false);
@@ -163,36 +164,42 @@ const [editingId, setEditingId] = useState<string | null>(null);
   };
 
   // --- CARREGAR DADOS ---
-  async function loadData() {
-    setLoading(true);
-    try {
-      const tid = await getCurrentTenantId();
-      if (!tid) return;
-      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
+  async function loadData() {
+    setLoading(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
+      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
 
-      // 1. Carrega Apps via RPC inteligente (Bypassa RLS com segurança)
-      const { data: appsData, error: appsError } = await supabaseBrowser
-        .rpc("get_my_visible_apps")
-        .order("name", { ascending: true });
+      // 1. Carrega Apps e Integrações em paralelo
+      const [appsRes, integrationsRes] = await Promise.all([
+        supabaseBrowser.rpc("get_my_visible_apps").order("name", { ascending: true }),
+        supabaseBrowser
+          .from("app_integrations")
+          .select("app_name")
+          .eq("tenant_id", tid)
+          .eq("is_active", true) // Só conta se estiver ativa
+      ]);
 
+      if (appsRes.error) throw appsRes.error;
+      if (integrationsRes.error) throw integrationsRes.error;
 
-      if (appsError) throw appsError;
-
-const formattedApps = (appsData || [])
-  .map((app) => ({
-    ...app,
-    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+const formattedApps = (appsRes.data || [])
+  .map((app) => ({
+    ...app,
+    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 
 setApps(formattedApps);
+setConfiguredIntegrations(integrationsRes.data?.map(i => i.app_name) || []);
 
-    } catch (error: any) {
-      addToast("error", "Erro ao carregar dados", error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    } catch (error: any) {
+      addToast("error", "Erro ao carregar dados", error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     loadData();
@@ -384,20 +391,28 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  return (
-    <div
-      key={app.id}
-      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="space-y-1">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {app.integration_type && (
-              <span className="inline-flex items-center text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                ⚡ {app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type}
-              </span>
-            )}
+  // Lógica para verificar se precisa configurar
+  const needsConfiguration = app.integration_type && !configuredIntegrations.includes(app.integration_type);
+  const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
+
+  return (
+    <div
+      key={app.id}
+      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="space-y-1">
+          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {app.integration_type && (
+              <span className={`inline-flex items-center text-[10px] font-bold border px-2 py-0.5 rounded-full ${
+                needsConfiguration
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+              }`}>
+                ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : appLabel}
+              </span>
+            )}
             {app.tenant_id !== myTenantId && (
               <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
                 🔒 Herdado
