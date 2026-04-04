@@ -1858,36 +1858,51 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     setLoading(true);
     setLoadingStep("A enviar para a Extensão...");
 
-    // 1. Prepara o payload para enviar ao GerenciaApp (usando os dados que já estão na tela)
+    // 1. Calcular o nome do servidor (Ex: Insqueixa_NaTV)
+    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+    const shortServerName = selectedServerName.replace(/\s+/g, "");
+    const finalServerName = `${username}_${shortServerName}`;
+
+    // 2. Prepara o payload para enviar ao GerenciaApp
     const payload = {
         modo_selecao: 1,
         mac_device: selectedApps.find(a => a.name === appName)?.values["Device ID (MAC)"] || "",
-        server_name: username, // Temporário, pode ajustar depois
+        server_name: finalServerName, // ✅ AGORA SIM: O nome montado corretamente
+        account_username: "",
+        account_password: "",
+        xteam_username: "",
+        xteam_password: "",
         username_login: username,
         password_login: password || "",
         ranking_app_id: 10, // ID do IBO Revenda
+        dns: "",
         m3u8_list: m3uUrl || "",
+        url_epg: "",
+        price: 0,
+        plan_id: "",
         expire_date: dueDate,
+        dnsOptions: "",
+        whatsapp: "",
         is_trial: isTrialMode ? 1 : 0
     };
 
-    // 2. Prepara o receptor da resposta da extensão
+    // 3. Prepara o receptor da resposta da extensão
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
         setLoadingStep("");
 
         const result = e.detail;
-        if (result.ok) {
-            addToast("success", "Integrado!", `Aplicativo configurado com sucesso pelo navegador.`);
+        if (result && result.ok) {
+            addToast("success", "Integrado!", `Aplicativo configurado com sucesso!`);
         } else {
-            addToast("error", "Erro na Integração", result.error || "Falha desconhecida.");
+            addToast("error", "Erro na Integração", result?.error || "Falha desconhecida.");
         }
     };
 
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
-    // 3. Dispara a ordem para a Extensão do Chrome fazer o trabalho sujo
+    // 4. Dispara a ordem para a Extensão do Chrome fazer o trabalho sujo
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
         detail: {
             action: "GERENCIAAPP_CREATE",
@@ -1895,11 +1910,18 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         }
     }));
     
-    // Timeout de segurança caso o utilizador não tenha a extensão instalada
+    // 5. Timeout de segurança (Aumentado para 20 segundos)
     setTimeout(() => {
-        setLoading(false);
-        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-    }, 10000);
+        setLoading((prevLoading) => {
+            if (prevLoading) { // Se ainda estiver carregando após 20s, avisa o usuário
+                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+                addToast("warning", "Aviso", "O comando foi enviado, mas a resposta demorou. Verifique o painel.");
+                setLoadingStep("");
+                return false;
+            }
+            return prevLoading;
+        });
+    }, 20000);
   }
 
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)

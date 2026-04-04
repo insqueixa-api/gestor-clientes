@@ -36,6 +36,10 @@ export default function AppIntegracaoModal({
   const [loginPassword, setLoginPassword] = useState(integration?.login_password ?? "");
   const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
   const [saving, setSaving]           = useState(false);
+  const [userEmail, setUserEmail]     = useState("");
+  
+  // Controle de Upload da extensão
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (integration) {
@@ -45,9 +49,41 @@ export default function AppIntegracaoModal({
       setLoginPassword(integration.login_password ?? "");
       setIsActive(integration.is_active ?? true);
     }
+    
+    // Busca o usuário logado para controle de permissões (Master)
+    supabaseBrowser.auth.getUser().then(({ data }) => {
+        if (data?.user?.email) setUserEmail(data.user.email);
+    });
   }, [integration]);
 
   const canSave = label.trim() && loginEmail.trim() && loginPassword.trim();
+  
+  // Define quem é o Master (você) para ver o botão de Upload
+  const isMasterUser = userEmail === "insqueixa@gmail.com" || userEmail === "m.martins@sap.com";
+
+  // Gera o link público de download automaticamente
+  const downloadUrl = supabaseBrowser.storage.from("extensions").getPublicUrl("unigestor-extensao.zip").data.publicUrl;
+
+  async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      // Faz o upload para o bucket 'extensions' e substitui se já existir
+      const { error } = await supabaseBrowser.storage
+        .from("extensions")
+        .upload("unigestor-extensao.zip", file, { upsert: true, cacheControl: "3600" });
+
+      if (error) throw error;
+      alert("Sucesso! Nova versão da extensão foi salva e já está disponível para toda a rede.");
+    } catch (err: any) {
+      onErrorAction(err.message || "Erro ao fazer upload da extensão.");
+    } finally {
+      setIsUploading(false);
+      e.target.value = ""; // Limpa o input
+    }
+  }
 
   async function handleSave() {
     if (!canSave) return;
@@ -90,10 +126,10 @@ export default function AppIntegracaoModal({
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCloseAction} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-start justify-between gap-3">
+        <div className="p-5 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-start justify-between gap-3 shrink-0">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
               {isEdit ? "Editar Integração" : "Nova Integração de Aplicativo"}
@@ -111,8 +147,59 @@ export default function AppIntegracaoModal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-4">
+        {/* Body (Com scroll se a ecrã for pequena) */}
+        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+            
+          {/* Instruções e Download da Extensão (Visível para TODOS) */}
+          <div className="p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl space-y-3">
+              <h3 className="text-xs font-bold text-sky-800 dark:text-sky-300 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Como funciona a integração?
+              </h3>
+              <p className="text-[11px] text-sky-700 dark:text-sky-200/80 leading-relaxed">
+                  Para garantir a segurança e evitar bloqueios, esta integração utiliza a <strong>Extensão Oficial do UniGestor</strong> para Google Chrome. Certifique-se de que a extensão está instalada no seu navegador e que o painel do aplicativo se encontra com sessão iniciada (logado) numa outra aba.
+              </p>
+              
+              {/* Botão de Download liberado para a rede inteira */}
+              <div className="pt-1">
+                  <a
+                      href={downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Baixar Extensão do Chrome (.zip)
+                  </a>
+              </div>
+
+              {/* Área de Upload EXCLUSIVA DO MASTER (Você) */}
+              {isMasterUser && (
+                  <div className="mt-3 pt-3 border-t border-sky-200/50 dark:border-sky-500/30">
+                      <p className="text-[9px] font-bold text-slate-500 dark:text-white/50 mb-2 uppercase tracking-widest">
+                          Área do Desenvolvedor (Atualizar Extensão)
+                      </p>
+                      <div className="flex items-center gap-2">
+                          <input
+                              type="file"
+                              accept=".zip"
+                              onChange={handleUploadExtension}
+                              disabled={isUploading}
+                              className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-sky-200 file:text-sky-800 hover:file:bg-sky-300 dark:file:bg-sky-600/30 dark:file:text-sky-200 cursor-pointer"
+                          />
+                          {isUploading && (
+                              <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 animate-pulse">
+                                  A enviar...
+                              </span>
+                          )}
+                      </div>
+                  </div>
+              )}
+          </div>
 
           {/* Aplicativo */}
           <div>
@@ -198,7 +285,7 @@ export default function AppIntegracaoModal({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
+        <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2 shrink-0">
           <button
             onClick={onCloseAction}
             className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
