@@ -259,13 +259,13 @@ addToast(
         onClick={() => { setShowTypeChooser(false); setEditingIntegration(null); setIsModalOpen(true); }}
         className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-white/5"
       >
-        🖥️ Servidor (NaTV, Fast, Elite)
+        🖥️ Servidor
       </button>
       <button
         onClick={() => { setShowTypeChooser(false); setEditingApp(null); setIsModalAppOpen(true); }}
         className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
       >
-        📱 Aplicativo (GerenciaApp...)
+        📱 Aplicativo
       </button>
     </div>
   )}

@@ -47,6 +47,7 @@ type AppData = {
   info_url: string | null;
   is_active: boolean;
   fields_config: AppField[];
+  integration_type?: string | null;
 };
 
 // --- COMPONENTES UI ---
@@ -136,6 +137,7 @@ const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
+  const [formIntegration, setFormIntegration] = useState<string>("");
   const dragIndexRef = useRef<number | null>(null);
   
 
@@ -226,6 +228,7 @@ function openNew() {
     setFormName("");
     setFormUrl("");
     setFormFields([]);
+    setFormIntegration("");
     setIsModalOpen(true);
   }
 
@@ -234,6 +237,7 @@ function openEdit(app: AppData) {
     setFormName(app.name);
     setFormUrl(app.info_url || "");
     setFormFields(JSON.parse(JSON.stringify(app.fields_config)));
+    setFormIntegration(app.integration_type || "");
     setIsModalOpen(true);
   }
 
@@ -276,6 +280,7 @@ try {
     name: formName.trim(),
     info_url: safeUrl || null,
     fields_config: formFields,
+    integration_type: formIntegration || null,
   };
 
   const editingApp = apps.find(a => a.id === editingId);
@@ -296,6 +301,7 @@ try {
         name: formName.trim(),
         info_url: formUrl?.trim() ? formUrl.trim() : null,
         fields_config: formFields,
+        integration_type: formIntegration || null,
       };
       const { error } = await supabaseBrowser
         .from("apps")
@@ -382,27 +388,42 @@ function renderAppCard(app: AppData) {
       <div className="flex justify-between items-start mb-3">
         <div className="space-y-1">
           <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-       
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {app.integration_type && (
+              <span className="inline-flex items-center text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                ⚡ {app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type}
+              </span>
+            )}
+            {app.tenant_id !== myTenantId && (
+              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
+                🔒 Herdado
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-2">
-          {/* Botão Editar (Âmbar) */}
-          <button
-            onClick={() => openEdit(app)}
-            className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
-            title="Editar"
-          >
-            <IconEdit />
-          </button>
+          {app.tenant_id === myTenantId && (
+            <>
+              {/* Botão Editar (Âmbar) */}
+              <button
+                onClick={() => openEdit(app)}
+                className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+                title="Editar"
+              >
+                <IconEdit />
+              </button>
 
-          {/* Botão Excluir (Rose/Red) */}
-          <button
-            onClick={() => handleDelete(app.id)}
-            className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
-            title="Excluir"
-          >
-            <IconTrash />
-          </button>
+              {/* Botão Excluir (Rose/Red) */}
+              <button
+                onClick={() => handleDelete(app.id)}
+                className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+                title="Excluir"
+              >
+                <IconTrash />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -553,6 +574,24 @@ return (
                   />
                 </div>
               </div>
+
+              {/* INTEGRAÇÃO — só visível para apps próprios (não herdados) */}
+              {(!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
+                <div>
+                  <Label>Integração automática</Label>
+                  <select
+                    value={formIntegration}
+                    onChange={(e) => setFormIntegration(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  >
+                    <option value="">Sem integração</option>
+                    <option value="GERENCIAAPP">GerenciaApp</option>
+                  </select>
+                  <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+                    Quando configurado, habilita automação ao criar clientes.
+                  </p>
+                </div>
+              )}
 
               
 
