@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import NovaIntegracaoModal from "./nova_integracao_modal";
+import AppIntegracaoModal from "./app_integracao_modal";
 
 type IntegrationRow = {
   id: string;
@@ -25,10 +26,29 @@ type IntegrationRow = {
   updated_at?: string | null;
 };
 
+type AppIntegration = {
+  id: string;
+  tenant_id: string;
+  app_name: string;
+  label: string;
+  login_email: string | null;
+  login_password: string | null;
+  api_url: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
 export default function ApiServerPage() {
   const [loading, setLoading] = useState(true);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  type ActiveTab = "servidores" | "aplicativos";
+const [activeTab, setActiveTab] = useState<ActiveTab>("servidores");
+const [appList, setAppList] = useState<AppIntegration[]>([]);
+const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
+const [showTypeChooser, setShowTypeChooser] = useState(false);
+const [isModalAppOpen, setIsModalAppOpen] = useState(false);
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -50,15 +70,23 @@ export default function ApiServerPage() {
       const tenantId = await getCurrentTenantId();
       if (!tenantId) return;
 
-      const { data, error } = await supabaseBrowser
-        .from("vw_server_integrations")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      const [srvRes, appRes] = await Promise.all([
+  supabaseBrowser
+    .from("vw_server_integrations")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false }),
+  supabaseBrowser
+    .from("app_integrations")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false }),
+]);
 
-      if (error) throw error;
-
-      setIntegrations((data as IntegrationRow[]) || []);
+if (srvRes.error) throw srvRes.error;
+if (appRes.error) throw appRes.error;
+setIntegrations((srvRes.data as IntegrationRow[]) || []);
+setAppList((appRes.data as AppIntegration[]) || []);
     } catch (e: any) {
       console.error(e);
       addToast("error", "Erro ao carregar", e?.message ?? "Falha ao carregar dados.");
@@ -166,30 +194,102 @@ addToast(
     }
   }
 
+  function appLabel(a: string) {
+    const u = String(a || "").toUpperCase();
+    if (u === "GERENCIAAPP") return "GerenciaApp";
+    return a || "--";
+  }
+
+  async function handleAppDelete(row: AppIntegration) {
+    const ok = await confirm({
+      title: "Remover integração?",
+      subtitle: `Deseja remover "${row.label}" (${appLabel(row.app_name)})?`,
+      tone: "rose", confirmText: "Remover", cancelText: "Voltar",
+      details: ["A integração será removida do UniGestor."],
+    });
+    if (!ok) return;
+    try {
+      const { error } = await supabaseBrowser.from("app_integrations").delete().eq("id", row.id);
+      if (error) throw error;
+      addToast("success", "Removido", "Integração de aplicativo removida.");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro ao remover", e?.message ?? "Falha.");
+    }
+  }
+
+  async function handleAppToggle(row: AppIntegration) {
+    try {
+      const { error } = await supabaseBrowser
+        .from("app_integrations")
+        .update({ is_active: !row.is_active })
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", row.is_active ? "Desativada" : "Ativada");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message ?? "Falha.");
+    }
+  }
+
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 pb-0 mb-2">
         <div className="min-w-0 text-left">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-            API Servidor
+            API de Integrações
           </h1>
 
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
-        <button
-          onClick={() => {
-            setEditingIntegration(null);
-            setIsModalOpen(true);
-          }}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
-          type="button"
-        >
-          <span>+</span> Nova Integração
-        </button>
+        <div className="relative">
+  <button
+    onClick={() => setShowTypeChooser((v) => !v)}
+    className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+    type="button"
+  >
+    <span>+</span> Nova Integração
+  </button>
+
+  {showTypeChooser && (
+    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl z-50 overflow-hidden">
+      <button
+        onClick={() => { setShowTypeChooser(false); setEditingIntegration(null); setIsModalOpen(true); }}
+        className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-white/5"
+      >
+        🖥️ Servidor (NaTV, Fast, Elite)
+      </button>
+      <button
+        onClick={() => { setShowTypeChooser(false); setEditingApp(null); setIsModalAppOpen(true); }}
+        className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+      >
+        📱 Aplicativo (GerenciaApp...)
+      </button>
+    </div>
+  )}
+</div>
 
         </div>
+      </div>
+
+      <div className="flex gap-1 p-1 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl w-fit shadow-sm">
+        {(["servidores", "aplicativos"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+              activeTab === tab
+                ? "bg-emerald-600 text-white shadow"
+                : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white"
+            }`}
+          >
+            {tab === "servidores"
+              ? `🖥️ Servidores (${integrations.length})`
+              : `📱 Aplicativos (${appList.length})`}
+          </button>
+        ))}
       </div>
 
       {loading && (
@@ -198,13 +298,14 @@ addToast(
         </div>
       )}
 
-      {!loading && integrations.length === 0 && (
-        <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
-          Nenhuma integração cadastrada.
-        </div>
-      )}
-
-      {!loading && integrations.length > 0 && (
+      {activeTab === "servidores" && (
+        <>
+          {!loading && integrations.length === 0 && (
+            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+              Nenhuma integração de servidor cadastrada.
+            </div>
+          )}
+          {!loading && integrations.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
           {integrations.map((row) => (
             <div
@@ -324,6 +425,7 @@ addToast(
         </div>
       )}
 
+
         {isModalOpen && (
           <NovaIntegracaoModal
             integration={editingIntegration}
@@ -340,8 +442,65 @@ addToast(
             onError={(msg) => addToast("error", "Erro", msg)}
           />
         )}
+        </>
+      )}
 
+      {activeTab === "aplicativos" && (
+        <>
+          {!loading && appList.length === 0 && (
+            <div className="p-12 text-center text-slate-400 dark:text-white/30 bg-white dark:bg-[#161b22] rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+              Nenhuma integração de aplicativo cadastrada.
+            </div>
+          )}
+          {!loading && appList.length > 0 && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
+              {appList.map((row) => (
+                <div key={row.id} className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 hover:border-emerald-500/30">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                    <div className="flex items-center gap-2 min-w-0 pr-3">
+                      <h2 className="text-base font-bold truncate text-slate-700 dark:text-white tracking-tight">{row.label}</h2>
+                      <span className="inline-flex items-center text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        {appLabel(row.app_name)}
+                      </span>
+                      {!row.is_active && (
+                        <span className="inline-flex items-center text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          Inativa
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <IconActionBtn title="Editar" tone="amber" onClick={(e) => { e.stopPropagation(); setEditingApp(row); setIsModalAppOpen(true); }}><IconEdit /></IconActionBtn>
+                      <IconActionBtn title={row.is_active ? "Desativar" : "Ativar"} tone={row.is_active ? "red" : "green"} onClick={(e) => { e.stopPropagation(); handleAppToggle(row); }}>
+                        {row.is_active ? <IconPause /> : <IconPlay />}
+                      </IconActionBtn>
+                      <IconActionBtn title="Remover" tone="red" onClick={(e) => { e.stopPropagation(); handleAppDelete(row); }}><IconTrash /></IconActionBtn>
+                    </div>
+                  </div>
+                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 dark:text-white/50">📧 Login</span>
+                      <span className="font-bold text-slate-700 dark:text-white">{row.login_email ?? "--"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 dark:text-white/50">🔑 Senha</span>
+                      <span className="font-bold text-slate-700 dark:text-white">••••••••</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
+{isModalAppOpen && (
+  <AppIntegracaoModal
+    integration={editingApp}
+    onClose={() => { setIsModalAppOpen(false); setEditingApp(null); }}
+    onSuccess={() => { setIsModalAppOpen(false); setEditingApp(null); addToast("success", "Salvo", "Integração salva."); fetchData(); }}
+    onError={(msg) => addToast("error", "Erro", msg)}
+  />
+)}
       {ConfirmUI}
 
       <div className="h-24 md:h-20" />
@@ -419,4 +578,10 @@ function IconEdit() {
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
+}
+function IconPause() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>;
+}
+function IconPlay() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
 }
