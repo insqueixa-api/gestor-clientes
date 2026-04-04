@@ -42,7 +42,8 @@ export default function AppIntegracaoModal({
   
  // Controle de Upload da extensão
   const [isUploading, setIsUploading] = useState(false);
-  const { confirm, ConfirmUI } = useConfirm(); // 👈 NOVO
+  const [showDocs, setShowDocs] = useState(false); // 👈 Controle do passo a passo minimizado
+  const { confirm, ConfirmUI } = useConfirm(); 
 
   useEffect(() => {
     if (integration) {
@@ -192,6 +193,29 @@ export default function AppIntegracaoModal({
                       Baixar Extensão do Chrome (.zip)
                   </a>
               </div>
+
+              {/* 👈 INÍCIO DO PASSO A PASSO MINIMIZADO */}
+              <div className="mt-2 border-t border-sky-200/50 dark:border-sky-500/30 pt-2">
+                  <button
+                      type="button"
+                      onClick={() => setShowDocs(!showDocs)}
+                      className="flex items-center justify-between w-full text-left text-[11px] font-bold text-sky-800 dark:text-sky-300 hover:text-sky-600 transition-colors"
+                  >
+                      <span>📖 Como instalar a extensão passo a passo?</span>
+                      <svg className={`w-4 h-4 transition-transform ${showDocs ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+
+                  {showDocs && (
+                      <div className="mt-3 space-y-2 text-[10.5px] text-sky-800/90 dark:text-sky-200/90 leading-relaxed bg-sky-100/50 dark:bg-sky-900/30 p-3 rounded-lg border border-sky-200/50 dark:border-sky-700/50">
+                          <p><strong>1. Preparar:</strong> Faça o download do arquivo <code>.zip</code> acima. No seu computador, clique com o botão direito sobre ele e selecione <strong>"Extrair Tudo"</strong>.</p>
+                          <p><strong>2. Acessar extensões:</strong> Numa nova aba do Google Chrome, digite na barra de endereços: <code>chrome://extensions/</code> e aperte Enter.</p>
+                          <p><strong>3. Modo Desenvolvedor:</strong> No canto superior direito da tela de extensões, ative a chave que diz <strong>"Modo do desenvolvedor"</strong>.</p>
+                          <p><strong>4. Instalar:</strong> No canto superior esquerdo, clique no botão <strong>"Carregar sem compactação"</strong> e selecione a pasta que você acabou de extrair.</p>
+                          <p className="pt-1 border-t border-sky-200/50 dark:border-sky-700/50 mt-2">✨ <strong>Pronto!</strong> A extensão está ativa. Basta manter o painel do aplicativo (ex: GerenciaApp) logado numa aba e usar o UniGestor em outra.</p>
+                      </div>
+                  )}
+              </div>
+              {/* 👈 FIM DO PASSO A PASSO */}
 
               {/* Área de Upload EXCLUSIVA DO MASTER (Você) */}
               {isMasterUser && (
