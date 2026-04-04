@@ -391,29 +391,20 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // ✅ Adicionadas as 2 linhas de lógica aqui
-  const needsConfiguration = app.integration_type && !configuredIntegrations.includes(app.integration_type);
-  const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
-
-  return (
-    <div
-      key={app.id}
-      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="space-y-1">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {app.integration_type && (
-              // ✅ Apenas o className e o texto deste span foram ajustados
-              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                needsConfiguration
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-              }`}>
-                ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : appLabel}
-              </span>
-            )}
+  return (
+    <div
+      key={app.id}
+      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="space-y-1">
+          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {app.integration_type && (
+              <span className="inline-flex items-center text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                ⚡ {app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type}
+              </span>
+            )}
             {app.tenant_id !== myTenantId && (
               <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
                 🔒 Herdado
