@@ -391,7 +391,7 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // Lógica para verificar se precisa configurar
+  // ✅ Adicionadas as 2 linhas de lógica aqui
   const needsConfiguration = app.integration_type && !configuredIntegrations.includes(app.integration_type);
   const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
 
@@ -405,10 +405,11 @@ function renderAppCard(app: AppData) {
           <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
           <div className="flex flex-wrap gap-1 pt-0.5">
             {app.integration_type && (
-              <span className={`inline-flex items-center text-[10px] font-bold border px-2 py-0.5 rounded-full ${
+              // ✅ Apenas o className e o texto deste span foram ajustados
+              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
                 needsConfiguration
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
               }`}>
                 ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : appLabel}
               </span>
