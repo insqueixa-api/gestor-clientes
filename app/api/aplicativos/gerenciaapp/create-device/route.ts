@@ -79,27 +79,36 @@ export async function POST(req: NextRequest) {
 
     if (!client_id) return NextResponse.json({ ok: false, error: "client_id é obrigatório." }, { status: 400 });
 
-    // 3. Credenciais do painel (env vars)
-    const panelEmail    = process.env.GERENCIAAPP_EMAIL    || "";
-    const panelPassword = process.env.GERENCIAAPP_PASSWORD || "";
-    if (!panelEmail || !panelPassword) {
-      return NextResponse.json({
-        ok: false,
-        error: "Credenciais do gerenciaapp.top não configuradas. Adicione GERENCIAAPP_EMAIL e GERENCIAAPP_PASSWORD nas variáveis de ambiente."
-      }, { status: 500 });
-    }
+    // 3 e 4. Busca dados do cliente no UniGestor (agora trazendo o tenant_id)
+    const { data: clientRow, error: clientErr } = await supabaseAdmin
+      .from("clients")
+      .select("tenant_id, display_name, server_username, server_password, m3u_url, server_id")
+      .eq("id", client_id)
+      .maybeSingle();
 
-    // 4. Busca dados do cliente no UniGestor
-    const { data: clientRow, error: clientErr } = await supabaseAdmin
-      .from("clients")
-      .select("display_name, server_username, server_password, m3u_url, server_id")
-      .eq("id", client_id)
-      .maybeSingle();
+    if (clientErr) return NextResponse.json({ ok: false, error: clientErr.message }, { status: 500 });
+    if (!clientRow) return NextResponse.json({ ok: false, error: "Cliente não encontrado." }, { status: 404 });
 
-    if (clientErr) return NextResponse.json({ ok: false, error: clientErr.message }, { status: 500 });
-    if (!clientRow) return NextResponse.json({ ok: false, error: "Cliente não encontrado." }, { status: 404 });
+    const { tenant_id, server_username, server_password, m3u_url, server_id } = clientRow as any;
 
-    const { server_username, server_password, m3u_url, server_id } = clientRow as any;
+    // 4.1 Busca as credenciais do aplicativo no banco de dados (API de Integrações)
+    const { data: integRow } = await supabaseAdmin
+      .from("app_integrations")
+      .select("login_email, login_password")
+      .eq("tenant_id", tenant_id)
+      .eq("app_name", "GERENCIAAPP") // Quando formos transformar em universal amanhã, isso virá dinâmico
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const panelEmail    = integRow?.login_email || "";
+    const panelPassword = integRow?.login_password || "";
+
+    if (!panelEmail || !panelPassword) {
+      return NextResponse.json({
+        ok: false,
+        error: "Credenciais não configuradas. Vá em Configurações > API de Integrações e cadastre seu e-mail e senha do GerenciaApp."
+      }, { status: 400 });
+    }
 
     if (!server_username) return NextResponse.json({ ok: false, error: "Usuário do servidor não preenchido." }, { status: 400 });
     if (!m3u_url)         return NextResponse.json({ ok: false, error: "Link M3U não preenchido no cadastro do cliente." }, { status: 400 });
