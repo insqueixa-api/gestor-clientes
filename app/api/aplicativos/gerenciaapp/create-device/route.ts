@@ -228,12 +228,16 @@ const panelEmail    = integRow?.login_email?.trim() || "";
 
     if (!loginRes.ok && loginRes.status !== 302) {
       const errTxt = await loginRes.text().catch(() => "");
-      console.error("[Login GerenciaApp] HTTP", loginRes.status, errTxt.slice(0, 300));
-      return NextResponse.json({
-        ok: false,
-        error: `Falha no login do painel (HTTP ${loginRes.status}). Verifique se o e-mail e senha na sua "API de Integrações" estão corretos.`
-      }, { status: 502 });
-    }
+      
+      // 👉 ESTE LOG VAI MOSTRAR A RESPOSTA REAL DO GERENCIAAPP
+      console.log("❌ ERRO DO GERENCIAAPP HTTP", loginRes.status);
+      console.log("👉 TEXTO DA RESPOSTA:", errTxt);
+
+      return NextResponse.json({
+        ok: false,
+        error: `Falha no login do painel (HTTP ${loginRes.status}). Verifique os logs do servidor.`
+      }, { status: 502 });
+    }
 
     // Acumula cookies da resposta de login
     const loginCookies = { ...loginPageCookies };
