@@ -411,7 +411,7 @@ function renderAppCard(app: AppData) {
             
             {app.integration_type && (
               <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}>
-                ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : appLabel}
+                ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : `${appLabel} - Integrado`}
               </span>
             )}
             
