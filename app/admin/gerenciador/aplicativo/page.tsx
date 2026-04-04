@@ -393,53 +393,62 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // Verifica se falta configuração para esse usuário
+  // Verifica se falta configuração para esse usuário logado
   const needsConfiguration = app.integration_type && !configuredIntegrations.includes(app.integration_type);
   const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
 
   return (
     <div
       key={app.id}
-      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+      // Restaurado o padding original e bordas sutis para manter o card compacto
+      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative"
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="space-y-1">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-          <div className="flex flex-wrap gap-1 pt-0.5">
+      {/* Cabeçalho compacto: Título à esquerda, Ícones à direita, Badges em uma linha */}
+      <div className="flex justify-between items-start gap-2 mb-2">
+        <div className="space-y-1 flex-1 min-w-0">
+          {/* Título restaurado para tamanho base para compactação */}
+          <h3 className="font-bold text-base text-slate-800 dark:text-white leading-tight truncate" title={app.name}>
+            {app.name}
+          </h3>
+          <div className="flex flex-wrap gap-1">
             {app.integration_type && (
-              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              // Badge unificado: Laranja fixo (amber) se precisar configurar, senão Verde (emerald)
+              // Removido qualquer efeito de piscar (pulse)
+              <span className={`inline-flex items-center text-[10px] font-bold border px-1.5 py-0.5 rounded-full whitespace-nowrap ${
                 needsConfiguration 
-                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" 
-                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" 
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
               }`}>
+                {/* Texto combinado condicionalmente de forma estática */}
                 ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : appLabel}
               </span>
             )}
 
             {app.tenant_id !== myTenantId && (
-              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                 🔒 Herdado
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex gap-2">
+        {/* Botões de ação alinhados à direita e topo, idêntico ao original */}
+        <div className="flex gap-1 shrink-0 mt-0.5">
           {app.tenant_id === myTenantId && (
             <>
-              {/* Botão Editar */}
+              {/* Botão Editar (Compacto) */}
               <button
-                onClick={() => openEdit(app)}
-                className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+    onClick={() => openEdit(app)}
+                className="p-1 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
                 title="Editar"
               >
                 <IconEdit />
               </button>
 
-              {/* Botão Excluir */}
+              {/* Botão Excluir (Compacto) */}
               <button
                 onClick={() => handleDelete(app.id)}
-                className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+                className="p-1 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
                 title="Excluir"
               >
                 <IconTrash />
@@ -454,27 +463,28 @@ function renderAppCard(app: AppData) {
           href={app.info_url}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
+          className="text-xs text-blue-500 hover:underline truncate block mb-2 mt-1"
         >
-          🌐 {app.info_url}
+          🌐 {app.info_url.replace(/^https?:\/\//, '')}
         </a>
       )}
 
-      <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
+      {/* Linha divisória e campos exigidos - TUDO MAIS COLADO (Compacto) */}
+      <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-1">
+        <p className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Campos exigidos:</p>
 
         <div className="flex flex-wrap gap-1">
           {app.fields_config.length > 0 ? (
             app.fields_config.map((field, idx) => (
               <span
                 key={idx}
-                className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
+                className="px-1 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
               >
                 {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
               </span>
             ))
           ) : (
-            <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
+            <span className="text-[10px] text-slate-400 dark:text-white/30 italic">Apenas nome (padrão)</span>
           )}
         </div>
       </div>
