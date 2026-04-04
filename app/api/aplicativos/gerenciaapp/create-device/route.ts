@@ -49,7 +49,7 @@ function extractXsrfFromCookies(cookies: Record<string, string>): string {
   return decodeURIComponent(raw);
 }
 
-// ─── POST /api/aplicativos/ibo_revenda/gerenciaapp/create-device ──────────────────────────
+// ─── POST /api/aplicativos/gerenciaapp/create-device ──────────────────────────
 //
 // Body:
 //   client_id       obrigatório
@@ -328,7 +328,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: apiError }, { status: 502 });
 
   } catch (err: any) {
-    console.error("[aplicativos/gerenciaapp/ibo_revenda/create-device]", err);
+    console.error("[aplicativos/gerenciaapp/create-device]", err);
     return NextResponse.json({ ok: false, error: err?.message || "Erro interno." }, { status: 500 });
   }
 }
