@@ -19,12 +19,12 @@ type AppIntegration = {
 
 export default function AppIntegracaoModal({
   integration,
-  onClose,
+  onCloseAction,
   onSuccess,
   onError,
 }: {
   integration?: AppIntegration | null;
-  onClose: () => void;
+  onCloseAction: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
@@ -89,7 +89,7 @@ export default function AppIntegracaoModal({
 
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCloseAction} />
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-xl overflow-hidden">
 
         {/* Header */}
@@ -103,7 +103,7 @@ export default function AppIntegracaoModal({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={onCloseAction}
             className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
             type="button"
           >
@@ -200,7 +200,7 @@ export default function AppIntegracaoModal({
         {/* Footer */}
         <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-2">
           <button
-            onClick={onClose}
+            onClick={onCloseAction}
             className="h-10 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
