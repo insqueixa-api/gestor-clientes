@@ -496,9 +496,9 @@ addToast(
 {isModalAppOpen && (
   <AppIntegracaoModal
     integration={editingApp}
-    onClose={() => { setIsModalAppOpen(false); setEditingApp(null); }}
-    onSuccess={() => { setIsModalAppOpen(false); setEditingApp(null); addToast("success", "Salvo", "Integração salva."); fetchData(); }}
-    onError={(msg) => addToast("error", "Erro", msg)}
+    onCloseAction={() => { setIsModalAppOpen(false); setEditingApp(null); }}
+    onSuccessAction={() => { setIsModalAppOpen(false); setEditingApp(null); addToast("success", "Salvo", "Integração salva."); fetchData(); }}
+    onErrorAction={(msg) => addToast("error", "Erro", msg)}
   />
 )}
       {ConfirmUI}

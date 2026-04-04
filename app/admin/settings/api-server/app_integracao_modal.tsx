@@ -20,13 +20,13 @@ type AppIntegration = {
 export default function AppIntegracaoModal({
   integration,
   onCloseAction,
-  onSuccess,
-  onError,
+  onSuccessAction,
+  onErrorAction,
 }: {
   integration?: AppIntegration | null;
   onCloseAction: () => void;
-  onSuccess: () => void;
-  onError: (msg: string) => void;
+  onSuccessAction: () => void;
+  onErrorAction: (msg: string) => void;
 }) {
   const isEdit = !!integration?.id;
 
@@ -79,9 +79,9 @@ export default function AppIntegracaoModal({
         if (error) throw error;
       }
 
-      onSuccess();
+      onSuccessAction();
     } catch (e: any) {
-      onError(e?.message ?? "Falha ao salvar.");
+      onErrorAction(e?.message ?? "Falha ao salvar.");
     } finally {
       setSaving(false);
     }
