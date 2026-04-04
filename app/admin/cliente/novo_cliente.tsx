@@ -1848,45 +1848,58 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }));
 }
 
-  // ✅ FUNÇÃO REAL PARA CONFIGURAR O APP NA API
+  // ✅ FUNÇÃO QUE COMUNICA COM A EXTENSÃO DO CHROME (BYPASS CLOUDFLARE)
   async function handleConfigApp(appName: string) {
     if (!clientToEdit?.id) {
       addToast("warning", "Atenção", "Salve o cliente primeiro antes de configurar o aplicativo.");
       return;
     }
 
-    try {
-      setLoading(true);
-      setLoadingStep("Configurando App...");
+    setLoading(true);
+    setLoadingStep("A enviar para a Extensão...");
 
-      const { data: sess } = await supabaseBrowser.auth.getSession();
-      const token = sess?.session?.access_token;
+    // 1. Prepara o payload para enviar ao GerenciaApp (usando os dados que já estão na tela)
+    const payload = {
+        modo_selecao: 1,
+        mac_device: selectedApps.find(a => a.name === appName)?.values["Device ID (MAC)"] || "",
+        server_name: username, // Temporário, pode ajustar depois
+        username_login: username,
+        password_login: password || "",
+        ranking_app_id: 10, // ID do IBO Revenda
+        m3u8_list: m3uUrl || "",
+        expire_date: dueDate,
+        is_trial: isTrialMode ? 1 : 0
+    };
 
-      // Chama a rota de criação
-      const res = await fetch("/api/aplicativos/gerenciaapp/create-device", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          client_id: clientToEdit.id,
-        }),
-      });
+    // 2. Prepara o receptor da resposta da extensão
+    const responseHandler = (e: any) => {
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+        setLoading(false);
+        setLoadingStep("");
 
-      const json = await res.json().catch(() => ({}));
+        const result = e.detail;
+        if (result.ok) {
+            addToast("success", "Integrado!", `Aplicativo configurado com sucesso pelo navegador.`);
+        } else {
+            addToast("error", "Erro na Integração", result.error || "Falha desconhecida.");
+        }
+    };
 
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Falha ao configurar o aplicativo.");
-      }
+    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
-      addToast("success", "Integrado!", `Aplicativo configurado com sucesso no painel.`);
-    } catch (error: any) {
-      addToast("error", "Erro na Integração", error.message);
-    } finally {
-      setLoading(false);
-      setLoadingStep("");
-    }
+    // 3. Dispara a ordem para a Extensão do Chrome fazer o trabalho sujo
+    window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+        detail: {
+            action: "GERENCIAAPP_CREATE",
+            payload: payload
+        }
+    }));
+    
+    // Timeout de segurança caso o utilizador não tenha a extensão instalada
+    setTimeout(() => {
+        setLoading(false);
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+    }, 10000);
   }
 
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
