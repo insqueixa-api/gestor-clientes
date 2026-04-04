@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // 👈 NOVO
+
 
 type AppIntegration = {
   id: string;
@@ -38,8 +40,9 @@ export default function AppIntegracaoModal({
   const [saving, setSaving]           = useState(false);
   const [userEmail, setUserEmail]     = useState("");
   
-  // Controle de Upload da extensão
+ // Controle de Upload da extensão
   const [isUploading, setIsUploading] = useState(false);
+  const { confirm, ConfirmUI } = useConfirm(); // 👈 NOVO
 
   useEffect(() => {
     if (integration) {
@@ -68,20 +71,33 @@ export default function AppIntegracaoModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 👈 NOVA CAIXA DE CONFIRMAÇÃO
+    const ok = await confirm({
+      title: "Atualizar Extensão?",
+      subtitle: `Deseja fazer o upload do arquivo "${file.name}"? Isso substituirá a versão atual para toda a rede.`,
+      confirmText: "Sim, Atualizar",
+      cancelText: "Cancelar"
+    });
+
+    if (!ok) {
+      e.target.value = ""; 
+      return;
+    }
+
     try {
       setIsUploading(true);
-      // Faz o upload para o bucket 'extensions' e substitui se já existir
       const { error } = await supabaseBrowser.storage
         .from("extensions")
         .upload("unigestor-extensao.zip", file, { upsert: true, cacheControl: "3600" });
 
       if (error) throw error;
-      alert("Sucesso! Nova versão da extensão foi salva e já está disponível para toda a rede.");
+      // 👈 Em vez de alert(), chamamos o onSuccessAction com uma mensagem customizada ou usamos o Toast da página pai
+      onSuccessAction(); 
     } catch (err: any) {
       onErrorAction(err.message || "Erro ao fazer upload da extensão.");
     } finally {
       setIsUploading(false);
-      e.target.value = ""; // Limpa o input
+      e.target.value = ""; 
     }
   }
 
@@ -306,9 +322,11 @@ export default function AppIntegracaoModal({
           >
             {saving ? "Salvando..." : "Salvar"}
           </button>
-        </div>
+       </div>
 
       </div>
+
+      {ConfirmUI} {/* 👈 NOVO: Renderiza a caixa de confirmação por cima do modal */}
     </div>
   );
 
