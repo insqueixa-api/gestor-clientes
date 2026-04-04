@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const BASE   = "https://gerenciaapp.top";
-const UA     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+const UA     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
 // IDs dos apps no gerenciaapp.top (ranking_app_id)
 const RANKING_APP_IDS: Record<string, number> = {
@@ -122,19 +121,24 @@ export async function POST(req: NextRequest) {
       ? `${server_username}_${serverShortName}`
       : server_username;
 
-    // 6. Busca MAC do app IBO Revenda do cliente
-    const { data: appRows } = await supabaseAdmin
-      .from("client_apps")
-      .select("field_values, apps!inner(name, fields_config)")
-      .eq("client_id", client_id)
-      .ilike("apps.name", `%${IBO_APP_NAME}%`);
+    // 6. Busca MAC e URL do app IBO Revenda do cliente
+    const { data: appRows } = await supabaseAdmin
+      .from("client_apps")
+      .select("field_values, apps!inner(name, fields_config, info_url)")
+      .eq("client_id", client_id)
+      .ilike("apps.name", `%${IBO_APP_NAME}%`);
 
-    // Extrai o MAC do primeiro resultado
-    let mac = "";
-    if (appRows && appRows.length > 0) {
-      const fv      = (appRows[0].field_values || {}) as Record<string, string>;
-      const appData = (appRows[0] as any).apps;
-      const fields  = Array.isArray(appData?.fields_config) ? appData.fields_config : [];
+    // Extrai o MAC e a BASE (URL de Configuração) do primeiro resultado
+    let mac = "";
+    let BASE = "";
+    if (appRows && appRows.length > 0) {
+      const fv      = (appRows[0].field_values || {}) as Record<string, string>;
+      const appData = (appRows[0] as any).apps;
+      const fields  = Array.isArray(appData?.fields_config) ? appData.fields_config : [];
+
+      // Pega a URL salva no modal do aplicativo e limpa a barra final, se houver
+      BASE = appData?.info_url?.trim() || "";
+      if (BASE.endsWith("/")) BASE = BASE.slice(0, -1);
 
       // Procura campo tipo mac
       const macField = fields.find((f: any) =>
@@ -156,13 +160,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (!mac) {
-      return NextResponse.json({
-        ok: false,
-        error: `MAC não encontrado. Configure o app "${IBO_APP_NAME}" no cadastro do cliente.`
-      }, { status: 400 });
-    }
+      return NextResponse.json({
+        ok: false,
+        error: `MAC não encontrado. Configure o app "${IBO_APP_NAME}" no cadastro do cliente.`
+      }, { status: 400 });
+    }
 
-    // ─── ETAPA 1: Login no gerenciaapp.top ────────────────────────────────────
+    if (!BASE) {
+      return NextResponse.json({
+        ok: false,
+        error: `URL de configuração não encontrada no app "${IBO_APP_NAME}". Edite o aplicativo e adicione a URL.`
+      }, { status: 400 });
+    }
+
+    // ─── ETAPA 1: Login no painel ────────────────────────────────────
 
     // Primeiro GET para pegar XSRF inicial
     const loginPageRes = await fetch(`${BASE}/`, {
