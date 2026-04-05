@@ -1870,7 +1870,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         expire_date: dueDate,
         dnsOptions: "",
         whatsapp: "",
-        is_trial: isTrialMode ? 1 : 0
+        is_trial: isTrialMode ? 1 : 0,
+        name: name.trim() || username.trim() // ✅ ENVIANDO O NOME PARA O GERENCIAAPP NÃO RECUSAR
     };
 
     // 3. Prepara o receptor da resposta da extensão
@@ -3022,21 +3023,64 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
 
             // ✅ CHAMA A API DO APP SEQUENCIALMENTE ANTES DO WHATSAPP (SÓ NA CRIAÇÃO)
             if (!isEditing) {
-              const { data: sess } = await supabaseBrowser.auth.getSession();
               for (const app of selectedApps) {
                 const catApp = catalog.find(c => c.id === app.app_id) as any;
                 if (catApp?.integration_type && app.auto_configure !== false) {
                   try {
                     setLoadingStep(`Painel: ${app.name}...`);
-                    const resApp = await fetch("/api/aplicativos/gerenciaapp/create-device", {
-                      method: "POST",
-                      headers: { 
-                        "Content-Type": "application/json", 
-                        ...(sess?.session?.access_token ? { Authorization: `Bearer ${sess.session.access_token}` } : {}) 
-                      },
-                      body: JSON.stringify({ client_id: clientId }) // Amanhã passaremos o app_name aqui também
+                    
+                    // ✅ Monta os dados atualizados com o retorno da API (apiUsername, apiPassword, etc)
+                    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+                    const shortServerName = selectedServerName.replace(/\s+/g, "");
+                    const finalServerName = `${apiUsername}_${shortServerName}`;
+
+                    const payloadAutomacao = {
+                        modo_selecao: 1,
+                        mac_device: app.values["Device ID (MAC)"] || "",
+                        server_name: finalServerName,
+                        account_username: "",
+                        account_password: "",
+                        xteam_username: "",
+                        xteam_password: "",
+                        username_login: apiUsername,
+                        password_login: apiPassword || "",
+                        ranking_app_id: 10,
+                        dns: "",
+                        m3u8_list: finalM3u || apiM3uUrl || m3uUrl || "",
+                        url_epg: "",
+                        price: 0,
+                        plan_id: "",
+                        expire_date: dueDate,
+                        dnsOptions: "",
+                        whatsapp: "",
+                        is_trial: isTrialMode ? 1 : 0,
+                        name: displayName || apiUsername // ✅ NOME INCLUÍDO AQUI TAMBÉM
+                    };
+
+                    // ✅ Usa a Extensão do Chrome para furar o Cloudflare e criar silenciosamente!
+                    await new Promise((resolve) => {
+                        const handler = (e: any) => {
+                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+                            if (e.detail?.ok) {
+                                queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
+                            } else {
+                                queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
+                            }
+                            resolve(true);
+                        };
+                        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+                        
+                        window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                            detail: { action: "GERENCIAAPP_CREATE", payload: payloadAutomacao }
+                        }));
+
+                        // Timeout de segurança para não travar a tela se a extensão falhar
+                        setTimeout(() => {
+                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+                            resolve(false);
+                        }, 12000);
                     });
-                    if (!resApp.ok) console.warn("Aviso: Falha ao integrar app silenciosamente", app.name);
+
                   } catch (errApp) {
                     console.error("Falha na automação do App:", app.name, errApp);
                   }
