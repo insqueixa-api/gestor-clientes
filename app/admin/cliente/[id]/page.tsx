@@ -1110,8 +1110,11 @@ whatsapp_username: client.whatsapp_username
       server_id: "",
       screens: 1,
       technology: client.technology ?? undefined,
-      plan_name: undefined,
-      price_amount: undefined,
+      plan_name: client.plan_name ?? undefined,
+      price_amount: client.price_amount ?? undefined,
+      price_currency: client.price_currency ?? undefined,
+      plan_table_id: (client as any).plan_table_id ?? null,
+      plan_table_name: (client as any).plan_table_name ?? null,
     }}
     onClose={() => setShowQuickTrialModal(false)}
     onSuccess={() => {
