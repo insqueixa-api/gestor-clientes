@@ -4,6 +4,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Trazendo a caixa de confirmação bonita
+import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
 
 // --- TIPOS ---
 type SelectOption = {
@@ -1839,173 +1840,132 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }));
 }
 
-  // ✅ FUNÇÃO QUE COMUNICA COM A EXTENSÃO DO CHROME (BYPASS CLOUDFLARE)
+  // ✅ FUNÇÃO AUXILIAR GENÉRICA: Extrai o MAC de qualquer app (usada pelas integrações)
+  function getMacFromApp(appInstance: SelectedAppInstance) {
+      if (!appInstance) return "";
+      let macValue = "";
+      const macField = appInstance.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+      if (macField) {
+          const key = String(macField.id || macField.label || "").trim();
+          macValue = appInstance.values[key] || "";
+      }
+      if (!macValue) {
+          const foundKey = Object.keys(appInstance.values).find(k => String(appInstance.values[k]).includes(":"));
+          if (foundKey) macValue = appInstance.values[foundKey];
+      }
+      return macValue;
+  }
+
+  // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
   async function handleConfigApp(appName: string) {
     if (!clientToEdit?.id) {
       addToast("warning", "Atenção", "Salve o cliente primeiro antes de configurar o aplicativo.");
       return;
     }
 
-    setLoading(true);
-    setLoadingStep("A enviar para a Extensão...");
-
-    // 1. Calcular o nome do servidor (Ex: Insqueixa_NaTV)
-    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
-    const shortServerName = selectedServerName.replace(/\s+/g, "");
-    const finalServerName = `${username}_${shortServerName}`;
-
-    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje
-    const today = new Date();
-    today.setFullYear(today.getFullYear() + 1);
-    const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    // 1.6 Busca o MAC de forma CORRETA (Lendo o ID do campo ao invés de adivinhar a chave)
     const currentApp = selectedApps.find(a => a.name === appName);
-    let macValue = "";
-
-    if (currentApp) {
-        const macField = currentApp.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
-        if (macField) {
-            const key = String(macField.id || macField.label || "").trim();
-            macValue = currentApp.values[key] || "";
-        }
-        // Fallback garantido: procura por qualquer valor salvo que tenha o formato de MAC (com ":")
-        if (!macValue) {
-            const foundKey = Object.keys(currentApp.values).find(k => String(currentApp.values[k]).includes(":"));
-            if (foundKey) macValue = currentApp.values[foundKey];
-        }
-    }
-
-    if (!macValue || macValue.trim() === "") {
-        addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) na aba 'Aplicativos' antes de configurar.");
-        setLoading(false);
-        setLoadingStep("");
+    const catApp = catalog.find(c => c.id === currentApp?.app_id) as any;
+    
+    // 1. Pede para o Roteador o código correto baseado no tipo de integração do app
+    const handler = getIntegrationHandler(catApp?.integration_type);
+    if (!handler) {
+        addToast("error", "Aviso", "Este aplicativo ainda não possui automação configurada.");
         return;
     }
 
-    // 2. Payload blindado com as SUAS regras estritas (Sem enviar variáveis falsas)
-    const payload = {
-        modo_selecao: 1,
-        mac_device: macValue,
-        server_name: finalServerName,
-        account_username: "",
-        account_password: "",
-        xteam_username: "",
-        xteam_password: "",
-        username_login: username,
-        password_login: password || "",
-        ranking_app_id: 10,
-        dns: "",
-        m3u8_list: m3uUrl || "",
-        url_epg: "",
-        price: 0,
-        plan_id: "",
-        expire_date: expireDate1Year,
-        dnsOptions: "",
-        whatsapp: "",
-        is_trial: 0, 
-        
-    };
+    const macValue = getMacFromApp(currentApp!);
+    if (!macValue || macValue.trim() === "") {
+        addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) na aba 'Aplicativos' antes de configurar.");
+        return;
+    }
 
-    // 3. Prepara o receptor da resposta da extensão
+    setLoading(true);
+    setLoadingStep("A enviar para a Extensão...");
+
+    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+    const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
+
+    // 2. Constrói o pacote com o arquivo isolado do app (Limpo e escalável!)
+    const payload = handler.buildCreatePayload({
+        username,
+        password,
+        macValue,
+        finalServerName,
+        m3uUrl
+    });
+
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
         setLoadingStep("");
-
-        const result = e.detail;
-        if (result && result.ok) {
+        if (e.detail?.ok) {
             addToast("success", "Integrado!", `Aplicativo configurado com sucesso!`);
         } else {
-            addToast("error", "Erro na Integração", result?.error || "Falha desconhecida.");
+            addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
         }
     };
-
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
-    // 4. Dispara a ordem para a Extensão do Chrome fazer o trabalho sujo
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: {
-            action: "GERENCIAAPP_CREATE",
-            payload: payload
-        }
+        detail: { action: `${handler.actionPrefix}_CREATE`, payload: payload }
     }));
     
-    // 5. Timeout de segurança (Aumentado para 20 segundos)
     setTimeout(() => {
-        setLoading((prevLoading) => {
-            if (prevLoading) { // Se ainda estiver carregando após 20s, avisa o usuário
+        setLoading((prev) => {
+            if (prev) {
                 window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-                addToast("warning", "Aviso", "O comando foi enviado, mas a resposta demorou. Verifique o painel.");
+                addToast("warning", "Aviso", "O comando foi enviado, mas a resposta demorou.");
                 setLoadingStep("");
                 return false;
             }
-            return prevLoading;
+            return prev;
         });
     }, 20000);
   }
 
-  // ✅ FUNÇÃO PARA DELETAR NO GERENCIAAPP (VIA EXTENSÃO)
+  // ✅ FUNÇÃO UNIVERSAL PARA DELETAR (Inteligente)
   async function handleDeleteApp(appName: string) {
     if (!username.trim()) {
-      addToast("warning", "Atenção", "O Usuário precisa estar preenchido para buscar e deletar.");
+      addToast("warning", "Atenção", "O Usuário precisa estar preenchido.");
       return;
     }
 
-    // Busca o MAC (se existir) para o fallback
     const currentApp = selectedApps.find(a => a.name === appName);
-    let macValue = "";
-    if (currentApp) {
-        const macField = currentApp.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
-        if (macField) {
-            const key = String(macField.id || macField.label || "").trim();
-            macValue = currentApp.values[key] || "";
-        }
-        if (!macValue) {
-            const foundKey = Object.keys(currentApp.values).find(k => String(currentApp.values[k]).includes(":"));
-            if (foundKey) macValue = currentApp.values[foundKey];
-        }
-    }
+    const catApp = catalog.find(c => c.id === currentApp?.app_id) as any;
+    
+    const handler = getIntegrationHandler(catApp?.integration_type);
+    if (!handler) return;
 
     setLoading(true);
     setLoadingStep("A remover do Painel...");
 
-    const payloadDelete = {
-        username: username.trim(),
-        mac_device: macValue || ""
-    };
+    const payloadDelete = handler.buildDeletePayload({
+        username,
+        macValue: getMacFromApp(currentApp!)
+    });
 
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
         setLoadingStep("");
-
-        const result = e.detail;
-        if (result && result.ok) {
-            addToast("success", "Removido!", "Configuração apagada do GerenciaApp com sucesso.");
-        } else {
-            addToast("error", "Não Removido", result?.error || "Falha ao apagar no painel.");
-        }
+        if (e.detail?.ok) addToast("success", "Removido!", "Configuração apagada do painel.");
+        else addToast("error", "Não Removido", e.detail?.error || "Falha ao apagar no painel.");
     };
-
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: {
-            action: "GERENCIAAPP_DELETE",
-            payload: payloadDelete
-        }
+        detail: { action: `${handler.actionPrefix}_DELETE`, payload: payloadDelete }
     }));
 
     setTimeout(() => {
-        setLoading((prevLoading) => {
-            if (prevLoading) {
+        setLoading((prev) => {
+            if (prev) {
                 window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-                addToast("warning", "Aviso", "A resposta demorou. Verifique no painel se foi apagado.");
+                addToast("warning", "Aviso", "A resposta demorou.");
                 setLoadingStep("");
                 return false;
             }
-            return prevLoading;
+            return prev;
         });
     }, 20000);
   }
@@ -3119,85 +3079,51 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
             }));
             await supabaseBrowser.from("client_apps").insert(toInsert);
 
-            // ✅ CHAMA A API DO APP SEQUENCIALMENTE ANTES DO WHATSAPP (SÓ NA CRIAÇÃO)
+            // ✅ AUTOMAÇÃO SILENCIOSA DOS APPS (USANDO O ROTEADOR INTELIGENTE)
             if (!isEditing) {
               for (const app of selectedApps) {
                 const catApp = catalog.find(c => c.id === app.app_id) as any;
-                if (catApp?.integration_type && app.auto_configure !== false) {
+                
+                // Pede o código correto para o Roteador
+                const handler = getIntegrationHandler(catApp?.integration_type);
+                
+                if (handler && app.auto_configure !== false) {
                   try {
-                    setLoadingStep(`Painel: ${app.name}...`);
-                    
-                    // ✅ Monta os dados atualizados com o retorno da API (apiUsername, apiPassword, etc)
-                    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
-                    const shortServerName = selectedServerName.replace(/\s+/g, "");
-                    const finalServerName = `${apiUsername}_${shortServerName}`;
-
-                    // ✅ Calcula a data exata de 1 ano para frente a partir de hoje (À prova de Anos Bissextos)
-                    const dAutomacao = new Date();
-                    dAutomacao.setFullYear(dAutomacao.getFullYear() + 1);
-                    const expireAutomacao1Year = `${dAutomacao.getFullYear()}-${String(dAutomacao.getMonth() + 1).padStart(2, '0')}-${String(dAutomacao.getDate()).padStart(2, '0')}`;
-
-                    // ✅ Busca o MAC de forma CORRETA na Automação
-                    let macValueAuto = "";
-                    const macFieldAuto = app.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
-                    if (macFieldAuto) {
-                        const keyAuto = String(macFieldAuto.id || macFieldAuto.label || "").trim();
-                        macValueAuto = app.values[keyAuto] || "";
-                    }
-                    if (!macValueAuto) {
-                        const foundKeyAuto = Object.keys(app.values).find(k => String(app.values[k]).includes(":"));
-                        if (foundKeyAuto) macValueAuto = app.values[foundKeyAuto];
-                    }
-
+                    const macValueAuto = getMacFromApp(app);
                     if (!macValueAuto || macValueAuto.trim() === "") {
                         console.warn(`[Automação] App ${app.name} ignorado pois o MAC não foi encontrado.`);
                         continue; 
                     }
 
-                    // ✅ Payload blindado com as SUAS regras estritas
-                    const payloadAutomacao = {
-                        modo_selecao: 1,
-                        mac_device: macValueAuto,
-                        server_name: finalServerName,
-                        account_username: "",
-                        account_password: "",
-                        xteam_username: "",
-                        xteam_password: "",
-                        username_login: apiUsername,
-                        password_login: apiPassword || "",
-                        ranking_app_id: 10,
-                        dns: "",
-                        m3u8_list: finalM3u || apiM3uUrl || m3uUrl || "",
-                        url_epg: "",
-                        price: 0,
-                        plan_id: "",
-                        expire_date: expireAutomacao1Year, 
-                        dnsOptions: "",
-                        whatsapp: "",
-                        is_trial: 0,
-                        
-                    };
+                    setLoadingStep(`Painel: ${app.name}...`);
+                    
+                    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+                    const finalServerName = `${apiUsername}_${selectedServerName.replace(/\s+/g, "")}`;
 
-                    // ✅ Usa a Extensão do Chrome para furar o Cloudflare e criar silenciosamente!
+                    // Deixa a biblioteca externa montar o pacote
+                    const payloadAutomacao = handler.buildCreatePayload({
+                        username: apiUsername,
+                        password: apiPassword,
+                        macValue: macValueAuto,
+                        finalServerName,
+                        m3uUrl: finalM3u || apiM3uUrl || m3uUrl || ""
+                    });
+
                     await new Promise((resolve) => {
-                        const handler = (e: any) => {
-                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
-                            if (e.detail?.ok) {
-                                queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
-                            } else {
-                                queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
-                            }
+                        const evtHandler = (e: any) => {
+                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                            if (e.detail?.ok) queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
+                            else queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
                             resolve(true);
                         };
-                        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+                        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                         
                         window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                            detail: { action: "GERENCIAAPP_CREATE", payload: payloadAutomacao }
+                            detail: { action: `${handler.actionPrefix}_CREATE`, payload: payloadAutomacao }
                         }));
 
-                        // Timeout de segurança para não travar a tela se a extensão falhar
                         setTimeout(() => {
-                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                             resolve(false);
                         }, 12000);
                     });
