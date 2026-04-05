@@ -1850,28 +1850,32 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const shortServerName = selectedServerName.replace(/\s+/g, "");
     const finalServerName = `${username}_${shortServerName}`;
 
-    // 2. Prepara o payload para enviar ao GerenciaApp
+    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje
+    const today = new Date();
+    const expireDate1Year = `${today.getFullYear() + 1}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // 2. Prepara o payload para enviar ao GerenciaApp (REGRAS ESTRITAS IBO REVENDA)
     const payload = {
         modo_selecao: 1,
         mac_device: selectedApps.find(a => a.name === appName)?.values["Device ID (MAC)"] || "",
-        server_name: finalServerName, // ✅ AGORA SIM: O nome montado corretamente
+        server_name: finalServerName,
         account_username: "",
         account_password: "",
         xteam_username: "",
         xteam_password: "",
         username_login: username,
         password_login: password || "",
-        ranking_app_id: 10, // ID do IBO Revenda
+        ranking_app_id: 10,
         dns: "",
         m3u8_list: m3uUrl || "",
         url_epg: "",
         price: 0,
         plan_id: "",
-        expire_date: dueDate,
+        expire_date: expireDate1Year, // ✅ REGRA: Sempre 1 ano para frente
         dnsOptions: "",
         whatsapp: "",
-        is_trial: isTrialMode ? 1 : 0,
-        name: name.trim() || username.trim() // ✅ ENVIANDO O NOME PARA O GERENCIAAPP NÃO RECUSAR
+        is_trial: 0, // ✅ REGRA: Nunca é trial (Sempre 0)
+        name: username // ✅ REGRA: Sempre o Username (sem fallback)
     };
 
     // 3. Prepara o receptor da resposta da extensão
@@ -3034,6 +3038,11 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     const shortServerName = selectedServerName.replace(/\s+/g, "");
                     const finalServerName = `${apiUsername}_${shortServerName}`;
 
+                    // ✅ Calcula a data exata de 1 ano para frente a partir de hoje
+                    const dAutomacao = new Date();
+                    const expireAutomacao1Year = `${dAutomacao.getFullYear() + 1}-${String(dAutomacao.getMonth() + 1).padStart(2, '0')}-${String(dAutomacao.getDate()).padStart(2, '0')}`;
+
+                    // ✅ REGRAS ESTRITAS IBO REVENDA (Automação)
                     const payloadAutomacao = {
                         modo_selecao: 1,
                         mac_device: app.values["Device ID (MAC)"] || "",
@@ -3050,11 +3059,11 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         url_epg: "",
                         price: 0,
                         plan_id: "",
-                        expire_date: dueDate,
+                        expire_date: expireAutomacao1Year, // ✅ REGRA: Sempre 1 ano para frente
                         dnsOptions: "",
                         whatsapp: "",
-                        is_trial: isTrialMode ? 1 : 0,
-                        name: displayName || apiUsername // ✅ NOME INCLUÍDO AQUI TAMBÉM
+                        is_trial: 0, // ✅ REGRA: Nunca é trial (Sempre 0)
+                        name: apiUsername // ✅ REGRA: Sempre o Username (sem fallback)
                     };
 
                     // ✅ Usa a Extensão do Chrome para furar o Cloudflare e criar silenciosamente!
@@ -4987,7 +4996,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                       </svg>
-                                      <span className="hidden sm:inline">Configurar App</span>
+                                      <span className="hidden sm:inline">Configurar m3u</span>
                                       <span className="sm:hidden">Configurar</span>
                                   </button>
                                   <button
@@ -4998,7 +5007,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                       </svg>
-                                      <span className="hidden sm:inline">Remover Config.</span>
+                                      <span className="hidden sm:inline">Remover m3u.</span>
                                       <span className="sm:hidden">Remover</span>
                                   </button>
                                 </div>
