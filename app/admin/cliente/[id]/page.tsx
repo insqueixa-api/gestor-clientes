@@ -1045,17 +1045,12 @@ const EVENT_LABELS: Record<string, string> = {
 
             server_id: client.server_id,
             screens: client.screens,
-            technology: client.technology ?? undefined, // ✅ Passa pro modal
-
-plan_name: client.plan_name ?? undefined,
-price_amount: client.price_amount ?? undefined,
-price_currency: client.price_currency ?? undefined,
-
-
-// ✅ essencial pro prefill escolher a tabela certa
-plan_table_id: (client as any).plan_table_id ?? null,
-plan_table_name: (client as any).plan_table_name ?? null,
-
+            technology: client.technology ?? undefined,
+      plan_name: client.plan_name ?? undefined,
+      price_amount: client.price_amount ?? undefined,
+      price_currency: client.price_currency ?? undefined,
+      plan_table_id: (client as any).plan_table_id ?? null,
+      plan_table_name: (client as any).plan_table_name ?? null,
 
     // ✅ M3U (prefill no modal)
 m3u_url: client.m3u_url ?? undefined,
@@ -1114,6 +1109,7 @@ whatsapp_username: client.whatsapp_username
       // ✅ servidor em branco: força o usuário escolher outro
       server_id: "",
       screens: 1,
+      technology: client.technology ?? undefined,
       plan_name: undefined,
       price_amount: undefined,
     }}
