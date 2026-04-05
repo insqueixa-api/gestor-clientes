@@ -4925,7 +4925,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                   {selectedApps.map((app) => (
 
-                    <div key={app.instanceId} className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
+                    <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
 
                       
 
@@ -4976,11 +4976,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
 
                       {!app.is_minimized && (
-                        <div className="mt-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="mt-1 animate-in slide-in-from-top-2 duration-200">
 
                           {/* Configuração de Integração do App */}
                           {Boolean((catalog.find(c => c.id === app.app_id) as any)?.integration_type) && (
-                              <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-lg border border-slate-200 dark:border-white/5 mb-2">
+                              <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-lg border border-slate-200 dark:border-white/5 mb-1">
                               {!isEditing ? (
                                 /* MODO CRIAÇÃO: Apenas o Toggle */
                                 <div className="flex items-center justify-between gap-3">
