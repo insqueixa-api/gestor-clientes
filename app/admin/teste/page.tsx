@@ -67,6 +67,9 @@ type VwClientRow = {
   server_name: string | null;
 
   technology: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  plan_name: string | null;
 
   whatsapp_e164: string | null;
 
@@ -114,7 +117,10 @@ whatsapp: string;
   secondary_phone_e164?: string;
   secondary_whatsapp_username?: string;
   server_password?: string;
-  m3u_url?: string; // ✅ ADICIONAR
+  m3u_url?: string;
+  price_amount?: number;
+  price_currency?: string;
+  plan_name?: string;
   vencimento?: string;
   notes?: string;
 
@@ -733,7 +739,10 @@ const mapped: TrialRow[] = typed.map((r) => {
   secondary_phone_e164: r.secondary_phone_e164 ?? undefined,
   secondary_whatsapp_username: r.secondary_whatsapp_username ?? undefined,
   server_password: (r.server_password ?? undefined) as any,
-  m3u_url: r.m3u_url || undefined, // ✅ ADICIONAR
+  m3u_url: r.m3u_url || undefined,
+  price_amount: r.price_amount ?? undefined,
+  price_currency: r.price_currency ?? undefined,
+  plan_name: r.plan_name ?? undefined,
   vencimento: r.vencimento ?? undefined,
 
   notes: (notesMap[id] ?? r.notes ?? "") as any,
@@ -884,6 +893,9 @@ useEffect(() => {
 
       server_password: r.server_password,
       m3u_url: r.m3u_url,
+      price_amount: r.price_amount,
+      price_currency: r.price_currency,
+      plan_name: r.plan_name,
 
       vencimento: r.vencimento,
       notes: r.notes ?? "",
