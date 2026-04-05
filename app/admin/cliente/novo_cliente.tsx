@@ -4976,11 +4976,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
 
                       {!app.is_minimized && (
-                        <div className="mt-1 animate-in slide-in-from-top-2 duration-200">
+                        <div className="mt-0 animate-in slide-in-from-top-2 duration-200">
 
                           {/* Configuração de Integração do App */}
                           {Boolean((catalog.find(c => c.id === app.app_id) as any)?.integration_type) && (
-                              <div className="bg-transparent border-0 mb-1">
+                              <div className="bg-transparent border-0 mb-0.5">
                               {!isEditing ? (
                                 /* MODO CRIAÇÃO: Apenas o Toggle */
                                 <div className="flex items-center justify-between gap-3">
