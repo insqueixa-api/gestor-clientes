@@ -1941,6 +1941,71 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }, 20000);
   }
 
+  // ✅ FUNÇÃO PARA DELETAR NO GERENCIAAPP (VIA EXTENSÃO)
+  async function handleDeleteApp(appName: string) {
+    if (!username.trim()) {
+      addToast("warning", "Atenção", "O Usuário precisa estar preenchido para buscar e deletar.");
+      return;
+    }
+
+    // Busca o MAC (se existir) para o fallback
+    const currentApp = selectedApps.find(a => a.name === appName);
+    let macValue = "";
+    if (currentApp) {
+        const macField = currentApp.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+        if (macField) {
+            const key = String(macField.id || macField.label || "").trim();
+            macValue = currentApp.values[key] || "";
+        }
+        if (!macValue) {
+            const foundKey = Object.keys(currentApp.values).find(k => String(currentApp.values[k]).includes(":"));
+            if (foundKey) macValue = currentApp.values[foundKey];
+        }
+    }
+
+    setLoading(true);
+    setLoadingStep("A remover do Painel...");
+
+    const payloadDelete = {
+        username: username.trim(),
+        mac_device: macValue || ""
+    };
+
+    const responseHandler = (e: any) => {
+        window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+        setLoading(false);
+        setLoadingStep("");
+
+        const result = e.detail;
+        if (result && result.ok) {
+            addToast("success", "Removido!", "Configuração apagada do GerenciaApp com sucesso.");
+        } else {
+            addToast("error", "Não Removido", result?.error || "Falha ao apagar no painel.");
+        }
+    };
+
+    window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+
+    window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+        detail: {
+            action: "GERENCIAAPP_DELETE",
+            payload: payloadDelete
+        }
+    }));
+
+    setTimeout(() => {
+        setLoading((prevLoading) => {
+            if (prevLoading) {
+                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+                addToast("warning", "Aviso", "A resposta demorou. Verifique no painel se foi apagado.");
+                setLoadingStep("");
+                return false;
+            }
+            return prevLoading;
+        });
+    }, 20000);
+  }
+
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
 async function executeSave() {
 
@@ -5043,13 +5108,18 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   </button>
                                   <button
                                       type="button"
-                                      onClick={() => alert("Deletar configuração")}
+                                      onClick={async () => {
+                                          // Confirmação simples nativa do navegador antes de deletar
+                                          if (confirm(`Tem certeza que deseja excluir o acesso de ${username} do GerenciaApp?`)) {
+                                              await handleDeleteApp(app.name);
+                                          }
+                                      }}
                                       className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                                   >
                                       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                       </svg>
-                                      <span className="hidden sm:inline">Remover m3u.</span>
+                                      <span className="hidden sm:inline">Remover m3u</span>
                                       <span className="sm:hidden">Remover</span>
                                   </button>
                                 </div>
