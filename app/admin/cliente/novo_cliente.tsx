@@ -1880,8 +1880,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         expire_date: expireDate1Year, // ✅ REGRA: Sempre 1 ano para frente
         dnsOptions: "",
         whatsapp: "",
-        is_trial: 0, // ✅ REGRA: Nunca é trial (Sempre 0)
-        name: username // ✅ REGRA: Sempre o Username (sem fallback)
+        is_trial: 0 // ✅ REGRA: Nunca é trial (Sempre 0)
+        // ❌ O campo "name" FOI REMOVIDO para bater 100% com o padrão da requisição real!
     };
 
     // 3. Prepara o receptor da resposta da extensão
@@ -3073,8 +3073,8 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         expire_date: expireAutomacao1Year, // ✅ REGRA: Sempre 1 ano para frente
                         dnsOptions: "",
                         whatsapp: "",
-                        is_trial: 0, // ✅ REGRA: Nunca é trial (Sempre 0)
-                        name: apiUsername // ✅ REGRA: Sempre o Username (sem fallback)
+                        is_trial: 0 // ✅ REGRA: Nunca é trial (Sempre 0)
+                        // ❌ O campo "name" FOI REMOVIDO para bater 100% com o padrão da requisição real!
                     };
 
                     // ✅ Usa a Extensão do Chrome para furar o Cloudflare e criar silenciosamente!
@@ -4980,7 +4980,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                           {/* Configuração de Integração do App */}
                           {Boolean((catalog.find(c => c.id === app.app_id) as any)?.integration_type) && (
-                              <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-lg border border-slate-200 dark:border-white/5 mb-1">
+                              <div className="bg-transparent border-0 mb-1">
                               {!isEditing ? (
                                 /* MODO CRIAÇÃO: Apenas o Toggle */
                                 <div className="flex items-center justify-between gap-3">
