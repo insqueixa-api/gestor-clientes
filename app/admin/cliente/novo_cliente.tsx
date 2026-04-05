@@ -1628,7 +1628,8 @@ setSelectedApps(instances);
 
   useEffect(() => {
     if (!didInitRef.current) return;
-    if (isEditing) return; // ✅ Não reseta preço salvo ao editar
+    if (isEditing) return;
+    if (isTrialMode && clientToEdit?.price_amount) return; // ✅ protege teste rápido
     setPriceTouched(false);
   }, [screens, selectedPlanPeriod, selectedTableId]);
 
