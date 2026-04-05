@@ -1850,17 +1850,36 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const shortServerName = selectedServerName.replace(/\s+/g, "");
     const finalServerName = `${username}_${shortServerName}`;
 
-    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje (À prova de Anos Bissextos)
+    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje
     const today = new Date();
     today.setFullYear(today.getFullYear() + 1);
     const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    // 1.6 Busca o valor do MAC de forma inteligente (Imune a mudanças de nome no banco)
+    // 1.6 Busca o MAC de forma CORRETA (Lendo o ID do campo ao invés de adivinhar a chave)
     const currentApp = selectedApps.find(a => a.name === appName);
-    const macKey = currentApp ? Object.keys(currentApp.values).find(k => k.toLowerCase().includes("mac")) : null;
-    const macValue = macKey && currentApp ? currentApp.values[macKey] : "";
+    let macValue = "";
 
-    // 2. Prepara o payload para enviar ao GerenciaApp (REGRAS ESTRITAS IBO REVENDA)
+    if (currentApp) {
+        const macField = currentApp.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+        if (macField) {
+            const key = String(macField.id || macField.label || "").trim();
+            macValue = currentApp.values[key] || "";
+        }
+        // Fallback garantido: procura por qualquer valor salvo que tenha o formato de MAC (com ":")
+        if (!macValue) {
+            const foundKey = Object.keys(currentApp.values).find(k => String(currentApp.values[k]).includes(":"));
+            if (foundKey) macValue = currentApp.values[foundKey];
+        }
+    }
+
+    if (!macValue || macValue.trim() === "") {
+        addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) na aba 'Aplicativos' antes de configurar.");
+        setLoading(false);
+        setLoadingStep("");
+        return;
+    }
+
+    // 2. Payload blindado com as SUAS regras estritas (Sem enviar variáveis falsas)
     const payload = {
         modo_selecao: 1,
         mac_device: macValue,
@@ -1877,11 +1896,11 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         url_epg: "",
         price: 0,
         plan_id: "",
-        expire_date: expireDate1Year, // ✅ REGRA: Sempre 1 ano para frente
+        expire_date: expireDate1Year,
         dnsOptions: "",
         whatsapp: "",
-        is_trial: 0 // ✅ REGRA: Nunca é trial (Sempre 0)
-        // ❌ O campo "name" FOI REMOVIDO para bater 100% com o padrão da requisição real!
+        is_trial: 0, 
+        
     };
 
     // 3. Prepara o receptor da resposta da extensão
@@ -3049,11 +3068,24 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     dAutomacao.setFullYear(dAutomacao.getFullYear() + 1);
                     const expireAutomacao1Year = `${dAutomacao.getFullYear()}-${String(dAutomacao.getMonth() + 1).padStart(2, '0')}-${String(dAutomacao.getDate()).padStart(2, '0')}`;
 
-                    // ✅ Busca o valor do MAC de forma inteligente
-                    const macKeyAuto = Object.keys(app.values).find(k => k.toLowerCase().includes("mac"));
-                    const macValueAuto = macKeyAuto ? app.values[macKeyAuto] : "";
+                    // ✅ Busca o MAC de forma CORRETA na Automação
+                    let macValueAuto = "";
+                    const macFieldAuto = app.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+                    if (macFieldAuto) {
+                        const keyAuto = String(macFieldAuto.id || macFieldAuto.label || "").trim();
+                        macValueAuto = app.values[keyAuto] || "";
+                    }
+                    if (!macValueAuto) {
+                        const foundKeyAuto = Object.keys(app.values).find(k => String(app.values[k]).includes(":"));
+                        if (foundKeyAuto) macValueAuto = app.values[foundKeyAuto];
+                    }
 
-                    // ✅ REGRAS ESTRITAS IBO REVENDA (Automação)
+                    if (!macValueAuto || macValueAuto.trim() === "") {
+                        console.warn(`[Automação] App ${app.name} ignorado pois o MAC não foi encontrado.`);
+                        continue; 
+                    }
+
+                    // ✅ Payload blindado com as SUAS regras estritas
                     const payloadAutomacao = {
                         modo_selecao: 1,
                         mac_device: macValueAuto,
@@ -3070,11 +3102,11 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         url_epg: "",
                         price: 0,
                         plan_id: "",
-                        expire_date: expireAutomacao1Year, // ✅ REGRA: Sempre 1 ano para frente
+                        expire_date: expireAutomacao1Year, 
                         dnsOptions: "",
                         whatsapp: "",
-                        is_trial: 0 // ✅ REGRA: Nunca é trial (Sempre 0)
-                        // ❌ O campo "name" FOI REMOVIDO para bater 100% com o padrão da requisição real!
+                        is_trial: 0,
+                        
                     };
 
                     // ✅ Usa a Extensão do Chrome para furar o Cloudflare e criar silenciosamente!
