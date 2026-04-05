@@ -1850,14 +1850,20 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const shortServerName = selectedServerName.replace(/\s+/g, "");
     const finalServerName = `${username}_${shortServerName}`;
 
-    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje
+    // 1.5 Calcula a data exata de 1 ano para frente a partir de hoje (À prova de Anos Bissextos)
     const today = new Date();
-    const expireDate1Year = `${today.getFullYear() + 1}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    today.setFullYear(today.getFullYear() + 1);
+    const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // 1.6 Busca o valor do MAC de forma inteligente (Imune a mudanças de nome no banco)
+    const currentApp = selectedApps.find(a => a.name === appName);
+    const macKey = currentApp ? Object.keys(currentApp.values).find(k => k.toLowerCase().includes("mac")) : null;
+    const macValue = macKey && currentApp ? currentApp.values[macKey] : "";
 
     // 2. Prepara o payload para enviar ao GerenciaApp (REGRAS ESTRITAS IBO REVENDA)
     const payload = {
         modo_selecao: 1,
-        mac_device: selectedApps.find(a => a.name === appName)?.values["Device ID (MAC)"] || "",
+        mac_device: macValue,
         server_name: finalServerName,
         account_username: "",
         account_password: "",
@@ -3038,14 +3044,19 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     const shortServerName = selectedServerName.replace(/\s+/g, "");
                     const finalServerName = `${apiUsername}_${shortServerName}`;
 
-                    // ✅ Calcula a data exata de 1 ano para frente a partir de hoje
+                    // ✅ Calcula a data exata de 1 ano para frente a partir de hoje (À prova de Anos Bissextos)
                     const dAutomacao = new Date();
-                    const expireAutomacao1Year = `${dAutomacao.getFullYear() + 1}-${String(dAutomacao.getMonth() + 1).padStart(2, '0')}-${String(dAutomacao.getDate()).padStart(2, '0')}`;
+                    dAutomacao.setFullYear(dAutomacao.getFullYear() + 1);
+                    const expireAutomacao1Year = `${dAutomacao.getFullYear()}-${String(dAutomacao.getMonth() + 1).padStart(2, '0')}-${String(dAutomacao.getDate()).padStart(2, '0')}`;
+
+                    // ✅ Busca o valor do MAC de forma inteligente
+                    const macKeyAuto = Object.keys(app.values).find(k => k.toLowerCase().includes("mac"));
+                    const macValueAuto = macKeyAuto ? app.values[macKeyAuto] : "";
 
                     // ✅ REGRAS ESTRITAS IBO REVENDA (Automação)
                     const payloadAutomacao = {
                         modo_selecao: 1,
-                        mac_device: app.values["Device ID (MAC)"] || "",
+                        mac_device: macValueAuto,
                         server_name: finalServerName,
                         account_username: "",
                         account_password: "",
@@ -4965,12 +4976,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                       {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
 
                       {!app.is_minimized && (
-
-                        <div className="mt-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="mt-2 animate-in slide-in-from-top-2 duration-200">
 
                           {/* Configuração de Integração do App */}
                           {Boolean((catalog.find(c => c.id === app.app_id) as any)?.integration_type) && (
-                            <div className="bg-slate-100 dark:bg-white/5 p-3 rounded-lg border border-slate-200 dark:border-white/5 mb-3">
+                              <div className="bg-slate-100 dark:bg-white/5 p-2 rounded-lg border border-slate-200 dark:border-white/5 mb-2">
                               {!isEditing ? (
                                 /* MODO CRIAÇÃO: Apenas o Toggle */
                                 <div className="flex items-center justify-between gap-3">
