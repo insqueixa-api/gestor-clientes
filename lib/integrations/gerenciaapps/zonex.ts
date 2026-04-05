@@ -1,11 +1,10 @@
-// src/lib/integrations/gerenciaapp.ts
+// src/lib/integrations/zonex.ts
 
-export const GerenciaAppIntegration = {
-    actionPrefix: "GERENCIAAPP", // Prefixo usado na extensão (ex: GERENCIAAPP_CREATE)
+export const ZoneXIntegration = {
+    // Mantemos GERENCIAAPP porque a extensão já sabe furar o bloqueio desse domínio
+    actionPrefix: "GERENCIAAPP", 
 
-    // Constrói o pacote de dados EXATAMENTE como o GerenciaApp exige (A sua regra de pedra)
     buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string }) => {
-        // Calcula a data exata de 1 ano para frente a partir de hoje
         const today = new Date();
         today.setFullYear(today.getFullYear() + 1);
         const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -20,7 +19,7 @@ export const GerenciaAppIntegration = {
             xteam_password: "",
             username_login: params.username,
             password_login: params.password || "",
-            ranking_app_id: 10,
+            ranking_app_id: 11, // ✅ A ÚNICA DIFERENÇA: ID 11 é o Zone X!
             dns: "",
             m3u8_list: params.m3uUrl || "",
             url_epg: "",
@@ -30,11 +29,9 @@ export const GerenciaAppIntegration = {
             dnsOptions: "",
             whatsapp: "",
             is_trial: 0,
-            // name: Removido conforme regra de ouro
         };
     },
 
-    // Constrói o pacote de dados para deletar
     buildDeletePayload: (params: { username: string; macValue: string }) => {
         return {
             username: params.username.trim(),
