@@ -4983,7 +4983,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                               <div className="bg-transparent border-0 mb-0.5">
                               {!isEditing ? (
                                 /* MODO CRIAÇÃO: Apenas o Toggle */
-                                <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center justify-between gap-2">
                                   <div>
                                     <span className="text-xs font-bold text-slate-700 dark:text-white block">Configurar Aplicativo no Painel?</span>
                                     <span className="text-[10px] text-slate-500 dark:text-white/40">Automatizar criação ao salvar cliente</span>
@@ -4996,7 +4996,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                 </div>
                               ) : (
                                 /* MODO EDIÇÃO: Grid cravado em 2 colunas, sem flex-1 para não esmagar ninguem */
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-2">
                                   <button
                                       type="button"
                                       onClick={() => handleConfigApp(app.name)}
