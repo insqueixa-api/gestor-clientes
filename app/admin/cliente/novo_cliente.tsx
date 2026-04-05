@@ -1591,31 +1591,19 @@ setSelectedApps(instances);
 // ✅ TRAVA DE TECNOLOGIA POR PROVEDOR
 
   useEffect(() => {
-
+    if (isEditing) return; // ✅ Não sobrescreve tecnologia salva ao editar
     if (trialProvider === "FAST" || trialProvider === "NATV") {
-
       if (technology !== "IPTV") {
-
         setTechnology("IPTV");
-
         setCustomTechnology("");
-
       }
-
     } else if (trialProvider === "ELITE") {
-
       if (technology !== "IPTV" && technology !== "P2P") {
-
         setTechnology("IPTV");
-
         setCustomTechnology("");
-
         addToast("warning", "Tecnologia ajustada", "O Elite só aceita IPTV ou P2P.");
-
       }
-
     }
-
   }, [trialProvider, technology]);
 
 
@@ -1639,11 +1627,9 @@ setSelectedApps(instances);
   // 1) Se mudar a estrutura...
 
   useEffect(() => {
-
     if (!didInitRef.current) return;
-
+    if (isEditing) return; // ✅ Não reseta preço salvo ao editar
     setPriceTouched(false);
-
   }, [screens, selectedPlanPeriod, selectedTableId]);
 
 

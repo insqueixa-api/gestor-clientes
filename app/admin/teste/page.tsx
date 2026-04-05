@@ -867,10 +867,11 @@ useEffect(() => {
     const payload: ClientData = {
       id: r.id,
       client_name: r.name,
-      name_prefix: r.name_prefix, // ✅ AQUI ESTAVA FALTANDO! (Repassa a saudação)
+      name_prefix: r.name_prefix,
       username: r.username,
       server_id: r.server_id,
       screens: 1,
+      technology: r.technology, // ✅ FALTAVA ISSO
 
       whatsapp_e164: r.whatsapp,
       whatsapp_username: r.whatsapp_username,
@@ -882,7 +883,7 @@ useEffect(() => {
       secondary_whatsapp_username: r.secondary_whatsapp_username,
 
       server_password: r.server_password,
-      m3u_url: r.m3u_url, 
+      m3u_url: r.m3u_url,
 
       vencimento: r.vencimento,
       notes: r.notes ?? "",
