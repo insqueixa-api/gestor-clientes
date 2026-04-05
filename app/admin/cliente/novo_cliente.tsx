@@ -1227,7 +1227,7 @@ if (!isTrialMode) {
           }
         }
 
-if (isTrialMode && defaultBRL) {
+if (isTrialMode && defaultBRL && !clientToEdit?.price_amount) {
   setSelectedTableId(defaultBRL.id);
   setCurrency("BRL");
   setSelectedPlanPeriod("MONTHLY");
