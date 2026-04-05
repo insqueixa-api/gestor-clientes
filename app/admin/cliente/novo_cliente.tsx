@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Trazendo a caixa de confirmação bonita
 
 // --- TIPOS ---
 type SelectOption = {
@@ -855,6 +856,9 @@ async function loadWhatsAppSessions() {
 
   // ✅ NOVO: Controle do Popup de Confirmação Bonito
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; details: string[] } | null>(null);
+  
+  // ✅ Instanciando o hook para a remoção do App
+  const { confirm: confirmDeleteApp, ConfirmUI } = useConfirm();
 
   // --- TIPOS PARA APPS DINÂMICOS ---
   type AppCatalog = { id: string; name: string; fields_config: any[]; info_url: string | null };
@@ -5109,8 +5113,15 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   <button
                                       type="button"
                                       onClick={async () => {
-                                          // Confirmação simples nativa do navegador antes de deletar
-                                          if (confirm(`Tem certeza que deseja excluir o acesso de ${username} do GerenciaApp?`)) {
+                                          // ✅ Usando a sua interface bonita!
+                                          const ok = await confirmDeleteApp({
+                                              title: "Remover do GerenciaApp?",
+                                              subtitle: `Tem certeza que deseja excluir o acesso de ${username}?`,
+                                              tone: "rose",
+                                              confirmText: "Sim, remover",
+                                              cancelText: "Cancelar"
+                                          });
+                                          if (ok) {
                                               await handleDeleteApp(app.name);
                                           }
                                       }}
@@ -5432,9 +5443,8 @@ const fieldKey = String(field?.id ?? field?.label ?? "").trim(); // prioridade: 
 
 
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
-
+      {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
       {confirmModal && (
-
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
 
             <div
