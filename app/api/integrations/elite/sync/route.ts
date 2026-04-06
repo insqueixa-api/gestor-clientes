@@ -371,6 +371,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
+  console.error("[ELITE_SYNC_ERROR]", e?.message || e);
   return NextResponse.json({ ok: false, error: e?.message || "Falha no sync ELITE." }, { status: 500 });
 }
 }
