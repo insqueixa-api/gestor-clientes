@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
-// ✅ IMPORTANDO O NOSSO TRATOR
+// ✅ IMPORTANDO O NOSSO TRATOR (Aviso: Neste script estamos usando fetch direto, mas mantive a importação)
 import { fetchViaFlareSolverr } from "@/lib/api/flaresolverr"; 
 
 export const runtime = "nodejs";
@@ -168,8 +168,11 @@ function extractCreditsFromNavbar(html: string): number | null {
   return parseLooseNumber(t);
 }
 
-
 export async function POST(req: Request) {
+  let sessionId = null;
+  // O IP da sua VM rodando o FlareSolverr
+  const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
+
   try {
     const internalSecret = String(req.headers.get("x-internal-secret") || "").trim();
     const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
@@ -220,154 +223,139 @@ export async function POST(req: Request) {
     const base = normalizeBaseUrl(baseUrl);
     const profileUrl = `${base}/user/profile`;
 
-    // ==========================================
-    // ==========================================
-    // 🚜 A MÁGICA ACONTECE AQUI! (FLUXO LARAVEL COMPLETO)
-    // ==========================================
     console.log(`[ELITE SYNC] Iniciando FlareSolverr para o servidor: ${loginUser}`);
     
-    // O IP da sua VM rodando liso!
-    const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
-
     // ==========================================
-    // 1. Criar Sessão com Disfarce Máximo
+    // 1. Criar Sessão com Disfarce e Proxy
     // ==========================================
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             cmd: "sessions.create",
-            // Disfarce idêntico ao seu Google Chrome no Windows:
             userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-            // ⚠️ Se este IP continuar bloqueando, tente o 2º ou 3º IP da sua lista do Webshare!
+            // ⚠️ Altere o IP abaixo caso o Cloudflare trave (pegue outro da sua lista de 20 do Webshare)
             proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
         })
     }).then(res => res.json());
 
     if (sessionRes.status !== "ok") throw new Error(`Falha Session: ${sessionRes.message}`);
-    const sessionId = sessionRes.session;
+    sessionId = sessionRes.session;
 
-    try {
-        // ==========================================
-        // 2. Acessar a tela de Login (GET) para resolver o Cloudflare e pegar o _token
-        // ==========================================
-        const getLoginRes = await fetch(FLARESOLVERR_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cmd: "request.get",
-                session: sessionId,
-                url: `${base}/login`,
-                maxTimeout: 60000 
-            })
-        }).then(res => res.json());
+    // ==========================================
+    // 2. Acessar a tela, passar pelo Cloudflare e Logar via Javascript
+    // ==========================================
+    const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            cmd: "request.get",
+            session: sessionId,
+            url: `${base}/login`,
+            maxTimeout: 60000,
+            returnOnlyCookies: false, 
+            // O código abaixo será executado dentro do navegador invisível
+            evaluate: `
+                // Espera 5 segundos para o Cloudflare passar e o Vue/React carregar os inputs
+                setTimeout(() => {
+                    let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
+                    let passInput = document.querySelector('input[type="password"], input[name="password"]');
+                    let btn = document.querySelector('button[type="submit"], form button');
+                    
+                    if (emailInput && passInput && btn) {
+                        emailInput.value = '${loginUser}';
+                        passInput.value = '${loginPass}';
+                        // Força eventos de input caso o framework reativo precise
+                        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        btn.click();
+                    }
+                }, 5000);
+                // Espera mais 10 segundos para dar tempo do login processar e redirecionar
+                setTimeout(() => {}, 15000);
+            `
+        })
+    }).then(res => res.json());
 
-        if (getLoginRes.status !== "ok") {
-             throw new Error(`Falha GET Inicial: ${getLoginRes.message}`);
-        }
+    if (loginAutomaticoRes.status !== "ok") {
+         throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
+    }
 
-        const htmlRecebido = getLoginRes.solution?.response || "";
-        
-        // 🔍 Validação: O Cloudflare soltou a gente?
-        if (htmlRecebido.toLowerCase().includes("just a moment") || htmlRecebido.toLowerCase().includes("cf-turnstile")) {
-            throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare, pegue um IP diferente da sua lista e atualize no código.");
-        }
+    const htmlAposLogin = loginAutomaticoRes.solution?.response || "";
+    
+    if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
+        throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare, pegue um IP diferente da lista e atualize no código.");
+    }
 
-        // 3. Extrair o _token (CSRF)
-        const $login = cheerio.load(htmlRecebido);
-        const csrfToken = $login('input[name="_token"]').attr("value") || 
-                          $login('meta[name="csrf-token"]').attr("content");
+    // ==========================================
+    // 3. Acessar o Profile para extrair o saldo
+    // ==========================================
+    const profileRes = await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            cmd: "request.get",
+            session: sessionId,
+            url: profileUrl,
+            maxTimeout: 30000
+        })
+    }).then(res => res.json());
 
-        if (!csrfToken) {
-            throw new Error(`Token não encontrado após passar o Cloudflare. Título da página: ${$login('title').text()}`);
-        }
+    if (profileRes.status !== "ok") throw new Error(`Falha GET Profile: ${profileRes.message}`);
 
-        // ==========================================
-        // 4. Fazer o POST do Login
-        // ==========================================
-        const postData = `_token=${encodeURIComponent(csrfToken)}&timezone=America%2FSao_Paulo&email=${encodeURIComponent(loginUser)}&password=${encodeURIComponent(loginPass)}&remember=on`;
+    const profileHtml = profileRes.solution?.response || "";
 
-        const postLoginRes = await fetch(FLARESOLVERR_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cmd: "request.post",
-                session: sessionId,
-                url: `${base}/login`,
-                postData: postData,
-                maxTimeout: 60000
-            })
-        }).then(res => res.json());
+    // ==========================================
+    // 4. Processamento dos Dados
+    // ==========================================
+    const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
+    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
+    const profileText = textFromHtml(profileHtml);
 
-        if (postLoginRes.status !== "ok") throw new Error(`Falha no POST de login: ${postLoginRes.message}`);
+    const user_id = fromSnap?.user_id ?? null;
+    let owner_id = fromSnap?.owner_id ?? extractOwnerId(profileText) ?? null;
+    
+    // Extrai os Créditos
+    let credits = (fromSnap?.credits ?? null) ?? creditsFromNavbar ?? extractCredits(profileText) ?? null;
 
-        // ==========================================
-        // 5. Acessar o Profile
-        // ==========================================
-        const profileRes = await fetch(FLARESOLVERR_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cmd: "request.get",
-                session: sessionId,
-                url: profileUrl,
-                maxTimeout: 60000
-            })
-        }).then(res => res.json());
+    const panel_username = fromSnap?.username ?? null;
+    const panel_email = fromSnap?.email ?? null;
 
-        if (profileRes.status !== "ok") throw new Error(`Falha GET Profile: ${profileRes.message}`);
+    if (user_id == null && owner_id == null && credits == null) {
+        console.log("[ELITE SYNC] Aviso: Não encontrou dados no HTML. O login JS pode ter falhado silenciosamente.");
+    }
 
-        const profileHtml = profileRes.solution?.response || "";
+    // 5. Atualizar Banco
+    const patch: any = {
+      credits_last_sync_at: new Date().toISOString(),
+      owner_username: (panel_username || loginUser),
+    };
 
-        // O SEU CÓDIGO DE EXTRAÇÃO (cheerio) CONTINUA DAQUI PARA BAIXO...
+    if (owner_id != null) patch.owner_id = owner_id;
+    if (credits != null) patch.credits_last_known = credits;
 
-        // --- Processamento dos Dados ---
-        const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
-        const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
-        const profileText = textFromHtml(profileHtml);
+    await sb.from("server_integrations").update(patch).eq("id", integration_id);
 
-        const user_id = fromSnap?.user_id ?? null;
-        const owner_id = fromSnap?.owner_id ?? extractOwnerId(profileText) ?? null;
-        
-        // Extrai os Créditos (Aquele 68 tem que aparecer aqui!)
-        const credits = (fromSnap?.credits ?? null) ?? creditsFromNavbar ?? extractCredits(profileText) ?? null;
+    return NextResponse.json({
+      ok: true,
+      message: "ELITE OK. Sync atualizado.",
+      parsed: { user_id, owner_id, username: panel_username, email: panel_email, credits },
+      saved: { owner_id: owner_id ?? null, owner_username: patch.owner_username, credits_last_known: credits ?? null },
+    });
 
-        const panel_username = fromSnap?.username ?? null;
-        const panel_email = fromSnap?.email ?? null;
-
-        if (user_id == null && owner_id == null && credits == null) {
-            console.log("[ELITE SYNC] Aviso: Não encontrou dados. O login pode ter falhado silenciosamente.");
-        }
-
-        // 6. Atualizar Banco
-        const patch: any = {
-          credits_last_sync_at: new Date().toISOString(),
-          owner_username: (panel_username || loginUser),
-        };
-
-        if (owner_id != null) patch.owner_id = owner_id;
-        if (credits != null) patch.credits_last_known = credits;
-
-        await sb.from("server_integrations").update(patch).eq("id", integration_id);
-
-        return NextResponse.json({
-          ok: true,
-          message: "ELITE OK. Sync atualizado.",
-          parsed: { user_id, owner_id, username: panel_username, email: panel_email, credits },
-          saved: { owner_id: owner_id ?? null, owner_username: patch.owner_username, credits_last_known: credits ?? null },
-        });
-
-    } finally {
-        // 7. SEMPRE destruir a sessão no final para não lotar a RAM de 1GB da nossa VM
+  } catch (e: any) {
+    console.error("[ELITE SYNC ERROR]", e);
+    return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
+  } finally {
+    // ==========================================
+    // 6. DESTRUIR SESSÃO PARA LIBERAR MEMÓRIA DA VM
+    // ==========================================
+    if (sessionId) {
         await fetch(FLARESOLVERR_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
         }).catch(() => {});
     }
-
-  } catch (e: any) {
-    console.error("[ELITE SYNC ERROR]", e);
-    return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
   }
 }
