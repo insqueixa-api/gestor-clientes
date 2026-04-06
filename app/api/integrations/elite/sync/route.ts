@@ -229,26 +229,28 @@ export async function POST(req: Request) {
     // O IP da sua VM rodando liso!
     const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
-    // 1. Criar uma Sessão com Proxy Residencial e "Disfarce" de Navegador Real
+    // ==========================================
+    // 1. Criar Sessão com Disfarce Máximo
+    // ==========================================
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             cmd: "sessions.create",
-            // 👇 Adicionamos a assinatura de um Windows com Chrome atualizado
-            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            // ⚠️ O seu Proxy do Webshare:
-            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" }
+            // Disfarce idêntico ao seu Google Chrome no Windows:
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            // ⚠️ Se este IP continuar bloqueando, tente o 2º ou 3º IP da sua lista do Webshare!
+            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
         })
     }).then(res => res.json());
 
-    if (sessionRes.status !== "ok") {
-        throw new Error(`Falha ao criar navegador com proxy: ${sessionRes.message}`);
-    }
+    if (sessionRes.status !== "ok") throw new Error(`Falha Session: ${sessionRes.message}`);
     const sessionId = sessionRes.session;
 
     try {
-        // 2. Acessar a tela de Login (GET)
+        // ==========================================
+        // 2. Acessar a tela de Login (GET) para resolver o Cloudflare e pegar o _token
+        // ==========================================
         const getLoginRes = await fetch(FLARESOLVERR_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -256,32 +258,33 @@ export async function POST(req: Request) {
                 cmd: "request.get",
                 session: sessionId,
                 url: `${base}/login`,
-                maxTimeout: 60000 // Aumentamos para 60s
+                maxTimeout: 60000 
             })
         }).then(res => res.json());
 
         if (getLoginRes.status !== "ok") {
-             throw new Error(`Falha no GET Inicial: ${getLoginRes.message}`);
+             throw new Error(`Falha GET Inicial: ${getLoginRes.message}`);
         }
 
         const htmlRecebido = getLoginRes.solution?.response || "";
         
-        // 🔍 TESTE DE OURO: Vamos ver se o HTML contém a palavra "login"
-        if (htmlRecebido.toLowerCase().includes("just a moment") || htmlRecebido.toLowerCase().includes("cloudflare")) {
-            throw new Error("O Cloudflare ainda está segurando o Proxy Residencial. Aguarde 5 min ou tente outro IP da lista.");
+        // 🔍 Validação: O Cloudflare soltou a gente?
+        if (htmlRecebido.toLowerCase().includes("just a moment") || htmlRecebido.toLowerCase().includes("cf-turnstile")) {
+            throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare, pegue um IP diferente da sua lista e atualize no código.");
         }
 
-        // 3. Extrair o _token (Busca Reforçada)
+        // 3. Extrair o _token (CSRF)
         const $login = cheerio.load(htmlRecebido);
         const csrfToken = $login('input[name="_token"]').attr("value") || 
                           $login('meta[name="csrf-token"]').attr("content");
 
         if (!csrfToken) {
-            // Se não achou o token, vamos logar o título da página para saber onde estamos
-            const titulo = $login('title').text();
-            throw new Error(`Token não encontrado. Título da página: ${titulo}. Verifique se a URL ${base}/login está correta.`);
+            throw new Error(`Token não encontrado após passar o Cloudflare. Título da página: ${$login('title').text()}`);
         }
-        // 4. Fazer o POST do Login com o Token extraído
+
+        // ==========================================
+        // 4. Fazer o POST do Login
+        // ==========================================
         const postData = `_token=${encodeURIComponent(csrfToken)}&timezone=America%2FSao_Paulo&email=${encodeURIComponent(loginUser)}&password=${encodeURIComponent(loginPass)}&remember=on`;
 
         const postLoginRes = await fetch(FLARESOLVERR_URL, {
@@ -296,9 +299,11 @@ export async function POST(req: Request) {
             })
         }).then(res => res.json());
 
-        if (postLoginRes.status !== "ok") throw new Error("Falha ao enviar POST de login.");
+        if (postLoginRes.status !== "ok") throw new Error(`Falha no POST de login: ${postLoginRes.message}`);
 
-        // 5. Acessar o Profile logado para pegar o Saldo
+        // ==========================================
+        // 5. Acessar o Profile
+        // ==========================================
         const profileRes = await fetch(FLARESOLVERR_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -310,9 +315,11 @@ export async function POST(req: Request) {
             })
         }).then(res => res.json());
 
-        if (profileRes.status !== "ok") throw new Error("Falha ao acessar Perfil após login.");
+        if (profileRes.status !== "ok") throw new Error(`Falha GET Profile: ${profileRes.message}`);
 
         const profileHtml = profileRes.solution?.response || "";
+
+        // O SEU CÓDIGO DE EXTRAÇÃO (cheerio) CONTINUA DAQUI PARA BAIXO...
 
         // --- Processamento dos Dados ---
         const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
