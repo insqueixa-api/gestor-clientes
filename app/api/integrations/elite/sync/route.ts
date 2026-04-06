@@ -229,22 +229,26 @@ export async function POST(req: Request) {
     // O IP da sua VM rodando liso!
     const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
-    // 1. Criar uma Sessão com o NOVO Proxy Residencial Estático (USA)
+    // 1. Criar uma Sessão com Proxy Residencial e "Disfarce" de Navegador Real
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             cmd: "sessions.create",
-            // ✅ USANDO O SEU NOVO IP RESIDENCIAL QUE O CLOUDFLARE NÃO BLOQUEIA
-            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
+            // 👇 Adicionamos a assinatura de um Windows com Chrome atualizado
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            // ⚠️ O seu Proxy do Webshare:
+            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" }
         })
     }).then(res => res.json());
 
-    if (sessionRes.status !== "ok") throw new Error("Falha ao criar sessão no FlareSolverr.");
+    if (sessionRes.status !== "ok") {
+        throw new Error(`Falha ao criar navegador com proxy: ${sessionRes.message}`);
+    }
     const sessionId = sessionRes.session;
 
     try {
-        // 2. Acessar a tela de Login (GET) para resolver o Cloudflare e pegar o _token
+        // 2. Acessar a tela de Login (GET)
         const getLoginRes = await fetch(FLARESOLVERR_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -252,27 +256,31 @@ export async function POST(req: Request) {
                 cmd: "request.get",
                 session: sessionId,
                 url: `${base}/login`,
-                maxTimeout: 60000
+                maxTimeout: 60000 // Aumentamos para 60s
             })
         }).then(res => res.json());
 
-        if (getLoginRes.status !== "ok") throw new Error("Falha ao acessar tela de login.");
-
-        // 3. Extrair o _token (CSRF) do HTML usando o cheerio (Busca dupla!)
-        const htmlRecebido = getLoginRes.solution?.response || "";
-        const $login = cheerio.load(htmlRecebido);
-        
-        const formToken = $login('input[name="_token"]').attr("value") || "";
-        const metaToken = $login('meta[name="csrf-token"]').attr("content") || "";
-        const csrfToken = (metaToken || formToken).trim();
-
-        if (!csrfToken) {
-            // Vamos cuspir o começo do HTML na tela para vermos a cara do inimigo!
-            const pedacoHTML = htmlRecebido.substring(0, 250);
-            console.error("[HTML SEM TOKEN]:", htmlRecebido.substring(0, 800));
-            throw new Error(`Token CSRF não encontrado. O Proxy foi bloqueado? HTML: ${pedacoHTML}`);
+        if (getLoginRes.status !== "ok") {
+             throw new Error(`Falha no GET Inicial: ${getLoginRes.message}`);
         }
 
+        const htmlRecebido = getLoginRes.solution?.response || "";
+        
+        // 🔍 TESTE DE OURO: Vamos ver se o HTML contém a palavra "login"
+        if (htmlRecebido.toLowerCase().includes("just a moment") || htmlRecebido.toLowerCase().includes("cloudflare")) {
+            throw new Error("O Cloudflare ainda está segurando o Proxy Residencial. Aguarde 5 min ou tente outro IP da lista.");
+        }
+
+        // 3. Extrair o _token (Busca Reforçada)
+        const $login = cheerio.load(htmlRecebido);
+        const csrfToken = $login('input[name="_token"]').attr("value") || 
+                          $login('meta[name="csrf-token"]').attr("content");
+
+        if (!csrfToken) {
+            // Se não achou o token, vamos logar o título da página para saber onde estamos
+            const titulo = $login('title').text();
+            throw new Error(`Token não encontrado. Título da página: ${titulo}. Verifique se a URL ${base}/login está correta.`);
+        }
         // 4. Fazer o POST do Login com o Token extraído
         const postData = `_token=${encodeURIComponent(csrfToken)}&timezone=America%2FSao_Paulo&email=${encodeURIComponent(loginUser)}&password=${encodeURIComponent(loginPass)}&remember=on`;
 
