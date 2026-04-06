@@ -229,11 +229,14 @@ export async function POST(req: Request) {
     // O IP da sua VM rodando liso!
     const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
-    // 1. Criar uma Sessão (Navegador)
+    // 1. Criar uma Sessão (Navegador) COM A MÁSCARA DE PROXY
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cmd: "sessions.create" })
+        body: JSON.stringify({ 
+            cmd: "sessions.create",
+            proxy: { url: "http://azkijkdk:821awplgcvzv@31.59.20.176:6754" } // ✅ NOSSO DISFARCE
+        })
     }).then(res => res.json());
 
     if (sessionRes.status !== "ok") throw new Error("Falha ao criar sessão no FlareSolverr.");
