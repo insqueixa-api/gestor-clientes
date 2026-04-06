@@ -257,12 +257,19 @@ export async function POST(req: Request) {
 
         if (getLoginRes.status !== "ok") throw new Error("Falha ao acessar tela de login.");
 
-        // 3. Extrair o _token (CSRF) do HTML usando o cheerio
-        const $login = cheerio.load(getLoginRes.solution?.response || "");
-        const csrfToken = $login('input[name="_token"]').attr("value");
+        // 3. Extrair o _token (CSRF) do HTML usando o cheerio (Busca dupla!)
+        const htmlRecebido = getLoginRes.solution?.response || "";
+        const $login = cheerio.load(htmlRecebido);
+        
+        const formToken = $login('input[name="_token"]').attr("value") || "";
+        const metaToken = $login('meta[name="csrf-token"]').attr("content") || "";
+        const csrfToken = (metaToken || formToken).trim();
 
         if (!csrfToken) {
-            throw new Error("Token CSRF não encontrado. Cloudflare pode ter bloqueado ou o layout mudou.");
+            // Vamos cuspir o começo do HTML na tela para vermos a cara do inimigo!
+            const pedacoHTML = htmlRecebido.substring(0, 250);
+            console.error("[HTML SEM TOKEN]:", htmlRecebido.substring(0, 800));
+            throw new Error(`Token CSRF não encontrado. O Proxy foi bloqueado? HTML: ${pedacoHTML}`);
         }
 
         // 4. Fazer o POST do Login com o Token extraído
