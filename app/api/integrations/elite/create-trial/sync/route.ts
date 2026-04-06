@@ -133,8 +133,7 @@ async function offoLogin(
     if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
     sessionId = sessionRes.session;
 
-    // 2. Login via JS inject — idêntico ao sync de créditos que funciona
-    // O evaluate clica em 5s e aguarda 15s para garantir login + redirect + dashboard carregado
+    // 2. Login via JS inject — resolve em 15s (idêntico ao sync)
     const loginRes = await fetch(FLARESOLVERR_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -145,7 +144,6 @@ async function offoLogin(
         maxTimeout: 60000,
         returnOnlyCookies: false,
         evaluate: `new Promise((resolve) => {
-          // 1ª espera: 15s para o Cloudflare validar automaticamente
           setTimeout(() => {
             let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
             let passInput = document.querySelector('input[type="password"], input[name="password"]');
@@ -157,20 +155,15 @@ async function offoLogin(
               passInput.dispatchEvent(new Event('input', { bubbles: true }));
               btn.click();
             }
-            // 2ª espera: mais 15s para o redirect para o dashboard completar
-            setTimeout(() => { resolve(); }, 15000);
-          }, 15000);
+          }, 5000);
+          setTimeout(() => { resolve(); }, 15000);
         });`,
       }),
     }).then((r) => r.json());
 
     if (loginRes.status !== "ok") throw new Error(`Falha ao logar via script: ${loginRes.message}`);
 
-    // O HTML retornado já é o dashboard pós-login (com CSRF token)
-    postLoginHtml = loginRes.solution?.response || "";
-
-    // 3. Busca o profile — exatamente como o sync de créditos faz
-    // O evaluate aguarda 8s para o dashboard carregar completamente
+    // 3. Acessa o profile — exatamente como o sync faz — aguarda 8s e resolve
     const profileRes = await fetch(FLARESOLVERR_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -180,7 +173,9 @@ async function offoLogin(
         url: `${baseUrl}/user/profile`,
         maxTimeout: 60000,
         evaluate: `new Promise((resolve) => {
-          setTimeout(() => { resolve(); }, 8000);
+          setTimeout(() => {
+            resolve();
+          }, 8000);
         });`,
       }),
     }).then((r) => r.json());
