@@ -313,8 +313,16 @@ onChange={(e) => {
       </label>
       <input
         value={proxyUrl}
-        onChange={(e) => setProxyUrl(e.target.value)}
-        placeholder="http://user:pass@ip:porta"
+        onChange={(e) => {
+          let val = e.target.value.trim();
+          // Mágica para converter o formato do Webshare (IP:PORTA:USER:PASS) automaticamente
+          const parts = val.split(':');
+          if (parts.length === 4 && !val.startsWith('http')) {
+              val = `http://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`;
+          }
+          setProxyUrl(val);
+        }}
+        placeholder="Cole aqui a linha do Webshare ou digite http://user:pass@ip:porta"
         className="w-full h-10 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-500/5 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-rose-500/30"
         disabled={loadingEdit}
       />
