@@ -186,7 +186,6 @@ function normalizeExpToUtcIso(raw: unknown, timeZone = TZ_SP): string | null {
 }
 
 // ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
-// ✅ NOVO: Recebendo o proxyUrl como parâmetro
 async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
   
@@ -195,7 +194,6 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
   try {
       // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
-      // ✅ NOVO: Monta o payload de forma inteligente. Se tiver proxy no banco, ele usa!
       const sessionPayload: any = { 
           cmd: "sessions.create",
           userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
@@ -213,7 +211,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
       if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
       sessionId = sessionRes.session;
 
-      // 2. Fazer o Login via Javascript (Pula Cloudflare e entra no sistema)
+      // 2. Aceder à página de login, preencher os dados e clicar em "Entrar" (com Promise para não fugir)
       const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -223,7 +221,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
               url: `${baseUrl}/login`,
               maxTimeout: 60000,
               returnOnlyCookies: false, 
-              evaluate: `
+              evaluate: `new Promise((resolve) => {
                   setTimeout(() => {
                       let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
                       let passInput = document.querySelector('input[type="password"], input[name="password"]');
@@ -236,9 +234,10 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
                           passInput.dispatchEvent(new Event('input', { bubbles: true }));
                           btn.click();
                       }
+                      // Retorna o controlo IMEDIATAMENTE após clicar, para o FlareSolverr não encravar no redirecionamento
+                      resolve();
                   }, 5000);
-                  setTimeout(() => {}, 15000);
-              `
+              });`
           })
       }).then(res => res.json());
 
@@ -246,21 +245,37 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
            throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
       }
 
-      const htmlAposLogin = loginAutomaticoRes.solution?.response || "";
+      // 3. Aguardar no Node.js para dar tempo de o navegador invisível processar o login e redirecionar
+      await new Promise(r => setTimeout(r, 8000));
+
+      // 4. Aceder a uma página interna para validar a entrada e capturar os cookies autenticados!
+      const dashboardRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              cmd: "request.get",
+              session: sessionId,
+              url: `${baseUrl}/user/profile`, // Acede ao profile pois é uma rota leve e segura
+              maxTimeout: 60000
+          })
+      }).then(res => res.json());
+
+      const htmlAposLogin = dashboardRes.solution?.response || "";
+      
       if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
-          throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare e atualize no código.");
+          throw new Error("O Cloudflare travou este IP no desafio. Vá às configurações da integração no Gestor e atualize o link do Proxy Residencial.");
       }
 
-      // Se não voltou para a tela de login, o login deu certo!
+      // Se a página devolvida for novamente a de login, sabemos que a password estava errada
       if (htmlAposLogin.includes('name="password"') && htmlAposLogin.includes('type="submit"')) {
-          throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+          throw new Error("Login falhou (voltou para /login). Verifique o utilizador/password.");
       }
 
-      // 3. Exportar os Cookies Mágicos do FlareSolverr (Inclui o cf_clearance e o _session do Elite)
-      cookiesToExport = loginAutomaticoRes.solution?.cookies || [];
+      // 5. Apanhamos os cookies mágicos (Agora sim, 100% autenticados na sessão)
+      cookiesToExport = dashboardRes.solution?.cookies || [];
 
   } finally {
-      // Sempre destruir a sessão do FlareSolverr após exportar os cookies
+      // Sempre destruir a sessão do FlareSolverr após exportar os cookies para libertar memória da VM
       if (sessionId) {
           await fetch(FLARESOLVERR_URL, {
               method: "POST",
@@ -270,12 +285,10 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
       }
   }
 
-  // 4. Transformar os Cookies do FlareSolverr para o seu fetchCookie nativo
+  // 6. Transformar os Cookies do FlareSolverr para o seu fetchCookie nativo
   const jar = new CookieJar();
   cookiesToExport.forEach((cookie: any) => {
-      // O CookieJar precisa de strings simples. Ex: "nome=valor; Domain=dominio; Path=/"
       const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
-      // Pega o domínio sem o www (para evitar erros do CookieJar)
       let domainBase = baseUrl.replace(/^https?:\/\//i, '');
       jar.setCookieSync(cookieString, `https://${domainBase}`);
   });

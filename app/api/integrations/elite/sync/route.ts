@@ -264,7 +264,8 @@ export async function POST(req: Request) {
             maxTimeout: 60000,
             returnOnlyCookies: false, 
             // O código abaixo será executado dentro do navegador invisível
-            evaluate: `
+            // O código abaixo será executado dentro do navegador invisível
+            evaluate: `new Promise((resolve) => {
                 // Espera 5 segundos para o Cloudflare passar e o Vue/React carregar os inputs
                 setTimeout(() => {
                     let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
@@ -274,15 +275,15 @@ export async function POST(req: Request) {
                     if (emailInput && passInput && btn) {
                         emailInput.value = '${loginUser}';
                         passInput.value = '${loginPass}';
-                        // Força eventos de input caso o framework reativo precise
+                        // Força eventos de input
                         emailInput.dispatchEvent(new Event('input', { bubbles: true }));
                         passInput.dispatchEvent(new Event('input', { bubbles: true }));
                         btn.click();
                     }
                 }, 5000);
-                // Espera mais 10 segundos para dar tempo do login processar e redirecionar
-                setTimeout(() => {}, 15000);
-            `
+                // Trava o FlareSolverr por 15 segundos para garantir que o login e o redirecionamento acontecem
+                setTimeout(() => { resolve(); }, 15000);
+            });`
         })
     }).then(res => res.json());
 
@@ -308,7 +309,7 @@ export async function POST(req: Request) {
             url: profileUrl,
             maxTimeout: 60000,
             // O script abaixo força o navegador a aguardar e clonar o saldo do Navbar
-            evaluate: `
+            evaluate: `new Promise((resolve) => {
                 setTimeout(() => {
                     let nav = document.querySelector('#navbarCredits');
                     if (nav) {
@@ -317,9 +318,10 @@ export async function POST(req: Request) {
                         div.innerText = nav.innerText;
                         document.body.appendChild(div);
                     }
-                }, 4000);
-                setTimeout(() => {}, 6000); // Aguarda o timeout acima ser executado
-            `
+                    // Apenas agora liberta o FlareSolverr para tirar a "fotografia" do HTML e devolver ao nosso servidor
+                    resolve();
+                }, 8000);
+            });`
         })
     }).then(res => res.json());
 
