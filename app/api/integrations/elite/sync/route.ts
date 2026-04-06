@@ -194,13 +194,21 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
   });
 
   const html = await r1.text();
-  const $ = cheerio.load(html);
-  const formToken = $('input[name="_token"]').attr("value") || "";
-  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-  const csrfToken = (metaToken || formToken).trim();
 
+// Tenta extrair do HTML primeiro (funciona sem Cloudflare)
+const $ = cheerio.load(html);
+const formToken = $('input[name="_token"]').attr("value") || "";
+const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
+let csrfToken = (metaToken || formToken).trim();
 
-  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+// Fallback: lê do cookie XSRF-TOKEN (funciona mesmo com Cloudflare)
+if (!csrfToken) {
+  const cookies = await jar.getCookies(baseUrl);
+  const xsrf = cookies.find(c => c.key === "XSRF-TOKEN");
+  if (xsrf?.value) csrfToken = decodeURIComponent(xsrf.value);
+}
+
+if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login nem nos cookies.");
 
   // 2) POST /login
   const body = new URLSearchParams();
@@ -229,7 +237,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
     throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
   }
 
-  return { fc, baseUrl, tz };
+  return { fc, jar, baseUrl, tz };
 }
 
 async function fetchHtml(fc: any, url: string, referer?: string) {
