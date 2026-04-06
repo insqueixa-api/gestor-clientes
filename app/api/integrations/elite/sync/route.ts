@@ -221,79 +221,125 @@ export async function POST(req: Request) {
     const profileUrl = `${base}/user/profile`;
 
     // ==========================================
-    // 🚜 A MÁGICA ACONTECE AQUI! 
-    // Em vez de fazer a dança do login, mandamos
-    // o FlareSolverr tentar acessar a URL do perfil.
-    // Como ele vai encontrar a tela de login, ele bate
-    // a cabeça no Cloudflare e a gente pega o retorno.
     // ==========================================
-    console.log(`[ELITE SYNC] Acionando FlareSolverr para ${profileUrl}`);
-    const flareResponse = await fetchViaFlareSolverr(profileUrl, "GET");
+    // 🚜 A MÁGICA ACONTECE AQUI! (FLUXO LARAVEL COMPLETO)
+    // ==========================================
+    console.log(`[ELITE SYNC] Iniciando FlareSolverr para o servidor: ${loginUser}`);
     
-    if (!flareResponse.ok) {
-        throw new Error(`Falha no FlareSolverr: ${flareResponse.error}`);
+    // O IP da sua VM rodando liso!
+    const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
+
+    // 1. Criar uma Sessão (Navegador)
+    const sessionRes = await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cmd: "sessions.create" })
+    }).then(res => res.json());
+
+    if (sessionRes.status !== "ok") throw new Error("Falha ao criar sessão no FlareSolverr.");
+    const sessionId = sessionRes.session;
+
+    try {
+        // 2. Acessar a tela de Login (GET) para resolver o Cloudflare e pegar o _token
+        const getLoginRes = await fetch(FLARESOLVERR_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cmd: "request.get",
+                session: sessionId,
+                url: `${base}/login`,
+                maxTimeout: 60000
+            })
+        }).then(res => res.json());
+
+        if (getLoginRes.status !== "ok") throw new Error("Falha ao acessar tela de login.");
+
+        // 3. Extrair o _token (CSRF) do HTML usando o cheerio
+        const $login = cheerio.load(getLoginRes.solution?.response || "");
+        const csrfToken = $login('input[name="_token"]').attr("value");
+
+        if (!csrfToken) {
+            throw new Error("Token CSRF não encontrado. Cloudflare pode ter bloqueado ou o layout mudou.");
+        }
+
+        // 4. Fazer o POST do Login com o Token extraído
+        const postData = `_token=${encodeURIComponent(csrfToken)}&timezone=America%2FSao_Paulo&email=${encodeURIComponent(loginUser)}&password=${encodeURIComponent(loginPass)}&remember=on`;
+
+        const postLoginRes = await fetch(FLARESOLVERR_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cmd: "request.post",
+                session: sessionId,
+                url: `${base}/login`,
+                postData: postData,
+                maxTimeout: 60000
+            })
+        }).then(res => res.json());
+
+        if (postLoginRes.status !== "ok") throw new Error("Falha ao enviar POST de login.");
+
+        // 5. Acessar o Profile logado para pegar o Saldo
+        const profileRes = await fetch(FLARESOLVERR_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cmd: "request.get",
+                session: sessionId,
+                url: profileUrl,
+                maxTimeout: 60000
+            })
+        }).then(res => res.json());
+
+        if (profileRes.status !== "ok") throw new Error("Falha ao acessar Perfil após login.");
+
+        const profileHtml = profileRes.solution?.response || "";
+
+        // --- Processamento dos Dados ---
+        const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
+        const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
+        const profileText = textFromHtml(profileHtml);
+
+        const user_id = fromSnap?.user_id ?? null;
+        const owner_id = fromSnap?.owner_id ?? extractOwnerId(profileText) ?? null;
+        
+        // Extrai os Créditos (Aquele 68 tem que aparecer aqui!)
+        const credits = (fromSnap?.credits ?? null) ?? creditsFromNavbar ?? extractCredits(profileText) ?? null;
+
+        const panel_username = fromSnap?.username ?? null;
+        const panel_email = fromSnap?.email ?? null;
+
+        if (user_id == null && owner_id == null && credits == null) {
+            console.log("[ELITE SYNC] Aviso: Não encontrou dados. O login pode ter falhado silenciosamente.");
+        }
+
+        // 6. Atualizar Banco
+        const patch: any = {
+          credits_last_sync_at: new Date().toISOString(),
+          owner_username: (panel_username || loginUser),
+        };
+
+        if (owner_id != null) patch.owner_id = owner_id;
+        if (credits != null) patch.credits_last_known = credits;
+
+        await sb.from("server_integrations").update(patch).eq("id", integration_id);
+
+        return NextResponse.json({
+          ok: true,
+          message: "ELITE OK. Sync atualizado.",
+          parsed: { user_id, owner_id, username: panel_username, email: panel_email, credits },
+          saved: { owner_id: owner_id ?? null, owner_username: patch.owner_username, credits_last_known: credits ?? null },
+        });
+
+    } finally {
+        // 7. SEMPRE destruir a sessão no final para não lotar a RAM de 1GB da nossa VM
+        await fetch(FLARESOLVERR_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
+        }).catch(() => {});
     }
 
-    const profileHtml = flareResponse.html;
-
-    // Se o HTML retornado tiver o form de login, significa que o FlareSolverr
-    // passou pelo Cloudflare, mas parou na tela de login. 
-    // Teremos que injetar o login via FlareSolverr no próximo passo (se for o caso),
-    // mas vamos verificar se o painel tem uma API direta ou se o cookie já vem vivo.
-    
-    const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
-    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
-
-    // fallback por texto
-    const profileText = textFromHtml(profileHtml);
-
-    const user_id = fromSnap?.user_id ?? null;
-    const owner_id =
-      fromSnap?.owner_id ??
-      extractOwnerId(profileText) ??
-      null;
-
-    const credits =
-      (fromSnap?.credits ?? null) ??
-      creditsFromNavbar ??
-      extractCredits(profileText) ??
-      null;
-
-    const panel_username = fromSnap?.username ?? null;
-    const panel_email = fromSnap?.email ?? null;
-
-    // Se não achou NADA, pode ser que barrou no login.
-    if (user_id == null && owner_id == null && credits == null) {
-        console.log("[ELITE SYNC] Aviso: Não encontrou dados. O HTML retornado foi de Login?");
-        // Se precisar, evoluímos a rota para fazer o POST de login via FlareSolverr
-    }
-
-    const patch: any = {
-      credits_last_sync_at: new Date().toISOString(),
-      owner_username: (panel_username || loginUser),
-    };
-
-    if (owner_id != null) patch.owner_id = owner_id;
-    if (credits != null) patch.credits_last_known = credits;
-
-    await sb.from("server_integrations").update(patch).eq("id", integration_id);
-
-    return NextResponse.json({
-      ok: true,
-      message: "ELITE OK. Sync atualizado.",
-      parsed: {
-        user_id,
-        owner_id,
-        username: panel_username,
-        email: panel_email,
-        credits,
-      },
-      saved: {
-        owner_id: owner_id ?? null,
-        owner_username: patch.owner_username,
-        credits_last_known: credits ?? null,
-      },
-    });
   } catch (e: any) {
     console.error("[ELITE SYNC ERROR]", e);
     return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
