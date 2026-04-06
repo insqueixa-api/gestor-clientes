@@ -1840,8 +1840,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }));
 }
 
-  // ✅ FUNÇÃO AUXILIAR GENÉRICA: Extrai o MAC de qualquer app (usada pelas integrações)
-  function getMacFromApp(appInstance: SelectedAppInstance) {
+  // ✅ FUNÇÃO AUXILIAR GENÉRICA: Extrai o MAC de qualquer app (Blindada para TypeScript)
+  function getMacFromApp(appInstance?: SelectedAppInstance) {
       if (!appInstance) return "";
       let macValue = "";
       const macField = appInstance.fields_config?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
@@ -1856,6 +1856,22 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
       return macValue;
   }
 
+  // 🔥 FUNÇÃO SALVA-VIDAS: Tenta pegar a integração do banco. Se vier vazio, deduz pelo NOME!
+  function resolveIntegration(appInstance?: SelectedAppInstance) {
+      if (!appInstance) return null;
+      const catApp = catalog.find(c => c.id === appInstance.app_id) as any;
+      let intType = catApp?.integration_type;
+      
+      // Se a coluna não veio do Supabase ou estiver em branco, aciona o Salva-Vidas:
+      if (!intType || String(intType).trim() === "") {
+          const appNameStr = String(appInstance.name || "").toUpperCase();
+          if (appNameStr.includes("ZONE")) intType = "ZONEX";
+          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA")) intType = "IBOREVENDA";
+      }
+      
+      return getIntegrationHandler(String(intType || ""));
+  }
+
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
   async function handleConfigApp(appName: string) {
     if (!clientToEdit?.id) {
@@ -1864,16 +1880,15 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     const currentApp = selectedApps.find(a => a.name === appName);
-    const catApp = catalog.find(c => c.id === currentApp?.app_id) as any;
     
-    // 1. Pede para o Roteador o código correto baseado no tipo de integração do app
-    const handler = getIntegrationHandler(catApp?.integration_type);
+    // 1. Pede para o Roteador o código correto (com salva-vidas ativo)
+    const handler = resolveIntegration(currentApp);
     if (!handler) {
-        addToast("error", "Aviso", "Este aplicativo ainda não possui automação configurada.");
+        addToast("error", "Erro de Rota", `Não sabemos como integrar o app "${appName}". Nenhuma regra definida.`);
         return;
     }
 
-    const macValue = getMacFromApp(currentApp!);
+    const macValue = getMacFromApp(currentApp);
     if (!macValue || macValue.trim() === "") {
         addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) na aba 'Aplicativos' antes de configurar.");
         return;
@@ -1885,7 +1900,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
-    // 2. Constrói o pacote com o arquivo isolado do app (Limpo e escalável!)
+    // 2. Constrói o pacote com o arquivo isolado do app
     const payload = handler.buildCreatePayload({
         username,
         password,
@@ -1931,17 +1946,20 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     const currentApp = selectedApps.find(a => a.name === appName);
-    const catApp = catalog.find(c => c.id === currentApp?.app_id) as any;
     
-    const handler = getIntegrationHandler(catApp?.integration_type);
-    if (!handler) return;
+    // Pede a rota correta (com salva-vidas)
+    const handler = resolveIntegration(currentApp);
+    if (!handler) {
+        addToast("error", "Erro de Rota", `Integração não configurada para o app "${appName}". Impossível deletar.`);
+        return;
+    }
 
     setLoading(true);
     setLoadingStep("A remover do Painel...");
 
     const payloadDelete = handler.buildDeletePayload({
         username,
-        macValue: getMacFromApp(currentApp!)
+        macValue: getMacFromApp(currentApp)
     });
 
     const responseHandler = (e: any) => {
@@ -3082,10 +3100,9 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
             // ✅ AUTOMAÇÃO SILENCIOSA DOS APPS (USANDO O ROTEADOR INTELIGENTE)
             if (!isEditing) {
               for (const app of selectedApps) {
-                const catApp = catalog.find(c => c.id === app.app_id) as any;
                 
-                // Pede o código correto para o Roteador
-                const handler = getIntegrationHandler(catApp?.integration_type);
+                // Pede o código correto usando o Salva-Vidas que acabamos de criar
+                const handler = resolveIntegration(app);
                 
                 if (handler && app.auto_configure !== false) {
                   try {
