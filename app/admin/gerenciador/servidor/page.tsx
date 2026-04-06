@@ -335,7 +335,9 @@ async function handleSyncIntegration(server: ServerRow) {
       addToast("success", "Sincronizado", "Saldo atualizado com sucesso!");
       fetchServers();
     } catch (e: any) {
-      addToast("error", "Erro ao sincronizar", "Falha na comunicação com o painel.");
+      // ✅ Agora mostra o erro REAL que a API retornou (ex: "FlareSolverr falhou...")
+      addToast("error", "Erro ao sincronizar", e.message || "Falha na comunicação com o painel.");
+      console.error("[Sync Error]:", e);
     } finally {
       setSyncingServerId(null); // ✅ Liberta o botão no final
     }
