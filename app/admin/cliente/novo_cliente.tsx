@@ -1872,6 +1872,14 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
       if (!handler) {
           const appNameStr = String(appInstance.name || "").toUpperCase();
           if (appNameStr.includes("ZONE")) intType = "ZONEX";
+          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
+          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
+          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
+          else if (appNameStr.includes("GPC")) {
+              // ✅ Adicionando a dedução salva-vidas completa do GPC!
+              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
+              else intType = "GPC_ROKU";
+          }
           else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
           
           // Tenta novamente com a chave corrigida
