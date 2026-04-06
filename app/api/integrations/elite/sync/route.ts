@@ -203,7 +203,8 @@ export async function POST(req: Request) {
 
     const { data: integ, error } = await sb
       .from("server_integrations")
-      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
+      // ✅ NOVO: Adicionado proxy_url na query
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url,proxy_url")
       .eq("id", integration_id)
       .single();
 
@@ -212,9 +213,11 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
 
-    const loginUser = String(integ.api_token || "").trim();
-    const loginPass = String(integ.api_secret || "").trim();
-    const baseUrl = String(integ.api_base_url || "").trim();
+    const loginUser = String((integ as any).api_token || "").trim();
+    const loginPass = String((integ as any).api_secret || "").trim();
+    const baseUrl = String((integ as any).api_base_url || "").trim();
+    // ✅ NOVO: Puxando o Proxy do banco
+    const proxyUrl = String((integ as any).proxy_url || "").trim();
 
     if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
@@ -228,15 +231,21 @@ export async function POST(req: Request) {
     // ==========================================
     // 1. Criar Sessão com Disfarce e Proxy
     // ==========================================
+    // ==========================================
+    // 1. Criar Sessão com Disfarce (e Proxy dinâmico)
+    // ==========================================
+    const sessionPayload: any = { 
+        cmd: "sessions.create",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+    };
+    if (proxyUrl) {
+        sessionPayload.proxy = { url: proxyUrl };
+    }
+
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            cmd: "sessions.create",
-            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-            // ⚠️ Altere o IP abaixo caso o Cloudflare trave (pegue outro da sua lista de 20 do Webshare)
-            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
-        })
+        body: JSON.stringify(sessionPayload)
     }).then(res => res.json());
 
     if (sessionRes.status !== "ok") throw new Error(`Falha Session: ${sessionRes.message}`);

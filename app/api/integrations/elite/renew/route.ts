@@ -150,7 +150,8 @@ async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchVal
 }
 
 // ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
-async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
+// ✅ NOVO: Recebendo o proxyUrl como parâmetro
+async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
   
   let sessionId = null;
@@ -158,15 +159,19 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
 
   try {
       // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
+      // ✅ NOVO: Monta o payload de forma inteligente. Se tiver proxy no banco, ele usa!
+      const sessionPayload: any = { 
+          cmd: "sessions.create",
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+      };
+      if (proxyUrl) {
+          sessionPayload.proxy = { url: proxyUrl };
+      }
+
       const sessionRes = await fetch(FLARESOLVERR_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-              cmd: "sessions.create",
-              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-              // ⚠️ Altere se necessário (Lembre-se da dica do IP 2 ou 3 do Webshare)
-              proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
-          })
+          body: JSON.stringify(sessionPayload)
       }).then(res => res.json());
 
       if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
@@ -356,7 +361,8 @@ export async function POST(req: Request) {
     // Carrega a integração Elite
     const { data: integ, error } = await sb
       .from("server_integrations")
-      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
+      // ✅ NOVO: Adicionado proxy_url na query
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url,proxy_url")
       .eq("id", integration_id)
       .eq("tenant_id", tenantId)
       .single();
@@ -365,13 +371,15 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração inativa.");
 
-    const loginUser = String(integ.api_token || "").trim();
-    const loginPass = String(integ.api_secret || "").trim();
-    const baseUrl = String(integ.api_base_url || "").trim();
+    const loginUser = String((integ as any).api_token || "").trim();
+    const loginPass = String((integ as any).api_secret || "").trim();
+    const baseUrl = String((integ as any).api_base_url || "").trim();
+    // ✅ NOVO: Puxando o Proxy do banco
+    const proxyUrl = String((integ as any).proxy_url || "").trim();
+    // 1) Login (ou Login Mágico)
     const base = normalizeBaseUrl(baseUrl);
-
-    // 1) Login
-    const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
+    // ✅ NOVO: Passando a variável proxyUrl que você extraiu do banco!
+    const { fc } = await offoLogin(base, loginUser, loginPass, proxyUrl, TZ_SP);
     trace.push({ step: "login", ok: true });
 
     // 2) Pegar CSRF
