@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
+// ⚠️ O IP da sua VM rodando o FlareSolverr
+const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
 // ----------------- helpers base -----------------
 function mustEnv(name: string) {
@@ -58,7 +60,26 @@ function pickFirst(obj: any, paths: string[]) {
   return null;
 }
 
-// ----------------- vencimento: parse + timezone -----------------
+function looksLikeLoginHtml(text: string) {
+  const t = String(text || "");
+  return /\/login\b/i.test(t) && /csrf/i.test(t);
+}
+
+function normalizeUsernameFromNotes(notesRaw: unknown) {
+  const raw = String(notesRaw ?? "").trim();
+  if (!raw) return "";
+
+  // remove acentos
+  const noDiacritics = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // remove espaços e caracteres estranhos (Elite geralmente aceita alfanum + _ . -)
+  const cleaned = noDiacritics.replace(/\s+/g, "").replace(/[^a-zA-Z0-9_.-]/g, "");
+
+  // limites conservadores
+  const out = cleaned.slice(0, 32);
+  return out;
+}
+
 type TZParts = { year: number; month: number; day: number; hour: number; minute: number; second: number };
 
 function getPartsInTimeZone(d: Date, tz: string): TZParts {
@@ -86,9 +107,15 @@ function getPartsInTimeZone(d: Date, tz: string): TZParts {
   };
 }
 
+/**
+ * Converte um "local time" (ex.: 20/02/2026 10:03 no fuso America/Sao_Paulo)
+ * para UTC ms de forma robusta (sem depender de libs externas e funcionando com/sem DST).
+ */
 function zonedLocalToUtcMs(local: { year: number; month: number; day: number; hour: number; minute: number; second?: number }, tz: string) {
   const desiredAsIfUtc = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second ?? 0);
+
   let utcMs = desiredAsIfUtc;
+
   for (let i = 0; i < 3; i++) {
     const got = getPartsInTimeZone(new Date(utcMs), tz);
     const gotAsIfUtc = Date.UTC(got.year, got.month - 1, got.day, got.hour, got.minute, got.second);
@@ -96,6 +123,7 @@ function zonedLocalToUtcMs(local: { year: number; month: number; day: number; ho
     utcMs += diff;
     if (Math.abs(diff) < 1000) break;
   }
+
   return utcMs;
 }
 
@@ -111,65 +139,129 @@ function parseFormattedBrDateTimeToIso(spText: unknown, tz = TZ_SP) {
   const minute = Number(m[5]);
   const second = m[6] ? Number(m[6]) : 0;
 
-  const utcMs = zonedLocalToUtcMs({ year, month, day, hour, minute, second }, tz);
+const utcMs = zonedLocalToUtcMs({ year, month, day, hour, minute, second }, tz);
   return new Date(utcMs).toISOString();
 }
 
-// ----------------- login ELITE -----------------
+function generateEliteFallbackPassword() {
+  let nums = "";
+  for (let i = 0; i < 12; i++) {
+    nums += Math.floor(Math.random() * 10).toString();
+  }
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const c1 = letters[Math.floor(Math.random() * letters.length)];
+  const c2 = letters[Math.floor(Math.random() * letters.length)];
+  return `${nums}${c1}${c2}`;
+}
+
+// ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
-  const jar = new CookieJar();
-  const fc = fetchCookie(fetch, jar);
-  const loginUrl = `${baseUrl}/login`;
+  
+  let sessionId = null;
+  let cookiesToExport = [];
 
-  const r1 = await fc(loginUrl, {
-    method: "GET",
-    headers: {
-      accept: "text/html",
-      "user-agent": "Mozilla/5.0",
-    },
-  });
+  try {
+      // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
+      const sessionRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+              cmd: "sessions.create",
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+              // ⚠️ Altere se necessário (Lembre-se da dica do IP do Webshare se o Cloudflare travar)
+              proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
+          })
+      }).then(res => res.json());
 
-  const html = await r1.text();
-  const $ = cheerio.load(html);
-  const formToken = $('input[name="_token"]').attr("value") || "";
-  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-  const csrfToken = (metaToken || formToken).trim();
+      if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
+      sessionId = sessionRes.session;
 
-  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+      // 2. Fazer o Login via Javascript (Pula Cloudflare e entra no sistema)
+      const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              cmd: "request.get",
+              session: sessionId,
+              url: `${baseUrl}/login`,
+              maxTimeout: 60000,
+              returnOnlyCookies: false, 
+              evaluate: `
+                  setTimeout(() => {
+                      let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
+                      let passInput = document.querySelector('input[type="password"], input[name="password"]');
+                      let btn = document.querySelector('button[type="submit"], form button');
+                      
+                      if (emailInput && passInput && btn) {
+                          emailInput.value = '${username}';
+                          passInput.value = '${password}';
+                          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          btn.click();
+                      }
+                  }, 5000);
+                  setTimeout(() => {}, 15000);
+              `
+          })
+      }).then(res => res.json());
 
-  const body = new URLSearchParams();
-  body.set("_token", csrfToken);
-  body.set("timezone", tz);
-  body.set("email", username);
-  body.set("password", password);
+      if (loginAutomaticoRes.status !== "ok") {
+           throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
+      }
 
-  const r2 = await fc(loginUrl, {
-    method: "POST",
-    headers: {
-      accept: "text/html",
-      "content-type": "application/x-www-form-urlencoded",
-      origin: baseUrl,
-      referer: loginUrl,
-      "user-agent": "Mozilla/5.0",
-    },
-    body: body.toString(),
-    redirect: "follow",
-  });
+      const htmlAposLogin = loginAutomaticoRes.solution?.response || "";
+      if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
+          throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare e atualize no código.");
+      }
 
-  const finalUrl = (r2 as any)?.url || "";
-  if (String(finalUrl).includes("/login")) {
-    throw new Error("Login falhou (voltou para /login).");
+      if (htmlAposLogin.includes('name="password"') && htmlAposLogin.includes('type="submit"')) {
+          throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+      }
+
+      // 3. Exportar os Cookies Mágicos do FlareSolverr
+      cookiesToExport = loginAutomaticoRes.solution?.cookies || [];
+
+  } finally {
+      // Sempre destruir a sessão do FlareSolverr após exportar
+      if (sessionId) {
+          await fetch(FLARESOLVERR_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
+          }).catch(() => {});
+      }
   }
+
+  // 4. Transformar os Cookies do FlareSolverr para o fetchCookie
+  const jar = new CookieJar();
+  cookiesToExport.forEach((cookie: any) => {
+      const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
+      let domainBase = baseUrl.replace(/^https?:\/\//i, '');
+      jar.setCookieSync(cookieString, `https://${domainBase}`);
+  });
+
+  const fc = fetchCookie(fetch, jar);
 
   return { fc, baseUrl, tz };
 }
 
+/**
+ * ✅ IMPORTANTÍSSIMO:
+ * Pega o CSRF dinamicamente (IPTV ou P2P)
+ */
 async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: string) {
   const url = `${baseUrl}${dashboardPath}`;
   const r = await fc(url, {
     method: "GET",
-    headers: { accept: "text/html", "user-agent": "Mozilla/5.0", referer: url },
+    headers: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+      referer: url,
+    },
     redirect: "follow",
   });
 
@@ -179,35 +271,45 @@ async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: s
   const formToken = $('input[name="_token"]').attr("value") || "";
   const csrf = (metaToken || formToken).trim();
 
-  if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath}`);
+  if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login.`);
   return csrf;
 }
 
 async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf: string, dashboardPath: string) {
   const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
   const refererUrl = `${baseUrl}${dashboardPath}`;
+
   const headers = new Headers(init.headers || {});
-  headers.set("accept", headers.get("accept") || "application/json");
+  headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
   headers.set("x-requested-with", "XMLHttpRequest");
-  headers.set("referer", refererUrl);
-  headers.set("user-agent", "Mozilla/5.0");
+  headers.set("origin", baseUrl);
+  headers.set("referer", headers.get("referer") || refererUrl);
+  headers.set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+  headers.set("cache-control", headers.get("cache-control") || "no-cache");
+  headers.set("pragma", headers.get("pragma") || "no-cache");
+
   if (csrf) headers.set("x-csrf-token", csrf);
 
-  return fc(url, { ...init, headers, redirect: "follow" });
+  const finalInit: RequestInit = { ...init, headers, redirect: "follow" };
+  return fc(url, finalInit);
 }
 
+// --- DataTables helper (AGORA DINÂMICO) ---
 function buildDtQuery(searchValue: string, isP2P: boolean) {
   const p = new URLSearchParams();
+
   p.set("draw", "1");
   p.set("start", "0");
   p.set("length", "15");
   p.set("search[value]", searchValue);
   p.set("search[regex]", "false");
+
+  // order: id desc (coluna 1)
   p.set("order[0][column]", "1");
   p.set("order[0][dir]", "desc");
   p.set("order[0][name]", "");
 
-  // ✅ MAPA EXATO EXTRAÍDO DO SEU CURL (13 COLUNAS)
+  // ✅ Colunas mudam de acordo com o painel para não quebrar a busca
   const cols = isP2P
     ? [
         { data: "id", name: "", searchable: "false", orderable: "false" },
@@ -215,9 +317,9 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
         { data: "", name: "", searchable: "false", orderable: "false" },
         { data: "name", name: "", searchable: "true", orderable: "true" },
         { data: "email", name: "", searchable: "true", orderable: "true" },
-        { data: "exField2", name: "", searchable: "true", orderable: "true" }, // Senha P2P
+        { data: "exField2", name: "", searchable: "true", orderable: "true" },
         { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" },
-        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" }, // Vencimento P2P
+        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" },
         { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
         { data: "exField4", name: "", searchable: "true", orderable: "true" },
         { data: "type", name: "", searchable: "true", orderable: "true" },
@@ -229,9 +331,9 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
         { data: "id", name: "", searchable: "true", orderable: "true" },
         { data: "", name: "", searchable: "false", orderable: "false" },
         { data: "username", name: "", searchable: "true", orderable: "true" },
-        { data: "password", name: "", searchable: "true", orderable: "true" }, // Senha IPTV
+        { data: "password", name: "", searchable: "true", orderable: "true" },
         { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
-        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" }, // Vencimento IPTV
+        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
         { data: "max_connections", name: "", searchable: "true", orderable: "true" },
         { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
         { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
@@ -253,14 +355,30 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
 }
 
 async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchValue: string, dashboardPath: string, isP2P: boolean) {
-  const qs = buildDtQuery(searchValue, isP2P);
+  const isP2PTextSearch = isP2P && !/^\d+$/.test(searchValue);
+  const qs = buildDtQuery(isP2PTextSearch ? "" : searchValue, isP2P);
+  
   const r = await eliteFetch(
-    fc, baseUrl, `${dashboardPath}?${qs}`, { method: "GET" }, csrf, dashboardPath
+    fc, baseUrl, `${dashboardPath}?${qs}`, { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } }, csrf, dashboardPath
   );
+
   const parsed = await readSafeBody(r);
-  if (!r.ok) return { ok: false, rows: [] };
+  if (!r.ok) return { ok: false, status: r.status, rows: [] as any[], raw: parsed.text?.slice(0, 900) || "" };
+
   const data = parsed.json?.data;
-  return { ok: true, rows: Array.isArray(data) ? data : [] };
+  if (!Array.isArray(data)) return { ok: true, rows: [] as any[] };
+
+  if (isP2PTextSearch) {
+      const targetStr = String(searchValue || "").trim().toLowerCase();
+      const match = data.find((r: any) => {
+         const fieldsToSearch = [r.username, r.name, r.email, r.reseller_notes, r.trialnotes, r.exField4, r.exField2, r.id];
+         return fieldsToSearch.some(val => String(val || "").trim().toLowerCase() === targetStr);
+      });
+      if (match) return { ok: true, rows: [match] };
+      return { ok: true, rows: [] as any[] };
+  }
+
+  return { ok: true, rows: data as any[] };
 }
 
 // ----------------- handler -----------------
@@ -290,7 +408,6 @@ export async function POST(req: Request) {
       auth: { persistSession: false },
     });
 
-    // Validar se o utilizador está logado (se a chamada vier do Front-end)
     if (!isInternal) {
       const { data: userRes, error: userErr } = await sb.auth.getUser(token);
       if (userErr || !userRes?.user) {
@@ -298,7 +415,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Pega o Tenant diretamente da requisição que você enviou (Front ou Webhook)
     const tenantId = String(body?.tenant_id || "").trim();
 
     if (!tenantId) {
@@ -323,7 +439,7 @@ export async function POST(req: Request) {
     const loginPass = String(integ.api_secret);
     const baseUrl = String(integ.api_base_url);
 
-    // 2. Login
+    // 2. Login Mágico
     const base = normalizeBaseUrl(baseUrl);
     const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
@@ -335,7 +451,6 @@ export async function POST(req: Request) {
     if (isP2P && (!/^\d+$/.test(real_external_id) || real_external_id.length > 9)) {
        const fixTable = await findRowBySearch(fc, base, csrf, searchTarget, dashboardPath, isP2P);
        if (fixTable.ok && fixTable.rows?.length > 0) {
-           // Procura exatamente pelo nome ignorando maiúsculas e minúsculas
            const exMatch = fixTable.rows.find((r: any) => 
                String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
                String(r.email).toLowerCase() === searchTarget.toLowerCase() ||
@@ -352,7 +467,7 @@ export async function POST(req: Request) {
        }
     }
 
-    // 3. Busca os Detalhes da Conta (Onde a data mora)
+    // 3. Busca os Detalhes da Conta
     const detailsApiPath = isP2P ? `/api/p2p/${real_external_id}` : `/api/iptv/${real_external_id}`;
     
     const detailsRes = await eliteFetch(fc, base, detailsApiPath, { method: "GET" }, csrf, dashboardPath);
@@ -360,7 +475,7 @@ export async function POST(req: Request) {
     
     const details = detailsParsed.json ?? {};
     
-    // 4. Captura Data e Senha (Caso P2P tenha mudado)
+    // 4. Captura Data e Senha
     let rawDateString = pickFirst(details, ["formatted_exp_date", "data.formatted_exp_date", "endTime", "data.endTime", "user.formatted_exp_date"]);
     let currentPassword = pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password"]);
     
@@ -371,7 +486,6 @@ export async function POST(req: Request) {
        let row = null;
 
        if (isP2P) {
-           // No P2P, mantemos a trava absoluta pois ele espalha o login em vários campos
            row = fallbackTable.rows.find((r: any) => 
                String(r?.id) === String(real_external_id) ||
                String(r.name).toLowerCase() === searchTarget.toLowerCase() ||
@@ -381,12 +495,10 @@ export async function POST(req: Request) {
                String(r.username).toLowerCase() === searchTarget.toLowerCase()
            );
        } else {
-           // No IPTV, o motor deles é mais preciso, tentamos o ID exato, se não, assumimos o primeiro resultado da busca
            row = fallbackTable.rows.find((r: any) => String(r?.id) === String(real_external_id)) || fallbackTable.rows[0];
        }
        
        if (row) {
-           // ✅ CORREÇÃO: Grava o ID real encontrado para a API poder devolvê-lo no final!
            real_external_id = String(row.id);
 
            if (row.formatted_exp_date || row.endTime) {
@@ -428,10 +540,9 @@ export async function POST(req: Request) {
       throw new Error("Não foi possível resgatar a data de vencimento da Elite.");
     }
 
-// Retorna os dados puros, sem fazer updates na tela!
     return NextResponse.json({
       ok: true,
-      external_user_id: real_external_id, // ✅ AGORA ELE DEVOLVE O ID CORRETO!
+      external_user_id: real_external_id,
       expires_at_iso: finalExpIso,
       exp_date: finalExpIso,
       password: currentPassword || undefined

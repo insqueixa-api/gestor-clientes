@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
+// ⚠️ O IP da sua VM rodando o FlareSolverr
+const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
 // ----------------- helpers base -----------------
 function mustEnv(name: string) {
@@ -23,8 +25,6 @@ function normalizeBaseUrl(u: string) {
   if (!/^https?:\/\//i.test(s)) throw new Error("api_base_url inválida (precisa começar com http/https).");
   return s;
 }
-
-
 
 function getBearer(req: Request) {
   const a = req.headers.get("authorization") || "";
@@ -185,61 +185,97 @@ function normalizeExpToUtcIso(raw: unknown, timeZone = TZ_SP): string | null {
   return null;
 }
 
-// ----------------- login ELITE -----------------
+// ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
+  
+  let sessionId = null;
+  let cookiesToExport = [];
 
-  const jar = new CookieJar();
-  const fc = fetchCookie(fetch, jar);
+  try {
+      // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
+      const sessionRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+              cmd: "sessions.create",
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+              // ⚠️ Altere se necessário
+              proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
+          })
+      }).then(res => res.json());
 
-  const loginUrl = `${baseUrl}/login`;
+      if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
+      sessionId = sessionRes.session;
 
-  // 1) GET /login (pegar CSRF)
-  const r1 = await fc(loginUrl, {
-    method: "GET",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-    },
-  });
+      // 2. Fazer o Login via Javascript (Pula Cloudflare e entra no sistema)
+      const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              cmd: "request.get",
+              session: sessionId,
+              url: `${baseUrl}/login`,
+              maxTimeout: 60000,
+              returnOnlyCookies: false, 
+              evaluate: `
+                  setTimeout(() => {
+                      let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
+                      let passInput = document.querySelector('input[type="password"], input[name="password"]');
+                      let btn = document.querySelector('button[type="submit"], form button');
+                      
+                      if (emailInput && passInput && btn) {
+                          emailInput.value = '${username}';
+                          passInput.value = '${password}';
+                          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          btn.click();
+                      }
+                  }, 5000);
+                  setTimeout(() => {}, 15000);
+              `
+          })
+      }).then(res => res.json());
 
-  const html = await r1.text();
-  const $ = cheerio.load(html);
-  const formToken = $('input[name="_token"]').attr("value") || "";
-  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-  const csrfToken = (metaToken || formToken).trim();
+      if (loginAutomaticoRes.status !== "ok") {
+           throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
+      }
 
-  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+      const htmlAposLogin = loginAutomaticoRes.solution?.response || "";
+      if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
+          throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare e atualize no código.");
+      }
 
-  // 2) POST /login
-  const body = new URLSearchParams();
-  body.set("_token", csrfToken);
-  body.set("timezone", tz);
-  body.set("email", username);
-  body.set("password", password);
+      // Se não voltou para a tela de login, o login deu certo!
+      if (htmlAposLogin.includes('name="password"') && htmlAposLogin.includes('type="submit"')) {
+          throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+      }
 
-  const r2 = await fc(loginUrl, {
-    method: "POST",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "content-type": "application/x-www-form-urlencoded",
-      origin: baseUrl,
-      referer: loginUrl,
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-    },
-    body: body.toString(),
-    redirect: "follow",
-  });
+      // 3. Exportar os Cookies Mágicos do FlareSolverr (Inclui o cf_clearance e o _session do Elite)
+      cookiesToExport = loginAutomaticoRes.solution?.cookies || [];
 
-  const finalUrl = (r2 as any)?.url || "";
-  if (String(finalUrl).includes("/login")) {
-    throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+  } finally {
+      // Sempre destruir a sessão do FlareSolverr após exportar os cookies
+      if (sessionId) {
+          await fetch(FLARESOLVERR_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
+          }).catch(() => {});
+      }
   }
+
+  // 4. Transformar os Cookies do FlareSolverr para o seu fetchCookie nativo
+  const jar = new CookieJar();
+  cookiesToExport.forEach((cookie: any) => {
+      // O CookieJar precisa de strings simples. Ex: "nome=valor; Domain=dominio; Path=/"
+      const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
+      // Pega o domínio sem o www (para evitar erros do CookieJar)
+      let domainBase = baseUrl.replace(/^https?:\/\//i, '');
+      jar.setCookieSync(cookieString, `https://${domainBase}`);
+  });
+
+  const fc = fetchCookie(fetch, jar);
 
   return { fc, baseUrl, tz };
 }
@@ -257,7 +293,7 @@ async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: s
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
       "cache-control": "no-cache",
       pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
       referer: url,
     },
     redirect: "follow",
@@ -284,7 +320,7 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
   headers.set("referer", headers.get("referer") || refererUrl);
-  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
+  headers.set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
 
@@ -404,117 +440,115 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
   }
 }
 
-
 // ----------------- handler -----------------
 export async function POST(req: Request) {
   const trace: any[] = [];
 
   try {
     const internalSecret = getInternalSecret(req);
-const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-const isInternal = !!expectedSecret && internalSecret === expectedSecret;
+    const expectedSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+    const isInternal = !!expectedSecret && internalSecret === expectedSecret;
 
-const token = getBearer(req);
-if (!isInternal && !token) {
-  return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
-}
+    const token = getBearer(req);
+    if (!isInternal && !token) {
+      return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
+    }
 
-const body = await req.json().catch(() => ({} as any));
-const integration_id = String(body?.integration_id || "").trim();
-if (!integration_id) {
-  return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
-}
-if (!isUuid(integration_id)) {
-  return NextResponse.json({ ok: false, error: "integration_id inválido (não parece UUID)." }, { status: 400 });
-}
+    const body = await req.json().catch(() => ({} as any));
+    const integration_id = String(body?.integration_id || "").trim();
+    if (!integration_id) {
+      return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
+    }
+    if (!isUuid(integration_id)) {
+      return NextResponse.json({ ok: false, error: "integration_id inválido (não parece UUID)." }, { status: 400 });
+    }
 
-// ✅ Pega as observações (notes) e o username enviados diretamente do front
-const trialNotes = String(body?.notes || body?.username || "").trim();
-if (!trialNotes) {
-  return NextResponse.json(
-    { ok: false, error: "Informe o username ou notes para gerar o trial." },
-    { status: 400 }
-  );
-}
+    // ✅ Pega as observações (notes) e o username enviados diretamente do front
+    const trialNotes = String(body?.notes || body?.username || "").trim();
+    if (!trialNotes) {
+      return NextResponse.json(
+        { ok: false, error: "Informe o username ou notes para gerar o trial." },
+        { status: 400 }
+      );
+    }
 
-// ✅ tenant_id: se vier no JWT (metadata), valida contra o body; se não vier, usa o body
-const tenantIdFromBody = String(body?.tenant_id || "").trim();
+    // ✅ tenant_id: se vier no JWT (metadata), valida contra o body; se não vier, usa o body
+    const tenantIdFromBody = String(body?.tenant_id || "").trim();
 
-// supabase (service)
-const sb = createClient(
-  mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
-  { auth: { persistSession: false } }
-);
-
-let tenantIdFromToken = "";
-let requesterUserId = "";
-
-// ✅ se NÃO for chamada interna, valida bearer e tenta extrair tenant do JWT
-if (!isInternal) {
-  const { data: userRes, error: userErr } = await sb.auth.getUser(token);
-  if (userErr || !userRes?.user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
-  }
-
-  requesterUserId = String(userRes.user.id || "").trim();
-
-  const um: any = (userRes.user.user_metadata as any) || {};
-  const am: any = (userRes.user.app_metadata as any) || {};
-  tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
-
-  // se o token tem tenant e o body também, eles precisam bater
-  if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
-    return NextResponse.json(
-      { ok: false, error: "tenant_id do body não confere com o tenant do usuário." },
-      { status: 403 }
+    // supabase (service)
+    const sb = createClient(
+      mustEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
+      { auth: { persistSession: false } }
     );
-  }
-}
 
-const tenantId = tenantIdFromToken || tenantIdFromBody;
-if (!tenantId) {
-  return NextResponse.json(
-    { ok: false, error: "tenant_id obrigatório (envie no body ou garanta tenant_id no JWT metadata)." },
-    { status: 400 }
-  );
-}
-if (!isUuid(tenantId)) {
-  return NextResponse.json({ ok: false, error: "tenant_id inválido (não parece UUID)." }, { status: 400 });
-}
+    let tenantIdFromToken = "";
+    let requesterUserId = "";
 
-// ✅ carrega integração DO TENANT (impede cruzar tenant via integration_id)
-const { data: integ, error } = await sb
-  .from("server_integrations")
-  .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") // ✅ Removido o server_id que não existe
-  .eq("id", integration_id)
-  .eq("tenant_id", tenantId)
-  .single();
+    // ✅ se NÃO for chamada interna, valida bearer e tenta extrair tenant do JWT
+    if (!isInternal) {
+      const { data: userRes, error: userErr } = await sb.auth.getUser(token);
+      if (userErr || !userRes?.user) {
+        return NextResponse.json({ ok: false, error: "Unauthorized (invalid bearer)" }, { status: 401 });
+      }
 
-if (error) throw error;
-if (!integ) throw new Error("Integração não encontrada para este tenant.");
+      requesterUserId = String(userRes.user.id || "").trim();
 
-const provider = String((integ as any).provider || "").toUpperCase().trim();
-if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
-if (!(integ as any).is_active) throw new Error("Integração está inativa.");
+      const um: any = (userRes.user.user_metadata as any) || {};
+      const am: any = (userRes.user.app_metadata as any) || {};
+      tenantIdFromToken = String(um?.tenant_id || am?.tenant_id || "").trim();
 
-// ✅ REGRA: valida a tecnologia recebida diretamente do Frontend
-// ✅ VALIDAÇÃO DINÂMICA: Aceita tanto IPTV quanto P2P
-const reqTech = String(body?.technology || "").trim().toUpperCase();
-if (reqTech !== "IPTV" && reqTech !== "P2P") {
-  return NextResponse.json(
-    { ok: false, error: `Tecnologia '${reqTech}' não suportada para integração automática neste painel.` },
-    { status: 400 }
-  );
-}
+      // se o token tem tenant e o body também, eles precisam bater
+      if (tenantIdFromToken && tenantIdFromBody && tenantIdFromToken !== tenantIdFromBody) {
+        return NextResponse.json(
+          { ok: false, error: "tenant_id do body não confere com o tenant do usuário." },
+          { status: 403 }
+        );
+      }
+    }
 
-// ✅ Variáveis de Roteamento P2P vs IPTV
-const isP2P = reqTech === "P2P";
-const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
-const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
+    const tenantId = tenantIdFromToken || tenantIdFromBody;
+    if (!tenantId) {
+      return NextResponse.json(
+        { ok: false, error: "tenant_id obrigatório (envie no body ou garanta tenant_id no JWT metadata)." },
+        { status: 400 }
+      );
+    }
+    if (!isUuid(tenantId)) {
+      return NextResponse.json({ ok: false, error: "tenant_id inválido (não parece UUID)." }, { status: 400 });
+    }
 
-    const loginUser = String(integ.api_token || "").trim();   // usuário/email
-    const loginPass = String(integ.api_secret || "").trim();  // senha
+    // ✅ carrega integração DO TENANT (impede cruzar tenant via integration_id)
+    const { data: integ, error } = await sb
+      .from("server_integrations")
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url") 
+      .eq("id", integration_id)
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (error) throw error;
+    if (!integ) throw new Error("Integração não encontrada para este tenant.");
+
+    const provider = String((integ as any).provider || "").toUpperCase().trim();
+    if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
+    if (!(integ as any).is_active) throw new Error("Integração está inativa.");
+
+    // ✅ REGRA: valida a tecnologia recebida diretamente do Frontend
+    const reqTech = String(body?.technology || "").trim().toUpperCase();
+    if (reqTech !== "IPTV" && reqTech !== "P2P") {
+      return NextResponse.json(
+        { ok: false, error: `Tecnologia '${reqTech}' não suportada para integração automática neste painel.` },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Variáveis de Roteamento P2P vs IPTV
+    const isP2P = reqTech === "P2P";
+    const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
+    const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
+
+    const loginUser = String(integ.api_token || "").trim();
+    const loginPass = String(integ.api_secret || "").trim();
     const baseUrl = String(integ.api_base_url || "").trim();
 
     if (!baseUrl || !loginUser || !loginPass) {
@@ -523,10 +557,16 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
 
     const base = normalizeBaseUrl(baseUrl);
 
-    // 1) login
+    // ==========================================
+    // 1) LOGIN MÁGICO VIA FLARESOLVERR
+    // ==========================================
     const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
     trace.push({ step: "login", ok: true });
 
+    // ==========================================
+    // O RESTO DO SEU FLUXO CONTINUA INTACTO! (Extrair CSRF, Fazer requisições, etc)
+    // ==========================================
+    
     // 2) csrf pós-login (Muda de acordo com a tecnologia)
     const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
     trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
@@ -599,7 +639,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
 
     if (isP2P) {
       // ==================================================
-      // 🟢 CÓDIGO EXATO DO P2P QUE VOCÊ FEZ FUNCIONAR
+      // 🟢 CÓDIGO EXATO DO P2P
       // ==================================================
       const isFakeId = createdId && !/^\d+$/.test(String(createdId));
 
@@ -628,7 +668,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       }
     } else {
       // ==================================================
-      // 🔵 CÓDIGO EXATO DO IPTV QUE VOCÊ FEZ FUNCIONAR
+      // 🔵 CÓDIGO EXATO DO IPTV
       // ==================================================
       if (createdId && !/^\d+$/.test(String(createdId))) {
           createdId = null;
@@ -658,7 +698,6 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       }
     }
 
-    // Se no final de tudo o ID não existiu ou continuou sendo fake (com letras), bloqueamos o fluxo ruim.
     if (!createdId || (isP2P && !/^\d+$/.test(String(createdId)))) {
       return NextResponse.json({
         ok: true,
@@ -678,7 +717,7 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       });
     }
 
-    // 4) details (opcional, mas ajuda a garantir que pegamos user/pass/exp)
+    // 4) details
     if (!serverUsername || !serverPassword || !expRaw) {
       const detailsApiPath = isP2P ? `/api/p2p/${createdId}` : `/api/iptv/${createdId}`;
       const detailsRes = await eliteFetch(
@@ -732,31 +771,21 @@ const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
       }
     }
 
-    // ✅ normaliza vencimento: o Elite costuma mandar em horário SP (sem timezone)
     const expiresAtUtc = normalizeExpToUtcIso(expRaw, TZ_SP);
 
     return NextResponse.json({
       ok: true,
       provider: "ELITE",
       created: true,
-
       external_user_id: String(createdId),
-
-      // ✅ o que você enviou (vai pro campo notas no Elite)
       trialnotes: trialNotes,
-
-      // ✅ o que o Elite devolveu (É ISSO QUE VOCÊ VAI GUARDAR NO SEU BANCO)
       username: serverUsername,
       server_username: serverUsername,
-
       password: serverPassword,
       server_password: serverPassword,
-
-// ✅ vencimento pronto pra gravar no Supabase (timestamptz) sem divergência
       expires_at_raw: expRaw,
       expires_at_utc: expiresAtUtc,
-      exp_date: expRaw, // ✅ Devolvendo exatamente a chave que o front-end espera ler
-
+      exp_date: expRaw, 
       trace,
     });
   } catch (e: any) {

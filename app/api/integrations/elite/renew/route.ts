@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
+// ⚠️ O IP da sua VM rodando o FlareSolverr
+const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
 // ----------------- HELPERS BASE -----------------
 function mustEnv(name: string) {
@@ -147,57 +149,94 @@ async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchVal
   return { ok: true, rows: data as any[] };
 }
 
-// ----------------- LOGIN E CONEXÃO ELITE -----------------
+// ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
 async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
-  const jar = new CookieJar();
-  const fc = fetchCookie(fetch, jar);
-  const loginUrl = `${baseUrl}/login`;
+  
+  let sessionId = null;
+  let cookiesToExport = [];
 
-  const r1 = await fc(loginUrl, {
-    method: "GET",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-    },
-  });
+  try {
+      // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
+      const sessionRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+              cmd: "sessions.create",
+              userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+              // ⚠️ Altere se necessário (Lembre-se da dica do IP 2 ou 3 do Webshare)
+              proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
+          })
+      }).then(res => res.json());
 
-  const html = await r1.text();
-  const $ = cheerio.load(html);
-  const formToken = $('input[name="_token"]').attr("value") || "";
-  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-  const csrfToken = (metaToken || formToken).trim();
+      if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
+      sessionId = sessionRes.session;
 
-  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+      // 2. Fazer o Login via Javascript (Pula Cloudflare e entra no sistema)
+      const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              cmd: "request.get",
+              session: sessionId,
+              url: `${baseUrl}/login`,
+              maxTimeout: 60000,
+              returnOnlyCookies: false, 
+              evaluate: `
+                  setTimeout(() => {
+                      let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
+                      let passInput = document.querySelector('input[type="password"], input[name="password"]');
+                      let btn = document.querySelector('button[type="submit"], form button');
+                      
+                      if (emailInput && passInput && btn) {
+                          emailInput.value = '${username}';
+                          passInput.value = '${password}';
+                          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                          btn.click();
+                      }
+                  }, 5000);
+                  setTimeout(() => {}, 15000);
+              `
+          })
+      }).then(res => res.json());
 
-  const body = new URLSearchParams();
-  body.set("_token", csrfToken);
-  body.set("timezone", tz);
-  body.set("email", username);
-  body.set("password", password);
+      if (loginAutomaticoRes.status !== "ok") {
+           throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
+      }
 
-  const r2 = await fc(loginUrl, {
-    method: "POST",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "content-type": "application/x-www-form-urlencoded",
-      origin: baseUrl,
-      referer: loginUrl,
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-    },
-    body: body.toString(),
-    redirect: "follow",
-  });
+      const htmlAposLogin = loginAutomaticoRes.solution?.response || "";
+      if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
+          throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare e atualize no código.");
+      }
 
-  const finalUrl = (r2 as any)?.url || "";
-  if (String(finalUrl).includes("/login")) {
-    throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+      if (htmlAposLogin.includes('name="password"') && htmlAposLogin.includes('type="submit"')) {
+          throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+      }
+
+      // 3. Exportar os Cookies Mágicos do FlareSolverr
+      cookiesToExport = loginAutomaticoRes.solution?.cookies || [];
+
+  } finally {
+      // Sempre destruir a sessão do FlareSolverr após exportar
+      if (sessionId) {
+          await fetch(FLARESOLVERR_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
+          }).catch(() => {});
+      }
   }
+
+  // 4. Transformar os Cookies do FlareSolverr para o fetchCookie
+  const jar = new CookieJar();
+  cookiesToExport.forEach((cookie: any) => {
+      const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
+      let domainBase = baseUrl.replace(/^https?:\/\//i, '');
+      jar.setCookieSync(cookieString, `https://${domainBase}`);
+  });
+
+  const fc = fetchCookie(fetch, jar);
 
   return { fc, baseUrl, tz };
 }
@@ -211,7 +250,7 @@ async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: s
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
       "cache-control": "no-cache",
       pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
       referer: url,
     },
     redirect: "follow",
@@ -238,7 +277,7 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
   headers.set("referer", headers.get("referer") || refererUrl);
-  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
+  headers.set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
 
@@ -378,14 +417,14 @@ export async function POST(req: Request) {
     let contentType;
 
     if (isP2P) {
-      // 🟢 P2P EXIGE URL ENCODED (Igual ao seu CURL novo)
+      // 🟢 P2P EXIGE URL ENCODED
       const params = new URLSearchParams();
       params.set("user_id", external_user_id);
       params.set("months", months);
       payloadBody = params.toString();
       contentType = "application/x-www-form-urlencoded; charset=UTF-8";
     } else {
-      // 🔵 IPTV EXIGE JSON (Mantendo EXATAMENTE o fluxo antigo que já funcionava)
+      // 🔵 IPTV EXIGE JSON
       payloadBody = JSON.stringify({
         user_id: external_user_id,
         months: months
@@ -401,10 +440,10 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           "accept": "*/*",
-          "content-type": contentType, // ✅ Usa o cabeçalho correto da tecnologia
+          "content-type": contentType, 
           "timezone": TZ_SP
         },
-        body: payloadBody, // ✅ Envia formulário ou JSON dependendo da tecnologia
+        body: payloadBody, 
       },
       csrf,
       dashboardPath
@@ -428,6 +467,6 @@ export async function POST(req: Request) {
     });
 
   } catch (e: any) {
-return NextResponse.json({ ok: false, error: "Erro ao renovar. Procure o suporte." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Erro ao renovar. Procure o suporte.", trace: trace.slice(-8) }, { status: 500 });
   }
 }
