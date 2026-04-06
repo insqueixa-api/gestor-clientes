@@ -1628,18 +1628,6 @@ setSelectedApps(instances);
   }, [trialProvider, selectedPlanPeriod]);
 
 
-
-  // 1) Se mudar a estrutura...
-
-  useEffect(() => {
-    if (!didInitRef.current) return;
-    if (isEditing) return;
-    if (isTrialMode && clientToEdit?.price_amount) return; // ✅ protege teste rápido
-    setPriceTouched(false);
-  }, [screens, selectedPlanPeriod, selectedTableId]);
-
-
-
   // 2) Calcula o preço AUTOMÁTICO quando não tem override
 
   useEffect(() => {
@@ -4317,13 +4305,12 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
       <select
-
         value={selectedTableId}
-
-        onChange={(e) => setSelectedTableId(e.target.value)}
-
+        onChange={(e) => {
+            setSelectedTableId(e.target.value);
+            setPriceTouched(false); // ✅ FORÇA O RECÁLCULO IMEDIATO
+        }}
         className="h-8 w-[120px] px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs font-bold text-slate-700 dark:text-white outline-none cursor-pointer hover:border-emerald-500/50 transition-all truncate"
-
       >
 
         {tables.map((t) => (
