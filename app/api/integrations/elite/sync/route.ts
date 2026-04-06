@@ -229,13 +229,14 @@ export async function POST(req: Request) {
     // O IP da sua VM rodando liso!
     const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
-    // 1. Criar uma Sessão (Navegador) COM A MÁSCARA DE PROXY
+    // 1. Criar uma Sessão com o NOVO Proxy Residencial Estático (USA)
     const sessionRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             cmd: "sessions.create",
-            proxy: { url: "http://azkijkdk:821awplgcvzv@31.59.20.176:6754" } // ✅ NOSSO DISFARCE
+            // ✅ USANDO O SEU NOVO IP RESIDENCIAL QUE O CLOUDFLARE NÃO BLOQUEIA
+            proxy: { url: "http://azkijkdk:821awplgcvzv@198.145.103.185:6442" } 
         })
     }).then(res => res.json());
 
