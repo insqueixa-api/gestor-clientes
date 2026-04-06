@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { CookieJar } from "tough-cookie";
-import fetchCookie from "fetch-cookie";
 import * as cheerio from "cheerio";
 
 export const runtime = "nodejs";
@@ -186,11 +184,9 @@ function normalizeExpToUtcIso(raw: unknown, timeZone = TZ_SP): string | null {
 }
 
 // ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
-async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string, tz = TZ_SP) {
+async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
-  
-  let sessionId = null;
-  let cookiesToExport = [];
+  let sessionId: string | null = null;  // ← declarado ANTES do try, acessível pelo fsolverr
 
   try {
       // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
@@ -271,31 +267,51 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
           throw new Error("Login falhou (voltou para /login). Verifique o utilizador/password.");
       }
 
-      // 5. Apanhamos os cookies mágicos (Agora sim, 100% autenticados na sessão)
-      cookiesToExport = dashboardRes.solution?.cookies || [];
+      // 5. Valida cookies (mantidos na sessão do FlareSolverr internamente)
+      const cookiesOk = (dashboardRes.solution?.cookies || []).length > 0;
+      if (!cookiesOk) console.warn("[ELITE] Nenhum cookie retornado — sessão pode estar incompleta.");
 
-  } finally {
-      // Sempre destruir a sessão do FlareSolverr após exportar os cookies para libertar memória da VM
-      if (sessionId) {
-          await fetch(FLARESOLVERR_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
-          }).catch(() => {});
-      }
+  } catch (err) {
+    throw err; // re-lança para o handler destruir a sessão no finally
   }
 
-  // 6. Transformar os Cookies do FlareSolverr para o seu fetchCookie nativo
-  const jar = new CookieJar();
-  cookiesToExport.forEach((cookie: any) => {
-      const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
-      let domainBase = baseUrl.replace(/^https?:\/\//i, '');
-      jar.setCookieSync(cookieString, `https://${domainBase}`);
-  });
+  // 5. Helper que faz TODAS as requests via FlareSolverr (mesma sessão, mesmo TLS)
+  const fsolverr = async (
+    path: string,
+    init: { method?: string; headers?: Record<string, string>; body?: string } = {}
+  ) => {
+    const isPost = (init.method || "GET").toUpperCase() === "POST";
 
-  const fc = fetchCookie(fetch, jar);
+    const payload: any = {
+      cmd: isPost ? "request.post" : "request.get",
+      session: sessionId,
+      url: `${baseUrl}${path}`,
+      maxTimeout: 60000,
+    };
 
-  return { fc, baseUrl, tz };
+    if (isPost && init.body) payload.postData = init.body;
+    if (init.headers) payload.headers = init.headers;
+
+    const r = await fetch(FLARESOLVERR_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then((res) => res.json());
+
+    const text = r.solution?.response || "";
+    let json: any = null;
+    try { json = JSON.parse(text); } catch {}
+
+    return {
+      ok: r.status === "ok",
+      status: r.solution?.status || 0,
+      text,
+      json,
+    };
+  };
+
+  // ⚠️ NÃO destrói a sessão aqui — ela sobrevive para o fluxo inteiro
+  return { sessionId, baseUrl, fsolverr };
 }
 
 /**
@@ -419,22 +435,17 @@ function buildDtQuery(searchValue: string, isP2P: boolean) {
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
+async function findTrialByNotes(fsolverr: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
   const qs = buildDtQuery(targetToMatch, isP2P);
-  
-  const r = await eliteFetch(
-    fc,
-    baseUrl,
-    `${dashboardPath}?${qs}`,
-    { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } },
-    csrf,
-    dashboardPath
-  );
 
-  const parsed = await readSafeBody(r);
-  if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
-  
-  const data = parsed.json?.data;
+  const r = await fsolverr(`${dashboardPath}?${qs}`, {
+    method: "GET",
+    headers: { accept: "application/json, text/javascript, */*; q=0.01", "x-csrf-token": csrf },
+  });
+
+  if (!r.ok) return { ok: false, status: r.status, raw: r.text?.slice(0, 900) || "" };
+
+  const data = r.json?.data;
 
   if (isP2P) {
     // 🟢 CÓDIGO EXATO DO SEU P2P:
@@ -461,6 +472,7 @@ async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetTo
 // ----------------- handler -----------------
 export async function POST(req: Request) {
   const trace: any[] = [];
+  let eliteSessionId: string | null = null;
 
   try {
     const internalSecret = getInternalSecret(req);
@@ -581,15 +593,21 @@ export async function POST(req: Request) {
     // ==========================================
     // 1) LOGIN MÁGICO VIA FLARESOLVERR
     // ==========================================
-    const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
+    const { sessionId: sid, fsolverr } = await offoLogin(base, loginUser, loginPass, proxyUrl);
+    eliteSessionId = sid;
     trace.push({ step: "login", ok: true });
 
     // ==========================================
-    // O RESTO DO SEU FLUXO CONTINUA INTACTO! (Extrair CSRF, Fazer requisições, etc)
+    // 2) CSRF — via FlareSolverr (mesmo TLS, mesma sessão)
     // ==========================================
-    
-    // 2) csrf pós-login (Muda de acordo com a tecnologia)
-    const csrf = await fetchCsrfFromDashboard(fc, base, dashboardPath);
+    const dashboardPage = await fsolverr(dashboardPath);
+    const $csrf = cheerio.load(dashboardPage.text);
+    const csrf = (
+      $csrf('meta[name="csrf-token"]').attr("content") ||
+      $csrf('input[name="_token"]').attr("value") ||
+      ""
+    ).trim();
+    if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login.`);
     trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
 
     // 3) maketrial (nota)
@@ -613,22 +631,33 @@ export async function POST(req: Request) {
     
     createForm.set("trialnotes", trialNotes);
 
-    const createRes = await eliteFetch(
-      fc,
-      base,
-      createApiPath,
-      {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-        },
-        body: createForm,
-      },
-      csrf,
-      dashboardPath
-    );
+    const formBody = new URLSearchParams();
+    formBody.set("_token", csrf);
+    if (isP2P) {
+      formBody.set("pacotex", "1");
+      if (reqUsername) {
+        formBody.set("username", reqUsername);
+        formBody.set("email", reqUsername);
+      }
+    } else {
+      formBody.set("trialx", "1");
+    }
+    formBody.set("trialnotes", trialNotes);
 
-    const createParsed = await readSafeBody(createRes);
+    const createRaw = await fsolverr(createApiPath, {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "x-requested-with": "XMLHttpRequest",
+        "x-csrf-token": csrf,
+        "content-type": "application/x-www-form-urlencoded",
+        "referer": `${base}${dashboardPath}`,
+      },
+      body: formBody.toString(),
+    });
+
+    const createParsed = { json: createRaw.json, text: createRaw.text };
+    const createRes = { ok: createRaw.ok, status: createRaw.status, headers: new Headers() };
     trace.push({
       step: "maketrial",
       status: createRes.status,
@@ -668,7 +697,7 @@ export async function POST(req: Request) {
         
         const searchTarget = isFakeId ? String(createdId) : String(serverUsername || trialNotes);
         
-        const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+        const table = await findTrialByNotes(fsolverr, base, csrf, searchTarget, dashboardPath, isP2P);
         trace.push({ step: "datatable_lookup_p2p", ok: table.ok, found: (table as any).found, target: searchTarget });
 
         if ((table as any).ok && (table as any).rows?.length > 0) {
@@ -698,7 +727,7 @@ export async function POST(req: Request) {
       if (!createdId || !serverUsername || !serverPassword || !expRaw) {
         const searchTarget = String(trialNotes); // IPTV procura exatamente pela Nota
         
-        const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+        const table = await findTrialByNotes(fsolverr, base, csrf, searchTarget, dashboardPath, isP2P);
         trace.push({ step: "datatable_lookup_iptv", ok: table.ok, found: (table as any).found, target: searchTarget });
 
         if ((table as any).ok && (table as any).found) {
@@ -741,27 +770,19 @@ export async function POST(req: Request) {
     // 4) details
     if (!serverUsername || !serverPassword || !expRaw) {
       const detailsApiPath = isP2P ? `/api/p2p/${createdId}` : `/api/iptv/${createdId}`;
-      const detailsRes = await eliteFetch(
-        fc,
-        base,
-        detailsApiPath,
-        {
-          method: "GET",
-          headers: { accept: "application/json" },
-        },
-        csrf,
-        dashboardPath
-      );
-
-      const detailsParsed = await readSafeBody(detailsRes);
-      trace.push({
-        step: "details",
-        status: detailsRes.status,
-        ct: detailsRes.headers.get("content-type"),
-        preview: redactPreview(detailsParsed.text),
+      const detailsRaw = await fsolverr(detailsApiPath, {
+        method: "GET",
+        headers: { accept: "application/json", "x-csrf-token": csrf },
       });
 
-      if (detailsRes.ok) {
+      const detailsParsed = { json: detailsRaw.json, text: detailsRaw.text };
+      trace.push({
+        step: "details",
+        status: detailsRaw.status,
+        preview: redactPreview(detailsRaw.text),
+      });
+
+      if (detailsRaw.ok) {
         const details = detailsParsed.json ?? {};
 
         if (!serverUsername) {
@@ -814,5 +835,14 @@ export async function POST(req: Request) {
       { ok: false, error: e?.message || "Unknown error", trace: trace.slice(-8) },
       { status: 500 }
     );
+  } finally {
+    // Destrói a sessão do FlareSolverr UMA VEZ, ao fim de tudo
+    if (eliteSessionId) {
+      await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cmd: "sessions.destroy", session: eliteSessionId }),
+      }).catch(() => {});
+    }
   }
 }
