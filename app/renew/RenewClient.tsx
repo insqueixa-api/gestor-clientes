@@ -19,6 +19,7 @@ interface ClientAccount {
   plan_table_id: string;
   is_trial: boolean;
   is_archived: boolean;
+  has_integration?: boolean; // ✅ Flag para saber se tem integração
 }
 
 interface PlanPrice {
@@ -477,13 +478,27 @@ function copyField(key: string, value: string) {
 
     if (!renewPeriod) return;
 
-// BRL: vai direto pro PIX, sem seletor
+    // 👇 TRAVA DO FRONTEND: Detecção de Servidor Manual
+    // Como a API get-accounts pode ainda não retornar 'has_integration', 
+    // coloquei a checagem pelo NOME do servidor como garantia para o Elite funcionar na hora.
+    const isManualServer = 
+        selectedAccount.has_integration === false || 
+        selectedAccount.server_name.toLowerCase().includes("elite");
+
+    if (isManualServer) {
+      // Pula o PIX online / Stripe e vai direto para o Modal de Fallback (Pagamento Manual)
+      await handleMethodConfirmDirect("manual", renewPrice, renewPeriod);
+      return;
+    }
+    // 👆 FIM DA TRAVA
+
+    // BRL com integração: vai direto pro PIX Automático, sem seletor
     if (selectedAccount.price_currency === "BRL") {
       await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
       return;
     }
 
-    // Internacional: mostra seletor
+    // Internacional com integração: mostra seletor (Apple Pay / Stripe)
     setPendingRenew({ price: renewPrice, period: renewPeriod });
     setShowMethodSelector(true);
   };
