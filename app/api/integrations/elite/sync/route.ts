@@ -199,6 +199,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
   const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
   const csrfToken = (metaToken || formToken).trim();
 
+
   if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
 
   // 2) POST /login
@@ -370,6 +371,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: "Falha no sync ELITE." }, { status: 500 });
-  }
+  return NextResponse.json({ ok: false, error: e?.message || "Falha no sync ELITE." }, { status: 500 });
+}
 }
