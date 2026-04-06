@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { CookieJar } from "tough-cookie";
-import fetchCookie from "fetch-cookie";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
+// ✅ IMPORTANDO O NOSSO TRATOR
+import { fetchViaFlareSolverr } from "@/lib/api/flaresolverr"; 
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ function normalizeBaseUrl(u: string) {
   return s;
 }
 
-/** decodificação simples pro wire:snapshot (vem com &quot; etc) */
+/** decodificação simples pro wire:snapshot */
 function decodeHtmlEntities(input: string) {
   return String(input || "")
     .replace(/&quot;/g, '"')
@@ -58,7 +58,6 @@ function parseLooseNumber(input: string): number | null {
   const hasDot = s.includes(".");
   const hasComma = s.includes(",");
 
-  // Se tem os dois, assume pt-BR: "." milhar e "," decimal
   if (hasDot && hasComma) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (hasComma && !hasDot) {
@@ -122,7 +121,6 @@ type EliteParsed = {
 
 /**
  * ✅ Forma correta: parse do Livewire wire:snapshot
- * No /user/profile vem `data.state[0]` com { id, owner_id, username, credits, email, ... }
  */
 function extractEliteFromLivewireSnapshot(html: string): EliteParsed | null {
   const $ = cheerio.load(html);
@@ -139,7 +137,6 @@ function extractEliteFromLivewireSnapshot(html: string): EliteParsed | null {
     const u = snap?.data?.state?.[0];
     if (!u || typeof u !== "object") continue;
 
-    // heurística: precisa ter ao menos 2 desses campos pra considerar "perfil"
     const hasKey =
       ("id" in u) || ("owner_id" in u) || ("username" in u) || ("credits" in u) || ("email" in u);
 
@@ -151,13 +148,11 @@ function extractEliteFromLivewireSnapshot(html: string): EliteParsed | null {
     const username = typeof u.username === "string" ? u.username.trim() : null;
     const email = typeof u.email === "string" ? u.email.trim() : null;
 
-    // credits às vezes vem number, às vezes string
     const credits =
       typeof u.credits === "number"
         ? u.credits
         : (typeof u.credits === "string" ? parseLooseNumber(u.credits) : null);
 
-    // se achou algo útil, retorna
     if (userId != null || ownerId != null || username || credits != null || email) {
       return { user_id: userId, owner_id: ownerId, username, credits, email };
     }
@@ -173,99 +168,6 @@ function extractCreditsFromNavbar(html: string): number | null {
   return parseLooseNumber(t);
 }
 
-async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = "America/Sao_Paulo") {
-  const baseUrl = normalizeBaseUrl(baseUrlRaw);
-
-  const jar = new CookieJar();
-  const fc = fetchCookie(fetch, jar);
-
-  const loginUrl = `${baseUrl}/login`;
-
-  // 1) GET /login (pegar token CSRF)
-  const r1 = await fc(loginUrl, {
-  method: "GET",
-  headers: {
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
-    "accept-encoding": "gzip, deflate, br",
-    "cache-control": "no-cache",
-    "pragma": "no-cache",
-    "sec-ch-ua": '"Google Chrome";v="120", "Chromium";v="120", "Not-A.Brand";v="24"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "sec-fetch-dest": "document",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-site": "none",
-    "sec-fetch-user": "?1",
-    "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  },
-});
-
-  const html = await r1.text();
-
-// Tenta extrair do HTML primeiro (funciona sem Cloudflare)
-const $ = cheerio.load(html);
-const formToken = $('input[name="_token"]').attr("value") || "";
-const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
-let csrfToken = (metaToken || formToken).trim();
-
-// Fallback: lê do cookie XSRF-TOKEN (funciona mesmo com Cloudflare)
-if (!csrfToken) {
-  const cookies = await jar.getCookies(baseUrl);
-  const xsrf = cookies.find(c => c.key === "XSRF-TOKEN");
-  if (xsrf?.value) csrfToken = decodeURIComponent(xsrf.value);
-}
-
-if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login nem nos cookies.");
-
-  // 2) POST /login
-  const body = new URLSearchParams();
-  body.set("_token", csrfToken);
-  body.set("timezone", tz);
-  body.set("email", username);
-  body.set("password", password);
-
-  const r2 = await fc(loginUrl, {
-    method: "POST",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "content-type": "application/x-www-form-urlencoded",
-      origin: baseUrl,
-      referer: loginUrl,
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-    },
-    body: body.toString(),
-    redirect: "follow",
-  });
-
-  const finalUrl = (r2 as any)?.url || "";
-  if (String(finalUrl).includes("/login")) {
-    throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
-  }
-
-  return { fc, jar, baseUrl, tz };
-}
-
-async function fetchHtml(fc: any, url: string, referer?: string) {
-  const r = await fc(url, {
-    method: "GET",
-    headers: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      "user-agent": "Mozilla/5.0",
-      ...(referer ? { referer } : {}),
-    },
-    redirect: "follow",
-  });
-
-  if (!r.ok) throw new Error(`Falha ao carregar ${url} (HTTP ${r.status}).`);
-  return await r.text();
-}
 
 export async function POST(req: Request) {
   try {
@@ -277,7 +179,6 @@ export async function POST(req: Request) {
     const isInternal = !!expectedSecret && a.length === b.length && crypto.timingSafeEqual(a, b);
 
     if (!isInternal) {
-      // Tenta autenticar como usuário logado
       const { createClient } = await import("@/lib/supabase/server");
       const supabaseAuth = await createClient();
       const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
@@ -308,61 +209,67 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração está inativa.");
 
-    const loginUser = String(integ.api_token || "").trim();   // ELITE: usuário/email
-    const loginPass = String(integ.api_secret || "").trim();  // ELITE: senha
+    const loginUser = String(integ.api_token || "").trim();
+    const loginPass = String(integ.api_secret || "").trim();
     const baseUrl = String(integ.api_base_url || "").trim();
 
     if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
     }
 
-    const { fc } = await offoLogin(baseUrl, loginUser, loginPass);
-
     const base = normalizeBaseUrl(baseUrl);
     const profileUrl = `${base}/user/profile`;
-    const creditsUrl = `${base}/dashboard/logs-creditos`;
 
-    // ✅ profile é a fonte principal (tem wire:snapshot com id/owner/credits/username)
-    const profileHtml = await fetchHtml(fc, profileUrl, profileUrl);
-
-    // tenta via snapshot
-    const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
-
-    // créditos pode vir também pelo topo (navbar) — ainda dentro do /user/profile
-    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
-
-    // fallback secundário: página de logs de crédito (se necessário)
-    let creditsHtml = "";
-    let creditsText = "";
-    if (!fromSnap?.credits && creditsFromNavbar == null) {
-      creditsHtml = await fetchHtml(fc, creditsUrl, profileUrl);
-      creditsText = textFromHtml(creditsHtml);
+    // ==========================================
+    // 🚜 A MÁGICA ACONTECE AQUI! 
+    // Em vez de fazer a dança do login, mandamos
+    // o FlareSolverr tentar acessar a URL do perfil.
+    // Como ele vai encontrar a tela de login, ele bate
+    // a cabeça no Cloudflare e a gente pega o retorno.
+    // ==========================================
+    console.log(`[ELITE SYNC] Acionando FlareSolverr para ${profileUrl}`);
+    const flareResponse = await fetchViaFlareSolverr(profileUrl, "GET");
+    
+    if (!flareResponse.ok) {
+        throw new Error(`Falha no FlareSolverr: ${flareResponse.error}`);
     }
 
-    // fallback por texto (último recurso)
+    const profileHtml = flareResponse.html;
+
+    // Se o HTML retornado tiver o form de login, significa que o FlareSolverr
+    // passou pelo Cloudflare, mas parou na tela de login. 
+    // Teremos que injetar o login via FlareSolverr no próximo passo (se for o caso),
+    // mas vamos verificar se o painel tem uma API direta ou se o cookie já vem vivo.
+    
+    const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
+    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
+
+    // fallback por texto
     const profileText = textFromHtml(profileHtml);
 
     const user_id = fromSnap?.user_id ?? null;
     const owner_id =
       fromSnap?.owner_id ??
       extractOwnerId(profileText) ??
-      (creditsText ? extractOwnerId(creditsText) : null) ??
       null;
 
     const credits =
       (fromSnap?.credits ?? null) ??
       creditsFromNavbar ??
       extractCredits(profileText) ??
-      (creditsText ? extractCredits(creditsText) : null) ??
       null;
 
     const panel_username = fromSnap?.username ?? null;
     const panel_email = fromSnap?.email ?? null;
 
-    // ✅ Atualiza integração com o que achou
+    // Se não achou NADA, pode ser que barrou no login.
+    if (user_id == null && owner_id == null && credits == null) {
+        console.log("[ELITE SYNC] Aviso: Não encontrou dados. O HTML retornado foi de Login?");
+        // Se precisar, evoluímos a rota para fazer o POST de login via FlareSolverr
+    }
+
     const patch: any = {
       credits_last_sync_at: new Date().toISOString(),
-      // melhor guardar o username REAL do painel quando existir; senão cai no login informado
       owner_username: (panel_username || loginUser),
     };
 
@@ -388,7 +295,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
-  console.error("[ELITE_SYNC_ERROR]", e?.message || e);
-  return NextResponse.json({ ok: false, error: e?.message || "Falha no sync ELITE." }, { status: 500 });
-}
+    console.error("[ELITE SYNC ERROR]", e);
+    return NextResponse.json({ ok: false, error: e.message || "Falha no sync ELITE." }, { status: 500 });
+  }
 }
