@@ -1,4 +1,4 @@
-// src/lib/integrations/gerenciaapp.ts
+// src/lib/integrations/gerenciaapps/iborevenda.ts
 
 export const IBORevendaIntegration = {
     actionPrefix: "GERENCIAAPP", // Prefixo usado na extensão (ex: GERENCIAAPP_CREATE)

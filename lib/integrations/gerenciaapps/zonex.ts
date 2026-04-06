@@ -1,4 +1,4 @@
-// src/lib/integrations/zonex.ts
+// src/lib/integrations/gerenciaapps/zonex.ts
 
 export const ZoneXIntegration = {
     // Mantemos GERENCIAAPP porque a extensão já sabe furar o bloqueio desse domínio
