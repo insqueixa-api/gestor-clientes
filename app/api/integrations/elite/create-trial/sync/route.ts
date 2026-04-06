@@ -358,16 +358,16 @@ export async function POST(req: Request) {
     eliteSessionId = sid;
     trace.push({ step: "login", ok: true });
 
-    // 2) CSRF via FlareSolverr (mesmo TLS, mesma sessão)
-    const dashboardPage = await fsolverr(dashboardPath);
+    // 2) CSRF — busca no /dashboard geral (mesma sessão, o token é global no Laravel)
+    const dashboardPage = await fsolverr("/dashboard");
     const $csrf = cheerio.load(dashboardPage.text);
     const csrf = (
       $csrf('meta[name="csrf-token"]').attr("content") ||
       $csrf('input[name="_token"]').attr("value") ||
       ""
     ).trim();
-    if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login.`);
-    trace.push({ step: "csrf_dashboard", path: dashboardPath, ok: true });
+    if (!csrf) throw new Error(`Não consegui obter CSRF de /dashboard após login.`);
+    trace.push({ step: "csrf_dashboard", path: "/dashboard", csrf_preview: csrf.slice(0, 10) + "...", ok: true });
 
     // 3) Corrige ID falso do P2P
     if (isP2P && (!/^\d+$/.test(real_external_id) || real_external_id.length > 9)) {
