@@ -1856,20 +1856,29 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
       return macValue;
   }
 
-  // 🔥 FUNÇÃO SALVA-VIDAS: Tenta pegar a integração do banco. Se vier vazio, deduz pelo NOME!
+  // 🔥 FUNÇÃO SALVA-VIDAS: Tenta pegar a integração do banco. Se vier vazio OU a chave for velha, deduz pelo NOME!
   function resolveIntegration(appInstance?: SelectedAppInstance) {
       if (!appInstance) return null;
-      const catApp = catalog.find(c => c.id === appInstance.app_id) as any;
-      let intType = catApp?.integration_type;
       
-      // Se a coluna não veio do Supabase ou estiver em branco, aciona o Salva-Vidas:
-      if (!intType || String(intType).trim() === "") {
+      // 1. Pega o que está salvo no banco de dados hoje
+      const catApp = catalog.find(c => c.id === appInstance.app_id) as any;
+      let intType = String(catApp?.integration_type || "").trim().toUpperCase();
+      
+      // 2. Pergunta ao Cérebro (index.ts) se ele conhece essa chave
+      let handler = getIntegrationHandler(intType);
+      
+      // 3. Se o Cérebro não conhecer (ex: estava salvo GERENCIAAPP, mas agora mudou para IBOREVENDA)
+      // Acionamos a dedução inteligente pelo nome do aplicativo!
+      if (!handler) {
           const appNameStr = String(appInstance.name || "").toUpperCase();
           if (appNameStr.includes("ZONE")) intType = "ZONEX";
-          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA")) intType = "IBOREVENDA";
+          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
+          
+          // Tenta novamente com a chave corrigida
+          handler = getIntegrationHandler(intType);
       }
       
-      return getIntegrationHandler(String(intType || ""));
+      return handler;
   }
 
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
