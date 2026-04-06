@@ -167,9 +167,27 @@ async function offoLogin(
     // O HTML retornado já é o dashboard pós-login (com CSRF token)
     postLoginHtml = loginRes.solution?.response || "";
 
-    // 3. Valida se realmente logou
+    // 3. Busca o profile — exatamente como o sync de créditos faz
+    // O evaluate aguarda 8s para o dashboard carregar completamente
+    const profileRes = await fetch(FLARESOLVERR_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cmd: "request.get",
+        session: sessionId,
+        url: `${baseUrl}/user/profile`,
+        maxTimeout: 60000,
+        evaluate: `new Promise((resolve) => {
+          setTimeout(() => { resolve(); }, 8000);
+        });`,
+      }),
+    }).then((r) => r.json());
+
+    postLoginHtml = profileRes.solution?.response || "";
+
+    // 4. Valida se realmente logou
     if (postLoginHtml.toLowerCase().includes("just a moment") || postLoginHtml.toLowerCase().includes("cf-turnstile")) {
-      throw new Error("O Cloudflare travou este IP. Atualize o proxy residencial nas configurações.");
+      throw new Error("O Cloudflare travou este IP. Atualize o proxy residencial nas configurações da integração.");
     }
     if (postLoginHtml.includes('name="password"') && postLoginHtml.includes('type="submit"')) {
       throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
