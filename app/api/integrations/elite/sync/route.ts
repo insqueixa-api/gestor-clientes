@@ -315,8 +315,8 @@ export async function POST(req: Request) {
     const user_id = fromSnap?.user_id ?? null;
     let owner_id = fromSnap?.owner_id ?? extractOwnerId(profileText) ?? null;
     
-    // Extrai os Créditos
-    let credits = (fromSnap?.credits ?? null) ?? creditsFromNavbar ?? extractCredits(profileText) ?? null;
+    // Extrai os Créditos (Prioridade MÁXIMA para o ID exato da tela que você encontrou)
+    let credits = creditsFromNavbar ?? (fromSnap?.credits ?? null) ?? extractCredits(profileText) ?? null;
 
     const panel_username = fromSnap?.username ?? null;
     const panel_email = fromSnap?.email ?? null;
