@@ -288,7 +288,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 3. Acessar o Profile para extrair o saldo
+    // 3. Acessar o Profile (Com Espião de Tela)
     // ==========================================
     const profileRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
@@ -297,7 +297,20 @@ export async function POST(req: Request) {
             cmd: "request.get",
             session: sessionId,
             url: profileUrl,
-            maxTimeout: 30000
+            maxTimeout: 60000,
+            // O script abaixo força o navegador a aguardar e clonar o saldo do Navbar
+            evaluate: `
+                setTimeout(() => {
+                    let nav = document.querySelector('#navbarCredits');
+                    if (nav) {
+                        let div = document.createElement('div');
+                        div.id = 'SALDO_HACK_GESTOR';
+                        div.innerText = nav.innerText;
+                        document.body.appendChild(div);
+                    }
+                }, 4000);
+                setTimeout(() => {}, 6000); // Aguarda o timeout acima ser executado
+            `
         })
     }).then(res => res.json());
 
@@ -308,15 +321,21 @@ export async function POST(req: Request) {
     // ==========================================
     // 4. Processamento dos Dados
     // ==========================================
+    const $ = cheerio.load(profileHtml);
+    
+    // 1️⃣ Puxa o saldo roubado direto da tela pelo nosso espião JS
+    const hackCreditsText = $('#SALDO_HACK_GESTOR').text();
+    const creditsFromHack = parseLooseNumber(hackCreditsText);
+
+    // 2️⃣ Puxa os dados invisíveis (O Cálculo Livewire) como Fallback
     const fromSnap = extractEliteFromLivewireSnapshot(profileHtml);
-    const creditsFromNavbar = extractCreditsFromNavbar(profileHtml);
     const profileText = textFromHtml(profileHtml);
 
     const user_id = fromSnap?.user_id ?? null;
     let owner_id = fromSnap?.owner_id ?? extractOwnerId(profileText) ?? null;
     
-    // Extrai os Créditos (Prioridade MÁXIMA para o ID exato da tela que você encontrou)
-    let credits = creditsFromNavbar ?? (fromSnap?.credits ?? null) ?? extractCredits(profileText) ?? null;
+    // Extrai os Créditos (Prioridade Absoluta: O que foi lido na tela visual. Fallback: O cálculo invisível)
+    let credits = creditsFromHack ?? (fromSnap?.credits ?? null) ?? extractCredits(profileText) ?? null;
 
     const panel_username = fromSnap?.username ?? null;
     const panel_email = fromSnap?.email ?? null;
