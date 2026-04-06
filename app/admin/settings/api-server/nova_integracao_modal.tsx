@@ -47,7 +47,8 @@ const [integrationName, setIntegrationName] = useState(integration?.integration_
 const [apiToken, setApiToken] = useState("");
 const [apiSecret, setApiSecret] = useState("");
 const [apiBaseUrl, setApiBaseUrl] = useState("");
-
+// ✅ NOVO: Estado para o Proxy URL
+const [proxyUrl, setProxyUrl] = useState(""); 
 
 const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
 
@@ -69,16 +70,15 @@ useEffect(() => {
 
       const { data, error } = await supabaseBrowser
         .from("server_integrations")
-        .select("api_token, api_secret, api_base_url, provider, integration_name, is_active")
+        // ✅ NOVO: Adicionado proxy_url no select
+        .select("api_token, api_secret, api_base_url, proxy_url, provider, integration_name, is_active")
         .eq("id", integration.id)
-        .eq("tenant_id", tid) // 🔒 Trava de Segurança
+        .eq("tenant_id", tid) 
         .single();
-      // 👆 FIM DA BLINDAGEM
 
       if (error) throw error;
       if (!alive) return;
 
-      // mantém provider coerente com o registro
       const p = String(data?.provider || "NATV").toUpperCase() as IntegrationProvider;
       setProvider(p);
 
@@ -88,6 +88,8 @@ useEffect(() => {
       setApiToken(data?.api_token ?? "");
       setApiSecret(data?.api_secret ?? "");
       setApiBaseUrl(data?.api_base_url ?? "");
+      // ✅ NOVO: Seta o Proxy
+      setProxyUrl(data?.proxy_url ?? "");
 
     } catch (e) {
       // não trava o modal
@@ -114,16 +116,16 @@ if (!apiToken.trim()) return false;
 // FAST exige secret
 if (provider === "FAST" && !apiSecret.trim()) return false;
 
-// ELITE exige base_url + senha
+// ELITE exige base_url, senha e Proxy
 if (provider === "ELITE" && !apiBaseUrl.trim()) return false;
 if (provider === "ELITE" && !apiSecret.trim()) return false;
+// ✅ NOVO: Impede salvar Elite sem proxy
+if (provider === "ELITE" && !proxyUrl.trim()) return false;
 
 return true;
 
-
-    }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl]);
-
-
+    // ✅ NOVO: Adicionado proxyUrl nas dependências
+    }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl, proxyUrl]);
 
   async function handleSave() {
     if (!canSave) return;
@@ -143,9 +145,10 @@ return true;
     integration_name: integrationName.trim(),
     is_active: isActive,
     api_token: apiToken.trim(), 
-    // ✅ Agora ele passa pelo filtro e salva redondinho
     api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
     api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
+    // ✅ NOVO: Salvando o proxy apenas para Elite
+    proxy_url: provider === "ELITE" ? proxyUrl.trim() : null,
   };
 
   const { error } = await supabaseBrowser
@@ -164,9 +167,10 @@ return true;
         integration_name: integrationName.trim(),
         is_active: isActive,
         api_token: apiToken.trim(),
-        // ✅ Aplicando no Update também
         api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
         api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
+        // ✅ NOVO: Atualizando o proxy apenas para Elite
+        proxy_url: provider === "ELITE" ? proxyUrl.trim() : null,
       };
 
     const { error } = await supabaseBrowser
@@ -285,21 +289,40 @@ onChange={(e) => {
           <div className="space-y-3">
 
   {provider === "ELITE" && (
-  <div>
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-      Base URL do painel
-    </label>
-    <input
-      value={apiBaseUrl}
-      onChange={(e) => setApiBaseUrl(e.target.value)}
-      placeholder="Ex: https://painel.com"
-      className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-      disabled={loadingEdit}
-    />
-    <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-      A URL será formatada e salva automaticamente sem a barra final.
-    </p>
-  </div>
+  <>
+    <div>
+      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+        Base URL do painel
+      </label>
+      <input
+        value={apiBaseUrl}
+        onChange={(e) => setApiBaseUrl(e.target.value)}
+        placeholder="Ex: https://painel.com"
+        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+        disabled={loadingEdit}
+      />
+      <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+        A URL será formatada e salva automaticamente sem a barra final.
+      </p>
+    </div>
+
+    {/* ✅ NOVO: Input para o Proxy Residencial do Elite */}
+    <div>
+      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+        Proxy Residencial (FlareSolverr)
+      </label>
+      <input
+        value={proxyUrl}
+        onChange={(e) => setProxyUrl(e.target.value)}
+        placeholder="http://user:pass@ip:porta"
+        className="w-full h-10 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-500/5 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-rose-500/30"
+        disabled={loadingEdit}
+      />
+      <p className="text-[10px] text-slate-500 dark:text-white/40 mt-1">
+        Essencial para burlar o Cloudflare. Padrão: <span className="font-mono text-rose-500/70">http://user:pass@ip:port</span>
+      </p>
+    </div>
+  </>
 )}
   <div>
     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
