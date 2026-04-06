@@ -285,31 +285,33 @@ export default function AdminServersPage() {
   }
 
 async function handleSyncIntegration(server: ServerRow) {
-    if (syncingServerId === server.id) return; // ✅ Trava anti-duplo clique
+    if (syncingServerId === server.id) return;
 
+    // Se não tiver ID de integração, avisamos mas não travamos o processo de "salvar" do banco
     if (!server.panel_integration) {
-      addToast("error", "Sem integração", "Este servidor não tem integração vinculada.");
+      addToast("error", "Integração Ausente", "Vincule uma integração nas configurações do servidor.");
       return;
     }
 
-    setSyncingServerId(server.id); // ✅ Bloqueia o botão
+    setSyncingServerId(server.id);
 
     try {
-      const provider = String(server.panel_integration_provider || "").toUpperCase();
+      // Convertemos para UPPERCASE para evitar erro de "Elite" vs "ELITE"
+      const provider = String(server.panel_integration_provider || "").toUpperCase().trim();
       
-      // ✅ Roteamento Dinâmico para Fast, NaTV e Elite
       let url = "";
       if (provider === "FAST") url = "/api/integrations/fast/sync";
       else if (provider === "NATV") url = "/api/integrations/natv/sync";
       else if (provider === "ELITE") url = "/api/integrations/elite/sync";
       
+      // Se você mudou o nome sem querer, o sistema agora te diz QUAL nome está lá
       if (!url) {
-        throw new Error(`Provedor não suportado para sincronização: ${provider}`);
+        console.warn(`[SYNC] Provedor desconhecido: "${provider}"`);
+        throw new Error(`O provedor "${provider}" não possui uma rota de sincronização. Verifique se escreveu 'ELITE' corretamente.`);
       }
 
-      addToast("success", "Sincronizando", `Atualizando saldo da integração ${server.panel_integration_name}...`);
+      addToast("success", "Sincronizando...", "Comunicando com o servidor externo via FlareSolverr.");
 
-      // 👇 INÍCIO DO AJUSTE: Pegar o token para a API recém-blindada não nos bloquear 👇
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
 
@@ -317,29 +319,29 @@ async function handleSyncIntegration(server: ServerRow) {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia o crachá de acesso
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
-        // ✅ INCLUI O TENANT_ID AQUI para evitar erro de segurança na nova API da Elite
         body: JSON.stringify({ 
           integration_id: server.panel_integration,
           tenant_id: server.tenant_id 
         }),
       });
       
-
       const json = await res.json().catch(() => ({}));
+      
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Falha ao sincronizar.");
+        // Aqui ele vai mostrar o erro do Token CSRF ou do Proxy Residencial se falhar
+        throw new Error(json?.error || "Erro na resposta da API de Integração.");
       }
 
-      addToast("success", "Sincronizado", "Saldo atualizado com sucesso!");
+      addToast("success", "Sincronizado", "Saldo e dados atualizados!");
       fetchServers();
     } catch (e: any) {
-      // ✅ Agora mostra o erro REAL que a API retornou (ex: "FlareSolverr falhou...")
-      addToast("error", "Erro ao sincronizar", e.message || "Falha na comunicação com o painel.");
-      console.error("[Sync Error]:", e);
+      // Mostra o erro amigável no Toast
+      addToast("error", "Falha na Sincronização", e.message);
+      console.error("[ELITE SYNC DEBUG]:", e);
     } finally {
-      setSyncingServerId(null); // ✅ Liberta o botão no final
+      setSyncingServerId(null);
     }
   }
   async function handleHardDelete(server: ServerRow) {
