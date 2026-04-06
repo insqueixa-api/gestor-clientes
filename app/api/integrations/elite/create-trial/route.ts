@@ -168,6 +168,7 @@ async function offoLogin(
         maxTimeout: 60000,
         returnOnlyCookies: false,
         evaluate: `new Promise((resolve) => {
+          // 1ª espera: 15s para o Cloudflare validar automaticamente
           setTimeout(() => {
             let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
             let passInput = document.querySelector('input[type="password"], input[name="password"]');
@@ -179,8 +180,9 @@ async function offoLogin(
               passInput.dispatchEvent(new Event('input', { bubbles: true }));
               btn.click();
             }
-          }, 5000);
-          setTimeout(() => { resolve(); }, 15000);
+            // 2ª espera: mais 15s para o redirect para o dashboard completar
+            setTimeout(() => { resolve(); }, 15000);
+          }, 15000);
         });`,
       }),
     }).then((r) => r.json());
