@@ -327,7 +327,7 @@ onChange={(e) => {
         disabled={loadingEdit}
       />
       <p className="text-[10px] text-slate-500 dark:text-white/40 mt-1">
-        Essencial para burlar o Cloudflare. Padrão: <span className="font-mono text-rose-500/70">http://user:pass@ip:port</span>
+        Entre em contato com seu Master. (Padrão: <span className="font-mono text-rose-500/70">http://user:pass@ip:port)</span>
       </p>
     </div>
   </>
