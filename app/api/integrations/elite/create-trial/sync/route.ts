@@ -93,16 +93,28 @@ function safeString(v: any) {
   return String(v ?? "").trim();
 }
 
-// ----------------- tipo do helper fsolverr -----------------
+// ----------------- tipos -----------------
 type Fsolverr = (
   path: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string }
 ) => Promise<{ ok: boolean; status: number; text: string; json: any }>;
 
+type OffoLoginResult = {
+  sessionId: string;
+  fsolverr: Fsolverr;
+  postLoginHtml: string;
+};
+
 // ----------------- LOGIN ELITE VIA FLARESOLVERR -----------------
-async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string): Promise<{ sessionId: string; fsolverr: Fsolverr }> {
+async function offoLogin(
+  baseUrlRaw: string,
+  username: string,
+  password: string,
+  proxyUrl: string
+): Promise<OffoLoginResult> {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
   let sessionId: string | null = null;
+  let postLoginHtml = "";
 
   try {
     // 1. Criar sessão
@@ -121,7 +133,8 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
     if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
     sessionId = sessionRes.session;
 
-    // 2. Login via JS inject
+    // 2. Login via JS inject — idêntico ao sync de créditos que funciona
+    // O evaluate clica em 5s e aguarda 15s para garantir login + redirect + dashboard carregado
     const loginRes = await fetch(FLARESOLVERR_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -130,6 +143,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
         session: sessionId,
         url: `${baseUrl}/login`,
         maxTimeout: 60000,
+        returnOnlyCookies: false,
         evaluate: `new Promise((resolve) => {
           setTimeout(() => {
             let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
@@ -142,37 +156,30 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
               passInput.dispatchEvent(new Event('input', { bubbles: true }));
               btn.click();
             }
-            resolve();
           }, 5000);
+          setTimeout(() => { resolve(); }, 15000);
         });`,
       }),
     }).then((r) => r.json());
 
     if (loginRes.status !== "ok") throw new Error(`Falha ao logar via script: ${loginRes.message}`);
 
-    // 3. Aguarda redirect
-    await new Promise((r) => setTimeout(r, 8000));
+    // O HTML retornado já é o dashboard pós-login (com CSRF token)
+    postLoginHtml = loginRes.solution?.response || "";
 
-    // 4. Valida login
-    const checkRes = await fetch(FLARESOLVERR_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd: "request.get", session: sessionId, url: `${baseUrl}/user/profile`, maxTimeout: 60000 }),
-    }).then((r) => r.json());
-
-    const htmlCheck = checkRes.solution?.response || "";
-
-    if (htmlCheck.toLowerCase().includes("just a moment") || htmlCheck.toLowerCase().includes("cf-turnstile")) {
+    // 3. Valida se realmente logou
+    if (postLoginHtml.toLowerCase().includes("just a moment") || postLoginHtml.toLowerCase().includes("cf-turnstile")) {
       throw new Error("O Cloudflare travou este IP. Atualize o proxy residencial nas configurações.");
     }
-    if (htmlCheck.includes('name="password"') && htmlCheck.includes('type="submit"')) {
+    if (postLoginHtml.includes('name="password"') && postLoginHtml.includes('type="submit"')) {
       throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
     }
+
   } catch (err) {
     throw err;
   }
 
-  // 5. Helper — TODAS as requests via FlareSolverr (mesma sessão, mesmo TLS)
+  // 4. Helper — TODAS as requests via FlareSolverr (mesma sessão, mesmo TLS)
   const fsolverr: Fsolverr = async (path, init = {}) => {
     const isPost = (init.method || "GET").toUpperCase() === "POST";
     const payload: any = {
@@ -197,7 +204,7 @@ async function offoLogin(baseUrlRaw: string, username: string, password: string,
     return { ok: r.status === "ok", status: r.solution?.status || 0, text, json };
   };
 
-  return { sessionId: sessionId!, fsolverr };
+  return { sessionId: sessionId!, fsolverr, postLoginHtml };
 }
 
 // --- DataTables helper ---
@@ -353,21 +360,20 @@ export async function POST(req: Request) {
 
     const base = normalizeBaseUrl(baseUrl);
 
-    // 1) Login
-    const { sessionId: sid, fsolverr } = await offoLogin(base, loginUser, loginPass, proxyUrl);
+    // 1) Login — idêntico ao sync de créditos que funciona
+    const { sessionId: sid, fsolverr, postLoginHtml } = await offoLogin(base, loginUser, loginPass, proxyUrl);
     eliteSessionId = sid;
     trace.push({ step: "login", ok: true });
 
-    // 2) CSRF — busca no /dashboard geral (mesma sessão, o token é global no Laravel)
-    const dashboardPage = await fsolverr("/dashboard");
-    const $csrf = cheerio.load(dashboardPage.text);
+    // 2) CSRF — extraído do HTML do dashboard já capturado durante o login (sem request extra)
+    const $csrf = cheerio.load(postLoginHtml);
     const csrf = (
       $csrf('meta[name="csrf-token"]').attr("content") ||
       $csrf('input[name="_token"]').attr("value") ||
       ""
     ).trim();
-    if (!csrf) throw new Error(`Não consegui obter CSRF de /dashboard após login.`);
-    trace.push({ step: "csrf_dashboard", path: "/dashboard", csrf_preview: csrf.slice(0, 10) + "...", ok: true });
+    if (!csrf) throw new Error(`Não consegui obter CSRF do HTML pós-login.`);
+    trace.push({ step: "csrf_dashboard", csrf_preview: csrf.slice(0, 10) + "...", ok: true });
 
     // 3) Corrige ID falso do P2P
     if (isP2P && (!/^\d+$/.test(real_external_id) || real_external_id.length > 9)) {
@@ -575,7 +581,6 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unknown error", trace: trace.slice(-10) }, { status: 500 });
   } finally {
-    // Destrói a sessão do FlareSolverr UMA VEZ, no final de tudo
     if (eliteSessionId) {
       await fetch(FLARESOLVERR_URL, {
         method: "POST",
