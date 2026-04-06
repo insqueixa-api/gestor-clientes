@@ -1628,21 +1628,19 @@ setSelectedApps(instances);
   }, [trialProvider, selectedPlanPeriod]);
 
 
-  // 2) Calcula o preço AUTOMÁTICO quando não tem override
+  // 1) Reseta override quando usuário muda tabela, período ou telas (após prefill)
+useEffect(() => {
+  if (!didInitRef.current) return;
+  setPriceTouched(false);
+}, [screens, selectedPlanPeriod, selectedTableId]);
 
-  useEffect(() => {
-
-    if (!selectedTable) return;
-
-    if (priceTouched) return;
-
-
-
-    const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, Number(screens) || 1);
-
-    setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
-
-  }, [screens, selectedTable, selectedPlanPeriod, priceTouched]);
+// 2) Calcula o preço AUTOMÁTICO quando não tem override
+useEffect(() => {
+  if (!selectedTable) return;
+  if (priceTouched) return;
+  const p = pickPriceFromTable(selectedTable, selectedPlanPeriod, Number(screens) || 1);
+  setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
+}, [screens, selectedTable, selectedPlanPeriod, priceTouched]);
 
 
 
