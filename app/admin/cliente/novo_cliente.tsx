@@ -936,6 +936,8 @@ function handleDoneSecondary() {
 // ✅ NOVO: Detectar provider + integração (FAST=4h fixo, NATV=6h padrão editável, ELITE=2h fixo)
 const [hasIntegration, setHasIntegration] = useState(false);
 const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
+// ✅ NOVO: Guardar a URL base para enviar para a Extensão do Chrome
+const [integrationBaseUrl, setIntegrationBaseUrl] = useState("");
 
 useEffect(() => {
   if (!serverId) {
@@ -987,13 +989,16 @@ useEffect(() => {
 
       const { data: integ, error: integErr } = await supabaseBrowser
         .from("server_integrations")
-        .select("provider")
+        // ✅ NOVO: Busca também a api_base_url
+        .select("provider, api_base_url")
         .eq("id", integrationId)
         .single();
 
       if (!mounted) return;
       if (integErr) throw integErr;
       const provider = String(integ?.provider || "").toUpperCase();
+      // ✅ NOVO: Salva a URL no estado para usar nos disparos
+      setIntegrationBaseUrl(String(integ?.api_base_url || ""));
 
       if (provider === "FAST") {
         setTrialProvider("FAST");
@@ -1925,7 +1930,11 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: `${handler.actionPrefix}_CREATE`, payload: payload }
+        detail: { 
+            action: `${handler.actionPrefix}_CREATE`, 
+            baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO
+            payload: payload 
+        }
     }));
     
     setTimeout(() => {
@@ -1975,7 +1984,11 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: `${handler.actionPrefix}_DELETE`, payload: payloadDelete }
+        detail: { 
+            action: `${handler.actionPrefix}_DELETE`, 
+            baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO
+            payload: payloadDelete 
+        }
     }));
 
     setTimeout(() => {
@@ -3139,7 +3152,11 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                         
                         window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                            detail: { action: `${handler.actionPrefix}_CREATE`, payload: payloadAutomacao }
+                            detail: { 
+                                action: `${handler.actionPrefix}_CREATE`, 
+                                baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO NA AUTOMAÇÃO
+                                payload: payloadAutomacao 
+                            }
                         }));
 
                         setTimeout(() => {
