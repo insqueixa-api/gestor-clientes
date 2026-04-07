@@ -406,10 +406,11 @@ type ClientAppModalState = {
   open: boolean;
   clientId: string;
   clientName: string;
-  username: string;       // ✅ NOVO
-  serverName: string;     // ✅ NOVO
-  serverPassword: string; // ✅ NOVO
-  m3uUrl: string;         // ✅ NOVO
+  username: string;       
+  serverName: string;     
+  serverPassword: string; 
+  m3uUrl: string;         
+  clientDueDate: string;  // ✅ NOVO: A data de vencimento do cliente (YYYY-MM-DD)
   appName: string;
   app: any; // AppData do banco (quando existir)
 };
@@ -853,6 +854,7 @@ async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceInd
     serverName: r.server,
     serverPassword: r.server_password || "",
     m3uUrl: m3uUrl,
+    clientDueDate: r.dueISODate, // ✅ NOVO: Puxa a data formatada certinha da tabela
     appName: String(app?.name ?? key),
     app,
   });
@@ -1640,6 +1642,25 @@ body: JSON.stringify({
           return;
       }
 
+      // ✅ NOVO: Atualiza a Data do App visualmente e no Banco Silenciosamente
+      const dateField = appModal.app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+      if (dateField && appModal.clientDueDate) {
+          const fieldKey = String(dateField.id || dateField.label);
+          
+          // 1. Atualiza na UI na hora
+          setAppValues(prev => ({ ...prev, [fieldKey]: appModal.clientDueDate }));
+          
+          // 2. Busca os dados atuais para não apagar o partner/custo e atualiza o banco
+          supabaseBrowser.from("client_apps").select("field_values")
+              .eq("client_id", appModal.clientId)
+              .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
+                  const dbVals = data?.field_values || {};
+                  supabaseBrowser.from("client_apps").update({ 
+                      field_values: { ...dbVals, [fieldKey]: appModal.clientDueDate } 
+                  }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
+              });
+      }
+
       setAppSaving(true);
       const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
       const appBaseUrl = appIntegData?.api_url || "";
@@ -1683,6 +1704,25 @@ body: JSON.stringify({
       if (!handler) {
           addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
           return;
+      }
+
+      // ✅ NOVO: Remove a Data do App visualmente e no Banco Silenciosamente
+      const dateField = appModal.app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+      if (dateField) {
+          const fieldKey = String(dateField.id || dateField.label);
+          
+          // 1. Limpa na UI na hora
+          setAppValues(prev => ({ ...prev, [fieldKey]: "" }));
+          
+          // 2. Atualiza o banco
+          supabaseBrowser.from("client_apps").select("field_values")
+              .eq("client_id", appModal.clientId)
+              .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
+                  const dbVals = data?.field_values || {};
+                  supabaseBrowser.from("client_apps").update({ 
+                      field_values: { ...dbVals, [fieldKey]: "" } 
+                  }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
+              });
       }
 
       setAppSaving(true);

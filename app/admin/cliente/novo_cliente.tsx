@@ -1912,6 +1912,13 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         return;
     }
 
+    // ✅ NOVO: Auto-preenche a Data de Vencimento do App com a data do Cliente
+    const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+    if (dateField) {
+        const fieldKey = dateField.id || dateField.label;
+        if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), dueDate);
+    }
+
     setLoading(true);
     setLoadingStep("A enviar para a Extensão...");
 
@@ -1974,6 +1981,13 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     if (!handler) {
         addToast("error", "Erro de Rota", `Integração não configurada para o app "${appName}". Impossível deletar.`);
         return;
+    }
+
+    // ✅ NOVO: Limpa a Data de Vencimento do App
+    const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+    if (dateField) {
+        const fieldKey = dateField.id || dateField.label;
+        if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), "");
     }
 
     setLoading(true);
