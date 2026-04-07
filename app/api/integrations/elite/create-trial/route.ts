@@ -305,7 +305,7 @@ export async function POST(req: Request) {
     const loginUser = String((integ as any).api_token || "").trim();
     const loginPass = String((integ as any).api_secret || "").trim();
     const baseUrl = String((integ as any).api_base_url || "").trim();
-    const proxyUrl = String((integ as any).proxy_url || "").trim();
+    const proxyUrl = "http://azkijkdk:821awplgcvzv@198.145.103.185:6442";
 
     if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
