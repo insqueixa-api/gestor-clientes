@@ -423,52 +423,26 @@ export async function POST(req: Request) {
     trace.push({ step: "login_flaresolverr", ok: true });
 
     // ==========================================
-    // 3. Acessar o Dashboard (Com Espião de Tela para pegar CSRF)
+    // 3. Pegar o CSRF e Cookies direto do resultado do Login
     // ==========================================
-    const targetDashboardUrl = `${base}${dashboardPath}`;
-    const dashboardRes = await fetch(FLARESOLVERR_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cmd: "request.get",
-            session: sessionId,
-            url: targetDashboardUrl,
-            maxTimeout: 60000,
-            evaluate: `new Promise((resolve) => {
-                setTimeout(() => {
-                    let metaToken = document.querySelector('meta[name="csrf-token"]');
-                    let formToken = document.querySelector('input[name="_token"]');
-                    let token = metaToken ? metaToken.content : (formToken ? formToken.value : '');
-                    
-                    let div = document.createElement('div');
-                    div.id = 'CSRF_HACK_GESTOR';
-                    div.innerText = token;
-                    document.body.appendChild(div);
-                    
-                    resolve();
-                }, 8000);
-            });`
-        })
-    }).then(res => res.json());
-
-    if (dashboardRes.status !== "ok") throw new Error(`Falha GET Dashboard: ${dashboardRes.message}`);
-
-    const dashboardHtml = dashboardRes.solution?.response || "";
-    const $ = cheerio.load(dashboardHtml);
+    // Como o FlareSolverr aguardou 15 segundos após o clique, a página já redirecionou para o painel.
+    // O token já está no HTML (<meta name="csrf-token">), não precisamos fazer outra requisição!
+    const $ = cheerio.load(htmlAposLogin);
     
-    // Puxa o CSRF roubado da tela pelo nosso espião JS
-    const csrfHackText = $('#CSRF_HACK_GESTOR').text().trim();
-    const csrf = csrfHackText || $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
+    // Procura no meta tag (que vimos no log que você mandou) ou num possível input escondido
+    const csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
 
-    if (!csrf) throw new Error(`Não consegui obter CSRF de ${dashboardPath} após login via FlareSolverr.`);
-    trace.push({ step: "csrf_dashboard_flaresolverr", path: dashboardPath, ok: true });
+    if (!csrf) {
+        throw new Error("Login FlareSolverr passou do Cloudflare, mas não achou o token CSRF no HTML final. Painel pode ter recusado usuário/senha.");
+    }
+    trace.push({ step: "csrf_extracted_from_login", ok: true });
 
     // ==========================================
     // 4. Passar Cookies para o fetch-cookie (para o resto funcionar sem mudar nada)
     // ==========================================
     const jar = new CookieJar();
-    if (dashboardRes.solution?.cookies) {
-        dashboardRes.solution.cookies.forEach((c: any) => {
+    if (loginAutomaticoRes.solution?.cookies) {
+        loginAutomaticoRes.solution.cookies.forEach((c: any) => {
             const cookieStr = `${c.name}=${c.value}; Domain=${c.domain}; Path=${c.path}`;
             jar.setCookieSync(cookieStr, base);
         });
