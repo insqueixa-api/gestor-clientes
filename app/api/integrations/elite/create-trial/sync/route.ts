@@ -390,24 +390,37 @@ export async function POST(req: Request) {
             cmd: "request.get",
             session: sessionId,
             url: `${base}/login`,
-            maxTimeout: 60000,
+            maxTimeout: 90000, // Aumentado para 90s para dar folga ao Cloudflare
             returnOnlyCookies: false, 
             evaluate: `new Promise((resolve) => {
-                setTimeout(() => {
+                let tentativas = 0;
+                
+                // Cria um loop que vasculha a tela a cada 1 segundo
+                let espiao = setInterval(() => {
+                    tentativas++;
                     let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
                     let passInput = document.querySelector('input[type="password"], input[name="password"]');
                     let btn = document.querySelector('button[type="submit"], form button');
                     
+                    // Se os campos apareceram (Cloudflare passou e a página carregou)
                     if (emailInput && passInput && btn) {
+                        clearInterval(espiao); // Para de procurar
+                        
                         emailInput.value = '${loginUser}';
                         passInput.value = '${loginPass}';
                         emailInput.dispatchEvent(new Event('input', { bubbles: true }));
                         passInput.dispatchEvent(new Event('input', { bubbles: true }));
                         btn.click();
+                        
+                        // Aguarda 15 segundos após o clique para o painel carregar o dashboard
+                        setTimeout(() => { resolve(); }, 15000);
+                        
+                    } else if (tentativas > 45) {
+                        // Se ficou 45 segundos na tela do Cloudflare ou Proxy caiu, desiste para não travar a VM
+                        clearInterval(espiao);
+                        resolve();
                     }
-                }, 5000);
-                // Aumentei para 20s totais para garantir o clique e o carregamento completo do dashboard
-                setTimeout(() => { resolve(); }, 20000);
+                }, 1000);
             });`
         })
     }).then(res => res.json());
