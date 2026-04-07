@@ -878,8 +878,10 @@ async function loadWhatsAppSessions() {
 };
 
 // --- ESTADOS ---
+  // --- ESTADOS ---
   const [catalog, setCatalog] = useState<AppCatalog[]>([]);
   const [selectedApps, setSelectedApps] = useState<SelectedAppInstance[]>([]);
+  const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps
   const [showAppSelector, setShowAppSelector] = useState(false);
   const [appSearch, setAppSearch] = useState(""); // ✅ NOVO: Controle da busca
   const [notes, setNotes] = useState("");
@@ -1117,8 +1119,16 @@ useEffect(() => {
           console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
         }
         
-        // Filtra apenas os ativos para exibir no dropdown (caso a RPC traga inativos também)
+        // Filtra apenas os ativos para exibir no dropdown
         const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
+
+        // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+        const { data: appInts } = await supabaseBrowser
+          .from("app_integrations")
+          .select("app_name, api_url")
+          .eq("tenant_id", tid)
+          .eq("is_active", true);
+        if (appInts) setAppIntegrations(appInts);
 
         // 3. Tabelas de Preço
         const tRes = await supabaseBrowser
@@ -1905,6 +1915,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     setLoading(true);
     setLoadingStep("A enviar para a Extensão...");
 
+    // ✅ NOVO: Procura a URL exata deste aplicativo na lista que carregámos do banco
+    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+    const appBaseUrl = appIntegData?.api_url || "";
+
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
@@ -1930,11 +1944,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { 
-            action: `${handler.actionPrefix}_CREATE`, 
-            baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO
-            payload: payload 
-        }
+        detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } // ✅ Usa a appBaseUrl
     }));
     
     setTimeout(() => {
@@ -1969,6 +1979,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     setLoading(true);
     setLoadingStep("A remover do Painel...");
 
+    // ✅ NOVO: Procura a URL exata deste aplicativo
+    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+    const appBaseUrl = appIntegData?.api_url || "";
+
     const payloadDelete = handler.buildDeletePayload({
         username,
         macValue: getMacFromApp(currentApp)
@@ -1984,11 +1998,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { 
-            action: `${handler.actionPrefix}_DELETE`, 
-            baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO
-            payload: payloadDelete 
-        }
+        detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete } // ✅ Usa a appBaseUrl
     }));
 
     setTimeout(() => {
@@ -3119,8 +3129,12 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                 
                 // Pede o código correto usando o Salva-Vidas que acabamos de criar
                 const handler = resolveIntegration(app);
+
+                // ✅ NOVO: Procura a URL exata deste aplicativo
+                const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler?.actionPrefix?.toUpperCase());
+                const appBaseUrl = appIntegData?.api_url || "";
                 
-                if (handler && app.auto_configure !== false) {
+                if (handler && app.auto_configure !== false && appBaseUrl) {
                   try {
                     const macValueAuto = getMacFromApp(app);
                     if (!macValueAuto || macValueAuto.trim() === "") {
@@ -3152,11 +3166,7 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                         
                         window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                            detail: { 
-                                action: `${handler.actionPrefix}_CREATE`, 
-                                baseUrl: integrationBaseUrl, // ✅ ENVIANDO A URL PARA A EXTENSÃO NA AUTOMAÇÃO
-                                payload: payloadAutomacao 
-                            }
+                            detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payloadAutomacao } // ✅ Usa a appBaseUrl
                         }));
 
                         setTimeout(() => {
