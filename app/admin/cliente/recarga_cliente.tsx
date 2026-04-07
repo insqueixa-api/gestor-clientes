@@ -944,115 +944,126 @@ if (renewAutomatic && clientData?.server_id) {
 
             const provider = String(integ?.provider || "").toUpperCase();
 
-            // 1.3. Montar URL da API
-            let apiUrl = "";
-            if (provider === "FAST") apiUrl = "/api/integrations/fast/renew-client";
-            else if (provider === "NATV") apiUrl = "/api/integrations/natv/renew-client";
-            else if (provider === "ELITE") apiUrl = "/api/integrations/elite/renew"; // ✅ NOVA ROTA ELITE
-            
-            if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
+            // ✅ Pegamos o Token da sua sessão logada
+              const { data: userSess } = await supabaseBrowser.auth.getSession();
+              const token = userSess?.session?.access_token;
 
-            // 1.4. Chamar API
-            // ✅ Pegamos o Token da sua sessão logada para não dar 401 Unauthorized
-            const { data: userSess } = await supabaseBrowser.auth.getSession();
-            const token = userSess?.session?.access_token;
-
-            const apiRes = await fetch(apiUrl, {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}) // ✅ Envia o crachá
-              },
-              body: JSON.stringify({
-                tenant_id: tid, // ✅ Envia o Tenant
-                integration_id: srv.panel_integration,
-                username: clientData.username,
-                // Manda o ID se tiver, senão manda o nome pro backend caçar!
-                external_user_id: clientData.external_user_id || clientData.username, 
-                technology: finalTechnology,
-                months: monthsToRenew,
-              }),
-            });
-
-const apiJson = await apiRes.json();
-
-if (!apiRes.ok || !apiJson.ok) {
-  const errorMsg = apiJson.error || "A API do Servidor recusou a renovação.";
-  throw new Error(errorMsg);
-}
-
-            // 1.5. Atualizar com dados da API
-            let expDateISO = apiJson.data?.exp_date_iso;
-            
-            // ✅ SEGUNDA CHANCE ELITE: O painel renovou/converteu, mas não deu a data. Vamos pescar!
-            if (!expDateISO && provider === "ELITE") {
-              setLoadingText("Resgatando data real (Elite)...");
-              
-              // Delay respiratório de 1.5s
-              await new Promise(resolve => setTimeout(resolve, 1500));
-
-              try {
-                const syncRes = await fetch("/api/integrations/elite/renew/sync", {
-                  method: "POST",
-                  headers: { 
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}) 
-                  },
-                  body: JSON.stringify({
-                    integration_id: srv.panel_integration,
-                    external_user_id: clientData.external_user_id || clientData.username,
-                    username: clientData.username,
-                    technology: finalTechnology,
-                    tenant_id: tid
-                  }),
-                });
-
-                const syncJson = await syncRes.json().catch(() => null);
-                if (syncRes.ok && syncJson?.ok) {
-                  expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
+              // ====================================================================
+              // 🔴 RENOVAÇÃO ELITE (VIA EXTENSÃO)
+              // ====================================================================
+              if (provider === "ELITE") {
+                  setLoadingText("Conectando ao Elite...");
                   
-                  // Se o P2P da Elite girou uma senha nova durante a conversão, a gente captura!
-                  if (syncJson.password) {
-                    apiPassword = syncJson.password;
-                  }
+                  const credRes = await fetch("/api/integrations/elite/sync", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify({ action: "get_credentials", integration_id: srv.panel_integration }),
+                  });
+                  const credJson = await credRes.json().catch(() => ({}));
+                  if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais do Elite.");
                   
-                  // ✅ Se o Sync descobrir um ID real (muito útil na conversão de testes antigos), atualiza o cache local
-                  if (syncJson.external_user_id && !clientData.external_user_id) {
-                     clientData.external_user_id = syncJson.external_user_id;
+                  setLoadingText("Renovando no Elite...");
+
+                  await new Promise((resolve, reject) => {
+                      const evtHandler = (e: any) => {
+                          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                          if (e.detail?.ok) {
+                              const extData = e.detail.data;
+                              
+                              if (extData.id && !clientData.external_user_id) {
+                                  clientData.external_user_id = String(extData.id);
+                              }
+                              
+                              let expRaw = extData.exp_date;
+                              if (expRaw) {
+                                  if (typeof expRaw === 'number' || /^\d{10}$/.test(String(expRaw))) {
+                                      apiVencimento = new Date(Number(expRaw) * 1000).toISOString();
+                                  } else if (String(expRaw).includes("/")) {
+                                      const m = String(expRaw).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+                                      if (m) apiVencimento = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`).toISOString();
+                                  } else if (String(expRaw).includes("-") && String(expRaw).includes("T")) {
+                                      const d = new Date(String(expRaw));
+                                      if (!Number.isNaN(d.getTime())) apiVencimento = d.toISOString();
+                                  }
+                              }
+                              resolve(true);
+                          } else {
+                              reject(new Error(e.detail?.error || "A Extensão falhou ao renovar o cliente."));
+                          }
+                      };
+                      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                          detail: { 
+                              action: "ELITE_RENEW", 
+                              baseUrl: credJson.credentials.baseUrl, 
+                              username: credJson.credentials.username, 
+                              password: credJson.credentials.password,
+                              technology: finalTechnology,
+                              months: monthsToRenew,
+                              searchTarget: clientData.username,
+                              externalUserId: clientData.external_user_id || ""
+                          }
+                      }));
+                  });
+
+              } else {
+                  // ====================================================================
+                  // 🔵 RENOVAÇÃO ANTIGA (FAST / NATV) - MANTIDA INTACTA!
+                  // ====================================================================
+                  let apiUrl = "";
+                  if (provider === "FAST") apiUrl = "/api/integrations/fast/renew-client";
+                  else if (provider === "NATV") apiUrl = "/api/integrations/natv/renew-client";
+                  
+                  if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
+
+                  const apiRes = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: { 
+                      "Content-Type": "application/json",
+                      ...(token ? { Authorization: `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                      tenant_id: tid,
+                      integration_id: srv.panel_integration,
+                      username: clientData.username,
+                      external_user_id: clientData.external_user_id || clientData.username, 
+                      technology: finalTechnology,
+                      months: monthsToRenew,
+                    }),
+                  });
+
+                  const apiJson = await apiRes.json();
+
+                  if (!apiRes.ok || !apiJson.ok) {
+                    const errorMsg = apiJson.error || "A API do Servidor recusou a renovação.";
+                    throw new Error(errorMsg);
                   }
-                }
-              } catch (e) {
-                console.warn("⚠️ Falha não crítica no Sync pós-renovação Elite:", e);
+
+                  let expDateISO = apiJson.data?.exp_date_iso;
+
+                  if (expDateISO) {
+                      apiVencimento = expDateISO; 
+                  } 
+
+                  if (provider === "NATV" && apiJson.data?.password) {
+                    apiPassword = apiJson.data.password;
+                  }
+
+                  let syncUrl = "";
+                  if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
+                  else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
+                  
+                  if (syncUrl) {
+                    await fetch(syncUrl, {
+                      method: "POST",
+                      headers: { 
+                        "Content-Type": "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {})
+                      },
+                      body: JSON.stringify({ integration_id: srv.panel_integration, tenant_id: tid }),
+                    });
+                  }
               }
-            }
-
-            // Define a data final
-            if (expDateISO) {
-                apiVencimento = expDateISO; // Data absoluta do painel
-            } 
-            // Se falhar o resgate, cai no fallback seguro: a data que estava na tela do modal.
-
-            // NATV: atualiza senha / FAST: mantém intacta
-            if (provider === "NATV" && apiJson.data?.password) {
-              apiPassword = apiJson.data.password;
-            }
-
-            // 1.6. Sync créditos globais do servidor
-            let syncUrl = "";
-            if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
-            else if (provider === "NATV") syncUrl = "/api/integrations/natv/sync";
-            else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync";
-            
-            if (syncUrl) {
-              await fetch(syncUrl, {
-                method: "POST",
-                headers: { 
-                  "Content-Type": "application/json",
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}) // ✅ Crachá aqui também!
-                },
-                body: JSON.stringify({ integration_id: srv.panel_integration, tenant_id: tid }),
-              });
-            }
             // ✅ Buscar nome do servidor
 try {
   const { data: srvData } = await supabaseBrowser
