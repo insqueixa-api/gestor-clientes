@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { CookieJar } from "tough-cookie";
-import fetchCookie from "fetch-cookie";
 import * as cheerio from "cheerio";
 import { createFlareSession, requestWithFlare, destroyFlareSession } from "@/lib/api/flaresolverr";
 
@@ -18,9 +16,7 @@ function mustEnv(name: string) {
 }
 
 function normalizeBaseUrl(u: string) {
-  const s = String(u || "")
-    .trim()
-    .replace(/\/+$/, "");
+  const s = String(u || "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(s)) throw new Error("api_base_url inválida (precisa começar com http/https).");
   return s;
 }
@@ -39,7 +35,7 @@ function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v || ""));
 }
 
-async function readSafeBody(res: Response) {
+async function readSafeBody(res: any) {
   const text = await res.text();
   try {
     return { json: JSON.parse(text), text };
@@ -55,27 +51,16 @@ function pickFirst(obj: any, paths: string[]) {
     let ok = true;
     for (const k of parts) {
       if (cur && typeof cur === "object" && k in cur) cur = cur[k];
-      else {
-        ok = false;
-        break;
-      }
+      else { ok = false; break; }
     }
     if (ok && cur !== undefined && cur !== null) return cur;
   }
   return null;
 }
 
-function looksLikeLoginHtml(text: string) {
-  const t = String(text || "");
-  return /\/login\b/i.test(t) && /csrf/i.test(t);
-}
-
 function redactPreview(s: string) {
   const t = String(s || "");
-  return t
-    .replace(/("password"\s*:\s*")[^"]*(")/gi, '$1***$2')
-    .replace(/("passwordx"\s*:\s*")[^"]*(")/gi, '$1***$2')
-    .slice(0, 250);
+  return t.replace(/("password"\s*:\s*")[^"]*(")/gi, '$1***$2').replace(/("passwordx"\s*:\s*")[^"]*(")/gi, '$1***$2').slice(0, 250);
 }
 
 // ----------------- vencimento: parse + timezone -----------------
@@ -84,18 +69,13 @@ type DtParts = { year: number; month: number; day: number; hour: number; minute:
 function parseEliteDateTime(raw: unknown): DtParts | null {
   const s = String(raw ?? "").trim();
   if (!s) return null;
-
   if (/Z$|[+-]\d{2}:?\d{2}$/.test(s) || /^\d{4}-\d{2}-\d{2}T/.test(s)) return null;
 
   let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m) {
-    return { year: Number(m[3]), month: Number(m[2]), day: Number(m[1]), hour: Number(m[4] ?? 0), minute: Number(m[5] ?? 0), second: Number(m[6] ?? 0) };
-  }
+  if (m) return { year: Number(m[3]), month: Number(m[2]), day: Number(m[1]), hour: Number(m[4] ?? 0), minute: Number(m[5] ?? 0), second: Number(m[6] ?? 0) };
 
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m) {
-    return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), hour: Number(m[4] ?? 0), minute: Number(m[5] ?? 0), second: Number(m[6] ?? 0) };
-  }
+  if (m) return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), hour: Number(m[4] ?? 0), minute: Number(m[5] ?? 0), second: Number(m[6] ?? 0) };
 
   return null;
 }
@@ -133,90 +113,85 @@ function normalizeExpToUtcIso(raw: unknown, timeZone = TZ_SP): string | null {
   return null;
 }
 
-// ----------------- requests PÓS-LOGIN -----------------
-async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init: RequestInit, csrf?: string, refererPath = "/dashboard/iptv") {
-  const url = baseUrl.replace(/\/+$/, "") + pathWithQuery;
-  const refererUrl = `${baseUrl}${refererPath}`;
-
-  const headers = new Headers(init.headers || {});
-  headers.set("accept", headers.get("accept") || "application/json, text/plain, */*");
-  headers.set("x-requested-with", "XMLHttpRequest");
-  headers.set("origin", baseUrl);
-  headers.set("referer", headers.get("referer") || refererUrl);
+// ----------------- NOVO MOTOR DE REQUISIÇÃO (VIA NAVEGADOR DO FLARESOLVERR) -----------------
+async function eliteFetch(sessionId: string, baseUrl: string, pathWithQuery: string, method: "GET" | "POST" = "GET", postDataString?: string) {
+  const targetApiUrl = baseUrl.replace(/\/+$/, "") + pathWithQuery;
+  const dashboardUrl = `${baseUrl.replace(/\/+$/, "")}/dashboard`; 
   
-  // 🔥 FIX: O User-Agent DEVE ser exatamente o mesmo usado no FlareSolverr
-  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+  const divId = 'RES_' + Math.random().toString(36).substr(2, 9);
+
+  // Injetamos um script que roda um Fetch nativo DENTRO do painel Elite
+  // Assim o Cloudflare acha que é o próprio usuário clicando!
+  const evaluateScript = `new Promise(async (resolve) => {
+      try {
+          let csrf = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value || '';
+          let opts = {
+              method: "${method}",
+              headers: {
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                  "X-CSRF-TOKEN": csrf
+              }
+          };
+          if ("${method}" === "POST") {
+              opts.headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8";
+              opts.body = "${postDataString || ''}";
+          }
+          let res = await fetch("${targetApiUrl}", opts);
+          let text = await res.text();
+          
+          let div = document.createElement('div');
+          div.id = '${divId}';
+          div.innerText = JSON.stringify({ status: res.status, text: text });
+          document.body.appendChild(div);
+          resolve();
+      } catch (e) {
+          let div = document.createElement('div');
+          div.id = '${divId}';
+          div.innerText = JSON.stringify({ status: 500, text: e.toString() });
+          document.body.appendChild(div);
+          resolve();
+      }
+  });`;
+
+  const flareRes = await requestWithFlare(sessionId, dashboardUrl, evaluateScript, 60000);
+  const $ = cheerio.load(flareRes.html);
+  const resultRaw = $('#' + divId).text();
   
-  headers.set("cache-control", headers.get("cache-control") || "no-cache");
-  headers.set("pragma", headers.get("pragma") || "no-cache");
+  if (!resultRaw) {
+      throw new Error(`Cloudflare ou Timeout impediu a injeção do XHR para ${pathWithQuery}`);
+  }
 
-  if (csrf) headers.set("x-csrf-token", csrf);
+  const parsed = JSON.parse(resultRaw);
 
-  const finalInit: RequestInit = { ...init, headers, redirect: "follow" };
-  return fc(url, finalInit);
+  return {
+      ok: parsed.status >= 200 && parsed.status < 300,
+      status: parsed.status,
+      text: async () => parsed.text,
+      headers: new Headers({ "content-type": "application/json" })
+  };
 }
 
 function buildDtQuery(searchValue: string, isP2P: boolean) {
   const p = new URLSearchParams();
-  p.set("draw", "1");
-  p.set("start", "0");
-  p.set("length", "15");
+  p.set("draw", "1"); p.set("start", "0"); p.set("length", "15");
   p.set("search[value]", isP2P ? "" : searchValue); 
-  p.set("search[regex]", "false");
-  p.set("order[0][column]", "1");
-  p.set("order[0][dir]", "desc");
-  p.set("order[0][name]", "");
+  p.set("search[regex]", "false"); p.set("order[0][column]", "1"); p.set("order[0][dir]", "desc"); p.set("order[0][name]", "");
 
   const cols = isP2P
-    ? [
-        { data: "id", name: "", searchable: "false", orderable: "false" },
-        { data: "id", name: "", searchable: "true", orderable: "true" },
-        { data: "", name: "", searchable: "false", orderable: "false" },
-        { data: "name", name: "", searchable: "true", orderable: "true" },
-        { data: "email", name: "", searchable: "true", orderable: "true" },
-        { data: "exField2", name: "", searchable: "true", orderable: "true" },
-        { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" },
-        { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" },
-        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
-        { data: "exField4", name: "", searchable: "true", orderable: "true" },
-        { data: "type", name: "", searchable: "true", orderable: "true" },
-        { data: "status", name: "", searchable: "true", orderable: "true" },
-        { data: "action", name: "", searchable: "false", orderable: "false" },
-      ]
-    : [
-        { data: "", name: "", searchable: "false", orderable: "false" },
-        { data: "id", name: "", searchable: "true", orderable: "true" },
-        { data: "", name: "", searchable: "false", orderable: "false" },
-        { data: "username", name: "", searchable: "true", orderable: "true" },
-        { data: "password", name: "", searchable: "true", orderable: "true" },
-        { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" },
-        { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" },
-        { data: "max_connections", name: "", searchable: "true", orderable: "true" },
-        { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" },
-        { data: "reseller_notes", name: "", searchable: "true", orderable: "true" },
-        { data: "is_trial", name: "", searchable: "true", orderable: "true" },
-        { data: "enabled", name: "", searchable: "true", orderable: "true" },
-        { data: "", name: "", searchable: "false", orderable: "false" },
-      ];
+    ? [{ data: "id", name: "", searchable: "false", orderable: "false" }, { data: "id", name: "", searchable: "true", orderable: "true" }, { data: "", name: "", searchable: "false", orderable: "false" }, { data: "name", name: "", searchable: "true", orderable: "true" }, { data: "email", name: "", searchable: "true", orderable: "true" }, { data: "exField2", name: "", searchable: "true", orderable: "true" }, { data: "formatted_created_at", name: "regTime", searchable: "false", orderable: "true" }, { data: "formatted_exp_date", name: "endTime", searchable: "false", orderable: "true" }, { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" }, { data: "exField4", name: "", searchable: "true", orderable: "true" }, { data: "type", name: "", searchable: "true", orderable: "true" }, { data: "status", name: "", searchable: "true", orderable: "true" }, { data: "action", name: "", searchable: "false", orderable: "false" }]
+    : [{ data: "", name: "", searchable: "false", orderable: "false" }, { data: "id", name: "", searchable: "true", orderable: "true" }, { data: "", name: "", searchable: "false", orderable: "false" }, { data: "username", name: "", searchable: "true", orderable: "true" }, { data: "password", name: "", searchable: "true", orderable: "true" }, { data: "formatted_created_at", name: "created_at", searchable: "false", orderable: "true" }, { data: "formatted_exp_date", name: "exp_date", searchable: "false", orderable: "true" }, { data: "max_connections", name: "", searchable: "true", orderable: "true" }, { data: "owner_username", name: "regUser.username", searchable: "true", orderable: "false" }, { data: "reseller_notes", name: "", searchable: "true", orderable: "true" }, { data: "is_trial", name: "", searchable: "true", orderable: "true" }, { data: "enabled", name: "", searchable: "true", orderable: "true" }, { data: "", name: "", searchable: "false", orderable: "false" }];
 
-  cols.forEach((c, i) => {
-    p.set(`columns[${i}][data]`, c.data);
-    p.set(`columns[${i}][name]`, c.name);
-    p.set(`columns[${i}][searchable]`, c.searchable);
-    p.set(`columns[${i}][orderable]`, c.orderable);
-    p.set(`columns[${i}][search][value]`, "");
-    p.set(`columns[${i}][search][regex]`, "false");
-  });
-
+  cols.forEach((c, i) => { p.set(`columns[${i}][data]`, c.data); p.set(`columns[${i}][name]`, c.name); p.set(`columns[${i}][searchable]`, c.searchable); p.set(`columns[${i}][orderable]`, c.orderable); p.set(`columns[${i}][search][value]`, ""); p.set(`columns[${i}][search][regex]`, "false"); });
   return p.toString();
 }
 
-async function findTrialByNotes(fc: any, baseUrl: string, csrf: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
+async function findTrialByNotes(sessionId: string, baseUrl: string, targetToMatch: string, dashboardPath: string, isP2P: boolean) {
   const qs = buildDtQuery(targetToMatch, isP2P);
-  const r = await eliteFetch(fc, baseUrl, `${dashboardPath}?${qs}`, { method: "GET", headers: { accept: "application/json, text/javascript, */*; q=0.01" } }, csrf, dashboardPath);
+  const r = await eliteFetch(sessionId, baseUrl, `${dashboardPath}?${qs}`, "GET");
   const parsed = await readSafeBody(r);
-  if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
   
+  if (!r.ok) return { ok: false, status: r.status, raw: parsed.text?.slice(0, 900) || "" };
   const data = parsed.json?.data;
 
   if (isP2P) {
@@ -245,24 +220,17 @@ export async function POST(req: Request) {
     const isInternal = !!expectedSecret && internalSecret === expectedSecret;
 
     const token = getBearer(req);
-    if (!isInternal && !token) {
-      return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
-    }
+    if (!isInternal && !token) return NextResponse.json({ ok: false, error: "Unauthorized (missing bearer)" }, { status: 401 });
 
     const body = await req.json().catch(() => ({} as any));
     const integration_id = String(body?.integration_id || "").trim();
     if (!integration_id) return NextResponse.json({ ok: false, error: "integration_id obrigatório." }, { status: 400 });
-    if (!isUuid(integration_id)) return NextResponse.json({ ok: false, error: "integration_id inválido (não parece UUID)." }, { status: 400 });
-
+    
     const trialNotes = String(body?.notes || body?.username || "").trim();
-    if (!trialNotes) {
-      return NextResponse.json({ ok: false, error: "Informe o username ou notes para gerar o trial." }, { status: 400 });
-    }
+    if (!trialNotes) return NextResponse.json({ ok: false, error: "Informe o username ou notes para gerar o trial." }, { status: 400 });
 
     const tenantIdFromBody = String(body?.tenant_id || "").trim();
-
     const sb = createClient(mustEnv("NEXT_PUBLIC_SUPABASE_URL"), mustEnv("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
-
     let tenantIdFromToken = "";
 
     if (!isInternal) {
@@ -279,28 +247,13 @@ export async function POST(req: Request) {
     }
 
     const tenantId = tenantIdFromToken || tenantIdFromBody;
-    if (!tenantId) return NextResponse.json({ ok: false, error: "tenant_id obrigatório." }, { status: 400 });
-    if (!isUuid(tenantId)) return NextResponse.json({ ok: false, error: "tenant_id inválido." }, { status: 400 });
+    const { data: integ, error } = await sb.from("server_integrations").select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url,proxy_url").eq("id", integration_id).eq("tenant_id", tenantId).single();
 
-    const { data: integ, error } = await sb
-      .from("server_integrations")
-      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url,proxy_url")
-      .eq("id", integration_id)
-      .eq("tenant_id", tenantId)
-      .single();
-
-    if (error) throw error;
-    if (!integ) throw new Error("Integração não encontrada para este tenant.");
-
-    const provider = String((integ as any).provider || "").toUpperCase().trim();
-    if (provider !== "ELITE") throw new Error("Integração não é ELITE.");
-    if (!(integ as any).is_active) throw new Error("Integração está inativa.");
+    if (error || !integ) throw new Error("Integração não encontrada.");
+    if (String((integ as any).provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
+    if (!(integ as any).is_active) throw new Error("Integração inativa.");
 
     const reqTech = String(body?.technology || "").trim().toUpperCase();
-    if (reqTech !== "IPTV" && reqTech !== "P2P") {
-      return NextResponse.json({ ok: false, error: `Tecnologia '${reqTech}' não suportada.` }, { status: 400 });
-    }
-
     const isP2P = reqTech === "P2P";
     const dashboardPath = isP2P ? "/dashboard/p2p" : "/dashboard/iptv";
     const createApiPath = isP2P ? "/api/p2p/maketrial" : "/api/iptv/maketrial";
@@ -308,21 +261,18 @@ export async function POST(req: Request) {
     const loginUser = String((integ as any).api_token || "").trim();
     const loginPass = String((integ as any).api_secret || "").trim();
     const baseUrl = String((integ as any).api_base_url || "").trim();
+    
+    // FAXINA DE PROXY
     let proxyUrl = String((integ as any).proxy_url || "").trim();
-    // 🔥 Mágica: Remove automaticamente o "usuario:senha@" da URL se existir, mantendo só IP e Porta
     proxyUrl = proxyUrl.replace(/:\/\/[^:]+:[^@]+@/, '://');
 
-    if (!baseUrl || !loginUser || !loginPass) {
-      throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
-    }
-
+    if (!baseUrl || !loginUser || !loginPass) throw new Error("Faltam credenciais do ELITE.");
     const base = normalizeBaseUrl(baseUrl);
-    console.log(`[ELITE MAKETRIAL] Iniciando FlareSolverr para o servidor: ${loginUser}`);
     
-    // 1. Criar Sessão via LIB
+    // 1. Criar Sessão
     sessionId = await createFlareSession(proxyUrl);
 
-    // 2. Acessar a tela, logar e AGUARDAR REDIRECIONAMENTO (Dinâmico 45s)
+    // 2. Acessar a tela, logar e aguardar
     const evaluateScript = `new Promise((resolve) => {
         let tentativas = 0;
         let espiao = setInterval(() => {
@@ -347,75 +297,38 @@ export async function POST(req: Request) {
     });`;
 
     const flareRes = await requestWithFlare(sessionId, `${base}/login`, evaluateScript, 90000);
-    const htmlAposLogin = flareRes.html;
-
-    if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
-        throw new Error("O Cloudflare travou este IP no desafio. Verifique o proxy ou atualize o IP no Webshare.");
+    if (flareRes.html.toLowerCase().includes("just a moment") || flareRes.html.toLowerCase().includes("cf-turnstile")) {
+        throw new Error("Cloudflare travou a sessão.");
     }
-
-    // 3. Pegar o CSRF e Cookies (Já na página redirecionada)
-    const $ = cheerio.load(htmlAposLogin);
-    let csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
-
-    if (!csrf) {
-         const fallbackMatch = htmlAposLogin.match(/name="csrf-token"\s+content="([^"]+)"/i);
-         if (fallbackMatch && fallbackMatch[1]) csrf = fallbackMatch[1];
-    }
-
-    if (!csrf) {
-        const cleanHtml = htmlAposLogin.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                                       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                                       .replace(/<[^>]+>/g, ' ')
-                                       .replace(/\s+/g, ' ').trim();
-        throw new Error(`Sem CSRF após o redirecionamento. A tela mostrou: ${cleanHtml.substring(0, 600)}...`);
-    }
-
     trace.push({ step: "login_and_redirect_flaresolverr", ok: true });
 
-    const jar = new CookieJar();
-    if (flareRes.cookies) {
-        flareRes.cookies.forEach((c: any) => {
-            const cookieStr = `${c.name}=${c.value}; Domain=${c.domain}; Path=${c.path}`;
-            jar.setCookieSync(cookieStr, base);
-        });
-    }
-    const fc = fetchCookie(fetch, jar);
-
     // -------------------------------------------------------------
-    // FIM DA CLONAGEM DO FLARESOLVERR - Segue o fluxo normal
+    // FIM DO LOGIN - AGORA AS REQUISIÇÕES SÃO INJETADAS NO NAVEGADOR
     // -------------------------------------------------------------
 
     const reqUsername = String(body?.username || "").trim();
-
-    const createForm = new FormData();
-    createForm.set("_token", csrf);
     
+    const createParams = new URLSearchParams();
     if (isP2P) {
-      createForm.set("pacotex", "1");
+      createParams.set("pacotex", "1");
       if (reqUsername) {
-        createForm.set("username", reqUsername);
-        createForm.set("email", reqUsername); 
+        createParams.set("username", reqUsername);
+        createParams.set("email", reqUsername); 
       }
     } else {
-      createForm.set("trialx", "1");
+      createParams.set("trialx", "1");
     }
-    
-    createForm.set("trialnotes", trialNotes);
+    createParams.set("trialnotes", trialNotes);
 
-    const createRes = await eliteFetch(fc, base, createApiPath, { method: "POST", headers: { accept: "application/json" }, body: createForm }, csrf, dashboardPath);
+    // O trator injeta o POST nativamente pelo navegador fantasma
+    const createRes = await eliteFetch(sessionId, base, createApiPath, "POST", createParams.toString());
     const createParsed = await readSafeBody(createRes);
     
-    trace.push({ step: "maketrial", status: createRes.status, ct: createRes.headers.get("content-type"), finalUrl: (createRes as any)?.url || null, preview: redactPreview(createParsed.text) });
+    trace.push({ step: "maketrial", status: createRes.status, preview: redactPreview(createParsed.text) });
 
     if (!createRes.ok) {
-      // 🔥 FIX: Cuspir o erro real que o painel Elite retornou para pararmos de adivinhar
       const errorReal = String(createParsed.text || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 400);
-      return NextResponse.json({ 
-          ok: false, 
-          error: `Falha ao criar trial. Status: ${createRes.status}. Resposta do Elite: ${errorReal}`, 
-          trace,
-          details_preview: String(createParsed.text || "").slice(0, 900)
-      }, { status: 502 });
+      return NextResponse.json({ ok: false, error: `Falha ao criar trial. Status: ${createRes.status}. Elite: ${errorReal}`, trace }, { status: 502 });
     }
 
     let createdId = pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
@@ -429,7 +342,7 @@ export async function POST(req: Request) {
       const isFakeId = createdId && !/^\d+$/.test(String(createdId));
       if (!createdId || !serverUsername || !serverPassword || !expRaw || isFakeId) {
         const searchTarget = isFakeId ? String(createdId) : String(serverUsername || trialNotes);
-        const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+        const table = await findTrialByNotes(sessionId, base, searchTarget, dashboardPath, isP2P);
         trace.push({ step: "datatable_lookup_p2p", ok: table.ok, found: (table as any).found, target: searchTarget });
 
         if ((table as any).ok && (table as any).rows?.length > 0) {
@@ -444,7 +357,7 @@ export async function POST(req: Request) {
       if (createdId && !/^\d+$/.test(String(createdId))) createdId = null;
       if (!createdId || !serverUsername || !serverPassword || !expRaw) {
         const searchTarget = String(trialNotes);
-        const table = await findTrialByNotes(fc, base, csrf, searchTarget, dashboardPath, isP2P);
+        const table = await findTrialByNotes(sessionId, base, searchTarget, dashboardPath, isP2P);
         trace.push({ step: "datatable_lookup_iptv", ok: table.ok, found: (table as any).found, target: searchTarget });
 
         if ((table as any).ok && (table as any).found) {
@@ -468,15 +381,15 @@ export async function POST(req: Request) {
 
     if (!serverUsername || !serverPassword || !expRaw) {
       const detailsApiPath = isP2P ? `/api/p2p/${createdId}` : `/api/iptv/${createdId}`;
-      const detailsRes = await eliteFetch(fc, base, detailsApiPath, { method: "GET", headers: { accept: "application/json" } }, csrf, dashboardPath);
+      const detailsRes = await eliteFetch(sessionId, base, detailsApiPath, "GET");
       const detailsParsed = await readSafeBody(detailsRes);
-      trace.push({ step: "details", status: detailsRes.status, ct: detailsRes.headers.get("content-type"), preview: redactPreview(detailsParsed.text) });
+      trace.push({ step: "details", status: detailsRes.status, preview: redactPreview(detailsParsed.text) });
 
       if (detailsRes.ok) {
         const details = detailsParsed.json ?? {};
-        if (!serverUsername) serverUsername = pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username", "data.user.username"]) ?? serverUsername;
-        if (!serverPassword) serverPassword = pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password", "data.user.password"]) ?? serverPassword;
-        if (!expRaw) expRaw = pickFirst(details, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date", "data.user.exp_date", "formatted_exp_date", "data.formatted_exp_date"]) ?? expRaw;
+        if (!serverUsername) serverUsername = pickFirst(details, ["username", "name", "email", "data.username", "data.name", "user.username"]) ?? serverUsername;
+        if (!serverPassword) serverPassword = pickFirst(details, ["password", "exField2", "data.password", "data.exField2", "user.password"]) ?? serverPassword;
+        if (!expRaw) expRaw = pickFirst(details, ["exp_date", "expires_at", "data.exp_date", "data.expires_at", "user.exp_date", "formatted_exp_date"]) ?? expRaw;
       }
     }
 

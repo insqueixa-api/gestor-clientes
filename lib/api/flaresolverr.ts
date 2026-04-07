@@ -1,10 +1,6 @@
 // src/lib/api/flaresolverr.ts
-
 const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1";
 
-/**
- * 1. Cria uma sessão no FlareSolverr, injetando o Proxy (se existir)
- */
 export async function createFlareSession(proxyUrl?: string): Promise<string> {
     const payload: any = {
         cmd: "sessions.create",
@@ -30,9 +26,6 @@ export async function createFlareSession(proxyUrl?: string): Promise<string> {
     return data.session;
 }
 
-/**
- * 2. Faz a requisição usando a sessão criada, podendo executar um script JS (evaluate) na tela
- */
 export async function requestWithFlare(
     sessionId: string, 
     targetUrl: string, 
@@ -77,12 +70,8 @@ export async function requestWithFlare(
     throw new Error("Falha na solução do Cloudflare (Sem HTML retornado)");
 }
 
-/**
- * 3. Destrói a sessão para liberar memória na VM
- */
 export async function destroyFlareSession(sessionId: string) {
     if (!sessionId) return;
-    
     try {
         await fetch(FLARESOLVERR_URL, {
             method: "POST",
