@@ -310,28 +310,55 @@ async function handleSyncIntegration(server: ServerRow) {
         throw new Error(`O provedor "${provider}" não possui uma rota de sincronização. Verifique se escreveu 'ELITE' corretamente.`);
       }
 
-      addToast("success", "Sincronizando...", "Comunicando com o servidor externo via FlareSolverr.");
+      addToast("success", "Sincronizando...", "Lendo dados diretamente do painel...");
 
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ 
-          integration_id: server.panel_integration,
-          tenant_id: server.tenant_id 
-        }),
-      });
-      
-      const json = await res.json().catch(() => ({}));
-      
-      if (!res.ok || !json?.ok) {
-        // Aqui ele vai mostrar o erro do Token CSRF ou do Proxy Residencial se falhar
-        throw new Error(json?.error || "Erro na resposta da API de Integração.");
+      if (provider === "ELITE") {
+         // 1) Busca credenciais do banco
+         const credRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ action: "get_credentials", integration_id: server.panel_integration }),
+         });
+         const credJson = await credRes.json().catch(() => ({}));
+         if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais do Elite.");
+         
+         // 2) Dispara a Extensão
+         await new Promise((resolve, reject) => {
+             const evtHandler = async (e: any) => {
+                 window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                 if (e.detail?.ok) {
+                     // 3) Extensão leu com sucesso. Manda pro banco!
+                     const saveRes = await fetch(url, {
+                         method: "POST",
+                         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                         body: JSON.stringify({ action: "save_sync", integration_id: server.panel_integration, saldo: e.detail.saldo, loggedUser: e.detail.loggedUser }),
+                     });
+                     const saveJson = await saveRes.json().catch(() => ({}));
+                     if (!saveRes.ok || !saveJson?.ok) reject(new Error(saveJson?.error || "Falha ao salvar saldo do Elite."));
+                     else resolve(true);
+                 } else {
+                     reject(new Error(e.detail?.error || "A Extensão falhou ao ler o painel Elite. Verifique a aba de erros da extensão."));
+                 }
+             };
+             window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+             window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                 detail: { action: "ELITE_SYNC", baseUrl: credJson.credentials.baseUrl, username: credJson.credentials.username, password: credJson.credentials.password }
+             }));
+         });
+
+      } else {
+         // --- FLUXO ANTIGO (FAST/NATV via FlareSolverr) ---
+         const res = await fetch(url, {
+           method: "POST",
+           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+           body: JSON.stringify({ integration_id: server.panel_integration, tenant_id: server.tenant_id }), // O antigo
+         });
+         
+         const json = await res.json().catch(() => ({}));
+         if (!res.ok || !json?.ok) throw new Error(json?.error || "Erro na resposta da API de Integração.");
       }
 
       addToast("success", "Sincronizado", "Saldo e dados atualizados!");
