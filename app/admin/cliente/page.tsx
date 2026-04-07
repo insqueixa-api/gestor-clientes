@@ -1650,22 +1650,28 @@ body: JSON.stringify({
           // 1. Atualiza na UI na hora
           setAppValues(prev => ({ ...prev, [fieldKey]: appModal.clientDueDate }));
           
-          // 2. Busca os dados atuais para não apagar o partner/custo e atualiza o banco
-          supabaseBrowser.from("client_apps").select("field_values")
-              .eq("client_id", appModal.clientId)
-              .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
-                  const dbVals = data?.field_values || {};
-                  supabaseBrowser.from("client_apps").update({ 
-                      field_values: { ...dbVals, [fieldKey]: appModal.clientDueDate } 
-                  }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
-              });
-      }
+          // 2. Atualiza o banco
+              supabaseBrowser.from("client_apps").select("field_values")
+                  .eq("client_id", appModal.clientId)
+                  .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
+                      const dbVals = data?.field_values || {};
+                      supabaseBrowser.from("client_apps").update({ 
+                          field_values: { ...dbVals, [fieldKey]: "" } 
+                      }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
+                  });
+          }
 
-      setAppSaving(true);
-      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
-      const appBaseUrl = appIntegData?.api_url || "";
+          setAppSaving(true);
+          const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+          const appBaseUrl = appIntegData?.api_url || "";
 
-      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+          // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão ser cirúrgica!
+          const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+
+          const payloadDelete = handler.buildDeletePayload({
+              username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
+              macValue: getMacFromApp(appValues, appModal.app.fields_config)
+          });
       const payload = handler.buildCreatePayload({
           username: appModal.username,
           password: appModal.serverPassword,
@@ -1729,8 +1735,11 @@ body: JSON.stringify({
       const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
       const appBaseUrl = appIntegData?.api_url || "";
 
+      // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão rápida ser cirúrgica!
+      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+
       const payloadDelete = handler.buildDeletePayload({
-          username: appModal.username,
+          username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
           macValue: getMacFromApp(appValues, appModal.app.fields_config)
       });
 

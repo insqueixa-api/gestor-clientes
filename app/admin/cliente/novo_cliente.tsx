@@ -1984,23 +1984,27 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     // ✅ NOVO: Limpa a Data de Vencimento do App
-    const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-    if (dateField) {
-        const fieldKey = dateField.id || dateField.label;
-        if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), "");
-    }
+        const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+        if (dateField) {
+            const fieldKey = dateField.id || dateField.label;
+            if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), "");
+        }
 
-    setLoading(true);
-    setLoadingStep("A remover do Painel...");
+        setLoading(true);
+        setLoadingStep("A remover do Painel...");
 
-    // ✅ NOVO: Procura a URL exata deste aplicativo
-    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
-    const appBaseUrl = appIntegData?.api_url || "";
+        // ✅ RECUPERADO: Busca a URL correta do aplicativo (as linhas que tinham sumido!)
+        const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+        const appBaseUrl = appIntegData?.api_url || "";
 
-    const payloadDelete = handler.buildDeletePayload({
-        username,
-        macValue: getMacFromApp(currentApp)
-    });
+        // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão ser cirúrgica!
+        const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+        const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
+
+        const payloadDelete = handler.buildDeletePayload({
+            username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
+            macValue: getMacFromApp(currentApp)
+        });
 
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
