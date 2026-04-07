@@ -237,9 +237,36 @@ const fieldsText = fields
         fieldsText.includes(q)
       );
     });
-  }, 
+  }, [search, apps]);
+  
+  // ✅ NOVO: Estado para controlar quais grupos estão minimizados/fechados
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-[search, apps]);
+  const toggleGroup = (groupName: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }));
+  };
+
+  // ✅ NOVO: Lógica que agrupa os apps filtrados por Família de Integração
+  const groupedApps = React.useMemo(() => {
+    const groups: Record<string, AppData[]> = {};
+    
+    filteredApps.forEach(app => {
+      // Se não tiver integração, vai para a pasta "SEM_INTEGRACAO"
+      const family = app.integration_type || "SEM_INTEGRACAO";
+      if (!groups[family]) groups[family] = [];
+      groups[family].push(app);
+    });
+
+    // Ordena os grupos: Integrados em ordem alfabética primeiro, Não Integrados no final
+    const sortedFamilies = Object.keys(groups).sort((a, b) => {
+      if (a === "SEM_INTEGRACAO") return 1;
+      if (b === "SEM_INTEGRACAO") return -1;
+      return a.localeCompare(b);
+    });
+
+    return { groups, sortedFamilies };
+  }, [filteredApps]);
+
   // PARA:
   // Pai = tenant que não tem apps herdados de ninguém
   const isRootTenant = !apps.some(a => a.tenant_id !== myTenantId);
@@ -542,7 +569,7 @@ return (
 
       {/* LISTAGEM */}
       {loading ? (
-        <div className="text-center py-10 text-slate-400">Carregando aplicativos...</div>
+        <div className="text-center py-10 text-slate-400 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">Carregando aplicativos...</div>
       ) : filteredApps.length === 0 ? (
         <div className="text-center py-10 text-slate-400 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
           {apps.length === 0
@@ -552,10 +579,49 @@ return (
               : "Nenhum aplicativo para exibir."}
         </div>
       ) : (
-        <div className="px-3 sm:px-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {filteredApps.map((app) => renderAppCard(app))}
-          </div>
+        <div className="px-3 sm:px-0 space-y-6">
+          {groupedApps.sortedFamilies.map(family => {
+            const appsInFamily = groupedApps.groups[family];
+            const isCollapsed = collapsedGroups[family];
+            
+            const isIntegrated = family !== "SEM_INTEGRACAO";
+            const familyName = isIntegrated ? (family === "GERENCIAAPP" ? "GerenciaApp" : family) : "Outros (Sem Integração Automática)";
+            const familyIcon = isIntegrated ? "⚡" : "📁";
+
+            return (
+              <div key={family} className="space-y-3">
+                
+                {/* Header da "Sanfona" (Família) */}
+                <div 
+                  className="flex items-center justify-between cursor-pointer border-b border-slate-200 dark:border-white/10 pb-2 group select-none transition-colors hover:border-emerald-500/50"
+                  onClick={() => toggleGroup(family)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{familyIcon}</span>
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-white uppercase tracking-wider">
+                      Família: {familyName}
+                    </h2>
+                    <span className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {appsInFamily.length} {appsInFamily.length > 1 ? "Apps" : "App"}
+                    </span>
+                  </div>
+                  
+                  <button className="text-slate-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors p-1" title={isCollapsed ? "Expandir" : "Minimizar"}>
+                    <svg className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Grid de Cards da Família */}
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
+                    {appsInFamily.map((app) => renderAppCard(app))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div className="h-24 md:h-20" />
         </div>
       )}
