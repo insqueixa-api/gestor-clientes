@@ -423,26 +423,54 @@ export async function POST(req: Request) {
     trace.push({ step: "login_flaresolverr", ok: true });
 
     // ==========================================
-    // 3. Pegar o CSRF e Cookies direto do resultado do Login
+    // 3. Estratégia Dupla: Pegar o CSRF (Login ou Dashboard com espera)
     // ==========================================
-    // Como o FlareSolverr aguardou 15 segundos após o clique, a página já redirecionou para o painel.
-    // O token já está no HTML (<meta name="csrf-token">), não precisamos fazer outra requisição!
-    const $ = cheerio.load(htmlAposLogin);
-    
-    // Procura no meta tag (que vimos no log que você mandou) ou num possível input escondido
-    const csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
+    let $ = cheerio.load(htmlAposLogin);
+    let csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
+    let sourceCookies = loginAutomaticoRes.solution?.cookies || [];
 
-    if (!csrf) {
-        throw new Error("Login FlareSolverr passou do Cloudflare, mas não achou o token CSRF no HTML final. Painel pode ter recusado usuário/senha.");
+    if (csrf) {
+        trace.push({ step: "csrf_extracted_from_login", ok: true });
+    } else {
+        console.log(`[ELITE] CSRF não encontrado no login. Navegando para ${dashboardPath} e aguardando Cloudflare...`);
+        trace.push({ step: "csrf_not_in_login_fetching_dashboard", path: dashboardPath });
+        
+        const targetDashboardUrl = `${base}${dashboardPath}`;
+        const dashboardRes = await fetch(FLARESOLVERR_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cmd: "request.get",
+                session: sessionId,
+                url: targetDashboardUrl,
+                maxTimeout: 60000,
+                evaluate: `new Promise((resolve) => {
+                    // Aguarda 10 segundos para passar por qualquer validação intersticial do Cloudflare
+                    setTimeout(() => { resolve(); }, 10000); 
+                });`
+            })
+        }).then(res => res.json());
+
+        if (dashboardRes.status !== "ok") throw new Error(`Falha GET Dashboard: ${dashboardRes.message}`);
+
+        const dashboardHtml = dashboardRes.solution?.response || "";
+        $ = cheerio.load(dashboardHtml);
+        csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
+
+        if (!csrf) {
+            throw new Error(`Não achei o token CSRF nem no login nem em ${dashboardPath} após aguardar. Login falhou ou Cloudflare bloqueou.`);
+        }
+        
+        sourceCookies = dashboardRes.solution?.cookies || [];
+        trace.push({ step: "csrf_extracted_from_dashboard", path: dashboardPath, ok: true });
     }
-    trace.push({ step: "csrf_extracted_from_login", ok: true });
 
     // ==========================================
-    // 4. Passar Cookies para o fetch-cookie (para o resto funcionar sem mudar nada)
+    // 4. Passar Cookies para o fetch-cookie
     // ==========================================
     const jar = new CookieJar();
-    if (loginAutomaticoRes.solution?.cookies) {
-        loginAutomaticoRes.solution.cookies.forEach((c: any) => {
+    if (sourceCookies && sourceCookies.length) {
+        sourceCookies.forEach((c: any) => {
             const cookieStr = `${c.name}=${c.value}; Domain=${c.domain}; Path=${c.path}`;
             jar.setCookieSync(cookieStr, base);
         });
