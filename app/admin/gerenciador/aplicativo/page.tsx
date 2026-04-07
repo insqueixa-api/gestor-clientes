@@ -88,7 +88,8 @@ function normalizeApiUrl(url: string) {
 export default function AppManagerPage() {
 const [apps, setApps] = useState<AppData[]>([]);
 const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
-const [configuredIntegrations, setConfiguredIntegrations] = useState<string[]>([]);
+// ✅ Agora guardamos a URL além do nome da integração
+const [configuredIntegrations, setConfiguredIntegrations] = useState<{name: string, url: string}[]>([]);
 const [search, setSearch] = useState("");
 const [loading, setLoading] = useState(true);
 const [isModalOpen, setIsModalOpen] = useState(false);
@@ -141,6 +142,15 @@ const [editingId, setEditingId] = useState<string | null>(null);
   const [formIntegration, setFormIntegration] = useState<string>("");
   const dragIndexRef = useRef<number | null>(null);
   
+  // ✅ Verifica se a integração selecionada possui URL configurada
+  const selectedIntegrationConfig = configuredIntegrations.find(i => i.name === formIntegration);
+  const isUrlLocked = !!selectedIntegrationConfig && !!selectedIntegrationConfig.url;
+
+  useEffect(() => {
+    if (isUrlLocked) {
+      setFormUrl(selectedIntegrationConfig.url);
+    }
+  }, [formIntegration, isUrlLocked, selectedIntegrationConfig]);
 
   // --- TOAST (COM AUTO-CLOSE CORRIGIDO) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -172,27 +182,28 @@ const [editingId, setEditingId] = useState<string | null>(null);
       setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
 
       // 1. Carrega Apps e Integrações em paralelo
-      const [appsRes, integrationsRes] = await Promise.all([
-        supabaseBrowser.rpc("get_my_visible_apps").order("name", { ascending: true }),
-        supabaseBrowser
-          .from("app_integrations")
-          .select("app_name")
-          .eq("tenant_id", tid)
-          .eq("is_active", true) // Só conta se estiver ativa
-      ]);
+      const [appsRes, integrationsRes] = await Promise.all([
+        supabaseBrowser.rpc("get_my_visible_apps").order("name", { ascending: true }),
+        supabaseBrowser
+          .from("app_integrations")
+          .select("app_name, api_url") // ✅ Busca a URL também
+          .eq("tenant_id", tid)
+          .eq("is_active", true) // Só conta se estiver ativa
+      ]);
 
-      if (appsRes.error) throw appsRes.error;
-      if (integrationsRes.error) throw integrationsRes.error;
+      if (appsRes.error) throw appsRes.error;
+      if (integrationsRes.error) throw integrationsRes.error;
 
 const formattedApps = (appsRes.data || [])
-  .map((app) => ({
-    ...app,
-    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  .map((app) => ({
+    ...app,
+    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 
 setApps(formattedApps);
-setConfiguredIntegrations(integrationsRes.data?.map(i => i.app_name) || []);
+// ✅ Salva o nome e a URL no estado
+setConfiguredIntegrations(integrationsRes.data?.map(i => ({ name: i.app_name, url: i.api_url || "" })) || []);
 
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
@@ -391,7 +402,8 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  const needsConfiguration = app.integration_type && !configuredIntegrations.includes(app.integration_type);
+  // ✅ Atualizado para o novo formato do array de integrações
+  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
   const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
 
   return (
@@ -587,7 +599,14 @@ return (
                     placeholder="https://..." 
                     value={formUrl} 
                     onChange={(e) => setFormUrl(e.target.value)} 
+                    disabled={isUrlLocked} // ✅ Bloqueia edição se a integração tiver a URL
+                    className={isUrlLocked ? "opacity-60 cursor-not-allowed" : ""}
                   />
+                  {isUrlLocked && (
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
+                      URL gerenciada automaticamente pela integração.
+                    </p>
+                  )}
                 </div>
               </div>
 
