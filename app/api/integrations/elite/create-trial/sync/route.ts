@@ -113,7 +113,10 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
   headers.set("referer", headers.get("referer") || `${baseUrl}${dashboardPath}`);
-  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
+  
+  // 🔥 FIX: O User-Agent DEVE ser exatamente o mesmo usado no FlareSolverr
+  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+  
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
   if (csrf) headers.set("x-csrf-token", csrf);
@@ -206,7 +209,7 @@ export async function POST(req: Request) {
     const loginUser = safeString((integ as any).api_token);
     const loginPass = safeString((integ as any).api_secret);
     const baseUrl = safeString((integ as any).api_base_url);
-    const proxyUrl = "http://198.145.103.185:6442";
+    const proxyUrl = safeString((integ as any).proxy_url);
 
     if (!baseUrl || !loginUser || !loginPass) throw new Error("ELITE exige api_base_url + usuário + senha.");
     const base = normalizeBaseUrl(baseUrl);
@@ -374,10 +377,11 @@ export async function POST(req: Request) {
       const updLooksLogin = looksLikeLoginHtml(updText) || /<html/i.test(updText);
 
       if (!updRes.ok || updLooksLogin) {
+        const errorReal = String(updText).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 400);
         return NextResponse.json({
           ok: true, provider: "ELITE", synced: true, renamed: false, external_user_id: String(external_user_id), notes,
           username: String(currentUsername || ""), server_username: String(currentUsername || ""), password: String(currentPassword || rowFromTable?.password || ""),
-          expires_at_sp: expSpText || null, expires_at_iso: expIso || null, note: "Update de username não confirmou. Mantive sync sem renomear.", trace, update_preview: updText.slice(0, 900), update_json: updParsed.json ?? null
+          expires_at_sp: expSpText || null, expires_at_iso: expIso || null, note: `Update de username não confirmou. Status: ${updRes.status}. Resposta: ${errorReal}`, trace, update_preview: updText.slice(0, 900), update_json: updParsed.json ?? null
         });
       }
 

@@ -143,7 +143,10 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
   headers.set("referer", headers.get("referer") || refererUrl);
-  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
+  
+  // 🔥 FIX: O User-Agent DEVE ser exatamente o mesmo usado no FlareSolverr
+  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+  
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
 
@@ -305,7 +308,7 @@ export async function POST(req: Request) {
     const loginUser = String((integ as any).api_token || "").trim();
     const loginPass = String((integ as any).api_secret || "").trim();
     const baseUrl = String((integ as any).api_base_url || "").trim();
-    const proxyUrl = "http://198.145.103.185:6442";
+    const proxyUrl = String((integ as any).proxy_url || "").trim();
 
     if (!baseUrl || !loginUser || !loginPass) {
       throw new Error("ELITE exige api_base_url + usuário (api_token) + senha (api_secret).");
@@ -403,8 +406,14 @@ export async function POST(req: Request) {
     trace.push({ step: "maketrial", status: createRes.status, ct: createRes.headers.get("content-type"), finalUrl: (createRes as any)?.url || null, preview: redactPreview(createParsed.text) });
 
     if (!createRes.ok) {
-      const hint = looksLikeLoginHtml(createParsed.text) ? " (parece redirect/login → CSRF/referer)" : "";
-      return NextResponse.json({ ok: false, error: `Elite maketrial failed${hint}`, trace, details_preview: String(createParsed.text || "").slice(0, 900) }, { status: 502 });
+      // 🔥 FIX: Cuspir o erro real que o painel Elite retornou para pararmos de adivinhar
+      const errorReal = String(createParsed.text || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 400);
+      return NextResponse.json({ 
+          ok: false, 
+          error: `Falha ao criar trial. Status: ${createRes.status}. Resposta do Elite: ${errorReal}`, 
+          trace,
+          details_preview: String(createParsed.text || "").slice(0, 900)
+      }, { status: 502 });
     }
 
     let createdId = pickFirst(createParsed.json, ["id", "user_id", "data.id", "data.user_id", "user.id"]) ?? null;
