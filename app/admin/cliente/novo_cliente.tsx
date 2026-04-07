@@ -1929,13 +1929,25 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
+    // ✅ NOVO: Verifica e resolve o link M3U antes de mandar para o painel do App!
+    let m3uToSend = m3uUrl.trim();
+    if (!m3uToSend) {
+        m3uToSend = buildM3uUrlSilent();
+        if (!m3uToSend) {
+            addToast("warning", "Link M3U Pendente", "Não foi possível gerar o link M3U. Preencha o usuário e selecione o servidor.");
+            setLoading(false);
+            return;
+        }
+        setM3uUrl(m3uToSend); // Já atualiza o campo visualmente na tela para você ver
+    }
+
     // 2. Constrói o pacote com o arquivo isolado do app
     const payload = handler.buildCreatePayload({
         username,
         password,
         macValue,
         finalServerName,
-        m3uUrl
+        m3uUrl: m3uToSend // ✅ Envia o link M3U garantido!
     });
 
     const responseHandler = (e: any) => {
@@ -2336,606 +2348,274 @@ serverName = servers.find((s) => s.id === serverId)?.name || "Servidor";
 
 
 
-      // 3. Montar URL da API (Apenas Testes usam API agora)
-      apiUrl = "";
+      // ====================================================================
+      // 🔴 NOVA INTEGRAÇÃO ELITE (VIA EXTENSÃO)
+      // ====================================================================
+      if (provider === "ELITE") {
+          setLoadingStep("Conectando ao Elite...");
+          
+          const { data: sess } = await supabaseBrowser.auth.getSession();
+          const token = sess?.session?.access_token;
+          
+          // 1. Busca credenciais via API
+          const credRes = await fetch("/api/integrations/elite/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              body: JSON.stringify({ action: "get_credentials", integration_id: srv.panel_integration }),
+          });
+          const credJson = await credRes.json().catch(() => ({}));
+          if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais do Elite.");
+          
+          // 2. Prepara os dados pro painel
+          let cleanDesired = apiUsername.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "");
+          if (cleanDesired.length < 12) {
+              const pad = 12 - cleanDesired.length;
+              const rnd = Math.floor(Math.random() * Math.pow(10, pad)).toString().padStart(pad, "0");
+              cleanDesired += rnd;
+          }
+          cleanDesired = cleanDesired.slice(0, 32);
+          const safeNotes = notes?.trim() ? notes.trim() : apiUsername;
 
-      if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
-      else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
-      else if (provider === "ELITE") apiUrl = "/api/integrations/elite/create-trial";
+          setLoadingStep("Criando teste via Extensão...");
 
-      if (!apiUrl) {
-        throw new Error("Provider não suportado para integração automática de testes.");
-      }
-
-
-
-      // 4. Montar payload
-
-      const apiPayload: any = {
-
-        integration_id: srv.panel_integration,
-
-        tenant_id: tid, // ✅ INCLUÍDO: O Elite exige o envio explícito do tenant_id
-
-        username: apiUsername,
-
-        password: apiPassword || undefined,
-
-
-
-        // ✅ NOVO: manda a tecnologia que o usuário escolheu no modal
-
-        technology: finalTechnology,
-
-
-
-        // ✅ opcional (se você quiser já usar no create-trial sem depender do sync)
-
-        notes: notes?.trim() ? notes.trim() : null,
-
-      };
-
-
-
-      if (isTrialMode) {
-
-        apiPayload.hours = testHours;
+          // 3. Dispara a extensão
+          await new Promise((resolve, reject) => {
+              const evtHandler = (e: any) => {
+                  window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                  if (e.detail?.ok) {
+                      const extData = e.detail.data;
+                      apiUsername = extData.username;
+                      apiPassword = extData.password;
+                      apiExternalUserId = String(extData.id);
+                      setExternalUserId(apiExternalUserId);
+                      
+                      // Ajuste de data
+                      let expRaw = extData.exp_date;
+                      if (expRaw) {
+                          if (typeof expRaw === 'number' || /^\d{10}$/.test(String(expRaw))) {
+                              apiVencimento = new Date(Number(expRaw) * 1000).toISOString();
+                          } else {
+                              const m = String(expRaw).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+                              if (m) {
+                                  apiVencimento = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`).toISOString();
+                              }
+                          }
+                      }
+                      
+                      setUsername(apiUsername);
+                      setPassword(apiPassword);
+                      
+                      queueListToast("trial", {
+                          type: "success",
+                          title: "🎉 Teste Automático!",
+                          message: `Teste Elite criado com sucesso no servidor ${serverName}.`,
+                      });
+                      resolve(true);
+                  } else {
+                      reject(new Error(e.detail?.error || "A Extensão falhou ao criar o teste."));
+                  }
+              };
+              window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+              window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                  detail: { 
+                      action: "ELITE_CREATE_TRIAL", 
+                      baseUrl: credJson.credentials.baseUrl, 
+                      username: credJson.credentials.username, 
+                      password: credJson.credentials.password,
+                      technology: finalTechnology,
+                      desiredUsername: cleanDesired,
+                      notes: safeNotes
+                  }
+              }));
+          });
 
       } else {
-
-        apiPayload.months = PLAN_MONTHS[selectedPlanPeriod] || 1;
-
-        apiPayload.screens = Number(screens);
-
-      }
-
-
-
-// 5) Chamar API (com leitura segura + suporte a formatos diferentes)
-
-      setLoadingStep("Conectando..."); // ✅
-
-      const { data: sess, error: sessErr } = await supabaseBrowser.auth.getSession();
-
-const token = sess?.session?.access_token;
-
-
-
-if (sessErr) throw new Error(`Sessão inválida: ${sessErr.message}`);
-
-if (!token) throw new Error("Sem sessão ativa. Recarregue a página e faça login novamente.");
-
-
-
-const apiRes = await fetch(apiUrl, {
-
-  method: "POST",
-
-  credentials: "include", // ✅ garante cookies se sua rota usa createRouteHandlerClient
-
-  headers: {
-
-    "Content-Type": "application/json",
-
-    Authorization: `Bearer ${token}`, // ✅ sempre manda
-
-  },
-
-  body: JSON.stringify(apiPayload),
-
-});
-
-
-
-const apiText = await apiRes.text();
-
-
-
-// parse seguro
-
-let apiJson: any = null;
-
-try {
-
-  apiJson = apiText ? JSON.parse(apiText) : null;
-
-} catch {
-
-  apiJson = null;
-
-}
-
-
-
-// ✅ aceita variações comuns: ok / success / status
-
-const okFlag =
-
-  Boolean(apiJson?.ok) ||
-
-  Boolean(apiJson?.success) ||
-
-  String(apiJson?.status || "").toLowerCase() === "ok";
-
-
-
-// se não ok, tenta extrair erro do JSON, senão usa o texto bruto
-
-if (!apiRes.ok || !okFlag) {
-
-  const errMsg =
-
-    apiJson?.error ||
-
-    apiJson?.message ||
-
-    (apiText && apiText.slice(0, 300)) ||
-
-    `Falha integração (HTTP ${apiRes.status})`;
-
-
-
-  throw new Error(errMsg);
-
-}
-
-
-
-      // ✅ Normaliza retorno:
-
-      // - Alguns endpoints retornam { ok:true, data:{...} }
-
-      // - O seu ELITE create-trial retorna { ok:true, username, password, ... } (sem data)
-
-      const apiData =
-
-        apiJson &&
-
-        typeof apiJson === "object" &&
-
-        apiJson.data &&
-
-        typeof apiJson.data === "object"
-
-          ? apiJson.data
-
-          : apiJson;
-
-
-
-      // 6) Atualizar dados com resposta (sem quebrar se algum campo não vier)
-
-      const nextUsername = apiData?.username != null ? String(apiData.username) : "";
-
-      const nextPassword = apiData?.password != null ? String(apiData.password) : "";
-
-      const nextM3u =
-
-  apiData?.m3u_url != null
-
-    ? String(apiData.m3u_url)
-
-    : apiData?.m3uUrl != null
-
-      ? String(apiData.m3uUrl)
-
-      : "";
-
-
-
-const nextExternalUserIdRaw =
-
-  apiData?.external_user_id ??
-
-  apiData?.externalUserId ??
-
-  apiData?.external_id ??
-
-  apiData?.user_id ??
-
-  apiData?.id ??
-
-  "";
-
-
-
-const nextExternalUserId = String(nextExternalUserIdRaw || "").trim();
-
-
-
-if (nextUsername) apiUsername = nextUsername;
-
-if (nextPassword) apiPassword = nextPassword;
-
-if (nextM3u) apiM3uUrl = nextM3u;
-
-
-
-if (nextExternalUserId) {
-
-  apiExternalUserId = nextExternalUserId;
-
-  setExternalUserId(nextExternalUserId); // ✅ reflete na UI/estado
-
-}
-
-
-
-      // ✅ Log higienizado: removemos o "password" para não vazar no console (F12)
-      console.log("🔵 Dados recebidos da API:", {
-        username: apiUsername,
-        m3u_url: apiM3uUrl,
-        exp_date: apiData?.exp_date,
-      });
-
-// ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
-
-      if (apiPassword) setPassword(apiPassword);
-
-      if (apiM3uUrl) setM3uUrl(apiM3uUrl);
-
-
-
-      // exp_date pode vir em segundos OU ms (blindagem)
-
-      const expRaw = apiData?.exp_date ?? null;
-
-      if (expRaw != null) {
-
-        const n = Number(expRaw);
-
-        if (Number.isFinite(n) && n > 0) {
-
-          const ms = n > 1e12 ? n : n * 1000; // se já vier em ms, não multiplica
-
-          const expDate = new Date(ms);
-
-          if (Number.isFinite(expDate.getTime())) {
-
-            apiVencimento = expDate.toISOString();
-
+          // ====================================================================
+          // 🔵 INTEGRAÇÕES ANTIGAS (FAST / NATV) - INTACTAS!
+          // ====================================================================
+          
+          // 3. Montar URL da API (Apenas Testes usam API agora)
+          apiUrl = "";
+    
+          if (provider === "FAST") apiUrl = "/api/integrations/fast/create-trial";
+          else if (provider === "NATV") apiUrl = "/api/integrations/natv/create-trial";
+    
+          if (!apiUrl) {
+            throw new Error("Provider não suportado para integração automática de testes.");
           }
-
-        }
-
-      }
-
-
-
-            // ✅ 6.1) TRIAL ELITE: Toast "Teste criado" + Sync de normalização (username/vencimento) UMA ÚNICA VEZ
-
-      if (isTrialMode && provider === "ELITE") {
-
-        // 1) Toast: teste criado OK (após create-trial)
-
-        queueListToast("trial", {
-
-          type: "success",
-
-          title: "Teste criado",
-
-          message: `Teste criado no servidor ${serverName}.`,
-
-        });
-
-
-
-// 2) Chamar /elite/create-trial/sync para normalizar username + vencimento
-
-        try {
-
-          setLoadingStep("Sincronizando..."); // ✅
-
-          const syncTrialUrl = "/api/integrations/elite/create-trial/sync";
-
-
-
-const syncTrialRes = await fetch(syncTrialUrl, {
-
-            method: "POST",
-
-            credentials: "include",
-
-            headers: {
-
-              "Content-Type": "application/json",
-
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-
-            },
-
-body: JSON.stringify({
-
-              ...apiPayload, // Mantém integração, notas, etc.
-
-              external_user_id: apiExternalUserId, // ✅ CRÍTICO: O ID retornado pelo create-trial
-
-              desired_username: username,          // ✅ O nome que você digitou (ex: MarcioNaTV)
-
-              username: apiUsername,               // O nome numérico (ex: 199797...)
-
-              server_username: apiUsername,        // ✅ NOVO: Chave para o fallback do banco buscar o cliente
-
-              client_id: clientId,                 // ✅ NOVO: Chave para o fallback do banco buscar o cliente
-
-              technology: finalTechnology          // ✅ IPTV ou P2P para o roteamento
-
-            }),
-
-          });
-
-
-
-          const syncTrialText = await syncTrialRes.text();
-
-
-
-          let syncTrialJson: any = null;
-
-          try {
-
-            syncTrialJson = syncTrialText ? JSON.parse(syncTrialText) : null;
-
-          } catch {
-
-            syncTrialJson = null;
-
-          }
-
-
-
-          const syncOkFlag =
-
-            Boolean(syncTrialJson?.ok) ||
-
-            Boolean(syncTrialJson?.success) ||
-
-            String(syncTrialJson?.status || "").toLowerCase() === "ok";
-
-
-
-          if (!syncTrialRes.ok || !syncOkFlag) {
-
-            const errMsg =
-
-              syncTrialJson?.error ||
-
-              syncTrialJson?.message ||
-
-              (syncTrialText && syncTrialText.slice(0, 300)) ||
-
-              `Falha sync trial ELITE (HTTP ${syncTrialRes.status})`;
-
-
-
-            throw new Error(errMsg);
-
-          }
-
-
-
-          // Aceita { ok:true, data:{...} } ou { ok:true, ... }
-
-          const syncData =
-
-            syncTrialJson &&
-
-            typeof syncTrialJson === "object" &&
-
-            syncTrialJson.data &&
-
-            typeof syncTrialJson.data === "object"
-
-              ? syncTrialJson.data
-
-              : syncTrialJson;
-
-
-
-          // aplica retorno se vier
-
-          const sUser = syncData?.username != null ? String(syncData.username).trim() : "";
-
-          const sPass = syncData?.password != null ? String(syncData.password) : "";
-
-          const sM3u =
-
-            syncData?.m3u_url != null
-
-              ? String(syncData.m3u_url)
-
-              : syncData?.m3uUrl != null
-
-                ? String(syncData.m3uUrl)
-
-                : "";
-
-
-
-          if (sUser) apiUsername = sUser;
-
-          if (sPass) apiPassword = sPass;
-
-          if (sM3u) apiM3uUrl = sM3u;
-
-
-
-          // exp_date pode vir em segundos ou ms
-
-          const exp2 = syncData?.exp_date ?? null;
-
-          if (exp2 != null) {
-
-            const n2 = Number(exp2);
-
-            if (Number.isFinite(n2) && n2 > 0) {
-
-              const ms2 = n2 > 1e12 ? n2 : n2 * 1000;
-
-              const dt2 = new Date(ms2);
-
-              if (Number.isFinite(dt2.getTime())) {
-
-                apiVencimento = dt2.toISOString();
-
-
-
-                // ✅ reflete na UI (opcional, mas ajuda a ver que “corrigiu”)
-
-                setDueDate(`${dt2.getFullYear()}-${pad2(dt2.getMonth() + 1)}-${pad2(dt2.getDate())}`);
-
-                setDueTime(`${pad2(dt2.getHours())}:${pad2(dt2.getMinutes())}`);
-
-              }
-
-            }
-
-          }
-
-
-
-          // ✅ reflete na UI imediatamente
-
-          if (apiUsername) setUsername(apiUsername);
-
-          if (apiPassword) setPassword(apiPassword);
-
-          if (apiM3uUrl) setM3uUrl(apiM3uUrl);
-
-
-
-          // 3) Toast: dados sincronizados OK
-
-          queueListToast("trial", {
-
-            type: "success",
-
-            title: "Dados sincronizados",
-
-            message: `Dados sincronizados com servidor ${serverName}.`,
-
-          });
-
-        } catch (syncErr: any) {
-
-          const msg = String(syncErr?.message || syncErr || "").trim();
-
-
-
-          queueListToast("trial", {
-
-            type: "error",
-
-            title: "Falha ao sincronizar",
-
-            message: `Teste criado, mas a sincronização falhou${msg ? `: ${msg}` : ""}.`,
-
-          });
-
-        }
-
-      }
-
-
-
-      // 7) Sync (atualizar saldo do servidor) — mantém como estava
-
-      const syncUrl =
-
-        provider === "FAST"
-
-          ? "/api/integrations/fast/sync"
-
-          : provider === "NATV"
-
-            ? "/api/integrations/natv/sync"
-
-            : provider === "ELITE"
-
-              ? "/api/integrations/elite/sync"
-
-              : "";
-
-
-
-      if (syncUrl) {
-
-        const syncRes = await fetch(syncUrl, {
-
-          method: "POST",
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-
-          },
-
-body: JSON.stringify({ 
-
+    
+          // 4. Montar payload
+          const apiPayload: any = {
             integration_id: srv.panel_integration,
-
-            external_user_id: apiExternalUserId, // ✅ O ID gerado na criação (Ex: 5672425)
-
-            desired_username: username,          // ✅ O nome "bonito" que você digitou na tela
-
-            username: apiUsername,               // ✅ O nome "feio" que o painel devolveu primeiro
-
-            server_username: apiUsername,        // ✅ NOVO: Chave para o fallback do banco buscar o cliente
-
-            client_id: clientId,                 // ✅ NOVO: Chave para o fallback do banco buscar o cliente
-
+            tenant_id: tid,
+            username: apiUsername,
+            password: apiPassword || undefined,
+            technology: finalTechnology,
             notes: notes?.trim() ? notes.trim() : null,
-
-            technology: finalTechnology          // ✅ A CHAVE MESTRA: "IPTV" ou "P2P"
-
-          }),
-
-        });
-
-
-
-        if (!syncRes.ok) {
-
-          const t = await syncRes.text().catch(() => "");
-
-          console.warn("⚠️ Sync falhou:", syncRes.status, t);
-
-        } else {
-
-          // Se o Sync der certo, podemos pegar os dados atualizados para salvar bonito no banco local
-
-          const syncData = await syncRes.json().catch(() => ({}));
-
-          if (syncData?.username) apiUsername = syncData.username;
-
-          if (syncData?.password) apiPassword = syncData.password;
-
-          if (syncData?.expires_at_iso) apiVencimento = syncData.expires_at_iso;
-
-        }
-
-      }
-
-
-
-      // ✅ ENFILEIRAR Toast de sucesso da API (Agora é exclusivo de Testes)
-      // (no TRIAL + ELITE, você já terá os 2 toasts: "Teste criado" e "Dados sincronizados")
-      if (!(provider === "ELITE")) {
-        queueListToast("trial", {
-          type: "success",
-          title: "🎉 Teste Automático!",
-          message: `Teste criado com sucesso no servidor ${serverName}.`,
-        });
+          };
+    
+          if (isTrialMode) {
+            apiPayload.hours = testHours;
+          } else {
+            apiPayload.months = PLAN_MONTHS[selectedPlanPeriod] || 1;
+            apiPayload.screens = Number(screens);
+          }
+    
+          // 5) Chamar API (com leitura segura + suporte a formatos diferentes)
+          setLoadingStep("Conectando..."); // ✅
+          const { data: sess, error: sessErr } = await supabaseBrowser.auth.getSession();
+          const token = sess?.session?.access_token;
+    
+          if (sessErr) throw new Error(`Sessão inválida: ${sessErr.message}`);
+          if (!token) throw new Error("Sem sessão ativa. Recarregue a página e faça login novamente.");
+    
+          const apiRes = await fetch(apiUrl, {
+            method: "POST",
+            credentials: "include", // ✅ garante cookies se sua rota usa createRouteHandlerClient
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`, // ✅ sempre manda
+            },
+            body: JSON.stringify(apiPayload),
+          });
+    
+          const apiText = await apiRes.text();
+    
+          // parse seguro
+          let apiJson: any = null;
+          try {
+            apiJson = apiText ? JSON.parse(apiText) : null;
+          } catch {
+            apiJson = null;
+          }
+    
+          // ✅ aceita variações comuns: ok / success / status
+          const okFlag =
+            Boolean(apiJson?.ok) ||
+            Boolean(apiJson?.success) ||
+            String(apiJson?.status || "").toLowerCase() === "ok";
+    
+          // se não ok, tenta extrair erro do JSON, senão usa o texto bruto
+          if (!apiRes.ok || !okFlag) {
+            const errMsg =
+              apiJson?.error ||
+              apiJson?.message ||
+              (apiText && apiText.slice(0, 300)) ||
+              `Falha integração (HTTP ${apiRes.status})`;
+    
+            throw new Error(errMsg);
+          }
+    
+          // ✅ Normaliza retorno:
+          const apiData =
+            apiJson &&
+            typeof apiJson === "object" &&
+            apiJson.data &&
+            typeof apiJson.data === "object"
+              ? apiJson.data
+              : apiJson;
+    
+          // 6) Atualizar dados com resposta (sem quebrar se algum campo não vier)
+          const nextUsername = apiData?.username != null ? String(apiData.username) : "";
+          const nextPassword = apiData?.password != null ? String(apiData.password) : "";
+          const nextM3u =
+            apiData?.m3u_url != null
+              ? String(apiData.m3u_url)
+              : apiData?.m3uUrl != null
+                ? String(apiData.m3uUrl)
+                : "";
+    
+          const nextExternalUserIdRaw =
+            apiData?.external_user_id ??
+            apiData?.externalUserId ??
+            apiData?.external_id ??
+            apiData?.user_id ??
+            apiData?.id ??
+            "";
+    
+          const nextExternalUserId = String(nextExternalUserIdRaw || "").trim();
+    
+          if (nextUsername) apiUsername = nextUsername;
+          if (nextPassword) apiPassword = nextPassword;
+          if (nextM3u) apiM3uUrl = nextM3u;
+    
+          if (nextExternalUserId) {
+            apiExternalUserId = nextExternalUserId;
+            setExternalUserId(nextExternalUserId); // ✅ reflete na UI/estado
+          }
+    
+          // ✅ Log higienizado: removemos o "password" para não vazar no console (F12)
+          console.log("🔵 Dados recebidos da API:", {
+            username: apiUsername,
+            m3u_url: apiM3uUrl,
+            exp_date: apiData?.exp_date,
+          });
+    
+          // ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
+          if (apiPassword) setPassword(apiPassword);
+          if (apiM3uUrl) setM3uUrl(apiM3uUrl);
+    
+          // exp_date pode vir em segundos OU ms (blindagem)
+          const expRaw = apiData?.exp_date ?? null;
+          if (expRaw != null) {
+            const n = Number(expRaw);
+            if (Number.isFinite(n) && n > 0) {
+              const ms = n > 1e12 ? n : n * 1000; // se já vier em ms, não multiplica
+              const expDate = new Date(ms);
+              if (Number.isFinite(expDate.getTime())) {
+                apiVencimento = expDate.toISOString();
+              }
+            }
+          }
+    
+          // 7) Sync (atualizar saldo do servidor) — mantém como estava
+          const syncUrl =
+            provider === "FAST"
+              ? "/api/integrations/fast/sync"
+              : provider === "NATV"
+                ? "/api/integrations/natv/sync"
+                : "";
+    
+          if (syncUrl) {
+            const syncRes = await fetch(syncUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ 
+                integration_id: srv.panel_integration,
+                external_user_id: apiExternalUserId,
+                desired_username: username,
+                username: apiUsername,
+                server_username: apiUsername,
+                client_id: clientId,
+                notes: notes?.trim() ? notes.trim() : null,
+                technology: finalTechnology
+              }),
+            });
+    
+            if (!syncRes.ok) {
+              const t = await syncRes.text().catch(() => "");
+              console.warn("⚠️ Sync falhou:", syncRes.status, t);
+            } else {
+              const syncData = await syncRes.json().catch(() => ({}));
+              if (syncData?.username) apiUsername = syncData.username;
+              if (syncData?.password) apiPassword = syncData.password;
+              if (syncData?.expires_at_iso) apiVencimento = syncData.expires_at_iso;
+            }
+          }
+    
+          queueListToast("trial", {
+            type: "success",
+            title: "🎉 Teste Automático!",
+            message: `Teste criado com sucesso no servidor ${serverName}.`,
+          });
       }
     }
-
   } catch (apiErr: any) {
     const msg = String(apiErr?.message || apiErr || "").trim();
-
     console.error("Erro ao chamar API de Teste:", { apiUrl, apiErr, msg });
-
     queueListToast("trial", {
       type: "error",
       title: "Teste Manual Criado",
@@ -2943,7 +2623,6 @@ body: JSON.stringify({
     });
   }
 }
-
 
 
 // ✅ SALVAR NO BANCO (com dados da API se tiver, ou do form se não)
