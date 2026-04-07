@@ -381,7 +381,7 @@ export async function POST(req: Request) {
     sessionId = sessionRes.session;
 
     // ==========================================
-    // 2. Acessar a tela, passar pelo Cloudflare e Logar via Javascript
+    // 2. Acessar a tela, logar e AGUARDAR O REDIRECIONAMENTO AUTOMÁTICO
     // ==========================================
     const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
         method: "POST",
@@ -406,7 +406,8 @@ export async function POST(req: Request) {
                         btn.click();
                     }
                 }, 5000);
-                setTimeout(() => { resolve(); }, 15000);
+                // Aumentei para 20s totais para garantir o clique e o carregamento completo do dashboard
+                setTimeout(() => { resolve(); }, 20000);
             });`
         })
     }).then(res => res.json());
@@ -420,76 +421,37 @@ export async function POST(req: Request) {
     if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
         throw new Error("O Cloudflare travou este IP no desafio. Vá no Webshare, pegue um IP diferente da lista e atualize no código.");
     }
-    trace.push({ step: "login_flaresolverr", ok: true });
-
+    
     // ==========================================
-    // 3. Estratégia Dupla: Pegar o CSRF (Login ou Dashboard com espera)
+    // 3. Pegar o CSRF (Já na página redirecionada)
     // ==========================================
-    let $ = cheerio.load(htmlAposLogin);
+    const $ = cheerio.load(htmlAposLogin);
     let csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
-    let sourceCookies = loginAutomaticoRes.solution?.cookies || [];
 
-    if (csrf) {
-        trace.push({ step: "csrf_extracted_from_login", ok: true });
-    } else {
-        console.log(`[ELITE] CSRF não encontrado no login. Navegando para ${dashboardPath} e aguardando Cloudflare...`);
-        trace.push({ step: "csrf_not_in_login_fetching_dashboard", path: dashboardPath });
-        
-        const targetDashboardUrl = `${base}${dashboardPath}`;
-        const dashboardRes = await fetch(FLARESOLVERR_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cmd: "request.get",
-                session: sessionId,
-                url: targetDashboardUrl,
-                maxTimeout: 60000,
-                evaluate: `new Promise((resolve) => {
-                    // Aguarda 10 segundos para passar por qualquer validação intersticial do Cloudflare
-                    setTimeout(() => { resolve(); }, 10000); 
-                });`
-            })
-        }).then(res => res.json());
-
-        if (dashboardRes.status !== "ok") {
-            throw new Error(`Falha GET Dashboard: ${dashboardRes.message}`);
-        }
-
-        const dashboardHtml = dashboardRes.solution?.response || "";
-        $ = cheerio.load(dashboardHtml);
-        csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
-
-        // Plano B: Tentar pegar via Regex bruto caso o Cheerio se perca
-        if (!csrf) {
-             const fallbackMatch = dashboardHtml.match(/name="csrf-token"\s+content="([^"]+)"/i);
-             if (fallbackMatch && fallbackMatch[1]) {
-                 csrf = fallbackMatch[1];
-             }
-        }
-
-        if (!csrf) {
-            // Tira a venda dos nossos olhos: Mostra o texto real da página que o FlareSolverr está vendo
-            const cleanHtml = dashboardHtml
-                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                .replace(/<[^>]+>/g, ' ') // Remove tags HTML para facilitar a leitura
-                .replace(/\s+/g, ' ')
-                .trim();
-                
-            const preview = cleanHtml.substring(0, 600);
-            throw new Error(`Sem CSRF. O que a tela mostrou: ${preview}...`);
-        }
-        
-        sourceCookies = dashboardRes.solution?.cookies || [];
-        trace.push({ step: "csrf_extracted_from_dashboard", path: dashboardPath, ok: true });
+    // Plano B: Regex bruto
+    if (!csrf) {
+         const fallbackMatch = htmlAposLogin.match(/name="csrf-token"\s+content="([^"]+)"/i);
+         if (fallbackMatch && fallbackMatch[1]) csrf = fallbackMatch[1];
     }
+
+    if (!csrf) {
+        // Mostra o texto real da página de login/redirecionamento se falhar
+        const cleanHtml = htmlAposLogin.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                       .replace(/<[^>]+>/g, ' ')
+                                       .replace(/\s+/g, ' ').trim();
+        const preview = cleanHtml.substring(0, 600);
+        throw new Error(`Sem CSRF após o redirecionamento. A tela mostrou: ${preview}...`);
+    }
+
+    trace.push({ step: "login_and_redirect_flaresolverr", ok: true });
 
     // ==========================================
     // 4. Passar Cookies para o fetch-cookie
     // ==========================================
     const jar = new CookieJar();
-    if (sourceCookies && sourceCookies.length) {
-        sourceCookies.forEach((c: any) => {
+    if (loginAutomaticoRes.solution?.cookies) {
+        loginAutomaticoRes.solution.cookies.forEach((c: any) => {
             const cookieStr = `${c.name}=${c.value}; Domain=${c.domain}; Path=${c.path}`;
             jar.setCookieSync(cookieStr, base);
         });
