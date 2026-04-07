@@ -26,6 +26,7 @@ type Transacao = {
   frequencia?: string;
   recorrencia_id?: string;
   observacoes?: string;
+  data_pagamento?: string | null;
 };
 
 // --- ICONES ---
@@ -408,7 +409,8 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
         is_recorrente: t.is_recorrente,
         recorrencia_id: t.recorrencia_id,
         frequencia: t.frequencia,
-        observacoes: t.observacoes
+        observacoes: t.observacoes,
+        data_pagamento: t.data_pagamento
       }));
 
       setTransacoes(formatadas);
@@ -1808,6 +1810,25 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Observações</label>
             <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
+
+          {isEdit && transacaoEdit?.data_pagamento && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
+              <span className="text-emerald-500 text-base">✅</span>
+              <div>
+                <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Data de Pagamento</div>
+                <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300 font-mono">
+                  {(() => {
+                    const dt = new Date(transacaoEdit.data_pagamento);
+                    const d = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', day: '2-digit' })).padStart(2,'0');
+                    const m = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', month: '2-digit' })).padStart(2,'0');
+                    const y = dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric' });
+                    const h = dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+                    return `${d}/${m}/${y} às ${h}`;
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
           
         </div>
 
