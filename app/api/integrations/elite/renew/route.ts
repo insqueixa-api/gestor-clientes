@@ -9,8 +9,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
-// ⚠️ O IP da sua VM rodando o FlareSolverr
-const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
 
 // ----------------- HELPERS BASE -----------------
 function mustEnv(name: string) {
@@ -149,115 +147,57 @@ async function findRowBySearch(fc: any, baseUrl: string, csrf: string, searchVal
   return { ok: true, rows: data as any[] };
 }
 
-// ----------------- NOVO LOGIN ELITE (VIA FLARESOLVERR) -----------------
-async function offoLogin(baseUrlRaw: string, username: string, password: string, proxyUrl: string, tz = TZ_SP) {
+// ----------------- LOGIN E CONEXÃO ELITE -----------------
+async function offoLogin(baseUrlRaw: string, username: string, password: string, tz = TZ_SP) {
   const baseUrl = normalizeBaseUrl(baseUrlRaw);
-  
-  let sessionId = null;
-  let cookiesToExport = [];
-
-  try {
-      // 1. Criar Sessão no FlareSolverr com Máscara e Proxy Residencial
-      const sessionPayload: any = { 
-          cmd: "sessions.create",
-          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
-      };
-      if (proxyUrl) {
-          sessionPayload.proxy = { url: proxyUrl };
-      }
-
-      const sessionRes = await fetch(FLARESOLVERR_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sessionPayload)
-      }).then(res => res.json());
-
-      if (sessionRes.status !== "ok") throw new Error(`Falha Session FlareSolverr: ${sessionRes.message}`);
-      sessionId = sessionRes.session;
-
-      // 2. Aceder à página de login, preencher os dados e clicar em "Entrar" (com Promise para não fugir)
-      const loginAutomaticoRes = await fetch(FLARESOLVERR_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-              cmd: "request.get",
-              session: sessionId,
-              url: `${baseUrl}/login`,
-              maxTimeout: 60000,
-              returnOnlyCookies: false, 
-              evaluate: `new Promise((resolve) => {
-                  setTimeout(() => {
-                      let emailInput = document.querySelector('input[type="email"], input[name="email"], input[name="username"]');
-                      let passInput = document.querySelector('input[type="password"], input[name="password"]');
-                      let btn = document.querySelector('button[type="submit"], form button');
-                      
-                      if (emailInput && passInput && btn) {
-                          emailInput.value = '${username}';
-                          passInput.value = '${password}';
-                          emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-                          passInput.dispatchEvent(new Event('input', { bubbles: true }));
-                          btn.click();
-                      }
-                      // Retorna o controlo IMEDIATAMENTE após clicar, para o FlareSolverr não encravar no redirecionamento
-                      resolve();
-                  }, 5000);
-              });`
-          })
-      }).then(res => res.json());
-
-      if (loginAutomaticoRes.status !== "ok") {
-           throw new Error(`Falha ao tentar logar via script: ${loginAutomaticoRes.message}`);
-      }
-
-      // 3. Aguardar no Node.js para dar tempo de o navegador invisível processar o login e redirecionar
-      await new Promise(r => setTimeout(r, 8000));
-
-      // 4. Aceder a uma página interna para validar a entrada e capturar os cookies autenticados!
-      const dashboardRes = await fetch(FLARESOLVERR_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-              cmd: "request.get",
-              session: sessionId,
-              url: `${baseUrl}/user/profile`, // Acede ao profile pois é uma rota leve e segura
-              maxTimeout: 60000
-          })
-      }).then(res => res.json());
-
-      const htmlAposLogin = dashboardRes.solution?.response || "";
-      
-      if (htmlAposLogin.toLowerCase().includes("just a moment") || htmlAposLogin.toLowerCase().includes("cf-turnstile")) {
-          throw new Error("O Cloudflare travou este IP no desafio. Vá às configurações da integração no Gestor e atualize o link do Proxy Residencial.");
-      }
-
-      // Se a página devolvida for novamente a de login, sabemos que a password estava errada
-      if (htmlAposLogin.includes('name="password"') && htmlAposLogin.includes('type="submit"')) {
-          throw new Error("Login falhou (voltou para /login). Verifique o utilizador/password.");
-      }
-
-      // 5. Apanhamos os cookies mágicos (Agora sim, 100% autenticados na sessão)
-      cookiesToExport = dashboardRes.solution?.cookies || [];
-
-  } finally {
-      // Sempre destruir a sessão do FlareSolverr após exportar os cookies para libertar memória da VM
-      if (sessionId) {
-          await fetch(FLARESOLVERR_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
-          }).catch(() => {});
-      }
-  }
-
-  // 6. Transformar os Cookies do FlareSolverr para o seu fetchCookie nativo
   const jar = new CookieJar();
-  cookiesToExport.forEach((cookie: any) => {
-      const cookieString = `${cookie.name}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}`;
-      let domainBase = baseUrl.replace(/^https?:\/\//i, '');
-      jar.setCookieSync(cookieString, `https://${domainBase}`);
+  const fc = fetchCookie(fetch, jar);
+  const loginUrl = `${baseUrl}/login`;
+
+  const r1 = await fc(loginUrl, {
+    method: "GET",
+    headers: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      "user-agent": "Mozilla/5.0",
+    },
   });
 
-  const fc = fetchCookie(fetch, jar);
+  const html = await r1.text();
+  const $ = cheerio.load(html);
+  const formToken = $('input[name="_token"]').attr("value") || "";
+  const metaToken = $('meta[name="csrf-token"]').attr("content") || "";
+  const csrfToken = (metaToken || formToken).trim();
+
+  if (!csrfToken) throw new Error("Não achei CSRF token no HTML de /login.");
+
+  const body = new URLSearchParams();
+  body.set("_token", csrfToken);
+  body.set("timezone", tz);
+  body.set("email", username);
+  body.set("password", password);
+
+  const r2 = await fc(loginUrl, {
+    method: "POST",
+    headers: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "content-type": "application/x-www-form-urlencoded",
+      origin: baseUrl,
+      referer: loginUrl,
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      "user-agent": "Mozilla/5.0",
+    },
+    body: body.toString(),
+    redirect: "follow",
+  });
+
+  const finalUrl = (r2 as any)?.url || "";
+  if (String(finalUrl).includes("/login")) {
+    throw new Error("Login falhou (voltou para /login). Verifique usuário/senha.");
+  }
 
   return { fc, baseUrl, tz };
 }
@@ -271,7 +211,7 @@ async function fetchCsrfFromDashboard(fc: any, baseUrl: string, dashboardPath: s
       "accept-language": "pt-BR,pt;q=0.9,en;q=0.8",
       "cache-control": "no-cache",
       pragma: "no-cache",
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+      "user-agent": "Mozilla/5.0",
       referer: url,
     },
     redirect: "follow",
@@ -298,7 +238,7 @@ async function eliteFetch(fc: any, baseUrl: string, pathWithQuery: string, init:
   headers.set("x-requested-with", "XMLHttpRequest");
   headers.set("origin", baseUrl);
   headers.set("referer", headers.get("referer") || refererUrl);
-  headers.set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36");
+  headers.set("user-agent", headers.get("user-agent") || "Mozilla/5.0");
   headers.set("cache-control", headers.get("cache-control") || "no-cache");
   headers.set("pragma", headers.get("pragma") || "no-cache");
 
@@ -377,8 +317,7 @@ export async function POST(req: Request) {
     // Carrega a integração Elite
     const { data: integ, error } = await sb
       .from("server_integrations")
-      // ✅ NOVO: Adicionado proxy_url na query
-      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url,proxy_url")
+      .select("id,tenant_id,provider,is_active,api_token,api_secret,api_base_url")
       .eq("id", integration_id)
       .eq("tenant_id", tenantId)
       .single();
@@ -387,15 +326,13 @@ export async function POST(req: Request) {
     if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("Integração não é ELITE.");
     if (!integ.is_active) throw new Error("Integração inativa.");
 
-    const loginUser = String((integ as any).api_token || "").trim();
-    const loginPass = String((integ as any).api_secret || "").trim();
-    const baseUrl = String((integ as any).api_base_url || "").trim();
-    // ✅ NOVO: Puxando o Proxy do banco
-    const proxyUrl = String((integ as any).proxy_url || "").trim();
-    // 1) Login (ou Login Mágico)
+    const loginUser = String(integ.api_token || "").trim();
+    const loginPass = String(integ.api_secret || "").trim();
+    const baseUrl = String(integ.api_base_url || "").trim();
     const base = normalizeBaseUrl(baseUrl);
-    // ✅ NOVO: Passando a variável proxyUrl que você extraiu do banco!
-    const { fc } = await offoLogin(base, loginUser, loginPass, proxyUrl, TZ_SP);
+
+    // 1) Login
+    const { fc } = await offoLogin(base, loginUser, loginPass, TZ_SP);
     trace.push({ step: "login", ok: true });
 
     // 2) Pegar CSRF
@@ -441,14 +378,14 @@ export async function POST(req: Request) {
     let contentType;
 
     if (isP2P) {
-      // 🟢 P2P EXIGE URL ENCODED
+      // 🟢 P2P EXIGE URL ENCODED (Igual ao seu CURL novo)
       const params = new URLSearchParams();
       params.set("user_id", external_user_id);
       params.set("months", months);
       payloadBody = params.toString();
       contentType = "application/x-www-form-urlencoded; charset=UTF-8";
     } else {
-      // 🔵 IPTV EXIGE JSON
+      // 🔵 IPTV EXIGE JSON (Mantendo EXATAMENTE o fluxo antigo que já funcionava)
       payloadBody = JSON.stringify({
         user_id: external_user_id,
         months: months
@@ -464,10 +401,10 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           "accept": "*/*",
-          "content-type": contentType, 
+          "content-type": contentType, // ✅ Usa o cabeçalho correto da tecnologia
           "timezone": TZ_SP
         },
-        body: payloadBody, 
+        body: payloadBody, // ✅ Envia formulário ou JSON dependendo da tecnologia
       },
       csrf,
       dashboardPath
@@ -491,6 +428,6 @@ export async function POST(req: Request) {
     });
 
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Erro ao renovar. Procure o suporte.", trace: trace.slice(-8) }, { status: 500 });
+return NextResponse.json({ ok: false, error: "Erro ao renovar. Procure o suporte." }, { status: 500 });
   }
 }

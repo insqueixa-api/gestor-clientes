@@ -6,6 +6,15 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // 👈 NOVO
 
+// ✅ NOVO: Helper para limpar e normalizar a URL do painel
+function normalizeApiUrl(url: string) {
+  if (!url) return "";
+  let s = url.trim().replace(/\/+$/, ""); // Remove barras duplas no final
+  if (s && !s.startsWith("http")) {
+    s = "https://" + s; // Força ter o protocolo
+  }
+  return s;
+}
 
 type AppIntegration = {
   id: string;
@@ -36,6 +45,7 @@ export default function AppIntegracaoModal({
   const [label, setLabel]             = useState(integration?.label ?? "");
   const [loginEmail, setLoginEmail]   = useState(integration?.login_email ?? "");
   const [loginPassword, setLoginPassword] = useState(integration?.login_password ?? "");
+  const [apiUrl, setApiUrl]           = useState(integration?.api_url ?? ""); // ✅ NOVO: Estado da URL
   const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
   const [saving, setSaving]           = useState(false);
   const [userEmail, setUserEmail]     = useState("");
@@ -51,6 +61,7 @@ export default function AppIntegracaoModal({
       setLabel(integration.label ?? "");
       setLoginEmail(integration.login_email ?? "");
       setLoginPassword(integration.login_password ?? "");
+      setApiUrl(integration.api_url ?? ""); // ✅ NOVO: Carrega a URL na edição
       setIsActive(integration.is_active ?? true);
     }
     
@@ -60,7 +71,8 @@ export default function AppIntegracaoModal({
     });
   }, [integration]);
 
-  const canSave = label.trim() && loginEmail.trim() && loginPassword.trim();
+  // ✅ NOVO: Exige a URL na validação
+  const canSave = label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
   
   // Define quem é o Master (você) para ver o botão de Upload
   const isMasterUser = userEmail === "insqueixa@gmail.com" || userEmail === "m.martins@sap.com";
@@ -115,6 +127,7 @@ export default function AppIntegracaoModal({
         label:          label.trim(),
         login_email:    loginEmail.trim(),
         login_password: loginPassword.trim(),
+        api_url:        normalizeApiUrl(apiUrl), // ✅ NOVO: Envia a URL padronizada
         is_active:      isActive,
       };
 
@@ -268,6 +281,23 @@ export default function AppIntegracaoModal({
             />
             <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
               Só para identificar na lista.
+            </p>
+          </div>
+
+          {/* ✅ NOVO: Link do Painel */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+              Link do Painel
+            </label>
+            <input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="Ex: https://gerenciaapp.top"
+              type="url"
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+            <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+              Endereço exato que a extensão irá acessar.
             </p>
           </div>
 
