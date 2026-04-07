@@ -544,9 +544,9 @@ const payload = {
       setSaving(false);
       onSuccess();
 } catch (error: any) {
-      // ✅ Não vaza o objeto inteiro no navegador
-      if (process.env.NODE_ENV !== "production") console.error("Falha ao salvar servidor:", error?.message);
-      alert(`Erro ao salvar servidor: Verifique os dados e tente novamente.`);
+      // ✅ Agora mostra a mensagem real para conseguirmos debugar!
+      console.error("Falha ao salvar servidor:", error);
+      alert(`Erro ao salvar servidor: ${error?.message || "Verifique os dados e tente novamente."}`);
       setSaving(false);
     }
   }
