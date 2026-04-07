@@ -12,6 +12,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation"; // <--- NOVO
+import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   window.console.log = () => {};
@@ -391,6 +392,7 @@ type AppsIndex = {
 };
 
 const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
+const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps da extensão
 
 function normAppKey(v: any): string {
   return String(v ?? "")
@@ -404,6 +406,10 @@ type ClientAppModalState = {
   open: boolean;
   clientId: string;
   clientName: string;
+  username: string;       // ✅ NOVO
+  serverName: string;     // ✅ NOVO
+  serverPassword: string; // ✅ NOVO
+  m3uUrl: string;         // ✅ NOVO
   appName: string;
   app: any; // AppData do banco (quando existir)
 };
@@ -411,7 +417,7 @@ type ClientAppModalState = {
 const [appModal, setAppModal] = useState<ClientAppModalState | null>(null);
 const [appValues, setAppValues] = useState<Record<string, string>>({});
 const [appLoading, setAppLoading] = useState(false);
-const [appSaving, setAppSaving] = useState(false); // ✅ ADD (mesmo que você não salve ainda)
+const [appSaving, setAppSaving] = useState(false);
 const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); // ✅ NOVO: Controle de visibilidade de senhas no modal
 
 
@@ -528,7 +534,8 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
 
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-function addToast(type: "success" | "error", title: string, message?: string) {
+// ✅ Adicionado o tipo "warning" para suportar os avisos de timeout da extensão
+function addToast(type: "success" | "error" | "warning", title: string, message?: string) {
   const id = Date.now();
 
   setToasts((prev) => [...prev, { id, type, title, message }]);
@@ -672,8 +679,16 @@ async function loadData() {
       console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
     }
 
-    // Filtra apenas os ativos para o índice principal
+    /// Filtra apenas os ativos para o índice principal
     const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
+
+    // ✅ NOVO: Carrega as URLs das integrações do App
+    const { data: appInts } = await supabaseBrowser
+      .from("app_integrations")
+      .select("app_name, api_url")
+      .eq("tenant_id", tid)
+      .eq("is_active", true);
+    if (appInts) setAppIntegrations(appInts);
 
 if (appsData && appsData.length > 0) {
   const byId: Record<string, any> = {};
@@ -813,24 +828,31 @@ function isUuidLike(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
-// ✅ Adicionado o 'instanceIndex' na assinatura da função
-async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string, instanceIndex: number = 0) {
+// ✅ Modificado para receber a linha inteira do cliente (ClientRow)
+async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceIndex: number = 0) {
   if (!tenantId) return;
 
   const key = String(appNameOrId ?? "").trim();
 
-  // ✅ tenta resolver por ID (caso a view venha com id ou você mude no futuro)
   const byId = isUuidLike(key) ? appsIndex.byId[key] : null;
-
-  // ✅ resolve por nome normalizado (caso comum hoje)
   const byName = appsIndex.byName[normAppKey(key)];
-
   const app = byId || byName || { name: key || "App", fields_config: [], info_url: null, id: null };
+
+  // ✅ NOVO: Busca o link m3u direto do banco para realizar a automação de imediato
+  let m3uUrl = "";
+  try {
+    const { data } = await supabaseBrowser.from("clients").select("m3u_url").eq("id", r.id).maybeSingle();
+    if (data?.m3u_url) m3uUrl = data.m3u_url;
+  } catch (e) {}
 
   setAppModal({
     open: true,
-    clientId,
-    clientName,
+    clientId: r.id,
+    clientName: r.name,
+    username: r.username,
+    serverName: r.server,
+    serverPassword: r.server_password || "",
+    m3uUrl: m3uUrl,
     appName: String(app?.name ?? key),
     app,
   });
@@ -850,7 +872,7 @@ async function openAppConfigModal(clientId: string, clientName: string, appNameO
       .from("client_apps")
       .select("field_values")
       .eq("tenant_id", tenantId)
-      .eq("client_id", clientId)
+      .eq("client_id", r.id) // ✅ CORRIGIDO: Puxando o ID direto do objeto 'r'
       .eq("app_id", String(app.id));
       // ❌ REMOVIDO o .maybeSingle() daqui!
 
@@ -1565,8 +1587,137 @@ body: JSON.stringify({
   }
 };
 
+  // =========================================================================
+  // ✅ FUNÇÕES DE AUTOMAÇÃO DE APP DIRETAMENTE DA LISTA DE CLIENTES
+  // =========================================================================
+  function getMacFromApp(appInstanceValues: Record<string, string>, fieldsConfig: any[]) {
+      let macValue = "";
+      const macField = fieldsConfig?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+      if (macField) {
+          const key = String(macField.id || macField.label || "").trim();
+          macValue = appInstanceValues[key] || "";
+      }
+      if (!macValue) {
+          const foundKey = Object.keys(appInstanceValues).find(k => String(appInstanceValues[k]).includes(":"));
+          if (foundKey) macValue = appInstanceValues[foundKey];
+      }
+      return macValue;
+  }
 
-  
+  function resolveAppIntegration(appName: string, appId: string) {
+      const catApp = Object.values(appsIndex.byId).find(c => c.id === appId) || Object.values(appsIndex.byName).find(c => c.name === appName);
+      let intType = String((catApp as any)?.integration_type || "").trim().toUpperCase();
+      let handler = getIntegrationHandler(intType);
+      
+      if (!handler) {
+          const appNameStr = String(appName || "").toUpperCase();
+          if (appNameStr.includes("ZONE")) intType = "ZONEX";
+          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
+          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
+          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
+          else if (appNameStr.includes("GPC")) {
+              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
+              else intType = "GPC_ROKU";
+          }
+          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
+          
+          handler = getIntegrationHandler(intType);
+      }
+      return handler;
+  }
+
+  async function handleConfigAppDirect() {
+      if (!appModal) return;
+      const handler = resolveAppIntegration(appModal.appName, appModal.app.id);
+      if (!handler) {
+          addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
+          return;
+      }
+
+      const macValue = getMacFromApp(appValues, appModal.app.fields_config);
+      if (!macValue || macValue.trim() === "") {
+          addToast("error", "MAC Obrigatório", "Preencha o MAC antes de configurar.");
+          return;
+      }
+
+      setAppSaving(true);
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+      const appBaseUrl = appIntegData?.api_url || "";
+
+      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+      const payload = handler.buildCreatePayload({
+          username: appModal.username,
+          password: appModal.serverPassword,
+          macValue,
+          finalServerName,
+          m3uUrl: appModal.m3uUrl
+      });
+
+      const responseHandler = (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          setAppSaving(false);
+          if (e.detail?.ok) addToast("success", "Integrado!", "Aplicativo configurado no painel.");
+          else addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
+      };
+      
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload }
+      }));
+      
+      setTimeout(() => {
+          setAppSaving((prev) => {
+              if (prev) {
+                  window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+                  addToast("warning", "Aviso", "O comando foi enviado à extensão, mas a resposta demorou.");
+                  return false;
+              }
+              return prev;
+          });
+      }, 20000);
+  }
+
+  async function handleDeleteAppDirect() {
+      if (!appModal) return;
+      const handler = resolveAppIntegration(appModal.appName, appModal.app.id);
+      if (!handler) {
+          addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
+          return;
+      }
+
+      setAppSaving(true);
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+      const appBaseUrl = appIntegData?.api_url || "";
+
+      const payloadDelete = handler.buildDeletePayload({
+          username: appModal.username,
+          macValue: getMacFromApp(appValues, appModal.app.fields_config)
+      });
+
+      const responseHandler = (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          setAppSaving(false);
+          if (e.detail?.ok) addToast("success", "Removido!", "Configuração apagada do painel.");
+          else addToast("error", "Não Removido", e.detail?.error || "Falha ao apagar no painel.");
+      };
+
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete }
+      }));
+
+      setTimeout(() => {
+          setAppSaving((prev) => {
+              if (prev) {
+                  window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+                  addToast("warning", "Aviso", "A resposta da extensão demorou.");
+                  return false;
+              }
+              return prev;
+          });
+      }, 20000);
+  }
+
 return (
   <div
     className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
@@ -2196,7 +2347,7 @@ return (
                           key={`${app}-${i}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openAppConfigModal(r.id, r.name, app, i);
+                            openAppConfigModal(r, app, i);
                           }}
                           // ✅ Visual padronizado estilo "Chip Interativo"
                           className="px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all truncate max-w-full"
@@ -2761,15 +2912,84 @@ return (
     onClose={() => setAppModal(null)}
   >
     <div className="space-y-4 text-sm">
-      {/* Header / Cliente */}
-      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
-          Cliente
+      {/* ✅ NOVO: Header em 3 Colunas (Cliente, Usuário e Servidor) */}
+      <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 grid grid-cols-3 gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+            Cliente
+          </div>
+          <div className="mt-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+            {appModal.clientName.split(" ")[0]}
+          </div>
         </div>
-        <div className="mt-1 font-bold text-slate-800 dark:text-white truncate">
-          {appModal.clientName}
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+            Usuário
+          </div>
+          <div className="mt-1 text-xs font-mono font-bold text-slate-800 dark:text-white truncate">
+            {appModal.username}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+            Servidor
+          </div>
+          <div className="mt-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+            {appModal.serverName}
+          </div>
         </div>
       </div>
+
+      {/* ✅ NOVO: Botões de Integração Inteligentes (Apenas se o App tiver regra de integração) */}
+      {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id)) && (
+        <div className="grid grid-cols-2 gap-2 mt-1 mb-3">
+          <button
+            onClick={handleConfigAppDirect}
+            disabled={appSaving}
+            className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {appSaving ? (
+                <span className="animate-pulse">Aguarde...</span>
+            ) : (
+                <>
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">Configurar m3u</span>
+                  <span className="sm:hidden">Configurar</span>
+                </>
+            )}
+          </button>
+          
+          <button
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Remover do Aplicativo?",
+                subtitle: `Tem certeza que deseja excluir o acesso de ${appModal.username}?`,
+                tone: "rose",
+                confirmText: "Sim, remover",
+                cancelText: "Cancelar"
+              });
+              if (ok) handleDeleteAppDirect();
+            }}
+            disabled={appSaving}
+            className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {appSaving ? (
+                <span className="animate-pulse">Aguarde...</span>
+            ) : (
+                <>
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span className="hidden sm:inline">Remover m3u</span>
+                  <span className="sm:hidden">Remover</span>
+                </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* URL de configuração */}
       <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
