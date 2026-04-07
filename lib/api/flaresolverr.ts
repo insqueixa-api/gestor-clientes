@@ -1,51 +1,95 @@
 // src/lib/api/flaresolverr.ts
 
-export async function fetchViaFlareSolverr(
-    targetUrl: string,
-    method: "GET" | "POST" = "GET",
-    postData?: string
-) {
-    // O IP da sua VM rodando liso!
-    const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1"; 
+const FLARESOLVERR_URL = "http://136.112.249.42:8191/v1";
 
-    const payload = {
-        cmd: "request." + method.toLowerCase(),
-        url: targetUrl,
-        maxTimeout: 60000, // Dá 60 segundos pro trator trabalhar
-        ...(method === "POST" && postData ? { postData } : {})
+/**
+ * 1. Cria uma sessão no FlareSolverr, injetando o Proxy (se existir)
+ */
+export async function createFlareSession(proxyUrl?: string): Promise<string> {
+    const payload: any = {
+        cmd: "sessions.create",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
     };
 
+    if (proxyUrl) {
+        payload.proxy = { url: proxyUrl };
+    }
+
+    const response = await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || data.status === "error") {
+        throw new Error(`[FlareSolverr Create Session]: ${data.message || 'Erro desconhecido'}`);
+    }
+
+    return data.session;
+}
+
+/**
+ * 2. Faz a requisição usando a sessão criada, podendo executar um script JS (evaluate) na tela
+ */
+export async function requestWithFlare(
+    sessionId: string, 
+    targetUrl: string, 
+    evaluateScript?: string,
+    maxTimeout: number = 90000
+) {
+    const payload: any = {
+        cmd: "request.get",
+        session: sessionId,
+        url: targetUrl,
+        maxTimeout: maxTimeout,
+        returnOnlyCookies: false
+    };
+
+    if (evaluateScript) {
+        payload.evaluate = evaluateScript;
+    }
+
+    const response = await fetch(FLARESOLVERR_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const dataText = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(dataText); } catch(e) {}
+
+    if (!response.ok || data.status === "error") {
+        const realError = data.message || data.error || `Erro HTTP ${response.status}`;
+        throw new Error(`[FlareSolverr Request]: ${realError}`);
+    }
+
+    if (data.status === "ok" && data.solution) {
+        return {
+            ok: true,
+            html: data.solution.response || "",
+            cookies: data.solution.cookies || []
+        };
+    }
+
+    throw new Error("Falha na solução do Cloudflare (Sem HTML retornado)");
+}
+
+/**
+ * 3. Destrói a sessão para liberar memória na VM
+ */
+export async function destroyFlareSession(sessionId: string) {
+    if (!sessionId) return;
+    
     try {
-        const response = await fetch(FLARESOLVERR_URL, {
+        await fetch(FLARESOLVERR_URL, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cmd: "sessions.destroy", session: sessionId })
         });
-
-        // ✅ AGORA VAMOS LER A RESPOSTA MESMO QUE DÊ ERRO
-        const dataText = await response.text();
-        let data: any = {};
-        try { data = JSON.parse(dataText); } catch(e) {}
-
-        // Se o status HTTP for erro ou o próprio FlareSolverr acusar erro
-        if (!response.ok || data.status === "error") {
-            const realError = data.message || data.error || dataText || `Erro HTTP ${response.status}`;
-            throw new Error(`[Detalhe do FlareSolverr]: ${realError}`);
-        }
-        
-        if (data.status === "ok" && data.solution?.response) {
-            return {
-                ok: true,
-                html: data.solution.response, 
-                cookies: data.solution.cookies 
-            };
-        } else {
-            throw new Error("Falha na solução do Cloudflare (Sem HTML retornado)");
-        }
-    } catch (error: any) {
-        console.error("[FlareSolverr Error]:", error.message);
-        return { ok: false, html: "", error: error.message };
+    } catch (e) {
+        console.error("[FlareSolverr Destroy Error]:", e);
     }
 }

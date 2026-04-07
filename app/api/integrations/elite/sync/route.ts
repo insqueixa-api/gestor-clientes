@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 // ✅ IMPORTANDO O NOSSO TRATOR (Aviso: Neste script estamos usando fetch direto, mas mantive a importação)
-import { fetchViaFlareSolverr } from "@/lib/api/flaresolverr"; 
+
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
