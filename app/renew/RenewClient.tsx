@@ -936,6 +936,10 @@ const isOnline = paymentData.payment_method === "online";
     const isManual = paymentData.payment_method === "manual";
     const isStripe = paymentData.payment_method === "stripe";
 
+    // ✅ NOVO: Puxa o servidor da conta atual para verificar se é Elite
+    const isManualServer = selectedAccount?.has_integration === false || 
+                           selectedAccount?.server_name.toLowerCase().includes("elite");
+
 const effectiveGatewayType: string =
   paymentData.gateway_type ||
   (paymentData.currency === "EUR"
@@ -1094,10 +1098,11 @@ return (
                   <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   <div className="flex-1">
                     <p className="text-sm font-bold text-blue-800">
-                      {paymentPhase === "renewing" ? "Processando renovação..." : "Aguardando pagamento..."}
+                      {/* ✅ MUDANÇA: Se for servidor manual, sempre mostra 'Aguardando Pagamento' */}
+                      {(paymentPhase === "renewing" && !isManualServer) ? "Processando renovação..." : "Aguardando pagamento..."}
                     </p>
                     <p className="text-xs text-blue-600">
-                      {paymentPhase === "renewing"
+                      {(paymentPhase === "renewing" && !isManualServer)
                         ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
                         : "Detectaremos automaticamente quando você pagar"}
                     </p>
@@ -1247,12 +1252,13 @@ return (
                 )}
 
                 {/* Renovando */}
-                {paymentPhase === "renewing" && (
-                  <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
-                    <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                {/* ✅ MUDANÇA: Impede a mensagem de renovação automática se for servidor manual */}
+                {paymentPhase === "renewing" && !isManualServer && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+                    <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-indigo-800">Processando renovação...</p>
-                      <p className="text-xs text-indigo-600">Atualizando sua assinatura no servidor.</p>
+                      <p className="text-sm font-bold text-slate-800">Processando renovação...</p>
+                      <p className="text-xs text-slate-500">Atualizando sua assinatura no servidor.</p>
                     </div>
                   </div>
                 )}
@@ -1324,12 +1330,13 @@ return (
                   </>
                 )}
 
-                {paymentPhase === "renewing" && (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                {/* ✅ MUDANÇA: Impede a mensagem de renovação automática se for servidor manual */}
+                {paymentPhase === "renewing" && !isManualServer && (
+                  <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
+                    <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-slate-800">Processando renovação...</p>
-                      <p className="text-xs text-slate-500">Atualizando sua assinatura no servidor.</p>
+                      <p className="text-sm font-bold text-indigo-800">Processando renovação...</p>
+                      <p className="text-xs text-indigo-600">Atualizando sua assinatura no servidor.</p>
                     </div>
                   </div>
                 )}
