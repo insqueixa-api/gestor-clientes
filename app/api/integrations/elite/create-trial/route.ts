@@ -523,19 +523,38 @@ export async function POST(req: Request) {
                 maxTimeout: 60000,
                 evaluate: `new Promise((resolve) => {
                     // Aguarda 10 segundos para passar por qualquer validação intersticial do Cloudflare
-                    setTimeout(() => { resolve(); }, 10000); 
+                    setTimeout(() => { resolve(); }, 15000); 
                 });`
             })
         }).then(res => res.json());
 
-        if (dashboardRes.status !== "ok") throw new Error(`Falha GET Dashboard: ${dashboardRes.message}`);
+        if (dashboardRes.status !== "ok") {
+            throw new Error(`Falha GET Dashboard: ${dashboardRes.message}`);
+        }
 
         const dashboardHtml = dashboardRes.solution?.response || "";
         $ = cheerio.load(dashboardHtml);
         csrf = $('meta[name="csrf-token"]').attr("content") || $('input[name="_token"]').attr("value") || "";
 
+        // Plano B: Tentar pegar via Regex bruto caso o Cheerio se perca
         if (!csrf) {
-            throw new Error(`Não achei o token CSRF nem no login nem em ${dashboardPath} após aguardar. Login falhou ou Cloudflare bloqueou.`);
+             const fallbackMatch = dashboardHtml.match(/name="csrf-token"\s+content="([^"]+)"/i);
+             if (fallbackMatch && fallbackMatch[1]) {
+                 csrf = fallbackMatch[1];
+             }
+        }
+
+        if (!csrf) {
+            // Tira a venda dos nossos olhos: Mostra o texto real da página que o FlareSolverr está vendo
+            const cleanHtml = dashboardHtml
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<[^>]+>/g, ' ') // Remove tags HTML para facilitar a leitura
+                .replace(/\s+/g, ' ')
+                .trim();
+                
+            const preview = cleanHtml.substring(0, 600);
+            throw new Error(`Sem CSRF. O que a tela mostrou: ${preview}...`);
         }
         
         sourceCookies = dashboardRes.solution?.cookies || [];
