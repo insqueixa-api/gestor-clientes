@@ -839,11 +839,31 @@ async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceInd
   const byName = appsIndex.byName[normAppKey(key)];
   const app = byId || byName || { name: key || "App", fields_config: [], info_url: null, id: null };
 
-  // ✅ NOVO: Busca o link m3u direto do banco para realizar a automação de imediato
+  // ✅ CORREÇÃO M3U: Busca o link m3u direto do banco. Se não tiver, GERA NA HORA!
   let m3uUrl = "";
   try {
-    const { data } = await supabaseBrowser.from("clients").select("m3u_url").eq("id", r.id).maybeSingle();
-    if (data?.m3u_url) m3uUrl = data.m3u_url;
+    const { data } = await supabaseBrowser.from("clients").select("m3u_url, server_id").eq("id", r.id).maybeSingle();
+    
+    if (data?.m3u_url) {
+        m3uUrl = data.m3u_url;
+    } else if (data?.server_id) {
+        // O cliente não tem link salvo. Vamos buscar o DNS do servidor e gerar!
+        const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", data.server_id).single();
+        
+        if (srv && Array.isArray(srv.dns)) {
+            const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+            if (validDomains.length > 0) {
+                const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+                const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+                
+                // Monta o link M3U padrão
+                m3uUrl = `http://${cleanDomain}/get.php?username=${r.username}&password=${r.server_password || ""}&type=m3u_plus&output=ts`;
+                
+                // Já salva no banco silenciosamente para a próxima vez
+                supabaseBrowser.from("clients").update({ m3u_url: m3uUrl }).eq("id", r.id).then();
+            }
+        }
+    }
   } catch (e) {}
 
   setAppModal({

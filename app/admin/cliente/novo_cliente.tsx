@@ -1929,16 +1929,16 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
     const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
-    // ✅ NOVO: Verifica e resolve o link M3U antes de mandar para o painel do App!
+    // ✅ CORREÇÃO M3U: Resolve o link se ele estiver vazio antes de enviar!
     let m3uToSend = m3uUrl.trim();
     if (!m3uToSend) {
         m3uToSend = buildM3uUrlSilent();
         if (!m3uToSend) {
-            addToast("warning", "Link M3U Pendente", "Não foi possível gerar o link M3U. Preencha o usuário e selecione o servidor.");
+            addToast("warning", "Sem Domínio", "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.");
             setLoading(false);
             return;
         }
-        setM3uUrl(m3uToSend); // Já atualiza o campo visualmente na tela para você ver
+        setM3uUrl(m3uToSend); // Atualiza visualmente na tela para você ver
     }
 
     // 2. Constrói o pacote com o arquivo isolado do app
@@ -1947,7 +1947,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         password,
         macValue,
         finalServerName,
-        m3uUrl: m3uToSend // ✅ Envia o link M3U garantido!
+        m3uUrl: m3uToSend // ✅ Manda o link garantido!
     });
 
     const responseHandler = (e: any) => {
