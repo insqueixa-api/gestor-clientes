@@ -1455,14 +1455,16 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
       if (isEdit) {
         if (escopoEdicao === "UNICA" || !transacaoEdit.recorrencia_id) {
           const { error } = await supabaseBrowser.from("fin_transacoes").update({
-            tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs
+            tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs,
+            data_pagamento: status === "PAGO" ? (transacaoEdit.data_pagamento || new Date().toISOString()) : null
           }).eq("id", transacaoEdit.id);
           if (error) throw error;
         } else {
           // 1. Atualiza a transação atual
           const { error: errCurrent } = await supabaseBrowser.from("fin_transacoes").update({
             tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs,
-            frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null
+            frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+            data_pagamento: status === "PAGO" ? (transacaoEdit.data_pagamento || new Date().toISOString()) : null
           }).eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
 
