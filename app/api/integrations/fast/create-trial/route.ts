@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       return jsonError(502, "Falha ao carregar os pacotes (bouquets) do painel Fast. Verifique a comunicação.");
     }
 
-// ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
+    // ✅ HIGIENIZAÇÃO: Remove espaços e acentos, mantém maiúsculas/minúsculas
     const baseUser = (typeof usernameRaw === "string" && usernameRaw.trim()) 
       ? usernameRaw.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "") 
       : "";
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
           const mens = String(data?.mens || data?.error || text || "Erro na API FAST");
           lastErrMsg = mens;
 
-if (looksLikeDuplicateUsername(mens)) {
+          if (looksLikeDuplicateUsername(mens)) {
             const random = Math.floor(Math.random() * 900) + 100;
             attemptUsername = `${baseUser || "trial"}${random}`;
             continue;
@@ -197,12 +197,13 @@ if (looksLikeDuplicateUsername(mens)) {
 
         if (attempt < 3) {
           const random = Math.floor(Math.random() * 900) + 100;
-          attemptUsername = `${(typeof usernameRaw === "string" && usernameRaw.trim()) ? usernameRaw.trim() : "trial"}${random}`;
+          // ✅ CORREÇÃO: Usa o baseUser limpo, para não injetar espaços na tentativa extra
+          attemptUsername = `${baseUser || "trial"}${random}`;
         }
       }
     }
 
-if (!finalData) {
+    if (!finalData) {
       // ✅ Expõe o erro REAL do painel para pararmos de adivinhar o que deu errado
       const msg = looksLikeDuplicateUsername(lastErrMsg)
         ? `Tentativas esgotadas. Erro do painel: ${lastErrMsg}`
@@ -215,11 +216,9 @@ if (!finalData) {
     const exp = new Date(now.getTime() + 4 * 60 * 60 * 1000);
     const exp_date = Math.floor(exp.getTime() / 1000);
 
-    // M3U (mantido igual ao seu)
-    const domain = String(finalData?.data?.domain || "painel.fast");
-    const m3u_url = `http://${domain}/get.php?username=${encodeURIComponent(attemptUsername)}&password=${encodeURIComponent(
-      attemptPassword
-    )}&type=m3u_plus&output=ts`;
+    // ✅ A GRANDE MÁGICA: Devolvemos a m3u_url vazia! 
+    // Assim, o Frontend NovoCliente vai puxar a URL correta do DNS cadastrado na tela de Servidores!
+    const m3u_url = "";
 
     return NextResponse.json({
       ok: true,
@@ -227,8 +226,7 @@ if (!finalData) {
         username: attemptUsername,
         password: attemptPassword,
         exp_date,
-        domain,
-        m3u_url,
+        m3u_url, // Vazio
         owner_credits: null,
       },
     });
