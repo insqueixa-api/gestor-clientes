@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { getIntegrationHandler } from "@/lib/integrations";
 
 // ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente)
 import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
@@ -57,7 +58,7 @@ type VwClientRow = {
   client_name: string | null;
   username: string | null;
   server_password?: string | null;
-  m3u_url?: string | null; // ✅ ADICIONAR
+  m3u_url?: string | null; // ✅ ADICIONADO
 
   vencimento: string | null;
   computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
@@ -72,15 +73,14 @@ type VwClientRow = {
   plan_name: string | null;
 
   whatsapp_e164: string | null;
-
-whatsapp_username: string | null;
+  whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
   dont_message_until: string | null;
   secondary_display_name?: string | null;
   secondary_name_prefix?: string | null;
   secondary_phone_e164?: string | null;
   secondary_whatsapp_username?: string | null;
-name_prefix?: string | null; // ✅ ADICIONADO AQUI
+  name_prefix?: string | null; 
   apps_names: string[] | null;
 
   notes: string | null;
@@ -107,7 +107,7 @@ type TrialRow = {
 
   // para editar
   server_id: string;
-whatsapp: string;
+  whatsapp: string;
   whatsapp_username?: string;
   whatsapp_opt_in?: boolean;
   dont_message_until?: string;
@@ -150,7 +150,7 @@ function mapStatus(computed: string, archived: boolean, vencimento: string | nul
     if (!Number.isNaN(t) && Date.now() > t) return "Vencido";
   }
 
-  // fallback (se algum dia você mudar o filtro e vier OVERDUE/ARCHIVED)
+  // fallback
   const map: Record<string, TrialStatus> = {
     TRIAL: "Ativo",
     OVERDUE: "Vencido",
@@ -194,7 +194,7 @@ function queueTrialsListToast(toast: { type: "success" | "error"; title: string;
 }
 
 // =====================
-// Apps (índice + modal)  ✅ igual Cliente
+// Apps (índice + modal)  
 // =====================
 
 type AppField = {
@@ -260,8 +260,6 @@ function copyText(text: string) {
 }
 
 
-
-
 export default function TrialsPage() {
   // --- ESTADOS ---
   const [rows, setRows] = useState<TrialRow[]>([]);
@@ -272,7 +270,7 @@ export default function TrialsPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [trialToEdit, setTrialToEdit] = useState<ClientData | null>(null);
 
-  // ✅ modal de conversão
+  // modal de conversão
   const [showConvert, setShowConvert] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
     open: false,
     clientId: null,
@@ -289,19 +287,20 @@ export default function TrialsPage() {
   const [serverFilter, setServerFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState<"Todos" | TrialStatus>("Todos");
 
-const [sortKey, setSortKey] = useState<SortKey>("due");
-  const [sortDir, setSortDir] = useState<SortDir>("asc"); // ✅ "asc" mostra os mais recentes/urgentes primeiro
+  const [sortKey, setSortKey] = useState<SortKey>("due");
+  const [sortDir, setSortDir] = useState<SortDir>("asc"); 
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-    // =====================
-  // Apps (chips + modal)  ✅ igual Cliente
+  // =====================
+  // Apps (chips + modal)  
   // =====================
   const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
   const [appsLoading, setAppsLoading] = useState(false);
+  const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Integrações dos apps!
 
-const [showAppModal, setShowAppModal] = useState(false);
-  const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); // ✅ NOVO: Controle do olhinho
+  const [showAppModal, setShowAppModal] = useState(false);
+  const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); 
   const [appModal, setAppModal] = useState<{
     clientId: string;
     clientName: string;
@@ -310,38 +309,36 @@ const [showAppModal, setShowAppModal] = useState(false);
     infoUrl?: string | null;
     fields: AppField[];
     values: Record<string, any>;
+    m3uUrl: string; // ✅ GUARDA O M3U AQUI PARA QUANDO SALVAR
+    username: string; // ✅ GUARDA O USERNAME AQUI
+    server_id: string; // ✅ GUARDA O SERVER ID
   } | null>(null);
 
-
-
-  // Mensagem (igual clientes)
+  // Mensagem
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
   const [messageText, setMessageText] = useState("");
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
-const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleText, setScheduleText] = useState("");
 
-// ✅ NOVOS ESTADOS (Igual Cliente)
   type ScheduledMsg = { id: string; client_id: string; send_at: string; message: string; status?: string | null };
-  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; // ✅ Categoria
+  type MessageTemplate = { id: string; name: string; content: string; image_url?: string | null; category?: string | null }; 
 
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [selectedTemplateNowId, setSelectedTemplateNowId] = useState<string>("");
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] = useState<string>("");
   
-  // ✅ Modal para ver lista de agendados
   const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; trialId: string | null; trialName?: string }>({
     open: false,
     trialId: null,
     trialName: undefined,
   });
 
-  const [scheduling, setScheduling] = useState(false); // Loading do botão agendar
-  const [sendingNow, setSendingNow] = useState(false); // ✅ NOVO: Loading do botão enviar agora
+  const [scheduling, setScheduling] = useState(false); 
+  const [sendingNow, setSendingNow] = useState(false); 
 
-  // ✅ NOVO: Controle de Sessão
   const [selectedSessionNow, setSelectedSessionNow] = useState("default");
   const [selectedSessionSchedule, setSelectedSessionSchedule] = useState("default");
   const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
@@ -365,7 +362,6 @@ const [scheduleDate, setScheduleDate] = useState("");
     } catch (e) {}
   }
 
-  // ✅ FUNÇÕES DE DISPARO REAIS 
   async function handleSendMessageNow() {
     if (!tenantId || !showSendNow.trialId) return;
     if (sendingNow) return;
@@ -459,7 +455,6 @@ const [scheduleDate, setScheduleDate] = useState("");
     setMsgMenuForId(null);
   }
 
-  // ✅ FUNÇÕES DE CARREGAMENTO (Igual Cliente)
   async function loadScheduledForClients(tid: string, clientIds: string[]) {
     if (!clientIds.length) {
       setScheduledMap({});
@@ -525,6 +520,15 @@ const [scheduleDate, setScheduleDate] = useState("");
       });
 
       setAppsIndex({ byId, byName });
+
+      // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+      const { data: appInts } = await supabaseBrowser
+        .from("app_integrations")
+        .select("app_name, api_url")
+        .eq("tenant_id", tid)
+        .eq("is_active", true);
+      if (appInts) setAppIntegrations(appInts);
+
     } catch (e) {
       console.error("Falha ao carregar apps:", e);
       setAppsIndex({ byId: {}, byName: {} });
@@ -533,10 +537,13 @@ const [scheduleDate, setScheduleDate] = useState("");
     }
   }
 
-  // ✅ Adicionado o 'instanceIndex' na assinatura da função
+  // ✅ A GRANDE MÁGICA: O Modal do App da Lista de Testes
   async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string, instanceIndex: number = 0) {
     const raw = String(appNameOrId || "").trim();
     if (!raw) return;
+
+    const trialRow = rows.find(r => r.id === clientId);
+    if (!trialRow) return;
 
     const byId = appsIndex.byId || {};
     const byName = appsIndex.byName || {};
@@ -551,7 +558,7 @@ const [scheduleDate, setScheduleDate] = useState("");
       return;
     }
 
-    // busca field_values do client_apps (por app.id)
+    // Busca valores já preenchidos
     let values: Record<string, any> = {};
     try {
       const r = await supabaseBrowser
@@ -559,9 +566,7 @@ const [scheduleDate, setScheduleDate] = useState("");
         .select("field_values")
         .eq("client_id", clientId)
         .eq("app_id", found.id);
-        // ❌ REMOVIDO o .limit(1) para trazer todas as instâncias do cliente
 
-      // ✅ Pega a instância correta pelo índice (ou a primeira como fallback)
       if (!r.error && r.data) {
         if (r.data.length > instanceIndex) {
           values = r.data[instanceIndex].field_values as any;
@@ -569,11 +574,34 @@ const [scheduleDate, setScheduleDate] = useState("");
           values = r.data[0].field_values as any;
         }
       }
-    } catch (e) {
-      console.error("Falha ao buscar client_apps.field_values:", e);
-    }
+    } catch (e) {}
 
-setAppModal({
+    // ✅ CORREÇÃO M3U: Busca o link m3u direto do banco. Se não tiver, GERA NA HORA!
+    let m3uUrl = "";
+    try {
+      const { data } = await supabaseBrowser.from("clients").select("m3u_url, server_id").eq("id", clientId).maybeSingle();
+      
+      if (data?.m3u_url) {
+          m3uUrl = data.m3u_url;
+      } else if (data?.server_id) {
+          const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", data.server_id).single();
+          
+          if (srv && Array.isArray(srv.dns)) {
+              const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+              if (validDomains.length > 0) {
+                  const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+                  const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+                  
+                  m3uUrl = `http://${cleanDomain}/get.php?username=${trialRow.username}&password=${trialRow.server_password || ""}&type=m3u_plus&output=ts`;
+                  
+                  // Salva no banco
+                  supabaseBrowser.from("clients").update({ m3u_url: m3uUrl }).eq("id", clientId).then();
+              }
+          }
+      }
+    } catch (e) {}
+
+    setAppModal({
       clientId,
       clientName,
       appId: found.id,
@@ -581,17 +609,107 @@ setAppModal({
       infoUrl: found.info_url ?? null,
       fields: Array.isArray(found.fields_config) ? found.fields_config : [],
       values: { ...values },
+      m3uUrl: m3uUrl,
+      username: trialRow.username,
+      server_id: trialRow.server_id
     });
 
-    setVisibleAppPasswords({}); // ✅ Zera as senhas visíveis
+    setVisibleAppPasswords({}); 
     setShowAppModal(true);
+  }
+
+  // ✅ FUNÇÃO PARA ENVIAR COMANDO DE APP DIRETO DA TELA DE TESTES
+  async function handleQuickConfigApp() {
+      if (!appModal) return;
+      
+      const { clientId, appName, values, m3uUrl, username, server_id } = appModal;
+      
+      // 1. Pega as URLs base
+      let appBaseUrl = "";
+      const catApp = Object.values(appsIndex.byId).find(c => c.id === appModal.appId);
+      let intType = String(catApp?.cost_type || "IBOREVENDA").toUpperCase();
+      
+      let handler = getIntegrationHandler(intType);
+      
+      if (!handler) {
+          const appNameStr = String(appName || "").toUpperCase();
+          if (appNameStr.includes("ZONE")) intType = "ZONEX";
+          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
+          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
+          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
+          else if (appNameStr.includes("GPC")) {
+              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
+              else intType = "GPC_ROKU";
+          }
+          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
+          
+          handler = getIntegrationHandler(intType);
+      }
+
+      if (!handler) {
+          addToast("error", "Erro de Rota", `Não sabemos como integrar o app "${appName}".`);
+          return;
+      }
+
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler!.actionPrefix.toUpperCase());
+      appBaseUrl = appIntegData?.api_url || "";
+
+      // Pega MAC e Password do Formulário
+      let macValue = "";
+      const macField = appModal.fields.find(f => String(f.type).toUpperCase() === "MAC");
+      if (macField) {
+          const key = macField.id || macField.label;
+          macValue = values[key] || "";
+      }
+      if (!macValue) {
+          const foundKey = Object.keys(values).find(k => String(values[k]).includes(":"));
+          if (foundKey) macValue = values[foundKey];
+      }
+
+      if (!macValue) {
+          addToast("error", "MAC Obrigatório", "Preencha o MAC antes de configurar.");
+          return;
+      }
+
+      // Prepara os nomes
+      const srvObj = await supabaseBrowser.from("servers").select("name").eq("id", server_id).single();
+      const serverName = srvObj.data?.name || "Servidor";
+      const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
+
+      const payload = handler.buildCreatePayload({
+          username,
+          password: "", // O App vai pescar do banco local se precisar (já que o M3U tem tudo)
+          macValue,
+          finalServerName,
+          m3uUrl: m3uUrl 
+      });
+
+      addToast("success", "Enviando...", "Enviando para o painel do App...");
+
+      const responseHandler = (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          if (e.detail?.ok) {
+              addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
+              setShowAppModal(false);
+          } else {
+              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
+          }
+      };
+      
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } 
+      }));
+      
+      // Salva os valores que você digitou na tela direto no banco para não perder o MAC!
+      await supabaseBrowser.from("client_apps").update({ field_values: values }).eq("client_id", clientId).eq("app_id", appModal.appId);
   }
 
 
   async function loadMessageTemplates(tid: string) {
     const { data, error } = await supabaseBrowser
       .from("message_templates")
-      .select("id,name,content,image_url,category") // ✅ Busca category
+      .select("id,name,content,image_url,category") 
       .eq("tenant_id", tid)
       .order("name", { ascending: true });
 
@@ -646,14 +764,12 @@ setAppModal({
     return;
   }
 
-  // ✅ CORRETO: Usando views de TESTES
 const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_trials_list_active";
 
   const { data, error } = await supabaseBrowser
     .from(viewName)
     .select("*")
     .eq("tenant_id", tid)
-    // ✅ REMOVIDO: .eq("computed_status", "TRIAL") -> O próprio banco já trata isto e a Lixeira precisa do "ARCHIVED"
     .order("vencimento", { ascending: false, nullsFirst: false });
 
   if (error) {
@@ -666,17 +782,16 @@ const viewName = archivedFilter === "Sim" ? "vw_trials_list_archived" : "vw_tria
 
   const typed = (data || []) as VwClientRow[];
 
-  // ✅ fonte da verdade: notes direto da tabela clients (batch)
 const ids = typed.map((r) => String(r.id)).filter(Boolean);
 
 let notesMap: Record<string, string> = {};
-let prefixMap: Record<string, string> = {}; // ✅ NOVO MAPA PARA PREFIXOS
+let prefixMap: Record<string, string> = {}; 
 
 try {
   if (ids.length > 0) {
     const { data: cData, error: cErr } = await supabaseBrowser
       .from("clients")
-      .select("id, notes, name_prefix") // ✅ ADICIONADO name_prefix NO SELECT
+      .select("id, notes, name_prefix") 
       .eq("tenant_id", tid)
       .in("id", ids);
 
@@ -704,7 +819,6 @@ const mapped: TrialRow[] = typed.map((r) => {
   const due = formatDue(r.vencimento);
   const archived = Boolean(r.client_is_archived);
 
-  // ✅ status agora considera vencimento
   const status = mapStatus(String(r.computed_status), archived, r.vencimento);
 
   const converted = Boolean((r as any).converted_client_id);
@@ -755,11 +869,10 @@ const mapped: TrialRow[] = typed.map((r) => {
 
 setRows(mapped);
   
-// ✅ Carrega templates e agendamentos reais
   if (tid) {
     await loadMessageTemplates(tid);
     await loadScheduledForClients(tid, mapped.map(m => m.id));
-    await loadWhatsAppSessions(); // ✅ Carrega as opções de sessão
+    await loadWhatsAppSessions(); 
   }
 
   setLoading(false);
@@ -823,7 +936,6 @@ useEffect(() => {
     list.sort((a, b) => {
       let cmp = 0;
       
-      // ✅ Helper para converter strings de data num timestamp absoluto para ordenação
       const getTimestamp = (isoD: string, timeT: string) => {
         const d = new Date(`${isoD}T${timeT || "00:00"}:00`);
         return isNaN(d.getTime()) ? 0 : d.getTime();
@@ -834,7 +946,6 @@ useEffect(() => {
           cmp = compareText(a.name, b.name);
           break;
         case "due":
-          // ✅ Ordenação matemática (Perfeita cronologia)
           cmp = compareNumber(
             getTimestamp(a.dueISODate, a.dueTime),
             getTimestamp(b.dueISODate, b.dueTime)
@@ -848,7 +959,6 @@ useEffect(() => {
           break;
       }
       
-      // Desempate por data
       if (cmp === 0) {
           cmp = compareNumber(
             getTimestamp(a.dueISODate, a.dueTime),
@@ -880,7 +990,7 @@ useEffect(() => {
       username: r.username,
       server_id: r.server_id,
       screens: 1,
-      technology: r.technology, // ✅ FALTAVA ISSO
+      technology: r.technology, 
 
       whatsapp_e164: r.whatsapp,
       whatsapp_username: r.whatsapp_username,
@@ -904,8 +1014,6 @@ useEffect(() => {
     setTrialToEdit(payload);
     setTimeout(() => setShowFormModal(true), 0);
   };
-
-  // ✅ Arquivar/restaurar agora é update_client (porque trial é cliente TRIAL)
 
   const handleDeleteForever = async (r: TrialRow) => {
   if (!tenantId) return;
@@ -969,7 +1077,6 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
     }
   };
 
-  // ✅ Converter abre o mesmo modal da renovação
   const handleConvert = (r: TrialRow) => {
     if (r.archived) return;
 
@@ -1033,7 +1140,6 @@ return (
     Filtros Rápidos
   </div>
 
-  {/* ✅ MOBILE: pesquisa + botão abrir painel */}
   <div className="md:hidden flex items-center gap-2">
     <div className="flex-1 relative">
       <input
@@ -1066,7 +1172,6 @@ return (
     </button>
   </div>
 
-  {/* ✅ DESKTOP: tudo na mesma linha */}
   <div className="hidden md:flex items-center gap-2">
     <div className="flex-1 relative">
       <input
@@ -1117,11 +1222,9 @@ return (
     </button>
   </div>
 
-  {/* ✅ Painel mobile */}
   {mobileFiltersOpen && (
     <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
 
-      {/* ✅ Filtrar Lixeira */}
       <button
 onClick={(e) => {
   e.stopPropagation();
@@ -1222,8 +1325,8 @@ onClick={(e) => {
                   <Th>Convertido</Th>
                   <ThSort label="Servidor" active={sortKey === "server"} dir={sortDir} onClick={() => toggleSort("server")} />
 
-                  <Th>Tecnologia</Th>     {/* ✅ NOVO */}
-                  <Th>Apps</Th>           {/* ✅ NOVO */}
+                  <Th>Tecnologia</Th>      
+                  <Th>Apps</Th>           
 
                   <Th align="right">Ações</Th>
 
@@ -1238,13 +1341,11 @@ onClick={(e) => {
                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                   <Td>
                     <div className="flex flex-col max-w-[180px] sm:max-w-none">
-                      {/* Nome + Ícone Piscando */}
                       <div className="flex items-center gap-2 whitespace-nowrap">
                         <span className="font-semibold text-slate-700 dark:text-white truncate" title={r.name}>
                           {r.name}
                         </span>
 
-                        {/* ✅ Ícone de Mensagem Agendada (Real) */}
                         {(scheduledMap[r.id]?.length || 0) > 0 && (
                           <button
                             onClick={(e) => {
@@ -1270,7 +1371,6 @@ onClick={(e) => {
                           <span className={`font-mono font-medium ${isExpired ? "text-rose-500" : "text-slate-600 dark:text-white/80"}`}>
                             {r.dueLabelDate}
                           </span>
-                          {/* Padronizado: font-medium + slate-500 */}
                           <span className="text-xs font-medium text-slate-500 dark:text-white/60">{r.dueTime}</span>
                         </div>
                       </Td>
@@ -1296,14 +1396,13 @@ onClick={(e) => {
                           <span className="text-slate-600 dark:text-white/70">{r.server}</span>
                         </Td>
 
-                        {/* ✅ Tecnologia */}
                         <Td>
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
                             {r.technology || "—"}
                           </span>
                         </Td>
 
-                        {/* ✅ Apps (chips clicáveis → modal) */}
+                        {/* ✅ Apps */}
                         <Td>
                           {r.apps_names.length > 0 ? (
                             <div className="flex flex-wrap gap-2 max-w-[320px]">
@@ -1315,7 +1414,6 @@ onClick={(e) => {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      // ✅ Passando o 'idx' (instanceIndex) para abrir os dados corretos!
                                       openAppConfigModal(r.id, r.name, name, idx); 
                                     }}
                                     className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
@@ -1336,7 +1434,6 @@ onClick={(e) => {
                         <Td align="right">
 
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
-                          {/* Mensagem */}
                           <div className="relative">
                             <IconActionBtn
                               title="Mensagem"
@@ -1377,7 +1474,6 @@ onClick={(e) => {
                             )}
                           </div>
 
-                          {/* Criar Cliente (conversão) */}
                           {!r.archived && (
                             <IconActionBtn
                               title={r.converted ? "Já convertido" : "Criar cliente"}
@@ -1403,7 +1499,6 @@ onClick={(e) => {
                             <IconEdit />
                           </IconActionBtn>
 
-                          {/* Arquivar / Restaurar */}
                           <IconActionBtn
                             title={r.archived ? "Restaurar" : "Arquivar"}
                             tone={r.archived ? "green" : "red"}
@@ -1415,7 +1510,6 @@ onClick={(e) => {
                             {r.archived ? <IconRestore /> : <IconTrash />}
                           </IconActionBtn>
 
-                          {/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
 {archivedFilter === "Sim" && r.archived && (
   <IconActionBtn
     title="Excluir definitivamente"
@@ -1445,7 +1539,6 @@ onClick={(e) => {
               </tbody>
             </table>
             
-            {/* ✅ Espaço fixo depois do último teste (para popups/menus não serem cortados) */}
             <div className="h-24 md:h-20" />
             
           </div>
@@ -1476,7 +1569,7 @@ onClick={(e) => {
     clientId={showConvert.clientId}
     clientName={showConvert.clientName || "Teste"}
     allowConvertWithoutPayment
-    toastKey="trials_list_toasts"  // ✅ NOVO: toast do Whats volta pra tela de Testes
+    toastKey="trials_list_toasts"  
     onClose={() => setShowConvert({ open: false, clientId: null, clientName: undefined })}
     onSuccess={() => {
       setShowConvert({ open: false, clientId: null, clientName: undefined });
@@ -1487,7 +1580,6 @@ onClick={(e) => {
 )}
 
 
-{/* ✅ MODAL LISTA DE MENSAGENS AGENDADAS */}
 {showScheduledModal.open && showScheduledModal.trialId && (
   <Modal
     title={`Agendadas: ${showScheduledModal.trialName || "Teste"}`}
@@ -1562,11 +1654,10 @@ onClick={(e) => {
     setShowSendNow({ open: false, trialId: null });
     setSelectedTemplateNowId("");
     setMessageText("");
-    setSelectedSessionNow("default"); // ✅ Reseta ao fechar
+    setSelectedSessionNow("default"); 
   }}>
     <div className="space-y-4">
 
-      {/* ✅ Select da Sessão WhatsApp */}
       <div>
         <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
           Sessão de Envio
@@ -1582,7 +1673,6 @@ onClick={(e) => {
         </select>
       </div>
 
-      {/* ✅ Select de Template */}
       <div>
         <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
           Mensagem pronta (opcional)
@@ -1621,7 +1711,6 @@ onClick={(e) => {
         </select>
       </div>
 
-      {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (ENVIO AGORA) */}
       {(() => {
         const tpl = messageTemplates.find((t) => t.id === selectedTemplateNowId);
         if (!tpl?.image_url) return null;
@@ -1631,7 +1720,6 @@ onClick={(e) => {
               Imagem Anexada
             </span>
             <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
             </div>
           </div>
@@ -1675,11 +1763,10 @@ onClick={(e) => {
     setSelectedTemplateScheduleId("");
     setScheduleText("");
     setScheduleDate("");
-    setSelectedSessionSchedule("default"); // ✅ Reseta ao fechar
+    setSelectedSessionSchedule("default"); 
   }}>
     <div className="space-y-4">
 
-      {/* ✅ Select da Sessão WhatsApp */}
       <div>
         <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
           Sessão de Envio
@@ -1705,7 +1792,6 @@ onClick={(e) => {
         />
       </div>
 
-      {/* ✅ Select de Template */}
       <div>
         <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
           Mensagem pronta (opcional)
@@ -1744,7 +1830,6 @@ onClick={(e) => {
         </select>
       </div>
 
-      {/* ✅ PREVIEW DA IMAGEM DO TEMPLATE (AGENDAMENTO) */}
       {(() => {
         const tpl = messageTemplates.find((t) => t.id === selectedTemplateScheduleId);
         if (!tpl?.image_url) return null;
@@ -1754,7 +1839,6 @@ onClick={(e) => {
               Imagem Anexada
             </span>
             <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm relative bg-slate-100 dark:bg-black/40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
             </div>
           </div>
@@ -1822,7 +1906,6 @@ onClick={(e) => {
       </div>
 
       <div className="p-5 space-y-4">
-        {/* URL global do app */}
         <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4">
           <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-2">
             URL global do app
@@ -1859,7 +1942,6 @@ onClick={(e) => {
           )}
         </div>
 
-        {/* Campos */}
         <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4">
           <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-3">
             Campos
@@ -1877,7 +1959,6 @@ onClick={(e) => {
 
                 const isLink = f.type === "link" || isLikelyUrl(v);
                 
-                // ✅ Configurações da Senha e Visibilidade
                 const isPassword = String(f.type) === "password";
                 const isVisible = visibleAppPasswords[f.id] || false;
                 const currentType = isPassword ? (isVisible ? "text" : "password") : "text";
@@ -1898,7 +1979,6 @@ onClick={(e) => {
                           className={`h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default ${isPassword ? "pr-8" : ""}`}
                         />
                         
-                        {/* ✅ Botão do Olho */}
                         {isPassword && (
                           <button
                             type="button"
@@ -1925,7 +2005,6 @@ onClick={(e) => {
                         )}
                       </div>
 
-                      {/* ✅ Botão de Copiar agora liberado para a senha também */}
                       {v ? (
                         <button
                           onClick={() => copyText(v)}
@@ -1961,6 +2040,19 @@ onClick={(e) => {
       </div>
 
       <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
+        
+        {/* ✅ NOVO: BOTÃO DE CONFIGURAR NO MODAL TAMBÉM */}
+        <button
+          onClick={handleQuickConfigApp}
+          className="h-9 px-4 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 mr-auto"
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Configurar no App
+        </button>
+
         <button
           onClick={() => {
             setShowAppModal(false);
@@ -1975,8 +2067,6 @@ onClick={(e) => {
   </div>
 )}
 
-
-{/* ✅ Spacer do Rodapé (Contrato UI) */}
       <div className="h-24 md:h-20" />
 
       <div className="relative z-[999999]"></div>
@@ -1994,7 +2084,7 @@ onClick={(e) => {
 
 }
 
-// --- SUB-COMPONENTES VISUAIS (IGUAL ADMIN) ---
+// --- SUB-COMPONENTES VISUAIS ---
 const ALIGN_CLASS: Record<"left" | "right", string> = {
   left: "text-left",
   right: "text-right",
