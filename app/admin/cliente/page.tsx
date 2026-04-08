@@ -1659,34 +1659,43 @@ body: JSON.stringify({
       return handler;
   }
 
-  // ✅ Função para Salvar o M3U e os Valores da Tela Manualmente no Banco
+  // ✅ Função para Salvar APENAS o M3U manualmente (botão ao lado do input M3U)
   async function handleSaveM3uUrl() {
       if (!appModal) return;
       try {
           setAppSaving(true);
-          // 1. Salva o M3U na tabela Clients
           const { error } = await supabaseBrowser
             .from("clients")
             .update({ m3u_url: appModal.m3uUrl })
             .eq("id", appModal.clientId);
             
           if (error) throw error;
-          
-          // 2. Salva os campos do App na tabela client_apps
-          if (appModal.app?.id) {
-              const { data } = await supabaseBrowser.from("client_apps").select("field_values")
-                  .eq("client_id", appModal.clientId)
-                  .eq("app_id", appModal.app.id).maybeSingle();
-                  
-              const dbVals = data?.field_values || {};
-              await supabaseBrowser.from("client_apps").update({ 
-                  field_values: { ...dbVals, ...appValues } 
-              }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id);
-          }
-          
-          addToast("success", "Salvo", "URL M3U e campos atualizados no banco.");
+          addToast("success", "Salvo", "URL M3U atualizada no banco.");
       } catch (err: any) {
           addToast("error", "Falha", "Não foi possível salvar a URL.");
+      } finally {
+          setAppSaving(false);
+      }
+  }
+
+  // ✅ Função para Salvar as Alterações dos Campos do App no Banco (Botão do rodapé)
+  async function handleSaveModalData() {
+      if (!appModal || !appModal.app?.id) return;
+      try {
+          setAppSaving(true);
+          const { data } = await supabaseBrowser.from("client_apps").select("field_values")
+              .eq("client_id", appModal.clientId)
+              .eq("app_id", appModal.app.id).maybeSingle();
+              
+          const dbVals = data?.field_values || {};
+          const { error } = await supabaseBrowser.from("client_apps").update({ 
+              field_values: { ...dbVals, ...appValues } 
+          }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id);
+
+          if (error) throw error;
+          addToast("success", "Salvo", "Dados do aplicativo atualizados.");
+      } catch (e) {
+          addToast("error", "Erro", "Não foi possível salvar os dados.");
       } finally {
           setAppSaving(false);
       }
@@ -1734,27 +1743,20 @@ body: JSON.stringify({
           }
       }
 
-      // ✅ ATUALIZAÇÃO DA DATA COM 1 ANO: Pega o valor preenchido na tela (appValues)
+      // ✅ ATUALIZAÇÃO DA DATA: +1 Ano Automático ao Configurar
       let nextAppValues = { ...appValues };
       const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       
       if (dateField) {
           const fieldKey = String(dateField.id || dateField.label);
-          const telaDateValue = appValues[fieldKey]; 
-
-          if (telaDateValue) {
-             nextAppValues[fieldKey] = telaDateValue;
-             
-             // Salva no banco o valor exato da tela
-             supabaseBrowser.from("client_apps").select("field_values")
-                  .eq("client_id", clientId)
-                  .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
-                      const dbVals = data?.field_values || {};
-                      supabaseBrowser.from("client_apps").update({ 
-                          field_values: { ...dbVals, [fieldKey]: telaDateValue } 
-                      }).eq("client_id", clientId).eq("app_id", appModal.app.id).then();
-                  });
-          }
+          
+          // Lógica exata: Hoje + 1 ano
+          const hoje = new Date();
+          hoje.setFullYear(hoje.getFullYear() + 1);
+          const umAnoFrente = hoje.toISOString().split("T")[0]; // Retorna YYYY-MM-DD
+          
+          nextAppValues[fieldKey] = umAnoFrente; 
+          setAppValues(nextAppValues); 
       }
 
       setAppSaving(true);
@@ -1786,7 +1788,7 @@ body: JSON.stringify({
           detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload }
       }));
       
-      // ✅ Garante o salvamento de todos os valores locais no banco
+      // ✅ SALVA O DADO CORRETO (+1 ANO) NO BANCO IMEDIATAMENTE
       await supabaseBrowser.from("client_apps")
         .update({ field_values: nextAppValues })
         .eq("client_id", clientId)
@@ -1806,29 +1808,19 @@ body: JSON.stringify({
 
   async function handleDeleteAppDirect() {
       if (!appModal) return;
-      const handler = resolveAppIntegration(appModal.appName, appModal.app?.id || "");
+      const handler = resolveAppIntegration(appModal.appName, appModal.app.id);
       if (!handler) {
           addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
           return;
       }
 
-      // ✅ Limpa a Data do App visualmente e no Banco
+      // ✅ Remove a Data do App visualmente
       let nextAppValues = { ...appValues };
-      const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+      const dateField = appModal.app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       if (dateField) {
           const fieldKey = String(dateField.id || dateField.label);
-          
           nextAppValues[fieldKey] = ""; 
           setAppValues(nextAppValues);
-          
-          supabaseBrowser.from("client_apps").select("field_values")
-              .eq("client_id", appModal.clientId)
-              .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
-                  const dbVals = data?.field_values || {};
-                  supabaseBrowser.from("client_apps").update({ 
-                      field_values: { ...dbVals, [fieldKey]: "" } 
-                  }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
-              });
       }
 
       setAppSaving(true);
@@ -1838,8 +1830,8 @@ body: JSON.stringify({
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
 
       const payloadDelete = handler.buildDeletePayload({
-          username: finalServerName,
-          macValue: getMacFromApp(appValues, appModal.app?.fields_config || [])
+          username: finalServerName, 
+          macValue: getMacFromApp(appValues, appModal.app.fields_config)
       });
 
       const responseHandler = (e: any) => {
@@ -3096,7 +3088,7 @@ return (
       </div>
 
       {/* ✅ NOVO: Botões de Integração Inteligentes */}
-      {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id || "")) && (
+      {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id)) && (
         <div className="grid grid-cols-2 gap-2 mt-1 mb-3">
           <button
             onClick={handleConfigAppDirect}
@@ -3213,7 +3205,7 @@ return (
               const isUrl = f.type === "url" || f.type === "link";
 
               const isVisible = visibleAppPasswords[fid] || false;
-              const currentType = isDate ? "date" : isPassword ? (isVisible ? "text" : "password") : "text";
+              const currentType = isDate ? "date" : isPassword ? (isVisible ? "text" : "password") : "text"; // ✅ Permitindo input de data nativo
 
               return (
                 <div key={fid} className="space-y-1">
@@ -3226,7 +3218,7 @@ return (
                       <input
                         type={currentType}
                         value={appValues[fid] ?? ""}
-                        onChange={(e) => setAppValues(prev => ({ ...prev, [fid]: e.target.value }))}
+                        onChange={(e) => setAppValues(prev => ({ ...prev, [fid]: e.target.value }))} // ✅ ABRINDO CAMPO PARA EDIÇÃO
                         placeholder={f.placeholder || ""}
                         className={`h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors ${isPassword ? "pr-10" : ""}`}
                       />
@@ -3324,13 +3316,22 @@ return (
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Actions (RODAPÉ) */}
       <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
         <button
           onClick={() => setAppModal(null)}
           className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
         >
           Fechar
+        </button>
+
+        <button
+          onClick={handleSaveModalData}
+          disabled={appSaving}
+          className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Salvar M3U e Valores"
+        >
+          {appSaving ? "Salvando..." : "Salvar Alterações"}
         </button>
 
         <button
@@ -3350,6 +3351,7 @@ return (
     </div>
   </Modal>
 )}
+
 {ConfirmUI}
       <div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
