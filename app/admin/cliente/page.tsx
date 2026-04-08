@@ -829,6 +829,21 @@ function isUuidLike(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
+// ✅ Helpers de URL que faltavam nesta página
+function isLikelyUrl(v: string) {
+  const s = String(v || "").trim();
+  if (!s) return false;
+  return /^https?:\/\/\S+/i.test(s) || /^www\.\S+/i.test(s);
+}
+
+function toOpenableUrl(v: string) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^www\./i.test(s)) return `https://${s}`;
+  return s;
+}
+
 // ✅ Modificado para receber a linha inteira do cliente (ClientRow)
 async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceIndex: number = 0) {
   if (!tenantId) return;
@@ -1644,18 +1659,32 @@ body: JSON.stringify({
       return handler;
   }
 
-  // ✅ Função para Salvar o M3U manualmente
+  // ✅ Função para Salvar o M3U e os Valores da Tela Manualmente no Banco
   async function handleSaveM3uUrl() {
       if (!appModal) return;
       try {
           setAppSaving(true);
+          // 1. Salva o M3U na tabela Clients
           const { error } = await supabaseBrowser
             .from("clients")
             .update({ m3u_url: appModal.m3uUrl })
             .eq("id", appModal.clientId);
             
           if (error) throw error;
-          addToast("success", "Salvo", "URL M3U atualizada no banco.");
+          
+          // 2. Salva os campos do App na tabela client_apps
+          if (appModal.app?.id) {
+              const { data } = await supabaseBrowser.from("client_apps").select("field_values")
+                  .eq("client_id", appModal.clientId)
+                  .eq("app_id", appModal.app.id).maybeSingle();
+                  
+              const dbVals = data?.field_values || {};
+              await supabaseBrowser.from("client_apps").update({ 
+                  field_values: { ...dbVals, ...appValues } 
+              }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id);
+          }
+          
+          addToast("success", "Salvo", "URL M3U e campos atualizados no banco.");
       } catch (err: any) {
           addToast("error", "Falha", "Não foi possível salvar a URL.");
       } finally {
@@ -1666,7 +1695,7 @@ body: JSON.stringify({
   async function handleConfigAppDirect() {
       if (!appModal) return;
       
-      const { clientId, appName, username, serverName, serverPassword, clientDueDate } = appModal;
+      const { clientId, appName, username, serverName, serverPassword } = appModal;
       let m3uUrlFinal = appModal.m3uUrl;
 
       const handler = resolveAppIntegration(appName, appModal.app?.id || "");
@@ -1705,14 +1734,27 @@ body: JSON.stringify({
           }
       }
 
-      // CORREÇÃO DO SALVAMENTO DA DATA
+      // ✅ ATUALIZAÇÃO DA DATA COM 1 ANO: Pega o valor preenchido na tela (appValues)
       let nextAppValues = { ...appValues };
       const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       
-      if (dateField && clientDueDate) {
+      if (dateField) {
           const fieldKey = String(dateField.id || dateField.label);
-          nextAppValues[fieldKey] = clientDueDate; 
-          setAppValues(nextAppValues); 
+          const telaDateValue = appValues[fieldKey]; 
+
+          if (telaDateValue) {
+             nextAppValues[fieldKey] = telaDateValue;
+             
+             // Salva no banco o valor exato da tela
+             supabaseBrowser.from("client_apps").select("field_values")
+                  .eq("client_id", clientId)
+                  .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
+                      const dbVals = data?.field_values || {};
+                      supabaseBrowser.from("client_apps").update({ 
+                          field_values: { ...dbVals, [fieldKey]: telaDateValue } 
+                      }).eq("client_id", clientId).eq("app_id", appModal.app.id).then();
+                  });
+          }
       }
 
       setAppSaving(true);
@@ -1744,7 +1786,7 @@ body: JSON.stringify({
           detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload }
       }));
       
-      // SALVA O DADO CORRETO NO BANCO E NÃO A VARIÁVEL DESATUALIZADA
+      // ✅ Garante o salvamento de todos os valores locais no banco
       await supabaseBrowser.from("client_apps")
         .update({ field_values: nextAppValues })
         .eq("client_id", clientId)
@@ -1764,21 +1806,21 @@ body: JSON.stringify({
 
   async function handleDeleteAppDirect() {
       if (!appModal) return;
-      const handler = resolveAppIntegration(appModal.appName, appModal.app.id);
+      const handler = resolveAppIntegration(appModal.appName, appModal.app?.id || "");
       if (!handler) {
           addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
           return;
       }
 
-      // ✅ NOVO: Remove a Data do App visualmente e no Banco Silenciosamente
-      const dateField = appModal.app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+      // ✅ Limpa a Data do App visualmente e no Banco
+      let nextAppValues = { ...appValues };
+      const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       if (dateField) {
           const fieldKey = String(dateField.id || dateField.label);
           
-          // 1. Limpa na UI na hora
-          setAppValues(prev => ({ ...prev, [fieldKey]: "" }));
+          nextAppValues[fieldKey] = ""; 
+          setAppValues(nextAppValues);
           
-          // 2. Atualiza o banco
           supabaseBrowser.from("client_apps").select("field_values")
               .eq("client_id", appModal.clientId)
               .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
@@ -1793,9 +1835,11 @@ body: JSON.stringify({
       const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
       const appBaseUrl = appIntegData?.api_url || "";
 
+      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+
       const payloadDelete = handler.buildDeletePayload({
-          username: appModal.username,
-          macValue: getMacFromApp(appValues, appModal.app.fields_config)
+          username: finalServerName,
+          macValue: getMacFromApp(appValues, appModal.app?.fields_config || [])
       });
 
       const responseHandler = (e: any) => {
@@ -1810,6 +1854,12 @@ body: JSON.stringify({
           detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete }
       }));
 
+      // ✅ Atualiza os dados apagados no banco
+      await supabaseBrowser.from("client_apps")
+        .update({ field_values: nextAppValues })
+        .eq("client_id", appModal.clientId)
+        .eq("app_id", appModal.app?.id);
+
       setTimeout(() => {
           setAppSaving((prev) => {
               if (prev) {
@@ -1821,6 +1871,7 @@ body: JSON.stringify({
           });
       }, 20000);
   }
+
 
 return (
   <div
@@ -3044,8 +3095,8 @@ return (
         </div>
       </div>
 
-      {/* ✅ NOVO: Botões de Integração Inteligentes (Apenas se o App tiver regra de integração) */}
-      {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id)) && (
+      {/* ✅ NOVO: Botões de Integração Inteligentes */}
+      {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id || "")) && (
         <div className="grid grid-cols-2 gap-2 mt-1 mb-3">
           <button
             onClick={handleConfigAppDirect}
@@ -3135,7 +3186,7 @@ return (
 
       {/* Campos do app */}
       <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 mb-3">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
             Campos do aplicativo
           </div>
@@ -3158,19 +3209,11 @@ return (
               const rawLabel = String(f?.label ?? "").trim();
               const label = APP_FIELD_LABELS[String(f?.type ?? "")] || rawLabel || "Campo";
               const isDate = f.type === "date";
-              const isPassword = f.type === "password";
+              const isPassword = String(f.type) === "password";
               const isUrl = f.type === "url" || f.type === "link";
 
-              // Exibe data como DD/MM/AAAA
-              function isoToDisplay(iso: string) {
-                if (!iso) return "";
-                const [y, m, d] = iso.split("-");
-                if (!y || !m || !d) return iso;
-                return `${d}/${m}/${y}`;
-              }
-
               const isVisible = visibleAppPasswords[fid] || false;
-              const currentType = isDate ? "text" : isPassword ? (isVisible ? "text" : "password") : "text";
+              const currentType = isDate ? "date" : isPassword ? (isVisible ? "text" : "password") : "text";
 
               return (
                 <div key={fid} className="space-y-1">
@@ -3182,13 +3225,13 @@ return (
                     <div className="relative w-full">
                       <input
                         type={currentType}
-                        value={isDate ? isoToDisplay(appValues[fid] ?? "") : (appValues[fid] ?? "")}
-                        readOnly
+                        value={appValues[fid] ?? ""}
+                        onChange={(e) => setAppValues(prev => ({ ...prev, [fid]: e.target.value }))}
                         placeholder={f.placeholder || ""}
-                        className={`h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default ${isPassword ? "pr-8" : ""}`}
+                        className={`h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors ${isPassword ? "pr-10" : ""}`}
                       />
                       
-                      {/* Botão do Olho (Só aparece se for campo de senha) */}
+                      {/* Botão do Olho */}
                       {isPassword && (
                         <button
                           type="button"
@@ -3197,7 +3240,7 @@ return (
                             e.stopPropagation();
                             setVisibleAppPasswords(prev => ({ ...prev, [fid]: !prev[fid] }));
                           }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
                           tabIndex={-1}
                           title={isVisible ? "Ocultar senha" : "Mostrar senha"}
                         >
@@ -3215,7 +3258,6 @@ return (
                       )}
                     </div>
 
-                    {/* ✅ Agora o botão de copiar aparece SEMPRE, inclusive para senhas! */}
                     <button
                       type="button"
                       onClick={() => copyToClipboard(appValues[fid])}
@@ -3227,15 +3269,13 @@ return (
                     </button>
                   </div>
 
-
                   {isUrl && (appValues[fid] || "").trim() && (
                     <div className="flex justify-end">
                       <a
-                        href={(appValues[fid] || "").trim()}
+                        href={toOpenableUrl((appValues[fid] || "").trim())}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
-                      
                       >
                         Abrir link →
                       </a>
@@ -3257,14 +3297,14 @@ return (
               type="text"
               value={appModal.m3uUrl}
               onChange={(e) => setAppModal(prev => prev ? { ...prev, m3uUrl: e.target.value } : null)}
-              className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors"
+              className="h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors"
               placeholder="Aguardando link M3U..."
             />
             <button
               onClick={handleSaveM3uUrl}
               disabled={appSaving || !appModal.m3uUrl}
               className="h-9 w-9 flex shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Salvar M3U no Banco"
+              title="Salvar valores e M3U"
             >
                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -3285,7 +3325,7 @@ return (
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
         <button
           onClick={() => setAppModal(null)}
           className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
@@ -3297,7 +3337,7 @@ return (
           onClick={() => {
             if (!appModal?.clientId) return;
             setAppModal(null);
-            // ✅ abre edição do cliente (aba apps via initialTab, ver ajuste no NovoCliente)
+            // ✅ abre edição do cliente (aba apps via initialTab)
             openEditById(appModal.clientId, "apps");
           }}
           className="h-10 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
@@ -3310,7 +3350,6 @@ return (
     </div>
   </Modal>
 )}
-
 {ConfirmUI}
       <div className="relative z-[999999]">
   <ToastNotifications toasts={toasts} removeToast={removeToast} />
