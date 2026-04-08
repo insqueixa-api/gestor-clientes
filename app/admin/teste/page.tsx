@@ -295,6 +295,7 @@ export default function TrialsPage() {
   const [appsLoading, setAppsLoading] = useState(false);
   const [appIntegrations, setAppIntegrations] = useState<any[]>([]);
   const [appSaving, setAppSaving] = useState(false);
+  const [appModalDirty, setAppModalDirty] = useState(false);
 
   const [showAppModal, setShowAppModal] = useState(false);
   const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); 
@@ -631,6 +632,7 @@ export default function TrialsPage() {
       });
 
       addToast("success", "Enviando...", "Enviando para o painel do App...");
+      setAppModalDirty(true);
 
       const responseHandler = (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
@@ -692,6 +694,88 @@ export default function TrialsPage() {
               return prev;
           });
       }, 20000);
+  }
+
+  // ✅ Salva apenas o M3U no banco
+  async function handleSaveM3uUrl() {
+    if (!appModal) return;
+    try {
+      setAppSaving(true);
+      const { error } = await supabaseBrowser
+        .from("clients")
+        .update({ m3u_url: appModal.m3uUrl })
+        .eq("id", appModal.clientId);
+      if (error) throw error;
+      addToast("success", "Salvo", "URL M3U atualizada no banco.");
+    } catch (err: any) {
+      addToast("error", "Falha", "Não foi possível salvar a URL.");
+    } finally {
+      setAppSaving(false);
+    }
+  }
+
+  // ✅ Regenera a URL M3U buscando DNS do servidor (botão Sync)
+  async function handleSyncM3uUrlModal() {
+    if (!appModal) return;
+    try {
+      setAppSaving(true);
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("dns")
+        .eq("id", appModal.server_id)
+        .single();
+
+      if (!srv || !Array.isArray(srv.dns) || srv.dns.length === 0) {
+        addToast("warning", "Sem Domínios", "O servidor não possui domínios configurados.");
+        return;
+      }
+
+      const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+      if (validDomains.length === 0) {
+        addToast("warning", "Sem Domínios", "Nenhum domínio válido encontrado.");
+        return;
+      }
+
+      const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+      const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+      const newM3u = `http://${cleanDomain}/get.php?username=${appModal.username}&password=${appModal.serverPassword || ""}&type=m3u_plus&output=ts`;
+
+      setAppModal(prev => prev ? { ...prev, m3uUrl: newM3u } : null);
+      setAppModalDirty(true);
+      addToast("success", "M3U Gerado!", "Link atualizado. Clique em Salvar para confirmar.");
+    } catch (err: any) {
+      addToast("error", "Falha", "Não foi possível gerar o link M3U.");
+    } finally {
+      setAppSaving(false);
+    }
+  }
+
+  // ✅ Salva os valores dos campos do App no banco
+  async function handleSaveModalData() {
+    if (!appModal?.appId) return;
+    try {
+      setAppSaving(true);
+      const { data } = await supabaseBrowser
+        .from("client_apps")
+        .select("field_values")
+        .eq("client_id", appModal.clientId)
+        .eq("app_id", appModal.appId)
+        .maybeSingle();
+
+      const dbVals = data?.field_values || {};
+      const { error } = await supabaseBrowser
+        .from("client_apps")
+        .update({ field_values: { ...dbVals, ...appValues } })
+        .eq("client_id", appModal.clientId)
+        .eq("app_id", appModal.appId);
+
+      if (error) throw error;
+      addToast("success", "Salvo", "Dados do aplicativo atualizados.");
+    } catch (e) {
+      addToast("error", "Erro", "Não foi possível salvar os dados.");
+    } finally {
+      setAppSaving(false);
+    }
   }
 
   // ✅ A GRANDE MÁGICA DO MODAL: O Modal do App
@@ -763,6 +847,7 @@ export default function TrialsPage() {
         nextValues[String(f.id)] = safeString(vRaw);
     }
     setAppValues(nextValues);
+    setAppModalDirty(true);
 
     setAppModal({
       clientId,
@@ -781,6 +866,7 @@ export default function TrialsPage() {
       app: found
     });
 
+    setAppModalDirty(false);
     setVisibleAppPasswords({}); 
     setShowAppModal(true);
   }
@@ -2161,9 +2247,13 @@ onClick={(e) => {
                         <input
                           type={currentType}
                           value={v}
-                          readOnly
+                          onChange={(e) => {
+                            const fid = f.id;
+                            setAppValues(prev => ({ ...prev, [fid]: e.target.value }));
+                            setAppModalDirty(true);
+                          }}
                           placeholder={f.placeholder || ""}
-                          className={`h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default ${isPassword ? "pr-8" : ""}`}
+                          className={`h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors ${isPassword ? "pr-10" : ""}`}
                         />
                         
                         {isPassword && (
@@ -2224,23 +2314,34 @@ onClick={(e) => {
             </div>
           )}
 
-          {/* ✅ NOVO: Exibe a URL M3U Garantida e Gerada! ESPELHADO DE CLIENTES */}
+          {/* ✅ M3U Editável com botão Sync */}
           <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-1">
             <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
-              URL da Playlist M3U (Auto)
+              URL da Playlist M3U
             </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={appModal.m3uUrl}
-                readOnly
-                className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default"
+                onChange={(e) => { setAppModal(prev => prev ? { ...prev, m3uUrl: e.target.value } : null); setAppModalDirty(true); }}
+                className="h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors"
                 placeholder="Aguardando link M3U..."
               />
               <button
+                onClick={handleSyncM3uUrlModal}
+                disabled={appSaving}
+                className="h-9 px-3 flex shrink-0 items-center gap-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                title="Gerar novo link M3U a partir dos domínios do servidor"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Sync
+              </button>
+              <button
                 onClick={() => copyText(appModal.m3uUrl)}
                 disabled={!appModal.m3uUrl}
-                className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-9 px-3 shrink-0 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Copiar"
               >
                 Copiar
@@ -2251,25 +2352,21 @@ onClick={(e) => {
       </div>
 
       <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
+        {appModalDirty && (
+          <button
+            onClick={async () => { await handleSaveModalData(); await handleSaveM3uUrl(); setAppModalDirty(false); }}
+            disabled={appSaving}
+            className="h-9 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in zoom-in-95 duration-200"
+          >
+            {appSaving ? "Salvando..." : "Salvar Alterações"}
+          </button>
+        )}
+
         <button
-          onClick={() => {
-            setAppModal(null);
-          }}
+          onClick={() => setAppModal(null)}
           className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
         >
           Fechar
-        </button>
-        
-        <button
-          onClick={() => {
-            if (!appModal?.clientId) return;
-            setAppModal(null);
-            openEditById(appModal.clientId, "apps");
-          }}
-          className="h-9 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
-          title="Abrir edição completa do cliente"
-        >
-          Editar Cliente
         </button>
       </div>
     </div>
