@@ -2548,11 +2548,20 @@ return (
                             e.stopPropagation();
                             openAppConfigModal(r, app, i);
                           }}
-                          // ✅ Visual padronizado estilo "Chip Interativo"
-                          className="px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all truncate max-w-full"
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                           title={`Ver dados do aplicativo: ${app}`}
                         >
                           {app}
+                          {(() => {
+                            const catApp = appsIndex.byName[normAppKey(app)] as any;
+                            if (!catApp?.integration_type) return null;
+                            return (
+                              <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400 text-[8px] font-bold uppercase tracking-wide whitespace-nowrap">
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                                {catApp.integration_type}
+                              </span>
+                            );
+                          })()}
                         </button>
                             ))
                           ) : (
