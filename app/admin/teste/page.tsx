@@ -193,6 +193,7 @@ type AppData = {
   fields_config: AppField[];
   partner_server_id?: string | null;
   cost_type?: "paid" | "free" | "partnership";
+  integration_type?: string | null;
 };
 
 type AppsIndex = {
@@ -517,6 +518,7 @@ export default function TrialsPage() {
           fields_config: Array.isArray(a.fields_config) ? a.fields_config : [],
           partner_server_id: a.partner_server_id ?? null,
           cost_type: a.cost_type ?? undefined,
+          integration_type: a.integration_type ?? null,
         };
         byId[app.id] = app;
         byName[normKey(app.name)] = app;
