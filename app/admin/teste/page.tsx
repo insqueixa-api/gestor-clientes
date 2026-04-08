@@ -14,6 +14,7 @@ import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
 import RecargaCliente from "../cliente/recarga_cliente";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Hook adicionado
 
 // --- HELPERS WHATSAPP ---
 function extractWaNumberFromJid(jid?: unknown): string {
@@ -42,36 +43,37 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
   return `${sessionName} • ${pretty || "Conectado"}`;
 }
 
+const APP_FIELD_LABELS: Record<string, string> = {
+  date: "Vencimento",
+  mac: "Device ID (MAC)",
+  device_key: "Device Key",
+  email: "E-mail",
+  password: "Senha",
+  url: "URL",
+  obs: "Obs",
+};
+
 // --- TIPOS ---
 type TrialStatus = "Ativo" | "Vencido" | "Arquivado";
 type SortKey = "name" | "due" | "status" | "server";
 type SortDir = "asc" | "desc";
 
-/**
- * ✅ Linha REAL da view vw_clients_list_*
- * Vamos filtrar apenas computed_status = TRIAL
- */
 type VwClientRow = {
   id: string;
   tenant_id: string;
-
   client_name: string | null;
   username: string | null;
   server_password?: string | null;
-  m3u_url?: string | null; // ✅ ADICIONADO
-
+  m3u_url?: string | null; 
   vencimento: string | null;
   computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
   client_is_archived: boolean | null;
-
   server_id: string | null;
   server_name: string | null;
-
   technology: string | null;
   price_amount: number | null;
   price_currency: string | null;
   plan_name: string | null;
-
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
@@ -82,9 +84,7 @@ type VwClientRow = {
   secondary_whatsapp_username?: string | null;
   name_prefix?: string | null; 
   apps_names: string[] | null;
-
   notes: string | null;
-
   converted_client_id?: string | null;
 };
 
@@ -92,20 +92,14 @@ type TrialRow = {
   id: string;
   name: string;
   username: string;
-
   dueISODate: string;
   dueLabelDate: string;
   dueTime: string;
-
   status: TrialStatus;
   server: string;
-
   technology: string;
   apps_names: string[];
-
   archived: boolean;
-
-  // para editar
   server_id: string;
   whatsapp: string;
   whatsapp_username?: string;
@@ -123,7 +117,6 @@ type TrialRow = {
   plan_name?: string;
   vencimento?: string;
   notes?: string;
-
   converted: boolean;
 };
 
@@ -142,15 +135,10 @@ function statusRank(s: TrialStatus) {
 
 function mapStatus(computed: string, archived: boolean, vencimento: string | null): TrialStatus {
   if (archived) return "Arquivado";
-
-  // ✅ Regra principal do teste:
-  // se agora > vencimento => Vencido
   if (vencimento) {
     const t = new Date(vencimento).getTime();
     if (!Number.isNaN(t) && Date.now() > t) return "Vencido";
   }
-
-  // fallback
   const map: Record<string, TrialStatus> = {
     TRIAL: "Ativo",
     OVERDUE: "Vencido",
@@ -159,19 +147,15 @@ function mapStatus(computed: string, archived: boolean, vencimento: string | nul
   return map[computed] || "Ativo";
 }
 
-
 function formatDue(rawDue: string | null) {
   if (!rawDue) {
     return { dueISODate: "0000-01-01", dueLabelDate: "—", dueTime: "—" };
   }
-
   const isoDate = rawDue.split("T")[0];
   const dt = new Date(rawDue);
-
   if (Number.isNaN(dt.getTime())) {
     return { dueISODate: "0000-01-01", dueLabelDate: "—", dueTime: "—" };
   }
-
   return {
     dueISODate: isoDate,
     dueLabelDate: dt.toLocaleDateString("pt-BR"),
@@ -182,15 +166,12 @@ function formatDue(rawDue: string | null) {
 function queueTrialsListToast(toast: { type: "success" | "error"; title: string; message?: string }) {
   try {
     if (typeof window === "undefined") return;
-
     const key = "trials_list_toasts";
     const raw = window.sessionStorage.getItem(key);
     const arr = raw ? (JSON.parse(raw) as any[]) : [];
     arr.push({ ...toast, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch {
-    // silencioso
-  }
+  } catch {}
 }
 
 // =====================
@@ -269,6 +250,21 @@ export default function TrialsPage() {
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
   const [trialToEdit, setTrialToEdit] = useState<ClientData | null>(null);
+  const { confirm, ConfirmUI } = useConfirm(); // ✅ HOOK INJETADO
+
+  // ✅ Controle de qual aba abrir no modal de edição
+  type EditTab = "dados" | "pagamento" | "apps";
+  const [editInitialTab, setEditInitialTab] = useState<EditTab>("dados");
+
+  // ✅ Função para abrir o modal direto por ID
+  function openEditById(clientId: string, initialTab: EditTab = "dados") {
+    const r = rows.find((x) => x.id === clientId);
+    if (!r) {
+      addToast("error", "Teste não encontrado", "Não foi possível abrir edição deste teste.");
+      return;
+    }
+    handleOpenEdit(r, initialTab);
+  }
 
   // modal de conversão
   const [showConvert, setShowConvert] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
@@ -297,10 +293,12 @@ export default function TrialsPage() {
   // =====================
   const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
   const [appsLoading, setAppsLoading] = useState(false);
-  const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Integrações dos apps!
+  const [appIntegrations, setAppIntegrations] = useState<any[]>([]);
+  const [appSaving, setAppSaving] = useState(false);
 
   const [showAppModal, setShowAppModal] = useState(false);
   const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); 
+  const [appValues, setAppValues] = useState<Record<string, string>>({}); // ✅ Adicionado AppValues para Inputs!
   const [appModal, setAppModal] = useState<{
     clientId: string;
     clientName: string;
@@ -309,9 +307,13 @@ export default function TrialsPage() {
     infoUrl?: string | null;
     fields: AppField[];
     values: Record<string, any>;
-    m3uUrl: string; // ✅ GUARDA O M3U AQUI PARA QUANDO SALVAR
-    username: string; // ✅ GUARDA O USERNAME AQUI
-    server_id: string; // ✅ GUARDA O SERVER ID
+    m3uUrl: string; 
+    username: string; 
+    serverName: string; // ✅
+    serverPassword: string; // ✅
+    clientDueDate: string; // ✅
+    server_id: string;
+    app: any;
   } | null>(null);
 
   // Mensagem
@@ -491,7 +493,7 @@ export default function TrialsPage() {
     setScheduledMap(map);
   }
 
-    async function loadAppsIndex(tid: string) {
+  async function loadAppsIndex(tid: string) {
     setAppsLoading(true);
     try {
       const r = await supabaseBrowser
@@ -521,7 +523,7 @@ export default function TrialsPage() {
 
       setAppsIndex({ byId, byName });
 
-      // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+      // ✅ Busca as integrações configuradas dos Apps
       const { data: appInts } = await supabaseBrowser
         .from("app_integrations")
         .select("app_name, api_url")
@@ -537,7 +539,162 @@ export default function TrialsPage() {
     }
   }
 
-  // ✅ A GRANDE MÁGICA: O Modal do App da Lista de Testes
+  // ✅ FUNÇÕES DE AUTOMAÇÃO DE APP (ESPELHADO DE CLIENTES)
+  function getMacFromApp(appInstanceValues: Record<string, string>, fieldsConfig: any[]) {
+      let macValue = "";
+      const macField = fieldsConfig?.find((f: any) => String(f?.type || "").toUpperCase() === "MAC");
+      if (macField) {
+          const key = String(macField.id || macField.label || "").trim();
+          macValue = appInstanceValues[key] || "";
+      }
+      if (!macValue) {
+          const foundKey = Object.keys(appInstanceValues).find(k => String(appInstanceValues[k]).includes(":"));
+          if (foundKey) macValue = appInstanceValues[foundKey];
+      }
+      return macValue;
+  }
+
+  function resolveAppIntegration(appName: string, appId: string) {
+      const catApp = Object.values(appsIndex.byId).find(c => c.id === appId) || Object.values(appsIndex.byName).find(c => c.name === appName);
+      let intType = String((catApp as any)?.integration_type || "").trim().toUpperCase();
+      let handler = getIntegrationHandler(intType);
+      
+      if (!handler) {
+          const appNameStr = String(appName || "").toUpperCase();
+          if (appNameStr.includes("ZONE")) intType = "ZONEX";
+          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
+          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
+          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
+          else if (appNameStr.includes("GPC")) {
+              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
+              else intType = "GPC_ROKU";
+          }
+          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
+          
+          handler = getIntegrationHandler(intType);
+      }
+      return handler;
+  }
+
+  async function handleQuickConfigApp() {
+      if (!appModal) return;
+      
+      const { clientId, appName, values, username, server_id, serverName, serverPassword } = appModal;
+      let m3uUrlFinal = appModal.m3uUrl;
+
+      const handler = resolveAppIntegration(appName, appModal.app?.id);
+      
+      if (!handler) {
+          addToast("error", "Erro de Rota", `Não sabemos como integrar o app "${appName}". Nenhuma regra definida.`);
+          return;
+      }
+
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler!.actionPrefix.toUpperCase());
+      const appBaseUrl = appIntegData?.api_url || "";
+
+      const macValue = getMacFromApp(appValues, appModal.app?.fields_config || []);
+      if (!macValue || macValue.trim() === "") {
+          addToast("error", "MAC Obrigatório", "O aplicativo deve possuir um campo de MAC preenchido no cadastro do cliente.");
+          return;
+      }
+
+      // ✅ M3U: Resolve o link se ele estiver vazio antes de enviar!
+      if (!m3uUrlFinal) {
+          try {
+              const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", server_id).single();
+              if (srv && Array.isArray(srv.dns)) {
+                  const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+                  if (validDomains.length > 0) {
+                      const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+                      const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+                      m3uUrlFinal = `http://${cleanDomain}/get.php?username=${username}&password=${serverPassword || ""}&type=m3u_plus&output=ts`;
+                      supabaseBrowser.from("clients").update({ m3u_url: m3uUrlFinal }).eq("id", clientId).then();
+                  }
+              }
+          } catch (e) {}
+
+          if (!m3uUrlFinal) {
+              addToast("error", "M3U Pendente", "Não foi possível gerar a URL. Verifique se o servidor possui DNS.");
+              return;
+          }
+      }
+
+      setAppSaving(true);
+      const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
+
+      const payload = handler.buildCreatePayload({
+          username,
+          password: serverPassword, 
+          macValue,
+          finalServerName,
+          m3uUrl: m3uUrlFinal 
+      });
+
+      addToast("success", "Enviando...", "Enviando para o painel do App...");
+
+      const responseHandler = (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          if (e.detail?.ok) {
+              addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
+              setShowAppModal(false);
+          } else {
+              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
+          }
+          setAppSaving(false);
+      };
+      
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } 
+      }));
+      
+      await supabaseBrowser.from("client_apps").update({ field_values: appValues }).eq("client_id", clientId).eq("app_id", appModal.app?.id);
+  }
+
+  async function handleDeleteAppDirect() {
+      if (!appModal) return;
+      const handler = resolveAppIntegration(appModal.appName, appModal.app?.id);
+      if (!handler) {
+          addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
+          return;
+      }
+
+      setAppSaving(true);
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+      const appBaseUrl = appIntegData?.api_url || "";
+
+      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+
+      const payloadDelete = handler.buildDeletePayload({
+          username: finalServerName, 
+          macValue: getMacFromApp(appValues, appModal.app?.fields_config || [])
+      });
+
+      const responseHandler = (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          setAppSaving(false);
+          if (e.detail?.ok) addToast("success", "Removido!", "Configuração apagada do painel.");
+          else addToast("error", "Não Removido", e.detail?.error || "Falha ao apagar no painel.");
+      };
+
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete }
+      }));
+
+      setTimeout(() => {
+          setAppSaving((prev) => {
+              if (prev) {
+                  window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+                  addToast("warning", "Aviso", "A resposta da extensão demorou.");
+                  return false;
+              }
+              return prev;
+          });
+      }, 20000);
+  }
+
+  // ✅ A GRANDE MÁGICA DO MODAL: O Modal do App
   async function openAppConfigModal(clientId: string, clientName: string, appNameOrId: string, instanceIndex: number = 0) {
     const raw = String(appNameOrId || "").trim();
     if (!raw) return;
@@ -558,7 +715,6 @@ export default function TrialsPage() {
       return;
     }
 
-    // Busca valores já preenchidos
     let values: Record<string, any> = {};
     try {
       const r = await supabaseBrowser
@@ -576,7 +732,7 @@ export default function TrialsPage() {
       }
     } catch (e) {}
 
-    // ✅ CORREÇÃO M3U: Busca o link m3u direto do banco. Se não tiver, GERA NA HORA!
+    // ✅ Resolve o link se não existir no banco
     let m3uUrl = "";
     try {
       const { data } = await supabaseBrowser.from("clients").select("m3u_url, server_id").eq("id", clientId).maybeSingle();
@@ -585,21 +741,28 @@ export default function TrialsPage() {
           m3uUrl = data.m3u_url;
       } else if (data?.server_id) {
           const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", data.server_id).single();
-          
           if (srv && Array.isArray(srv.dns)) {
               const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
               if (validDomains.length > 0) {
                   const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
                   const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
-                  
                   m3uUrl = `http://${cleanDomain}/get.php?username=${trialRow.username}&password=${trialRow.server_password || ""}&type=m3u_plus&output=ts`;
-                  
-                  // Salva no banco
                   supabaseBrowser.from("clients").update({ m3u_url: m3uUrl }).eq("id", clientId).then();
               }
           }
       }
     } catch (e) {}
+
+    // ✅ Normaliza os Valores no Formato do Hook (Usar `fid` em vez de `label` original)
+    const nextValues: Record<string, string> = {};
+    const fields = Array.isArray(found.fields_config) ? found.fields_config : [];
+    for (const f of fields) {
+        const byIdVal = values?.[f.id];
+        const byLabelVal = values?.[f.label];
+        const vRaw = byIdVal ?? byLabelVal ?? "";
+        nextValues[String(f.id)] = safeString(vRaw);
+    }
+    setAppValues(nextValues);
 
     setAppModal({
       clientId,
@@ -607,102 +770,19 @@ export default function TrialsPage() {
       appId: found.id,
       appName: found.name,
       infoUrl: found.info_url ?? null,
-      fields: Array.isArray(found.fields_config) ? found.fields_config : [],
+      fields: fields,
       values: { ...values },
       m3uUrl: m3uUrl,
       username: trialRow.username,
-      server_id: trialRow.server_id
+      serverName: trialRow.server,
+      serverPassword: trialRow.server_password || "",
+      clientDueDate: trialRow.dueISODate,
+      server_id: trialRow.server_id,
+      app: found
     });
 
     setVisibleAppPasswords({}); 
     setShowAppModal(true);
-  }
-
-  // ✅ FUNÇÃO PARA ENVIAR COMANDO DE APP DIRETO DA TELA DE TESTES
-  async function handleQuickConfigApp() {
-      if (!appModal) return;
-      
-      const { clientId, appName, values, m3uUrl, username, server_id } = appModal;
-      
-      // 1. Pega as URLs base
-      let appBaseUrl = "";
-      const catApp = Object.values(appsIndex.byId).find(c => c.id === appModal.appId);
-      let intType = String(catApp?.cost_type || "IBOREVENDA").toUpperCase();
-      
-      let handler = getIntegrationHandler(intType);
-      
-      if (!handler) {
-          const appNameStr = String(appName || "").toUpperCase();
-          if (appNameStr.includes("ZONE")) intType = "ZONEX";
-          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
-          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
-          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
-          else if (appNameStr.includes("GPC")) {
-              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
-              else intType = "GPC_ROKU";
-          }
-          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-          
-          handler = getIntegrationHandler(intType);
-      }
-
-      if (!handler) {
-          addToast("error", "Erro de Rota", `Não sabemos como integrar o app "${appName}".`);
-          return;
-      }
-
-      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler!.actionPrefix.toUpperCase());
-      appBaseUrl = appIntegData?.api_url || "";
-
-      // Pega MAC e Password do Formulário
-      let macValue = "";
-      const macField = appModal.fields.find(f => String(f.type).toUpperCase() === "MAC");
-      if (macField) {
-          const key = macField.id || macField.label;
-          macValue = values[key] || "";
-      }
-      if (!macValue) {
-          const foundKey = Object.keys(values).find(k => String(values[k]).includes(":"));
-          if (foundKey) macValue = values[foundKey];
-      }
-
-      if (!macValue) {
-          addToast("error", "MAC Obrigatório", "Preencha o MAC antes de configurar.");
-          return;
-      }
-
-      // Prepara os nomes
-      const srvObj = await supabaseBrowser.from("servers").select("name").eq("id", server_id).single();
-      const serverName = srvObj.data?.name || "Servidor";
-      const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
-
-      const payload = handler.buildCreatePayload({
-          username,
-          password: "", // O App vai pescar do banco local se precisar (já que o M3U tem tudo)
-          macValue,
-          finalServerName,
-          m3uUrl: m3uUrl 
-      });
-
-      addToast("success", "Enviando...", "Enviando para o painel do App...");
-
-      const responseHandler = (e: any) => {
-          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-          if (e.detail?.ok) {
-              addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
-              setShowAppModal(false);
-          } else {
-              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
-          }
-      };
-      
-      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } 
-      }));
-      
-      // Salva os valores que você digitou na tela direto no banco para não perder o MAC!
-      await supabaseBrowser.from("client_apps").update({ field_values: values }).eq("client_id", clientId).eq("app_id", appModal.appId);
   }
 
 
@@ -741,7 +821,7 @@ export default function TrialsPage() {
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
+  function addToast(type: "success" | "error" | "warning", title: string, message?: string) {
   const id = Date.now() + Math.floor(Math.random() * 100000);
   setToasts((prev) => [...prev, { id, type, title, message }]);
   setTimeout(() => removeToast(id), 5000);
@@ -982,7 +1062,8 @@ useEffect(() => {
   }
 
   // --- ACTIONS ---
-  const handleOpenEdit = (r: TrialRow) => {
+  const handleOpenEdit = (r: TrialRow, initialTab: EditTab = "dados") => {
+    setEditInitialTab(initialTab); // ✅ Salva a aba desejada
     const payload: ClientData = {
       id: r.id,
       client_name: r.name,
@@ -1023,8 +1104,20 @@ useEffect(() => {
     return;
   }
 
-  const confirmed = window.confirm("Excluir permanentemente este teste? Esta ação NÃO pode ser desfeita.");
-  if (!confirmed) return;
+  const ok = await confirm({
+    title: "Excluir definitivamente",
+    subtitle: "Essa ação NÃO pode ser desfeita.",
+    tone: "rose",
+    icon: "⚠️",
+    details: [
+      `Teste: ${r.name}`,
+      "Ação: excluir para sempre",
+    ],
+    confirmText: "Excluir",
+    cancelText: "Voltar",
+  });
+
+  if (!ok) return;
 
   try {
 const { error } = await supabaseBrowser.rpc("delete_client_forever", {
@@ -1048,8 +1141,23 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
     if (!tenantId) return;
 
     const goingToArchive = !r.archived;
-    const confirmed = window.confirm(goingToArchive ? "Arquivar este teste? (Ele irá para a Lixeira)" : "Restaurar este teste da Lixeira?");
-    if (!confirmed) return;
+    
+    const ok = await confirm({
+      title: goingToArchive ? "Arquivar teste" : "Restaurar teste",
+      subtitle: goingToArchive
+        ? "O teste irá para a Lixeira (pode ser restaurado depois)."
+        : "O teste voltará para a lista ativa.",
+      tone: goingToArchive ? "amber" : "emerald",
+      icon: goingToArchive ? "🗑️" : "↩️",
+      details: [
+        `Teste: ${r.name}`,
+        goingToArchive ? "Destino: Lixeira" : "Destino: Ativos",
+      ],
+      confirmText: goingToArchive ? "Arquivar" : "Restaurar",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
 
     try {
       const { error } = await supabaseBrowser.rpc("update_client", {
@@ -1551,6 +1659,7 @@ onClick={(e) => {
           key={trialToEdit?.id ?? "new-trial"}
           clientToEdit={trialToEdit}
           mode="trial"
+          initialTab={editInitialTab} // ✅ Repassa a aba escolhida para o modal!
           onClose={() => {
             setShowFormModal(false);
             setTrialToEdit(null);
@@ -1878,7 +1987,7 @@ onClick={(e) => {
   </Modal>
 )}
 
-{showAppModal && appModal && (
+{appModal && (
   <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
     <div className="w-full max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden">
       <div className="p-5 border-b border-slate-100 dark:border-white/5 flex items-start justify-between gap-4">
@@ -1896,7 +2005,6 @@ onClick={(e) => {
 
         <button
           onClick={() => {
-            setShowAppModal(false);
             setAppModal(null);
           }}
           className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
@@ -1906,6 +2014,87 @@ onClick={(e) => {
       </div>
 
       <div className="p-5 space-y-4">
+        
+        {/* ✅ NOVO: Header em 3 Colunas (Cliente, Usuário e Servidor) ESPELHADO DOS CLIENTES */}
+        <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 grid grid-cols-3 gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+              Cliente
+            </div>
+            <div className="mt-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+              {appModal.clientName.split(" ")[0]}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+              Usuário
+            </div>
+            <div className="mt-1 text-xs font-mono font-bold text-slate-800 dark:text-white truncate">
+              {appModal.username}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 truncate">
+              Servidor
+            </div>
+            <div className="mt-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+              {appModal.serverName}
+            </div>
+          </div>
+        </div>
+
+        {/* ✅ NOVO: Botões de Integração Inteligentes ESPELHADO DOS CLIENTES */}
+        {Boolean(resolveAppIntegration(appModal.appName, appModal.app?.id)) && (
+          <div className="grid grid-cols-2 gap-2 mt-1 mb-3">
+            <button
+              onClick={handleQuickConfigApp}
+              disabled={appSaving}
+              className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {appSaving ? (
+                  <span className="animate-pulse">Aguarde...</span>
+              ) : (
+                  <>
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="hidden sm:inline">Configurar m3u</span>
+                    <span className="sm:hidden">Configurar</span>
+                  </>
+              )}
+            </button>
+            
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Remover do Aplicativo?",
+                  subtitle: `Tem certeza que deseja excluir o acesso de ${appModal.username}?`,
+                  tone: "rose",
+                  confirmText: "Sim, remover",
+                  cancelText: "Cancelar"
+                });
+                if (ok) handleDeleteAppDirect();
+              }}
+              disabled={appSaving}
+              className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {appSaving ? (
+                  <span className="animate-pulse">Aguarde...</span>
+              ) : (
+                  <>
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span className="hidden sm:inline">Remover m3u</span>
+                    <span className="sm:hidden">Remover</span>
+                  </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* URL global do app */}
         <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4">
           <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-2">
             URL global do app
@@ -1942,6 +2131,7 @@ onClick={(e) => {
           )}
         </div>
 
+        {/* Campos */}
         <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4">
           <div className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest mb-3">
             Campos
@@ -1952,13 +2142,10 @@ onClick={(e) => {
           ) : Array.isArray(appModal.fields) && appModal.fields.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {appModal.fields.map((f) => {
-                const byId = appModal.values?.[f.id];
-                const byLabel = appModal.values?.[f.label];
-                const vRaw = byId ?? byLabel ?? "";
-                const v = safeString(vRaw);
+                const byId = appValues?.[f.id];
+                const v = safeString(byId);
 
                 const isLink = f.type === "link" || isLikelyUrl(v);
-                
                 const isPassword = String(f.type) === "password";
                 const isVisible = visibleAppPasswords[f.id] || false;
                 const currentType = isPassword ? (isVisible ? "text" : "password") : "text";
@@ -2036,41 +2223,64 @@ onClick={(e) => {
               Este app não possui fields_config.
             </div>
           )}
+
+          {/* ✅ NOVO: Exibe a URL M3U Garantida e Gerada! ESPELHADO DE CLIENTES */}
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-1">
+            <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
+              URL da Playlist M3U (Auto)
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={appModal.m3uUrl}
+                readOnly
+                className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default"
+                placeholder="Aguardando link M3U..."
+              />
+              <button
+                onClick={() => copyText(appModal.m3uUrl)}
+                disabled={!appModal.m3uUrl}
+                className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Copiar"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
-        
-        {/* ✅ NOVO: BOTÃO DE CONFIGURAR NO MODAL TAMBÉM */}
-        <button
-          onClick={handleQuickConfigApp}
-          className="h-9 px-4 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 mr-auto"
-        >
-          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Configurar no App
-        </button>
-
         <button
           onClick={() => {
-            setShowAppModal(false);
             setAppModal(null);
           }}
           className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
         >
-          Voltar
+          Fechar
+        </button>
+        
+        <button
+          onClick={() => {
+            if (!appModal?.clientId) return;
+            setAppModal(null);
+            openEditById(appModal.clientId, "apps");
+          }}
+          className="h-9 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
+          title="Abrir edição completa do cliente"
+        >
+          Editar Cliente
         </button>
       </div>
     </div>
   </div>
 )}
 
-      <div className="h-24 md:h-20" />
+{ConfirmUI}
+      <div className="relative z-[999999]">
+  <ToastNotifications toasts={toasts} removeToast={removeToast} />
+</div>
 
-      <div className="relative z-[999999]"></div>
-      <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       <style jsx global>{`
         input[type="date"]::-webkit-calendar-picker-indicator,
