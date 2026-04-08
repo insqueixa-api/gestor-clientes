@@ -499,7 +499,7 @@ export default function TrialsPage() {
     try {
       const r = await supabaseBrowser
         .from("apps")
-        .select("id, name, info_url, is_active, fields_config, partner_server_id, cost_type")
+        .select("id, name, info_url, is_active, fields_config, partner_server_id, cost_type, integration_type")
         .eq("tenant_id", tid)
         .order("name", { ascending: true });
 
