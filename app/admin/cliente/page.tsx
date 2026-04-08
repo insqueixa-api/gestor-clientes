@@ -847,7 +847,6 @@ async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceInd
     if (data?.m3u_url) {
         m3uUrl = data.m3u_url;
     } else if (data?.server_id) {
-        // O cliente não tem link salvo. Vamos buscar o DNS do servidor e gerar!
         const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", data.server_id).single();
         
         if (srv && Array.isArray(srv.dns)) {
@@ -856,10 +855,7 @@ async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceInd
                 const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
                 const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
                 
-                // Monta o link M3U padrão
                 m3uUrl = `http://${cleanDomain}/get.php?username=${r.username}&password=${r.server_password || ""}&type=m3u_plus&output=ts`;
-                
-                // Já salva no banco silenciosamente para a próxima vez
                 supabaseBrowser.from("clients").update({ m3u_url: m3uUrl }).eq("id", r.id).then();
             }
         }
@@ -1755,11 +1751,8 @@ body: JSON.stringify({
       const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
       const appBaseUrl = appIntegData?.api_url || "";
 
-      // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão rápida ser cirúrgica!
-      const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
-
       const payloadDelete = handler.buildDeletePayload({
-          username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
+          username: appModal.username,
           macValue: getMacFromApp(appValues, appModal.app.fields_config)
       });
 
@@ -3060,7 +3053,7 @@ return (
         </div>
       )}
 
-      {/* URL de configuração */}
+      {/* URL global do app */}
       <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50">
           URL de configuração (global)
@@ -3139,18 +3132,18 @@ return (
 
               return (
                 <div key={fid} className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                  <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
                     {label}
-                  </label>
+                  </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                    <div className="relative w-full">
                       <input
                         type={currentType}
                         value={isDate ? isoToDisplay(appValues[fid] ?? "") : (appValues[fid] ?? "")}
                         readOnly
-                        className={`w-full h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none text-sm select-all cursor-default ${isPassword ? "pr-10" : ""}`}
-                        placeholder={isDate ? "DD/MM/AAAA" : "—"}
+                        placeholder={f.placeholder || ""}
+                        className={`h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default ${isPassword ? "pr-8" : ""}`}
                       />
                       
                       {/* Botão do Olho (Só aparece se for campo de senha) */}
@@ -3162,7 +3155,7 @@ return (
                             e.stopPropagation();
                             setVisibleAppPasswords(prev => ({ ...prev, [fid]: !prev[fid] }));
                           }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
                           tabIndex={-1}
                           title={isVisible ? "Ocultar senha" : "Mostrar senha"}
                         >
@@ -3211,31 +3204,54 @@ return (
             })}
           </div>
         )}
+
+        {/* ✅ NOVO: Exibe a URL M3U Garantida e Gerada! ESPELHADO DE TESTES */}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-1">
+          <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
+            URL da Playlist M3U (Auto)
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={appModal.m3uUrl}
+              readOnly
+              className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default"
+              placeholder="Aguardando link M3U..."
+            />
+            <button
+              onClick={() => copyToClipboard(appModal.m3uUrl)}
+              disabled={!appModal.m3uUrl}
+              className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Copiar"
+            >
+              Copiar
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-1">
-  <button
-    onClick={() => setAppModal(null)}
-    className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
-  >
-    Fechar
-  </button>
+        <button
+          onClick={() => setAppModal(null)}
+          className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
+        >
+          Fechar
+        </button>
 
-  <button
-    onClick={() => {
-      if (!appModal?.clientId) return;
-      setAppModal(null);
-      // ✅ abre edição do cliente (aba apps via initialTab, ver ajuste no NovoCliente)
-      openEditById(appModal.clientId, "apps");
-
-    }}
-    className="h-10 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
-    title="Abrir edição completa do cliente"
-  >
-    Editar Cliente
-  </button>
-</div>
+        <button
+          onClick={() => {
+            if (!appModal?.clientId) return;
+            setAppModal(null);
+            // ✅ abre edição do cliente (aba apps via initialTab, ver ajuste no NovoCliente)
+            openEditById(appModal.clientId, "apps");
+          }}
+          className="h-10 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
+          title="Abrir edição completa do cliente"
+        >
+          Editar Cliente
+        </button>
+      </div>
 
     </div>
   </Modal>
