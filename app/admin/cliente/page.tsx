@@ -419,7 +419,8 @@ const [appModal, setAppModal] = useState<ClientAppModalState | null>(null);
 const [appValues, setAppValues] = useState<Record<string, string>>({});
 const [appLoading, setAppLoading] = useState(false);
 const [appSaving, setAppSaving] = useState(false);
-const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({}); // ✅ NOVO: Controle de visibilidade de senhas no modal
+const [appModalDirty, setAppModalDirty] = useState(false);
+const [visibleAppPasswords, setVisibleAppPasswords] = useState<Record<string, boolean>>({});
 
 
 
@@ -891,7 +892,8 @@ async function openAppConfigModal(r: ClientRow, appNameOrId: string, instanceInd
   });
 
   setAppValues({});
-  setVisibleAppPasswords({}); // ✅ Limpa as senhas visíveis ao abrir um novo modal
+  setAppModalDirty(false);
+  setVisibleAppPasswords({});
   setAppLoading(true);
 
   try {
@@ -1678,6 +1680,53 @@ body: JSON.stringify({
       }
   }
 
+  // ✅ Regenera a URL M3U buscando DNS do servidor (botão Sync)
+  async function handleSyncM3uUrlModal() {
+    if (!appModal) return;
+    try {
+      setAppSaving(true);
+      const { data: clientData } = await supabaseBrowser
+        .from("clients")
+        .select("server_id")
+        .eq("id", appModal.clientId)
+        .maybeSingle();
+
+      if (!clientData?.server_id) {
+        addToast("warning", "Sem servidor", "Não foi possível identificar o servidor.");
+        return;
+      }
+
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("dns")
+        .eq("id", clientData.server_id)
+        .single();
+
+      if (!srv || !Array.isArray(srv.dns) || srv.dns.length === 0) {
+        addToast("warning", "Sem Domínios", "O servidor não possui domínios configurados.");
+        return;
+      }
+
+      const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+      if (validDomains.length === 0) {
+        addToast("warning", "Sem Domínios", "Nenhum domínio válido encontrado.");
+        return;
+      }
+
+      const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+      const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+      const newM3u = `http://${cleanDomain}/get.php?username=${appModal.username}&password=${appModal.serverPassword || ""}&type=m3u_plus&output=ts`;
+
+      setAppModal(prev => prev ? { ...prev, m3uUrl: newM3u } : null);
+      setAppModalDirty(true);
+      addToast("success", "M3U Gerado!", "Link atualizado. Clique em Salvar para confirmar.");
+    } catch (err: any) {
+      addToast("error", "Falha", "Não foi possível gerar o link M3U.");
+    } finally {
+      setAppSaving(false);
+    }
+  }
+
   // ✅ Função para Salvar as Alterações dos Campos do App no Banco (Botão do rodapé)
   async function handleSaveModalData() {
       if (!appModal || !appModal.app?.id) return;
@@ -1700,6 +1749,8 @@ body: JSON.stringify({
           setAppSaving(false);
       }
   }
+
+  // TRECHO CORRETO — handleConfigAppDirect (substitua o bloco inteiro no seu arquivo)
 
   async function handleConfigAppDirect() {
       if (!appModal) return;
@@ -1749,15 +1800,15 @@ body: JSON.stringify({
       
       if (dateField) {
           const fieldKey = String(dateField.id || dateField.label);
-          
-          // Lógica exata: Hoje + 1 ano
           const hoje = new Date();
           hoje.setFullYear(hoje.getFullYear() + 1);
-          const umAnoFrente = hoje.toISOString().split("T")[0]; // Retorna YYYY-MM-DD
-          
+          const umAnoFrente = hoje.toISOString().split("T")[0];
           nextAppValues[fieldKey] = umAnoFrente; 
-          setAppValues(nextAppValues); 
+          setAppValues(nextAppValues);
       }
+
+      // ✅ Marca dirty (aqui, fora do if, sempre)
+      setAppModalDirty(true);
 
       setAppSaving(true);
       const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler!.actionPrefix.toUpperCase());
@@ -1821,10 +1872,11 @@ body: JSON.stringify({
           const fieldKey = String(dateField.id || dateField.label);
           nextAppValues[fieldKey] = ""; 
           setAppValues(nextAppValues);
-      }
+      setAppModalDirty(true);
+    }
 
-      setAppSaving(true);
-      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+    setAppSaving(true);
+    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
       const appBaseUrl = appIntegData?.api_url || "";
 
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
@@ -3218,7 +3270,7 @@ return (
                       <input
                         type={currentType}
                         value={appValues[fid] ?? ""}
-                        onChange={(e) => setAppValues(prev => ({ ...prev, [fid]: e.target.value }))} // ✅ ABRINDO CAMPO PARA EDIÇÃO
+                        onChange={(e) => { setAppValues(prev => ({ ...prev, [fid]: e.target.value })); setAppModalDirty(true); }}
                         placeholder={f.placeholder || ""}
                         className={`h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors ${isPassword ? "pr-10" : ""}`}
                       />
@@ -3288,21 +3340,20 @@ return (
             <input
               type="text"
               value={appModal.m3uUrl}
-              onChange={(e) => setAppModal(prev => prev ? { ...prev, m3uUrl: e.target.value } : null)}
+              onChange={(e) => { setAppModal(prev => prev ? { ...prev, m3uUrl: e.target.value } : null); setAppModalDirty(true); }}
               className="h-9 w-full rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors"
               placeholder="Aguardando link M3U..."
             />
             <button
-              onClick={handleSaveM3uUrl}
-              disabled={appSaving || !appModal.m3uUrl}
-              className="h-9 w-9 flex shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Salvar valores e M3U"
+              onClick={handleSyncM3uUrlModal}
+              disabled={appSaving}
+              className="h-9 px-3 flex shrink-0 items-center gap-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              title="Gerar novo link M3U a partir dos domínios do servidor"
             >
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                  <polyline points="7 3 7 8 15 8"></polyline>
-               </svg>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Sync
             </button>
             <button
               onClick={() => copyToClipboard(appModal.m3uUrl)}
@@ -3318,33 +3369,22 @@ return (
 
       {/* Actions (RODAPÉ) */}
       <div className="p-5 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2">
+        {appModalDirty && (
+          <button
+            onClick={async () => { await handleSaveModalData(); await handleSaveM3uUrl(); setAppModalDirty(false); }}
+            disabled={appSaving}
+            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in zoom-in-95 duration-200"
+            title="Salvar alterações"
+          >
+            {appSaving ? "Salvando..." : "Salvar Alterações"}
+          </button>
+        )}
+
         <button
           onClick={() => setAppModal(null)}
           className="h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition"
         >
           Fechar
-        </button>
-
-        <button
-          onClick={handleSaveModalData}
-          disabled={appSaving}
-          className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Salvar M3U e Valores"
-        >
-          {appSaving ? "Salvando..." : "Salvar Alterações"}
-        </button>
-
-        <button
-          onClick={() => {
-            if (!appModal?.clientId) return;
-            setAppModal(null);
-            // ✅ abre edição do cliente (aba apps via initialTab)
-            openEditById(appModal.clientId, "apps");
-          }}
-          className="h-10 px-5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-900/20 transition"
-          title="Abrir edição completa do cliente"
-        >
-          Editar Cliente
         </button>
       </div>
 
