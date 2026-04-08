@@ -71,7 +71,7 @@ export default function AppIntegracaoModal({
     });
   }, [integration]);
 
-  // ✅ NOVO: Validação dinâmica. Se for Duplecast, não exige o E-mail.
+  // ✅ NOVO: Validação dinâmica. Se for DupleCast, não exige o E-mail.
   const canSave = appName === "DUPLECAST" 
     ? label.trim() && loginPassword.trim() && apiUrl.trim()
     : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
@@ -272,7 +272,7 @@ export default function AppIntegracaoModal({
               className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="GERENCIAAPP">GerenciaApp</option>
-              <option value="DUPLECAST">Duplecast</option>
+              <option value="DUPLECAST">DupleCast</option>
             </select>
           </div>
 
@@ -335,7 +335,7 @@ export default function AppIntegracaoModal({
               onChange={(e) => {
                 const val = e.target.value;
                 if (appName === "DUPLECAST") {
-                  // Aceita apenas números se for Duplecast
+                  // Aceita apenas números se for DupleCast
                   setLoginPassword(val.replace(/\D/g, ''));
                 } else {
                   setLoginPassword(val);
