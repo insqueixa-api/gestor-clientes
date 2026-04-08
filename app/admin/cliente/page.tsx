@@ -1644,62 +1644,98 @@ body: JSON.stringify({
       return handler;
   }
 
+  // ✅ Função para Salvar o M3U manualmente
+  async function handleSaveM3uUrl() {
+      if (!appModal) return;
+      try {
+          setAppSaving(true);
+          const { error } = await supabaseBrowser
+            .from("clients")
+            .update({ m3u_url: appModal.m3uUrl })
+            .eq("id", appModal.clientId);
+            
+          if (error) throw error;
+          addToast("success", "Salvo", "URL M3U atualizada no banco.");
+      } catch (err: any) {
+          addToast("error", "Falha", "Não foi possível salvar a URL.");
+      } finally {
+          setAppSaving(false);
+      }
+  }
+
   async function handleConfigAppDirect() {
       if (!appModal) return;
-      const handler = resolveAppIntegration(appModal.appName, appModal.app.id);
+      
+      const { clientId, appName, username, serverName, serverPassword, clientDueDate } = appModal;
+      let m3uUrlFinal = appModal.m3uUrl;
+
+      const handler = resolveAppIntegration(appName, appModal.app?.id || "");
       if (!handler) {
-          addToast("error", "Aviso", `Integração não configurada para o app "${appModal.appName}".`);
+          addToast("error", "Aviso", `Integração não configurada para o app "${appName}".`);
           return;
       }
 
-      const macValue = getMacFromApp(appValues, appModal.app.fields_config);
+      const macValue = getMacFromApp(appValues, appModal.app?.fields_config || []);
       if (!macValue || macValue.trim() === "") {
           addToast("error", "MAC Obrigatório", "Preencha o MAC antes de configurar.");
           return;
       }
 
-      // ✅ NOVO: Atualiza a Data do App visualmente e no Banco Silenciosamente
-      const dateField = appModal.app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-      if (dateField && appModal.clientDueDate) {
-          const fieldKey = String(dateField.id || dateField.label);
-          
-          // 1. Atualiza na UI na hora
-          setAppValues(prev => ({ ...prev, [fieldKey]: appModal.clientDueDate }));
-          
-          // 2. Atualiza o banco
-              supabaseBrowser.from("client_apps").select("field_values")
-                  .eq("client_id", appModal.clientId)
-                  .eq("app_id", appModal.app.id).maybeSingle().then(({ data }) => {
-                      const dbVals = data?.field_values || {};
-                      supabaseBrowser.from("client_apps").update({ 
-                          field_values: { ...dbVals, [fieldKey]: "" } 
-                      }).eq("client_id", appModal.clientId).eq("app_id", appModal.app.id).then();
-                  });
+      // M3U Dinâmico: Se não tiver, gera agora
+      if (!m3uUrlFinal) {
+          try {
+              const { data: srvData } = await supabaseBrowser.from("clients").select("server_id").eq("id", clientId).single();
+              if (srvData?.server_id) {
+                  const { data: srv } = await supabaseBrowser.from("servers").select("dns").eq("id", srvData.server_id).single();
+                  if (srv && Array.isArray(srv.dns)) {
+                      const validDomains = srv.dns.filter((d: any) => d && String(d).trim().length > 0);
+                      if (validDomains.length > 0) {
+                          const randomDomain = validDomains[Math.floor(Math.random() * validDomains.length)];
+                          const cleanDomain = String(randomDomain).replace(/^https?:\/\//, "").replace(/\/$/, "");
+                          m3uUrlFinal = `http://${cleanDomain}/get.php?username=${username}&password=${serverPassword || ""}&type=m3u_plus&output=ts`;
+                          supabaseBrowser.from("clients").update({ m3u_url: m3uUrlFinal }).eq("id", clientId).then();
+                      }
+                  }
+              }
+          } catch (e) {}
+
+          if (!m3uUrlFinal) {
+              addToast("error", "M3U Pendente", "Não foi possível gerar a URL. Verifique se o servidor possui DNS.");
+              return;
           }
+      }
 
-          setAppSaving(true);
-          const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
-          const appBaseUrl = appIntegData?.api_url || "";
+      // CORREÇÃO DO SALVAMENTO DA DATA
+      let nextAppValues = { ...appValues };
+      const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+      
+      if (dateField && clientDueDate) {
+          const fieldKey = String(dateField.id || dateField.label);
+          nextAppValues[fieldKey] = clientDueDate; 
+          setAppValues(nextAppValues); 
+      }
 
-          // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão ser cirúrgica!
-          const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
+      setAppSaving(true);
+      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler!.actionPrefix.toUpperCase());
+      const appBaseUrl = appIntegData?.api_url || "";
 
-          const payloadDelete = handler.buildDeletePayload({
-              username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
-              macValue: getMacFromApp(appValues, appModal.app.fields_config)
-          });
+      const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
+
       const payload = handler.buildCreatePayload({
-          username: appModal.username,
-          password: appModal.serverPassword,
+          username,
+          password: serverPassword,
           macValue,
           finalServerName,
-          m3uUrl: appModal.m3uUrl
+          m3uUrl: m3uUrlFinal
       });
 
       const responseHandler = (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
           setAppSaving(false);
-          if (e.detail?.ok) addToast("success", "Integrado!", "Aplicativo configurado no painel.");
+          if (e.detail?.ok) {
+              addToast("success", "Integrado!", "Aplicativo configurado no painel.");
+              setAppModal(prev => prev ? { ...prev, m3uUrl: m3uUrlFinal } : null);
+          }
           else addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
       };
       
@@ -1708,6 +1744,12 @@ body: JSON.stringify({
           detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload }
       }));
       
+      // SALVA O DADO CORRETO NO BANCO E NÃO A VARIÁVEL DESATUALIZADA
+      await supabaseBrowser.from("client_apps")
+        .update({ field_values: nextAppValues })
+        .eq("client_id", clientId)
+        .eq("app_id", appModal.app?.id);
+
       setTimeout(() => {
           setAppSaving((prev) => {
               if (prev) {
@@ -3205,23 +3247,35 @@ return (
           </div>
         )}
 
-        {/* ✅ NOVO: Exibe a URL M3U Garantida e Gerada! ESPELHADO DE TESTES */}
+        {/* ✅ M3U Editável com botão Sync */}
         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-1">
           <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
-            URL da Playlist M3U (Auto)
+            URL da Playlist M3U
           </div>
           <div className="flex items-center gap-2">
             <input
               type="text"
               value={appModal.m3uUrl}
-              readOnly
-              className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 select-all cursor-default"
+              onChange={(e) => setAppModal(prev => prev ? { ...prev, m3uUrl: e.target.value } : null)}
+              className="h-9 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-xs font-mono text-slate-800 dark:text-white/80 focus:border-emerald-500/50 outline-none transition-colors"
               placeholder="Aguardando link M3U..."
             />
             <button
+              onClick={handleSaveM3uUrl}
+              disabled={appSaving || !appModal.m3uUrl}
+              className="h-9 w-9 flex shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Salvar M3U no Banco"
+            >
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+               </svg>
+            </button>
+            <button
               onClick={() => copyToClipboard(appModal.m3uUrl)}
               disabled={!appModal.m3uUrl}
-              className="h-9 px-3 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-9 px-3 shrink-0 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               title="Copiar"
             >
               Copiar
