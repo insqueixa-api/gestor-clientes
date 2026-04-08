@@ -71,8 +71,10 @@ export default function AppIntegracaoModal({
     });
   }, [integration]);
 
-  // ✅ NOVO: Exige a URL na validação
-  const canSave = label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
+  // ✅ NOVO: Validação dinâmica. Se for Duplecast, não exige o E-mail.
+  const canSave = appName === "DUPLECAST" 
+    ? label.trim() && loginPassword.trim() && apiUrl.trim()
+    : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
   
   // Define quem é o Master (você) para ver o botão de Upload
   const isMasterUser = userEmail === "insqueixa@gmail.com" || userEmail === "m.martins@sap.com";
@@ -255,18 +257,24 @@ export default function AppIntegracaoModal({
           </div>
 
           {/* Aplicativo */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              Aplicativo
-            </label>
-            <select
-              value={appName}
-              onChange={(e) => setAppName(e.target.value)}
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-            >
-              <option value="GERENCIAAPP">GerenciaApp</option>
-            </select>
-          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+              Aplicativo
+            </label>
+            <select
+              value={appName}
+              onChange={(e) => {
+                setAppName(e.target.value);
+                // Limpa os campos de login/senha se trocar de app para evitar confusão
+                setLoginEmail(""); 
+                setLoginPassword("");
+              }}
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+            >
+              <option value="GERENCIAAPP">GerenciaApp</option>
+              <option value="DUPLECAST">Duplecast</option>
+            </select>
+          </div>
 
           {/* Label */}
           <div>
@@ -301,36 +309,47 @@ export default function AppIntegracaoModal({
             </p>
           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              E-mail de login
-            </label>
-            <input
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              placeholder="seuemail@exemplo.com"
-              type="email"
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-            />
-          </div>
+          {/* Oculta o Email se for Duplecast (só precisa do PIN) */}
+          {appName !== "DUPLECAST" && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+                E-mail de login
+              </label>
+              <input
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="seuemail@exemplo.com"
+                type="email"
+                className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+              />
+            </div>
+          )}
 
-          {/* Senha */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              Senha
-            </label>
-            <input
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              placeholder="Senha do painel"
-              type="text"
-              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
-            />
-            <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-              Fica visível para facilitar manutenção.
-            </p>
-          </div>
+          {/* Senha / PIN */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
+              {appName === "DUPLECAST" ? "PIN Padrão" : "Senha"}
+            </label>
+            <input
+              value={loginPassword}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (appName === "DUPLECAST") {
+                  // Aceita apenas números se for Duplecast
+                  setLoginPassword(val.replace(/\D/g, ''));
+                } else {
+                  setLoginPassword(val);
+                }
+              }}
+              placeholder={appName === "DUPLECAST" ? "Apenas números" : "Senha do painel"}
+              type="text"
+              maxLength={appName === "DUPLECAST" ? 6 : undefined} // Opcional: limitar a 6 dígitos
+              className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+            />
+            <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+              {appName === "DUPLECAST" ? "O PIN é obrigatório (ex: 123456)." : "Fica visível para facilitar manutenção."}
+            </p>
+          </div>
 
           {/* Status */}
           <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 py-2">
