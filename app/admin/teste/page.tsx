@@ -2226,7 +2226,7 @@ onClick={(e) => {
           {appsLoading ? (
             <div className="text-xs text-slate-400 dark:text-white/20 italic">Carregando apps...</div>
           ) : Array.isArray(appModal.fields) && appModal.fields.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-3 space-y-2">
               {appModal.fields.map((f) => {
                 const byId = appValues?.[f.id];
                 const v = safeString(byId);
@@ -2239,7 +2239,7 @@ onClick={(e) => {
                 return (
                   <div key={f.id} className="space-y-1">
                     <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-wider">
-                      {f.label}
+                      {APP_FIELD_LABELS[String(f?.type ?? "")] || String(f?.label ?? "").trim() || "Campo"}
                     </div>
 
                     <div className="flex items-center gap-2">
