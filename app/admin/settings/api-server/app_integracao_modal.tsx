@@ -9,9 +9,7 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 function normalizeApiUrl(url: string) {
   if (!url) return "";
   let s = url.trim().replace(/\/+$/, "");
-  if (s && !s.startsWith("http")) {
-    s = "https://" + s;
-  }
+  if (s && !s.startsWith("http")) s = "https://" + s;
   return s;
 }
 
@@ -23,10 +21,78 @@ type AppIntegration = {
   login_email: string | null;
   login_password: string | null;
   api_url: string | null;
-  pin?: string | null; // ✅ NOVO: Adicionado tipagem do PIN
   is_active: boolean;
   created_at: string;
 };
+
+// Config por app: placeholders e quais campos mostrar
+const APP_CONFIG: Record<string, {
+  urlPlaceholder: string;
+  showEmail: boolean;
+  emailLabel: string;
+  emailPlaceholder: string;
+  passwordLabel: string;
+  passwordPlaceholder: string;
+  onlyNumbers?: boolean;
+  maxLength?: number;
+}> = {
+  GERENCIAAPP: {
+    urlPlaceholder: "https://gerenciaapp.top",
+    showEmail: true,
+    emailLabel: "E-mail de login",
+    emailPlaceholder: "seuemail@gerenciaapp.top",
+    passwordLabel: "Senha",
+    passwordPlaceholder: "Sua senha do painel",
+  },
+  DUPLECAST: {
+    urlPlaceholder: "https://duplecast.com/client/login",
+    showEmail: true,
+    emailLabel: "Usuário / E-mail",
+    emailPlaceholder: "Seu usuário no DupleCast",
+    passwordLabel: "Senha / PIN",
+    passwordPlaceholder: "Senha ou PIN numérico",
+  },
+  ZONEX: {
+    urlPlaceholder: "https://painel.zonex.tv",
+    showEmail: true,
+    emailLabel: "E-mail de login",
+    emailPlaceholder: "seuemail@exemplo.com",
+    passwordLabel: "Senha",
+    passwordPlaceholder: "Sua senha do painel",
+  },
+};
+
+function getConfig(appName: string) {
+  return APP_CONFIG[appName] ?? {
+    urlPlaceholder: "https://painel.seuapp.com",
+    showEmail: true,
+    emailLabel: "E-mail de login",
+    emailPlaceholder: "seuemail@exemplo.com",
+    passwordLabel: "Senha",
+    passwordPlaceholder: "Senha do painel",
+  };
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+      {children}
+    </label>
+  );
+}
+
+function Field({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-0">{children}</div>;
+}
+
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className="w-full h-10 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+    />
+  );
+}
 
 export default function AppIntegracaoModal({
   integration,
@@ -41,20 +107,19 @@ export default function AppIntegracaoModal({
 }) {
   const isEdit = !!integration?.id;
 
-  const [appName, setAppName]         = useState(integration?.app_name ?? "GERENCIAAPP");
-  const [label, setLabel]             = useState(integration?.label ?? "");
-  const [loginEmail, setLoginEmail]   = useState(integration?.login_email ?? "");
+  const [appName, setAppName]             = useState(integration?.app_name ?? "GERENCIAAPP");
+  const [label, setLabel]                 = useState(integration?.label ?? "");
+  const [loginEmail, setLoginEmail]       = useState(integration?.login_email ?? "");
   const [loginPassword, setLoginPassword] = useState(integration?.login_password ?? "");
-  const [apiUrl, setApiUrl]           = useState(integration?.api_url ?? "");
-  const [pin, setPin]                 = useState(integration?.pin ?? ""); // ✅ Estado do PIN
-  const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
-  
-  const [saving, setSaving]           = useState(false);
-  const [userEmail, setUserEmail]     = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  
-  const { confirm, ConfirmUI } = useConfirm(); 
-  const isDuplecast = appName === "DUPLECAST";
+  const [apiUrl, setApiUrl]               = useState(integration?.api_url ?? "");
+  const [isActive, setIsActive]           = useState(integration?.is_active ?? true);
+  const [saving, setSaving]               = useState(false);
+  const [userEmail, setUserEmail]         = useState("");
+  const [isUploading, setIsUploading]     = useState(false);
+
+  const { confirm, ConfirmUI } = useConfirm();
+
+  const cfg = getConfig(appName);
 
   useEffect(() => {
     if (integration) {
@@ -63,21 +128,21 @@ export default function AppIntegracaoModal({
       setLoginEmail(integration.login_email ?? "");
       setLoginPassword(integration.login_password ?? "");
       setApiUrl(integration.api_url ?? "");
-      setPin(integration.pin ?? "");
       setIsActive(integration.is_active ?? true);
     }
-    
     supabaseBrowser.auth.getUser().then(({ data }) => {
-        if (data?.user?.email) setUserEmail(data.user.email);
+      if (data?.user?.email) setUserEmail(data.user.email);
     });
   }, [integration]);
 
-  // ✅ Validação dinâmica exigindo o PIN apenas no Duplecast
-  const canSave = isDuplecast 
-    ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
-    : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
-  
+  const canSave = label.trim() && loginPassword.trim() && apiUrl.trim() &&
+    (cfg.showEmail ? loginEmail.trim() : true);
+
   const isMasterUser = userEmail === "insqueixa@gmail.com" || userEmail === "m.martins@sap.com";
+
+  const downloadUrl = supabaseBrowser.storage
+    .from("extensions")
+    .getPublicUrl("unigestor-extensao.zip").data.publicUrl;
 
   async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,29 +150,25 @@ export default function AppIntegracaoModal({
 
     const ok = await confirm({
       title: "Atualizar Extensão?",
-      subtitle: `Deseja fazer o upload de "${file.name}"? Isso atualizará a versão atual para todos.`,
+      subtitle: `Deseja fazer o upload do arquivo "${file.name}"? Isso substituirá a versão atual para toda a rede.`,
       confirmText: "Sim, Atualizar",
-      cancelText: "Cancelar"
+      cancelText: "Cancelar",
     });
 
-    if (!ok) {
-      e.target.value = ""; 
-      return;
-    }
+    if (!ok) { e.target.value = ""; return; }
 
     try {
       setIsUploading(true);
       const { error } = await supabaseBrowser.storage
         .from("extensions")
         .upload("unigestor-extensao.zip", file, { upsert: true, cacheControl: "3600" });
-
       if (error) throw error;
-      onSuccessAction(); 
+      onSuccessAction();
     } catch (err: any) {
       onErrorAction(err.message || "Erro ao fazer upload.");
     } finally {
       setIsUploading(false);
-      e.target.value = ""; 
+      e.target.value = "";
     }
   }
 
@@ -122,10 +183,9 @@ export default function AppIntegracaoModal({
         tenant_id:      tenantId,
         app_name:       appName,
         label:          label.trim(),
-        login_email:    loginEmail.trim(),
+        login_email:    loginEmail.trim() || null,
         login_password: loginPassword.trim(),
         api_url:        normalizeApiUrl(apiUrl),
-        pin:            isDuplecast ? pin.trim() : null, // ✅ Salva o PIN ou nulo
         is_active:      isActive,
       };
 
@@ -153,183 +213,204 @@ export default function AppIntegracaoModal({
 
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={onCloseAction} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCloseAction} />
 
-        {/* Header Elegante */}
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0">
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161b22] shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+
+        {/* HEADER */}
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-t-2xl flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">
               {isEdit ? "Editar Integração" : "Nova Integração"}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-white/50 mt-0.5">
-              Configure as credenciais para o robô atuar no painel.
+            <p className="text-xs text-slate-500 dark:text-white/40 mt-0.5">
+              Credenciais para automação via extensão Chrome
             </p>
           </div>
           <button
             onClick={onCloseAction}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-colors"
             type="button"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 dark:text-white/40 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* Body com Grid */}
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
-          
-          {/* Upload Master Simplificado */}
-          {isMasterUser && (
-            <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
-              <div>
-                <h3 className="text-xs font-bold text-sky-800 dark:text-sky-300">Atualizar Robô (Extensão)</h3>
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">Substitua o arquivo .zip na nuvem.</p>
+        {/* BODY */}
+        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+
+          {/* Extensão: download + upload (master) */}
+          <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-sky-600 dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
               </div>
-              <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap">
-                {isUploading ? "A enviar..." : "Selecionar .zip"}
-                <input type="file" accept=".zip" className="hidden" onChange={handleUploadExtension} disabled={isUploading} />
-              </label>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-slate-700 dark:text-white">Extensão do Chrome</div>
+                <div className="text-[10px] text-slate-400 dark:text-white/40">Necessária para automação</div>
+              </div>
+            </div>
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-8 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              Baixar .zip
+            </a>
+          </div>
+
+          {/* Upload — só master */}
+          {isMasterUser && (
+            <div className="p-3 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+              <div className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-2">
+                Área do Desenvolvedor
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={handleUploadExtension}
+                  disabled={isUploading}
+                  className="text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 dark:file:bg-white/10 dark:file:text-white cursor-pointer text-slate-500 dark:text-white/40"
+                />
+                {isUploading && (
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-pulse">
+                    Enviando...
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            {/* Aplicativo */}
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Aplicativo</label>
-              <select
-                value={appName}
-                onChange={(e) => {
-                  setAppName(e.target.value);
-                  setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
-                }}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
-              >
-                <option value="GERENCIAAPP">GerenciaApp</option>
-                <option value="DUPLECAST">Duplecast</option>
-              </select>
-            </div>
+          {/* Divider */}
+          <div className="border-t border-slate-100 dark:border-white/5" />
 
-            {/* Nome da Integração */}
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Nome de identificação</label>
-              <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder={isDuplecast ? 'Ex: "Meu Duplecast"' : 'Ex: "Meu GerenciaApp"'}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
-              />
-            </div>
+          {/* Aplicativo */}
+          <Field>
+            <Label>Aplicativo</Label>
+            <select
+              value={appName}
+              onChange={(e) => {
+                setAppName(e.target.value);
+                setLoginEmail("");
+                setLoginPassword("");
+                setApiUrl("");
+              }}
+              className="w-full h-10 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            >
+              <option value="GERENCIAAPP">GerenciaApp</option>
+              <option value="DUPLECAST">DupleCast</option>
+              <option value="ZONEX">ZoneX</option>
+            </select>
+          </Field>
 
-            {/* URL da API */}
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Link do Painel</label>
-              <input
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : "Ex: https://gerenciaapp.top"}
-                type="url"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
-              />
-            </div>
+          {/* Nome */}
+          <Field>
+            <Label>Nome da integração</Label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder='Ex: "Meu Painel Principal"'
+            />
+          </Field>
 
-            {/* Email de Login */}
-            <div className={isDuplecast ? "sm:col-span-1" : "sm:col-span-2"}>
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
-              <input
+          {/* URL do painel */}
+          <Field>
+            <Label>URL do painel</Label>
+            <Input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder={cfg.urlPlaceholder}
+              type="url"
+            />
+          </Field>
+
+          {/* Email / usuário */}
+          {cfg.showEmail && (
+            <Field>
+              <Label>{cfg.emailLabel}</Label>
+              <Input
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder={isDuplecast ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
+                placeholder={cfg.emailPlaceholder}
                 type="text"
-                autoCapitalize="none"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                autoComplete="off"
               />
-            </div>
+            </Field>
+          )}
 
-            {/* Senha */}
-            <div className={isDuplecast ? "sm:col-span-1" : "sm:col-span-2"}>
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
-              <input
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Senha de acesso"
-                type="text"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
-              />
-            </div>
+          {/* Senha / PIN */}
+          <Field>
+            <Label>{cfg.passwordLabel}</Label>
+            <Input
+              value={loginPassword}
+              onChange={(e) => {
+                const v = e.target.value;
+                setLoginPassword(cfg.onlyNumbers ? v.replace(/\D/g, "") : v);
+              }}
+              placeholder={cfg.passwordPlaceholder}
+              type="text"
+              maxLength={cfg.maxLength}
+              autoComplete="off"
+            />
+          </Field>
 
-            {/* PIN (Exclusivo Duplecast) animado */}
-            {isDuplecast && (
-              <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5 uppercase tracking-wider">PIN Padrão (Criação de Teste)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔒</span>
-                  <input
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} // Apenas números
-                    placeholder="Ex: 123456"
-                    type="text"
-                    maxLength={6}
-                    className="w-full h-11 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5 px-10 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono tracking-widest"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-white/40 mt-1.5 ml-1">Usado automaticamente na geração das playlists.</p>
+          {/* Status */}
+          <div
+            onClick={() => setIsActive((v) => !v)}
+            className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+              isActive
+                ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10"
+                : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
+            }`}
+          >
+            <div>
+              <div className={`text-xs font-bold ${isActive ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500 dark:text-white/50"}`}>
+                {isActive ? "Integração ativa" : "Integração inativa"}
               </div>
-            )}
-
-            {/* Status */}
-            <div className="sm:col-span-2 mt-2">
-              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
-                <div>
-                  <div className="text-sm font-bold text-slate-700 dark:text-white">Integração Ativa</div>
-                  <div className="text-[10px] text-slate-500 dark:text-white/40 mt-0.5">Se desativar, não será acionada nos clientes.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsActive((v) => !v)}
-                  className={`relative w-12 h-6 rounded-full transition-colors border ${
-                    isActive ? "bg-emerald-500 border-emerald-500" : "bg-slate-300 dark:bg-white/10 border-transparent"
-                  }`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isActive ? "translate-x-6" : "translate-x-0"}`} />
-                </button>
+              <div className="text-[10px] text-slate-400 dark:text-white/30">
+                {isActive ? "Será usada nas automações" : "Não será usada nas automações"}
               </div>
             </div>
-
+            {/* Toggle visual */}
+            <div className={`relative w-10 h-6 rounded-full transition-colors ${isActive ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isActive ? "left-5" : "left-1"}`} />
+            </div>
           </div>
+
         </div>
 
-        {/* Footer Elegante */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
+        {/* FOOTER */}
+        <div className="px-5 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 rounded-b-2xl flex items-center justify-end gap-2 shrink-0">
           <button
             onClick={onCloseAction}
-            className="h-10 px-5 rounded-xl text-slate-600 dark:text-white/70 text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
             type="button"
             disabled={saving}
+            className="h-9 px-4 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
-            className={`h-10 px-6 rounded-xl text-sm font-bold text-white transition-all transform active:scale-95 flex items-center gap-2 ${
-              canSave
-                ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20"
-                : "bg-slate-300 dark:bg-white/10 cursor-not-allowed opacity-70"
-            }`}
             type="button"
             disabled={!canSave || saving}
+            className={`h-9 px-5 rounded-lg text-xs font-bold text-white transition-all ${
+              canSave && !saving
+                ? "bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/20"
+                : "bg-slate-300 dark:bg-white/10 cursor-not-allowed opacity-60"
+            }`}
           >
-            {saving && (
-              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            )}
-            {saving ? "Salvando..." : "Salvar Integração"}
+            {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Criar integração"}
           </button>
         </div>
 
       </div>
+
       {ConfirmUI}
     </div>
   );
