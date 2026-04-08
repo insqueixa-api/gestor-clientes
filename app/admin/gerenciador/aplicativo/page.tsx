@@ -429,9 +429,9 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // ✅ Atualizado para o novo formato do array de integrações
-  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
-  const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type;
+  // ✅ Atualizado para o novo formato do array de integrações
+  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
+  const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
 
   return (
     <div
@@ -580,12 +580,12 @@ return (
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {groupedApps.sortedFamilies.map(family => {
-            const appsInFamily = groupedApps.groups[family];
-            const isCollapsed = collapsedGroups[family];
-            
-            const isIntegrated = family !== "SEM_INTEGRACAO";
-            const familyName = isIntegrated ? (family === "GERENCIAAPP" ? "GerenciaApp" : family) : "Outros (Sem Integração Automática)";
+          {groupedApps.sortedFamilies.map(family => {
+            const appsInFamily = groupedApps.groups[family];
+            const isCollapsed = collapsedGroups[family];
+            
+            const isIntegrated = family !== "SEM_INTEGRACAO";
+            const familyName = isIntegrated ? (family === "GERENCIAAPP" ? "GerenciaApp" : family === "DUPLECAST" ? "Duplecast" : family) : "Outros (Sem Integração Automática)";
             const familyIcon = isIntegrated ? "⚡" : "📁";
 
             return (
@@ -679,19 +679,20 @@ return (
               {/* INTEGRAÇÃO — só visível para o pai, em apps próprios */}
               {isRootTenant && (!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
                 <div>
-                  <Label>Integração automática</Label>
-                  <select
-                    value={formIntegration}
-                    onChange={(e) => setFormIntegration(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                  >
-                    <option value="">Sem integração</option>
-                    <option value="GERENCIAAPP">GerenciaApp</option>
-                  </select>
-                  <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-                    Quando configurado, habilita automação ao criar clientes.
-                  </p>
-                </div>
+                  <Label>Integração automática</Label>
+                  <select
+                    value={formIntegration}
+                    onChange={(e) => setFormIntegration(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  >
+                    <option value="">Sem integração</option>
+                    <option value="GERENCIAAPP">GerenciaApp</option>
+                    <option value="DUPLECAST">Duplecast</option>
+                  </select>
+                  <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+                    Quando configurado, habilita automação ao criar clientes.
+                  </p>
+                </div>
               )}
 
               
