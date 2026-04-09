@@ -686,10 +686,10 @@ async function loadData() {
 
     // ✅ NOVO: Carrega as URLs das integrações do App
     const { data: appInts } = await supabaseBrowser
-      .from("app_integrations")
-      .select("app_name, api_url")
-      .eq("tenant_id", tid)
-      .eq("is_active", true);
+        .from("app_integrations")
+        .select("app_name, api_url, login_password")
+        .eq("tenant_id", tid)
+        .eq("is_active", true);
     if (appInts) setAppIntegrations(appInts);
 
 if (appsData && appsData.length > 0) {
@@ -1655,7 +1655,7 @@ body: JSON.stringify({
               else intType = "GPC_ROKU";
           }
           else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-          
+          else if (appNameStr.includes("DUPLE")) intType = "DUPLECAST";
           handler = getIntegrationHandler(intType);
       }
       return handler;
@@ -1816,12 +1816,17 @@ body: JSON.stringify({
 
       const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
 
+      // ✅ Para DupleCast, usa o PIN da integração. Para os demais, usa a senha do servidor.
+      const integrationPassword = handler.actionPrefix === "DUPLECAST"
+          ? (appIntegData?.login_password || "")
+          : serverPassword;
+
       const payload = handler.buildCreatePayload({
           username,
-          password: serverPassword,
+          password: integrationPassword,
           macValue,
           finalServerName,
-          m3uUrl: m3uUrlFinal
+          m3uUrl: m3uUrlFinal 
       });
 
       const responseHandler = (e: any) => {

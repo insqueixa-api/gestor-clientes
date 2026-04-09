@@ -1882,9 +1882,9 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
               else intType = "GPC_ROKU";
           }
           else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-          
-          // Tenta novamente com a chave corrigida
-          handler = getIntegrationHandler(intType);
+        else if (appNameStr.includes("DUPLE")) intType = "DUPLECAST";
+        
+        handler = getIntegrationHandler(intType);
       }
       
       return handler;

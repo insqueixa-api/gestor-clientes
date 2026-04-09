@@ -529,7 +529,7 @@ export default function TrialsPage() {
       // ✅ Busca as integrações configuradas dos Apps
       const { data: appInts } = await supabaseBrowser
         .from("app_integrations")
-        .select("app_name, api_url")
+        .select("app_name, api_url, login_password")
         .eq("tenant_id", tid)
         .eq("is_active", true);
       if (appInts) setAppIntegrations(appInts);
@@ -573,7 +573,7 @@ export default function TrialsPage() {
               else intType = "GPC_ROKU";
           }
           else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-          
+          else if (appNameStr.includes("DUPLE")) intType = "DUPLECAST";
           handler = getIntegrationHandler(intType);
       }
       return handler;
@@ -601,6 +601,8 @@ export default function TrialsPage() {
           return;
       }
 
+      
+
       // ✅ M3U: Resolve o link se ele estiver vazio antes de enviar!
       if (!m3uUrlFinal) {
           try {
@@ -625,14 +627,20 @@ export default function TrialsPage() {
       setAppSaving(true);
       const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
 
+      // ✅ Para DupleCast, usa o PIN da integração. Para os demais, usa a senha do servidor.
+      const integrationPassword = handler.actionPrefix === "DUPLECAST"
+          ? (appIntegData?.login_password || "")
+          : serverPassword;
+
       const payload = handler.buildCreatePayload({
           username,
-          password: serverPassword, 
+          password: integrationPassword,
           macValue,
           finalServerName,
-          m3uUrl: m3uUrlFinal 
+          m3uUrl: m3uUrlFinal
       });
 
+      
       addToast("success", "Enviando...", "Enviando para o painel do App...");
       setAppModalDirty(true);
 
