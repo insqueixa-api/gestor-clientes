@@ -1947,7 +1947,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         password,
         macValue,
         finalServerName,
-        m3uUrl: m3uToSend // ✅ Manda o link garantido!
+        serverName: selectedServerName.replace(/\s+/g, ""), // ✅ nome limpo do servidor
+        m3uUrl: m3uToSend
     });
 
     const responseHandler = (e: any) => {
@@ -2014,8 +2015,9 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
         const payloadDelete = handler.buildDeletePayload({
-            username: finalServerName, // Passamos o nome composto para não apagar o MAC errado!
-            macValue: getMacFromApp(currentApp)
+            username: finalServerName,
+            macValue: getMacFromApp(currentApp),
+            serverName: selectedServerName.replace(/\s+/g, "") // ✅ mesmo nome usado no create
         });
 
     const responseHandler = (e: any) => {
