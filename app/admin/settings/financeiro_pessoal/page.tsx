@@ -332,7 +332,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
         if (existentes && existentes.length > 0) {
           await supabaseBrowser.from("fin_transacoes")
-  .update({ valor, data_vencimento: dataVenc, status: "PAGO", conta_id: null })
+  .update({ valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: new Date().toISOString(), conta_id: null })
   .eq("id", existentes[0].id);
           
           if (existentes.length > 1) {
@@ -341,7 +341,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           }
         } else {
           await supabaseBrowser.from("fin_transacoes").insert({
-  tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO",
+  tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: new Date().toISOString(),
   conta_id: null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
 });
         }
