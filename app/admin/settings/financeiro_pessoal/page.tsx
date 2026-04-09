@@ -922,7 +922,16 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
                                     ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
                                     : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
                             onClick={() => {
-                              setModalData({ open: true, transacao: { ...t, status: t.status === "PAGO" ? "PENDENTE" : "PAGO" } });
+                              // Se está pagando agora, injeta a data. Se está desfazendo, limpa a data.
+                              const isPagaNow = t.status !== "PAGO";
+                              setModalData({ 
+                                open: true, 
+                                transacao: { 
+                                  ...t, 
+                                  status: isPagaNow ? "PAGO" : "PENDENTE",
+                                  data_pagamento: isPagaNow ? new Date().toISOString() : null
+                                } 
+                              });
                             }}>
                             {/* O -scale-y-100 faz o espelhamento perfeito virando de cabeça para baixo sem inverter os lados */}
                             <IconThumb className={!isUp ? "-scale-y-100" : "scale-y-100"} />
