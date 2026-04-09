@@ -4698,154 +4698,152 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     const appLabel = integrationType === "GERENCIAAPP" ? "GerenciaApp" : integrationType === "DUPLECAST" ? "Duplecast" : integrationType;
 
                     return (
-                    <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
-                      
-                      {/* HEADER DO CARD (Sempre visível) */}
-                      <div className="flex justify-between items-center">
-                        <div 
-                          className="flex items-center gap-2 cursor-pointer select-none"
-                          onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
-                        >
-                           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                             📱 {app.name}
-                             {hasInteg && (
-                               <span title={`Integração: ${integrationType}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
-                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
-                                 <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">{appLabel}</span>
-                               </span>
-                             )}
-                           </span>
-                           <span className="text-[10px] text-slate-400 font-medium transition-colors hover:text-slate-600 dark:hover:text-white/60">
-                             {app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}
-                           </span>
+                      <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
+                        
+                        {/* HEADER DO CARD (Sempre visível) */}
+                        <div className="flex justify-between items-center">
+                          <div 
+                            className="flex items-center gap-2 cursor-pointer select-none"
+                            onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
+                          >
+                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                               📱 {app.name}
+                               {hasInteg && (
+                                 <span title={`Integração: ${integrationType}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
+                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                                   <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">{appLabel}</span>
+                                 </span>
+                               )}
+                             </span>
+                             <span className="text-[10px] text-slate-400 font-medium transition-colors hover:text-slate-600 dark:hover:text-white/60">
+                               {app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}
+                             </span>
+                          </div>
+
+                          <button 
+                            onClick={() => setSelectedApps(prev => prev.filter(a => a.instanceId !== app.instanceId))}
+                            className="text-[10px] text-rose-500 font-bold hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
+                          >
+                            REMOVER
+                          </button>
                         </div>
 
-                        <button 
-                          onClick={() => setSelectedApps(prev => prev.filter(a => a.instanceId !== app.instanceId))}
-                          className="text-[10px] text-rose-500 font-bold hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
-                        >
-                          REMOVER
-                        </button>
-                      </div>
-
-                      {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
-                      {!app.is_minimized && (
-                        <div className="mt-0 animate-in slide-in-from-top-2 duration-200">
-                          
-                          {/* Configuração de Integração do App Limpa e Moderna */}
-                          {hasInteg && (
-                              <div className="bg-transparent border-0 mb-3 mt-2">
-                                <div className="flex gap-2">
-                                  <button
-                                      type="button"
-                                      onClick={() => handleConfigApp(app.name)}
-                                      className="flex-1 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                      title="Enviar dados para o painel"
-                                  >
-                                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                      <span className="hidden sm:inline">Sincronizar {appLabel}</span>
-                                      <span className="sm:hidden">Sincronizar</span>
-                                  </button>
-
-                                  {/* Só exibe Remover M3U se o cliente já estiver salvo (Modo Edição) */}
-                                  {isEditing && (
+                        {/* CONTEÚDO EXPANSÍVEL (Minimizar/Maximizar) */}
+                        {!app.is_minimized && (
+                          <div className="mt-0 animate-in slide-in-from-top-2 duration-200">
+                            
+                            {/* Configuração de Integração do App Limpa e Moderna */}
+                            {hasInteg && (
+                                <div className="bg-transparent border-0 mb-3 mt-2">
+                                  <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={async () => {
-                                            const ok = await confirmDeleteApp({
-                                                title: `Remover do ${appLabel}?`,
-                                                subtitle: `Isso apagará o MAC do painel oficial.`,
-                                                tone: "rose",
-                                                confirmText: "Sim, remover",
-                                                cancelText: "Cancelar"
-                                            });
-                                            if (ok) await handleDeleteApp(app.name);
-                                        }}
-                                        className="w-10 h-9 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center shrink-0"
-                                        title="Remover do painel oficial"
+                                        onClick={() => handleConfigApp(app.name)}
+                                        className="flex-1 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                        title="Enviar dados para o painel"
                                     >
-                                        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                        <span className="hidden sm:inline">Sincronizar {appLabel}</span>
+                                        <span className="sm:hidden">Sincronizar</span>
                                     </button>
-                                  )}
-                                </div>
-                              </div>
-                          )}
 
-                          {/* Campos do App */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {app.fields_config?.length > 0 ? (
-                              app.fields_config.map((field: any, index: number) => {
-                                const fieldKey = String(field?.id ?? field?.label ?? "").trim();
-                                const rawLabel = String(field?.label ?? "").trim();
-                                const label = APP_FIELD_LABELS[String(field?.type ?? "")] || rawLabel || "Campo";
-                                const isMacField = String(field?.type || "").toUpperCase() === "MAC";
-                                const isPasswordField = String(field?.type || "").toLowerCase() === "password";
-                                const safeKey = fieldKey || rawLabel || `${app.instanceId}-${index}`;
-                                const isDateField = field?.type === "date";
-                                
-                                const fieldValue = 
-                                  (fieldKey && (app.values as any)?.[fieldKey] != null ? String((app.values as any)[fieldKey]) : "") ||
-                                  (label && (app.values as any)?.[label] != null ? String((app.values as any)[label]) : "") ||
-                                  "";
-
-                                const isVisible = visibleAppPasswords[safeKey] || false;
-                                const currentType = isDateField ? "date" : isPasswordField ? (isVisible ? "text" : "password") : "text";
-
-                                return (
-                                  <div key={safeKey}>
-                                    <Label>{label || "Campo"}</Label>
-                                    <div className="relative">
-                                      <FormattedDateInput
-                                        type={currentType}
-                                        value={fieldValue}
-                                        onChange={(e: any) => {
-                                          const raw = e.target.value;
-                                          const next = isMacField ? normalizeMacInput(raw) : raw;
-                                          const key = String(fieldKey || label || "").trim();
-                                          if (!key) return;
-                                          updateAppFieldValue(app.instanceId, key, next);
-                                        }}
-                                        placeholder={label ? `Digite ${label}...` : "Digite..."}
-                                        autoCapitalize={isMacField ? "characters" : "none"}
-                                        spellCheck={false}
-                                        className={isPasswordField ? "pr-10" : ""} 
-                                      />
-                                      {isPasswordField && (
-                                        <button
+                                    {/* Só exibe Remover M3U se o cliente já estiver salvo (Modo Edição) */}
+                                    {isEditing && (
+                                      <button
                                           type="button"
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setVisibleAppPasswords(prev => ({ ...prev, [safeKey]: !prev[safeKey] }));
+                                          onClick={async () => {
+                                              const ok = await confirmDeleteApp({
+                                                  title: `Remover do ${appLabel}?`,
+                                                  subtitle: `Isso apagará o MAC do painel oficial.`,
+                                                  tone: "rose",
+                                                  confirmText: "Sim, remover",
+                                                  cancelText: "Cancelar"
+                                              });
+                                              if (ok) await handleDeleteApp(app.name);
                                           }}
-                                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
-                                          tabIndex={-1}
-                                        >
-                                          {isVisible ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
-                                          ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                          )}
-                                        </button>
-                                      )}
-                                    </div>
+                                          className="w-10 h-9 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center shrink-0"
+                                          title="Remover do painel oficial"
+                                      >
+                                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      </button>
+                                    )}
                                   </div>
-                                );
-                              })
-                            ) : (
-                              <p className="text-[10px] text-slate-400 italic col-span-2 py-1">
-                                Este aplicativo não requer configuração adicional.
-                              </p>
+                                </div>
                             )}
+
+                            {/* Campos do App */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {app.fields_config?.length > 0 ? (
+                                app.fields_config.map((field: any, index: number) => {
+                                  const fieldKey = String(field?.id ?? field?.label ?? "").trim();
+                                  const rawLabel = String(field?.label ?? "").trim();
+                                  const label = APP_FIELD_LABELS[String(field?.type ?? "")] || rawLabel || "Campo";
+                                  const isMacField = String(field?.type || "").toUpperCase() === "MAC";
+                                  const isPasswordField = String(field?.type || "").toLowerCase() === "password";
+                                  const safeKey = fieldKey || rawLabel || `${app.instanceId}-${index}`;
+                                  const isDateField = field?.type === "date";
+                                  
+                                  const fieldValue = 
+                                    (fieldKey && (app.values as any)?.[fieldKey] != null ? String((app.values as any)[fieldKey]) : "") ||
+                                    (label && (app.values as any)?.[label] != null ? String((app.values as any)[label]) : "") ||
+                                    "";
+
+                                  const isVisible = visibleAppPasswords[safeKey] || false;
+                                  const currentType = isDateField ? "date" : isPasswordField ? (isVisible ? "text" : "password") : "text";
+
+                                  return (
+                                    <div key={safeKey}>
+                                      <Label>{label || "Campo"}</Label>
+                                      <div className="relative">
+                                        <FormattedDateInput
+                                          type={currentType}
+                                          value={fieldValue}
+                                          onChange={(e: any) => {
+                                            const raw = e.target.value;
+                                            const next = isMacField ? normalizeMacInput(raw) : raw;
+                                            const key = String(fieldKey || label || "").trim();
+                                            if (!key) return;
+                                            updateAppFieldValue(app.instanceId, key, next);
+                                          }}
+                                          placeholder={label ? `Digite ${label}...` : "Digite..."}
+                                          autoCapitalize={isMacField ? "characters" : "none"}
+                                          spellCheck={false}
+                                          className={isPasswordField ? "pr-10" : ""} 
+                                        />
+                                        {isPasswordField && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              setVisibleAppPasswords(prev => ({ ...prev, [safeKey]: !prev[safeKey] }));
+                                            }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
+                                            tabIndex={-1}
+                                          >
+                                            {isVisible ? (
+                                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                                            ) : (
+                                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-[10px] text-slate-400 italic col-span-2 py-1">
+                                  Este aplicativo não requer configuração adicional.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
-
-
 
                 {/* Seletor de Aplicativos (Tipo Combobox) */}
 
