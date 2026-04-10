@@ -1125,7 +1125,7 @@ useEffect(() => {
         // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
         const { data: appInts } = await supabaseBrowser
           .from("app_integrations")
-          .select("app_name, api_url")
+          .select("app_name, api_url, pin") // ✅ Atualizado para a sua nova coluna
           .eq("tenant_id", tid)
           .eq("is_active", true);
         if (appInts) setAppIntegrations(appInts);
@@ -1940,12 +1940,14 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     // 2. Constrói o pacote com o arquivo isolado do app
+    const appPin = appIntegData?.pin || ""; // ✅ Puxando da nova coluna 'pin'
     const payload = handler.buildCreatePayload({
         username,
-        password,
+        // ✅ CORREÇÃO: Se for Duplecast, manda o PIN. Se for IBO, manda a senha normal.
+        password: handler.actionPrefix === "DUPLECAST" ? appPin : password, 
         macValue,
         finalServerName,
-        serverName: selectedServerName.replace(/\s+/g, ""), // ✅ nome limpo do servidor
+        serverName: selectedServerName.replace(/\s+/g, ""), 
         m3uUrl: m3uToSend
     });
 
@@ -2845,10 +2847,14 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
                     const finalServerName = `${apiUsername}_${selectedServerName.replace(/\s+/g, "")}`;
 
+                    // ✅ Pega o PIN do banco para usar na automação
+                    const appPinAuto = appIntegData?.pin || "";
+
                     // Deixa a biblioteca externa montar o pacote
                     const payloadAutomacao = handler.buildCreatePayload({
                         username: apiUsername,
-                        password: apiPassword,
+                        // ✅ CORREÇÃO: Se for Duplecast, manda o PIN. Senão manda a senha normal.
+                        password: handler.actionPrefix === "DUPLECAST" ? appPinAuto : apiPassword,
                         macValue: macValueAuto,
                         finalServerName,
                         m3uUrl: finalM3u || apiM3uUrl || m3uUrl || ""
