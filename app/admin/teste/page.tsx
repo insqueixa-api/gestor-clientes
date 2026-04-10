@@ -529,7 +529,7 @@ export default function TrialsPage() {
       // ✅ Busca as integrações configuradas dos Apps
       const { data: appInts } = await supabaseBrowser
         .from("app_integrations")
-        .select("app_name, api_url, login_password")
+        .select("app_name, api_url, pin") // ✅ Trocado para 'pin'
         .eq("tenant_id", tid)
         .eq("is_active", true);
       if (appInts) setAppIntegrations(appInts);
@@ -563,17 +563,17 @@ export default function TrialsPage() {
       let handler = getIntegrationHandler(intType);
       
       if (!handler) {
-          const appNameStr = String(appName || "").toUpperCase();
-          if (appNameStr.includes("ZONE")) intType = "ZONEX";
-          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
-          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
-          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
-          else if (appNameStr.includes("GPC")) {
-              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
-              else intType = "GPC_ROKU";
-          }
-          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-          else if (appNameStr.includes("DUPLE")) intType = "DUPLECAST";
+          const appNameStr = String(appName || "").trim().toUpperCase();
+          
+          if (appNameStr === "ZONE X" || appNameStr === "ZONEX") intType = "ZONEX";
+          else if (appNameStr === "VU REVENDA") intType = "VUREVENDA";
+          else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "FACILITA";
+          else if (appNameStr === "UNI REVENDA") intType = "UNIREVENDA";
+          else if (appNameStr === "GPC ANDROID") intType = "GPC_ANDROID";
+          else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
+          else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "IBOREVENDA";
+          else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
+        
           handler = getIntegrationHandler(intType);
       }
       return handler;
@@ -629,7 +629,7 @@ export default function TrialsPage() {
 
       // ✅ Para DupleCast, usa o PIN da integração. Para os demais, usa a senha do servidor.
       const integrationPassword = handler.actionPrefix === "DUPLECAST"
-          ? (appIntegData?.login_password || "")
+          ? (appIntegData?.pin || "") // ✅ Usando a nova coluna 'pin'
           : serverPassword;
 
       const payload = handler.buildCreatePayload({
@@ -637,6 +637,7 @@ export default function TrialsPage() {
           password: integrationPassword,
           macValue,
           finalServerName,
+          serverName: serverName.replace(/\s+/g, ""), // ✅ Faltava enviar isso aqui!
           m3uUrl: m3uUrlFinal
       });
 
@@ -678,7 +679,9 @@ export default function TrialsPage() {
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
 
       const payloadDelete = handler.buildDeletePayload({
-          username: finalServerName, 
+          username: appModal.username.trim(), // ✅ Login base (ex: Insqueixa)
+          finalServerName: finalServerName, // ✅ Nome + Servidor (ex: Insqueixa_FastTV)
+          serverName: appModal.serverName.replace(/\s+/g, ""), // ✅ Apenas Servidor (ex: FastTV)
           macValue: getMacFromApp(appValues, appModal.app?.fields_config || [])
       });
 
