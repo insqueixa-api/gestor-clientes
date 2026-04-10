@@ -1865,26 +1865,24 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
       const catApp = catalog.find(c => c.id === appInstance.app_id) as any;
       let intType = String(catApp?.integration_type || "").trim().toUpperCase();
       
-      // 2. Pergunta ao Cérebro (index.ts) se ele conhece essa chave
+      // 2. Pergunta ao Roteador (index.ts) se ele conhece essa chave
       let handler = getIntegrationHandler(intType);
       
-      // 3. Se o Cérebro não conhecer (ex: estava salvo GERENCIAAPP, mas agora mudou para IBOREVENDA)
-      // Acionamos a dedução inteligente pelo nome do aplicativo!
+      // 3. Se o Roteador não conhecer (ex: estava salvo GERENCIAAPP, mas agora mudou para IBOREVENDA)
+      // Acionamos a dedução salva-vidas pelo NOME EXATO do aplicativo (sem buscas parciais!)
       if (!handler) {
-          const appNameStr = String(appInstance.name || "").toUpperCase();
-          if (appNameStr.includes("ZONE")) intType = "ZONEX";
-          else if (appNameStr.includes("VU")) intType = "VUREVENDA";
-          else if (appNameStr.includes("FACILITA")) intType = "FACILITA";
-          else if (appNameStr.includes("UNI")) intType = "UNIREVENDA";
-          else if (appNameStr.includes("GPC")) {
-              // ✅ Adicionando a dedução salva-vidas completa do GPC!
-              if (appNameStr.includes("ANDROID")) intType = "GPC_ANDROID";
-              else intType = "GPC_ROKU";
-          }
-          else if (appNameStr.includes("IBO") || appNameStr.includes("REVENDA") || appNameStr.includes("GERENCIAAPP")) intType = "IBOREVENDA";
-        else if (appNameStr.includes("DUPLE")) intType = "DUPLECAST";
+          const appNameStr = String(appInstance.name || "").trim().toUpperCase();
+          
+          if (appNameStr === "ZONE X" || appNameStr === "ZONEX") intType = "ZONEX";
+          else if (appNameStr === "VU REVENDA") intType = "VUREVENDA";
+          else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "FACILITA";
+          else if (appNameStr === "UNI REVENDA") intType = "UNIREVENDA";
+          else if (appNameStr === "GPC ANDROID") intType = "GPC_ANDROID";
+          else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
+          else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "IBOREVENDA";
+          else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
         
-        handler = getIntegrationHandler(intType);
+          handler = getIntegrationHandler(intType);
       }
       
       return handler;
