@@ -35,10 +35,12 @@ export const IBORevendaIntegration = {
     },
 
     // Constrói o pacote de dados para deletar
-    buildDeletePayload: (params: { username: string; macValue: string }) => {
+    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string }) => {
         return {
-            username: params.username.trim(),
-            mac_device: params.macValue || ""
+            // ✅ Busca EXATAMENTE como você pediu: Username_Servidor (ex: Insqueixa_FastTV)
+            // A extensão usa isso primeiro, se não achar, cai pro macValue.
+            username: params.finalServerName || params.username.trim(),
+            macValue: params.macValue || ""
         };
     }
 };

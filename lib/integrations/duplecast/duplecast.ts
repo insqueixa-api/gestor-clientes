@@ -17,15 +17,11 @@ export const DupleCastIntegration = {
         };
     },
 
-    buildDeletePayload: (params: { 
-        username: string; 
-        serverName?: string; // ✅ Recebe o "Servidor" do handleDeleteApp
-        macValue: string 
-    }) => {
+    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string }) => {
         return {
-            // ✅ Usa o "Servidor" para buscar a lista e deletar (se não vier, faz fallback pro username)
-            username:  params.serverName || params.username.trim(), 
-            macValue:  params.macValue || "",
+            // ✅ Busca EXATAMENTE como você pediu: Apenas o nome do Servidor (ex: FastTV)
+            username: params.serverName || params.username.trim(),
+            macValue: params.macValue || "",
         };
-    },
+    }
 };

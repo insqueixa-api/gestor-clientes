@@ -2013,8 +2013,9 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
         const payloadDelete = handler.buildDeletePayload({
-            username: username.trim(), // ✅ Envia o login puro para o GerenciaApp
-            finalServerName: finalServerName, // ✅ Envia o nome montado para o Duplecast
+            username: username.trim(), // Login base (ex: Insqueixa)
+            finalServerName: finalServerName, // Nome + Servidor (ex: Insqueixa_FastTV)
+            serverName: selectedServerName.replace(/\s+/g, ""), // Apenas Servidor (ex: FastTV)
             macValue: getMacFromApp(currentApp)
         });
 
