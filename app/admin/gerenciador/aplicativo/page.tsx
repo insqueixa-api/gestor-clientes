@@ -679,20 +679,21 @@ return (
               {/* INTEGRAÇÃO — só visível para o pai, em apps próprios */}
               {isRootTenant && (!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
                 <div>
-                  <Label>Integração automática</Label>
-                  <select
-                    value={formIntegration}
-                    onChange={(e) => setFormIntegration(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                  >
-                    <option value="">Sem integração</option>
-                    <option value="GERENCIAAPP">GerenciaApp</option>
-                    <option value="DUPLECAST">Duplecast</option>
-                  </select>
-                  <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-                    Quando configurado, habilita automação ao criar clientes.
-                  </p>
-                </div>
+                  <Label>Integração automática</Label>
+                  <select
+                    value={formIntegration}
+                    onChange={(e) => setFormIntegration(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  >
+                    <option value="">Sem integração</option>
+                    <option value="GERENCIAAPP">GerenciaApp</option>
+                    <option value="DUPLECAST">Duplecast</option>
+                    <option value="IBOSOL">IBO SOL (Família IBO, BOB...)</option> {/* ✅ NOVA FAMÍLIA ADICIONADA */}
+                  </select>
+                  <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
+                    Quando configurado, habilita automação ao criar clientes.
+                  </p>
+                </div>
               )}
 
               

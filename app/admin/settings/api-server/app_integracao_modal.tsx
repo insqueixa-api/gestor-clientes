@@ -50,11 +50,14 @@ export default function AppIntegracaoModal({
   const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
   
   const [saving, setSaving]           = useState(false);
-  const [userEmail, setUserEmail]     = useState("");
+  const [userRole, setUserRole]       = useState(""); // ✅ Trocado userEmail por userRole
   const [isUploading, setIsUploading] = useState(false);
   
   const { confirm, ConfirmUI } = useConfirm(); 
+  // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast = appName === "DUPLECAST";
+  const isIboSol    = appName === "IBOSOL";
+  const needsPin    = isDuplecast || isIboSol;
 
   useEffect(() => {
     if (integration) {
@@ -67,17 +70,19 @@ export default function AppIntegracaoModal({
       setIsActive(integration.is_active ?? true);
     }
     
-    supabaseBrowser.auth.getUser().then(({ data }) => {
-        if (data?.user?.email) setUserEmail(data.user.email);
+    // ✅ Busca o nível de acesso real do usuário no banco
+    supabaseBrowser.rpc("saas_my_role").then(({ data }) => {
+        if (data) setUserRole(String(data).toUpperCase());
     });
   }, [integration]);
 
-  // ✅ Validação dinâmica exigindo o PIN apenas no Duplecast
-  const canSave = isDuplecast 
+  // ✅ Validação dinâmica exigindo o PIN para Duplecast ou IBOSOL
+  const canSave = needsPin 
     ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
     : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
   
-  const isMasterUser = userEmail === "insqueixa@gmail.com" || userEmail === "m.martins@sap.com";
+  // ✅ Libera o upload apenas se a role dele for SUPERADMIN (A mesma regra do seu painel)
+  const isMasterUser = userRole === "SUPERADMIN";
 
   async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -125,7 +130,7 @@ export default function AppIntegracaoModal({
         login_email:    loginEmail.trim(),
         login_password: loginPassword.trim(),
         api_url:        normalizeApiUrl(apiUrl),
-        pin:            isDuplecast ? pin.trim() : null, // ✅ Salva o PIN ou nulo
+        pin:            needsPin ? pin.trim() : null, // ✅ Salva o PIN para os apps que precisam
         is_active:      isActive,
       };
 
@@ -207,6 +212,7 @@ export default function AppIntegracaoModal({
               >
                 <option value="GERENCIAAPP">GerenciaApp</option>
                 <option value="DUPLECAST">Duplecast</option>
+                <option value="IBOSOL">Família IBO SOL (BOB, Mac, Elite...)</option>
               </select>
             </div>
 
@@ -216,7 +222,7 @@ export default function AppIntegracaoModal({
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder={isDuplecast ? 'Ex: "Meu Duplecast"' : 'Ex: "Meu GerenciaApp"'}
+                placeholder={needsPin ? 'Ex: "Meu Painel IBO/Duplecast"' : 'Ex: "Meu GerenciaApp"'}
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>
@@ -227,19 +233,19 @@ export default function AppIntegracaoModal({
               <input
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : "Ex: https://gerenciaapp.top"}
+                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : "Ex: https://gerenciaapp.top"}
                 type="url"
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
 
             {/* Email de Login */}
-            <div className={isDuplecast ? "sm:col-span-1" : "sm:col-span-2"}>
+            <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
               <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
               <input
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder={isDuplecast ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
+                placeholder={needsPin ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
                 type="text"
                 autoCapitalize="none"
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
@@ -247,7 +253,7 @@ export default function AppIntegracaoModal({
             </div>
 
             {/* Senha */}
-            <div className={isDuplecast ? "sm:col-span-1" : "sm:col-span-2"}>
+            <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
               <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
               <input
                 value={loginPassword}
@@ -258,8 +264,8 @@ export default function AppIntegracaoModal({
               />
             </div>
 
-            {/* PIN (Exclusivo Duplecast) animado */}
-            {isDuplecast && (
+            {/* PIN (Exclusivo para Apps que Exigem) animado */}
+            {needsPin && (
               <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
                 <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1.5 uppercase tracking-wider">PIN Padrão (Criação de Teste)</label>
                 <div className="relative">
