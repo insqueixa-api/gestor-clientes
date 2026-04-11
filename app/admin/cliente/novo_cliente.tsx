@@ -1949,7 +1949,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
-        m3uUrl: m3uToSend
+        m3uUrl: m3uToSend,
+        appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
     });
 
     const responseHandler = (e: any) => {
@@ -2032,7 +2033,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
             username: username.trim(), // Login base (ex: Insqueixa)
             finalServerName: finalServerName, // Nome + Servidor (ex: Insqueixa_FastTV)
             serverName: selectedServerName.replace(/\s+/g, ""), // Apenas Servidor (ex: FastTV)
-            macValue: getMacFromApp(currentApp)
+            macValue: getMacFromApp(currentApp),
+            appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
         });
 
     const responseHandler = (e: any) => {
@@ -2871,7 +2873,8 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                         password: handler.actionPrefix === "DUPLECAST" ? appPinAuto : apiPassword,
                         macValue: macValueAuto,
                         finalServerName,
-                        m3uUrl: finalM3u || apiM3uUrl || m3uUrl || ""
+                        m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
+                        appName: app.name // ✅ SÓ ADICIONAR ESTA LINHA (aqui usamos app.name do loop)
                     });
 
                     await new Promise((resolve) => {

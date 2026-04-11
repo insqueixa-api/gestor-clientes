@@ -638,7 +638,8 @@ export default function TrialsPage() {
           macValue,
           finalServerName,
           serverName: serverName.replace(/\s+/g, ""), // ✅ Faltava enviar isso aqui!
-          m3uUrl: m3uUrlFinal
+          m3uUrl: m3uUrlFinal,
+          appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
       });
 
       
@@ -682,7 +683,8 @@ export default function TrialsPage() {
           username: appModal.username.trim(), // ✅ Login base (ex: Insqueixa)
           finalServerName: finalServerName, // ✅ Nome + Servidor (ex: Insqueixa_FastTV)
           serverName: appModal.serverName.replace(/\s+/g, ""), // ✅ Apenas Servidor (ex: FastTV)
-          macValue: getMacFromApp(appValues, appModal.app?.fields_config || [])
+          macValue: getMacFromApp(appValues, appModal.app?.fields_config || []),
+          appName: appModal.appName // ✅ SÓ ADICIONAR ESTA LINHA
       });
 
       const responseHandler = (e: any) => {

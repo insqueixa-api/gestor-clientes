@@ -4,7 +4,8 @@ export const VURevendaIntegration = {
     // Mantemos GERENCIAAPP pois a extensão já sabe furar o Cloudflare desse domínio
     actionPrefix: "GERENCIAAPP", 
 
-    buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string }) => {
+    // ✅ Adicionado serverName e appName opcionais
+    buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string }) => {
         const today = new Date();
         today.setFullYear(today.getFullYear() + 1);
         const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -32,7 +33,8 @@ export const VURevendaIntegration = {
         };
     },
 
-    buildDeletePayload: (params: { username: string; macValue: string }) => {
+    // ✅ Adicionado appName opcional
+    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
         return {
             username: params.username.trim(),
             mac_device: params.macValue || ""

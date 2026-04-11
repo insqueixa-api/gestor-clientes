@@ -5,7 +5,8 @@ import { FacilitaIntegration } from "./gerenciaapps/facilita";
 import { UNIRevendaIntegration } from "./gerenciaapps/unirevenda";
 import { GPCRokuIntegration } from "./gerenciaapps/gpc_roku";
 import { GPCAndroidIntegration } from "./gerenciaapps/gpc_android";
-import { DupleCastIntegration } from "./duplecast/duplecast"; // ✅ NOVO
+import { DupleCastIntegration } from "./duplecast/duplecast";
+import { IboSolIntegration } from "./ibosol/ibosol"; // ✅ NOVO IMPORT
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "IBOREVENDA":   IBORevendaIntegration,
@@ -15,7 +16,8 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "UNIREVENDA":   UNIRevendaIntegration,
     "GPC_ROKU":     GPCRokuIntegration,
     "GPC_ANDROID":  GPCAndroidIntegration,
-    "DUPLECAST":    DupleCastIntegration, // ✅ NOVO
+    "DUPLECAST":    DupleCastIntegration, 
+    "IBOSOL":       IboSolIntegration, // ✅ NOVA FAMÍLIA
 };
 
 export function getIntegrationHandler(integrationType: string) {

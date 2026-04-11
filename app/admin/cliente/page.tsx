@@ -1826,8 +1826,9 @@ body: JSON.stringify({
           password: integrationPassword,
           macValue,
           finalServerName,
-          serverName: serverName.replace(/\s+/g, ""), // ✅ Faltava enviar isso aqui!
-          m3uUrl: m3uUrlFinal 
+          serverName: serverName.replace(/\s+/g, ""), 
+          m3uUrl: m3uUrlFinal, // <--- FALTAVA ESTA VÍRGULA AQUI!
+          appName: appName
       });
 
       const responseHandler = async (e: any) => {
@@ -1904,10 +1905,11 @@ body: JSON.stringify({
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
 
       const payloadDelete = handler.buildDeletePayload({
-          username: appModal.username.trim(), // ✅ Login base (ex: Insqueixa)
-          finalServerName: finalServerName, // ✅ Nome + Servidor (ex: Insqueixa_FastTV)
-          serverName: appModal.serverName.replace(/\s+/g, ""), // ✅ Apenas Servidor (ex: FastTV)
-          macValue: getMacFromApp(appValues, appModal.app.fields_config)
+          username: appModal.username.trim(), 
+          finalServerName: finalServerName, 
+          serverName: appModal.serverName.replace(/\s+/g, ""), 
+          macValue: getMacFromApp(appValues, appModal.app.fields_config), // <--- FALTAVA ESTA VÍRGULA AQUI!
+          appName: appModal.appName 
       });
 
       const responseHandler = (e: any) => {

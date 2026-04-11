@@ -8,6 +8,7 @@ export const DupleCastIntegration = {
         finalServerName: string;
         serverName: string; // ✅ Adicionado para receber apenas "Servidor"
         m3uUrl: string;
+        appName?: string; // ✅ Adicionado Opcional
     }) => {
         return {
             macValue:         params.macValue,
@@ -17,7 +18,7 @@ export const DupleCastIntegration = {
         };
     },
 
-    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string }) => {
+    buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
         return {
             // ✅ Busca EXATAMENTE como você pediu: Apenas o nome do Servidor (ex: FastTV)
             username: params.serverName || params.username.trim(),
