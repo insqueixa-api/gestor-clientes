@@ -2044,14 +2044,16 @@ const getDeviceKeyFromApp = (app?: typeof currentApp) => {
     return "";
 };
 
-const payloadDelete = handler.buildDeletePayload({
-    username: username.trim(),
-    finalServerName: finalServerName,
-    serverName: selectedServerName.replace(/\s+/g, ""),
-    macValue: getMacFromApp(currentApp),
-    deviceKey: getDeviceKeyFromApp(currentApp), // ✅ NOVO
-    appName: appName
-});
+const payloadDelete = {
+    ...handler.buildDeletePayload({
+        username: username.trim(),
+        finalServerName: finalServerName,
+        serverName: selectedServerName.replace(/\s+/g, ""),
+        macValue: getMacFromApp(currentApp),
+        appName: appName
+    }),
+    deviceKey: getDeviceKeyFromApp(currentApp), // ✅ Garante que chega mesmo que o handler ignore
+};
 
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);

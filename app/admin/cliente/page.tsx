@@ -1918,14 +1918,16 @@ const getDeviceKeyFromValues = (values: Record<string, string>, fieldsConfig: an
     return "";
 };
 
-const payloadDelete = handler.buildDeletePayload({
-    username: appModal.username.trim(), 
-    finalServerName: finalServerName, 
-    serverName: appModal.serverName.replace(/\s+/g, ""), 
-    macValue: getMacFromApp(appValues, appModal.app.fields_config),
-    deviceKey: getDeviceKeyFromValues(appValues, appModal.app.fields_config), // ✅ NOVO
-    appName: appModal.appName 
-});
+const payloadDelete = {
+    ...handler.buildDeletePayload({
+        username: appModal.username.trim(), 
+        finalServerName: finalServerName, 
+        serverName: appModal.serverName.replace(/\s+/g, ""), 
+        macValue: getMacFromApp(appValues, appModal.app.fields_config),
+        appName: appModal.appName 
+    }),
+    deviceKey: getDeviceKeyFromValues(appValues, appModal.app?.fields_config || []),
+};
 
       const responseHandler = (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
