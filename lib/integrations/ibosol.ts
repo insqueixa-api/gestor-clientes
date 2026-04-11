@@ -1,3 +1,5 @@
+// src/lib/integrations/ibosol.ts
+
 export const IboSolIntegration = {
     actionPrefix: "IBOSOL", // Aciona o IBOSOL_CREATE e IBOSOL_DELETE na extensão
 

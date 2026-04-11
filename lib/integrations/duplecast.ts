@@ -1,3 +1,5 @@
+// src/lib/integrations/duplecast.ts
+
 export const DupleCastIntegration = {
     actionPrefix: "DUPLECAST",
 

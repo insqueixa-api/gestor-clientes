@@ -1,23 +1,22 @@
-import { IBORevendaIntegration } from "./gerenciaapps/iborevenda";
-import { ZoneXIntegration } from "./gerenciaapps/zonex";
-import { VURevendaIntegration } from "./gerenciaapps/vurevenda";
-import { FacilitaIntegration } from "./gerenciaapps/facilita";
-import { UNIRevendaIntegration } from "./gerenciaapps/unirevenda";
-import { GPCRokuIntegration } from "./gerenciaapps/gpc_roku";
-import { GPCAndroidIntegration } from "./gerenciaapps/gpc_android";
-import { DupleCastIntegration } from "./duplecast/duplecast";
-import { IboSolIntegration } from "./ibosol/ibosol"; // ✅ NOVO IMPORT
+// src/lib/integrations/index.ts
+
+import { GerenciaAppIntegration } from "./gerenciaapp"; 
+import { DupleCastIntegration } from "./duplecast";
+import { IboSolIntegration } from "./ibosol"; 
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
-    "IBOREVENDA":   IBORevendaIntegration,
-    "ZONEX":        ZoneXIntegration,
-    "VUREVENDA":    VURevendaIntegration,
-    "FACILITA":     FacilitaIntegration,
-    "UNIREVENDA":   UNIRevendaIntegration,
-    "GPC_ROKU":     GPCRokuIntegration,
-    "GPC_ANDROID":  GPCAndroidIntegration,
+    // ✅ Apontamos todas as chaves antigas da família GerenciaApp para o novo motor universal
+    "IBOREVENDA":   GerenciaAppIntegration,
+    "ZONEX":        GerenciaAppIntegration,
+    "VUREVENDA":    GerenciaAppIntegration,
+    "FACILITA":     GerenciaAppIntegration,
+    "UNIREVENDA":   GerenciaAppIntegration,
+    "GPC_ROKU":     GerenciaAppIntegration,
+    "GPC_ANDROID":  GerenciaAppIntegration,
+    
+    // Outras famílias
     "DUPLECAST":    DupleCastIntegration, 
-    "IBOSOL":       IboSolIntegration, // ✅ NOVA FAMÍLIA
+    "IBOSOL":       IboSolIntegration, 
 };
 
 export function getIntegrationHandler(integrationType: string) {
