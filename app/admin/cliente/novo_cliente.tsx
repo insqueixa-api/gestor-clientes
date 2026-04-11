@@ -1912,8 +1912,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
 
     const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
     
-    // ✅ Auto-preenche apenas se NÃO for Duplecast (O Duplecast espera a resposta do Chrome)
-    if (dateField && handler.actionPrefix !== "DUPLECAST") { 
+    // ✅ Auto-preenche apenas se NÃO for Duplecast nem IBOSOL (ambos esperam o Chrome)
+    if (dateField && handler.actionPrefix !== "DUPLECAST" && handler.actionPrefix !== "IBOSOL") { 
         const fieldKey = dateField.id || dateField.label;
         if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), dueDate);
     }
@@ -1944,13 +1944,13 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const appPin = appIntegData?.pin || ""; // ✅ Puxando da nova coluna 'pin'
     const payload = handler.buildCreatePayload({
         username,
-        // ✅ CORREÇÃO: Se for Duplecast, manda o PIN. Se for IBO, manda a senha normal.
-        password: handler.actionPrefix === "DUPLECAST" ? appPin : password, 
+        // ✅ IBOSOL agora também manda o PIN
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") ? appPin : password, 
         macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
         m3uUrl: m3uToSend,
-        appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
+        appName: appName 
     });
 
     const responseHandler = (e: any) => {
@@ -1959,7 +1959,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         setLoadingStep("");
         
         if (e.detail?.ok) {
-            if (handler.actionPrefix === "DUPLECAST") {
+            // ✅ IBOSOL também extrai a data do Chrome
+            if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
                 if (e.detail.expireDate) {
                     if (dateField) {
                         const fieldKey = dateField.id || dateField.label;
@@ -2869,19 +2870,20 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     // Deixa a biblioteca externa montar o pacote
                     const payloadAutomacao = handler.buildCreatePayload({
                         username: apiUsername,
-                        // ✅ CORREÇÃO: Se for Duplecast, manda o PIN. Senão manda a senha normal.
-                        password: handler.actionPrefix === "DUPLECAST" ? appPinAuto : apiPassword,
+                        // ✅ IBOSOL também manda o PIN na automação
+                        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") ? appPinAuto : apiPassword,
                         macValue: macValueAuto,
                         finalServerName,
                         m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
-                        appName: app.name // ✅ SÓ ADICIONAR ESTA LINHA (aqui usamos app.name do loop)
+                        appName: app.name 
                     });
 
                     await new Promise((resolve) => {
                         const evtHandler = async (e: any) => {
                             window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                             if (e.detail?.ok) {
-                                if (handler.actionPrefix === "DUPLECAST") {
+                                // ✅ IBOSOL também lê a data vinda da extensão
+                                if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
                                     if (e.detail.expireDate) {
                                         const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
                                         if (dField) {

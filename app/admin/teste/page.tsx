@@ -627,42 +627,59 @@ export default function TrialsPage() {
       setAppSaving(true);
       const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
 
-      // ✅ Para DupleCast, usa o PIN da integração. Para os demais, usa a senha do servidor.
-      const integrationPassword = handler.actionPrefix === "DUPLECAST"
-          ? (appIntegData?.pin || "") // ✅ Usando a nova coluna 'pin'
-          : serverPassword;
+      // ✅ Para DupleCast e IBOSOL, usa o PIN da integração. Para os demais, usa a senha do servidor.
+      const integrationPassword = (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL")
+          ? (appIntegData?.pin || "") 
+          : serverPassword;
 
-      const payload = handler.buildCreatePayload({
-          username,
-          password: integrationPassword,
-          macValue,
-          finalServerName,
-          serverName: serverName.replace(/\s+/g, ""), // ✅ Faltava enviar isso aqui!
-          m3uUrl: m3uUrlFinal,
-          appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
-      });
+      const payload = handler.buildCreatePayload({
+          username,
+          password: integrationPassword,
+          macValue,
+          finalServerName,
+          serverName: serverName.replace(/\s+/g, ""), 
+          m3uUrl: m3uUrlFinal,
+          appName: appName
+      } as any);
 
-      
-      addToast("success", "Enviando...", "Enviando para o painel do App...");
-      setAppModalDirty(true);
+      
+      addToast("success", "Enviando...", "Enviando para o painel do App...");
+      setAppModalDirty(true);
 
-      const responseHandler = (e: any) => {
-          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-          if (e.detail?.ok) {
-              addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
-              setShowAppModal(false);
-          } else {
-              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
-          }
-          setAppSaving(false);
-      };
-      
-      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } 
-      }));
-      
-      await supabaseBrowser.from("client_apps").update({ field_values: appValues }).eq("client_id", clientId).eq("app_id", appModal.app?.id);
+      const responseHandler = async (e: any) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+          if (e.detail?.ok) {
+              if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
+                  if (e.detail.expireDate) {
+                      const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                      if (dateField) {
+                          const fieldKey = String(dateField.id || dateField.label);
+                          const nextAppValues = { ...appValues, [fieldKey]: e.detail.expireDate };
+                          setAppValues(nextAppValues);
+                          await supabaseBrowser.from("client_apps").update({ field_values: nextAppValues }).eq("client_id", clientId).eq("app_id", appModal.app?.id);
+                      }
+                      addToast("success", "Integrado!", `App ativado! Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}`);
+                  } else {
+                      addToast("warning", "Atenção", "Aplicativo ativado, mas a data de vencimento não foi localizada.");
+                  }
+              } else {
+                  addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
+              }
+              setAppModal(null);
+          } else {
+              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
+          }
+          setAppSaving(false);
+      };
+      
+      window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
+      window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } 
+      }));
+      
+      if (handler.actionPrefix !== "DUPLECAST" && handler.actionPrefix !== "IBOSOL") {
+          await supabaseBrowser.from("client_apps").update({ field_values: appValues }).eq("client_id", clientId).eq("app_id", appModal.app?.id);
+      }
   }
 
   async function handleDeleteAppDirect() {
@@ -680,12 +697,12 @@ export default function TrialsPage() {
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
 
       const payloadDelete = handler.buildDeletePayload({
-          username: appModal.username.trim(), // ✅ Login base (ex: Insqueixa)
-          finalServerName: finalServerName, // ✅ Nome + Servidor (ex: Insqueixa_FastTV)
-          serverName: appModal.serverName.replace(/\s+/g, ""), // ✅ Apenas Servidor (ex: FastTV)
-          macValue: getMacFromApp(appValues, appModal.app?.fields_config || []),
-          appName: appModal.appName // ✅ SÓ ADICIONAR ESTA LINHA
-      });
+          username: appModal.username.trim(), 
+          finalServerName: finalServerName, 
+          serverName: appModal.serverName.replace(/\s+/g, ""), 
+          macValue: getMacFromApp(appValues, appModal.app?.fields_config || []),
+          appName: appModal.appName
+      } as any);
 
       const responseHandler = (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);

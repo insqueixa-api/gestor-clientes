@@ -1816,8 +1816,8 @@ body: JSON.stringify({
 
       const finalServerName = `${username}_${serverName.replace(/\s+/g, "")}`;
 
-      // ✅ Para DupleCast, usa o PIN da integração. Para os demais, usa a senha do servidor.
-      const integrationPassword = handler.actionPrefix === "DUPLECAST"
+      // ✅ Para DupleCast e IBOSOL, usa o PIN da integração. Para os demais, usa a senha do servidor.
+      const integrationPassword = (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL")
           ? (appIntegData?.pin || "") // ✅ Usando a nova coluna 'pin'
           : serverPassword;
 
@@ -1827,14 +1827,15 @@ body: JSON.stringify({
           macValue,
           finalServerName,
           serverName: serverName.replace(/\s+/g, ""), 
-          m3uUrl: m3uUrlFinal, // <--- FALTAVA ESTA VÍRGULA AQUI!
-          appName: appName
+          m3uUrl: m3uUrlFinal,
+          appName: appName 
       });
 
       const responseHandler = async (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
           if (e.detail?.ok) {
-              if (handler.actionPrefix === "DUPLECAST") {
+              // ✅ DUPLECAST e IBOSOL retornam expireDate da extensão
+              if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
                   if (e.detail.expireDate) {
                       if (dateField) {
                           const fieldKey = String(dateField.id || dateField.label);
@@ -1908,7 +1909,7 @@ body: JSON.stringify({
           username: appModal.username.trim(), 
           finalServerName: finalServerName, 
           serverName: appModal.serverName.replace(/\s+/g, ""), 
-          macValue: getMacFromApp(appValues, appModal.app.fields_config), // <--- FALTAVA ESTA VÍRGULA AQUI!
+          macValue: getMacFromApp(appValues, appModal.app.fields_config),
           appName: appModal.appName 
       });
 
