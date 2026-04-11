@@ -1905,13 +1905,27 @@ body: JSON.stringify({
 
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
 
-      const payloadDelete = handler.buildDeletePayload({
-          username: appModal.username.trim(), 
-          finalServerName: finalServerName, 
-          serverName: appModal.serverName.replace(/\s+/g, ""), 
-          macValue: getMacFromApp(appValues, appModal.app.fields_config),
-          appName: appModal.appName 
-      });
+      // ✅ Extrai o Device Key dos valores salvos no app
+const getDeviceKeyFromValues = (values: Record<string, string>, fieldsConfig: any[]): string => {
+    const dkField = fieldsConfig?.find((f: any) =>
+        String(f?.type || "").toLowerCase() === "device_key" ||
+        String(f?.label || "").toLowerCase().includes("device key")
+    );
+    if (dkField) {
+        const key = String(dkField.id || dkField.label || "").trim();
+        return values[key] || "";
+    }
+    return "";
+};
+
+const payloadDelete = handler.buildDeletePayload({
+    username: appModal.username.trim(), 
+    finalServerName: finalServerName, 
+    serverName: appModal.serverName.replace(/\s+/g, ""), 
+    macValue: getMacFromApp(appValues, appModal.app.fields_config),
+    deviceKey: getDeviceKeyFromValues(appValues, appModal.app.fields_config), // ✅ NOVO
+    appName: appModal.appName 
+});
 
       const responseHandler = (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);

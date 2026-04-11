@@ -2030,13 +2030,28 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
         const finalServerName = `${username}_${selectedServerName.replace(/\s+/g, "")}`;
 
-        const payloadDelete = handler.buildDeletePayload({
-            username: username.trim(), // Login base (ex: Insqueixa)
-            finalServerName: finalServerName, // Nome + Servidor (ex: Insqueixa_FastTV)
-            serverName: selectedServerName.replace(/\s+/g, ""), // Apenas Servidor (ex: FastTV)
-            macValue: getMacFromApp(currentApp),
-            appName: appName // ✅ SÓ ADICIONAR ESTA LINHA
-        });
+        // ✅ Extrai o Device Key do app atual
+const getDeviceKeyFromApp = (app?: typeof currentApp) => {
+    if (!app) return "";
+    const dkField = app.fields_config?.find((f: any) => 
+        String(f?.type || "").toLowerCase() === "device_key" ||
+        String(f?.label || "").toLowerCase().includes("device key")
+    );
+    if (dkField) {
+        const key = String(dkField.id || dkField.label || "").trim();
+        return app.values[key] || "";
+    }
+    return "";
+};
+
+const payloadDelete = handler.buildDeletePayload({
+    username: username.trim(),
+    finalServerName: finalServerName,
+    serverName: selectedServerName.replace(/\s+/g, ""),
+    macValue: getMacFromApp(currentApp),
+    deviceKey: getDeviceKeyFromApp(currentApp), // ✅ NOVO
+    appName: appName
+});
 
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
@@ -4780,39 +4795,43 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             {/* Configuração de Integração do App Limpa e Moderna */}
                             {hasInteg && (
                                 <div className="bg-transparent border-0 mb-3 mt-2">
-                                  <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleConfigApp(app.name)}
-                                        className="flex-1 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                        title="Enviar dados para o painel"
-                                    >
-                                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                        <span className="hidden sm:inline">Sincronizar {appLabel}</span>
-                                        <span className="sm:hidden">Sincronizar</span>
-                                    </button>
+                                  <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => handleConfigApp(app.name)}
+                                className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                title="Enviar dados para o painel"
+                            >
+                                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span className="hidden sm:inline">Configurar m3u</span>
+                                <span className="sm:hidden">Configurar</span>
+                            </button>
 
-                                    {/* Só exibe Remover M3U se o cliente já estiver salvo (Modo Edição) */}
-                                    {isEditing && (
-                                      <button
-                                          type="button"
-                                          onClick={async () => {
-                                              const ok = await confirmDeleteApp({
-                                                  title: `Remover do ${appLabel}?`,
-                                                  subtitle: `Isso apagará o MAC do painel oficial.`,
-                                                  tone: "rose",
-                                                  confirmText: "Sim, remover",
-                                                  cancelText: "Cancelar"
-                                              });
-                                              if (ok) await handleDeleteApp(app.name);
-                                          }}
-                                          className="w-10 h-9 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center shrink-0"
-                                          title="Remover do painel oficial"
-                                      >
-                                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                      </button>
-                                    )}
-                                  </div>
+                            {isEditing && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const ok = await confirmDeleteApp({
+                                            title: `Remover do ${appLabel}?`,
+                                            subtitle: `Isso apagará o MAC do painel oficial.`,
+                                            tone: "rose",
+                                            confirmText: "Sim, remover",
+                                            cancelText: "Cancelar"
+                                        });
+                                        if (ok) await handleDeleteApp(app.name);
+                                    }}
+                                    className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                    title="Remover do painel oficial"
+                                >
+                                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    <span className="hidden sm:inline">Remover m3u</span>
+                                    <span className="sm:hidden">Remover</span>
+                                </button>
+                            )}
+                        </div>
                                 </div>
                             )}
 
