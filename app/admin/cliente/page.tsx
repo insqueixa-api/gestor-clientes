@@ -1794,11 +1794,11 @@ body: JSON.stringify({
           }
       }
 
-      // ✅ ATUALIZAÇÃO DA DATA: +1 Ano Automático ao Configurar
       let nextAppValues = { ...appValues };
       const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       
-      if (dateField) {
+      // ✅ NÃO preenche 1 ano para frente se for o Duplecast
+      if (dateField && handler.actionPrefix !== "DUPLECAST") {
           const fieldKey = String(dateField.id || dateField.label);
           const hoje = new Date();
           hoje.setFullYear(hoje.getFullYear() + 1);
@@ -1830,14 +1830,30 @@ body: JSON.stringify({
           m3uUrl: m3uUrlFinal 
       });
 
-      const responseHandler = (e: any) => {
+      const responseHandler = async (e: any) => {
           window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
-          setAppSaving(false);
           if (e.detail?.ok) {
-              addToast("success", "Integrado!", "Aplicativo configurado no painel.");
-              setAppModal(prev => prev ? { ...prev, m3uUrl: m3uUrlFinal } : null);
+              if (handler.actionPrefix === "DUPLECAST") {
+                  if (e.detail.expireDate) {
+                      if (dateField) {
+                          const fieldKey = String(dateField.id || dateField.label);
+                          nextAppValues[fieldKey] = e.detail.expireDate;
+                          setAppValues(nextAppValues);
+                          await supabaseBrowser.from("client_apps").update({ field_values: nextAppValues }).eq("client_id", clientId).eq("app_id", appModal.app?.id);
+                      }
+                      addToast("success", "Integrado!", `App ativado! Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}`);
+                  } else {
+                      addToast("warning", "Atenção", "Aplicativo ativado, mas a data de vencimento não foi localizada.");
+                  }
+              } else {
+                  addToast("success", "Integrado!", `Aplicativo ativado com sucesso!`);
+              }
+              // ✅ CORRIGIDO: O comando correto para fechar o modal de App nesta página é setAppModal(null)
+              setAppModal(null);
+          } else {
+              addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
           }
-          else addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
+          setAppSaving(false);
       };
       
       window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);

@@ -1910,9 +1910,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         return;
     }
 
-    // ✅ NOVO: Auto-preenche a Data de Vencimento do App com a data do Cliente
     const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-    if (dateField) {
+    
+    // ✅ Auto-preenche apenas se NÃO for Duplecast (O Duplecast espera a resposta do Chrome)
+    if (dateField && handler.actionPrefix !== "DUPLECAST") { 
         const fieldKey = dateField.id || dateField.label;
         if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), dueDate);
     }
@@ -1955,8 +1956,21 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
         setLoadingStep("");
+        
         if (e.detail?.ok) {
-            addToast("success", "Integrado!", `Aplicativo configurado com sucesso!`);
+            if (handler.actionPrefix === "DUPLECAST") {
+                if (e.detail.expireDate) {
+                    if (dateField) {
+                        const fieldKey = dateField.id || dateField.label;
+                        updateAppFieldValue(currentApp!.instanceId, String(fieldKey), e.detail.expireDate);
+                    }
+                    addToast("success", "Integrado!", `App configurado! Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}`);
+                } else {
+                    addToast("warning", "Atenção", "Aplicativo configurado, mas a data de vencimento não foi localizada.");
+                }
+            } else {
+                addToast("success", "Integrado!", "Aplicativo configurado com sucesso!");
+            }
         } else {
             addToast("error", "Erro na Integração", e.detail?.error || "Falha desconhecida.");
         }
@@ -2861,16 +2875,35 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     });
 
                     await new Promise((resolve) => {
-                        const evtHandler = (e: any) => {
+                        const evtHandler = async (e: any) => {
                             window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                            if (e.detail?.ok) queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
-                            else queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
+                            if (e.detail?.ok) {
+                                if (handler.actionPrefix === "DUPLECAST") {
+                                    if (e.detail.expireDate) {
+                                        const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                                        if (dField) {
+                                            const fieldKey = dField.id || dField.label;
+                                            const { data } = await supabaseBrowser.from("client_apps").select("field_values").eq("client_id", clientId).eq("app_id", app.app_id).maybeSingle();
+                                            const dbVals = data?.field_values || {};
+                                            await supabaseBrowser.from("client_apps").update({ field_values: { ...dbVals, [String(fieldKey)]: e.detail.expireDate } }).eq("client_id", clientId).eq("app_id", app.app_id);
+                                        }
+                                        queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}` });
+                                    } else {
+                                        // ✅ CORRIGIDO: Passando "success" em vez de "warning" para respeitar a tipagem do TypeScript
+                                        queueListToast("trial", { type: "success", title: "Atenção", message: `${app.name} ativado, mas sem vencimento localizado.` });
+                                    }
+                                } else {
+                                    queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
+                                }
+                            } else {
+                                queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
+                            }
                             resolve(true);
                         };
                         window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
                         
                         window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                            detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payloadAutomacao } // ✅ Usa a appBaseUrl
+                            detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payloadAutomacao }
                         }));
 
                         setTimeout(() => {
