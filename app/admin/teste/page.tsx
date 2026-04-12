@@ -692,7 +692,9 @@ export default function TrialsPage() {
       }
 
       setAppSaving(true);
-      const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+      const appIntegData = appIntegrations.find(a => 
+    a.app_name.toUpperCase().replace(/\s+/g, "_") === handler.actionPrefix.toUpperCase()
+);
       const appBaseUrl = appIntegData?.api_url || "";
 
       const finalServerName = `${appModal.username}_${appModal.serverName.replace(/\s+/g, "")}`;
