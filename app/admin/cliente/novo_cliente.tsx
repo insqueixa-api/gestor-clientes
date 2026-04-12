@@ -1890,13 +1890,17 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }
 
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
-  async function handleConfigApp(appName: string) {
+  async function handleConfigApp(instanceId: string) {
     if (!clientToEdit?.id) {
       addToast("warning", "Atenção", "Salve o cliente primeiro antes de configurar o aplicativo.");
       return;
     }
 
-    const currentApp = selectedApps.find(a => a.name === appName);
+    // 🔥 BUSCA PELO ID ÚNICO DA INSTÂNCIA (Impede conflitos se houver 2 apps iguais)
+    const currentApp = selectedApps.find(a => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const appName = currentApp.name; // Recupera o nome do app
     
     // 1. Pede para o Roteador o código correto (com salva-vidas ativo)
     const handler = resolveIntegration(currentApp);
@@ -1998,13 +2002,17 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
   }
 
   // ✅ FUNÇÃO UNIVERSAL PARA DELETAR (Inteligente)
-  async function handleDeleteApp(appName: string) {
+  async function handleDeleteApp(instanceId: string) {
     if (!username.trim()) {
       addToast("warning", "Atenção", "O Usuário precisa estar preenchido.");
       return;
     }
 
-    const currentApp = selectedApps.find(a => a.name === appName);
+    // 🔥 BUSCA PELO ID ÚNICO DA INSTÂNCIA
+    const currentApp = selectedApps.find(a => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const appName = currentApp.name; // Recupera o nome do app
     
     // Pede a rota correta (com salva-vidas)
     const handler = resolveIntegration(currentApp);
@@ -4801,7 +4809,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                onClick={() => handleConfigApp(app.name)}
+                                onClick={() => handleConfigApp(app.instanceId)}
                                 className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
                                 title="Enviar dados para o painel"
                             >
@@ -4824,7 +4832,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                             confirmText: "Sim, remover",
                                             cancelText: "Cancelar"
                                         });
-                                        if (ok) await handleDeleteApp(app.name);
+                                        if (ok) await handleDeleteApp(app.instanceId);
                                     }}
                                     className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
                                     title="Remover do painel oficial"
