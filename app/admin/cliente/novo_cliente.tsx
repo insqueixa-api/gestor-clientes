@@ -1923,9 +1923,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     setLoadingStep("A enviar para a Extensão...");
 
     // ✅ NOVO: Procura a URL exata deste aplicativo na lista que carregámos do banco
-    const appIntegData = appIntegrations.find(a => 
-    a.app_name.toUpperCase().replace(/\s+/g, "_") === handler.actionPrefix.toUpperCase()
-);
+    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
     const appBaseUrl = appIntegData?.api_url || "";
 
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";

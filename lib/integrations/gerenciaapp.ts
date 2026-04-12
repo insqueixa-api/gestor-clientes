@@ -1,7 +1,8 @@
 // src/lib/integrations/gerenciaapp.ts
 
 // Função interna para descobrir qual é o ID correto baseado no nome do App
-function getRankingAppId(appName?: string): number {
+// ✅ Alterado para aceitar string vazia ("") conforme o payload da API
+function getRankingAppId(appName?: string): number | string {
     if (!appName) return 10;
 
     const name = appName.trim().toUpperCase();
@@ -12,7 +13,7 @@ function getRankingAppId(appName?: string): number {
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
     if (name === "GPC ANDROID") return 20;
-    if (name === "GPC COMPUTADOR") return 0; // ✅ sem app específico = sem ranking_app_id
+    if (name === "GPC COMPUTADOR") return ""; // ✅ Envia string vazia exatamente igual ao cURL
     if (name === "IBO REVENDA" || name === "GERENCIAAPP" || name === "GERENCIA APP") return 10;
 
     return 10;
