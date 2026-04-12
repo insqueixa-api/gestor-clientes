@@ -383,12 +383,15 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       }
       setSaldosContas(saldos);
 
+      // Cria as strings de timestamp para a data de pagamento
+      const startOfMonthTimestamp = `${startOfMonth}T00:00:00.000Z`;
+      const endOfMonthTimestamp = `${endOfMonth}T23:59:59.999Z`;
+
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
         .select(`*, fin_contas_bancarias(nome, icone), fin_categorias(nome, icone)`)
         .eq("tenant_id", tid)
-        .gte("data_vencimento", startOfMonth)
-        .lte("data_vencimento", endOfMonth)
+        .or(`and(data_vencimento.gte.${startOfMonth},data_vencimento.lte.${endOfMonth}),and(data_pagamento.gte.${startOfMonthTimestamp},data_pagamento.lte.${endOfMonthTimestamp})`)
         .order("data_vencimento", { ascending: true });
 
       if (error) throw error;
@@ -589,10 +592,36 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   }, [filteredTransacoes, sortConfig]);
   // 👆 FIM DA ORDENAÇÃO
 
-  const receitasPagas = transacoesCards.filter(t => t.tipo === "RECEITA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const receitasTotal = transacoesCards.filter(t => t.tipo === "RECEITA").reduce((acc, t) => acc + t.valor, 0);
-  const despesasPagas = transacoesCards.filter(t => t.tipo === "DESPESA" && t.status === "PAGO").reduce((acc, t) => acc + t.valor, 0);
-  const despesasTotal = transacoesCards.filter(t => t.tipo === "DESPESA").reduce((acc, t) => acc + t.valor, 0);
+  // 1. Criamos as referências do mês atual da tela baseadas no currentDate
+  const refYear = currentDate.getFullYear();
+  const refMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+  const viewStartOfMonth = `${refYear}-${refMonth}-01`;
+  const viewEndOfMonth = new Date(refYear, currentDate.getMonth() + 1, 0).toISOString().split("T")[0];
+
+  // 2. Função auxiliar para checar se a data pertence ao mês da tela
+  const isDateInViewMonth = (dateString: string | null | undefined) => {
+    if (!dateString) return false;
+    const isoDate = dateString.split('T')[0]; // Pega apenas YYYY-MM-DD
+    return isoDate >= viewStartOfMonth && isoDate <= viewEndOfMonth;
+  };
+
+  // 3. CAIXA (Efetivado): Soma apenas o que foi PAGO no mês visualizado
+  const receitasPagas = transacoesCards
+    .filter(t => t.tipo === "RECEITA" && t.status === "PAGO" && isDateInViewMonth(t.data_pagamento))
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  const despesasPagas = transacoesCards
+    .filter(t => t.tipo === "DESPESA" && t.status === "PAGO" && isDateInViewMonth(t.data_pagamento))
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  // 4. COMPETÊNCIA (Previsão): Soma tudo que tem VENCIMENTO no mês visualizado
+  const receitasTotal = transacoesCards
+    .filter(t => t.tipo === "RECEITA" && isDateInViewMonth(t.data_vencimento))
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  const despesasTotal = transacoesCards
+    .filter(t => t.tipo === "DESPESA" && isDateInViewMonth(t.data_vencimento))
+    .reduce((acc, t) => acc + t.valor, 0);
   
   let saldoAtualReal = 0;
   if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
