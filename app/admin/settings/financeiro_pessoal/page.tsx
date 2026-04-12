@@ -663,7 +663,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
+    <div className="space-y-3 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" id="dashboard-values">
       
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -763,13 +763,13 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             <button 
               onClick={() => setStatusFilter(statusFilter === "QUICK_PENDENTE" ? "Todos" : "QUICK_PENDENTE")} 
-              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
             >
               ⏳ Pendente
             </button>
             <button 
               onClick={() => setStatusFilter(statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO")} 
-              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap flex-1 sm:flex-none ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
             >
               ✅ Concluído
             </button>
@@ -779,30 +779,30 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
             >
               <IconChevronDown />
             </button>
+            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); setMobileFiltersOpen(false); }}
+              className="h-9 px-2 shrink-0 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors hover:bg-rose-100 uppercase tracking-wide">
+              <IconTrash /> <span className="hidden sm:inline">Limpar</span>
+            </button>
           </div>
         </div>
 
         {mobileFiltersOpen && (
-          <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-2 animate-in fade-in slide-in-from-top-1 duration-200" style={{ scrollbarWidth: 'none' }}>
-            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
+          <div className="md:hidden grid grid-cols-3 gap-1.5 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Conta</option>
               {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
+            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Categoria</option>
               {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
+            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-full h-9 px-1 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-[11px] font-medium outline-none text-slate-700 dark:text-white truncate">
               <option value="Todos">Recorrência</option>
               <option value="UNICA">Única</option>
               <option value="RECORRENTE">Recorrente</option>
               <option value="PARCELADA">Parcelada</option>
-              <option value="AJUSTE">Ajuste Automático</option>
+              <option value="AJUSTE">Ajuste Auto</option>
             </select>
-            <button onClick={() => { setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); setMobileFiltersOpen(false); }}
-              className="h-9 px-3 shrink-0 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-1">
-              <IconTrash /> Limpar
-            </button>
           </div>
         )}
 
