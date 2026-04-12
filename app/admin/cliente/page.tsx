@@ -1798,8 +1798,8 @@ body: JSON.stringify({
       let nextAppValues = { ...appValues };
       const dateField = appModal.app?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
       
-      // ✅ NÃO preenche 1 ano para frente se for o Duplecast
-      if (dateField && handler.actionPrefix !== "DUPLECAST") {
+      // ✅ NÃO preenche 1 ano para frente se for o Duplecast ou IBOSOL
+if (dateField && handler.actionPrefix !== "DUPLECAST" && handler.actionPrefix !== "IBOSOL") {
           const fieldKey = String(dateField.id || dateField.label);
           const hoje = new Date();
           hoje.setFullYear(hoje.getFullYear() + 1);
