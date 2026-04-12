@@ -62,5 +62,5 @@ export const GerenciaAppIntegration = {
 // ✅ GPC Computador usa o mesmo backend do GerenciaApp, sem ranking_app_id
 export const GpcComputadorIntegration = {
     ...GerenciaAppIntegration,
-    actionPrefix: "GPC_COMPUTADOR",
+    actionPrefix: "GERENCIAAPP",
 };
