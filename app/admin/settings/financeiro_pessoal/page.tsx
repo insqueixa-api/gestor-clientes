@@ -34,6 +34,7 @@ function IconPlus() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
 function IconChevronLeft() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>; }
 function IconChevronRight() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"></polyline></svg>; }
+function IconChevronDown() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>; }
 function IconTrendingUp() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>; }
 function IconTrendingDown() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>; }
 function IconCheck() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>; }
@@ -253,6 +254,7 @@ function FinanceiroPageContent() {
   const [recorrenciaFilter, setRecorrenciaFilter] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showMobileCards, setShowMobileCards] = useState(false);
 
   // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
@@ -508,7 +510,10 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       const cStatus = getComputedStatus(t.status, t.data_vencimento);
       const recText = formatRecorrencia(t);
 
-      if (statusFilter !== "Todos" && cStatus !== statusFilter) return false;
+      if (statusFilter === "QUICK_PENDENTE" && cStatus === "PAGO") return false;
+      if (statusFilter === "QUICK_CONCLUIDO" && cStatus !== "PAGO") return false;
+      if (statusFilter !== "Todos" && statusFilter !== "QUICK_PENDENTE" && statusFilter !== "QUICK_CONCLUIDO" && cStatus !== statusFilter) return false;
+      
       if (tipoFilter !== "Todos" && t.tipo !== tipoFilter) return false;
       if (contaFilter !== "Todos" && t.conta_id !== contaFilter) return false;
       if (categoriaFilter !== "Todos" && t.categoria_id !== categoriaFilter) return false;
@@ -676,11 +681,19 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
       {/* 1. TÍTULO MOBILE: Rola junto com a tela e desaparece */}
       <div className="min-w-0 text-left pt-1 pb-0 px-3 md:hidden -mt-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
-            Finanças Pessoais
-          </h1>
-          <EyeToggle />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+              Finanças Pessoais
+            </h1>
+            <EyeToggle />
+          </div>
+          <button 
+            onClick={() => setShowMobileCards(!showMobileCards)}
+            className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md dark:bg-white/10 dark:text-white/70"
+          >
+            {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
+          </button>
         </div>
       </div>
 
@@ -723,7 +736,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0">
+      <div className={`${showMobileCards ? "grid" : "hidden"} md:grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0`}>
         <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={`Previsão total: ${fmtBRL(receitasTotal)}`} />
         <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={`Previsão total: ${fmtBRL(despesasTotal)}`} />
         <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰" footer={`Previsão final do mês: ${fmtBRL(saldoPrevisao)}`} onEdit={() => setShowAjusteSaldo(true)} />
@@ -737,48 +750,58 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           </button>
         </div>
 
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
-            {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
+        <div className="md:hidden flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar..." className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
+              {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
+            </div>
+            
+            <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
           </div>
-          <button onClick={() => setMobileFiltersOpen((v) => !v)} className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-white text-slate-600"}`}>
-            Filtros {mobileFiltersOpen ? "▲" : "▼"}
-          </button>
-          <button onClick={() => setModalData({ open: true, transacao: null })} className="h-10 w-10 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"><IconPlus /></button>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            <button 
+              onClick={() => setStatusFilter(statusFilter === "QUICK_PENDENTE" ? "Todos" : "QUICK_PENDENTE")} 
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap ${statusFilter === "QUICK_PENDENTE" ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+            >
+              ⏳ Pendente
+            </button>
+            <button 
+              onClick={() => setStatusFilter(statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO")} 
+              className={`h-9 px-3 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-600 dark:bg-[#161b22] dark:border-white/10 dark:text-white/70"}`}
+            >
+              ✅ Concluído
+            </button>
+            <button 
+              onClick={() => setMobileFiltersOpen((v) => !v)} 
+              className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 bg-white text-slate-500 dark:bg-[#161b22] dark:border-white/10 dark:text-white/50"}`}
+            >
+              <IconChevronDown />
+            </button>
+          </div>
         </div>
 
         {mobileFiltersOpen && (
-          <div className="md:hidden flex flex-col gap-2 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-            <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
-              <option value="Todos">Tipo</option>
-              <option value="RECEITA">Receitas</option>
-              <option value="DESPESA">Despesas</option>
-            </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
-              <option value="Todos">Status</option>
-              <option value="PAGO">Pagos / Recebidos</option>
-              <option value="PENDENTE">Pendentes</option>
-              <option value="VENCIDO">Vencidos</option>
-            </select>
-            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+          <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-2 animate-in fade-in slide-in-from-top-1 duration-200" style={{ scrollbarWidth: 'none' }}>
+            <select value={contaFilter} onChange={(e) => setContaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
               <option value="Todos">Conta</option>
               {contasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+            <select value={categoriaFilter} onChange={(e) => setCategoriaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
               <option value="Todos">Categoria</option>
               {categoriasDB.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
-            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white">
+            <select value={recorrenciaFilter} onChange={(e) => setRecorrenciaFilter(e.target.value)} className="h-9 min-w-[120px] px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs outline-none text-slate-700 dark:text-white">
               <option value="Todos">Recorrência</option>
               <option value="UNICA">Única</option>
               <option value="RECORRENTE">Recorrente</option>
               <option value="PARCELADA">Parcelada</option>
               <option value="AJUSTE">Ajuste Automático</option>
             </select>
-            <button onClick={() => { setSearch(""); setStatusFilter("Todos"); setTipoFilter("Todos"); setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); setMobileFiltersOpen(false); }}
-              className="w-full h-10 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold flex items-center justify-center gap-2">
-              <IconX /> Limpar Filtros
+            <button onClick={() => { setContaFilter("Todos"); setCategoriaFilter("Todos"); setRecorrenciaFilter("Todos"); setMobileFiltersOpen(false); }}
+              className="h-9 px-3 shrink-0 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-1">
+              <IconTrash /> Limpar
             </button>
           </div>
         )}
