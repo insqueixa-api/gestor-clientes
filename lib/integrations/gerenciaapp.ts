@@ -2,7 +2,7 @@
 
 // Função interna para descobrir qual é o ID correto baseado no nome do App
 function getRankingAppId(appName?: string): number {
-    if (!appName) return 10; // Fallback padrão
+    if (!appName) return 10;
 
     const name = appName.trim().toUpperCase();
 
@@ -12,9 +12,10 @@ function getRankingAppId(appName?: string): number {
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
     if (name === "GPC ANDROID") return 20;
+    if (name === "GPC COMPUTADOR") return 0; // ✅ sem app específico = sem ranking_app_id
     if (name === "IBO REVENDA" || name === "GERENCIAAPP" || name === "GERENCIA APP") return 10;
 
-    return 10; // Fallback se não encontrar
+    return 10;
 }
 
 export const GerenciaAppIntegration = {
@@ -56,4 +57,9 @@ export const GerenciaAppIntegration = {
             macValue: params.macValue || ""
         };
     }
+};
+// ✅ GPC Computador usa o mesmo backend do GerenciaApp, sem ranking_app_id
+export const GpcComputadorIntegration = {
+    ...GerenciaAppIntegration,
+    actionPrefix: "GPC_COMPUTADOR",
 };

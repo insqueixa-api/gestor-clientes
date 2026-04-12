@@ -1653,6 +1653,7 @@ body: JSON.stringify({
           else if (appNameStr === "UNI REVENDA") intType = "UNIREVENDA";
           else if (appNameStr === "GPC ANDROID") intType = "GPC_ANDROID";
           else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
+          else if (appNameStr === "GPC COMPUTADOR") intType = "GPC_COMPUTADOR"; // ✅ NOVO
           else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "IBOREVENDA";
           else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
         
