@@ -426,6 +426,11 @@ const [sortKey, setSortKey] = useState<SortKey>("due");
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  
+  // ✅ NOVO: Controla os botões de loading
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
+
   const [showRenew, setShowRenew] = useState<{ open: boolean; clientId: string | null; clientName?: string }>({
     open: false,
     clientId: null,
@@ -1080,6 +1085,8 @@ function openEditById(clientId: string, initialTab: EditTab = "dados") {
 }
 
 const handleOpenEdit = async (r: ClientRow, initialTab: EditTab = "dados") => {
+  setEditingId(r.id); // ✅ Liga o loading giratório
+
   // ✅ define qual aba abrir
   setEditInitialTab(initialTab);
 
@@ -1162,7 +1169,10 @@ whatsapp_e164: r.whatsapp,
   setClientToEdit(payload);
 
   // ✅ abre no próximo tick para garantir montagem correta
-  setTimeout(() => setShowFormModal(true), 0);
+  setTimeout(() => {
+      setShowFormModal(true);
+      setEditingId(null); // ✅ Desliga o loading giratório
+  }, 0);
 };
 
 
@@ -1497,9 +1507,12 @@ body: JSON.stringify({
   }
 
   // ✅ Lógica de Interceptação da Renovação
-  const handleClickRenew = (r: ClientRow) => {
+  const handleClickRenew = async (r: ClientRow) => { // ✅ Trocou para async
   // Fecha menus se estiverem abertos
   setMsgMenuForId(null);
+  
+  setRenewingId(r.id); // ✅ Liga o loading giratório
+  await new Promise(resolve => setTimeout(resolve, 50)); // ✅ Dá fôlego pro React girar o ícone
 
   if (r.alertsCount > 0) {
     // Tem alerta? Abre o aviso primeiro
@@ -1508,6 +1521,8 @@ body: JSON.stringify({
     // Sem alerta? Abre renovação direto (comportamento original)
     setShowRenew({ open: true, clientId: r.id, clientName: r.name });
   }
+  
+  setRenewingId(null); // ✅ Desliga o loading giratório
 };
 
   
@@ -2203,19 +2218,24 @@ return (
                             )}
                           </div>
 
-                          <IconActionBtn title="Renovar" tone="green" onClick={(e) => { e.stopPropagation(); handleClickRenew(r); }}>
+                          <IconActionBtn 
+                            title="Renovar" 
+                            tone="green" 
+                            loading={renewingId === r.id} // ✅ Adicionado loading
+                            onClick={(e) => { e.stopPropagation(); handleClickRenew(r); }}
+                          >
                             <IconMoney />
                           </IconActionBtn>
 
                           <IconActionBtn
-                          title="Editar"
-                          tone="amber"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEdit(r, "dados");
-                          }}
-                        >
-
+                            title="Editar"
+                            tone="amber"
+                            loading={editingId === r.id} // ✅ Adicionado loading
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEdit(r, "dados");
+                            }}
+                          >
                             <IconEdit />
                           </IconActionBtn>
 
@@ -2980,11 +3000,13 @@ function IconActionBtn({
   title,
   tone,
   onClick,
+  loading = false, // ✅ NOVO
 }: {
   children: React.ReactNode;
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
   onClick: (e: React.MouseEvent) => void;
+  loading?: boolean; // ✅ NOVO
 }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
@@ -2994,8 +3016,16 @@ function IconActionBtn({
     red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
   };
   return (
-    <button onClick={(e) => { e.stopPropagation(); onClick(e); }} title={title} className={`p-1.5 rounded-lg border transition-all ${colors[tone]}`}>
-      {children}
+    <button 
+      onClick={(e) => { e.stopPropagation(); if(!loading) onClick(e); }} 
+      title={title} 
+      className={`p-1.5 rounded-lg border transition-all ${colors[tone]} ${loading ? 'opacity-70 cursor-wait' : ''}`}
+    >
+      {loading ? (
+        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+      ) : children}
     </button>
   );
 }
