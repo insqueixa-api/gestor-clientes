@@ -10,19 +10,21 @@ export const IbosolAPI = {
     macValue,
     m3uUrl,
     finalServerName,
+    serverName,
     password,
   }: {
     appName: string;
     macValue: string;
     m3uUrl: string;
     finalServerName?: string;
+    serverName?: string;
     password?: string;
   }) {
     return {
       action: "create",
       app_name: appName,
       mac_address: macValue,
-      playlist_name: finalServerName || "Playlist",
+      playlist_name: serverName || finalServerName || "Playlist",
       playlist_url: m3uUrl,
       pin: password || undefined,
       device_key: undefined,
