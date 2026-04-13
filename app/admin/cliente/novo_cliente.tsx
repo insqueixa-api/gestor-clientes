@@ -1925,7 +1925,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     setLoading(true);
-    setLoadingStep("A enviar para a Extensão...");
+    setLoadingStep("Configurando aplicativo...");
 
     // ✅ NOVO: Procura a URL exata deste aplicativo na lista que carregámos do banco
     const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
