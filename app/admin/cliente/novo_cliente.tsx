@@ -1881,9 +1881,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
           else if (appNameStr === "GPC COMPUTADOR") intType = "GPC_COMPUTADOR"; // ✅ NOVO
           else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "IBOREVENDA";
-          else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
-        
-          handler = getIntegrationHandler(intType);
+          else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
+          else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; // ✅ Salva-vidas do IBO Sol adicionado
+        
+          handler = getIntegrationHandler(intType);
       }
       
       return handler;

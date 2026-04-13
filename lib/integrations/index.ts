@@ -1,6 +1,6 @@
 import { GerenciaAppIntegration, GpcComputadorIntegration } from "./gerenciaapp"; 
 import { DupleCastIntegration } from "./duplecast";
-import { IboSolIntegration } from "./ibosol"; 
+import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol"; // ✅ Import ajustado
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "IBOREVENDA":       GerenciaAppIntegration,
@@ -10,10 +10,10 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "UNIREVENDA":       GerenciaAppIntegration,
     "GPC_ROKU":         GerenciaAppIntegration,
     "GPC_ANDROID":      GerenciaAppIntegration,
-    "GPC_COMPUTADOR":   GpcComputadorIntegration, // ✅ NOVO
+    "GPC_COMPUTADOR":   GpcComputadorIntegration, 
 
     "DUPLECAST":        DupleCastIntegration, 
-    "IBOSOL":           IboSolIntegration, 
+    "IBOSOL":           IboSolIntegration, // ✅ Agora aponta corretamente para a API
 };
 
 export function getIntegrationHandler(integrationType: string) {
