@@ -47,11 +47,11 @@ const [integrationName, setIntegrationName] = useState(integration?.integration_
 const [apiToken, setApiToken] = useState("");
 const [apiSecret, setApiSecret] = useState("");
 const [apiBaseUrl, setApiBaseUrl] = useState("");
-// ✅ NOVO: Estado para o Proxy URL
-const [proxyUrl, setProxyUrl] = useState(""); 
+
 
 const [isActive, setIsActive] = useState<boolean>(integration?.is_active ?? true);
 
+const [showSecret, setShowSecret] = useState(false);
 const [saving, setSaving] = useState(false);
 const [loadingEdit, setLoadingEdit] = useState(false);
 
@@ -71,7 +71,7 @@ useEffect(() => {
       const { data, error } = await supabaseBrowser
         .from("server_integrations")
         // ✅ NOVO: Adicionado proxy_url no select
-        .select("api_token, api_secret, api_base_url, proxy_url, provider, integration_name, is_active")
+        .select("api_token, api_secret, api_base_url, provider, integration_name, is_active")
         .eq("id", integration.id)
         .eq("tenant_id", tid) 
         .single();
@@ -88,8 +88,7 @@ useEffect(() => {
       setApiToken(data?.api_token ?? "");
       setApiSecret(data?.api_secret ?? "");
       setApiBaseUrl(data?.api_base_url ?? "");
-      // ✅ NOVO: Seta o Proxy
-      setProxyUrl(data?.proxy_url ?? "");
+      
 
     } catch (e) {
       // não trava o modal
@@ -119,13 +118,9 @@ if (provider === "FAST" && !apiSecret.trim()) return false;
 // ELITE exige base_url, senha e Proxy
 if (provider === "ELITE" && !apiBaseUrl.trim()) return false;
 if (provider === "ELITE" && !apiSecret.trim()) return false;
-// ✅ NOVO: Impede salvar Elite sem proxy
-if (provider === "ELITE" && !proxyUrl.trim()) return false;
-
 return true;
 
-    // ✅ NOVO: Adicionado proxyUrl nas dependências
-    }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl, proxyUrl]);
+  }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl]);
 
   async function handleSave() {
     if (!canSave) return;
@@ -147,8 +142,7 @@ return true;
     api_token: apiToken.trim(), 
     api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
     api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
-    // ✅ NOVO: Salvando o proxy apenas para Elite
-    proxy_url: provider === "ELITE" ? proxyUrl.trim() : null,
+    
   };
 
   const { error } = await supabaseBrowser
@@ -169,8 +163,7 @@ return true;
         api_token: apiToken.trim(),
         api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
         api_secret: (provider === "FAST" || provider === "ELITE") ? apiSecret.trim() : null,
-        // ✅ NOVO: Atualizando o proxy apenas para Elite
-        proxy_url: provider === "ELITE" ? proxyUrl.trim() : null,
+        
       };
 
     const { error } = await supabaseBrowser
@@ -305,31 +298,7 @@ onChange={(e) => {
         A URL será formatada e salva automaticamente sem a barra final.
       </p>
     </div>
-
-    {/* ✅ NOVO: Input para o Proxy Residencial do Elite */}
-    <div>
-      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-        Proxy Residencial (FlareSolverr)
-      </label>
-      <input
-        value={proxyUrl}
-        onChange={(e) => {
-          let val = e.target.value.trim();
-          // Mágica para converter o formato do Webshare (IP:PORTA:USER:PASS) automaticamente
-          const parts = val.split(':');
-          if (parts.length === 4 && !val.startsWith('http')) {
-              val = `http://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`;
-          }
-          setProxyUrl(val);
-        }}
-        placeholder="Cole aqui a linha do Webshare ou digite http://user:pass@ip:porta"
-        className="w-full h-10 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-500/5 px-3 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-rose-500/30"
-        disabled={loadingEdit}
-      />
-      <p className="text-[10px] text-slate-500 dark:text-white/40 mt-1">
-        Entre em contato com seu Master. (Padrão: <span className="font-mono text-rose-500/70">http://user:pass@ip:port)</span>
-      </p>
-    </div>
+    
   </>
 )}
   <div>
@@ -354,17 +323,36 @@ onChange={(e) => {
 
 {(provider === "FAST" || provider === "ELITE") && (
   <div>
-    <label className="block text-[10px] font-bold ...">
+    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
       {provider === "ELITE" ? "Senha" : "Secret Key"}
     </label>
-    <input
-      value={apiSecret}
-      onChange={(e) => setApiSecret(e.target.value)}
-      placeholder={provider === "ELITE" ? "Senha do painel" : "Secret Key do Fast"}
-      className="w-full h-10 rounded-xl ..."
-      disabled={loadingEdit}
-      type={provider === "ELITE" ? "password" : "text"}
-    />
+    <div className="relative">
+      <input
+        value={apiSecret}
+        onChange={(e) => setApiSecret(e.target.value)}
+        placeholder={provider === "ELITE" ? "Senha do painel" : "Secret Key do Fast"}
+        className="w-full h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 pr-10 text-sm text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500/30"
+        disabled={loadingEdit}
+        type={showSecret ? "text" : "password"}
+      />
+      <button
+        type="button"
+        onClick={() => setShowSecret((v) => !v)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 hover:text-slate-600 dark:hover:text-white/70 transition-colors"
+        tabIndex={-1}
+      >
+        {showSecret ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        )}
+      </button>
+    </div>
   </div>
 )}
 
