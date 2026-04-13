@@ -2441,7 +2441,7 @@ function WhatsAppSession2Panel({
   const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
   const [waRejectCalls, setWaRejectCalls]   = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState(
-    `{saudacao}!\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.\nObrigado!\n{data} {hora}.`
+    "{saudacao}!\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.\nObrigado!\n{data} {hora}."
   );
   const [waSavingConfig, setWaSavingConfig] = useState(false);
   const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
