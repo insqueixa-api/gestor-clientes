@@ -76,10 +76,12 @@ export default function AppIntegracaoModal({
     });
   }, [integration]);
 
-  // ✅ Validação dinâmica exigindo o PIN para Duplecast ou IBOSOL
-  const canSave = needsPin 
-    ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
-    : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
+  // ✅ Validação dinâmica ocultando e-mail e senha para IBO Sol
+  const canSave = isIboSol 
+    ? label.trim() && apiUrl.trim() && pin.trim()
+    : needsPin 
+      ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
+      : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
   
   // ✅ Libera o upload apenas se a role dele for SUPERADMIN (A mesma regra do seu painel)
   const isMasterUser = userRole === "SUPERADMIN";
@@ -127,8 +129,8 @@ export default function AppIntegracaoModal({
         tenant_id:      tenantId,
         app_name:       appName,
         label:          label.trim(),
-        login_email:    loginEmail.trim(),
-        login_password: loginPassword.trim(),
+        login_email:    isIboSol ? null : loginEmail.trim(),
+        login_password: isIboSol ? null : loginPassword.trim(),
         api_url:        normalizeApiUrl(apiUrl),
         pin:            needsPin ? pin.trim() : null, // ✅ Salva o PIN para os apps que precisam
         is_active:      isActive,
@@ -211,8 +213,8 @@ export default function AppIntegracaoModal({
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
               >
                 <option value="GERENCIAAPP">GerenciaApp</option>
-                <option value="DUPLECAST">Duplecast</option>
-                <option value="IBOSOL">Família IBO SOL (BOB, Mac, Elite...)</option>
+                <option value="DUPLECAST">DupleCast</option>
+                <option value="IBOSOL">Família IBO SOL (IBO Player, BOB Player, etc...)</option>
               </select>
             </div>
 
@@ -222,7 +224,11 @@ export default function AppIntegracaoModal({
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder={needsPin ? 'Ex: "Meu Painel IBO/Duplecast"' : 'Ex: "Meu GerenciaApp"'}
+                placeholder={
+                  appName === "DUPLECAST" ? 'Ex: "DupleCast"' : 
+                  appName === "IBOSOL" ? 'Ex: "IBO Sol"' : 
+                  'Ex: "GerenciaApp"'
+                }
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>
@@ -240,29 +246,33 @@ export default function AppIntegracaoModal({
             </div>
 
             {/* Email de Login */}
-            <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
-              <input
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder={needsPin ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
-                type="text"
-                autoCapitalize="none"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
-              />
-            </div>
+            {!isIboSol && (
+              <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
+                <input
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder={needsPin ? "Usuário ou E-mail" : "seuemail@exemplo.com"}
+                  type="text"
+                  autoCapitalize="none"
+                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                />
+              </div>
+            )}
 
             {/* Senha */}
-            <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
-              <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
-              <input
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Senha de acesso"
-                type="text"
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
-              />
-            </div>
+            {!isIboSol && (
+              <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
+                <input
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Senha de acesso"
+                  type="text"
+                  className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
+                />
+              </div>
+            )}
 
             {/* PIN (Exclusivo para Apps que Exigem) animado */}
             {needsPin && (
