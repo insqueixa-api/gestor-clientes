@@ -129,11 +129,15 @@ export async function POST(req: Request) {
       app_name,
       mac_address,
       device_key,
+      deviceKey,        // ← modal manda nesse campo
       playlist_name,
       playlist_url,
       pin,
       base_url,
     } = body;
+
+    // Aceita os dois formatos
+    const resolvedDeviceKey = (device_key || deviceKey || "").trim();
 
     if (!base_url) {
       return NextResponse.json({ ok: false, error: "base_url é obrigatório." }, { status: 400 });
@@ -193,7 +197,7 @@ export async function POST(req: Request) {
       addParams.set("_method", "POST");
       addParams.set("product", productId);
       addParams.set("mac_address", mac_address);
-      addParams.set("device_key", device_key || "");
+      addParams.set("device_key", resolvedDeviceKey);
       addParams.set("playlist_name", playlist_name || "Playlist");
       addParams.set("playlist_url", playlist_url);
 
@@ -286,7 +290,7 @@ export async function POST(req: Request) {
       delParams.set("_method", "POST");
       delParams.set("product", productId);
       delParams.set("mac_address", mac_address);
-      delParams.set("device_key", device_key || "");
+      delParams.set("device_key", resolvedDeviceKey);
 
       const postDelRes = await fetch(`${BASE_URL}/reset-playlist`, {
         method: "POST",
