@@ -1006,44 +1006,52 @@ if (renewAutomatic && clientData?.server_id) {
                       }));
                   });
 
-                  // 🌟 NOVO: SYNC AUTOMÁTICO DO SALDO VIA EXTENSÃO APÓS RENOVAÇÃO
-                  setLoadingText("Sincronizando saldo do servidor...");
-                  try {
-                      await new Promise((resolveSync) => {
-                          const syncHandler = async (e: any) => {
-                              window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
-                              
-                              // Se a extensão devolveu 'ok: true' e trouxe o 'saldo'
-                              if (e.detail?.ok && e.detail?.saldo != null) {
-                                  // Atualiza o saldo diretamente na tabela servers
-                                  // ⚠️ NOTA: Assumi que a sua coluna na tabela servers se chama 'credits'. Se for outro nome, mude abaixo.
-                                  await supabaseBrowser
-                                      .from("servers")
-                                      .update({ credits: Number(e.detail.saldo) }) 
-                                      .eq("id", clientData.server_id);
-                              }
-                              resolveSync(true);
-                          };
-                          
-                          window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
-                          window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                              detail: { 
-                                  action: "ELITE_SYNC", 
-                                  baseUrl: credJson.credentials.baseUrl, 
-                                  username: credJson.credentials.username, 
-                                  password: credJson.credentials.password
-                              }
-                          }));
+                  // 🌟 SYNC AUTOMÁTICO DO SALDO VIA EXTENSÃO APÓS RENOVAÇÃO
+setLoadingText("Sincronizando saldo do servidor...");
+try {
+    await new Promise<void>((resolveSync) => {
+        const syncHandler = async (e: any) => {
+            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
 
-                          // Timeout de segurança (15s) para o Sync não congelar a tela caso a extensão falhe
-                          setTimeout(() => {
-                              window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
-                              resolveSync(true);
-                          }, 15000);
-                      });
-                  } catch (syncErr) {
-                      console.warn("Aviso: Renovação feita, mas o sync de saldo falhou silenciosamente.", syncErr);
-                  }
+            if (e.detail?.ok && e.detail?.saldo != null) {
+                // ✅ Usa a rota correta (save_sync) igual ao fluxo da página de listagem
+                await fetch("/api/integrations/elite/sync", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({
+                        integration_id: srv.panel_integration,
+                        action: "save_sync",
+                        saldo: e.detail.saldo,
+                        loggedUser: e.detail.loggedUser,
+                    }),
+                }).catch((err) => console.warn("save_sync falhou silenciosamente:", err));
+            }
+
+            resolveSync();
+        };
+
+        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
+        window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+            detail: {
+                action: "ELITE_SYNC",
+                baseUrl: credJson.credentials.baseUrl,
+                username: credJson.credentials.username,
+                password: credJson.credentials.password,
+            },
+        }));
+
+        // Timeout de segurança (15s) para não congelar a tela
+        setTimeout(() => {
+            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", syncHandler);
+            resolveSync();
+        }, 15000);
+    });
+} catch (syncErr) {
+    console.warn("Aviso: Renovação feita, mas o sync de saldo falhou silenciosamente.", syncErr);
+}
 
               } else {
                   // ====================================================================

@@ -121,41 +121,77 @@ return u || "--";
 
   async function handleSync(row: IntegrationRow) {
   try {
-const provider = String(row.provider || "").toUpperCase();
+    const provider = String(row.provider || "").toUpperCase();
 
-const url =
-  provider === "FAST"
-    ? "/api/integrations/fast/sync"
-    : provider === "ELITE"
-    ? "/api/integrations/elite/sync"
-    : "/api/integrations/natv/sync";
-
-
-
-addToast(
-      "success",
-      "Sincronizando",
-      `Validando ${providerLabel(provider)} e buscando saldo...`
-    );
-
-    // 👇 INÍCIO DA INJEÇÃO DO TOKEN (RISCO -1.000) 👇
     const { data: sess } = await supabaseBrowser.auth.getSession();
     const token = sess?.session?.access_token;
+    const authHeaders = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    // ── ELITE: fluxo via extensão ──────────────────────────────────────────
+    if (provider === "ELITE") {
+      addToast("success", "Sincronizando", "Validando Elite e buscando saldo...");
+
+      // 1. Busca as credenciais na rota
+      const credRes = await fetch("/api/integrations/elite/sync", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ integration_id: row.id, action: "get_credentials" }),
+      });
+      const credJson = await credRes.json().catch(() => ({}));
+      if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais.");
+
+      const { baseUrl, username, password } = credJson.credentials;
+
+      // 2. Dispara a extensão e aguarda a resposta
+      const extResult = await new Promise<{ ok: boolean; saldo?: string; loggedUser?: string; error?: string }>((resolve) => {
+        const handler = (event: Event) => {
+          window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+          resolve((event as CustomEvent).detail);
+        };
+        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
+        window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+          detail: { action: "ELITE_SYNC", baseUrl, username, password },
+        }));
+      });
+
+      if (!extResult?.ok) throw new Error(extResult?.error || "A extensão não retornou o saldo.");
+
+      // 3. Salva o saldo no banco
+      const saveRes = await fetch("/api/integrations/elite/sync", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          integration_id: row.id,
+          action: "save_sync",
+          saldo: extResult.saldo,
+          loggedUser: extResult.loggedUser,
+        }),
+      });
+      const saveJson = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok || !saveJson?.ok) throw new Error(saveJson?.error || "Falha ao salvar saldo.");
+
+      addToast("success", "OK", saveJson?.message || "Saldo Elite sincronizado.");
+      fetchData();
+      return;
+    }
+
+    // ── NATV / FAST: fluxo direto ──────────────────────────────────────────
+    const url = provider === "FAST"
+      ? "/api/integrations/fast/sync"
+      : "/api/integrations/natv/sync";
+
+    addToast("success", "Sincronizando", `Validando ${providerLabel(provider)} e buscando saldo...`);
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia a credencial
-      },
+      headers: authHeaders,
       body: JSON.stringify({ integration_id: row.id }),
     });
-    // 👆 FIM DA INJEÇÃO 👆
-
     const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json?.ok) {
-      throw new Error(json?.error || "Falha ao sincronizar.");
-    }
+    if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao sincronizar.");
 
     addToast("success", "OK", json?.message || "Sincronizado.");
     fetchData();
