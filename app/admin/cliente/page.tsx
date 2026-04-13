@@ -1730,9 +1730,23 @@ return (
       <option value="15_dias">Vencendo em 15 dias</option>
       <option value="30_dias">Vencendo em 30 dias</option>
       <optgroup label="Filtrar por nome">
-        {Object.values(appsIndex.byId).map((app) => (
-          <option key={app.id} value={app.name}>{app.name}</option>
-        ))}
+        {Object.values(appsIndex.byId)
+          .filter((app) => 
+            // Mostra apenas se algum cliente da lista possui este aplicativo (comparando o nome)
+            rows.some((r) => r.apps && r.apps.includes(app.name))
+          )
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+          .map((app) => {
+            // Verifica se tem integração para adicionar o indicador visual
+            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+            const label = temIntegracao ? `⚡ ${app.name} (${app.integration_type})` : app.name;
+            
+            return (
+              <option key={app.id} value={app.name}>
+                {label}
+              </option>
+            );
+          })}
       </optgroup>
     </Select>
   </div>
@@ -1840,9 +1854,18 @@ return (
       <option value="15_dias">Vencendo em 15 dias</option>
       <option value="30_dias">Vencendo em 30 dias</option>
       <optgroup label="Filtrar por nome">
-        {Object.values(appsIndex.byId).map((app) => (
-          <option key={app.id} value={app.name}>{app.name}</option>
-        ))}
+        {Object.values(appsIndex.byId)
+          .filter((app) => rows.some((r) => r.apps && r.apps.includes(app.name)))
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+          .map((app) => {
+            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+            const label = temIntegracao ? `⚡ ${app.name} (${app.integration_type})` : app.name;
+            return (
+              <option key={app.id} value={app.name}>
+                {label}
+              </option>
+            );
+          })}
       </optgroup>
     </Select>
 
