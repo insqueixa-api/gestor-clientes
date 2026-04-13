@@ -755,10 +755,9 @@ const EVENT_LABELS: Record<string, string> = {
               {(client as any).apps_details && (client as any).apps_details.length > 0 && (
                  <div className="space-y-3 pt-1">
                     {(client as any).apps_details.map((app: any) => {
-                       // ✅ Lógica do raio e nome da integração
+                       // ✅ Lógica apenas com o raio e o nome do App
                        const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
-                       const nomeIntegracao = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
-                       const label = temIntegracao ? `⚡ ${app.name} (${nomeIntegracao})` : app.name;
+                       const label = temIntegracao ? `⚡ ${app.name}` : app.name;
 
                        return (
                           <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
