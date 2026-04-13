@@ -484,6 +484,9 @@ function PreviewModal({
   onClose: () => void;
   onEdit: () => void;
 }) {
+  // ✅ NOVO: Estado para dar o feedback visual de "Copiado"
+  const [copied, setCopied] = useState(false);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -501,7 +504,7 @@ function PreviewModal({
           </button>
         </div>
 
-{/* Conteúdo da Mensagem */}
+        {/* Conteúdo da Mensagem */}
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-black/20">
           <div className="flex flex-col gap-4 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300 font-mono leading-relaxed bg-white dark:bg-[#0d1117] p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
@@ -515,14 +518,42 @@ function PreviewModal({
           </div>
         </div>
 
-        {/* Rodapé e Botões */}
+        {/* Rodapé e Botões (AGORA COM O BOTÃO DE COPIAR) */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-white dark:bg-[#161b22] shrink-0">
+          
+          {/* ✅ NOVO: BOTÃO DE COPIAR */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(template.content);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
+            }}
+            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border font-bold text-xs transition-colors uppercase flex items-center justify-center gap-1.5 ${
+              copied 
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5"
+            }`}
+          >
+            {copied ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Copiado!
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Copiar
+              </>
+            )}
+          </button>
+
           <button
             onClick={onClose}
             className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors uppercase"
           >
             Fechar
           </button>
+          
           <button
             onClick={onEdit}
             className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-transform active:scale-95 uppercase flex items-center justify-center gap-2"
