@@ -284,7 +284,7 @@ const waLastProfileFetchRef = useRef<number>(0);
 const [waStatusText, setWaStatusText] = useState<string | null>(null);
 const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
 const [waRejectMessage, setWaRejectMessage] = useState<string>(
-  "Olá! Não recebo ligações pelo WhatsApp. Por favor, envie uma mensagem e aguarde meu retorno. Obrigado! 😊"
+  "{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno. \nObrigado!"
 );
 const [waSavingConfig, setWaSavingConfig] = useState(false);
 const [waAllowedNumbers, setWaAllowedNumbers] = useState<string>("");
@@ -2441,7 +2441,7 @@ function WhatsAppSession2Panel({
   const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
   const [waRejectCalls, setWaRejectCalls]   = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState(
-    "{saudacao}!\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.\nObrigado!\n{data} {hora}."
+    "{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno. \nObrigado!"
   );
   const [waSavingConfig, setWaSavingConfig] = useState(false);
   const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
