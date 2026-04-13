@@ -471,7 +471,8 @@ plan_table_name: finalTableName ?? null,
            return {
              id: item.id, 
              name: catalogApp?.name || "App (Não encontrado)", // ✅ Usa o nome do catálogo
-             expiration: expiration
+             expiration: expiration,
+             integration_type: catalogApp?.integration_type || null // ✅ Puxando a integração do dicionário
            };
         });
       }
@@ -753,16 +754,23 @@ const EVENT_LABELS: Record<string, string> = {
               {/* LISTA DE APPS (Com Vencimento Real do Banco - Suportando Múltiplos) */}
               {(client as any).apps_details && (client as any).apps_details.length > 0 && (
                  <div className="space-y-3 pt-1">
-                    {(client as any).apps_details.map((app: any) => (
-                       <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
-                          <span className="text-slate-500 dark:text-white/40 font-medium">{app.name}</span>
-                          <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
-                             {app.expiration 
-                                ? `Vence: ${new Date(app.expiration).toLocaleDateString("pt-BR")}` 
-                                : "Vencimento: Não definido"}
-                          </span>
-                       </div>
-                    ))}
+                    {(client as any).apps_details.map((app: any) => {
+                       // ✅ Lógica do raio e nome da integração
+                       const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+                       const nomeIntegracao = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
+                       const label = temIntegracao ? `⚡ ${app.name} (${nomeIntegracao})` : app.name;
+
+                       return (
+                          <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
+                             <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
+                             <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
+                                {app.expiration 
+                                   ? `Vence: ${new Date(app.expiration).toLocaleDateString("pt-BR")}` 
+                                   : "Vencimento: Não definido"}
+                             </span>
+                          </div>
+                       );
+                    })}
                  </div>
               )}
 

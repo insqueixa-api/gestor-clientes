@@ -283,6 +283,7 @@ export default function TrialsPage() {
   const [archivedFilter, setArchivedFilter] = useState<"Não" | "Sim">("Não");
   const [serverFilter, setServerFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState<"Todos" | TrialStatus>("Todos");
+  const [appFilter, setAppFilter] = useState("Todos"); // ✅ Adicionado estado do filtro de apps
 
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc"); 
@@ -741,6 +742,11 @@ useEffect(() => {
       if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
       if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
 
+      // ✅ Aplica o filtro de Aplicativos usando a propriedade "apps_names"
+      if (appFilter !== "Todos") {
+        if (!r.apps_names?.includes(appFilter)) return false;
+      }
+
       if (q) {
         const hay = [r.name, r.username, r.server, r.status].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -748,7 +754,7 @@ useEffect(() => {
 
       return true;
     });
-  }, [rows, search, statusFilter, serverFilter]);
+  }, [rows, search, statusFilter, serverFilter, appFilter]); // ✅ appFilter adicionado nas dependências
 
   // --- ORDENAÇÃO ---
   const sorted = useMemo(() => {
@@ -1074,11 +1080,34 @@ return (
       </Select>
     </div>
 
+    {/* ✅ Select de Aplicativos Desktop */}
+    <div className="w-[190px]">
+      <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
+        <option value="Todos">Aplicativos (Todos)</option>
+        <optgroup label="Filtrar por nome">
+          {Object.values(appsIndex.byId)
+            .filter((app: any) => rows.some((r) => r.apps_names && r.apps_names.includes(app.name)))
+            .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)))
+            .map((app: any) => {
+              const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+              const nomeIntegracao = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
+              const label = temIntegracao ? `⚡ ${app.name} (${nomeIntegracao})` : app.name;
+              return (
+                <option key={app.id} value={app.name}>
+                  {label}
+                </option>
+              );
+            })}
+        </optgroup>
+      </Select>
+    </div>
+
     <button
       onClick={() => {
         setSearch("");
         setStatusFilter("Todos");
         setServerFilter("Todos");
+        setAppFilter("Todos"); // ✅ Resetando o novo filtro
         setArchivedFilter("Não");
       }}
       className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
@@ -1127,11 +1156,32 @@ onClick={(e) => {
         ))}
       </Select>
 
+      {/* ✅ Select de Aplicativos Mobile */}
+      <Select value={appFilter} onChange={(e) => setAppFilter(e.target.value)}>
+        <option value="Todos">Aplicativos (Todos)</option>
+        <optgroup label="Filtrar por nome">
+          {Object.values(appsIndex.byId)
+            .filter((app: any) => rows.some((r) => r.apps_names && r.apps_names.includes(app.name)))
+            .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)))
+            .map((app: any) => {
+              const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+              const nomeIntegracao = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
+              const label = temIntegracao ? `⚡ ${app.name} (${nomeIntegracao})` : app.name;
+              return (
+                <option key={app.id} value={app.name}>
+                  {label}
+                </option>
+              );
+            })}
+        </optgroup>
+      </Select>
+
       <button
         onClick={() => {
           setSearch("");
           setStatusFilter("Todos");
           setServerFilter("Todos");
+          setAppFilter("Todos"); // ✅ Resetando o novo filtro
           setArchivedFilter("Não");
           setMobileFiltersOpen(false);
         }}
