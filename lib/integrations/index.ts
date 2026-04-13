@@ -1,6 +1,6 @@
 import { GerenciaAppIntegration, GpcComputadorIntegration } from "./gerenciaapp"; 
 import { DupleCastIntegration } from "./duplecast";
-import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol"; // ✅ Import ajustado
+import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "IBOREVENDA":       GerenciaAppIntegration,

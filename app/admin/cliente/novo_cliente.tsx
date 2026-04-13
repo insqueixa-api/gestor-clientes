@@ -1959,14 +1959,45 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         appName: appName 
     });
 
+    // ✅ IBOSOL: chama API direta (sem extensão)
+    if ((handler as any).useApi) {
+        try {
+            const apiRes = await fetch((handler as any).apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...payload, base_url: appBaseUrl }),
+            });
+            const apiJson = await apiRes.json().catch(() => ({}));
+            setLoading(false);
+            setLoadingStep("");
+
+            if (apiJson?.ok) {
+                if (apiJson.expireDate && dateField) {
+                    const fieldKey = dateField.id || dateField.label;
+                    updateAppFieldValue(currentApp!.instanceId, String(fieldKey), apiJson.expireDate);
+                    addToast("success", "Integrado!", `App configurado! Vencimento: ${apiJson.expireDate.split('-').reverse().join('/')}`);
+                } else {
+                    addToast("success", "Integrado!", apiJson.message || "Configurado com sucesso.");
+                }
+            } else {
+                addToast("error", "Erro na Integração", apiJson?.error || "Falha.");
+            }
+        } catch (err: any) {
+            setLoading(false);
+            setLoadingStep("");
+            addToast("error", "Erro na Integração", err.message || "Falha.");
+        }
+        return;
+    }
+
+    // Fluxo original via extensão (Duplecast, GerenciaApp, etc.)
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
         setLoadingStep("");
         
         if (e.detail?.ok) {
-            // ✅ IBOSOL também extrai a data do Chrome
-            if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
+            if (handler.actionPrefix === "DUPLECAST") {
                 if (e.detail.expireDate) {
                     if (dateField) {
                         const fieldKey = dateField.id || dateField.label;
@@ -1986,7 +2017,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload } // ✅ Usa a appBaseUrl
+        detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload }
     }));
     
     setTimeout(() => {
@@ -2065,6 +2096,28 @@ const payloadDelete = {
     deviceKey: getDeviceKeyFromApp(currentApp), // ✅ Garante que chega mesmo que o handler ignore
 };
 
+    // ✅ IBOSOL: chama API direta (sem extensão)
+    if ((handler as any).useApi) {
+        try {
+            const apiRes = await fetch((handler as any).apiEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...payloadDelete, base_url: appBaseUrl }),
+            });
+            const apiJson = await apiRes.json().catch(() => ({}));
+            setLoading(false);
+            setLoadingStep("");
+            if (apiJson?.ok) addToast("success", "Removido!", "Configuração apagada do painel.");
+            else addToast("error", "Não Removido", apiJson?.error || "Falha ao apagar no painel.");
+        } catch (err: any) {
+            setLoading(false);
+            setLoadingStep("");
+            addToast("error", "Não Removido", err.message || "Falha.");
+        }
+        return;
+    }
+
+    // Fluxo original via extensão
     const responseHandler = (e: any) => {
         window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
         setLoading(false);
@@ -2075,7 +2128,7 @@ const payloadDelete = {
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
     window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete } // ✅ Usa a appBaseUrl
+        detail: { action: `${handler.actionPrefix}_DELETE`, baseUrl: appBaseUrl, payload: payloadDelete }
     }));
 
     setTimeout(() => {
