@@ -298,6 +298,11 @@ export default function TrialsPage() {
   
   // Mensagem
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  
+  // ✅ NOVO: Controla os botões de loading
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
+
   const [showSendNow, setShowSendNow] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
   const [messageText, setMessageText] = useState("");
   const [showScheduleMsg, setShowScheduleMsg] = useState<{ open: boolean; trialId: string | null }>({ open: false, trialId: null });
@@ -798,6 +803,7 @@ useEffect(() => {
 
   // --- ACTIONS ---
   const handleOpenEdit = (r: TrialRow, initialTab: EditTab = "dados") => {
+    setEditingId(r.id); // ✅ Liga o loading giratório
     setEditInitialTab(initialTab); // ✅ Salva a aba desejada
     const payload: ClientData = {
       id: r.id,
@@ -828,7 +834,15 @@ useEffect(() => {
     } as any;
 
     setTrialToEdit(payload);
-    setTimeout(() => setShowFormModal(true), 0);
+    setTimeout(() => {
+        setShowFormModal(true);
+        
+        // ✅ Segura o botão girando por 3 segundos (3000ms)
+        setTimeout(() => {
+            setEditingId(null);
+        }, 3000);
+        
+    }, 10);
   };
 
   const handleDeleteForever = async (r: TrialRow) => {
@@ -920,14 +934,22 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
     }
   };
 
-  const handleConvert = (r: TrialRow) => {
+  const handleConvert = async (r: TrialRow) => { // ✅ Trocou para async
     if (r.archived) return;
+
+    setConvertingId(r.id); // ✅ Liga o loading giratório
+    await new Promise(resolve => setTimeout(resolve, 50)); // ✅ Dá fôlego pro React girar o ícone
 
     setShowConvert({
       open: true,
       clientId: r.id,
       clientName: r.name,
     });
+
+    // ✅ Segura o botão girando por 3 segundos
+    setTimeout(() => {
+        setConvertingId(null); 
+    }, 3000);
   };
 
 return (
@@ -1330,6 +1352,7 @@ onClick={(e) => {
                               title={r.converted ? "Já convertido" : "Criar cliente"}
                               tone="green"
                               disabled={r.converted}
+                              loading={convertingId === r.id} // ✅ Adicionado loading
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (!r.converted) handleConvert(r);
@@ -1342,6 +1365,7 @@ onClick={(e) => {
                           <IconActionBtn
                             title="Editar"
                             tone="amber"
+                            loading={editingId === r.id} // ✅ Adicionado loading
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenEdit(r);
@@ -1832,12 +1856,14 @@ function IconActionBtn({
   tone,
   onClick,
   disabled,
+  loading = false, // ✅ NOVO
 }: {
   children: React.ReactNode;
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
   onClick: (e: React.MouseEvent) => void;
   disabled?: boolean;
+  loading?: boolean; // ✅ NOVO
 }) {
   const colors = {
     blue: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
@@ -1850,17 +1876,21 @@ function IconActionBtn({
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={disabled || loading} // ✅ Bloqueia clique se estiver carregando
       onClick={(e) => {
         e.stopPropagation();
-        if (!disabled) onClick(e);
+        if (!disabled && !loading) onClick(e);
       }}
       title={title}
       className={`p-1.5 rounded-lg border transition-all shadow-sm ${colors[tone]} ${
-        disabled ? "opacity-30 cursor-not-allowed grayscale" : "active:scale-95"
+        disabled ? "opacity-30 cursor-not-allowed grayscale" : loading ? "opacity-70 cursor-wait" : "active:scale-95"
       }`}
     >
-      {children}
+      {loading ? (
+        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+      ) : children}
     </button>
   );
 }

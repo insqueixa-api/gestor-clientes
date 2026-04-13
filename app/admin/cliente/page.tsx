@@ -1171,8 +1171,13 @@ whatsapp_e164: r.whatsapp,
   // ✅ abre no próximo tick para garantir montagem correta
   setTimeout(() => {
       setShowFormModal(true);
-      setEditingId(null); // ✅ Desliga o loading giratório
-  }, 0);
+      
+      // ✅ Segura o botão girando por mais 1.5 segundos enquanto o modal é desenhado na tela
+      setTimeout(() => {
+          setEditingId(null); 
+      }, 3000); 
+      
+  }, 10);
 };
 
 
@@ -1522,7 +1527,11 @@ body: JSON.stringify({
     setShowRenew({ open: true, clientId: r.id, clientName: r.name });
   }
   
-  setRenewingId(null); // ✅ Desliga o loading giratório
+  // ✅ Segura o botão girando por mais 1.5 segundos enquanto o modal é desenhado na tela
+  setTimeout(() => {
+      setRenewingId(null); 
+  }, 3000);
+
 };
 
   

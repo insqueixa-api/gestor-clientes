@@ -4883,8 +4883,32 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                           placeholder={label ? `Digite ${label}...` : "Digite..."}
                                           autoCapitalize={isMacField ? "characters" : "none"}
                                           spellCheck={false}
-                                          className={isPasswordField ? "pr-10" : ""} 
+                                          // ✅ Ajusta o padding para caber os dois botões (Copiar + Olho) ou apenas o Copiar
+                                          className={`${isPasswordField ? "pr-16" : (!isDateField ? "pr-10" : "")}`} 
                                         />
+                                        
+                                        {/* ✅ NOVO BOTÃO DE COPIAR RÁPIDO (Apenas se não for data e se tiver valor) */}
+                                        {!isDateField && fieldValue && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  navigator.clipboard.writeText(fieldValue);
+                                                  addToast("success", "Copiado!", `${label || "Campo"} copiado com sucesso.`);
+                                              }}
+                                              // Se for senha, empurra o botão de copiar pro lado para não sobrepor o olho
+                                              className={`absolute top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors ${isPasswordField ? 'right-9' : 'right-2'}`}
+                                              title="Copiar conteúdo"
+                                              tabIndex={-1}
+                                            >
+                                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                              </svg>
+                                            </button>
+                                        )}
+
                                         {isPasswordField && (
                                           <button
                                             type="button"
