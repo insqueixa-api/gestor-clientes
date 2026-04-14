@@ -2184,7 +2184,7 @@ return (
 </Td>
 
 <Td align="center">
-  <div className="flex flex-col gap-1 items-center w-full overflow-hidden">
+  <div className="flex flex-wrap gap-1 justify-center w-full overflow-hidden">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
                           <button
