@@ -1951,7 +1951,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const payload = handler.buildCreatePayload({
         username,
         // ✅ IBOSOL agora também manda o PIN
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") ? appPin : password, 
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") ? appPin : password,
         macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
@@ -2025,9 +2025,18 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     };
     window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", responseHandler);
 
-    window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-        detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payload }
-    }));
+    // Extrai deviceKey para handlers que precisam (ex: IBOPRO)
+const extDkField = currentApp?.fields_config?.find((f: any) =>
+    String(f?.type || "").toLowerCase() === "device_key" ||
+    String(f?.label || "").toLowerCase().includes("device key")
+);
+const extDeviceKey = extDkField
+    ? (currentApp?.values[String(extDkField.id || extDkField.label || "").trim()] || "")
+    : "";
+
+window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+    detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: { ...payload, deviceKey: extDeviceKey } }
+}));
     
     setTimeout(() => {
         setLoading((prev) => {

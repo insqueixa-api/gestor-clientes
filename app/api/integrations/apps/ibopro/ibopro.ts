@@ -1,17 +1,14 @@
 // /app/api/integrations/apps/ibopro/ibopro.ts
-
 export const IboProAPI = {
   actionPrefix: "IBOPRO",
-  useApi: true,
-  apiEndpoint: "/api/integrations/apps/ibopro",
+  // Extension-based — sem useApi
 
   buildCreatePayload({
     macValue,
     m3uUrl,
     serverName,
     finalServerName,
-    password, // PIN de proteção da playlist (de app_integrations.pin)
-    // deviceKey é injetado pelo modal diretamente no payload via getDeviceKeyFromApp
+    password, // PIN de proteção (de app_integrations.pin)
   }: {
     macValue: string;
     m3uUrl: string;
@@ -20,11 +17,11 @@ export const IboProAPI = {
     password?: string;
   }) {
     return {
-      action: "create",
-      mac_address: macValue,
+      mac: macValue,
       playlist_name: serverName || finalServerName || "Playlist",
       playlist_url: m3uUrl,
       pin: password || undefined,
+      // deviceKey é injetado pelo modal via getDeviceKeyFromApp
     };
   },
 
@@ -32,7 +29,7 @@ export const IboProAPI = {
     macValue,
     serverName,
     finalServerName,
-    password, // PIN de proteção da playlist
+    password,
   }: {
     macValue: string;
     serverName?: string;
@@ -40,10 +37,10 @@ export const IboProAPI = {
     password?: string;
   }) {
     return {
-      action: "delete",
-      mac_address: macValue,
+      mac: macValue,
       playlist_name: serverName || finalServerName || "",
       pin: password || undefined,
+      // deviceKey é injetado via payloadDelete.deviceKey
     };
   },
 };
