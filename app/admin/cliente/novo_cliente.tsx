@@ -1868,25 +1868,28 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
       // 2. Pergunta ao Roteador (index.ts) se ele conhece essa chave
       let handler = getIntegrationHandler(intType);
       
-      // 3. Se o Roteador não conhecer (ex: estava salvo GERENCIAAPP, mas agora mudou para IBOREVENDA)
-      // Acionamos a dedução salva-vidas pelo NOME EXATO do aplicativo (sem buscas parciais!)
-      if (!handler) {
-          const appNameStr = String(appInstance.name || "").trim().toUpperCase();
-          
-          if (appNameStr === "ZONE X" || appNameStr === "ZONEX") intType = "ZONEX";
-          else if (appNameStr === "VU REVENDA") intType = "VUREVENDA";
-          else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "FACILITA";
-          else if (appNameStr === "UNI REVENDA") intType = "UNIREVENDA";
-          else if (appNameStr === "GPC ANDROID") intType = "GPC_ANDROID";
-          else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
-          // GPC Computador removido daqui
+      // 3. Se a chave for velha ou vazia, deduz pelo NOME EXATO do aplicativo
+      if (!handler) {
+          const appNameStr = String(appInstance.name || "").trim().toUpperCase();
+          
+          if (appNameStr === "ZONE X" || appNameStr === "ZONEX") intType = "GERENCIAAPP";
+          else if (appNameStr === "VU REVENDA") intType = "GERENCIAAPP";
+          else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "GERENCIAAPP";
+          else if (appNameStr === "UNI REVENDA") intType = "GERENCIAAPP";
+          else if (appNameStr === "GPC ANDROID") intType = "GERENCIAAPP";
+          else if (appNameStr === "GPC ROKU") intType = "GERENCIAAPP";
           else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "GERENCIAAPP";
           else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
-          else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
+          else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
           else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
-        
-          handler = getIntegrationHandler(intType);
-      }
+          else intType = ""; // Se não for nenhum desses, NÃO tem integração.
+
+          if (intType) {
+              handler = getIntegrationHandler(intType);
+          } else {
+              handler = null;
+          }
+      }
       
       return handler;
   }

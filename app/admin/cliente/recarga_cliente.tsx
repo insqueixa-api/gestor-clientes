@@ -975,17 +975,33 @@ if (renewAutomatic && clientData?.server_id) {
                               }
                               
                               let expRaw = extData.exp_date;
-                              if (expRaw) {
-                                  if (typeof expRaw === 'number' || /^\d{10}$/.test(String(expRaw))) {
-                                      apiVencimento = new Date(Number(expRaw) * 1000).toISOString();
-                                  } else if (String(expRaw).includes("/")) {
-                                      const m = String(expRaw).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-                                      if (m) apiVencimento = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`).toISOString();
-                                  } else if (String(expRaw).includes("-") && String(expRaw).includes("T")) {
-                                      const d = new Date(String(expRaw));
-                                      if (!Number.isNaN(d.getTime())) apiVencimento = d.toISOString();
-                                  }
-                              }
+                                if (expRaw) {
+                                    const expStr = String(expRaw);
+                                    if (typeof expRaw === 'number' || /^\d{10}$/.test(expStr)) {
+                                        // Unix timestamp → UTC direto
+                                        apiVencimento = new Date(Number(expRaw) * 1000).toISOString();
+                                    } else if (expStr.includes("/")) {
+                                        // DD/MM/YYYY HH:mm → força -03:00
+                                        const m = expStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+                                        if (m) apiVencimento = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`).toISOString();
+                                    } else if (expStr.includes("T")) {
+                                        // ISO com ou sem fuso
+                                        const hasTZ = /[Z+\-]\d{2}:\d{2}$/.test(expStr) || expStr.endsWith("Z");
+                                        if (hasTZ) {
+                                            // Já tem fuso declarado — confia
+                                            const d = new Date(expStr);
+                                            if (!Number.isNaN(d.getTime())) apiVencimento = d.toISOString();
+                                        } else {
+                                            // SEM fuso → assume Brasília (-03:00)
+                                            const d = new Date(expStr + "-03:00");
+                                            if (!Number.isNaN(d.getTime())) apiVencimento = d.toISOString();
+                                        }
+                                    } else if (expStr.includes("-") && expStr.length === 10) {
+                                        // Apenas data YYYY-MM-DD → assume fim do dia em Brasília
+                                        const d = new Date(expStr + "T23:59:00-03:00");
+                                        if (!Number.isNaN(d.getTime())) apiVencimento = d.toISOString();
+                                    }
+                                }
                               resolve(true);
                           } else {
                               reject(new Error(e.detail?.error || "A Extensão falhou ao renovar o cliente."));
