@@ -1320,7 +1320,7 @@ onClick={(e) => {
                         {/* ✅ Apps */}
                         <Td>
                           {r.apps_names.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1 max-w-[300px]">
                               {r.apps_names.map((appName, idx) => {
                                 const name = String(appName || "").trim();
                                 return (
