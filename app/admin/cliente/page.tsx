@@ -2010,7 +2010,7 @@ return (
                   <Th align="center"><SortClick label="Telas" active={sortKey === "screens"} dir={sortDir} onClick={() => toggleSort("screens")} /></Th>
                   <Th align="center"><SortClick label="Plano" active={sortKey === "plan"} dir={sortDir} onClick={() => toggleSort("plan")} /></Th>
                   <Th align="center"><SortClick label="Valor" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} /></Th>
-                  <Th align="center"><SortClick label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} /></Th>
+                  <Th align="center" width={160}><SortClick label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} /></Th>
                   <Th align="right">Ações</Th>  
                 </tr>
               </thead>
@@ -2184,7 +2184,7 @@ return (
 </Td>
 
 <Td align="center">
-  <div className="flex flex-wrap gap-1.5 justify-center max-w-[180px] overflow-hidden">
+  <div className="flex flex-col gap-1 items-center w-full overflow-hidden">
                           {r.apps && r.apps.length > 0 ? (
                             r.apps.map((app, i) => (
                           <button
@@ -2197,7 +2197,7 @@ return (
   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
   title={`Configurar aplicativo: ${app}`}
 >
-                          {app}
+                          <span className="truncate flex-1 min-w-0">{app}</span>
                           {(() => {
                             const catApp = appsIndex.byName[normAppKey(app)] as any;
                             if (!catApp?.integration_type) return null;
