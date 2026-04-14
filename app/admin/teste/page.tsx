@@ -1320,7 +1320,7 @@ onClick={(e) => {
                         {/* ✅ Apps */}
                         <Td>
                           {r.apps_names.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 max-w-[320px]">
+                            <div className="flex flex-wrap gap-1 w-[200px]">
                               {r.apps_names.map((appName, idx) => {
                                 const name = String(appName || "").trim();
                                 return (
@@ -1331,7 +1331,7 @@ onClick={(e) => {
                                       e.stopPropagation();
                                       openEditById(r.id, "apps"); 
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all w-full overflow-hidden min-w-0"
                                     title="Configurar aplicativo"
                                   >
                                     {name || "App"}
@@ -1339,10 +1339,9 @@ onClick={(e) => {
                                       const catApp = appsIndex.byName[normKey(name)] as any;
                                       if (!catApp?.integration_type) return null;
                                       return (
-                                        <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400 text-[8px] font-bold uppercase tracking-wide whitespace-nowrap">
-                                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                                          {catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" : catApp.integration_type === "DUPLECAST" ? "DupleCast" : catApp.integration_type === "IBOSOL" ? "IBO Sol" : catApp.integration_type === "IBOPRO" ? "IBO Pro" : catApp.integration_type}
-                                        </span>
+                                        <span className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400" title={catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" : catApp.integration_type === "DUPLECAST" ? "Duplecast" : catApp.integration_type === "IBOSOL" ? "Ibo Sol" : catApp.integration_type === "IBOPRO" ? "Ibo Pro" : catApp.integration_type}>
+                                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                                        </span>
                                       );
                                     })()}
                                   </button>
