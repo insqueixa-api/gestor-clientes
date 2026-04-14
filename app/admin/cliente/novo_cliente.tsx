@@ -1962,10 +1962,19 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     // ✅ IBOSOL: chama API direta (sem extensão)
     if ((handler as any).useApi) {
         try {
+            // Extrai Device Key do app (necessário para IBO Pro Player e similares)
+            const dkFieldCreate = currentApp?.fields_config?.find((f: any) =>
+                String(f?.type || "").toLowerCase() === "device_key" ||
+                String(f?.label || "").toLowerCase().includes("device key")
+            );
+            const deviceKeyForApi = dkFieldCreate
+                ? (currentApp?.values[String(dkFieldCreate.id || dkFieldCreate.label || "").trim()] || "")
+                : "";
+
             const apiRes = await fetch((handler as any).apiEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...payload, base_url: appBaseUrl }),
+                body: JSON.stringify({ ...payload, base_url: appBaseUrl, deviceKey: deviceKeyForApi }),
             });
             const apiJson = await apiRes.json().catch(() => ({}));
             setLoading(false);
@@ -2099,10 +2108,18 @@ const payloadDelete = {
     // ✅ IBOSOL: chama API direta (sem extensão)
     if ((handler as any).useApi) {
         try {
+            const dkFieldDelete = currentApp?.fields_config?.find((f: any) =>
+                String(f?.type || "").toLowerCase() === "device_key" ||
+                String(f?.label || "").toLowerCase().includes("device key")
+            );
+            const deviceKeyForDelete = dkFieldDelete
+                ? (currentApp?.values[String(dkFieldDelete.id || dkFieldDelete.label || "").trim()] || "")
+                : "";
+
             const apiRes = await fetch((handler as any).apiEndpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...payloadDelete, base_url: appBaseUrl }),
+                body: JSON.stringify({ ...payloadDelete, base_url: appBaseUrl, deviceKey: deviceKeyForDelete }),
             });
             const apiJson = await apiRes.json().catch(() => ({}));
             setLoading(false);

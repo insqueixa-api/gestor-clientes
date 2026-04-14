@@ -431,7 +431,7 @@ async function handleDelete(id: string) {
 function renderAppCard(app: AppData) {
   // ✅ Atualizado para o novo formato do array de integrações
   const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
-  const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type;
+const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type === "IBOSOL" ? "IBO Sol" : app.integration_type === "IBOPRO" ? "IBO Pro" : app.integration_type;
 
   return (
     <div
@@ -688,7 +688,8 @@ return (
                     <option value="">Sem integração</option>
                     <option value="GERENCIAAPP">GerenciaApp</option>
                     <option value="DUPLECAST">Duplecast</option>
-                    <option value="IBOSOL">IBO SOL (Família IBO, BOB...)</option> {/* ✅ NOVA FAMÍLIA ADICIONADA */}
+                    <option value="IBOSOL">IBO SOL (Família IBO, BOB...)</option>
+                    <option value="IBOPRO">IBO Pro Player</option>
                   </select>
                   <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
                     Quando configurado, habilita automação ao criar clientes.

@@ -57,7 +57,9 @@ export default function AppIntegracaoModal({
   // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast = appName === "DUPLECAST";
   const isIboSol    = appName === "IBOSOL";
-  const needsPin    = isDuplecast || isIboSol;
+  const isIboPro    = appName === "IBOPRO";
+  const needsPin    = isDuplecast || isIboSol || isIboPro;
+  const noCredentials = isIboSol || isIboPro; // Apps que não usam email/senha
 
   useEffect(() => {
     if (integration) {
@@ -77,7 +79,7 @@ export default function AppIntegracaoModal({
   }, [integration]);
 
   // ✅ Validação dinâmica ocultando e-mail e senha para IBO Sol
-  const canSave = isIboSol 
+  const canSave = noCredentials
     ? label.trim() && apiUrl.trim() && pin.trim()
     : needsPin 
       ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
@@ -129,8 +131,8 @@ export default function AppIntegracaoModal({
         tenant_id:      tenantId,
         app_name:       appName,
         label:          label.trim(),
-        login_email:    isIboSol ? null : loginEmail.trim(),
-        login_password: isIboSol ? null : loginPassword.trim(),
+        login_email:    noCredentials ? null : loginEmail.trim(),
+        login_password: noCredentials ? null : loginPassword.trim(),
         api_url:        normalizeApiUrl(apiUrl),
         pin:            needsPin ? pin.trim() : null, // ✅ Salva o PIN para os apps que precisam
         is_active:      isActive,
@@ -215,6 +217,7 @@ export default function AppIntegracaoModal({
                 <option value="GERENCIAAPP">GerenciaApp</option>
                 <option value="DUPLECAST">DupleCast</option>
                 <option value="IBOSOL">Família IBO SOL (IBO Player, BOB Player, etc...)</option>
+                <option value="IBOPRO">IBO Pro Player</option>
               </select>
             </div>
 
@@ -239,14 +242,14 @@ export default function AppIntegracaoModal({
               <input
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : "Ex: https://gerenciaapp.top"}
+                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : "Ex: https://gerenciaapp.top"}
                 type="url"
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
 
             {/* Email de Login */}
-            {!isIboSol && (
+            {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">E-mail / Usuário</label>
                 <input
@@ -261,7 +264,7 @@ export default function AppIntegracaoModal({
             )}
 
             {/* Senha */}
-            {!isIboSol && (
+            {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Senha</label>
                 <input
