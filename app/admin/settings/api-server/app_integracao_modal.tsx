@@ -207,18 +207,18 @@ export default function AppIntegracaoModal({
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Aplicativo</label>
               <select
-                value={appName}
-                onChange={(e) => {
-                  setAppName(e.target.value);
-                  setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
-                }}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
-              >
-                <option value="GERENCIAAPP">GerenciaApp</option>
-                <option value="DUPLECAST">DupleCast</option>
-                <option value="IBOSOL">Família IBO SOL (IBO Player, BOB Player, etc...)</option>
-                <option value="IBOPRO">IBO Pro Player</option>
-              </select>
+                value={appName}
+                onChange={(e) => {
+                  setAppName(e.target.value);
+                  setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
+                }}
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
+              >
+                <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
+                <option value="DUPLECAST">DupleCast</option>
+                <option value="IBOSOL">IBO Sol</option>
+                <option value="IBOPRO">IBO Pro Player</option>
+              </select>
             </div>
 
             {/* Nome da Integração */}
@@ -228,10 +228,11 @@ export default function AppIntegracaoModal({
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={
-                  appName === "DUPLECAST" ? 'Ex: "DupleCast"' : 
-                  appName === "IBOSOL" ? 'Ex: "IBO Sol"' : 
-                  'Ex: "GerenciaApp"'
-                }
+                  appName === "DUPLECAST" ? 'Ex: "DupleCast"' : 
+                  appName === "IBOSOL" ? 'Ex: "IBO Sol"' : 
+                  appName === "IBOPRO" ? 'Ex: "IBO Pro Player"' : 
+                  'Ex: "GerenciaApp"'
+                }
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>

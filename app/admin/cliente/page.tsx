@@ -1738,8 +1738,9 @@ return (
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
           .map((app) => {
             // Verifica se tem integração para adicionar o indicador visual
-            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
-            const label = temIntegracao ? `⚡ ${app.name} (${app.integration_type})` : app.name;
+            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+            const intLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "DupleCast" : app.integration_type === "IBOSOL" ? "IBO Sol" : app.integration_type === "IBOPRO" ? "IBO Pro" : app.integration_type;
+            const label = temIntegracao ? `⚡ ${app.name} (${intLabel})` : app.name;
             
             return (
               <option key={app.id} value={app.name}>
@@ -1858,9 +1859,10 @@ return (
           .filter((app) => rows.some((r) => r.apps && r.apps.includes(app.name)))
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
           .map((app) => {
-            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
-            const label = temIntegracao ? `⚡ ${app.name} (${app.integration_type})` : app.name;
-            return (
+            const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+            const intLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "DupleCast" : app.integration_type === "IBOSOL" ? "IBO Sol" : app.integration_type === "IBOPRO" ? "IBO Pro" : app.integration_type;
+            const label = temIntegracao ? `⚡ ${app.name} (${intLabel})` : app.name;
+            return (
               <option key={app.id} value={app.name}>
                 {label}
               </option>
@@ -2201,9 +2203,9 @@ return (
                             if (!catApp?.integration_type) return null;
                             return (
                               <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400 text-[8px] font-bold uppercase tracking-wide whitespace-nowrap">
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                                {catApp.integration_type}
-                              </span>
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                                {catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" : catApp.integration_type === "DUPLECAST" ? "DupleCast" : catApp.integration_type === "IBOSOL" ? "IBO Sol" : catApp.integration_type === "IBOPRO" ? "IBO Pro" : catApp.integration_type}
+                              </span>
                             );
                           })()}
                         </button>

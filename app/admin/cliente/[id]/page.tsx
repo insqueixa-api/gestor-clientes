@@ -763,10 +763,10 @@ const EVENT_LABELS: Record<string, string> = {
                           <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
                              <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
                              <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
-                                {app.expiration 
-                                   ? `Vence: ${new Date(app.expiration).toLocaleDateString("pt-BR")}` 
-                                   : "Vencimento: Não definido"}
-                             </span>
+                                {app.expiration 
+                                   ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
+                                   : "Vencimento: Não definido"}
+                             </span>
                           </div>
                        );
                     })}

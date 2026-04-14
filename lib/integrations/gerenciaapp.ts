@@ -1,22 +1,20 @@
 // src/lib/integrations/gerenciaapp.ts
 
 // Função interna para descobrir qual é o ID correto baseado no nome do App
-// ✅ Alterado para aceitar string vazia ("") conforme o payload da API
-function getRankingAppId(appName?: string): number | string {
-    if (!appName) return 10;
+function getRankingAppId(appName?: string): number {
+    if (!appName) return 10;
 
-    const name = appName.trim().toUpperCase();
+    const name = appName.trim().toUpperCase();
 
-    if (name === "ZONE X" || name === "ZONEX") return 11;
-    if (name === "VU REVENDA") return 12;
-    if (name === "FACILITA" || name === "FACILITA APP") return 13;
-    if (name === "UNI REVENDA") return 15;
-    if (name === "GPC ROKU") return 17;
-    if (name === "GPC ANDROID") return 20;
-    if (name === "GPC COMPUTADOR") return ""; // ✅ Envia string vazia exatamente igual ao cURL
-    if (name === "IBO REVENDA" || name === "GERENCIAAPP" || name === "GERENCIA APP") return 10;
+    if (name === "ZONE X" || name === "ZONEX") return 11;
+    if (name === "VU REVENDA") return 12;
+    if (name === "FACILITA" || name === "FACILITA APP") return 13;
+    if (name === "UNI REVENDA") return 15;
+    if (name === "GPC ROKU") return 17;
+    if (name === "GPC ANDROID") return 20;
+if (name === "IBO REVENDA") return 10;
 
-    return 10;
+    return 10;
 }
 
 export const GerenciaAppIntegration = {
@@ -52,15 +50,10 @@ export const GerenciaAppIntegration = {
     },
 
     buildDeletePayload: (params: { username: string; finalServerName?: string; serverName?: string; macValue: string; appName?: string }) => {
-        return {
-            // ✅ Regra padrão: Nome_Servidor. A extensão usa isso primeiro, se não achar, cai pro macValue.
-            username: params.finalServerName || params.username.trim(),
-            macValue: params.macValue || ""
-        };
-    }
-};
-// ✅ GPC Computador usa o mesmo backend do GerenciaApp, sem ranking_app_id
-export const GpcComputadorIntegration = {
-    ...GerenciaAppIntegration,
-    actionPrefix: "GERENCIAAPP",
+        return {
+            // ✅ Regra padrão: Nome_Servidor. A extensão usa isso primeiro, se não achar, cai pro macValue.
+            username: params.finalServerName || params.username.trim(),
+            macValue: params.macValue || ""
+        };
+    }
 };

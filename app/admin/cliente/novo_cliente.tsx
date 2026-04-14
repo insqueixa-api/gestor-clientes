@@ -1878,11 +1878,12 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "FACILITA";
           else if (appNameStr === "UNI REVENDA") intType = "UNIREVENDA";
           else if (appNameStr === "GPC ANDROID") intType = "GPC_ANDROID";
-          else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
-          else if (appNameStr === "GPC COMPUTADOR") intType = "GPC_COMPUTADOR"; // ✅ NOVO
-          else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "IBOREVENDA";
+          else if (appNameStr === "GPC ROKU") intType = "GPC_ROKU";
+          // GPC Computador removido daqui
+          else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "GERENCIAAPP";
           else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
-          else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; // ✅ Salva-vidas do IBO Sol adicionado
+          else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
+          else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
         
           handler = getIntegrationHandler(intType);
       }
@@ -1917,12 +1918,21 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     }
 
     const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-    
-    // ✅ Auto-preenche apenas se NÃO for Duplecast nem IBOSOL (ambos esperam o Chrome)
-    if (dateField && handler.actionPrefix !== "DUPLECAST" && handler.actionPrefix !== "IBOSOL") { 
-        const fieldKey = dateField.id || dateField.label;
-        if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), dueDate);
-    }
+    
+    if (dateField) {
+        const fieldKey = dateField.id || dateField.label;
+        if (fieldKey) {
+            if (handler.actionPrefix === "GERENCIAAPP") {
+                // ✅ FAMÍLIA GERENCIAAPP: Fixar validade para 1 ano para frente
+                const now = new Date();
+                now.setFullYear(now.getFullYear() + 1);
+                const oneYearAhead = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                updateAppFieldValue(currentApp!.instanceId, String(fieldKey), oneYearAhead);
+            }
+            // ⚠️ Qualquer outro aplicativo (DUPLECAST, IBOSOL, IBOPRO ou Genéricos) NÃO preenche a data automaticamente aqui.
+            // A configuração será puramente manual, ou via retorno da extensão (no caso do Duplecast/IBO Sol).
+        }
+    }
 
     setLoading(true);
     setLoadingStep("Configurando aplicativo...");
@@ -2072,12 +2082,14 @@ window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
         return;
     }
 
-    // ✅ NOVO: Limpa a Data de Vencimento do App
-        const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-        if (dateField) {
-            const fieldKey = dateField.id || dateField.label;
-            if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), "");
-        }
+    // ✅ Limpa a Data de Vencimento APENAS para a família GerenciaApp
+        if (handler.actionPrefix === "GERENCIAAPP") {
+            const dateField = currentApp?.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+            if (dateField) {
+                const fieldKey = dateField.id || dateField.label;
+                if (fieldKey) updateAppFieldValue(currentApp!.instanceId, String(fieldKey), "");
+            }
+        }
 
         setLoading(true);
         setLoadingStep("A remover do Painel...");

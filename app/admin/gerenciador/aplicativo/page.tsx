@@ -431,7 +431,10 @@ async function handleDelete(id: string) {
 function renderAppCard(app: AppData) {
   // ✅ Atualizado para o novo formato do array de integrações
   const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
-const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : app.integration_type === "DUPLECAST" ? "Duplecast" : app.integration_type === "IBOSOL" ? "IBO Sol" : app.integration_type === "IBOPRO" ? "IBO Pro" : app.integration_type;
+const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : 
+                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
+                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
+                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : app.integration_type;
 
   return (
     <div
@@ -585,8 +588,13 @@ return (
             const isCollapsed = collapsedGroups[family];
             
             const isIntegrated = family !== "SEM_INTEGRACAO";
-            const familyName = isIntegrated ? (family === "GERENCIAAPP" ? "GerenciaApp" : family === "DUPLECAST" ? "Duplecast" : family) : "Outros (Sem Integração Automática)";
-            const familyIcon = isIntegrated ? "⚡" : "📁";
+            const familyName = isIntegrated ? (
+              family === "GERENCIAAPP" ? "GerenciaApp (IBO Revenda, etc)" : 
+              family === "DUPLECAST" ? "DupleCast" : 
+              family === "IBOSOL" ? "IBO Sol" : 
+              family === "IBOPRO" ? "IBO Pro Player" : family
+            ) : "Outros (Sem Integração Automática)";
+            const familyIcon = isIntegrated ? "⚡" : "📁";
 
             return (
               <div key={family} className="space-y-3">
@@ -686,10 +694,10 @@ return (
                     className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
                   >
                     <option value="">Sem integração</option>
-                    <option value="GERENCIAAPP">GerenciaApp</option>
-                    <option value="DUPLECAST">Duplecast</option>
-                    <option value="IBOSOL">IBO SOL (Família IBO, BOB...)</option>
-                    <option value="IBOPRO">IBO Pro Player</option>
+                    <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
+                    <option value="DUPLECAST">DupleCast</option>
+                    <option value="IBOSOL">IBO Sol</option>
+                    <option value="IBOPRO">IBO Pro Player</option>
                   </select>
                   <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
                     Quando configurado, habilita automação ao criar clientes.
