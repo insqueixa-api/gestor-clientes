@@ -2104,15 +2104,20 @@ const getDeviceKeyFromApp = (app?: typeof currentApp) => {
     return "";
 };
 
+// ✅ Puxando o PIN da integração antes de montar o payload
+const appPinDelete = appIntegData?.pin || "";
+
 const payloadDelete = {
-    ...handler.buildDeletePayload({
-        username: username.trim(),
-        finalServerName: finalServerName,
-        serverName: selectedServerName.replace(/\s+/g, ""),
-        macValue: getMacFromApp(currentApp),
-        appName: appName
-    }),
-    deviceKey: getDeviceKeyFromApp(currentApp), // ✅ Garante que chega mesmo que o handler ignore
+    ...handler.buildDeletePayload({
+        username: username.trim(),
+        finalServerName: finalServerName,
+        serverName: selectedServerName.replace(/\s+/g, ""),
+        macValue: getMacFromApp(currentApp),
+        appName: appName,
+        // ✅ Envia o PIN do banco para DUPLECAST, IBOSOL e IBOPRO. Caso contrário, envia a senha do painel.
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") ? appPinDelete : password,
+    }),
+    deviceKey: getDeviceKeyFromApp(currentApp),
 };
 
     // ✅ IBOSOL: chama API direta (sem extensão)
