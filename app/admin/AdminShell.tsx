@@ -210,7 +210,14 @@ export default function AdminShell({
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href="/admin/cliente" label="👥 Clientes" />
+              <NavLink 
+  href="/admin/cliente" 
+  label={
+    <span className="flex items-center gap-1.5">
+      <IconUsers /> Clientes
+    </span>
+  } 
+/>
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -353,7 +360,15 @@ export default function AdminShell({
   } 
   onClick={() => setOpenMenu(null)} 
 />
-            <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
+            <MenuLink 
+  href="/admin/cliente" 
+  label={
+    <span className="flex items-center gap-2">
+      <IconUsers /> Clientes
+    </span>
+  } 
+  onClick={() => setOpenMenu(null)} 
+/>
             <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
             <MenuLink 
   href="/admin/teste" 
@@ -669,10 +684,23 @@ function IconFastTimer() {
 function IconDashboard() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="9" />
-      <rect x="14" y="3" width="7" height="5" />
-      <rect x="14" y="11" width="7" height="10" />
-      <rect x="3" y="15" width="7" height="6" />
+      {/* Barra 1 */}
+      <path d="M12 20V10" />
+      {/* Barra 2 */}
+      <path d="M18 20V4" />
+      {/* Barra 3 */}
+      <path d="M6 20V14" />
+    </svg>
+  );
+
+}
+function IconUsers() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
