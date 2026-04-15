@@ -4914,8 +4914,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                  </span>
                                )}
                              <span className="text-[10px] text-slate-400 font-medium transition-colors hover:text-slate-600 dark:hover:text-white/60">
-                               {app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}
-                             </span>
+                               {/* Texto curto no Celular */}
+                               <span className="sm:hidden">{app.is_minimized ? "▼ Mostrar" : "▲ Ocultar"}</span>
+                               {/* Texto completo no Computador */}
+                               <span className="hidden sm:inline">{app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}</span>
+                             </span>
                           </div>
 
                           <button 
