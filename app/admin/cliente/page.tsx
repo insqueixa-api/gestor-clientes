@@ -2010,7 +2010,7 @@ return (
                   <Th align="center"><SortClick label="Telas" active={sortKey === "screens"} dir={sortDir} onClick={() => toggleSort("screens")} /></Th>
                   <Th align="center"><SortClick label="Plano" active={sortKey === "plan"} dir={sortDir} onClick={() => toggleSort("plan")} /></Th>
                   <Th align="center"><SortClick label="Valor" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} /></Th>
-                  <Th align="center" width={240}><SortClick label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} /></Th>
+                  <Th align="center" width={160}><SortClick label="Aplicativos" active={sortKey === "apps"} dir={sortDir} onClick={() => toggleSort("apps")} /></Th>
                   <Th align="right">Ações</Th>  
                 </tr>
               </thead>
@@ -2184,47 +2184,42 @@ return (
 </Td>
 
 <Td align="center">
-  {/* Alterado para justify-end e pr-2 para colar nas ações e usar o espaço vazio */}
-  <div className="flex flex-wrap gap-1 justify-end w-full overflow-hidden pr-2">
-    {r.apps && r.apps.length > 0 ? (
-      r.apps.map((app, i) => {
-        const catApp = appsIndex.byName[normAppKey(app)] as any;
-
-        return (
-          <button
-            key={`${app}-${i}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              openEditById(r.id, "apps"); 
-            }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
-            title={`Configurar aplicativo: ${app}`}
-          >
-            <span className="truncate flex-1 min-w-0 text-left">{app}</span>
-
-            {/* Apenas ícone da integração, mantendo a lista limpa e real */}
-            {catApp?.integration_type && catApp.integration_type !== "SEM_INTEGRACAO" && (
-              <span 
-                className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400" 
-                title={
-                  catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
-                  catApp.integration_type === "DUPLECAST" ? "Duplecast" :
-                  catApp.integration_type === "IBOSOL" ? "Ibo Sol" :
-                  catApp.integration_type === "IBOPRO" ? "Ibo Pro" :
-                  catApp.integration_type
-                }
-              >
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-              </span>
-            )}
-          </button>
-        );
-      })
-    ) : (
-      <span className="center text-slate-300 dark:text-white/20 text-xs italic">c—</span>
-    )}
-  </div>
-</Td>
+  <div className="flex flex-wrap gap-1 justify-center w-full overflow-hidden">
+                          {r.apps && r.apps.length > 0 ? (
+                            r.apps.map((app, i) => (
+                          <button
+  key={`${app}-${i}`}
+  onClick={(e) => {
+    e.stopPropagation();
+    // 🌟 A mágica: Abre o Modal perfeito do NovoCliente já na aba certa!
+    openEditById(r.id, "apps"); 
+  }}
+  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+  title={`Configurar aplicativo: ${app}`}
+>
+                          <span className="truncate flex-1 min-w-0 text-left">{app}</span>
+                          {(() => {
+                            const catApp = appsIndex.byName[normAppKey(app)] as any;
+                            if (!catApp?.integration_type) return null;
+                            const intLabel =
+                              catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
+                              catApp.integration_type === "DUPLECAST" ? "Duplecast" :
+                              catApp.integration_type === "IBOSOL" ? "Ibo Sol" :
+                              catApp.integration_type === "IBOPRO" ? "Ibo Pro" :
+                              catApp.integration_type;
+                            return (
+                              <span className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400" title={intLabel}>
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                              </span>
+                            );
+                          })()}
+                        </button>
+                            ))
+                          ) : (
+                            <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>
+                          )}
+                        </div>
+                      </Td>
 
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
