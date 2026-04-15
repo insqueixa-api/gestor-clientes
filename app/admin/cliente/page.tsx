@@ -2221,7 +2221,7 @@ return (
         );
       })
     ) : (
-      <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>
+      <span className="center text-slate-300 dark:text-white/20 text-xs italic">c—</span>
     )}
   </div>
 </Td>
