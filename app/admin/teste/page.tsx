@@ -1331,7 +1331,7 @@ onClick={(e) => {
                                       e.stopPropagation();
                                       openEditById(r.id, "apps"); 
                                     }}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all w-full overflow-hidden min-w-0"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                                     title="Configurar aplicativo"
                                   >
                                     {name || "App"}
