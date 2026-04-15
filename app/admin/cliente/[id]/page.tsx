@@ -765,7 +765,7 @@ const EVENT_LABELS: Record<string, string> = {
                        const label = temIntegracao ? `⚡ ${app.name}` : app.name;
 
                        return (
-                          <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
+                          <div key={app.id || app.name + Math.random()} className="flex justify-between items-right">
                              <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
                              <span className={`text-xs text-right ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
                                 {app.expiration 
