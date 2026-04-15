@@ -2019,9 +2019,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         setLoadingStep("");
         
         if (e.detail?.ok) {
-            if (handler.actionPrefix === "DUPLECAST") {
-                if (e.detail.expireDate) {
-                    if (dateField) {
+            // ✅ Libera DUPLECAST, IBOSOL e IBOPRO para receberem a data da extensão
+            if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") {
+                if (e.detail.expireDate) {
+                    if (dateField) {
                         const fieldKey = dateField.id || dateField.label;
                         updateAppFieldValue(currentApp!.instanceId, String(fieldKey), e.detail.expireDate);
                     }
@@ -3008,10 +3009,10 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     await new Promise((resolve) => {
                         const evtHandler = async (e: any) => {
                             window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                            if (e.detail?.ok) {
-                                // ✅ IBOSOL também lê a data vinda da extensão
-                                if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") {
-                                    if (e.detail.expireDate) {
+                            if (e.detail?.ok) {
+                                // ✅ DUPLECAST, IBOSOL e IBOPRO leem a data vinda da extensão
+                                if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") {
+                                    if (e.detail.expireDate) {
                                         const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
                                         if (dField) {
                                             const fieldKey = dField.id || dField.label;
