@@ -628,7 +628,7 @@ const handleDeleteForever = async () => {
 const EVENT_LABELS: Record<string, string> = {
   RENEWAL:          "💰 Renovação",
   CLIENT_CREATED:   "🆕 Cliente criado",
-  TRIAL_CREATED:    "🧪 Teste criado",
+  TRIAL_CREATED:    "🕒 Teste criado",
   CLIENT_ARCHIVED:  "📦 Arquivado",
   CLIENT_RESTORED:  "♻️ Restaurado",
   TRIAL_CONVERTED:  "✨ Convertido",
@@ -712,7 +712,7 @@ const EVENT_LABELS: Record<string, string> = {
   className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
   title="Criar teste rápido com os dados deste cliente"
 >
-  🧪
+  🕒
   <span className="hidden sm:inline">Teste Rápido</span>
 </button>
 
@@ -767,7 +767,7 @@ const EVENT_LABELS: Record<string, string> = {
                        return (
                           <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
                              <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
-                             <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
+                             <span className={`text-xs text-right ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
                                 {app.expiration 
                                    ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
                                    : "Vencimento: Não definido"}
