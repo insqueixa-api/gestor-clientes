@@ -697,32 +697,33 @@ const EVENT_LABELS: Record<string, string> = {
 
         {/* Botão Editar */}
         <button
-          onClick={() => { setIsEditingLoading(true); setTimeout(() => { setShowEditModal(true); setIsEditingLoading(false); }, 5000); }}
-          disabled={isEditingLoading}
-          className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+          onClick={() => setShowEditModal(true)}
+          className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
           title="Editar"
         >
-          {isEditingLoading ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : <IconEdit />}
+          <IconEdit />
           <span className="hidden sm:inline">Editar</span>
         </button>
 
 {/* ✅ Botão Teste Rápido */}
 <button
-  onClick={() => { setIsTrialLoading(true); setTimeout(() => { setShowQuickTrialModal(true); setIsTrialLoading(false); }, 5000); }}
-  disabled={client.client_is_archived || isTrialLoading}
-  className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-wait"
+  onClick={() => setShowQuickTrialModal(true)}
+  disabled={client.client_is_archived}
+  className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
   title="Criar teste rápido com os dados deste cliente"
 >
-  {isTrialLoading ? <svg className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : "🧪"}
+  🧪
   <span className="hidden sm:inline">Teste Rápido</span>
-</button>{/* Botão Renovar */}
+</button>
+
+{/* Botão Renovar */}
 <button
-  onClick={() => { setIsRenewLoading(true); setTimeout(() => { handleRenewClick(); setIsRenewLoading(false); }, 5000); }}
-          disabled={client.client_is_archived || isRenewLoading}
-          className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-70 disabled:cursor-wait inline-flex items-center gap-2 justify-center"
+  onClick={handleRenewClick}
+          disabled={client.client_is_archived}
+          className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 justify-center"
           title="Renovar"
         >
-          {isRenewLoading ? <svg className="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : <IconMoney />}
+          <IconMoney />
           <span className="hidden sm:inline">Renovar</span>
         </button>
       </div>
@@ -763,25 +764,16 @@ const EVENT_LABELS: Record<string, string> = {
                        const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
                        const label = temIntegracao ? `⚡ ${app.name}` : app.name;
 
-                       // Calcula o vencimento para pintar de vermelho se <= 30 dias
-                       let isExpiringSoon = false;
-                       if (app.expiration) {
-                           const today = new Date(); today.setHours(0,0,0,0);
-                           const expDate = new Date(`${app.expiration}T12:00:00`); expDate.setHours(0,0,0,0);
-                           const diff = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                           if (diff <= 30) isExpiringSoon = true;
-                       }
-
-                       return (
-                          <div key={app.id || app.name + Math.random()} className="flex justify-between items-center gap-4">
-                             <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
-                             <span className={`text-xs text-right shrink-0 ${!app.expiration ? "text-slate-400 dark:text-white/30 italic" : isExpiringSoon ? "text-rose-600 dark:text-rose-500 font-bold" : "text-slate-600 dark:text-white/70 font-medium"}`}>
+                       return (
+                          <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
+                             <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
+                             <span className={`text-xs ${app.expiration ? "text-slate-600 dark:text-white/70 font-medium" : "text-slate-400 dark:text-white/30 italic"}`}>
                                 {app.expiration 
                                    ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
                                    : "Vencimento: Não definido"}
                              </span>
-                          </div>
-                       );
+                          </div>
+                       );
                     })}
                  </div>
               )}
