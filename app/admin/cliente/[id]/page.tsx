@@ -210,14 +210,14 @@ const clientIdSafe = (clientId ?? "").trim();
 const [showEditModal, setShowEditModal] = useState(false);
 const [showRenewModal, setShowRenewModal] = useState(false);
 const [showQuickTrialModal, setShowQuickTrialModal] = useState(false); // ✅ NOVO
-  
-  // ✅ NOVO: Estado para o aviso de alerta antes da renovação
-  const [showRenewWarning, setShowRenewWarning] = useState(false);
 
-  // ✅ Estados simples para os spinners dos botões superiores
-  const [isEditingLoading, setIsEditingLoading] = useState(false);
-  const [isTrialLoading, setIsTrialLoading] = useState(false);
-  const [isRenewLoading, setIsRenewLoading] = useState(false);
+// ✅ Estados para os spinners de 5 segundos nos botões
+const [isEditingLoading, setIsEditingLoading] = useState(false);
+const [isTrialLoading, setIsTrialLoading] = useState(false);
+const [isRenewLoading, setIsRenewLoading] = useState(false);
+  
+  // ✅ NOVO: Estado para o aviso de alerta antes da renovação
+  const [showRenewWarning, setShowRenewWarning] = useState(false);
 
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -696,54 +696,36 @@ const EVENT_LABELS: Record<string, string> = {
         </button>
 
         {/* Botão Editar */}
-        <button
-          onClick={() => {
-            setIsEditingLoading(true);
-            setTimeout(() => { setShowEditModal(true); setIsEditingLoading(false); }, 5000);
-          }}
-          disabled={isEditingLoading}
-          className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
-          title="Editar"
-        >
-          {isEditingLoading ? (
-             <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-          ) : <IconEdit />}
-          <span className="hidden sm:inline">Editar</span>
-        </button>
-
-        {/* ✅ Botão Teste Rápido */}
         <button
-          onClick={() => {
-            setIsTrialLoading(true);
-            setTimeout(() => { setShowQuickTrialModal(true); setIsTrialLoading(false); }, 5000);
-          }}
-          disabled={client.client_is_archived || isTrialLoading}
-          className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center disabled:opacity-50 disabled:cursor-wait"
-          title="Criar teste rápido com os dados deste cliente"
+          onClick={() => { setIsEditingLoading(true); setTimeout(() => { setShowEditModal(true); setIsEditingLoading(false); }, 5000); }}
+          disabled={isEditingLoading}
+          className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+          title="Editar"
         >
-          {isTrialLoading ? (
-             <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-          ) : "🧪"}
-          <span className="hidden sm:inline">Teste Rápido</span>
+          {isEditingLoading ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : <IconEdit />}
+          <span className="hidden sm:inline">Editar</span>
         </button>
 
-        {/* Botão Renovar */}
-        <button
-          onClick={() => {
-            setIsRenewLoading(true);
-            // Pequeno truque para girar primeiro e depois chamar a sua função original que abre o modal
-            setTimeout(() => { handleRenewClick(); setIsRenewLoading(false); }, 5000);
-          }}
-          disabled={client.client_is_archived || isRenewLoading}
-          className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-wait"
-          title="Renovar"
-        >
-          {isRenewLoading ? (
-             <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-          ) : <IconMoney />}
-          <span className="hidden sm:inline">Renovar</span>
-        </button>
-      </div>
+{/* ✅ Botão Teste Rápido */}
+<button
+  onClick={() => { setIsTrialLoading(true); setTimeout(() => { setShowQuickTrialModal(true); setIsTrialLoading(false); }, 5000); }}
+  disabled={client.client_is_archived || isTrialLoading}
+  className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center disabled:opacity-70 disabled:cursor-wait"
+  title="Criar teste rápido com os dados deste cliente"
+>
+  {isTrialLoading ? <svg className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : "🧪"}
+  <span className="hidden sm:inline">Teste Rápido</span>
+</button>{/* Botão Renovar */}
+<button
+  onClick={() => { setIsRenewLoading(true); setTimeout(() => { handleRenewClick(); setIsRenewLoading(false); }, 5000); }}
+          disabled={client.client_is_archived || isRenewLoading}
+          className="h-9 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-70 disabled:cursor-wait inline-flex items-center gap-2 justify-center"
+          title="Renovar"
+        >
+          {isRenewLoading ? <svg className="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg> : <IconMoney />}
+          <span className="hidden sm:inline">Renovar</span>
+        </button>
+      </div>
     </div>
 
 
@@ -774,30 +756,25 @@ const EVENT_LABELS: Record<string, string> = {
               </div>
 
               {/* LISTA DE APPS (Com Vencimento Real do Banco - Suportando Múltiplos) */}
-              {(client as any).apps_details && (client as any).apps_details.length > 0 && (
-                 <div className="space-y-3 pt-1">
-                    {(client as any).apps_details.map((app: any) => {
-                       const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
-                       const label = temIntegracao ? `⚡ ${app.name}` : app.name;
+              {(client as any).apps_details && (client as any).apps_details.length > 0 && (
+                 <div className="space-y-3 pt-1">
+                    {(client as any).apps_details.map((app: any) => {
+                       // ✅ Lógica apenas com o raio e o nome do App
+                       const temIntegracao = app.integration_type && app.integration_type !== "SEM_INTEGRACAO";
+                       const label = temIntegracao ? `⚡ ${app.name}` : app.name;
 
-                       // ✅ Cálculo de vencimento individual do App
-                       let diffDays = null;
+                       // Calcula o vencimento para pintar de vermelho se <= 30 dias
                        let isExpiringSoon = false;
                        if (app.expiration) {
                            const today = new Date(); today.setHours(0,0,0,0);
                            const expDate = new Date(`${app.expiration}T12:00:00`); expDate.setHours(0,0,0,0);
-                           diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                           if (Number.isFinite(diffDays) && diffDays <= 30) {
-                               isExpiringSoon = true;
-                           }
+                           const diff = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                           if (diff <= 30) isExpiringSoon = true;
                        }
 
                        return (
                           <div key={app.id || app.name + Math.random()} className="flex justify-between items-center gap-4">
-                             {/* ✅ flex-1 e truncate no nome para nunca estourar a tela */}
-                             <span className="text-slate-500 dark:text-white/40 font-medium truncate flex-1" title={label}>{label}</span>
-                             
-                             {/* ✅ text-right e shrink-0 na data para ficar alinhada e intacta */}
+                             <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
                              <span className={`text-xs text-right shrink-0 ${!app.expiration ? "text-slate-400 dark:text-white/30 italic" : isExpiringSoon ? "text-rose-600 dark:text-rose-500 font-bold" : "text-slate-600 dark:text-white/70 font-medium"}`}>
                                 {app.expiration 
                                    ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
@@ -805,9 +782,9 @@ const EVENT_LABELS: Record<string, string> = {
                              </span>
                           </div>
                        );
-                    })}
-                 </div>
-              )}
+                    })}
+                 </div>
+              )}
 
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
