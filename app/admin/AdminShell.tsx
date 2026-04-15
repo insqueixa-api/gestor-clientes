@@ -237,10 +237,24 @@ export default function AdminShell({
 
             {/* ✅ DESKTOP: mantém tudo */}
             <div className="hidden sm:flex items-center gap-1">
-              <NavLink href="/admin" label="📊 Dashboard" />
+              <NavLink 
+  href="/admin" 
+  label={
+    <span className="flex items-center gap-1.5">
+      <IconDashboard /> Dashboard
+    </span>
+  } 
+/>
               <NavLink href="/admin/cliente" label="👥 Clientes" />
               <NavLink href="/admin/revendedor" label="🤝 Revendas" />
-              <NavLink href="/admin/teste" label="🕒 Testes" />
+              <NavLink 
+  href="/admin/teste" 
+  label={
+    <span className="flex items-center gap-1.5">
+      <IconFastTimer /> Testes
+    </span>
+  } 
+/>
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
@@ -330,10 +344,26 @@ export default function AdminShell({
               Navegação 
             </div>
 
-            <MenuLink href="/admin" label="📊 Dashboard" onClick={() => setOpenMenu(null)} />
+            <MenuLink 
+  href="/admin" 
+  label={
+    <span className="flex items-center gap-2">
+      <IconDashboard /> Dashboard
+    </span>
+  } 
+  onClick={() => setOpenMenu(null)} 
+/>
             <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/teste" label="🕒 Testes" onClick={() => setOpenMenu(null)} />
+            <MenuLink 
+  href="/admin/teste" 
+  label={
+    <span className="flex items-center gap-2">
+      <IconFastTimer /> Testes
+    </span>
+  } 
+  onClick={() => setOpenMenu(null)} 
+/>
 
             <Divider />
 
@@ -622,6 +652,27 @@ function IconWhatsApp() {
     >
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
       <path d="M9 10c0 .5.5 1.5 1.5 2.5s2 1.5 2.5 1.5.5 0 .5-.5" />
+    </svg>
+  );
+}
+function IconFastTimer() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="13" x2="5" y2="13" />
+      <line x1="3" y1="9" x2="6" y2="9" />
+      <circle cx="13" cy="13" r="7" />
+      <polyline points="13 10 13 13 15 15" />
+      <line x1="10" y1="3" x2="16" y2="3" />
+    </svg>
+  );
+}
+function IconDashboard() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" />
+      <rect x="14" y="3" width="7" height="5" />
+      <rect x="14" y="11" width="7" height="10" />
+      <rect x="3" y="15" width="7" height="6" />
     </svg>
   );
 }
