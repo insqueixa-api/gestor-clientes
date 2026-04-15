@@ -4864,30 +4864,63 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                 {/* LISTA DE APPS JÁ ADICIONADOS */}
                 <div className="space-y-3">
-                  {selectedApps.map((app) => {
-                    const catApp = catalog.find(c => c.id === app.app_id) as any;
-                    const integrationType = String(catApp?.integration_type || "").trim().toUpperCase();
-                    const hasInteg = Boolean(integrationType);
-                    const appLabel = integrationType === "GERENCIAAPP" ? "GerenciaApp" : integrationType === "DUPLECAST" ? "Duplecast" : integrationType;
+                  {selectedApps.map((app) => {
+                    const catApp = catalog.find(c => c.id === app.app_id) as any;
+                    const integrationType = String(catApp?.integration_type || "").trim().toUpperCase();
+                    const hasInteg = Boolean(integrationType);
+                    const appLabel = integrationType === "GERENCIAAPP" ? "GerenciaApp" : integrationType === "DUPLECAST" ? "Duplecast" : integrationType;
 
-                    return (
-                      <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
-                        
-                        {/* HEADER DO CARD (Sempre visível) */}
-                        <div className="flex justify-between items-center">
-                          <div 
-                            className="flex items-center gap-2 cursor-pointer select-none"
-                            onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
-                          >
-                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                               📱 {app.name}
-                               {hasInteg && (
-                                 <span title={`Integração: ${integrationType}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
-                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
-                                   <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">{appLabel}</span>
-                                 </span>
-                               )}
-                             </span>
+                    // ✅ CÁLCULO DE VENCIMENTO DO APP
+                    let diffDays = null;
+                    let isExpiringSoon = false;
+                    const dateField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                    if (dateField) {
+                        const fieldKey = dateField.id || dateField.label;
+                        const expireDateIso = fieldKey ? app.values[String(fieldKey)] : "";
+                        if (expireDateIso) {
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            const expDate = new Date(`${expireDateIso}T12:00:00`); // Força meio-dia para evitar fuso
+                            expDate.setHours(0,0,0,0);
+                            const diffTime = expDate.getTime() - today.getTime();
+                            diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            if (Number.isFinite(diffDays) && diffDays <= 30) {
+                                isExpiringSoon = true;
+                            }
+                        }
+                    }
+
+                    return (
+                      <div key={app.instanceId} className="px-3 pt-2 pb-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 relative group">
+                        
+                        {/* HEADER DO CARD (Sempre visível) */}
+                        <div className="flex justify-between items-center">
+                          <div 
+                            className="flex items-center gap-2 cursor-pointer select-none"
+                            onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
+                          >
+                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                               📱 {app.name}
+                               {hasInteg && (
+                                 <span title={`Integração: ${integrationType}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
+                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                                   <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">{appLabel}</span>
+                                 </span>
+                               )}
+                               
+                               {/* ✅ TAG DE VENCIMENTO DO APP */}
+                               {isExpiringSoon && diffDays !== null && (
+                                 <span title={diffDays < 0 ? "Aplicativo Vencido no Painel" : `Vence no painel em ${diffDays} dias`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse shadow-sm">
+                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <circle cx="12" cy="12" r="10"></circle>
+                                      <polyline points="12 6 12 12 16 14"></polyline>
+                                   </svg>
+                                   <span className="text-[9px] font-bold uppercase tracking-wider hidden sm:inline">
+                                      {diffDays < 0 ? "Vencido" : diffDays === 0 ? "Vence Hoje" : "Vencendo"}
+                                   </span>
+                                 </span>
+                               )}
+                             </span>
                              <span className="text-[10px] text-slate-400 font-medium transition-colors hover:text-slate-600 dark:hover:text-white/60">
                                {app.is_minimized ? "▼ Mostrar detalhes" : "▲ Ocultar detalhes"}
                              </span>
