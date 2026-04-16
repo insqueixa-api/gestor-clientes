@@ -2212,10 +2212,30 @@ const payloadDelete = {
     }, 20000);
   }
 
+  // ✅ Mobile: scroll automático para o input focado quando o teclado abre
+useEffect(() => {
+  if (typeof window === "undefined" || !window.visualViewport) return;
+
+  const handleViewportResize = () => {
+    const el = document.activeElement;
+    if (
+      el instanceof HTMLElement &&
+      (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")
+    ) {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+    }
+  };
+
+  window.visualViewport.addEventListener("resize", handleViewportResize);
+  return () => window.visualViewport?.removeEventListener("resize", handleViewportResize);
+}, []);
+
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
 async function executeSave() {
 
-    setConfirmModal(null); // Fecha o popup se estiver aberto
+    setConfirmModal(null); // Fecha o popup se estiver aberto
 
     setLoading(true);
 
@@ -2315,27 +2335,6 @@ const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
 
 
 // ✅ valor vem da tabela automaticamente via useEffect quando priceTouched=false
-
-// ✅ Mobile: scroll automático para o input focado quando o teclado abre
-useEffect(() => {
-  if (typeof window === "undefined" || !window.visualViewport) return;
-
-  const handleViewportResize = () => {
-    const el = document.activeElement;
-    if (
-      el instanceof HTMLElement &&
-      (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")
-    ) {
-      setTimeout(() => {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 80);
-    }
-  };
-
-  window.visualViewport.addEventListener("resize", handleViewportResize);
-  return () => window.visualViewport?.removeEventListener("resize", handleViewportResize);
-}, []);
-
 // ✅ e vira override quando você digita (priceTouched=true)
 
 const rpcPriceAmount = safeNumberFromMoneyBR(planPrice);
