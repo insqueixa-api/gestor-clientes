@@ -145,7 +145,7 @@ whatsapp_e164: string | null;
 
   apps_names: string[] | null; // View retorna array de texto
   alerts_open: number | null;
-  min_app_expiry: string | null; // ✅ ADICIONADO: Nova coluna da View
+  apps_data: Array<{ name: string; integration_type: string; expire_date: string | null }> | null;
 
   notes: string | null;
 
@@ -187,7 +187,7 @@ type ClientRow = {
   archived: boolean;
   alertsCount: number;
   apps: string[]; // ✅ Novo campo para a lista de apps
-  minAppExpiry: string | null; // ✅ ADICIONADO: Propriedade para o filtro usar
+  appsData: Array<{ name: string; integration_type: string; expire_date: string | null }> | null;
 
   // --- DADOS PARA O MODAL DE EDIÇÃO ---
   server_id: string;
@@ -737,7 +737,7 @@ if (appsData && appsData.length > 0) {
         archived: Boolean(r.client_is_archived),
         alertsCount: Number(r.alerts_open || 0),
         apps: r.apps_names || [],
-        minAppExpiry: r.min_app_expiry || null, // ✅ CORRIGIDO: Sem o (as any) porque tipamos ali em cima
+        appsData: (r.apps_data as Array<{ name: string; integration_type: string; expire_date: string | null }> | null) || null,
 
         server_id: String(r.server_id ?? ""),
         // ✅ ADICIONADO: Mapeia o ID vindo da view
@@ -876,8 +876,12 @@ function toOpenableUrl(v: string) {
     // ✅ Filtro Único de Aplicativos (Vencimento ou Nome do App)
     if (appFilter !== "Todos") {
       if (appFilter === "15_dias" || appFilter === "30_dias") {
-        if (!r.minAppExpiry) return false;
-        const diff = getDiffDays(r.minAppExpiry);
+        const minExpiry = r.appsData
+  ?.filter(a => a.expire_date)
+  .map(a => a.expire_date!)
+  .sort()[0] ?? null;
+if (!minExpiry) return false;
+const diff = getDiffDays(minExpiry);
         if (appFilter === "15_dias" && diff > 15) return false;
         if (appFilter === "30_dias" && diff > 30) return false;
       } else {
@@ -2187,40 +2191,56 @@ return (
   <div className="flex flex-wrap gap-1 justify-center w-full overflow-hidden">
     {r.apps && r.apps.length > 0 ? (
       r.apps.map((app, i) => {
-        // ✅ Recupera o app original do catálogo apenas para ler se tem integração
-        const catApp = appsIndex.byName[normAppKey(app)] as any;
+  const catApp = appsIndex.byName[normAppKey(app)] as any;
 
-        return (
-          <button
-            key={`${app}-${i}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              // 🌟 A mágica: Abre o Modal perfeito do NovoCliente já na aba certa!
-              openEditById(r.id, "apps"); 
-            }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
-            title={`Configurar aplicativo: ${app}`}
-          >
-            <span className="truncate flex-1 min-w-0 text-left">{app}</span>
+  // ✅ Vencimento: busca a primeira instância deste app com data
+  const appExpiry = r.appsData?.find(a => a.name === app && a.expire_date)?.expire_date ?? null;
+  const appDiffDays = appExpiry ? getDiffDays(appExpiry) : null;
+  const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
-            {/* ✅ Ícone da Integração (Azul) */}
-            {catApp?.integration_type && catApp.integration_type !== "SEM_INTEGRACAO" && (
-              <span 
-                className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400" 
-                title={
-                  catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
-                  catApp.integration_type === "DUPLECAST" ? "Duplecast" :
-                  catApp.integration_type === "IBOSOL" ? "Ibo Sol" :
-                  catApp.integration_type === "IBOPRO" ? "Ibo Pro" :
-                  catApp.integration_type
-                }
-              >
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-              </span>
-            )}
-          </button>
-        );
-      })
+  return (
+    <button
+      key={`${app}-${i}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        openEditById(r.id, "apps");
+      }}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+      title={`Configurar aplicativo: ${app}`}
+    >
+      <span className="truncate flex-1 min-w-0 text-left">{app}</span>
+
+      {/* Ícone da Integração (Azul) */}
+      {catApp?.integration_type && catApp.integration_type !== "SEM_INTEGRACAO" && (
+        <span
+          className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-sky-100 dark:bg-sky-500/20 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400"
+          title={
+            catApp.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
+            catApp.integration_type === "DUPLECAST" ? "Duplecast" :
+            catApp.integration_type === "IBOSOL" ? "Ibo Sol" :
+            catApp.integration_type === "IBOPRO" ? "Ibo Pro" :
+            catApp.integration_type
+          }
+        >
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </span>
+      )}
+
+      {/* ✅ Ícone de Vencimento do App (Rose) */}
+      {appIsExpiring && (
+        <span
+          className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse"
+          title={appDiffDays! < 0 ? "Vencido no painel" : `App vence em ${appDiffDays} dias`}
+        >
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
+      )}
+    </button>
+  );
+})
     ) : (
       <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>
     )}
