@@ -1993,7 +1993,7 @@ return (
             <table className="w-full text-left border-collapse min-w-[250px]">
 
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/40">
+                <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={40}>
                   <input
                     ref={selectAllRef}
@@ -2088,16 +2088,16 @@ return (
     </div>
     
     {/* Alterado: Username agora com font-medium e cor mais forte (slate-500 ao invés de 400) */}
-<span className={`text-xs font-medium text-slate-500 dark:text-white/60 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+<span className={`text-xs font-medium text-slate-500 dark:text-white/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
   {r.username}
 </span>
 {r.whatsapp_username && (
-  <span className={`text-xs font-medium text-emerald-600 dark:text-emerald-500/80 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+  <span className={`text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
     @{r.whatsapp_username}
   </span>
 )}
 {r.secondary_whatsapp_username && (
-  <span className={`text-xs font-normal text-slate-400 dark:text-white/30 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+  <span className={`text-xs font-normal text-slate-400 dark:text-white/45 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
     @{r.secondary_whatsapp_username}
   </span>
 )}
@@ -2164,21 +2164,21 @@ return (
 </Td>
 
 <Td align="center">
-  <span className="text-slate-600 dark:text-white/70">{r.server}</span>
+  <span className="text-slate-600 dark:text-white/80">{r.server}</span>
 </Td>
 
 <Td align="center">
-  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10 uppercase">
+  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-white/75 border border-slate-200 dark:border-white/15 uppercase">
     {r.technology}
   </span>
 </Td>
 
 <Td align="center">
-  <span className="text-slate-600 dark:text-white/70">{r.screens}</span>
+  <span className="text-slate-600 dark:text-white/80">{r.screens}</span>
 </Td>
 
 <Td align="center">
-  <span className="text-slate-600 dark:text-white/80">{r.planPeriod}</span>
+  <span className="text-slate-600 dark:text-white/85">{r.planPeriod}</span>
 </Td>
 
 <Td align="center">
@@ -3063,7 +3063,7 @@ function StatusBadge({
   }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/10 text-${color}-700 dark:text-${color}-500 border-${color}-200 dark:border-${color}-500/20 whitespace-nowrap`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/[0.13] text-${color}-700 dark:text-${color}-300 border-${color}-200 dark:border-${color}-400/25 whitespace-nowrap`}>
       {customLabel || status}
     </span>
   );
