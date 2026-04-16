@@ -48,10 +48,14 @@ export async function POST(req: NextRequest) {
     }
 
     const loginData = await loginRes.json().catch(() => ({}));
-    const token = loginData?.token || loginData?.data?.token;
+    
+    // ✅ O Quick Player devolve o Token JWT dentro da variável "message" (padrão da API deles)
+    const token = (typeof loginData?.message === "string" && loginData.message.startsWith("ey"))
+        ? loginData.message 
+        : loginData?.token || loginData?.data?.token;
 
     if (!token) {
-      return NextResponse.json({ ok: false, error: loginData?.message || "Falha no Login. Token não retornado." });
+      return NextResponse.json({ ok: false, error: typeof loginData?.message === "string" ? loginData.message : "Falha no Login. Token não retornado." });
     }
 
     const authHeaders = { ...baseHeaders, "authorization": `Bearer ${token}` };
