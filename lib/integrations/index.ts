@@ -2,6 +2,7 @@ import { GerenciaAppIntegration } from "./gerenciaapp";
 import { DupleCastIntegration } from "./duplecast";
 import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
+import { QuickPlayerAPI as QuickPlayerIntegration } from "@/app/api/integrations/apps/quickplayer/quickplayer";
 
 const INTEGRATION_REGISTRY: Record<string, any> = {
     "GERENCIAAPP":      GerenciaAppIntegration, // ✅ Nova chave oficial
@@ -16,6 +17,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "DUPLECAST":        DupleCastIntegration, 
     "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
+    "QUICKPLAYER":      QuickPlayerIntegration,
 };
 
 export function getIntegrationHandler(integrationType: string) {

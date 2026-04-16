@@ -1882,6 +1882,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
           else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
           else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
+          else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER") intType = "QUICKPLAYER";
           else intType = ""; // Se não for nenhum desses, NÃO tem integração.
 
           if (intType) {
@@ -1962,10 +1963,10 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     // 2. Constrói o pacote com o arquivo isolado do app
     const appPin = appIntegData?.pin || ""; // ✅ Puxando da nova coluna 'pin'
     const payload = handler.buildCreatePayload({
-        username,
-        // ✅ IBOSOL agora também manda o PIN
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") ? appPin : password,
-        macValue,
+        username,
+        // ✅ IBOSOL e QUICKPLAYER mandam o PIN do banco
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPin : password,
+        macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
         m3uUrl: m3uToSend,
@@ -2130,8 +2131,8 @@ const payloadDelete = {
         serverName: selectedServerName.replace(/\s+/g, ""),
         macValue: getMacFromApp(currentApp),
         appName: appName,
-        // ✅ Envia o PIN do banco para DUPLECAST, IBOSOL e IBOPRO. Caso contrário, envia a senha do painel.
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") ? appPinDelete : password,
+        // ✅ Envia o PIN do banco também para o Quick Player
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPinDelete : password,
     }),
     deviceKey: getDeviceKeyFromApp(currentApp),
 };
@@ -3016,54 +3017,82 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     const appPinAuto = appIntegData?.pin || "";
 
                     // Deixa a biblioteca externa montar o pacote
-                    const payloadAutomacao = handler.buildCreatePayload({
-                        username: apiUsername,
-                        // ✅ IBOSOL também manda o PIN na automação
-                        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL") ? appPinAuto : apiPassword,
-                        macValue: macValueAuto,
-                        finalServerName,
-                        m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
-                        appName: app.name 
-                    });
+                    const payloadAutomacao = handler.buildCreatePayload({
+                        username: apiUsername,
+                        // ✅ Todos os apps que exigem senha/PIN na automação
+                        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPinAuto : apiPassword,
+                        macValue: macValueAuto,
+                        finalServerName,
+                        m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
+                        appName: app.name 
+                    });
 
-                    await new Promise((resolve) => {
-                        const evtHandler = async (e: any) => {
-                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                            if (e.detail?.ok) {
-                                // ✅ DUPLECAST, IBOSOL e IBOPRO leem a data vinda da extensão
-                                if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO") {
-                                    if (e.detail.expireDate) {
-                                        const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
-                                        if (dField) {
-                                            const fieldKey = dField.id || dField.label;
-                                            const { data } = await supabaseBrowser.from("client_apps").select("field_values").eq("client_id", clientId).eq("app_id", app.app_id).maybeSingle();
-                                            const dbVals = data?.field_values || {};
-                                            await supabaseBrowser.from("client_apps").update({ field_values: { ...dbVals, [String(fieldKey)]: e.detail.expireDate } }).eq("client_id", clientId).eq("app_id", app.app_id);
-                                        }
-                                        queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}` });
-                                    } else {
-                                        // ✅ CORRIGIDO: Passando "success" em vez de "warning" para respeitar a tipagem do TypeScript
-                                        queueListToast("trial", { type: "success", title: "Atenção", message: `${app.name} ativado, mas sem vencimento localizado.` });
-                                    }
-                                } else {
-                                    queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
-                                }
-                            } else {
-                                queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
-                            }
-                            resolve(true);
-                        };
-                        window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                    // ✅ Distingue apps via API (QuickPlayer, IboSol) vs Extensão (Duplecast)
+                    if ((handler as any).useApi) {
+                        const dkFieldAuto = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "device_key" || String(f?.label || "").toLowerCase().includes("device key"));
+                        const deviceKeyAuto = dkFieldAuto ? (app.values[String(dkFieldAuto.id || dkFieldAuto.label || "").trim()] || "") : "";
+
+                        const apiRes = await fetch((handler as any).apiEndpoint, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ...payloadAutomacao, base_url: appBaseUrl, deviceKey: deviceKeyAuto }),
+                        });
+                        const apiJson = await apiRes.json().catch(() => ({}));
                         
-                        window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                            detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payloadAutomacao }
-                        }));
+                        if (apiJson?.ok) {
+                            if (apiJson.expireDate) {
+                                const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                                if (dField) {
+                                    const fieldKey = dField.id || dField.label;
+                                    const { data } = await supabaseBrowser.from("client_apps").select("field_values").eq("client_id", clientId).eq("app_id", app.app_id).maybeSingle();
+                                    const dbVals = data?.field_values || {};
+                                    await supabaseBrowser.from("client_apps").update({ field_values: { ...dbVals, [String(fieldKey)]: apiJson.expireDate } }).eq("client_id", clientId).eq("app_id", app.app_id);
+                                }
+                                queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado. Vencimento: ${apiJson.expireDate.split('-').reverse().join('/')}` });
+                            } else {
+                                queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
+                            }
+                        } else {
+                            queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
+                        }
+                    } else {
+                        await new Promise((resolve) => {
+                            const evtHandler = async (e: any) => {
+                                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                                if (e.detail?.ok) {
+                                    if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") {
+                                        if (e.detail.expireDate) {
+                                            const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                                            if (dField) {
+                                                const fieldKey = dField.id || dField.label;
+                                                const { data } = await supabaseBrowser.from("client_apps").select("field_values").eq("client_id", clientId).eq("app_id", app.app_id).maybeSingle();
+                                                const dbVals = data?.field_values || {};
+                                                await supabaseBrowser.from("client_apps").update({ field_values: { ...dbVals, [String(fieldKey)]: e.detail.expireDate } }).eq("client_id", clientId).eq("app_id", app.app_id);
+                                            }
+                                            queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado. Vencimento extraído: ${e.detail.expireDate.split('-').reverse().join('/')}` });
+                                        } else {
+                                            queueListToast("trial", { type: "success", title: "Atenção", message: `${app.name} ativado, mas sem vencimento localizado.` });
+                                        }
+                                    } else {
+                                        queueListToast("trial", { type: "success", title: "App Integrado", message: `${app.name} ativado com sucesso!` });
+                                    }
+                                } else {
+                                    queueListToast("trial", { type: "error", title: "Aviso do App", message: `Falha ao integrar ${app.name}.` });
+                                }
+                                resolve(true);
+                            };
+                            window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                            
+                            window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                                detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: payloadAutomacao }
+                            }));
 
-                        setTimeout(() => {
-                            window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                            resolve(false);
-                        }, 12000);
-                    });
+                            setTimeout(() => {
+                                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                                resolve(false);
+                            }, 12000);
+                        });
+                    }
 
                   } catch (errApp) {
                     console.error("Falha na automação do App:", app.name, errApp);
