@@ -1990,21 +1990,40 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...payload, base_url: appBaseUrl, deviceKey: deviceKeyForApi }),
             });
+            
             const apiJson = await apiRes.json().catch(() => ({}));
-            setLoading(false);
-            setLoadingStep("");
+            setLoading(false);
+            setLoadingStep("");
 
-            if (apiJson?.ok) {
-                if (apiJson.expireDate && dateField) {
-                    const fieldKey = dateField.id || dateField.label;
-                    updateAppFieldValue(currentApp!.instanceId, String(fieldKey), apiJson.expireDate);
-                    addToast("success", "Integrado!", `App configurado! Vencimento: ${apiJson.expireDate.split('-').reverse().join('/')}`);
-                } else {
-                    addToast("success", "Integrado!", apiJson.message || "Configurado com sucesso.");
-                }
-            } else {
-                addToast("error", "Erro na Integração", apiJson?.error || "Falha.");
-            }
+            if (apiJson?.ok) {
+                if (apiJson.expireDate && dateField) {
+                    const fieldKey = dateField.id || dateField.label;
+                    
+                    // ✅ 1. Atualiza no state (para aparecer na tela na hora)
+                    updateAppFieldValue(currentApp!.instanceId, String(fieldKey), apiJson.expireDate);
+                    
+                    // ✅ 2. SALVA NO BANCO IMEDIATAMENTE (Igual fazemos com a extensão)
+                    const { data: currentDbData } = await supabaseBrowser
+                      .from("client_apps")
+                      .select("field_values")
+                      .eq("client_id", clientToEdit!.id)
+                      .eq("app_id", currentApp.app_id)
+                      .maybeSingle();
+                      
+                    const dbVals = currentDbData?.field_values || {};
+                    await supabaseBrowser
+                      .from("client_apps")
+                      .update({ field_values: { ...dbVals, [String(fieldKey)]: apiJson.expireDate } })
+                      .eq("client_id", clientToEdit!.id)
+                      .eq("app_id", currentApp.app_id);
+
+                    addToast("success", "Integrado!", `App configurado! Vencimento: ${apiJson.expireDate.split('-').reverse().join('/')}`);
+                } else {
+                    addToast("success", "Integrado!", apiJson.message || "Configurado com sucesso.");
+                }
+            } else {
+                addToast("error", "Erro na Integração", apiJson?.error || "Falha.");
+            }
         } catch (err: any) {
             setLoading(false);
             setLoadingStep("");
