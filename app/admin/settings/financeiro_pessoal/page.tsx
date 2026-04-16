@@ -902,11 +902,11 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
                   <td className="px-4 py-3 text-center">
                     {t.tipo === "RECEITA" ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
                         <IconTrendingUp /> Receita
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
                         <IconTrendingDown /> Despesa
                       </span>
                     )}
@@ -918,15 +918,15 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
                   <td className="px-4 py-3 text-center">
                     {(() => {
-                      let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"; 
+                      let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
                       let label = cStatus;
 
                       // Lógica inteligente para o rótulo de pagamento/recebimento
                       if (cStatus === "PAGO") {
-                        cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/20";
+                        cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
                         label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
                       } else if (cStatus === "VENCIDO") {
-                        cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/20";
+                        cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
                       }
 
                       return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{label}</span>;

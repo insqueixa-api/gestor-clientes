@@ -3063,7 +3063,7 @@ function StatusBadge({
   }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/[0.13] text-${color}-700 dark:text-${color}-300 border-${color}-200 dark:border-${color}-400/25 whitespace-nowrap`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/20 text-${color}-700 dark:text-${color}-200 border-${color}-200 dark:border-${color}-400/30 whitespace-nowrap`}>
       {customLabel || status}
     </span>
   );
