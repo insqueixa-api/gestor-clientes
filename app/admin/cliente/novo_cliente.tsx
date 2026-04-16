@@ -1530,7 +1530,7 @@ normalizedValues[finalKey] = isMac
 
     partnerServerId: _config_partner || "",
 
-    is_minimized: true,
+    is_minimized: isEditing, // editando = minimizado; criando teste = aberto
 
   };
 
@@ -2295,6 +2295,26 @@ const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
 
 
 // ✅ valor vem da tabela automaticamente via useEffect quando priceTouched=false
+
+// ✅ Mobile: scroll automático para o input focado quando o teclado abre
+useEffect(() => {
+  if (typeof window === "undefined" || !window.visualViewport) return;
+
+  const handleViewportResize = () => {
+    const el = document.activeElement;
+    if (
+      el instanceof HTMLElement &&
+      (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")
+    ) {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+    }
+  };
+
+  window.visualViewport.addEventListener("resize", handleViewportResize);
+  return () => window.visualViewport?.removeEventListener("resize", handleViewportResize);
+}, []);
 
 // ✅ e vira override quando você digita (priceTouched=true)
 
@@ -4933,43 +4953,67 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             {/* Configuração de Integração do App Limpa e Moderna */}
                             {hasInteg && (
                                 <div className="bg-transparent border-0 mb-3 mt-2">
-                                  <div className="grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                onClick={() => handleConfigApp(app.instanceId)}
-                                className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                                title="Enviar dados para o painel"
-                            >
-                                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <span className="hidden sm:inline">Configurar m3u</span>
-                                <span className="sm:hidden">Configurar</span>
-                            </button>
-
-                            {isEditing && (
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        const ok = await confirmDeleteApp({
-                                            title: `Remover do ${appLabel}?`,
-                                            subtitle: `Isso apagará o MAC do painel oficial.`,
-                                            tone: "rose",
-                                            confirmText: "Sim, remover",
-                                            cancelText: "Cancelar"
-                                        });
-                                        if (ok) await handleDeleteApp(app.instanceId);
-                                    }}
-                                    className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
-                                    title="Remover do painel oficial"
-                                >
-                                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    <span className="hidden sm:inline">Remover m3u</span>
-                                    <span className="sm:hidden">Remover</span>
-                                </button>
-                            )}
-                        </div>
+                                  {isEditing ? (
+                                    // EDIÇÃO: botões de ação direta
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                          type="button"
+                                          onClick={() => handleConfigApp(app.instanceId)}
+                                          className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                                          title="Enviar dados para o painel"
+                                      >
+                                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                          <span className="hidden sm:inline">Configurar m3u</span>
+                                          <span className="sm:hidden">Configurar</span>
+                                      </button>
+                                      <button
+                                          type="button"
+                                          onClick={async () => {
+                                              const ok = await confirmDeleteApp({
+                                                  title: `Remover do ${appLabel}?`,
+                                                  subtitle: `Isso apagará o MAC do painel oficial.`,
+                                                  tone: "rose",
+                                                  confirmText: "Sim, remover",
+                                                  cancelText: "Cancelar"
+                                              });
+                                              if (ok) await handleDeleteApp(app.instanceId);
+                                          }}
+                                          className="h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                                          title="Remover do painel oficial"
+                                      >
+                                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                          <span className="hidden sm:inline">Remover m3u</span>
+                                          <span className="sm:hidden">Remover</span>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    // CRIAÇÃO (Teste / Teste Rápido): toggle de configuração automática
+                                    <div
+                                      onClick={() => updateAppConfig(app.instanceId, "auto_configure", !(app.auto_configure !== false))}
+                                      className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
+                                        app.auto_configure !== false
+                                          ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
+                                          : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <svg className={`w-3.5 h-3.5 shrink-0 ${app.auto_configure !== false ? "text-sky-600 dark:text-sky-400" : "text-slate-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                        </svg>
+                                        <span className={`text-xs font-bold ${app.auto_configure !== false ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
+                                          Configurar {appLabel} automaticamente
+                                        </span>
+                                      </div>
+                                      <Switch
+                                        checked={app.auto_configure !== false}
+                                        onChange={(v) => updateAppConfig(app.instanceId, "auto_configure", v)}
+                                        label=""
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                             )}
 
