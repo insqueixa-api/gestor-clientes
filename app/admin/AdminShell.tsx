@@ -210,7 +210,7 @@ export default function AdminShell({
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href="/admin/cliente" label="👥 Clientes" />
+              <NavLink href="/admin/cliente" label=<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span> />
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -245,8 +245,8 @@ export default function AdminShell({
     </span>
   } 
 />
-              <NavLink href="/admin/cliente" label="👥 Clientes" />
-              <NavLink href="/admin/revendedor" label="🤝 Revendas" />
+              <NavLink href="/admin/cliente" label=<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span> />
+              <NavLink href="/admin/revendedor" label=<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span> />
               <NavLink 
   href="/admin/teste" 
   label={
@@ -268,7 +268,7 @@ export default function AdminShell({
                       : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span>🛠️</span> Gerenciador{" "}
+                  <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
                   <span
                     className={[
                       "transition-transform duration-200 text-[8px] opacity-40",
@@ -290,7 +290,7 @@ export default function AdminShell({
                       : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span>⚙️</span> <span className="hidden sm:inline">Conta</span>{" "}
+                  <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
                   <span
                     className={[
                       "transition-transform duration-200 text-[8px] opacity-40",
@@ -353,8 +353,8 @@ export default function AdminShell({
   } 
   onClick={() => setOpenMenu(null)} 
 />
-            <MenuLink href="/admin/cliente" label="👥 Clientes" onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/revendedor" label="🤝 Revendas" onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/cliente" label=<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span> onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/revendedor" label=<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span> onClick={() => setOpenMenu(null)} />
             <MenuLink 
   href="/admin/teste" 
   label={
@@ -655,28 +655,55 @@ function IconWhatsApp() {
     </svg>
   );
 }
-function IconFastTimer() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="2" y1="13" x2="5" y2="13" />
-      <line x1="3" y1="9" x2="6" y2="9" />
-      <circle cx="13" cy="13" r="7" />
-      <polyline points="13 10 13 13 15 15" />
-      <line x1="10" y1="3" x2="16" y2="3" />
-    </svg>
-  );
-}
 function IconDashboard() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Barra 1 */}
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20V10" />
-      {/* Barra 2 */}
       <path d="M18 20V4" />
-      {/* Barra 3 */}
       <path d="M6 20V14" />
     </svg>
   );
-
+}
+function IconFastTimer() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 14" />
+      <line x1="9" y1="2" x2="15" y2="2" />
+    </svg>
+  );
 }
 
+function IconClientes() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  );
+}
+function IconRevendas() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>
+    </svg>
+  );
+}
+function IconGerenciador() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M16.24 7.76a6 6 0 0 1 0 8.49M4.93 4.93a10 10 0 0 0 0 14.14M7.76 7.76a6 6 0 0 0 0 8.49"/>
+    </svg>
+  );
+}
+function IconConta() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+}
