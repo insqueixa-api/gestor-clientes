@@ -2194,9 +2194,18 @@ return (
   const catApp = appsIndex.byName[normAppKey(app)] as any;
 
   // ✅ Vencimento: busca a primeira instância deste app com data
-  const appExpiry = r.appsData?.find(a => a.name === app && a.expire_date)?.expire_date ?? null;
-  const appDiffDays = appExpiry ? getDiffDays(appExpiry) : null;
-  const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
+  // Para clientes com o mesmo app múltiplas vezes, usa a N-ésima ocorrência correta
+const prevCount = r.apps.slice(0, i).filter(n => n === app).length;
+let matchCount = 0;
+const matchedData = r.appsData?.find(a => {
+  if (a.name !== app) return false;
+  if (matchCount === prevCount) return true;
+  matchCount++;
+  return false;
+}) ?? null;
+const appExpiry = matchedData?.expire_date ?? null;
+const appDiffDays = appExpiry ? getDiffDays(appExpiry) : null;
+const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 
   return (
     <button
