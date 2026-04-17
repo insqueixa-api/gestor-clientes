@@ -615,9 +615,9 @@ setClientStats({
                       <td className="px-5 py-3 whitespace-nowrap font-mono text-[11px] opacity-60">{fmtDate(m.happened_at)}</td>
                       <td className="px-5 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm whitespace-nowrap ${
-                           m.kind === 'PURCHASE' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 
-                           m.kind === 'RESELLER_SALE' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' :
-                           'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                           m.kind === 'PURCHASE' ? 'bg-sky-500/20 text-sky-700 dark:text-sky-200 border-sky-400/30' : 
+                            m.kind === 'RESELLER_SALE' ? 'bg-orange-500/20 text-orange-700 dark:text-orange-200 border-orange-400/30' :
+                            'bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border-emerald-400/30'
                         }`}>
                           {m.kind === 'PURCHASE' ? 'Recarga' : m.kind === 'RESELLER_SALE' ? 'Revenda' : 'Cliente'}
                         </span>

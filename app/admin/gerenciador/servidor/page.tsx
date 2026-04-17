@@ -681,14 +681,14 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                   <div className="space-y-2 pl-0 sm:pl-4 sm:border-l border-slate-100 dark:border-white/5">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">💲 Custo crédito</span>
+                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardCusto /> Custo crédito</span>
                       <span className="font-bold text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(server.credit_unit_cost_brl ?? server.default_credit_unit_price, "BRL")}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">🧾 Saldo atual</span>
+                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardSaldo /> Saldo atual</span>
                       <span className={`font-bold px-2 py-0.5 rounded-lg text-xs ${
                         server.credits_available > 10
                           ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
@@ -722,9 +722,9 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 {/* ✅ INÍCIO DO NOVO BLOCO: PORTAL (SESSÃO WHATSAPP) */}
 <div className="flex justify-between items-center">
   <span className="text-slate-500 dark:text-white/50 flex items-center gap-2">
-    <span className="text-emerald-500" title="WhatsApp do Portal">
-      <IconChat />
-    </span>
+    <span title="WhatsApp do Portal">
+  <IconChat />
+</span>
     WhatsApp Portal
   </span>
   <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
@@ -734,14 +734,14 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 {/* ✅ FIM DO NOVO BLOCO */}
 
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">🧩 Painel</span>
+                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardPainel /> Painel</span>
                       <span className="font-medium text-slate-700 dark:text-white">
                         {server.panel_type === "WEB" ? "Web" : server.panel_type === "TELEGRAM" ? "Telegram" : "--"}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">🌐 DNS config.</span>
+                      <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardDns /> DNS config.</span>
                       <span className="font-bold text-slate-700 dark:text-white">{server.dns?.length || 0}</span>
                     </div>
                   </div>
@@ -875,48 +875,22 @@ function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 function IconRestore() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>; }
 function IconDetails() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>; }
-function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
+function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>; }
 
 
 // Ícone LIGADO (Verde, com raio)
 export function IconPlug() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Plugue e cabo preenchidos em verde */}
-      <path
-        d="M17.1666 1.66669V8.33335H14.8888V1.66669H17.1666ZM10.3333 1.66669V8.33335H8.05552V1.66669H10.3333ZM19.4444 10.5556H5.77775C4.53822 10.5556 3.5 11.5938 3.5 12.8334C3.5 14.0729 4.53822 15.1111 5.77775 15.1111H6.66664L7.47313 16.3726C7.93464 17.0959 8.1654 17.4575 8.26393 17.7857C8.35209 18.0801 8.40109 18.3851 8.4091 18.6928C8.41794 19.0343 8.34737 19.4515 8.20621 20.286L6.66664 30.3334H18.5555L17.0159 20.286C16.8748 19.4515 16.8042 19.0343 16.813 18.6928C16.8211 18.3851 16.8701 18.0801 16.9582 17.7857C17.0568 17.4575 17.2875 17.0959 17.749 16.3726L18.5555 15.1111H19.4444C20.6839 15.1111 21.7222 14.0729 21.7222 12.8334C21.7222 11.5938 20.6839 10.5556 19.4444 10.5556Z"
-        fill="#22C55E" // Cor VERDE para ligado
-      />
-      {/* Raio branco no centro */}
-      <path
-        d="M13.75 11.6667L10.3333 16.25H12.6111L11.4722 21.6667L14.8889 17.0834H12.6111L13.75 11.6667Z"
-        fill="white"
-      />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6L6 18M6 6l12 12"/>
+      <path d="M7 2v4M17 2v4M5 10h14a2 2 0 0 1 2 2v2a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7v-2a2 2 0 0 1 2-2z"/>
     </svg>
   );
 }
-
-// Ícone DESLIGADO (Preto, sem raio)
 export function IconPlugOff() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Plugue e cabo preenchidos em preto, sem o raio */}
-      <path
-        d="M17.1666 1.66669V8.33335H14.8888V1.66669H17.1666ZM10.3333 1.66669V8.33335H8.05552V1.66669H10.3333ZM19.4444 10.5556H5.77775C4.53822 10.5556 3.5 11.5938 3.5 12.8334C3.5 14.0729 4.53822 15.1111 5.77775 15.1111H6.66664L7.47313 16.3726C7.93464 17.0959 8.1654 17.4575 8.26393 17.7857C8.35209 18.0801 8.40109 18.3851 8.4091 18.6928C8.41794 19.0343 8.34737 19.4515 8.20621 20.286L6.66664 30.3334H18.5555L17.0159 20.286C16.8748 19.4515 16.8042 19.0343 16.813 18.6928C16.8211 18.3851 16.8701 18.0801 16.9582 17.7857C17.0568 17.4575 17.2875 17.0959 17.749 16.3726L18.5555 15.1111H19.4444C20.6839 15.1111 21.7222 14.0729 21.7222 12.8334C21.7222 11.5938 20.6839 10.5556 19.4444 10.5556Z"
-        fill="currentColor" // Usa a cor do texto (preto por padrão)
-      />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 2v4M17 2v4M5 10h14a2 2 0 0 1 2 2v2a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7v-2a2 2 0 0 1 2-2z"/>
     </svg>
   );
 }
@@ -927,4 +901,16 @@ function IconSync() {
       <polyline points="21 3 21 9 15 9" />
     </svg>
   );
+}
+function IconCardCusto() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+}
+function IconCardSaldo() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>;
+}
+function IconCardPainel() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>;
+}
+function IconCardDns() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 }
