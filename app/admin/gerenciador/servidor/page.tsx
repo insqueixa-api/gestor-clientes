@@ -620,9 +620,10 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center text-sm">
                       <div className="flex items-center gap-2.5 text-slate-500 dark:text-white/50">
-                        <svg className="w-4 h-4 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+</svg>
                         <span>Total de clientes</span>
                       </div>
                       <span className="font-bold text-slate-700 dark:text-white">{formatNumber(server.stats?.total)}</span>
@@ -630,9 +631,9 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><line x1="9" y1="2" x2="15" y2="2"/>
+</svg>
                         <span>Clientes ativos</span>
                       </div>
                       <Link href={`/admin/cliente?server_id=${server.id}&status=active`} className="font-bold text-slate-600 dark:text-white/70 hover:text-emerald-500 hover:underline cursor-pointer transition-colors">
@@ -668,9 +669,9 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-medium">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>
+</svg>
                         <span>Revendas</span>
                       </div>
                       <Link href={`/admin/revendedor?server_id=${server.id}`} className="font-bold text-slate-600 dark:text-white/70 hover:text-amber-500 hover:underline cursor-pointer transition-colors">
@@ -882,15 +883,14 @@ function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 export function IconPlug() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6L6 18M6 6l12 12"/>
-      <path d="M7 2v4M17 2v4M5 10h14a2 2 0 0 1 2 2v2a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7v-2a2 2 0 0 1 2-2z"/>
+      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
     </svg>
   );
 }
 export function IconPlugOff() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 2v4M17 2v4M5 10h14a2 2 0 0 1 2 2v2a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7v-2a2 2 0 0 1 2-2z"/>
+      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
     </svg>
   );
 }
