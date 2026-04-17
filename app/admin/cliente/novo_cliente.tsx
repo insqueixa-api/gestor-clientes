@@ -862,7 +862,7 @@ async function loadWhatsAppSessions() {
   const { confirm: confirmDeleteApp, ConfirmUI } = useConfirm();
 
   // --- TIPOS PARA APPS DINÂMICOS ---
-  type AppCatalog = { id: string; name: string; fields_config: any[]; info_url: string | null };
+  type AppCatalog = { id: string; name: string; fields_config: any[]; info_url: string | null; integration_type?: string | null; };
   type SelectedAppInstance = { 
   instanceId: string; 
   app_id: string; 
@@ -5244,29 +5244,36 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
 
-                          return filtered.map((app) => (
+                          return filtered.map((app) => {
+                            const intType = String(app.integration_type || "").trim().toUpperCase();
+                            const hasInteg = Boolean(intType && intType !== "SEM_INTEGRACAO");
+                            const intLabel = intType === "GERENCIAAPP" ? "GerenciaApp" :
+                                             intType === "DUPLECAST" ? "DupleCast" :
+                                             intType === "IBOSOL" ? "IBO Sol" :
+                                             intType === "IBOPRO" ? "IBO Pro Player" :
+                                             intType === "QUICKPLAYER" ? "Quick Player" : intType;
 
-                            <button
-
-                              key={app.id}
-
-                              onClick={() => addAppToClient(app)}
-
-                              className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
-
-                            >
-
-                              <span className="font-medium">{app.name}</span>
-
-                              <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
-
-                                Selecionar
-
-                              </span>
-
-                            </button>
-
-                          ));
+                            return (
+                              <button
+                                key={app.id}
+                                onClick={() => addAppToClient(app)}
+                                className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 border-b border-slate-50 dark:border-white/5 last:border-0 transition-colors flex items-center justify-between group"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{app.name}</span>
+                                  {hasInteg && (
+                                    <span title={`Integração Automática: ${intLabel}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                                      <span className="text-[9px] font-bold uppercase tracking-wider">{intLabel}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 dark:text-emerald-400">
+                                  Selecionar
+                                </span>
+                              </button>
+                            );
+                          });
 
                         })()}
 

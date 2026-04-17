@@ -631,8 +631,8 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-  <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><line x1="9" y1="2" x2="15" y2="2"/>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+  <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
 </svg>
                         <span>Clientes ativos</span>
                       </div>
@@ -657,9 +657,9 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-sky-500 dark:text-sky-400 font-medium">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><line x1="9" y1="2" x2="15" y2="2"/>
+</svg>
                         <span>Testes ativos</span>
                       </div>
                       <Link href={`/admin/cliente?server_id=${server.id}&status=trial`} className="font-bold text-slate-600 dark:text-white/70 hover:text-sky-500 hover:underline cursor-pointer transition-colors">
@@ -883,14 +883,18 @@ function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 export function IconPlug() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
     </svg>
   );
 }
+
 export function IconPlugOff() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#94a3b8"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#94a3b8"/>
+      <line x1="4" y1="4" x2="20" y2="20" stroke="#f87171" strokeWidth="2"/>
     </svg>
   );
 }
