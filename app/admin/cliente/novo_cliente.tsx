@@ -5218,17 +5218,29 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                                             <div className="mt-2 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl min-h-[280px] max-h-[50vh] overflow-y-auto custom-scrollbar">
 
-                        {(() => {
+                        {(() => {
 
-                          const filtered = catalog
+                          const filtered = catalog
+                            .filter((app) => {
+                              const q = appSearch.toLowerCase();
+                              const matchName = app.name.toLowerCase().includes(q);
+                              
+                              const intType = String(app.integration_type || "").trim().toUpperCase();
+                              const intLabel = intType === "GERENCIAAPP" ? "GerenciaApp" :
+                                               intType === "DUPLECAST" ? "DupleCast" :
+                                               intType === "IBOSOL" ? "IBO Sol" :
+                                               intType === "IBOPRO" ? "IBO Pro Player" :
+                                               intType === "QUICKPLAYER" ? "Quick Player" : intType;
+                                               
+                              const matchIntegration = intLabel.toLowerCase().includes(q);
 
-                            .filter((app) => app.name.toLowerCase().includes(appSearch.toLowerCase()))
+                              return matchName || matchIntegration;
+                            })
+                            .sort((a, b) => a.name.localeCompare(b.name));
 
-                            .sort((a, b) => a.name.localeCompare(b.name));
 
 
-
-                          if (filtered.length === 0) {
+                          if (filtered.length === 0) {
 
                             return (
 
