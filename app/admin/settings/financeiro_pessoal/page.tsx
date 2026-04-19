@@ -749,7 +749,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           <span className="flex items-center justify-between w-full gap-2">
             <span>Previsão total: {fmtBRL(receitasTotal)}</span>
             {receitasPendentes > 0 && (
-              <span className="font-bold text-amber-600 dark:text-amber-400">⏳ Pendente: {fmtBRL(receitasPendentes)}</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">Pendente: {fmtBRL(receitasPendentes)}</span>
             )}
           </span>
         } />
@@ -757,7 +757,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           <span className="flex items-center justify-between w-full gap-2">
             <span>Previsão total: {fmtBRL(despesasTotal)}</span>
             {despesasPendentes > 0 && (
-              <span className="font-bold text-rose-600 dark:text-rose-400">⏳ Pendente: {fmtBRL(despesasPendentes)}</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400">Pendente: {fmtBRL(despesasPendentes)}</span>
             )}
           </span>
         } />
