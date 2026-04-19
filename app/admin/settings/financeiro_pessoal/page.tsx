@@ -627,6 +627,14 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   const despesasTotal = transacoesCards
     .filter(t => t.tipo === "DESPESA" && isDateInViewMonth(t.data_vencimento))
     .reduce((acc, t) => acc + t.valor, 0);
+
+  const receitasPendentes = transacoesCards
+    .filter(t => t.tipo === "RECEITA" && isDateInViewMonth(t.data_vencimento) && t.status !== "PAGO")
+    .reduce((acc, t) => acc + t.valor, 0);
+
+  const despesasPendentes = transacoesCards
+    .filter(t => t.tipo === "DESPESA" && isDateInViewMonth(t.data_vencimento) && t.status !== "PAGO")
+    .reduce((acc, t) => acc + t.valor, 0);
   
   let saldoAtualReal = 0;
   if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
@@ -737,8 +745,22 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       </div>
 
       <div className={`${showMobileCards ? "grid" : "hidden"} md:grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-3 sm:px-0`}>
-        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={`Previsão total: ${fmtBRL(receitasTotal)}`} />
-        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={`Previsão total: ${fmtBRL(despesasTotal)}`} />
+        <MetricCard title="Receitas do Mês" value={fmtBRL(receitasPagas)} tone="emerald" icon="📈" footer={
+          <span className="flex items-center justify-between w-full gap-2">
+            <span>Previsão total: {fmtBRL(receitasTotal)}</span>
+            {receitasPendentes > 0 && (
+              <span className="font-bold text-amber-600 dark:text-amber-400">⏳ Pendente: {fmtBRL(receitasPendentes)}</span>
+            )}
+          </span>
+        } />
+        <MetricCard title="Despesas do Mês" value={fmtBRL(despesasPagas)} tone="rose" icon="📉" footer={
+          <span className="flex items-center justify-between w-full gap-2">
+            <span>Previsão total: {fmtBRL(despesasTotal)}</span>
+            {despesasPendentes > 0 && (
+              <span className="font-bold text-rose-600 dark:text-rose-400">⏳ Pendente: {fmtBRL(despesasPendentes)}</span>
+            )}
+          </span>
+        } />
         <MetricCard title="Saldo Atual" value={fmtBRL(saldoAtualReal)} tone={saldoAtualReal >= 0 ? "emerald" : "rose"} icon="💰" footer={`Previsão final do mês: ${fmtBRL(saldoPrevisao)}`} onEdit={() => setShowAjusteSaldo(true)} />
       </div>
 
@@ -1037,7 +1059,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   );
 }
 
-function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", icon: string, footer: string, onEdit?: ()=>void }) {
+function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", icon: string, footer: React.ReactNode, onEdit?: ()=>void }) {
   const colors = {
     emerald: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
     rose: "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
