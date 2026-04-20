@@ -134,6 +134,12 @@ interface Props {
   onError?: (msg: string) => void;
 }
 
+// ✅ Extrai o DDI numérico do label (ex: "Brasil (+55)" → "55")
+function extractDdiFromLabel(label: string): string {
+  const match = label.match(/\+(\d+)\)/);
+  return match ? match[1] : "55";
+}
+
 export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, onError }: Props) {
   const isEditing = !!resellerToEdit;
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -143,8 +149,8 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   // Estados do formulário
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [primaryWhatsappE164, setPrimaryWhatsappE164] = useState(""); 
-  const [primaryDisplay, setPrimaryDisplay] = useState(""); 
+  const [primaryCountryLabel, setPrimaryCountryLabel] = useState("Brasil (+55)");
+  const [primaryPhoneRaw, setPrimaryPhoneRaw] = useState("");
   const [primaryConfirmed, setPrimaryConfirmed] = useState(false);
   const [whatsappUsername, setWhatsappUsername] = useState(""); 
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
@@ -168,12 +174,15 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       const json = await res.json().catch(() => ({}));
       setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
 
-      // Resolve país pelo JID retornado pelo WhatsApp
+     // Resolve país pelo JID retornado pelo WhatsApp
       if (json.exists && json.jid) {
         const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
         if (jidDigits) {
-          const inferred = applyPhoneNormalization(jidDigits);
-          setPrimaryWhatsappE164(inferred.e164);
+          // Como o JID do WhatsApp vem com o código do país, o applyPhoneNormalization
+          // vai conseguir extrair o DDI corretamente.
+          const inferred = applyPhoneNormalization(`+${jidDigits}`); 
+          setPrimaryCountryLabel(inferred.countryLabel);
+          setPrimaryPhoneRaw(inferred.formattedNational || inferred.nationalDigits || "");
         }
       }
     } catch {
@@ -224,13 +233,13 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
         const mainDigits = String(mainRaw || "").replace(/\D+/g, "");
 
         if (mainDigits) {
-          const inferred = applyPhoneNormalization(mainDigits);
-          setPrimaryWhatsappE164(inferred.e164);
-          setPrimaryDisplay(inferred.formattedNational || inferred.nationalDigits || "");
+          const info = splitE164Advanced(`+${mainDigits}`);
+          setPrimaryCountryLabel(`${info.countryName} (+${info.countryCode})`);
+          setPrimaryPhoneRaw(formatLocalNumber(info.localNumber) || info.localNumber);
           setPrimaryConfirmed(true);
         } else {
-          setPrimaryWhatsappE164("");
-          setPrimaryDisplay("");
+          setPrimaryCountryLabel("Brasil (+55)");
+          setPrimaryPhoneRaw("");
           setPrimaryConfirmed(false);
         }
 
@@ -268,17 +277,29 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   // 2. HANDLERS DE WHATSAPP
     
     function handlePrimaryValidate() {
-    const rawDigits = (primaryDisplay || "").replace(/\D+/g, "");
-    if (rawDigits.length < 8) {
+    const rawPrimaryDigits = (primaryPhoneRaw || "").replace(/\D+/g, "");
+    if (rawPrimaryDigits.length < 8) {
       setPrimaryConfirmed(false);
       return;
     }
-    const inferred = applyPhoneNormalization(rawDigits);
-    setPrimaryWhatsappE164(inferred.e164);
-    setPrimaryDisplay(inferred.formattedNational || inferred.nationalDigits || primaryDisplay);
+    
+    const ddi = extractDdiFromLabel(primaryCountryLabel);
+    let finalE164 = "";
+    
+    if (primaryPhoneRaw.trim().startsWith("+")) {
+       finalE164 = `+${rawPrimaryDigits}`;
+       const info = splitE164Advanced(finalE164);
+       setPrimaryCountryLabel(`${info.countryName} (+${info.countryCode})`);
+       setPrimaryPhoneRaw(formatLocalNumber(info.localNumber) || info.localNumber);
+    } else {
+       const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
+       finalE164 = `+${ddi}${nationalDigits}`;
+       setPrimaryPhoneRaw(formatLocalNumber(nationalDigits) || nationalDigits);
+    }
+    
     setPrimaryConfirmed(true);
 
-    const finalUser = whatsappUsername.trim() || inferred.e164.replace(/\D+/g, "");
+    const finalUser = whatsappUsername.trim() || finalE164.replace(/\D+/g, "");
     if (!whatsappUsername.trim()) setWhatsappUsername(finalUser);
     void validateWa(finalUser);
   }
@@ -316,9 +337,10 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   const errors = useMemo(() => {
     const out: string[] = [];
     if (!name.trim()) out.push("O nome é obrigatório.");
-    if (primaryWhatsappE164 && primaryWhatsappE164.length < 8) out.push("WhatsApp principal inválido.");
+    const rawPrimaryDigits = (primaryPhoneRaw || "").replace(/\D+/g, "");
+    if (rawPrimaryDigits && rawPrimaryDigits.length < 8) out.push("WhatsApp principal inválido.");
     return out;
-  }, [name, primaryWhatsappE164]);
+  }, [name, primaryPhoneRaw]);
 
   // 3. SALVAR (POST ou PUT)
   async function handleSave() {
@@ -330,13 +352,19 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       if (!tenantId || !session) throw new Error("Sessão expirada.");
 
+      // ✅ RESOLUÇÃO FORÇADA DO NÚMERO PRINCIPAL ANTES DE SALVAR
+      const rawPrimaryDigits = (primaryPhoneRaw || "").replace(/\D+/g, "");
+      const ddi = rawPrimaryDigits ? extractDdiFromLabel(primaryCountryLabel) : "55";
+      const natDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
+      const finalPrimaryE164 = rawPrimaryDigits ? `+${ddi}${natDigits}` : null;
+
       const safeExtra = extras.filter(e => e.confirmed).map(e => e.e164);
 
       const payload = {
         tenant_id: tenantId,
         name: name.trim(),
         email: email.trim().toLowerCase() || null,
-        whatsapp_primary: primaryWhatsappE164 || null,
+        whatsapp_primary: finalPrimaryE164,
         whatsapp_username: whatsappUsername.trim() || null,
         whatsapp_secondary: safeExtra,
         whatsapp_opt_in: whatsappOptIn,
@@ -358,7 +386,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
             p_notes: notes.trim() || null,
 
             // ✅ obrigatório na criação
-            p_phone_primary_e164: primaryWhatsappE164 || null,
+            p_phone_primary_e164: finalPrimaryE164,
 
             // flags WhatsApp
             p_whatsapp_opt_in: Boolean(whatsappOptIn),
@@ -432,7 +460,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
         const { error: phoneErr } = await supabaseBrowser.rpc("set_reseller_phones", {
           p_tenant_id: tenantId,
           p_reseller_id: resellerId,
-          p_primary_e164: primaryWhatsappE164 || null,
+          p_primary_e164: finalPrimaryE164,
           p_secondary_e164: extrasValidos,
         });
 
@@ -507,14 +535,14 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       <Label>Telefone principal</Label>
       <div className="flex gap-2">
         <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium min-w-[120px]">
-          {splitE164Advanced(primaryWhatsappE164).countryName} (+{splitE164Advanced(primaryWhatsappE164).countryCode})
+          {primaryCountryLabel}
         </div>
 
         <div className="relative flex-1">
           <Input
-            value={primaryDisplay}
+            value={primaryPhoneRaw}
             onChange={e => {
-              setPrimaryDisplay(e.target.value);
+              setPrimaryPhoneRaw(e.target.value);
               setPrimaryConfirmed(false);
             }}
             placeholder="21 99999-9999"
