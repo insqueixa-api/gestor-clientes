@@ -153,6 +153,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
   const [primaryPhoneRaw, setPrimaryPhoneRaw] = useState("");
   const [primaryConfirmed, setPrimaryConfirmed] = useState(false);
   const [whatsappUsername, setWhatsappUsername] = useState(""); 
+  const [whatsUserTouched, setWhatsUserTouched] = useState(false); // ✅ Trava anti-bumerangue adicionada
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [dontMessageUntil, setDontMessageUntil] = useState("");
   const [notes, setNotes] = useState("");
@@ -283,24 +284,21 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       return;
     }
     
-    const ddi = extractDdiFromLabel(primaryCountryLabel);
-    let finalE164 = "";
-    
-    if (primaryPhoneRaw.trim().startsWith("+")) {
-       finalE164 = `+${rawPrimaryDigits}`;
-       const info = splitE164Advanced(finalE164);
-       setPrimaryCountryLabel(`${info.countryName} (+${info.countryCode})`);
-       setPrimaryPhoneRaw(formatLocalNumber(info.localNumber) || info.localNumber);
-    } else {
-       const nationalDigits = rawPrimaryDigits.startsWith(ddi) ? rawPrimaryDigits.slice(ddi.length) : rawPrimaryDigits;
-       finalE164 = `+${ddi}${nationalDigits}`;
-       setPrimaryPhoneRaw(formatLocalNumber(nationalDigits) || nationalDigits);
-    }
-    
+    // ✅ Devolvemos a inteligência original: se você colar 54911..., ele descobre sozinho que é Argentina!
+    const inferred = applyPhoneNormalization(primaryPhoneRaw);
+    setPrimaryCountryLabel(inferred.countryLabel);
+    setPrimaryPhoneRaw(inferred.formattedNational || inferred.nationalDigits);
     setPrimaryConfirmed(true);
 
-    const finalUser = whatsappUsername.trim() || finalE164.replace(/\D+/g, "");
-    if (!whatsappUsername.trim()) setWhatsappUsername(finalUser);
+    // ✅ O Segredo: Só prioriza o WhatsApp antigo se o usuário tiver alterado ele explicitamente
+    const finalUser = whatsUserTouched && whatsappUsername.trim() 
+      ? whatsappUsername.trim() 
+      : inferred.e164.replace(/\D+/g, "");
+    
+    if (!whatsUserTouched) {
+      setWhatsappUsername(finalUser);
+    }
+    
     void validateWa(finalUser);
   }
 
@@ -574,6 +572,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
           onChange={e => {
             const val = e.target.value;
             setWhatsappUsername(val);
+            setWhatsUserTouched(true); // ✅ Avisa o sistema que o usuário mexeu aqui
             setWaValidation(null);
             if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
             waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
