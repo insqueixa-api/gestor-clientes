@@ -1297,9 +1297,9 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                           </div>
                         </div>
 
-                        <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
-                          {r.primary_phone}
-                        </span>
+                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate">
+  {r.whatsapp_username ? `@${r.whatsapp_username}` : r.primary_phone}
+</span>
                       </div>
                     </Td>
 
