@@ -147,19 +147,40 @@ function mapStatus(computed: string, archived: boolean, vencimento: string | nul
   return map[computed] || "Ativo";
 }
 
+function isoDateInSaoPaulo(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+}
+
+function getDiffDays(isoDateTarget: string) {
+  if (!isoDateTarget || isoDateTarget === "9999-12-31") return 9999;
+  const today = isoDateInSaoPaulo();
+  const d1 = new Date(`${today}T12:00:00`);
+  const d2 = new Date(`${isoDateTarget}T12:00:00`);
+  return Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function formatDue(rawDue: string | null) {
   if (!rawDue) {
     return { dueISODate: "0000-01-01", dueLabelDate: "—", dueTime: "—" };
   }
-  const isoDate = rawDue.split("T")[0];
   const dt = new Date(rawDue);
   if (Number.isNaN(dt.getTime())) {
     return { dueISODate: "0000-01-01", dueLabelDate: "—", dueTime: "—" };
   }
+  const isoDate = isoDateInSaoPaulo(dt);
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(dt);
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
   return {
     dueISODate: isoDate,
-    dueLabelDate: dt.toLocaleDateString("pt-BR"),
-    dueTime: dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    dueLabelDate: `${get("day")}/${get("month")}/${get("year")}`,
+    dueTime: `${get("hour")}:${get("minute")}`,
   };
 }
 
@@ -1255,31 +1276,52 @@ onClick={(e) => {
                   return (
                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                   <Td>
-                    <div className="flex flex-col max-w-[180px] sm:max-w-none">
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <span className="font-semibold text-slate-700 dark:text-white truncate" title={r.name}>
-                          {r.name}
-                        </span>
+  <div className="flex flex-col max-w-[180px] sm:max-w-none">
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <Link
+        href={`/admin/teste/${r.id}`}
+        className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 truncate"
+        title={r.name}
+      >
+        {r.name.split(" ")[0]}
+        {r.secondary_display_name && (
+          <span className="text-slate-400 dark:text-white/30 font-normal">
+            {" / "}{r.secondary_display_name.split(" ")[0]}
+          </span>
+        )}
+      </Link>
 
-                        {(scheduledMap[r.id]?.length || 0) > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowScheduledModal({ open: true, trialId: r.id, trialName: r.name });
-                            }}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
-                            title="Ver mensagens programadas"
-                          >
-                            🗓️ {scheduledMap[r.id].length}
-                          </button>
-                        )}
-                      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {(scheduledMap[r.id]?.length || 0) > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowScheduledModal({ open: true, trialId: r.id, trialName: r.name });
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse"
+            title="Ver mensagens programadas"
+          >
+            🗓️ {scheduledMap[r.id].length}
+          </button>
+        )}
+      </div>
+    </div>
 
-                      <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
-                        {r.username}
-                      </span>
-                    </div>
-                  </Td>
+    <span className="text-xs font-medium text-slate-500 dark:text-white/60 truncate">
+      {r.username}
+    </span>
+    {r.whatsapp_username && (
+      <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate">
+        @{r.whatsapp_username}
+      </span>
+    )}
+    {r.secondary_whatsapp_username && (
+      <span className="text-xs font-normal text-slate-400 dark:text-white/45 truncate">
+        @{r.secondary_whatsapp_username}
+      </span>
+    )}
+  </div>
+</Td>
 
                       <Td>
                         <div className="flex flex-col">
@@ -1291,8 +1333,40 @@ onClick={(e) => {
                       </Td>
 
                       <Td>
-                        <StatusBadge status={r.status} />
-                      </Td>
+  {(() => {
+    const diff = getDiffDays(r.dueISODate);
+    let label = r.status as string;
+    let tone: "green" | "red" | "amber" | "blue" = "blue";
+
+    if (r.status === "Arquivado") {
+      label = diff < 0 ? `Lixeira (Venceu há ${Math.abs(diff)}d)` : "Lixeira";
+      tone = "red";
+    } else if (r.status === "Vencido") {
+      if (diff === -1) label = "Venceu Ontem";
+      else if (diff === -2) label = "Venceu há 2 dias";
+      else if (diff < -2) label = `Venceu há ${Math.abs(diff)} dias`;
+      tone = "red";
+    } else {
+      if (diff === 0) { label = "Vence Hoje"; tone = "amber"; }
+      else if (diff === 1) { label = "Vence Amanhã"; tone = "green"; }
+      else if (diff === 2) { label = "Vence em 2 dias"; tone = "green"; }
+      else { tone = "green"; }
+    }
+
+    const colors = {
+      green: "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+      red:   "bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+      amber: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+      blue:  "bg-sky-100 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${colors[tone]}`}>
+        {label}
+      </span>
+    );
+  })()}
+</Td>
 
                       <Td>
                         <span

@@ -341,6 +341,7 @@ async function saveWaConfig() {
   const [phonePrettyPrefix, setPhonePrettyPrefix] = useState("Brasil (+55)");
   
   const [whatsappUsername, setWhatsappUsername] = useState("");
+const [waUserTouched, setWaUserTouched] = useState(false);
 
   type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
@@ -593,29 +594,31 @@ async function saveWaConfig() {
 
 
   function handlePhoneDone() {
-    const norm = applyPhoneNormalization(phoneRaw);
-    setPhonePrettyPrefix(norm.prettyPrefix);
-    setPhoneRaw(norm.formattedNational || norm.nationalDigits || phoneRaw);
+  const norm = applyPhoneNormalization(phoneRaw);
+  setPhonePrettyPrefix(norm.prettyPrefix);
+  setPhoneRaw(norm.formattedNational || norm.nationalDigits || phoneRaw);
 
-    // Sempre atualiza o username com o número normalizado
-    if (norm.e164) {
-      const digits = onlyDigits(norm.e164);
-      setWhatsappUsername(digits);
-      setWaValidation(null);
-      void validateWa(digits);
-    }
-
-    if (isEditing === false) setIsEditing(true);
+  // Só auto-preenche o username se o usuário não tiver tocado nele manualmente
+  if (norm.e164) {
+    const digits = onlyDigits(norm.e164);
+    const finalUser = waUserTouched && whatsappUsername.trim() ? whatsappUsername.trim() : digits;
+    if (!waUserTouched) setWhatsappUsername(finalUser);
+    setWaValidation(null);
+    void validateWa(finalUser);
   }
+
+  if (isEditing === false) setIsEditing(true);
+}
 
   // Permite qualquer caractere no WhatsApp
 const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setWhatsappUsername(val);
-    setWaValidation(null);
-    if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
-    waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
-  };
+  const val = e.target.value;
+  setWhatsappUsername(val);
+  setWaUserTouched(true);
+  setWaValidation(null);
+  if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
+  waValidateTimer.current = setTimeout(() => void validateWa(val), 800);
+};
 
   async function handleSave() {
     if (!userId) return;
