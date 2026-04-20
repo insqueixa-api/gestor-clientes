@@ -2188,7 +2188,7 @@ return (
 </Td>
 
 <Td align="center">
-  <div className="flex flex-wrap gap-1 justify-center w-full overflow-hidden">
+  <div className="flex flex-wrap gap-1 justify-center max-w-[200px] sm:max-w-[250px] mx-auto">
     {r.apps && r.apps.length > 0 ? (
       r.apps.map((app, i) => {
   const catApp = appsIndex.byName[normAppKey(app)] as any;
