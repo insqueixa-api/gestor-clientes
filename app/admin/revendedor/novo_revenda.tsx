@@ -5,86 +5,112 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-// --- HELPERS DE TELEFONE E PAÍSES (Integrais) ---
-const COUNTRIES = [
-  { name: "Estados Unidos", code: "1" },
-  { name: "Brasil", code: "55" },
-  { name: "Portugal", code: "351" },
-  { name: "Reino Unido", code: "44" },
-  { name: "Espanha", code: "34" },
-  { name: "Alemanha", code: "49" },
-  { name: "França", code: "33" },
-  { name: "Itália", code: "39" },
-  { name: "Irlanda", code: "353" }, // ✅ ADICIONADO
-  { name: "México", code: "52" },
-  { name: "Argentina", code: "54" },
-  { name: "Colômbia", code: "57" },
-  { name: "Chile", code: "56" },
+// --- HELPERS DE TELEFONE E PAÍSES (alinhados com NovoCliente) ---
+type DdiOption = { code: string; label: string; flag: string };
+const DDI_OPTIONS: DdiOption[] = [
+  { code: "55",   label: "Brasil",             flag: "🇧🇷" },
+  { code: "1",    label: "EUA/Canadá",         flag: "🇺🇸" },
+  { code: "351",  label: "Portugal",           flag: "🇵🇹" },
+  { code: "44",   label: "Reino Unido",        flag: "🇬🇧" },
+  { code: "34",   label: "Espanha",            flag: "🇪🇸" },
+  { code: "49",   label: "Alemanha",           flag: "🇩🇪" },
+  { code: "33",   label: "França",             flag: "🇫🇷" },
+  { code: "39",   label: "Itália",             flag: "🇮🇹" },
+  { code: "52",   label: "México",             flag: "🇲🇽" },
+  { code: "54",   label: "Argentina",          flag: "🇦🇷" },
+  { code: "56",   label: "Chile",              flag: "🇨🇱" },
+  { code: "57",   label: "Colômbia",           flag: "🇨🇴" },
+  { code: "58",   label: "Venezuela",          flag: "🇻🇪" },
+  { code: "32",   label: "Bélgica",            flag: "🇧🇪" },
+  { code: "46",   label: "Suécia",             flag: "🇸🇪" },
+  { code: "31",   label: "Holanda",            flag: "🇳🇱" },
+  { code: "41",   label: "Suíça",              flag: "🇨🇭" },
+  { code: "45",   label: "Dinamarca",          flag: "🇩🇰" },
+  { code: "48",   label: "Polônia",            flag: "🇵🇱" },
+  { code: "30",   label: "Grécia",             flag: "🇬🇷" },
+  { code: "353",  label: "Irlanda",            flag: "🇮🇪" },
+  { code: "507",  label: "Panamá",             flag: "🇵🇦" },
+  { code: "506",  label: "Costa Rica",         flag: "🇨🇷" },
+  { code: "595",  label: "Paraguai",           flag: "🇵🇾" },
+  { code: "591",  label: "Bolívia",            flag: "🇧🇴" },
+  { code: "27",   label: "África do Sul",      flag: "🇿🇦" },
+  { code: "234",  label: "Nigéria",            flag: "🇳🇬" },
+  { code: "254",  label: "Quênia",             flag: "🇰🇪" },
+  { code: "20",   label: "Egito",              flag: "🇪🇬" },
+  { code: "212",  label: "Marrocos",           flag: "🇲🇦" },
+  { code: "86",   label: "China",              flag: "🇨🇳" },
+  { code: "91",   label: "Índia",              flag: "🇮🇳" },
+  { code: "81",   label: "Japão",              flag: "🇯🇵" },
+  { code: "82",   label: "Coreia do Sul",      flag: "🇰🇷" },
+  { code: "66",   label: "Tailândia",          flag: "🇹🇭" },
+  { code: "62",   label: "Indonésia",          flag: "🇮🇩" },
+  { code: "60",   label: "Malásia",            flag: "🇲🇾" },
+  { code: "971",  label: "Emirados Árabes",    flag: "🇦🇪" },
+  { code: "966",  label: "Arábia Saudita",     flag: "🇸🇦" },
+  { code: "98",   label: "Irã",                flag: "🇮🇷" },
+  { code: "90",   label: "Turquia",            flag: "🇹🇷" },
+  { code: "61",   label: "Austrália",          flag: "🇦🇺" },
+  { code: "64",   label: "Nova Zelândia",      flag: "🇳🇿" },
 ];
 
-function normalizeE164(raw: string) {
-  const digits = raw.replace(/\D+/g, "");
-  return digits ? `+${digits}` : "";
+function onlyDigits(raw: string) {
+  return raw.replace(/\D+/g, "");
+}
+
+function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
+  const digits = onlyDigits(allDigits || "");
+  if (!digits) return "55";
+  // Testa do maior código pro menor para evitar colisão (ex: 1 vs 1246)
+  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
+  for (const opt of sorted) {
+    if (digits.startsWith(opt.code)) return opt.code;
+  }
+  // Se digitou "+" explicitamente, não força "55"
+  if (originalInput && originalInput.trim().startsWith("+")) {
+    return digits.slice(0, 3);
+  }
+  return "55";
+}
+
+function ddiMeta(ddi: string) {
+  const opt = DDI_OPTIONS.find((o) => o.code === ddi);
+  if (!opt) return { label: `DDI Desconhecido (+${ddi})` };
+  return { label: `${opt.label} (+${opt.code})` };
+}
+
+function formatNational(ddi: string, nationalDigits: string) {
+  const d = onlyDigits(nationalDigits);
+  if (ddi === "55") {
+    const area = d.slice(0, 2);
+    const rest = d.slice(2);
+    if (!area) return "";
+    if (rest.length >= 9) return `${area} ${rest.slice(0, 5)}-${rest.slice(5, 9)}`;
+    if (rest.length >= 8) return `${area} ${rest.slice(0, 4)}-${rest.slice(4, 8)}`;
+    return `${area} ${rest}`.trim();
+  }
+  // Genérico para outros países
+  const groups: string[] = [];
+  let i = 0;
+  while (i < d.length) {
+    const rem = d.length - i;
+    const step = rem > 7 ? 3 : 4;
+    groups.push(d.slice(i, i + step));
+    i += step;
+  }
+  return groups.join(" ").trim();
 }
 
 function applyPhoneNormalization(rawInput: string) {
-  const digits = (rawInput || "").replace(/\D+/g, "");
-  if (!digits) {
+  const rawDigits = onlyDigits(rawInput);
+  if (!rawDigits) {
     return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
   }
-
-  // 1) Descobre se começa com um DDI conhecido
-  const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
-  const hasKnownDDI = sorted.some((c) => digits.startsWith(c.code));
-
-  // ✅ 2) Lógica à prova de bala:
-  // Se ele digitou explicitamente um "+" na UI, NUNCA forçamos o "55".
-  const userTypedPlus = (rawInput || "").trim().startsWith("+");
-
-  let e164 = "";
-  if (userTypedPlus || hasKnownDDI) {
-    e164 = `+${digits}`;
-  } else if (!hasKnownDDI && (digits.length === 10 || digits.length === 11)) {
-    // Se não tem "+", não é DDI conhecido, e tem 10/11 dígitos: assume Brasil.
-    e164 = `+55${digits}`;
-  } else {
-    // Fallback de segurança
-    e164 = `+${digits}`;
-  }
-
-  // 3) Deriva país + número local e formata pra UI
-  const info = splitE164Advanced(e164); 
-  const nationalDigits = info.localNumber || "";
-  const formattedNational = formatLocalNumber(nationalDigits);
-
-  const countryLabel = `${info.countryName} (+${info.countryCode})`;
-
-  return { countryLabel, e164, nationalDigits, formattedNational };
-}
-
-function splitE164Advanced(e164: string) {
-  const digits = e164.replace(/\D+/g, "");
-  const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
-  const country = sorted.find(c => digits.startsWith(c.code));
-  
-  // ✅ Se não achar o país na lista, pega os primeiros 3 dígitos (ou 2) inteligentemente em vez de quebrar
-  if (!country) {
-      const fallbackCode = digits.slice(0, 3);
-      return { 
-          countryName: "🌍 DDI Desconhecido", 
-          countryCode: fallbackCode, 
-          localNumber: digits.slice(fallbackCode.length) 
-      };
-  }
-  
-  return { countryName: country.name, countryCode: country.code, localNumber: digits.slice(country.code.length) };
-}
-
-function formatLocalNumber(num: string) {
-  if (!num) return "";
-  if (num.length === 10) return num.replace(/(\d{2})(\d{4})(\d{4})/, "$1 $2 $3");
-  if (num.length === 11) return num.replace(/(\d{2})(\d{5})(\d{4})/, "$1 $2 $3");
-  return num;
+  const ddi = inferDDIFromDigits(rawDigits, rawInput);
+  const meta = ddiMeta(ddi);
+  const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
+  const formattedNational = formatNational(ddi, nationalDigits);
+  const e164 = `+${ddi}${nationalDigits}`;
+  return { countryLabel: meta.label, e164, nationalDigits, formattedNational };
 }
 
 function toDatetimeLocalValue(dateStr: string | null | undefined) {
@@ -234,15 +260,15 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
         const mainDigits = String(mainRaw || "").replace(/\D+/g, "");
 
         if (mainDigits) {
-          const info = splitE164Advanced(`+${mainDigits}`);
-          setPrimaryCountryLabel(`${info.countryName} (+${info.countryCode})`);
-          setPrimaryPhoneRaw(formatLocalNumber(info.localNumber) || info.localNumber);
-          setPrimaryConfirmed(true);
-        } else {
-          setPrimaryCountryLabel("Brasil (+55)");
-          setPrimaryPhoneRaw("");
-          setPrimaryConfirmed(false);
-        }
+  const norm = applyPhoneNormalization(`+${mainDigits}`);
+  setPrimaryCountryLabel(norm.countryLabel);
+  setPrimaryPhoneRaw(norm.formattedNational || norm.nationalDigits);
+  setPrimaryConfirmed(true);
+} else {
+  setPrimaryCountryLabel("Brasil (+55)");
+  setPrimaryPhoneRaw("");
+  setPrimaryConfirmed(false);
+}
 
         // --- TELEFONES EXTRAS ---
         let extraRaw = resellerToEdit.whatsapp_extra ?? resellerToEdit.whatsapp_secondary ?? [];
