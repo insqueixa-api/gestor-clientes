@@ -12,61 +12,110 @@ import SaasRenewModal from "./SaasRenewModal";
 // ============================================================
 // HELPERS DE TELEFONE (igual ao ResellerFormModal) 
 // ============================================================
-const COUNTRIES = [
-  { name: "Brasil",         code: "55"  },
-  { name: "Portugal",       code: "351" },
-  { name: "Estados Unidos", code: "1"   },
-  { name: "Reino Unido",    code: "44"  },
-  { name: "Espanha",        code: "34"  },
-  { name: "Alemanha",       code: "49"  },
-  { name: "França",         code: "33"  },
-  { name: "Itália",         code: "39"  },
-  { name: "Irlanda",        code: "353" },
-  { name: "México",         code: "52"  },
-  { name: "Argentina",      code: "54"  },
-  { name: "Colômbia",       code: "57"  },
-  { name: "Chile",          code: "56"  },
-  
+type DdiOption = { code: string; label: string };
+const DDI_OPTIONS: DdiOption[] = [
+  { code: "55",  label: "Brasil"          },
+  { code: "1",   label: "EUA/Canadá"      },
+  { code: "351", label: "Portugal"        },
+  { code: "44",  label: "Reino Unido"     },
+  { code: "34",  label: "Espanha"         },
+  { code: "49",  label: "Alemanha"        },
+  { code: "33",  label: "França"          },
+  { code: "39",  label: "Itália"          },
+  { code: "52",  label: "México"          },
+  { code: "54",  label: "Argentina"       },
+  { code: "56",  label: "Chile"           },
+  { code: "57",  label: "Colômbia"        },
+  { code: "58",  label: "Venezuela"       },
+  { code: "32",  label: "Bélgica"         },
+  { code: "46",  label: "Suécia"          },
+  { code: "31",  label: "Holanda"         },
+  { code: "41",  label: "Suíça"           },
+  { code: "45",  label: "Dinamarca"       },
+  { code: "48",  label: "Polônia"         },
+  { code: "30",  label: "Grécia"          },
+  { code: "353", label: "Irlanda"         },
+  { code: "507", label: "Panamá"          },
+  { code: "506", label: "Costa Rica"      },
+  { code: "595", label: "Paraguai"        },
+  { code: "591", label: "Bolívia"         },
+  { code: "27",  label: "África do Sul"   },
+  { code: "234", label: "Nigéria"         },
+  { code: "254", label: "Quênia"          },
+  { code: "20",  label: "Egito"           },
+  { code: "212", label: "Marrocos"        },
+  { code: "86",  label: "China"           },
+  { code: "91",  label: "Índia"           },
+  { code: "81",  label: "Japão"           },
+  { code: "82",  label: "Coreia do Sul"   },
+  { code: "66",  label: "Tailândia"       },
+  { code: "62",  label: "Indonésia"       },
+  { code: "60",  label: "Malásia"         },
+  { code: "971", label: "Emirados Árabes" },
+  { code: "966", label: "Arábia Saudita"  },
+  { code: "98",  label: "Irã"             },
+  { code: "90",  label: "Turquia"         },
+  { code: "61",  label: "Austrália"       },
+  { code: "64",  label: "Nova Zelândia"   },
 ];
 
-function splitE164(e164: string) {
-  const digits = (e164 || "").replace(/\D+/g, "");
-  const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
-  const country = sorted.find(c => digits.startsWith(c.code));
-  if (!country) return { countryName: "🌍", countryCode: digits.slice(0, 2), localNumber: digits.slice(2) };
-  return { countryName: country.name, countryCode: country.code, localNumber: digits.slice(country.code.length) };
+function onlyDigits(raw: string) {
+  return raw.replace(/\D+/g, "");
 }
 
-function formatLocalNumber(num: string) {
-  if (!num) return "";
-  if (num.length === 10) return num.replace(/(\d{2})(\d{4})(\d{4})/, "$1 $2 $3");
-  if (num.length === 11) return num.replace(/(\d{2})(\d{5})(\d{4})/, "$1 $2 $3");
-  return num;
+function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
+  const digits = onlyDigits(allDigits || "");
+  if (!digits) return "55";
+  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
+  for (const opt of sorted) {
+    if (digits.startsWith(opt.code)) return opt.code;
+  }
+  if (originalInput && originalInput.trim().startsWith("+")) return digits.slice(0, 3);
+  return "55";
+}
+
+function ddiLabel(ddi: string): string {
+  const opt = DDI_OPTIONS.find((o) => o.code === ddi);
+  return opt ? `${opt.label} (+${opt.code})` : `DDI Desconhecido (+${ddi})`;
+}
+
+function extractDdiFromLabel(label: string): string {
+  const match = label.match(/\+(\d+)\)/);
+  return match ? match[1] : "55";
+}
+
+function formatNational(ddi: string, nationalDigits: string) {
+  const d = onlyDigits(nationalDigits);
+  if (ddi === "55") {
+    const area = d.slice(0, 2);
+    const rest = d.slice(2);
+    if (!area) return "";
+    if (rest.length >= 9) return `${area} ${rest.slice(0, 5)}-${rest.slice(5, 9)}`;
+    if (rest.length >= 8) return `${area} ${rest.slice(0, 4)}-${rest.slice(4, 8)}`;
+    return `${area} ${rest}`.trim();
+  }
+  const groups: string[] = [];
+  let i = 0;
+  while (i < d.length) {
+    const rem = d.length - i;
+    const step = rem > 7 ? 3 : 4;
+    groups.push(d.slice(i, i + step));
+    i += step;
+  }
+  return groups.join(" ").trim();
 }
 
 function applyPhoneNormalization(rawInput: string) {
-  const digits = (rawInput || "").replace(/\D+/g, "");
-  if (!digits) return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
-
-  const sorted = [...COUNTRIES].sort((a, b) => b.code.length - a.code.length);
-  const hasKnownDDI = sorted.some(c => digits.startsWith(c.code));
-  const userTypedPlus = (rawInput || "").trim().startsWith("+");
-
-  let e164 = "";
-  if (userTypedPlus || hasKnownDDI) {
-    e164 = `+${digits}`;
-  } else if (!hasKnownDDI && (digits.length === 10 || digits.length === 11)) {
-    e164 = `+55${digits}`;
-  } else {
-    e164 = `+${digits}`;
+  const rawDigits = onlyDigits(rawInput);
+  if (!rawDigits) {
+    return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
   }
-
-  const info = splitE164(e164);
-  const formattedNational = formatLocalNumber(info.localNumber || "");
-  const countryLabel = `${info.countryName} (+${info.countryCode})`;
-  return { countryLabel, e164, nationalDigits: info.localNumber || "", formattedNational };
+  const ddi = inferDDIFromDigits(rawDigits, rawInput);
+  const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
+  const formattedNational = formatNational(ddi, nationalDigits);
+  const e164 = `+${ddi}${nationalDigits}`;
+  return { countryLabel: ddiLabel(ddi), e164, nationalDigits, formattedNational };
 }
-
 // ============================================================
 // HELPERS DE SESSÃO WHATSAPP
 // ============================================================
@@ -1655,11 +1704,12 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
 
   // Telefone (igual ao ResellerFormModal)
   const [phoneDisplay, setPhoneDisplay] = useState("");
-  const [phoneE164, setPhoneE164] = useState(tenant?.phone_e164 ?? "");
-  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+const [phoneCountryLabel, setPhoneCountryLabel] = useState("Brasil (+55)");
+const [phoneE164, setPhoneE164] = useState(tenant?.phone_e164 ?? "");
+const [phoneConfirmed, setPhoneConfirmed] = useState(false);
 
-  // WhatsApp username
-  const [waUsername, setWaUsername] = useState(tenant?.whatsapp_username ?? "");
+const [waUsername, setWaUsername] = useState(tenant?.whatsapp_username ?? "");
+const [waUserTouched, setWaUserTouched] = useState(false);
   type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1667,13 +1717,14 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
 
   // Pré-preenche telefone no modo edit
   useEffect(() => {
-    if (tenant?.phone_e164) {
-      const info = splitE164(tenant.phone_e164);
-      setPhoneDisplay(formatLocalNumber(info.localNumber));
-      setPhoneE164(tenant.phone_e164);
-      setPhoneConfirmed(true);
-    }
-  }, [tenant?.phone_e164]);
+  if (tenant?.phone_e164) {
+    const norm = applyPhoneNormalization(tenant.phone_e164);
+    setPhoneCountryLabel(norm.countryLabel);
+    setPhoneDisplay(norm.formattedNational || norm.nationalDigits);
+    setPhoneE164(norm.e164);
+    setPhoneConfirmed(true);
+  }
+}, [tenant?.phone_e164]);
 
   async function validateWa(username: string) {
     const digits = username.replace(/\D/g, "");
@@ -1694,21 +1745,25 @@ function TenantFormModal({ mode, tenant, myRole, parentTenantId, sessionOptions,
   }
 
   function handlePhoneValidate() {
-    const rawDigits = phoneDisplay.replace(/\D+/g, "");
-    if (rawDigits.length < 8) { setPhoneConfirmed(false); return; }
-    const inferred = applyPhoneNormalization(rawDigits);
-    setPhoneE164(inferred.e164);
-    setPhoneDisplay(inferred.formattedNational || inferred.nationalDigits || phoneDisplay);
-    setPhoneConfirmed(true);
-    // Sempre sincroniza o username com o novo telefone
-    const newUsername = inferred.e164.replace(/\D+/g, "");
-    setWaUsername(newUsername);
-    setWaValidation(null);
-    void validateWa(newUsername);
-  }
+  const rawDigits = onlyDigits(phoneDisplay);
+  if (rawDigits.length < 8) { setPhoneConfirmed(false); return; }
+  const norm = applyPhoneNormalization(phoneDisplay);
+  setPhoneCountryLabel(norm.countryLabel);
+  setPhoneE164(norm.e164);
+  setPhoneDisplay(norm.formattedNational || norm.nationalDigits || phoneDisplay);
+  setPhoneConfirmed(true);
 
-  const phoneCountryInfo = splitE164(phoneE164);
+  // Só auto-preenche o username se o usuário não tiver tocado nele
+  const finalUser = waUserTouched && waUsername.trim()
+    ? waUsername.trim()
+    : onlyDigits(norm.e164);
+  if (!waUserTouched) setWaUsername(finalUser);
 
+  setWaValidation(null);
+  void validateWa(finalUser);
+}
+
+  
   const errors = useMemo(() => {
     const out: string[] = [];
     if (!name.trim()) out.push("Nome é obrigatório.");
@@ -1949,11 +2004,9 @@ if (error) throw new Error(error.message);
             <div>
               <FieldLabel>Telefone principal</FieldLabel>
               <div className="flex gap-2">
-                <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] text-slate-500 dark:text-white/40 whitespace-nowrap font-medium min-w-[110px] shrink-0">
-                  {phoneE164
-                    ? `${phoneCountryInfo.countryName} (+${phoneCountryInfo.countryCode})`
-                    : "— país"}
-                </div>
+                <div className="h-10 px-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs text-slate-500 dark:text-white/40 whitespace-nowrap font-medium min-w-[120px] shrink-0">
+  {phoneCountryLabel}
+</div>
                 <div className="relative flex-1">
                   <FieldInput
                     value={phoneDisplay}
@@ -1985,12 +2038,13 @@ if (error) throw new Error(error.message);
                 <FieldInput
                   value={waUsername}
                   onChange={e => {
-                    const v = e.target.value.replace("@", "");
-                    setWaUsername(v);
-                    setWaValidation(null);
-                    if (waTimerRef.current) clearTimeout(waTimerRef.current);
-                    waTimerRef.current = setTimeout(() => void validateWa(v), 800);
-                  }}
+  const v = e.target.value.replace("@", "");
+  setWaUsername(v);
+  setWaUserTouched(true);
+  setWaValidation(null);
+  if (waTimerRef.current) clearTimeout(waTimerRef.current);
+  waTimerRef.current = setTimeout(() => void validateWa(v), 800);
+}}
                   placeholder="usuario"
                   className="pl-7 pr-10"
                 />
