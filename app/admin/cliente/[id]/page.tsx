@@ -209,7 +209,8 @@ const clientIdSafe = (clientId ?? "").trim();
 
 const [showEditModal, setShowEditModal] = useState(false);
 const [showRenewModal, setShowRenewModal] = useState(false);
-const [showQuickTrialModal, setShowQuickTrialModal] = useState(false); // ✅ NOVO
+const [showQuickTrialModal, setShowQuickTrialModal] = useState(false);
+const [editClientPayload, setEditClientPayload] = useState<ClientData | null>(null);
 
 // ✅ Estados para os spinners de 5 segundos nos botões
 const [isEditingLoading, setIsEditingLoading] = useState(false);
@@ -701,7 +702,38 @@ const EVENT_LABELS: Record<string, any> = {
 
         {/* Botão Editar */}
         <button
-  onClick={() => { setShowEditModal(true); setIsEditingLoading(true); setTimeout(() => setIsEditingLoading(false), 5000); }}
+  onClick={() => {
+  setEditClientPayload({
+    id: client.id,
+    client_name: client.client_name,
+    name_prefix: client.name_prefix ?? undefined,
+    username: client.username,
+    server_password: client.server_password ?? undefined,
+    whatsapp_e164: client.whatsapp_e164 ?? undefined,
+    whatsapp_username: client.whatsapp_username ?? undefined,
+    whatsapp_opt_in: client.whatsapp_opt_in ?? true,
+    secondary_display_name: client.secondary_display_name ?? undefined,
+    secondary_name_prefix: client.secondary_name_prefix ?? undefined,
+    secondary_phone_e164: client.secondary_phone_e164 ?? undefined,
+    secondary_whatsapp_username: client.secondary_whatsapp_username ?? undefined,
+    dont_message_until: client.dont_message_until ?? undefined,
+    server_id: client.server_id,
+    screens: client.screens,
+    technology: client.technology ?? undefined,
+    plan_name: client.plan_name ?? undefined,
+    price_amount: client.price_amount ?? undefined,
+    price_currency: client.price_currency ?? undefined,
+    plan_table_id: (client as any).plan_table_id ?? null,
+    plan_table_name: (client as any).plan_table_name ?? null,
+    m3u_url: client.m3u_url ?? undefined,
+    vencimento: client.vencimento ?? undefined,
+    notes: client.notes ?? undefined,
+    apps_names: client.apps_names ?? undefined,
+  });
+  setShowEditModal(true);
+  setIsEditingLoading(true);
+  setTimeout(() => setIsEditingLoading(false), 5000);
+}}
   disabled={isEditingLoading}
   className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
   title="Editar"
@@ -1042,47 +1074,13 @@ const EVENT_LABELS: Record<string, any> = {
           </div>
         </div>
       )}
-      {showEditModal && client && (
-        <NovoCliente
-          clientToEdit={{
-            id: client.id,
-            client_name: client.client_name,
-            username: client.username,
-
-            server_password: client.server_password ?? undefined,
-
-            whatsapp_e164: client.whatsapp_e164 ?? undefined,
-            whatsapp_username: client.whatsapp_username ?? undefined,
-            whatsapp_opt_in: client.whatsapp_opt_in ?? true,
-            secondary_display_name: client.secondary_display_name ?? undefined,
-            secondary_name_prefix: client.secondary_name_prefix ?? undefined,
-            secondary_phone_e164: client.secondary_phone_e164 ?? undefined,
-            secondary_whatsapp_username: client.secondary_whatsapp_username ?? undefined,
-            dont_message_until: client.dont_message_until ?? undefined,
-            
-            name_prefix: client.name_prefix ?? undefined, // ✅ REPASSA A SAUDAÇÃO PRINCIPAL PARA O MODAL!
-
-            server_id: client.server_id,
-            screens: client.screens,
-            technology: client.technology ?? undefined,
-      plan_name: client.plan_name ?? undefined,
-      price_amount: client.price_amount ?? undefined,
-      price_currency: client.price_currency ?? undefined,
-      plan_table_id: (client as any).plan_table_id ?? null,
-      plan_table_name: (client as any).plan_table_name ?? null,
-
-    // ✅ M3U (prefill no modal)
-m3u_url: client.m3u_url ?? undefined,
-
-
-            vencimento: client.vencimento ?? undefined,
-            notes: client.notes ?? undefined,
-
-            apps_names: client.apps_names ?? undefined,
-          }}
-          onClose={() => setShowEditModal(false)}
+      {showEditModal && editClientPayload && (
+  <NovoCliente
+    key={editClientPayload.id}
+    clientToEdit={editClientPayload}
+    onClose={() => setShowEditModal(false)}
           onSuccess={() => {
-      setShowRenewModal(false);
+      setShowEditModal(false);
       loadData();
       
       // ✅ Captura toasts que o RecargaCliente mandou pra sessão
