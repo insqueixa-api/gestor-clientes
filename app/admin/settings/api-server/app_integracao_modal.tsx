@@ -59,8 +59,9 @@ export default function AppIntegracaoModal({
   const isIboSol      = appName === "IBOSOL";
   const isIboPro      = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
-  const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer;
-  const noCredentials = isIboSol || isIboPro || isQuickPlayer; // Apps que não usam email/senha
+  const isDuplexPlay  = appName === "DUPLEXPLAY";
+  const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer || isDuplexPlay;
+  const noCredentials = isIboSol || isIboPro || isQuickPlayer || isDuplexPlay; // Apps que não usam email/senha
 
   useEffect(() => {
     if (integration) {
@@ -219,7 +220,8 @@ export default function AppIntegracaoModal({
                 <option value="DUPLECAST">DupleCast</option>
                 <option value="IBOSOL">IBO Sol</option>
                 <option value="IBOPRO">IBO Pro Player</option>
-                <option value="QUICKPLAYER">Quick Player</option>
+                <option value="QUICKPLAYER">Quick Player</option>
+                <option value="DUPLEXPLAY">DuplexPlay</option>
               </select>
             </div>
 
@@ -246,7 +248,7 @@ export default function AppIntegracaoModal({
               <input
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : isQuickPlayer ? "Ex: https://api.quickplayer.app/api" : "Ex: https://gerenciaapp.top"}
+                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : isQuickPlayer ? "Ex: https://api.quickplayer.app/api" : isDuplexPlay ? "Ex: https://edit.duplexplay.com" : "Ex: https://gerenciaapp.top"}
                 type="url"
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />

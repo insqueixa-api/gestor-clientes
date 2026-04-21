@@ -1883,7 +1883,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
           else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
           else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER") intType = "QUICKPLAYER";
-          else intType = ""; // Se não for nenhum desses, NÃO tem integração.
+          else if (appNameStr === "DUPLEXPLAY" || appNameStr === "DUPLEX PLAY") intType = "DUPLEXPLAY";
+          else intType = ""; // Se não for nenhum desses, NÃO tem integração.
 
           if (intType) {
               handler = getIntegrationHandler(intType);
@@ -1965,7 +1966,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const payload = handler.buildCreatePayload({
         username,
         // ✅ IBOSOL e QUICKPLAYER mandam o PIN do banco
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPin : password,
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY") ? appPin : password,
         macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
@@ -2151,7 +2152,7 @@ const payloadDelete = {
         macValue: getMacFromApp(currentApp),
         appName: appName,
         // ✅ Envia o PIN do banco também para o Quick Player
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPinDelete : password,
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY") ? appPinDelete : password,
     }),
     deviceKey: getDeviceKeyFromApp(currentApp),
 };
@@ -4935,7 +4936,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                     const catApp = catalog.find(c => c.id === app.app_id) as any;
                     const integrationType = String(catApp?.integration_type || "").trim().toUpperCase();
                     const hasInteg = Boolean(integrationType);
-                    const appLabel = integrationType === "GERENCIAAPP" ? "GerenciaApp" : integrationType === "DUPLECAST" ? "Duplecast" : integrationType;
+                    const appLabel = integrationType === "GERENCIAAPP" ? "GerenciaApp" : integrationType === "DUPLECAST" ? "Duplecast" : integrationType === "DUPLEXPLAY" ? "DuplexPlay" : integrationType;
                     // ✅ NOVO: Cálculo de Vencimento do App
                     let diffDays = null;
                     const dateField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");

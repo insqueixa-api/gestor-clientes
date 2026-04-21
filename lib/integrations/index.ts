@@ -1,5 +1,6 @@
 import { GerenciaAppIntegration } from "./gerenciaapp"; 
 import { DupleCastIntegration } from "./duplecast";
+import { DuplexPlayIntegration } from "./duplexplay";
 import { IbosolAPI as IboSolIntegration } from "@/app/api/integrations/apps/ibosol/ibosol";
 import { IboProAPI as IboProIntegration } from "@/app/api/integrations/apps/ibopro/ibopro";
 import { QuickPlayerAPI as QuickPlayerIntegration } from "@/app/api/integrations/apps/quickplayer/quickplayer";
@@ -15,6 +16,7 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "GPC_ANDROID":      GerenciaAppIntegration,
 
     "DUPLECAST":        DupleCastIntegration, 
+    "DUPLEXPLAY":   DuplexPlayIntegration,
     "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
     "QUICKPLAYER":      QuickPlayerIntegration,

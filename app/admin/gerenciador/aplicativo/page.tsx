@@ -435,7 +435,8 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
                  app.integration_type === "DUPLECAST" ? "DupleCast" : 
                  app.integration_type === "IBOSOL" ? "IBO Sol" : 
                  app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
-                 app.integration_type === "QUICKPLAYER" ? "Quick Player" : app.integration_type;
+                 app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
+                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : app.integration_type;
 
   return (
     <div
@@ -594,7 +595,8 @@ return (
               family === "DUPLECAST" ? "DupleCast" : 
               family === "IBOSOL" ? "IBO Sol" : 
               family === "IBOPRO" ? "IBO Pro Player" : 
-              family === "QUICKPLAYER" ? "Quick Player" : family
+              family === "QUICKPLAYER" ? "Quick Player" : 
+              family === "DUPLEXPLAY" ? "DuplexPlay" : family
             ) : "Outros (Sem Integração Automática)";
             const familyIcon = isIntegrated ? "⚡" : "📁";
 
@@ -701,6 +703,7 @@ return (
                     <option value="IBOSOL">IBO Sol</option>
                     <option value="IBOPRO">IBO Pro Player</option>
                     <option value="QUICKPLAYER">Quick Player</option>
+                    <option value="DUPLEXPLAY">DuplexPlay</option>
                   </select>
                   <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
                     Quando configurado, habilita automação ao criar clientes.
