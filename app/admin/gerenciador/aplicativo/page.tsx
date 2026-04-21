@@ -251,16 +251,31 @@ const fieldsText = fields
     const groups: Record<string, AppData[]> = {};
     
     filteredApps.forEach(app => {
-      // Se não tiver integração, vai para a pasta "SEM_INTEGRACAO"
-      const family = app.integration_type || "SEM_INTEGRACAO";
+      let family = app.integration_type || "SEM_INTEGRACAO";
+
+      // AGRUPAMENTO VISUAL: Se tem integração, mas não é uma das famílias principais, agrupa.
+      // Isso NÃO altera o app.integration_type no banco ou nos cards, apenas a "pasta" onde ele cai aqui na tela.
+      if (family !== "SEM_INTEGRACAO" && family !== "GERENCIAAPP" && family !== "IBOSOL") {
+        family = "OUTRAS_INTEGRACOES";
+      }
+
       if (!groups[family]) groups[family] = [];
       groups[family].push(app);
     });
 
-    // Ordena os grupos: Integrados em ordem alfabética primeiro, Não Integrados no final
+    // Ordena os grupos em uma ordem fixa para ficar elegante
     const sortedFamilies = Object.keys(groups).sort((a, b) => {
-      if (a === "SEM_INTEGRACAO") return 1;
-      if (b === "SEM_INTEGRACAO") return -1;
+      const orderWeight: Record<string, number> = {
+        "GERENCIAAPP": 1,
+        "IBOSOL": 2,
+        "OUTRAS_INTEGRACOES": 3,
+        "SEM_INTEGRACAO": 4
+      };
+      
+      const valA = orderWeight[a] || 10;
+      const valB = orderWeight[b] || 10;
+
+      if (valA !== valB) return valA - valB;
       return a.localeCompare(b);
     });
 
@@ -585,20 +600,26 @@ return (
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {groupedApps.sortedFamilies.map(family => {
-            const appsInFamily = groupedApps.groups[family];
-            const isCollapsed = collapsedGroups[family];
-            
-            const isIntegrated = family !== "SEM_INTEGRACAO";
-            const familyName = isIntegrated ? (
-              family === "GERENCIAAPP" ? "GerenciaApp (IBO Revenda, etc)" : 
-              family === "DUPLECAST" ? "DupleCast" : 
-              family === "IBOSOL" ? "IBO Sol" : 
-              family === "IBOPRO" ? "IBO Pro Player" : 
-              family === "QUICKPLAYER" ? "Quick Player" : 
-              family === "DUPLEXPLAY" ? "DuplexPlay" : family
-            ) : "Outros (Sem Integração Automática)";
-            const familyIcon = isIntegrated ? "⚡" : "📁";
+          {groupedApps.sortedFamilies.map(family => {
+            const appsInFamily = groupedApps.groups[family];
+            const isCollapsed = collapsedGroups[family];
+            
+            let familyName = "";
+            let familyIcon = "⚡";
+
+            // Define os nomes visuais para as pastas
+            if (family === "GERENCIAAPP") {
+              familyName = "GerenciaApp (IBO Revenda, etc)";
+            } else if (family === "IBOSOL") {
+              familyName = "IBO Sol";
+            } else if (family === "OUTRAS_INTEGRACOES") {
+              familyName = "Outras Integrações (Individuais)";
+            } else if (family === "SEM_INTEGRACAO") {
+              familyName = "Outros (Sem Integração Automática)";
+              familyIcon = "📁";
+            } else {
+              familyName = family;
+            }
 
             return (
               <div key={family} className="space-y-3">

@@ -89,7 +89,14 @@ function extractExpireDate(html: string): string | null {
   // <div class="font-bold">Expiration Date</div>
   // <p class="opacity-70 text-sm">2054-09-26</p>
   const m = html.match(/Expiration Date<\/div>\s*<p[^>]*>\s*([\d-]+)\s*<\/p>/);
-  return m ? m[1].trim() : null;
+  if (!m) return null;
+  
+  const rawDate = m[1].trim(); // Extrai algo como "2027-03-20"
+  
+  // Ancorando a data no meio-dia (12:00 UTC)
+  // Isso cria uma "gordura" de 12 horas que impede o Timezone do Brasil (ou qualquer outro)
+  // de acidentalmente pular um dia para frente ou para trás ao processar a string.
+  return `${rawDate}T12:00:00.000Z`; 
 }
 
 function didSucceed(html: string, keyword: string): boolean {
