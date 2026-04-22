@@ -444,14 +444,15 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // ✅ Atualizado para o novo formato do array de integrações
-  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
+  // ✅ Atualizado para o novo formato do array de integrações
+  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
 const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : 
-                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
-                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
-                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
+                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
+                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
+                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
                  app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
-                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : app.integration_type;
+                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
+                 app.integration_type === "LAZERPLAY" ? "Lazer Play" : app.integration_type;
 
   return (
     <div
@@ -714,18 +715,19 @@ return (
                 <div>
                   <Label>Integração automática</Label>
                   <select
-                    value={formIntegration}
-                    onChange={(e) => setFormIntegration(e.target.value)}
-                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-                  >
-                    <option value="">Sem integração</option>
-                    <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
-                    <option value="DUPLECAST">DupleCast</option>
-                    <option value="IBOSOL">IBO Sol</option>
-                    <option value="IBOPRO">IBO Pro Player</option>
+                    value={formIntegration}
+                    onChange={(e) => setFormIntegration(e.target.value)}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+                  >
+                    <option value="">Sem integração</option>
+                    <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
+                    <option value="DUPLECAST">DupleCast</option>
+                    <option value="IBOSOL">IBO Sol</option>
+                    <option value="IBOPRO">IBO Pro Player</option>
                     <option value="QUICKPLAYER">Quick Player</option>
                     <option value="DUPLEXPLAY">DuplexPlay</option>
-                  </select>
+                    <option value="LAZERPLAY">Lazer Play</option> {/* ✅ Nova Opção Adicionada */}
+                  </select>
                   <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
                     Quando configurado, habilita automação ao criar clientes.
                   </p>

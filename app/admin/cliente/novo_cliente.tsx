@@ -1884,6 +1884,7 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
           else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER") intType = "QUICKPLAYER";
           else if (appNameStr === "DUPLEXPLAY" || appNameStr === "DUPLEX PLAY") intType = "DUPLEXPLAY";
+          else if (appNameStr === "LAZERPLAY" || appNameStr === "LAZER PLAY") intType = "LAZERPLAY"; // ✅ Adicionado Lazer Play
           else intType = ""; // Se não for nenhum desses, NÃO tem integração.
 
           if (intType) {
@@ -1965,9 +1966,9 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     const appPin = appIntegData?.pin || ""; // ✅ Puxando da nova coluna 'pin'
     const payload = handler.buildCreatePayload({
         username,
-        // ✅ IBOSOL e QUICKPLAYER mandam o PIN do banco
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY") ? appPin : password,
-        macValue,
+        // ✅ Todos os apps que mandam o PIN do banco
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY" || handler.actionPrefix === "LAZERPLAY") ? appPin : password,
+        macValue,
         finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""), 
         m3uUrl: m3uToSend,
@@ -2040,8 +2041,8 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
         setLoadingStep("");
         
         if (e.detail?.ok) {
-            if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "DUPLEXPLAY") {
-                if (e.detail.expireDate) {
+            if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "DUPLEXPLAY" || handler.actionPrefix === "LAZERPLAY") {
+                if (e.detail.expireDate) {
                     if (dateField) {
                         const fieldKey = dateField.id || dateField.label;
                         updateAppFieldValue(currentApp!.instanceId, String(fieldKey), e.detail.expireDate);
@@ -2149,10 +2150,10 @@ const payloadDelete = {
         finalServerName: finalServerName,
         serverName: selectedServerName.replace(/\s+/g, ""),
         macValue: getMacFromApp(currentApp),
-        appName: appName,
-        // ✅ Envia o PIN do banco também para o Quick Player
-        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY") ? appPinDelete : password,
-    }),
+        appName: appName,
+        // ✅ Envia o PIN do banco
+        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY" || handler.actionPrefix === "LAZERPLAY") ? appPinDelete : password,
+    }),
     deviceKey: getDeviceKeyFromApp(currentApp),
 };
 
@@ -3036,10 +3037,10 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
 
                     // Deixa a biblioteca externa montar o pacote
                     const payloadAutomacao = handler.buildCreatePayload({
-                        username: apiUsername,
-                        // ✅ Todos os apps que exigem senha/PIN na automação
-                        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER") ? appPinAuto : apiPassword,
-                        macValue: macValueAuto,
+                        username: apiUsername,
+                        // ✅ Todos os apps que exigem senha/PIN na automação
+                        password: (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY" || handler.actionPrefix === "LAZERPLAY") ? appPinAuto : apiPassword,
+                        macValue: macValueAuto,
                         finalServerName,
                         m3uUrl: finalM3u || apiM3uUrl || m3uUrl || "",
                         appName: app.name 
@@ -3076,9 +3077,9 @@ if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
                     } else {
                         await new Promise((resolve) => {
                             const evtHandler = async (e: any) => {
-                                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                                if (e.detail?.ok) {
-                                    if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY") {
+                                window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
+                                if (e.detail?.ok) {
+                                    if (handler.actionPrefix === "DUPLECAST" || handler.actionPrefix === "IBOSOL" || handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "QUICKPLAYER" || handler.actionPrefix === "DUPLEXPLAY" || handler.actionPrefix === "LAZERPLAY") {
                                         if (e.detail.expireDate) {
                                             const dField = app.fields_config?.find((f: any) => String(f?.type || "").toLowerCase() === "date");
                                             if (dField) {
@@ -5230,7 +5231,9 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                                intType === "DUPLECAST" ? "DupleCast" :
                                                intType === "IBOSOL" ? "IBO Sol" :
                                                intType === "IBOPRO" ? "IBO Pro Player" :
-                                               intType === "QUICKPLAYER" ? "Quick Player" : intType;
+                                               intType === "QUICKPLAYER" ? "Quick Player" :
+                                               intType === "DUPLEXPLAY" ? "DuplexPlay" :
+                                               intType === "LAZERPLAY" ? "Lazer Play" : intType;
                                                
                               const matchIntegration = intLabel.toLowerCase().includes(q);
 

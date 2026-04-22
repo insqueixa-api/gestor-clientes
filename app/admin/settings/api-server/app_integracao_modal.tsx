@@ -56,12 +56,13 @@ export default function AppIntegracaoModal({
   const { confirm, ConfirmUI } = useConfirm(); 
   // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast   = appName === "DUPLECAST";
-  const isIboSol      = appName === "IBOSOL";
-  const isIboPro      = appName === "IBOPRO";
-  const isQuickPlayer = appName === "QUICKPLAYER";
-  const isDuplexPlay  = appName === "DUPLEXPLAY";
-  const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer || isDuplexPlay;
-  const noCredentials = isIboSol || isIboPro || isQuickPlayer || isDuplexPlay; // Apps que não usam email/senha
+  const isIboSol      = appName === "IBOSOL";
+  const isIboPro      = appName === "IBOPRO";
+  const isQuickPlayer = appName === "QUICKPLAYER";
+  const isDuplexPlay  = appName === "DUPLEXPLAY";
+  const isLazerPlay   = appName === "LAZERPLAY"; // ✅ Adicionado Lazer Play
+  const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay;
+  const noCredentials = isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay; // Apps que não usam email/senha
 
   useEffect(() => {
     if (integration) {
@@ -209,20 +210,21 @@ export default function AppIntegracaoModal({
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-bold text-slate-500 dark:text-white/40 mb-1.5 uppercase tracking-wider">Aplicativo</label>
               <select
-                value={appName}
-                onChange={(e) => {
-                  setAppName(e.target.value);
-                  setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
-                }}
-                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
-              >
-                <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
-                <option value="DUPLECAST">DupleCast</option>
-                <option value="IBOSOL">IBO Sol</option>
-                <option value="IBOPRO">IBO Pro Player</option>
+                value={appName}
+                onChange={(e) => {
+                  setAppName(e.target.value);
+                  setLoginEmail(""); setLoginPassword(""); setPin(""); setApiUrl("");
+                }}
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors cursor-pointer"
+              >
+                <option value="GERENCIAAPP">GerenciaApp (IBO Revenda, etc)</option>
+                <option value="DUPLECAST">DupleCast</option>
+                <option value="IBOSOL">IBO Sol</option>
+                <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player</option>
                 <option value="DUPLEXPLAY">DuplexPlay</option>
-              </select>
+                <option value="LAZERPLAY">Lazer Play</option> {/* ✅ Nova Opção */}
+              </select>
             </div>
 
             {/* Nome da Integração */}
@@ -232,12 +234,14 @@ export default function AppIntegracaoModal({
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={
-                  appName === "DUPLECAST" ? 'Ex: "DupleCast"' : 
-                  appName === "IBOSOL" ? 'Ex: "IBO Sol"' : 
-                  appName === "IBOPRO" ? 'Ex: "IBO Pro Player"' : 
-                  appName === "QUICKPLAYER" ? 'Ex: "Quick Player"' : 
-                  'Ex: "GerenciaApp"'
-                }
+                  appName === "DUPLECAST" ? 'Ex: "DupleCast"' : 
+                  appName === "IBOSOL" ? 'Ex: "IBO Sol"' : 
+                  appName === "IBOPRO" ? 'Ex: "IBO Pro Player"' : 
+                  appName === "QUICKPLAYER" ? 'Ex: "Quick Player"' : 
+                  appName === "DUPLEXPLAY" ? 'Ex: "DuplexPlay"' :
+                  appName === "LAZERPLAY" ? 'Ex: "Lazer Play"' : 
+                  'Ex: "Nome do aplicativo"'
+                }
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>
@@ -248,7 +252,7 @@ export default function AppIntegracaoModal({
               <input
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : isQuickPlayer ? "Ex: https://api.quickplayer.app/api" : isDuplexPlay ? "Ex: https://edit.duplexplay.com" : "Ex: https://gerenciaapp.top"}
+                placeholder={isDuplecast ? "Ex: https://duplecast.com/client" : isIboSol ? "Ex: https://activation.iboplayer.com" : isIboPro ? "Ex: https://iboproapp.com" : isQuickPlayer ? "Ex: https://api.quickplayer.app/api" : isDuplexPlay ? "Ex: https://edit.duplexplay.com" : isLazerPlay ? "Ex: https://lazerplay.io" : "Ex: https://gerenciaapp.top"}
                 type="url"
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
