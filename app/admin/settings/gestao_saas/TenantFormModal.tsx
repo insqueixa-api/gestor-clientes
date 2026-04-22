@@ -313,6 +313,14 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
     if (errors.length > 0) return;
     setSaving(true);
     try {
+      // ✅ TRAVA DE SEGURANÇA: Garante que o módulo SaaS obedece a Role
+      let finalModules = [...activeModules];
+      if (role === "MASTER" && !finalModules.includes("saas")) {
+        finalModules.push("saas");
+      } else if (role === "USER") {
+        finalModules = finalModules.filter(m => m !== "saas");
+      }
+
       if (mode === "new") {
         const res = await fetch("/api/saas/provision", {
             method: "POST",
@@ -331,7 +339,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               saas_plan_table_id: saasPlanTableId || null,
               credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
               whatsapp_session: selectedSession, 
-              active_modules: activeModules, // ✅ ENVIO MODULAR
+              active_modules: finalModules, // ✅ AGORA ENVIA A LISTA SEGURA
             }),
           });
         const data = await res.json();
@@ -343,7 +351,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
-          p_active_modules:    activeModules, // ✅ ATUALIZAÇÃO MODULAR
+          p_active_modules:    finalModules, // ✅ TRAVA DE SEGURANÇA APLICADA NA EDIÇÃO
         });
         if (error) throw new Error(error.message);
 
@@ -653,8 +661,14 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${activeModules.includes('iptv') ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
               <input type="checkbox" checked={activeModules.includes('iptv')} onChange={() => handleModuleToggle('iptv')} className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500/50 cursor-pointer" />
               <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white">IPTV & SaaS</div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">Gestão de Servidores, Aplicativos e Clientes.</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white">
+                  {role === "MASTER" ? "IPTV & SaaS" : "IPTV"}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">
+                  {role === "MASTER" 
+                    ? "Gestão de Servidores, Apps, Clientes e Revendedores." 
+                    : "Gestão de Servidores, Aplicativos e Clientes."}
+                </div>
               </div>
             </label>
 
