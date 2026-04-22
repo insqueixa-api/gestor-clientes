@@ -817,7 +817,7 @@ return (
             <MetricCardView
               title="💰 Receitas do Mês"
               accent="green"
-              leftLabel="Recebido"
+              leftLabel="Pago (vcto no mês)"
               leftValue={fmtBRL(finReceitasPagas)}
               rightLabel="Pendente"
               rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
@@ -826,7 +826,7 @@ return (
             <MetricCardView
               title="📉 Despesas do Mês"
               accent="red"
-              leftLabel="Pago"
+              leftLabel="Pago (vcto no mês)"
               leftValue={fmtBRL(finDespesasPagas)}
               rightLabel="Pendente"
               rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
@@ -835,10 +835,10 @@ return (
             <MetricCardView
               title="📊 Saldo do Mês"
               accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
-              leftLabel="Caixa Efetivo"
+              leftLabel="Resultado (vcto)"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
-              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
-              href="/admin/financeiro"
+              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)} • Ver detalhes →`}
+              href="/admin/settings/financeiro_pessoal"
             />
           </div>
 
