@@ -728,7 +728,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
         <div className="min-w-0 text-left hidden md:block">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-              Finanças Pessoais
+              Controle Financeiro
             </h1>
             <EyeToggle />
           </div>
