@@ -636,21 +636,55 @@ return (
         </div>
 
         {/* Chips de filtro */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {(["iptv", "saas", "financeiro"] as const).map((key) => {
-            const labels: Record<string, string> = { iptv: "📺 IPTV", saas: "🔗 SaaS", financeiro: "💰 Financeiro" };
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {([
+            {
+              key: "iptv",
+              label: "IPTV",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+                  <polyline points="17 2 12 7 7 2"/>
+                </svg>
+              ),
+              activeColor: "bg-sky-500 border-sky-500 text-white shadow-sky-900/20",
+              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-sky-300 hover:text-sky-600 dark:hover:border-sky-500/40 dark:hover:text-sky-400",
+            },
+            {
+              key: "saas",
+              label: "SaaS",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                </svg>
+              ),
+              activeColor: "bg-violet-500 border-violet-500 text-white shadow-violet-900/20",
+              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-violet-300 hover:text-violet-600 dark:hover:border-violet-500/40 dark:hover:text-violet-400",
+            },
+            {
+              key: "financeiro",
+              label: "Financeiro",
+              icon: (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              ),
+              activeColor: "bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20",
+              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-emerald-300 hover:text-emerald-600 dark:hover:border-emerald-500/40 dark:hover:text-emerald-400",
+            },
+          ] as const).map(({ key, label, icon, activeColor, inactiveColor }) => {
             const active = activeViews.includes(key);
             return (
               <Link
                 key={key}
                 href={toggleHref(key)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all select-none ${
-                  active
-                    ? "bg-zinc-800 dark:bg-white text-white dark:text-zinc-900 border-zinc-700 dark:border-white shadow-sm"
-                    : "bg-white dark:bg-zinc-900 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
+                prefetch={false}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all select-none shadow-sm ${
+                  active ? activeColor : `bg-white dark:bg-zinc-900 ${inactiveColor}`
                 }`}
               >
-                {labels[key]}
+                {icon}
+                {label}
               </Link>
             );
           })}

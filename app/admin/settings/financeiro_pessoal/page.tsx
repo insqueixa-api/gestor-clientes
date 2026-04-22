@@ -707,7 +707,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
-              Finanças Pessoais
+              Controle Financeiro
             </h1>
             <EyeToggle />
           </div>
@@ -732,7 +732,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
             </h1>
             <EyeToggle />
           </div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Controle exclusivo do SuperAdmin</p>
+          
         </div>
 
         {/* Botões do Calendário */}
