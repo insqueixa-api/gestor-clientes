@@ -850,7 +850,7 @@ return (
                     title="Receitas por Categoria"
                     items={finCatRevenueItems}
                     accentColor="emerald"
-                    formatValue={(v) => fmtBRL(v)}
+                    mode="currency"
                   />
                 </div>
               )}
@@ -860,7 +860,7 @@ return (
                     title="Despesas por Categoria"
                     items={finCatExpenseItems}
                     accentColor="rose"
-                    formatValue={(v) => fmtBRL(v)}
+                    mode="currency"
                   />
                 </div>
               )}

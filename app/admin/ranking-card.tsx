@@ -22,9 +22,12 @@ interface RankingCardProps {
   accentColor?: AccentColor;
   valueLabel?: string;
   formatValue?: (v: number) => string;
-  topN?: number;  // 👈 novo
+  mode?: "count" | "currency";
+  topN?: number;
 }
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
+const fmtBRL = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 const accents: Record<AccentColor, {
   bar: string;        // gradient para a barra
@@ -101,8 +104,10 @@ const accents: Record<AccentColor, {
 const medals = ["🥇", "🥈", "🥉"];
 
 export function RankingCard({
-  title, subtitle, items, accentColor = "sky", valueLabel, formatValue = fmtInt, topN = 5,
+  title, subtitle, items, accentColor = "sky", valueLabel, formatValue, mode = "count", topN = 5,
 }: RankingCardProps) {
+  const defaultFormat = mode === "currency" ? fmtBRL : fmtInt;
+  const fmt = formatValue ?? defaultFormat;
   const c = accents[accentColor];
   const max = Math.max(...items.map((i) => i.value), 1);
 
@@ -157,7 +162,7 @@ export function RankingCard({
 
                 {/* Value */}
                 <span className={`text-[13px] font-bold tabular-nums flex-shrink-0 ${c.value}`}>
-                  {formatValue(item.value)}
+                  {fmt(item.value)}
                   {valueLabel && (
                     <span className="text-[10px] font-normal ml-1 opacity-60">{valueLabel}</span>
                   )}
