@@ -2073,7 +2073,7 @@ window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
     detail: { action: `${handler.actionPrefix}_CREATE`, baseUrl: appBaseUrl, payload: { ...payload, deviceKey: extDeviceKey } }
 }));
     
-    const extensionTimeout = handler.actionPrefix === "IBOPRO" ? 90000 : 20000;
+    const extensionTimeout = (handler.actionPrefix === "IBOPRO" || handler.actionPrefix === "LAZERPLAY") ? 90000 : 20000;
     setTimeout(() => {
         setLoading((prev) => {
             if (prev) {
