@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { EyeToggle } from "@/app/admin/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
@@ -259,6 +260,17 @@ function FinanceiroPageContent() {
   // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Abre o modal de ajuste de saldo automaticamente se vier com ?ajustar=1
+  useEffect(() => {
+    if (searchParams.get("ajustar") === "1" && !loading && contasDB.length > 0) {
+      setShowAjusteSaldo(true);
+      // Limpa o param da URL sem recarregar a página
+      router.replace("/admin/settings/financeiro_pessoal", { scroll: false });
+    }
+  }, [searchParams, loading, contasDB]);
   const [deleteData, setDeleteData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
 
   function addToast(type: "success" | "error", title: string, message?: string) {

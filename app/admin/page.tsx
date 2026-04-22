@@ -345,44 +345,72 @@ export default async function AdminDashboardPage() {
   const finCatById = new Map<string, { nome: string; icone: string }>();
 
   if (myTenantId) {
-    const [trxRes, catRes] = await Promise.allSettled([
+    const [trxVencRes, trxPagosRes, catRes] = await Promise.allSettled([
+      // Transações com vencimento no mês (pagas ou não)
       supabase
         .from("fin_transacoes")
         .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
         .eq("tenant_id", myTenantId)
         .gte("data_vencimento", _finMonthStart)
         .lte("data_vencimento", _finMonthEnd),
+      // Transações pagas neste mês mas com vencimento em outro mês
+      supabase
+        .from("fin_transacoes")
+        .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
+        .eq("tenant_id", myTenantId)
+        .eq("status", "PAGO")
+        .lt("data_vencimento", _finMonthStart)
+        .gte("data_pagamento", `${_finMonthStart}T00:00:00.000Z`)
+        .lte("data_pagamento", `${_finMonthEnd}T23:59:59.999Z`),
+      // Categorias
       supabase
         .from("fin_categorias")
         .select("id, nome, icone")
         .eq("tenant_id", myTenantId),
     ]);
 
-    if (trxRes.status === "fulfilled" && !trxRes.value.error) {
-      finTrxRows = (trxRes.value.data ?? []) as FinTrx[];
-    } else if (trxRes.status === "rejected") {
-      console.error("[fin_transacoes]", trxRes.reason);
-    } else if (trxRes.status === "fulfilled" && trxRes.value.error) {
-      console.error("[fin_transacoes]", trxRes.value.error);
+    const seenIds = new Set<string>();
+
+    if (trxVencRes.status === "fulfilled" && !trxVencRes.value.error) {
+      for (const t of trxVencRes.value.data ?? []) {
+        seenIds.add(t.id);
+        finTrxRows.push(t as FinTrx);
+      }
+    } else {
+      console.error("[fin_transacoes venc]", trxVencRes.status === "rejected" ? trxVencRes.reason : trxVencRes.value.error);
+    }
+
+    if (trxPagosRes.status === "fulfilled" && !trxPagosRes.value.error) {
+      for (const t of trxPagosRes.value.data ?? []) {
+        if (!seenIds.has(t.id)) finTrxRows.push(t as FinTrx);
+      }
+    } else {
+      console.error("[fin_transacoes pagos]", trxPagosRes.status === "rejected" ? trxPagosRes.reason : trxPagosRes.value.error);
     }
 
     if (catRes.status === "fulfilled" && !catRes.value.error) {
       for (const c of catRes.value.data ?? []) {
         finCatById.set(c.id, { nome: c.nome, icone: c.icone });
       }
-    } else if (catRes.status === "rejected") {
-      console.error("[fin_categorias]", catRes.reason);
+    } else {
+      console.error("[fin_categorias]", catRes.status === "rejected" ? catRes.reason : catRes.value.error);
     }
   }
 
   
 
+  const isFinPagoNoMes = (t: FinTrx) => {
+    if (t.status !== "PAGO" || !t.data_pagamento) return false;
+    const iso = t.data_pagamento.split("T")[0];
+    return iso >= _finMonthStart && iso <= _finMonthEnd;
+  };
+
   const finReceitasPagas = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && t.status === "PAGO")
+    .filter(t => t.tipo === "RECEITA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasPagas = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && t.status === "PAGO")
+    .filter(t => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finReceitasTotal = finTrxRows
@@ -397,7 +425,7 @@ export default async function AdminDashboardPage() {
   const catRevMap = new Map<string, { label: string; value: number }>();
   const catExpMap = new Map<string, { label: string; value: number }>();
   for (const t of finTrxRows) {
-    if (t.status !== "PAGO") continue;
+    if (!isFinPagoNoMes(t)) continue;
     const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
     const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
     const key = t.categoria_id ?? "__none__";
@@ -838,7 +866,7 @@ return (
               leftLabel="Resultado (vcto)"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
               footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)} • Ver detalhes →`}
-              href="/admin/settings/financeiro_pessoal"
+              href="/admin/settings/financeiro_pessoal?ajustar=1"
             />
           </div>
 
