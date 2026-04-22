@@ -429,6 +429,15 @@ export default async function AdminDashboardPage() {
     .filter(t => t.tipo === "DESPESA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
+  // Pendentes reais: vencimento no mês E status != PAGO
+  const finReceitasPendentes = finTrxRows
+    .filter(t => t.tipo === "RECEITA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  const finDespesasPendentes = finTrxRows
+    .filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
   // Rankings por categoria (apenas pagos)
   const catRevMap = new Map<string, { label: string; value: number }>();
   const catExpMap = new Map<string, { label: string; value: number }>();
@@ -856,7 +865,7 @@ return (
               leftLabel="Recebido no Mês"
               leftValue={fmtBRL(finReceitasPagas)}
               rightLabel="A Receber"
-              rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
+              rightValue={fmtBRL(finReceitasPendentes)}
               footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
             />
             <MetricCardView
@@ -865,7 +874,7 @@ return (
               leftLabel="Pago no Mês"
               leftValue={fmtBRL(finDespesasPagas)}
               rightLabel="A Pagar"
-              rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
+              rightValue={fmtBRL(finDespesasPendentes)}
               footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
             />
             <MetricCardView
