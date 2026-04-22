@@ -240,9 +240,7 @@ export default async function AdminDashboardPage() {
     saasDailyRes,
     purchasesRes,
     saasCostRes,
-    finTrxRes,          // fin_transacoes do mês
-    finCatRes,          // fin_categorias
-  ] = await Promise.all([
+    ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
     supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
@@ -267,21 +265,7 @@ export default async function AdminDashboardPage() {
           .eq("tenant_id", myTenantId)
           .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — transações do mês (sem join)
-    (myTenantId
-      ? supabase.from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
-          .eq("tenant_id", myTenantId)
-          .gte("data_vencimento", _finMonthStart)
-          .lte("data_vencimento", _finMonthEnd)
-      : Promise.resolve({ data: [] })) as Promise<any>,
-    // Finanças Pessoais — categorias
-    (myTenantId
-      ? supabase.from("fin_categorias")
-          .select("id, nome, icone")
-          .eq("tenant_id", myTenantId)
-      : Promise.resolve({ data: [] })) as Promise<any>,
-  ]);
+    ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
@@ -346,7 +330,7 @@ export default async function AdminDashboardPage() {
   if (isPrevMonth) saasCostPrevMonthVal += amt;
 }
 
-  // ── Processamento das Finanças Pessoais ─────────────────────────
+  // ── Finanças Pessoais (isolado para não derrubar a página) ───────
   type FinTrx = {
     id: string;
     tipo: "RECEITA" | "DESPESA";
@@ -357,13 +341,33 @@ export default async function AdminDashboardPage() {
     categoria_id: string | null;
   };
 
-  const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
+  let finTrxRows: FinTrx[] = [];
+  let finCatById = new Map<string, { nome: string; icone: string }>();
 
-  // Mapa de categorias para lookup
-  const finCatById = new Map<string, { nome: string; icone: string }>();
-  for (const c of ((finCatRes as any)?.data ?? [])) {
-    finCatById.set(c.id, { nome: c.nome, icone: c.icone });
+  try {
+    if (myTenantId) {
+      const [trxRes, catRes] = await Promise.all([
+        supabase
+          .from("fin_transacoes")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
+          .eq("tenant_id", myTenantId)
+          .gte("data_vencimento", _finMonthStart)
+          .lte("data_vencimento", _finMonthEnd),
+        supabase
+          .from("fin_categorias")
+          .select("id, nome, icone")
+          .eq("tenant_id", myTenantId),
+      ]);
+      finTrxRows = (trxRes.data ?? []) as FinTrx[];
+      for (const c of catRes.data ?? []) {
+        finCatById.set(c.id, { nome: c.nome, icone: c.icone });
+      }
+    }
+  } catch (e) {
+    console.error("[dashboard] fin_transacoes fetch failed:", e);
   }
+
+  
 
   const finReceitasPagas = finTrxRows
     .filter(t => t.tipo === "RECEITA" && t.status === "PAGO")
