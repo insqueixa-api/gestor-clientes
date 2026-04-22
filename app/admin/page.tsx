@@ -343,6 +343,7 @@ export default async function AdminDashboardPage() {
 
   let finTrxRows: FinTrx[] = [];
   const finCatById = new Map<string, { nome: string; icone: string }>();
+  let finSaldoAtual = 0;
 
   if (myTenantId) {
     const _finNextMonthStart = isoDateFromYMD(
@@ -383,14 +384,29 @@ export default async function AdminDashboardPage() {
     } else {
       console.error("[fin_categorias]", catRes.status === "rejected" ? catRes.reason : catRes.value.error);
     }
+
+    // Saldo atual: soma de todas as contas via RPC
+    const contasRes = await supabase
+      .from("fin_contas_bancarias")
+      .select("id")
+      .eq("tenant_id", myTenantId);
+
+    if (contasRes.data && contasRes.data.length > 0) {
+      const saldos = await Promise.allSettled(
+        contasRes.data.map(c => supabase.rpc("get_saldo_conta", { p_conta_id: c.id }))
+      );
+      for (const s of saldos) {
+        if (s.status === "fulfilled" && !s.value.error) {
+          finSaldoAtual += toNumber(s.value.data);
+        }
+      }
+    }
   }
 
   
 
   const isFinPagoNoMes = (t: FinTrx) => {
-    if (t.status !== "PAGO" || !t.data_pagamento) return false;
-    const iso = t.data_pagamento.split("T")[0];
-    return iso >= _finMonthStart && iso <= _finMonthEnd;
+    return t.status === "PAGO";
   };
 
   const finReceitasPagas = finTrxRows
@@ -830,7 +846,7 @@ return (
       {finTrxRows.length > 0 && (
         <>
           <SectionTitle title="FINANÇAS PESSOAIS" />
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4">
             <MetricCardView
               title="💰 Receitas do Mês"
               accent="green"
@@ -854,8 +870,15 @@ return (
               accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
               leftLabel="Resultado (vcto)"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
-              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)} • Ver detalhes →`}
-              href="/admin/settings/financeiro_pessoal?ajustar=1"
+              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
+            />
+            <MetricCardView
+              title="💰 Saldo Atual"
+              accent={finSaldoAtual >= 0 ? "green" : "red"}
+              leftLabel="Saldo em conta"
+              leftValue={fmtBRL(finSaldoAtual)}
+              footer="Ver detalhes →"
+              href="/admin/settings/financeiro_pessoal"
             />
           </div>
 
