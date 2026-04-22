@@ -207,14 +207,15 @@ function isChartDatum(v: SimpleBarChartDatum | null): v is SimpleBarChartDatum {
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams?: { view?: string };
+  searchParams?: Promise<{ view?: string }>;
 }) {
   const supabase = await createClient();
+  const resolvedParams = await searchParams;
 
   // Filtros de seção — default: todos ativos
   const ALL = ["iptv", "saas", "financeiro"];
-  const activeViews: string[] = searchParams?.view
-    ? searchParams.view.split(",").filter(v => ALL.includes(v))
+  const activeViews: string[] = resolvedParams?.view
+    ? resolvedParams.view.split(",").filter(v => ALL.includes(v))
     : ALL;
   const showIPTV      = activeViews.includes("iptv");
   const showSaasView  = activeViews.includes("saas");
