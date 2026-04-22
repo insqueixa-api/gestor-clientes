@@ -334,6 +334,9 @@ let valorSaasCusto = 0;
 valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
 valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.price_amount || 0), 0);
 
+      // Data de pagamento = último dia do mês sincronizado (nunca "hoje")
+      const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
+
       const upsertDinamico = async (descricao: string, valor: number, catId: string, tipoMovimento: "RECEITA" | "DESPESA") => {
         if (!catId || valor <= 0) return;
 
@@ -346,8 +349,8 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
         if (existentes && existentes.length > 0) {
           await supabaseBrowser.from("fin_transacoes")
-  .update({ valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: new Date().toISOString(), conta_id: null })
-  .eq("id", existentes[0].id);
+            .update({ valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: dataPagamentoMes, conta_id: null })
+            .eq("id", existentes[0].id);
           
           if (existentes.length > 1) {
             const idsParaDeletar = existentes.slice(1).map(e => e.id);
@@ -355,9 +358,9 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
           }
         } else {
           await supabaseBrowser.from("fin_transacoes").insert({
-  tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: new Date().toISOString(),
-  conta_id: null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
-});
+            tenant_id: tid, tipo: tipoMovimento, descricao, valor, data_vencimento: dataVenc, status: "PAGO", data_pagamento: dataPagamentoMes,
+            conta_id: null, categoria_id: catId, is_recorrente: true, frequencia: "MENSAL", observacoes: "Sincronização Automática"
+          });
         }
       };
 
