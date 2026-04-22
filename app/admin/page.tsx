@@ -221,6 +221,13 @@ export default async function AdminDashboardPage() {
     : null;
   const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
 
+  // Datas do mês atual para o painel de finanças pessoais
+  const _finToday = todayInSaoPaulo();
+  const _finYear = _finToday.getFullYear();
+  const _finMonth = _finToday.getMonth() + 1;
+  const _finMonthStart = isoDateFromYMD(_finYear, _finMonth, 1);
+  const _finMonthEnd = isoDateFromYMD(_finYear, _finMonth, new Date(_finYear, _finMonth, 0).getDate());
+
   const [
     kpisRes,
     dueRes,
@@ -232,7 +239,9 @@ export default async function AdminDashboardPage() {
     saasFinanceRes,
     saasDailyRes,
     purchasesRes,
-    saasCostRes // ✅ NOVO
+    saasCostRes,
+    finControlRes,   // financial_control_enabled
+    finTrxRes,       // fin_transacoes do mês
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -258,6 +267,23 @@ export default async function AdminDashboardPage() {
           .eq("tenant_id", myTenantId)
           .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
+    // Finanças Pessoais — permissão
+    (myTenantId
+      ? supabase.from("tenants")
+          .select("financial_control_enabled")
+          .eq("id", myTenantId)
+          .maybeSingle()
+      : Promise.resolve({ data: null })) as Promise<any>,
+    // Finanças Pessoais — transações do mês
+    (myTenantId
+      ? supabase.from("fin_transacoes")
+          .select("tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
+          .eq("tenant_id", myTenantId)
+          .or(
+            `and(data_vencimento.gte.${_finMonthStart},data_vencimento.lte.${_finMonthEnd}),` +
+            `and(data_pagamento.gte.${_finMonthStart}T00:00:00.000Z,data_pagamento.lte.${_finMonthEnd}T23:59:59.999Z)`
+          )
+      : Promise.resolve({ data: [] })) as Promise<any>,
   ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
@@ -322,6 +348,71 @@ export default async function AdminDashboardPage() {
   if (isThisMonth) saasCostMonthVal     += amt;
   if (isPrevMonth) saasCostPrevMonthVal += amt;
 }
+
+  // ── Processamento das Finanças Pessoais ─────────────────────────
+  const isFinControlEnabled = (finControlRes as any)?.data?.financial_control_enabled !== false;
+
+  type FinTrx = {
+    tipo: "RECEITA" | "DESPESA";
+    valor: number;
+    status: string;
+    data_vencimento: string;
+    data_pagamento: string | null;
+    categoria_id: string | null;
+    fin_categorias: { nome: string; icone: string } | null;
+  };
+
+  const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
+
+  const isFinInMonth = (dateStr: string | null | undefined) => {
+    if (!dateStr) return false;
+    const iso = dateStr.split("T")[0];
+    return iso >= _finMonthStart && iso <= _finMonthEnd;
+  };
+
+  const finReceitasPagas = finTrxRows
+    .filter(t => t.tipo === "RECEITA" && t.status === "PAGO" && isFinInMonth(t.data_pagamento))
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  const finDespesasPagas = finTrxRows
+    .filter(t => t.tipo === "DESPESA" && t.status === "PAGO" && isFinInMonth(t.data_pagamento))
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  const finReceitasTotal = finTrxRows
+    .filter(t => t.tipo === "RECEITA" && isFinInMonth(t.data_vencimento))
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  const finDespesasTotal = finTrxRows
+    .filter(t => t.tipo === "DESPESA" && isFinInMonth(t.data_vencimento))
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  // Agrupamento por categoria
+  const catRevMap = new Map<string, { label: string; value: number }>();
+  const catExpMap = new Map<string, { label: string; value: number }>();
+
+  for (const t of finTrxRows) {
+    if (t.status !== "PAGO" || !isFinInMonth(t.data_pagamento)) continue;
+    const cat = t.fin_categorias;
+    const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
+    const key = t.categoria_id ?? "__none__";
+
+    if (t.tipo === "RECEITA") {
+      const prev = catRevMap.get(key) ?? { label, value: 0 };
+      catRevMap.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+    } else {
+      const prev = catExpMap.get(key) ?? { label, value: 0 };
+      catExpMap.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+    }
+  }
+
+  const finCatRevenueItems: BarItem[] = Array.from(catRevMap.values())
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
+  const finCatExpenseItems: BarItem[] = Array.from(catExpMap.values())
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+  // ── Fim das Finanças Pessoais ────────────────────────────────────
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -815,6 +906,67 @@ return (
   <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>
+
+      {/* FINANÇAS PESSOAIS */}
+      {isFinControlEnabled && (
+        <>
+          <SectionTitle title="FINANÇAS PESSOAIS" />
+
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+            <MetricCardView
+              title="💰 Receitas do Mês"
+              accent="green"
+              leftLabel="Recebido"
+              leftValue={fmtBRL(finReceitasPagas)}
+              rightLabel="Pendente"
+              rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
+              footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
+            />
+            <MetricCardView
+              title="📉 Despesas do Mês"
+              accent="red"
+              leftLabel="Pago"
+              leftValue={fmtBRL(finDespesasPagas)}
+              rightLabel="Pendente"
+              rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
+              footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
+            />
+            <MetricCardView
+              title="📊 Saldo do Mês"
+              accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
+              leftLabel="Caixa Efetivo"
+              leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
+              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
+              href="/admin/financeiro"
+            />
+          </div>
+
+          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) && (
+            <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+              {finCatRevenueItems.length > 0 && (
+                <div className="sv">
+                  <RankingCard
+                    title="Receitas por Categoria"
+                    items={finCatRevenueItems}
+                    accentColor="emerald"
+                    formatValue={(v) => fmtBRL(v)}
+                  />
+                </div>
+              )}
+              {finCatExpenseItems.length > 0 && (
+                <div className="sv">
+                  <RankingCard
+                    title="Despesas por Categoria"
+                    items={finCatExpenseItems}
+                    accentColor="rose"
+                    formatValue={(v) => fmtBRL(v)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
