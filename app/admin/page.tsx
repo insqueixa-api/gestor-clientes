@@ -266,10 +266,10 @@ export default async function AdminDashboardPage() {
           .eq("tenant_id", myTenantId)
           .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — transações do mês (simples, sem join)
+    // Finanças Pessoais — transações do mês
     (myTenantId
       ? supabase.from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
           .eq("tenant_id", myTenantId)
           .gte("data_vencimento", _finMonthStart)
           .lte("data_vencimento", _finMonthEnd)
@@ -347,6 +347,8 @@ export default async function AdminDashboardPage() {
     status: string;
     data_vencimento: string;
     data_pagamento: string | null;
+    categoria_id: string | null;
+    fin_categorias: { nome: string; icone: string } | null;
   };
 
   const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
@@ -366,6 +368,24 @@ export default async function AdminDashboardPage() {
   const finDespesasTotal = finTrxRows
     .filter(t => t.tipo === "DESPESA")
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  // Rankings por categoria (apenas pagos)
+  const catRevMap = new Map<string, { label: string; value: number }>();
+  const catExpMap = new Map<string, { label: string; value: number }>();
+  for (const t of finTrxRows) {
+    if (t.status !== "PAGO") continue;
+    const label = t.fin_categorias
+      ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}`
+      : "📦 Sem categoria";
+    const key = t.categoria_id ?? "__none__";
+    const map = t.tipo === "RECEITA" ? catRevMap : catExpMap;
+    const prev = map.get(key) ?? { label, value: 0 };
+    map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+  }
+  const finCatRevenueItems: BarItem[] = Array.from(catRevMap.values())
+    .sort((a, b) => b.value - a.value).slice(0, 5);
+  const finCatExpenseItems: BarItem[] = Array.from(catExpMap.values())
+    .sort((a, b) => b.value - a.value).slice(0, 5);
   // ── Fim das Finanças Pessoais ────────────────────────────────────
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
@@ -766,6 +786,66 @@ return (
         </>
       )}
 
+      {/* FINANÇAS PESSOAIS */}
+      {finTrxRows.length > 0 && (
+        <>
+          <SectionTitle title="FINANÇAS PESSOAIS" />
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+            <MetricCardView
+              title="💰 Receitas do Mês"
+              accent="green"
+              leftLabel="Recebido"
+              leftValue={fmtBRL(finReceitasPagas)}
+              rightLabel="Pendente"
+              rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
+              footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
+            />
+            <MetricCardView
+              title="📉 Despesas do Mês"
+              accent="red"
+              leftLabel="Pago"
+              leftValue={fmtBRL(finDespesasPagas)}
+              rightLabel="Pendente"
+              rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
+              footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
+            />
+            <MetricCardView
+              title="📊 Saldo do Mês"
+              accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
+              leftLabel="Caixa Efetivo"
+              leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
+              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
+              href="/admin/financeiro"
+            />
+          </div>
+
+          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) && (
+            <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+              {finCatRevenueItems.length > 0 && (
+                <div className="sv">
+                  <RankingCard
+                    title="Receitas por Categoria"
+                    items={finCatRevenueItems}
+                    accentColor="emerald"
+                    formatValue={(v) => fmtBRL(v)}
+                  />
+                </div>
+              )}
+              {finCatExpenseItems.length > 0 && (
+                <div className="sv">
+                  <RankingCard
+                    title="Despesas por Categoria"
+                    items={finCatExpenseItems}
+                    accentColor="rose"
+                    formatValue={(v) => fmtBRL(v)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
       {/* GRÁFICOS */}
       <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
 
@@ -861,40 +941,7 @@ return (
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>
 
-      {/* FINANÇAS PESSOAIS */}
-      {finTrxRows.length > 0 && (
-        <>
-          <SectionTitle title="FINANÇAS PESSOAIS" />
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
-            <MetricCardView
-              title="💰 Receitas do Mês"
-              accent="green"
-              leftLabel="Recebido"
-              leftValue={fmtBRL(finReceitasPagas)}
-              rightLabel="Pendente"
-              rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
-              footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
-            />
-            <MetricCardView
-              title="📉 Despesas do Mês"
-              accent="red"
-              leftLabel="Pago"
-              leftValue={fmtBRL(finDespesasPagas)}
-              rightLabel="Pendente"
-              rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
-              footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
-            />
-            <MetricCardView
-              title="📊 Saldo do Mês"
-              accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
-              leftLabel="Caixa Efetivo"
-              leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
-              footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
-              href="/admin/financeiro"
-            />
-          </div>
-        </>
-      )}
+      
     </div>
   );
 }
