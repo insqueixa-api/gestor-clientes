@@ -961,7 +961,7 @@ return (
             <MetricCardView
               title="📊 Saldo do Mês"
               accent={finReceitasPagas - finDespesasPagas >= 0 ? "green" : "red"}
-              leftLabel="Resultado (vcto)"
+              leftLabel="Resultado no Mês"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
               footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
             />
