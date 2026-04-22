@@ -889,7 +889,7 @@ return (
               accent={finSaldoAtual >= 0 ? "green" : "red"}
               leftLabel="Saldo em conta"
               leftValue={fmtBRL(finSaldoAtual)}
-              footer="Clique para atualizar"
+              footer="Atualizar saldo..."
               href="/admin/settings/financeiro_pessoal"
             />
           </div>
