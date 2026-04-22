@@ -342,29 +342,37 @@ export default async function AdminDashboardPage() {
   };
 
   let finTrxRows: FinTrx[] = [];
-  let finCatById = new Map<string, { nome: string; icone: string }>();
+  const finCatById = new Map<string, { nome: string; icone: string }>();
 
-  try {
-    if (myTenantId) {
-      const [trxRes, catRes] = await Promise.all([
-        supabase
-          .from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
-          .eq("tenant_id", myTenantId)
-          .gte("data_vencimento", _finMonthStart)
-          .lte("data_vencimento", _finMonthEnd),
-        supabase
-          .from("fin_categorias")
-          .select("id, nome, icone")
-          .eq("tenant_id", myTenantId),
-      ]);
-      finTrxRows = (trxRes.data ?? []) as FinTrx[];
-      for (const c of catRes.data ?? []) {
+  if (myTenantId) {
+    const [trxRes, catRes] = await Promise.allSettled([
+      supabase
+        .from("fin_transacoes")
+        .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
+        .eq("tenant_id", myTenantId)
+        .gte("data_vencimento", _finMonthStart)
+        .lte("data_vencimento", _finMonthEnd),
+      supabase
+        .from("fin_categorias")
+        .select("id, nome, icone")
+        .eq("tenant_id", myTenantId),
+    ]);
+
+    if (trxRes.status === "fulfilled" && !trxRes.value.error) {
+      finTrxRows = (trxRes.value.data ?? []) as FinTrx[];
+    } else if (trxRes.status === "rejected") {
+      console.error("[fin_transacoes]", trxRes.reason);
+    } else if (trxRes.status === "fulfilled" && trxRes.value.error) {
+      console.error("[fin_transacoes]", trxRes.value.error);
+    }
+
+    if (catRes.status === "fulfilled" && !catRes.value.error) {
+      for (const c of catRes.value.data ?? []) {
         finCatById.set(c.id, { nome: c.nome, icone: c.icone });
       }
+    } else if (catRes.status === "rejected") {
+      console.error("[fin_categorias]", catRes.reason);
     }
-  } catch (e) {
-    console.error("[dashboard] fin_transacoes fetch failed:", e);
   }
 
   
