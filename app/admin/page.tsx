@@ -241,6 +241,7 @@ export default async function AdminDashboardPage() {
     purchasesRes,
     saasCostRes,
     finTrxRes,          // fin_transacoes do mês
+    finCatRes,          // fin_categorias
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -266,13 +267,19 @@ export default async function AdminDashboardPage() {
           .eq("tenant_id", myTenantId)
           .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — transações do mês
+    // Finanças Pessoais — transações do mês (sem join)
     (myTenantId
       ? supabase.from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
           .eq("tenant_id", myTenantId)
           .gte("data_vencimento", _finMonthStart)
           .lte("data_vencimento", _finMonthEnd)
+      : Promise.resolve({ data: [] })) as Promise<any>,
+    // Finanças Pessoais — categorias
+    (myTenantId
+      ? supabase.from("fin_categorias")
+          .select("id, nome, icone")
+          .eq("tenant_id", myTenantId)
       : Promise.resolve({ data: [] })) as Promise<any>,
   ]);
 
@@ -348,10 +355,15 @@ export default async function AdminDashboardPage() {
     data_vencimento: string;
     data_pagamento: string | null;
     categoria_id: string | null;
-    fin_categorias: { nome: string; icone: string } | null;
   };
 
   const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
+
+  // Mapa de categorias para lookup
+  const finCatById = new Map<string, { nome: string; icone: string }>();
+  for (const c of ((finCatRes as any)?.data ?? [])) {
+    finCatById.set(c.id, { nome: c.nome, icone: c.icone });
+  }
 
   const finReceitasPagas = finTrxRows
     .filter(t => t.tipo === "RECEITA" && t.status === "PAGO")
@@ -374,9 +386,8 @@ export default async function AdminDashboardPage() {
   const catExpMap = new Map<string, { label: string; value: number }>();
   for (const t of finTrxRows) {
     if (t.status !== "PAGO") continue;
-    const label = t.fin_categorias
-      ? `${t.fin_categorias.icone} ${t.fin_categorias.nome}`
-      : "📦 Sem categoria";
+    const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
+    const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
     const key = t.categoria_id ?? "__none__";
     const map = t.tipo === "RECEITA" ? catRevMap : catExpMap;
     const prev = map.get(key) ?? { label, value: 0 };
