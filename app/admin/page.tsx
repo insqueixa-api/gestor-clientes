@@ -466,7 +466,9 @@ export default async function AdminDashboardPage({
   const catRevMap = new Map<string, { label: string; value: number }>();
   const catExpMap = new Map<string, { label: string; value: number }>();
   for (const t of finTrxRows) {
-    if (!isFinPagoNoMes(t)) continue;
+    if (t.status !== "PAGO") continue;
+    // Ranking por vencimento no mês (igual à previsão)
+    if (t.data_vencimento < _finMonthStart || t.data_vencimento > _finMonthEnd) continue;
     const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
     const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
     const key = t.categoria_id ?? "__none__";
