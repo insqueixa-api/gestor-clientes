@@ -405,8 +405,11 @@ export default async function AdminDashboardPage() {
 
   
 
+  // Igual à página: CAIXA = status PAGO com data_pagamento dentro do mês
   const isFinPagoNoMes = (t: FinTrx) => {
-    return t.status === "PAGO";
+    if (t.status !== "PAGO" || !t.data_pagamento) return false;
+    const iso = t.data_pagamento.split("T")[0];
+    return iso >= _finMonthStart && iso <= _finMonthEnd;
   };
 
   const finReceitasPagas = finTrxRows
@@ -850,18 +853,18 @@ return (
             <MetricCardView
               title="💰 Receitas do Mês"
               accent="green"
-              leftLabel="Pago (vcto no mês)"
+              leftLabel="Recebido no Mês"
               leftValue={fmtBRL(finReceitasPagas)}
-              rightLabel="Pendente"
+              rightLabel="A Receber"
               rightValue={fmtBRL(Math.max(0, finReceitasTotal - finReceitasPagas))}
               footer={`Previsão total: ${fmtBRL(finReceitasTotal)}`}
             />
             <MetricCardView
               title="📉 Despesas do Mês"
               accent="red"
-              leftLabel="Pago (vcto no mês)"
+              leftLabel="Pago no Mês"
               leftValue={fmtBRL(finDespesasPagas)}
-              rightLabel="Pendente"
+              rightLabel="A Pagar"
               rightValue={fmtBRL(Math.max(0, finDespesasTotal - finDespesasPagas))}
               footer={`Previsão total: ${fmtBRL(finDespesasTotal)}`}
             />
