@@ -240,9 +240,7 @@ export default async function AdminDashboardPage() {
     saasDailyRes,
     purchasesRes,
     saasCostRes,
-    finControlRes,      // financial_control_enabled
-    finTrxVencRes,      // fin_transacoes por vencimento
-    finTrxPagosRes,     // fin_transacoes pagas no mês com vencimento fora
+    finTrxRes,          // fin_transacoes do mês
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -268,30 +266,13 @@ export default async function AdminDashboardPage() {
           .eq("tenant_id", myTenantId)
           .in("type", ["purchase", "grant"])
       : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — permissão
-    (myTenantId
-      ? supabase.from("tenants")
-          .select("financial_control_enabled")
-          .eq("id", myTenantId)
-          .maybeSingle()
-      : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — transações por vencimento
+    // Finanças Pessoais — transações do mês (simples, sem join)
     (myTenantId
       ? supabase.from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento")
           .eq("tenant_id", myTenantId)
           .gte("data_vencimento", _finMonthStart)
           .lte("data_vencimento", _finMonthEnd)
-      : Promise.resolve({ data: [] })) as Promise<any>,
-    // Finanças Pessoais — pagas no mês mas com vencimento em outro mês
-    (myTenantId
-      ? supabase.from("fin_transacoes")
-          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
-          .eq("tenant_id", myTenantId)
-          .eq("status", "PAGO")
-          .gte("data_pagamento", `${_finMonthStart}T00:00:00.000Z`)
-          .lte("data_pagamento", `${_finMonthEnd}T23:59:59.999Z`)
-          .lt("data_vencimento", _finMonthStart) // evita duplicatas
       : Promise.resolve({ data: [] })) as Promise<any>,
   ]);
 
@@ -359,8 +340,6 @@ export default async function AdminDashboardPage() {
 }
 
   // ── Processamento das Finanças Pessoais ─────────────────────────
-  const isFinControlEnabled = (finControlRes as any)?.data?.financial_control_enabled !== false;
-
   type FinTrx = {
     id: string;
     tipo: "RECEITA" | "DESPESA";
@@ -368,67 +347,25 @@ export default async function AdminDashboardPage() {
     status: string;
     data_vencimento: string;
     data_pagamento: string | null;
-    categoria_id: string | null;
-    fin_categorias: { nome: string; icone: string } | null;
   };
 
-  // Merge das duas queries, deduplicando por id
-  const _trxVenc = ((finTrxVencRes as any)?.data ?? []) as (FinTrx & { id: string })[];
-  const _trxPagos = ((finTrxPagosRes as any)?.data ?? []) as (FinTrx & { id: string })[];
-  const _seenIds = new Set(_trxVenc.map(t => t.id));
-  const finTrxRows: FinTrx[] = [
-    ..._trxVenc,
-    ..._trxPagos.filter(t => !_seenIds.has(t.id)),
-  ];
-
-  const isFinInMonth = (dateStr: string | null | undefined) => {
-    if (!dateStr) return false;
-    const iso = dateStr.split("T")[0];
-    return iso >= _finMonthStart && iso <= _finMonthEnd;
-  };
+  const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
 
   const finReceitasPagas = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && t.status === "PAGO" && isFinInMonth(t.data_pagamento))
+    .filter(t => t.tipo === "RECEITA" && t.status === "PAGO")
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasPagas = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && t.status === "PAGO" && isFinInMonth(t.data_pagamento))
+    .filter(t => t.tipo === "DESPESA" && t.status === "PAGO")
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finReceitasTotal = finTrxRows
-    .filter(t => t.tipo === "RECEITA" && isFinInMonth(t.data_vencimento))
+    .filter(t => t.tipo === "RECEITA")
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasTotal = finTrxRows
-    .filter(t => t.tipo === "DESPESA" && isFinInMonth(t.data_vencimento))
+    .filter(t => t.tipo === "DESPESA")
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
-
-  // Agrupamento por categoria
-  const catRevMap = new Map<string, { label: string; value: number }>();
-  const catExpMap = new Map<string, { label: string; value: number }>();
-
-  for (const t of finTrxRows) {
-    if (t.status !== "PAGO" || !isFinInMonth(t.data_pagamento)) continue;
-    const cat = t.fin_categorias;
-    const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
-    const key = t.categoria_id ?? "__none__";
-
-    if (t.tipo === "RECEITA") {
-      const prev = catRevMap.get(key) ?? { label, value: 0 };
-      catRevMap.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
-    } else {
-      const prev = catExpMap.get(key) ?? { label, value: 0 };
-      catExpMap.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
-    }
-  }
-
-  const finCatRevenueItems: BarItem[] = Array.from(catRevMap.values())
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
-
-  const finCatExpenseItems: BarItem[] = Array.from(catExpMap.values())
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
   // ── Fim das Finanças Pessoais ────────────────────────────────────
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
@@ -925,10 +862,9 @@ return (
 </div>
 
       {/* FINANÇAS PESSOAIS */}
-      {isFinControlEnabled && (
+      {finTrxRows.length > 0 && (
         <>
           <SectionTitle title="FINANÇAS PESSOAIS" />
-
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
             <MetricCardView
               title="💰 Receitas do Mês"
@@ -957,31 +893,6 @@ return (
               href="/admin/financeiro"
             />
           </div>
-
-          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) && (
-            <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-              {finCatRevenueItems.length > 0 && (
-                <div className="sv">
-                  <RankingCard
-                    title="Receitas por Categoria"
-                    items={finCatRevenueItems}
-                    accentColor="emerald"
-                    formatValue={(v) => fmtBRL(v)}
-                  />
-                </div>
-              )}
-              {finCatExpenseItems.length > 0 && (
-                <div className="sv">
-                  <RankingCard
-                    title="Despesas por Categoria"
-                    items={finCatExpenseItems}
-                    accentColor="rose"
-                    formatValue={(v) => fmtBRL(v)}
-                  />
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
     </div>
