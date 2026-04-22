@@ -345,54 +345,35 @@ export default async function AdminDashboardPage() {
   const finCatById = new Map<string, { nome: string; icone: string }>();
 
   if (myTenantId) {
-    // Próximo mês para range aberto (evita formato com colons que quebra PostgREST)
     const _finNextMonthStart = isoDateFromYMD(
       _finMonth === 12 ? _finYear + 1 : _finYear,
       _finMonth === 12 ? 1 : _finMonth + 1,
       1
     );
 
-    const [trxVencRes, trxPagosRes, catRes] = await Promise.allSettled([
-      // Transações com vencimento no mês (pagas ou não)
+    const [trxRes, catRes] = await Promise.allSettled([
       supabase
         .from("fin_transacoes")
         .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
         .eq("tenant_id", myTenantId)
-        .gte("data_vencimento", _finMonthStart)
-        .lte("data_vencimento", _finMonthEnd),
-      // Transações pagas neste mês mas com vencimento em outro mês (sem timestamp com colons)
-      supabase
-        .from("fin_transacoes")
-        .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
-        .eq("tenant_id", myTenantId)
-        .eq("status", "PAGO")
-        .lt("data_vencimento", _finMonthStart)
-        .gte("data_pagamento", _finMonthStart)
-        .lt("data_pagamento", _finNextMonthStart),
-      // Categorias
+        .or(
+          `and(data_vencimento.gte.${_finMonthStart},data_vencimento.lte.${_finMonthEnd}),` +
+          `and(status.eq.PAGO,data_pagamento.gte.${_finMonthStart},data_pagamento.lt.${_finNextMonthStart})`
+        ),
       supabase
         .from("fin_categorias")
         .select("id, nome, icone")
         .eq("tenant_id", myTenantId),
     ]);
 
-    const seenIds = new Set<string>();
-
-    if (trxVencRes.status === "fulfilled" && !trxVencRes.value.error) {
-      for (const t of trxVencRes.value.data ?? []) {
-        seenIds.add(t.id);
-        finTrxRows.push(t as FinTrx);
+    if (trxRes.status === "fulfilled" && !trxRes.value.error) {
+      // Deduplica por id (o OR pode trazer a mesma row por ambas as condições)
+      const seen = new Set<string>();
+      for (const t of trxRes.value.data ?? []) {
+        if (!seen.has(t.id)) { seen.add(t.id); finTrxRows.push(t as FinTrx); }
       }
     } else {
-      console.error("[fin_transacoes venc]", trxVencRes.status === "rejected" ? trxVencRes.reason : trxVencRes.value.error);
-    }
-
-    if (trxPagosRes.status === "fulfilled" && !trxPagosRes.value.error) {
-      for (const t of trxPagosRes.value.data ?? []) {
-        if (!seenIds.has(t.id)) finTrxRows.push(t as FinTrx);
-      }
-    } else {
-      console.error("[fin_transacoes pagos]", trxPagosRes.status === "rejected" ? trxPagosRes.reason : trxPagosRes.value.error);
+      console.error("[fin_transacoes]", trxRes.status === "rejected" ? trxRes.reason : trxRes.value.error);
     }
 
     if (catRes.status === "fulfilled" && !catRes.value.error) {
@@ -420,12 +401,13 @@ export default async function AdminDashboardPage() {
     .filter(t => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
+  // Total/Previsão: apenas o que tem VENCIMENTO no mês (igual à página)
   const finReceitasTotal = finTrxRows
-    .filter(t => t.tipo === "RECEITA")
+    .filter(t => t.tipo === "RECEITA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   const finDespesasTotal = finTrxRows
-    .filter(t => t.tipo === "DESPESA")
+    .filter(t => t.tipo === "DESPESA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
   // Rankings por categoria (apenas pagos)
