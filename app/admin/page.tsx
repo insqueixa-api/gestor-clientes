@@ -935,10 +935,10 @@ return (
         </>
       )}
 
-      {/* FINANÇAS PESSOAIS */}
+      {/* CONTROLE FINANCEIRO */}
       {finTrxRows.length > 0 && showFinView && (
         <>
-          <SectionTitle title="FINANÇAS PESSOAIS" />
+          <SectionTitle title="CONTROLE FINANCEIRO" />
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4">
             <MetricCardView
               title="💰 Receitas do Mês"
