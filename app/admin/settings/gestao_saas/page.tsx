@@ -41,7 +41,8 @@ last_sign_in_at: string | null;
   auto_whatsapp_session?: string | null;
   alertsCount?: number;
   financial_control_enabled?: boolean;
-  active_modules?: string[]; // ✅ NOVO: O Array de módulos que vem do banco
+  active_modules?: string[];
+  custom_monthly_price?: number | null; // ✅ NOVO
 };
 
 type ScheduledMsg = {
@@ -1005,7 +1006,8 @@ const sortedTenants = useMemo(() => {
           saasPlanTableId={renewTarget.saas_plan_table_id ?? null}
           currentExpiry={renewTarget.expires_at}
           whatsappSessions={renewTarget.whatsapp_sessions}
-          financialControlEnabled={renewTarget.financial_control_enabled} // ✅ NOVO
+          customMonthlyPrice={renewTarget.custom_monthly_price} // ✅ ADICIONA ESTA LINHA
+          financialControlEnabled={renewTarget.financial_control_enabled}
           isSuperadmin={myRole.toUpperCase() === "SUPERADMIN"}
           onClose={() => setRenewTarget(null)}
           onSuccess={() => { setRenewTarget(null); loadData(); addToast("success", "Licença renovada!"); }}

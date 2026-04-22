@@ -30,6 +30,7 @@ interface Props {
   saasPlanTableId: string | null;
   currentExpiry: string | null;
   whatsappSessions: number;
+  customMonthlyPrice?: number | null; // ✅ NOVO
   financialControlEnabled?: boolean; // ✅ NOVO
   isSuperadmin: boolean;
   onClose: () => void;
@@ -137,7 +138,8 @@ export default function SaasRenewModal({
   saasPlanTableId,
   currentExpiry,
   whatsappSessions,
-  financialControlEnabled, // ✅ NOVO
+  customMonthlyPrice, // ✅ ADICIONA ESTA LINHA AQUI
+  financialControlEnabled,
   isSuperadmin,
   onClose,
   onSuccess,
@@ -205,8 +207,7 @@ export default function SaasRenewModal({
   // Nota
   const [notes, setNotes] = useState("");
 
-  // ✅ Controle Financeiro
-  const [financialControl, setFinancialControl] = useState(financialControlEnabled ?? false);
+  
 
   // ── Tier selecionado ──
   const selectedTier = useMemo(
@@ -264,7 +265,8 @@ export default function SaasRenewModal({
         // Tudo em paralelo
         const [, allTablesRes, tblRes, itemsRes, tmplRes] = await Promise.all([
           loadSessions(),
-          supabaseBrowser.from("plan_tables").select("id, name").eq("table_type", "saas").eq("is_active", true),
+          // ✅ CORREÇÃO: Busca apenas as tabelas ativas criadas pelo gestor atual (tid)
+          supabaseBrowser.from("plan_tables").select("id, name").eq("tenant_id", tid).eq("table_type", "saas").eq("is_active", true),
           activeTableId ? supabaseBrowser.from("plan_tables").select("currency").eq("id", activeTableId).single() : Promise.resolve({ data: null }),
           activeTableId ? supabaseBrowser.from("plan_table_items").select(`id, period, credits_base, prices:plan_table_item_prices(screens_count, price_amount)`).eq("plan_table_id", activeTableId) : Promise.resolve({ data: null }),
           supabaseBrowser.from("message_templates").select("id, name, content, image_url, category").eq("tenant_id", tid).order("name", { ascending: true }),
@@ -317,6 +319,16 @@ export default function SaasRenewModal({
     return () => { alive = false; };
   }, [saasPlanTableId]);
 
+  // ✅ NOVO: Puxa o preço de override (acordado) quando seleciona MENSAL
+  useEffect(() => {
+    if (selectedPeriod === "MONTHLY" && customMonthlyPrice) {
+      setCustomPrice(String(customMonthlyPrice).replace(".", ","));
+    } else {
+      // Se mudar para Trimestral/Anual, limpa o override para usar o preço da tabela
+      setCustomPrice("");
+    }
+  }, [selectedPeriod, customMonthlyPrice]);
+
   // ── Salvar ──
   async function handleSave() {
     if (!selectedTier || saving) return;
@@ -330,7 +342,8 @@ export default function SaasRenewModal({
         p_description: notes.trim() || `Renovação ${selectedTier.label} · ${creditsNeeded} crédito(s)`,
         p_price_amount: effectivePrice ?? null,
         p_price_currency: currency,
-        p_financial_control_enabled: financialControl, // ✅ NOVO PARÂMETRO
+        // ✅ ATUALIZA O OVERRIDE: Se o período for mensal, salva o novo preço acordado
+        p_custom_monthly_price: selectedPeriod === "MONTHLY" ? effectivePrice : customMonthlyPrice
       });
       if (error) throw new Error(error.message);
 
@@ -503,19 +516,7 @@ export default function SaasRenewModal({
                   </div>
                 </div>
               )}
-
-              {/* ✅ CONTROLE FINANCEIRO */}
-              <div 
-                className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex items-center gap-3 cursor-pointer mb-4" 
-                onClick={() => setFinancialControl(v => !v)}
-              >
-                <Switch checked={financialControl} onChange={setFinancialControl} />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Módulo Financeiro</span>
-                  <span className="text-[10px] text-slate-400 dark:text-white/40">Habilitar ou desabilitar o controle financeiro para esta revenda</span>
-                </div>
-              </div>
-
+              
               {/* WHATSAPP */}
               <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
                 <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSendWhats(v => !v)}>

@@ -216,13 +216,19 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [saasPlanTableId, setSaasPlanTableId] = useState<string>(tenant?.saas_plan_table_id ?? "");
   const [creditsPlanTableId, setCreditsPlanTableId] = useState<string>(tenant?.credits_plan_table_id ?? "");
 
+  // ✅ Preço Customizado (Override)
+  const [customMonthlyPrice, setCustomMonthlyPrice] = useState(
+    tenant?.custom_monthly_price ? String(tenant.custom_monthly_price).replace(".", ",") : ""
+  );
+  const [defaultMonthlyPrice, setDefaultMonthlyPrice] = useState<number | null>(null);
+
   useEffect(() => {
     async function loadPlanTables() {
       if (!parentTenantId) return;
       const { data } = await supabaseBrowser
         .from("plan_tables")
         .select("id, name, table_type")
-        .eq("tenant_id", parentTenantId)
+        .eq("tenant_id", parentTenantId) // ✅ Filtrando para mostrar só as do Gestor logado
         .in("table_type", ["saas", "saas_credits"])
         .eq("is_active", true);
 
@@ -241,6 +247,26 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
     }
     loadPlanTables();
   }, []);
+
+  // ✅ Busca o preço padrão da tabela selecionada para mostrar de placeholder
+  useEffect(() => {
+    async function fetchTablePrice() {
+      if (!saasPlanTableId) { setDefaultMonthlyPrice(null); return; }
+      const { data } = await supabaseBrowser
+        .from("plan_table_items")
+        .select(`prices:plan_table_item_prices(screens_count, price_amount)`)
+        .eq("plan_table_id", saasPlanTableId)
+        .eq("period", "MONTHLY")
+        .maybeSingle();
+      
+      if (data?.prices?.[0]?.price_amount) {
+        setDefaultMonthlyPrice(data.prices[0].price_amount);
+      } else {
+        setDefaultMonthlyPrice(null);
+      }
+    }
+    fetchTablePrice();
+  }, [saasPlanTableId]);
 
   // Telefone / WhatsApp
   const [phoneDisplay, setPhoneDisplay] = useState("");
@@ -339,7 +365,8 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               saas_plan_table_id: saasPlanTableId || null,
               credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
               whatsapp_session: selectedSession, 
-              active_modules: finalModules, // ✅ AGORA ENVIA A LISTA SEGURA
+              active_modules: finalModules, 
+              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ENVIA O PREÇO
             }),
           });
         const data = await res.json();
@@ -351,7 +378,8 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, // ✅ TRAVA DE SEGURANÇA APLICADA NA EDIÇÃO
+          p_active_modules:    finalModules, 
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ATUALIZA O PREÇO
         });
         if (error) throw new Error(error.message);
 
@@ -622,6 +650,24 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 ))}
               </select>
             </div>
+            
+            {/* ✅ NOVO CAMPO: Override de Preço */}
+            <div>
+              <FieldLabel>Preço Mensal (Opcional - Override)</FieldLabel>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">R$</span>
+                <FieldInput
+                  value={customMonthlyPrice}
+                  onChange={e => setCustomMonthlyPrice(e.target.value.replace(/[^0-9,]/g, ""))}
+                  placeholder={defaultMonthlyPrice ? String(defaultMonthlyPrice).replace(".", ",") : "0,00"}
+                  className="pl-9"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Deixe em branco para usar o valor da tabela{defaultMonthlyPrice ? ` (R$ ${String(defaultMonthlyPrice).replace(".", ",")})` : ""}.
+              </p>
+            </div>
+
             {role === "MASTER" && (
               <div>
                 <FieldLabel>Venda de Créditos SaaS</FieldLabel>

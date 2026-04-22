@@ -49,8 +49,9 @@ export async function POST(req: Request) {
     saas_plan_table_id,
     credits_plan_table_id,
     whatsapp_session,
-    active_modules, // ✅ ARRAY DE MÓDULOS (Substituiu o financial_control)
-  } = body;
+    active_modules,
+    custom_monthly_price, // ✅ EXTRAINDO DO BODY
+  } = body;
 
   if (!name || !email || !password || !role) {
     return NextResponse.json(
@@ -123,10 +124,12 @@ export async function POST(req: Request) {
     
     // ✅ Salva o novo array de módulos
     if (active_modules) {
-      planPatch.active_modules = active_modules;
-    }
-
-    const { error: planErr } = await adminSupabase
+      planPatch.active_modules = active_modules;
+    }
+    if (custom_monthly_price !== undefined) {
+      planPatch.custom_monthly_price = custom_monthly_price; // ✅ SALVA NO BANCO
+    }
+    const { error: planErr } = await adminSupabase
       .from("tenants")
       .update(planPatch)
       .eq("id", String(newTenantId));
