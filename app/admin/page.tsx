@@ -345,6 +345,13 @@ export default async function AdminDashboardPage() {
   const finCatById = new Map<string, { nome: string; icone: string }>();
 
   if (myTenantId) {
+    // Próximo mês para range aberto (evita formato com colons que quebra PostgREST)
+    const _finNextMonthStart = isoDateFromYMD(
+      _finMonth === 12 ? _finYear + 1 : _finYear,
+      _finMonth === 12 ? 1 : _finMonth + 1,
+      1
+    );
+
     const [trxVencRes, trxPagosRes, catRes] = await Promise.allSettled([
       // Transações com vencimento no mês (pagas ou não)
       supabase
@@ -353,15 +360,15 @@ export default async function AdminDashboardPage() {
         .eq("tenant_id", myTenantId)
         .gte("data_vencimento", _finMonthStart)
         .lte("data_vencimento", _finMonthEnd),
-      // Transações pagas neste mês mas com vencimento em outro mês
+      // Transações pagas neste mês mas com vencimento em outro mês (sem timestamp com colons)
       supabase
         .from("fin_transacoes")
         .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id")
         .eq("tenant_id", myTenantId)
         .eq("status", "PAGO")
         .lt("data_vencimento", _finMonthStart)
-        .gte("data_pagamento", `${_finMonthStart}T00:00:00.000Z`)
-        .lte("data_pagamento", `${_finMonthEnd}T23:59:59.999Z`),
+        .gte("data_pagamento", _finMonthStart)
+        .lt("data_pagamento", _finNextMonthStart),
       // Categorias
       supabase
         .from("fin_categorias")
