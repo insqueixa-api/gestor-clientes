@@ -1074,13 +1074,17 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   );
 }
 
+
 function MetricCard({ title, value, tone, icon, footer, onEdit }: { title: string, value: string, tone: "emerald"|"rose", icon: string, footer: React.ReactNode, onEdit?: ()=>void }) {
   const colors = {
     emerald: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
     rose: "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
   };
   return (
-    <div className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[tone]} relative`}>
+    <div
+      className={`rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
+      onClick={onEdit}
+    >
       <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">{icon} {title}</span>
         {onEdit && (

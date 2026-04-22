@@ -204,8 +204,31 @@ function isChartDatum(v: SimpleBarChartDatum | null): v is SimpleBarChartDatum {
    Página
 ===================== */
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { view?: string };
+}) {
   const supabase = await createClient();
+
+  // Filtros de seção — default: todos ativos
+  const ALL = ["iptv", "saas", "financeiro"];
+  const activeViews: string[] = searchParams?.view
+    ? searchParams.view.split(",").filter(v => ALL.includes(v))
+    : ALL;
+  const showIPTV      = activeViews.includes("iptv");
+  const showSaasView  = activeViews.includes("saas");
+  const showFinView   = activeViews.includes("financeiro");
+
+  // Helper: calcula o href ao clicar num chip (toggle)
+  const toggleHref = (key: string) => {
+    const next = activeViews.includes(key)
+      ? activeViews.filter(v => v !== key)
+      : [...activeViews, key];
+    const effective = next.length === 0 ? ALL : next;
+    if (effective.length === ALL.length) return "/admin";
+    return `/admin?view=${effective.join(",")}`;
+  };
 
   // Views only
   const [authRes, { data: roleData }] = await Promise.all([
@@ -611,10 +634,31 @@ return (
             Visão Geral - {monthLabelPtBr()}
           </p>
         </div>
+
+        {/* Chips de filtro */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["iptv", "saas", "financeiro"] as const).map((key) => {
+            const labels: Record<string, string> = { iptv: "📺 IPTV", saas: "🔗 SaaS", financeiro: "💰 Financeiro" };
+            const active = activeViews.includes(key);
+            return (
+              <Link
+                key={key}
+                href={toggleHref(key)}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all select-none ${
+                  active
+                    ? "bg-zinc-800 dark:bg-white text-white dark:text-zinc-900 border-zinc-700 dark:border-white shadow-sm"
+                    : "bg-white dark:bg-zinc-900 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500"
+                }`}
+              >
+                {labels[key]}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* CARDS TOPO */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+      {showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
 <MetricCardView
           title="Ativos"
           accent="green"
@@ -646,11 +690,11 @@ return (
           rightValue={fmtPct(trialsConvPct)}
           footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
           href="/admin/teste" // <--- Link direto para página de testes
-        />
-      </div>
+       />
+      </div>}
 
       {/* VENCIMENTOS */}
-      <SectionTitle title="VENCIMENTOS (5 DIAS)" />
+      {showIPTV && <><SectionTitle title="VENCIMENTOS (5 DIAS)" />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
 
         <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
@@ -658,10 +702,10 @@ return (
         <VencimentoCard diff={0} map={dueByOffset} title="Vence Hoje" color="yellow" />
         <VencimentoCard diff={1} map={dueByOffset} title="Vence Amanhã" color="amber" />
         <VencimentoCard diff={2} map={dueByOffset} title="Vence em 2 dias" color="blue" />
-      </div>
+      </div></>}
 
       {/* FINANCEIRO */}
-      <div className="sm:hidden">
+      {showIPTV && <><div className="sm:hidden">
   <SectionTitle title="FINANCEIRO R$" />
 </div>
 <div className="hidden sm:block">
@@ -787,10 +831,10 @@ return (
         </div>
       }
         />
-      </div>
+      </div></>}
 
 {/* REVENDA SAAS — só SUPERADMIN e MASTER */}
-      {showSaas && (
+      {showSaas && showSaasView && (
         <>
           <SectionTitle title="REVENDA SAAS" />
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
@@ -855,7 +899,7 @@ return (
       )}
 
       {/* FINANÇAS PESSOAIS */}
-      {finTrxRows.length > 0 && (
+      {finTrxRows.length > 0 && showFinView && (
         <>
           <SectionTitle title="FINANÇAS PESSOAIS" />
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4">
@@ -922,7 +966,7 @@ return (
       )}
 
       {/* GRÁFICOS */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+      {showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
 
 
 
@@ -974,10 +1018,10 @@ return (
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
-{/* GRÁFICOS SAAS */}
-      {showSaas && (
+{/* GRÁFICOS SAAS */}{/* GRÁFICOS SAAS */}
+      {showSaas && showSaasView && (
         <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
@@ -1011,10 +1055,10 @@ return (
 
 
       {/* RANKINGS */}
-<div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+{showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
   <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
-</div>
+</div>}
 
       
     </div>
