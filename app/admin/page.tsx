@@ -240,8 +240,9 @@ export default async function AdminDashboardPage() {
     saasDailyRes,
     purchasesRes,
     saasCostRes,
-    finControlRes,   // financial_control_enabled
-    finTrxRes,       // fin_transacoes do mês
+    finControlRes,      // financial_control_enabled
+    finTrxVencRes,      // fin_transacoes por vencimento
+    finTrxPagosRes,     // fin_transacoes pagas no mês com vencimento fora
   ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
@@ -274,15 +275,23 @@ export default async function AdminDashboardPage() {
           .eq("id", myTenantId)
           .maybeSingle()
       : Promise.resolve({ data: null })) as Promise<any>,
-    // Finanças Pessoais — transações do mês
+    // Finanças Pessoais — transações por vencimento
     (myTenantId
       ? supabase.from("fin_transacoes")
-          .select("tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
           .eq("tenant_id", myTenantId)
-          .or(
-            `and(data_vencimento.gte.${_finMonthStart},data_vencimento.lte.${_finMonthEnd}),` +
-            `and(data_pagamento.gte.${_finMonthStart}T00:00:00.000Z,data_pagamento.lte.${_finMonthEnd}T23:59:59.999Z)`
-          )
+          .gte("data_vencimento", _finMonthStart)
+          .lte("data_vencimento", _finMonthEnd)
+      : Promise.resolve({ data: [] })) as Promise<any>,
+    // Finanças Pessoais — pagas no mês mas com vencimento em outro mês
+    (myTenantId
+      ? supabase.from("fin_transacoes")
+          .select("id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id, fin_categorias(nome, icone)")
+          .eq("tenant_id", myTenantId)
+          .eq("status", "PAGO")
+          .gte("data_pagamento", `${_finMonthStart}T00:00:00.000Z`)
+          .lte("data_pagamento", `${_finMonthEnd}T23:59:59.999Z`)
+          .lt("data_vencimento", _finMonthStart) // evita duplicatas
       : Promise.resolve({ data: [] })) as Promise<any>,
   ]);
 
@@ -353,6 +362,7 @@ export default async function AdminDashboardPage() {
   const isFinControlEnabled = (finControlRes as any)?.data?.financial_control_enabled !== false;
 
   type FinTrx = {
+    id: string;
     tipo: "RECEITA" | "DESPESA";
     valor: number;
     status: string;
@@ -362,7 +372,14 @@ export default async function AdminDashboardPage() {
     fin_categorias: { nome: string; icone: string } | null;
   };
 
-  const finTrxRows = ((finTrxRes as any)?.data ?? []) as FinTrx[];
+  // Merge das duas queries, deduplicando por id
+  const _trxVenc = ((finTrxVencRes as any)?.data ?? []) as (FinTrx & { id: string })[];
+  const _trxPagos = ((finTrxPagosRes as any)?.data ?? []) as (FinTrx & { id: string })[];
+  const _seenIds = new Set(_trxVenc.map(t => t.id));
+  const finTrxRows: FinTrx[] = [
+    ..._trxVenc,
+    ..._trxPagos.filter(t => !_seenIds.has(t.id)),
+  ];
 
   const isFinInMonth = (dateStr: string | null | undefined) => {
     if (!dateStr) return false;
