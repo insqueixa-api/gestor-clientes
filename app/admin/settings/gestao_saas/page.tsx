@@ -1330,15 +1330,10 @@ function TenantRow({
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
           <div className="flex items-center gap-2 whitespace-nowrap">
             <div className="font-semibold truncate">
-              {t.role === "MASTER" ? (
-                <a href={`/admin/settings/gestao_saas/${t.id}`} className="text-emerald-600 dark:text-emerald-400 hover:underline" onClick={e => e.stopPropagation()}>
-                  {t.name}
-                </a>
-              ) : (
-                <span className="text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {t.name}
-                </span>
-              )}
+              {/* ✅ MUDANÇA: O link agora aparece para qualquer conta SaaS (MASTER ou USER) */}
+              <a href={`/admin/settings/gestao_saas/${t.id}`} className="text-emerald-600 dark:text-emerald-400 hover:underline transition-colors" onClick={e => e.stopPropagation()}>
+                {t.name}
+              </a>
               {t.responsible_name && t.responsible_name !== t.name && (
                 <span className="text-slate-400 dark:text-white/30 font-normal text-xs ml-1">/ {t.responsible_name}</span>
               )}

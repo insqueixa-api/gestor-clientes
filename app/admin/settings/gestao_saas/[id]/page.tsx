@@ -14,6 +14,8 @@ type SaasTenant = {
   responsible_name: string | null; contact_email: string | null;
   phone_e164: string | null; whatsapp_username: string | null;
   parent_tenant_id: string | null;
+  active_modules?: string[];           // ✅ Módulos Ativos adicionados
+  custom_monthly_price?: number | null; // ✅ Preço Acordado adicionado
 };
 
 type Transaction = {
@@ -160,76 +162,85 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
 
       {/* INFO DO MASTER */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="grid grid-cols-2 sm:grid-cols-8 gap-4 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-8 gap-4 text-sm items-start">
+          
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
             <StatusBadge status={master.license_status} />
           </div>
+          
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Validade</div>
             <div className="font-medium text-slate-700 dark:text-white">{fmtDate(master.expires_at)}</div>
           </div>
+
+          {/* ✅ Mensalidade Acordada */}
+          <div>
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Mensalidade</div>
+            <div className="font-bold text-emerald-600 dark:text-emerald-400">
+              {master.custom_monthly_price !== null && master.custom_monthly_price !== undefined 
+                ? `R$ ${Number(master.custom_monthly_price).toFixed(2).replace(".", ",")}` 
+                : <span className="text-slate-400 font-normal italic text-[10px]">Tabela Padrão</span>}
+            </div>
+          </div>
+
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
             <div className="font-bold text-emerald-600 dark:text-emerald-400">
               {Number(master.credit_balance).toFixed(1).replace(".0", "")}
             </div>
           </div>
-          {/* ✅ Sessões WhatsApp */}
+
+          {/* ✅ Sessões WhatsApp (Visual Limpo) */}
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Sessões WA</div>
-            <div className="flex items-center gap-1.5">
-              <div className="flex gap-0.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className={`w-2.5 h-2.5 rounded-full ${(master.whatsapp_sessions ?? 1) >= 2 ? "bg-emerald-500" : "bg-slate-200 dark:bg-white/10"}`} />
+            {master.active_modules?.length === 1 && master.active_modules.includes("financeiro") ? (
+               <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-700 dark:text-white">{master.whatsapp_sessions ?? 1}</span>
               </div>
-              <span className="text-xs font-bold text-slate-600 dark:text-white/70">
-                {master.whatsapp_sessions ?? 1}/2
-              </span>
-            </div>
+            )}
           </div>
-          {/* ✅ Controle Financeiro */}
-          <div>
-            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Financeiro</div>
-            <div className="flex items-center">
-              {master.financial_control_enabled ?? true ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
-                  Ativo
+
+          {/* ✅ Módulos (Estilo Dashboard) */}
+          <div className="col-span-2 sm:col-span-1">
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Módulos</div>
+            <div className="flex flex-wrap gap-1">
+              {master.active_modules?.includes("iptv") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="IPTV">
+                  IPTV
                 </span>
-              ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10">
-                  Inativo
+              )}
+              {master.active_modules?.includes("saas") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="SaaS">
+                  SaaS
+                </span>
+              )}
+              {master.active_modules?.includes("financeiro") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Financeiro">
+                  FIN
                 </span>
               )}
             </div>
           </div>
-          {/* ✅ Rede (só contagem) */}
+
           <div>
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Na Rede</div>
             <div className="font-bold text-slate-700 dark:text-white">
               {master._networkCount ?? 0}
             </div>
           </div>
-          <div className="min-w-0">
+
+          <div className="min-w-0 col-span-2 sm:col-span-1">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">E-mail</div>
             <div className="text-xs text-slate-500 dark:text-white/50 truncate" title={master.contact_email || ""}>
               {master.contact_email || "—"}
             </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
-            {master.whatsapp_username ? (
-              <a href={`https://wa.me/${master.whatsapp_username.replace(/\D/g, '')}`}
-                target="_blank" rel="noreferrer"
-                className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate hover:underline flex items-center gap-1">
-                @{master.whatsapp_username}
-              </a>
-            ) : (
-              <div className="text-xs text-slate-500 dark:text-white/50 truncate">—</div>
-            )}
-          </div>
         </div>
       </div>
+      
 
       {/* ✅ HISTÓRICO INLINE */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0">
