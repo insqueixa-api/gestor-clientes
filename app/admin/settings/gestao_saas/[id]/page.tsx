@@ -162,20 +162,19 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
 
       {/* INFO DO MASTER */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="grid grid-cols-2 sm:grid-cols-8 gap-4 text-sm items-start">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-4 text-sm items-start">
           
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
             <StatusBadge status={master.license_status} />
           </div>
           
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Validade</div>
             <div className="font-medium text-slate-700 dark:text-white">{fmtDate(master.expires_at)}</div>
           </div>
 
-          {/* ✅ Mensalidade Acordada */}
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Mensalidade</div>
             <div className="font-bold text-emerald-600 dark:text-emerald-400">
               {master.custom_monthly_price !== null && master.custom_monthly_price !== undefined 
@@ -184,29 +183,25 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
             <div className="font-bold text-emerald-600 dark:text-emerald-400">
               {Number(master.credit_balance).toFixed(1).replace(".0", "")}
             </div>
           </div>
 
-          {/* ✅ Sessões WhatsApp (Visual Limpo) */}
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Sessões WA</div>
             {master.active_modules?.length === 1 && master.active_modules.includes("financeiro") ? (
                <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-white">{master.whatsapp_sessions ?? 1}</span>
-              </div>
+              <span className="text-xs font-bold text-slate-700 dark:text-white">{master.whatsapp_sessions ?? 1}</span>
             )}
           </div>
 
-          {/* ✅ Módulos (Estilo Dashboard) */}
-          <div className="col-span-2 sm:col-span-1">
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Módulos</div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap justify-center gap-1">
               {master.active_modules?.includes("iptv") && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="IPTV">
                   IPTV
@@ -225,19 +220,35 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Na Rede</div>
             <div className="font-bold text-slate-700 dark:text-white">
               {master._networkCount ?? 0}
             </div>
           </div>
 
-          <div className="min-w-0 col-span-2 sm:col-span-1">
+          <div className="flex flex-col items-center text-center min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">E-mail</div>
-            <div className="text-xs text-slate-500 dark:text-white/50 truncate" title={master.contact_email || ""}>
+            <div className="text-xs text-slate-500 dark:text-white/50 truncate w-full" title={master.contact_email || ""}>
               {master.contact_email || "—"}
             </div>
           </div>
+
+          {/* ✅ WhatsApp Restaurado */}
+          <div className="flex flex-col items-center text-center min-w-0">
+            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
+            {master.whatsapp_username ? (
+              <a href={`https://wa.me/${master.whatsapp_username.replace(/\D/g, '')}`}
+                target="_blank" rel="noreferrer"
+                className="text-xs text-emerald-600 dark:text-emerald-500/80 font-medium truncate hover:underline flex items-center justify-center gap-1 w-full"
+                title={`@${master.whatsapp_username}`}>
+                @{master.whatsapp_username}
+              </a>
+            ) : (
+              <div className="text-xs text-slate-500 dark:text-white/50 truncate w-full">—</div>
+            )}
+          </div>
+
         </div>
       </div>
       
