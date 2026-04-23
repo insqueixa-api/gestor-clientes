@@ -364,6 +364,7 @@ if (tenantsRes.error) {
     try {
       // ✅ Sem invenções de colunas: manda apenas o que a política RLS do banco exige
       const payload = {
+        id: crypto.randomUUID(), // ✅ MÁGICA: Gera o ID único direto no navegador!
         tenant_id: tenantId, 
         reseller_id: showNewAlert.targetId, 
         message: newAlertText, 
@@ -942,9 +943,10 @@ const sortedTenants = useMemo(() => {
                     <th className="px-4 py-3">Perfil</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Validade</th>
+                    <th className="px-4 py-3">Valor</th> {/* ✅ NOVA COLUNA DE VALOR */}
                     <th className="px-4 py-3 text-center">Créditos</th>
                     <th className="px-4 py-3 text-center">Sessões WA</th>
-                    <th className="px-4 py-3 text-center">Módulos</th> {/* ✅ NOVA COLUNA */}
+                    <th className="px-4 py-3 text-center">Módulos</th>
                     <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -1374,20 +1376,26 @@ function TenantRow({
       <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
       <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
       
-      {/* VALIDADE com Preço Customizado */}
+      {/* VALIDADE */}
       <td className="px-4 py-3">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞ Permanente</span>
         ) : t.expires_at ? (
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
-            {t.custom_monthly_price !== null && (
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5" title="Preço acordado">
-                R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
-              </span>
-            )}
-          </div>
+          <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
         ) : <span className="text-slate-400 text-xs">—</span>}
+      </td>
+
+      {/* ✅ VALOR (Nova Coluna Separada) */}
+      <td className="px-4 py-3">
+        {isSuperadmin ? (
+          <span className="text-slate-400 text-xs">—</span>
+        ) : t.custom_monthly_price !== null ? (
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400" title="Preço Acordado (Override)">
+            R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
+          </span>
+        ) : (
+          <span className="text-[10px] italic text-slate-400" title="Usa o preço padrão da tabela">Tabela</span>
+        )}
       </td>
       
       {/* CRÉDITOS */}
@@ -1419,7 +1427,7 @@ function TenantRow({
 
       {/* ✅ NOVA CÉLULA: MÓDULOS (Estilo Dashboard) */}
       <td className="px-4 py-3 text-center">
-        <div className="flex flex-wrap justify-center gap-1.5 max-w-[180px]">
+        <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[220px]">
           {hasIptv && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV Ativo">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
