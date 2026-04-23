@@ -1321,8 +1321,6 @@ function TenantRow({
   const isOnlyFinance = mods.length === 1 && mods.includes("financeiro");
   const hasSaas = mods.includes("saas");
   const hasIptv = mods.includes("iptv");
-  const hasAcademia = mods.includes("academia");
-  const hasCondominio = mods.includes("condominio");
 
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -1383,21 +1381,11 @@ function TenantRow({
         ) : t.expires_at ? (
           <div className="flex flex-col">
             <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
-            <div className="flex items-center gap-1 mt-0.5">
-              {days !== null && (
-                <span className={`text-[10px] font-bold ${days < 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-slate-400"}`}>
-                  {days < 0 ? `Expirou há ${Math.abs(days)}d` : days === 0 ? "Expira hoje" : `${days}d`}
-                </span>
-              )}
-              {t.custom_monthly_price !== null && (
-                <>
-                  <span className="text-slate-300 dark:text-white/20">•</span>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400" title="Preço acordado">
-                    R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
-                  </span>
-                </>
-              )}
-            </div>
+            {t.custom_monthly_price !== null && (
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5" title="Preço acordado">
+                R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
+              </span>
+            )}
           </div>
         ) : <span className="text-slate-400 text-xs">—</span>}
       </td>
@@ -1429,14 +1417,34 @@ function TenantRow({
         )}
       </td>
 
-      {/* ✅ NOVA CÉLULA: MÓDULOS */}
+      {/* ✅ NOVA CÉLULA: MÓDULOS (Estilo Dashboard) */}
       <td className="px-4 py-3 text-center">
-        <div className="flex flex-wrap justify-center gap-1 max-w-[150px]">
-          {hasIptv && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">IPTV</span>}
-          {hasSaas && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">SaaS</span>}
-          {mods.includes("financeiro") && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-700 border border-sky-200">FIN</span>}
-          {hasAcademia && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-200">ACAD</span>}
-          {hasCondominio && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">COND</span>}
+        <div className="flex flex-wrap justify-center gap-1.5 max-w-[180px]">
+          {hasIptv && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV Ativo">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+                <polyline points="17 2 12 7 7 2"/>
+              </svg>
+              IPTV
+            </span>
+          )}
+          {hasSaas && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="Módulo SaaS Ativo">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              SaaS
+            </span>
+          )}
+          {mods.includes("financeiro") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro Ativo">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              FIN
+            </span>
+          )}
         </div>
       </td>
 
@@ -1461,7 +1469,7 @@ function TenantRow({
           {!isSuperadmin && canManage && (
             <>
               <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
-              {t.role !== "USER" && !isOnlyFinance && !hasAcademia && !hasCondominio && (
+              {t.role !== "USER" && !isOnlyFinance && (
                 <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
               )}
               <ActionBtn 
