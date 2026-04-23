@@ -938,13 +938,13 @@ const sortedTenants = useMemo(() => {
               <table className="w-full text-sm text-left min-w-[700px]">
                 <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                   <tr>
-                    <th className="px-4 py-3">Revenda / Contato</th>
+                    <th className="px-4 py-3">Cliente / Revenda</th>
                     <th className="px-4 py-3">Perfil</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Validade</th>
-                    <th className="px-4 py-3">Créditos</th>
-                    <th className="px-4 py-3">Sessões WA</th>
-                    <th className="px-4 py-3 text-center">Financeiro</th> {/* ✅ NOVA COLUNA */}
+                    <th className="px-4 py-3 text-center">Créditos</th>
+                    <th className="px-4 py-3 text-center">Sessões WA</th>
+                    <th className="px-4 py-3 text-center">Módulos</th> {/* ✅ NOVA COLUNA */}
                     <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -1301,7 +1301,6 @@ const sortedTenants = useMemo(() => {
 // ============================================================
 function TenantRow({ 
   t, canManage, networkCount, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore, onAddSession, onRemoveSession,
-
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
   t: SaasTenant; canManage: boolean; networkCount: number;
@@ -1316,6 +1315,14 @@ function TenantRow({
   const isSuperadmin = t.role === "SUPERADMIN";
   const days = daysUntil(t.expires_at);
   const scheduledCount = scheduledMap[t.id]?.length || 0;
+  
+  // ✅ LOGICA DE MÓDULOS
+  const mods = t.active_modules || [];
+  const isOnlyFinance = mods.length === 1 && mods.includes("financeiro");
+  const hasSaas = mods.includes("saas");
+  const hasIptv = mods.includes("iptv");
+  const hasAcademia = mods.includes("academia");
+  const hasCondominio = mods.includes("condominio");
 
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -1324,13 +1331,9 @@ function TenantRow({
           <div className="flex items-center gap-2 whitespace-nowrap">
             <div className="font-semibold truncate">
               {t.role === "MASTER" ? (
-  <a
-    href={`/admin/settings/gestao_saas/${t.id}`}
-    className="text-emerald-600 dark:text-emerald-400 hover:underline"
-    onClick={e => e.stopPropagation()}
-  >
-    {t.name}
-  </a>
+                <a href={`/admin/settings/gestao_saas/${t.id}`} className="text-emerald-600 dark:text-emerald-400 hover:underline" onClick={e => e.stopPropagation()}>
+                  {t.name}
+                </a>
               ) : (
                 <span className="text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                   {t.name}
@@ -1341,7 +1344,6 @@ function TenantRow({
               )}
             </div>
 
-            {/* Badges de Notificação */}
             <div className="flex items-center gap-1 shrink-0">
               {networkCount > 0 && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/50 border border-slate-200 dark:border-white/10 whitespace-nowrap">
@@ -1373,23 +1375,39 @@ function TenantRow({
       </td>
       <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
       <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
+      
+      {/* VALIDADE com Preço Customizado */}
       <td className="px-4 py-3">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞ Permanente</span>
         ) : t.expires_at ? (
           <div className="flex flex-col">
             <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
-            {days !== null && (
-              <span className={`text-[10px] font-bold ${days < 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-slate-400"}`}>
-                {days < 0 ? `Expirou há ${Math.abs(days)}d` : days === 0 ? "Expira hoje" : `${days}d restantes`}
-              </span>
-            )}
+            <div className="flex items-center gap-1 mt-0.5">
+              {days !== null && (
+                <span className={`text-[10px] font-bold ${days < 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-slate-400"}`}>
+                  {days < 0 ? `Expirou há ${Math.abs(days)}d` : days === 0 ? "Expira hoje" : `${days}d`}
+                </span>
+              )}
+              {t.custom_monthly_price !== null && (
+                <>
+                  <span className="text-slate-300 dark:text-white/20">•</span>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400" title="Preço acordado">
+                    R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         ) : <span className="text-slate-400 text-xs">—</span>}
       </td>
-      <td className="px-4 py-3">
+      
+      {/* CRÉDITOS */}
+      <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞</span>
+        ) : isOnlyFinance || (!hasIptv && !hasSaas) ? (
+          <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
         ) : (
           <span className={`text-sm font-bold ${t.credit_balance > 0 ? "text-slate-700 dark:text-white" : "text-slate-400 dark:text-white/30"}`}>
             {Number(t.credit_balance).toFixed(1).replace(".0", "")}
@@ -1397,69 +1415,34 @@ function TenantRow({
         )}
       </td>
 
-      {/* ✅ NOVA CÉLULA — Sessões WhatsApp */}
-      <td className="px-4 py-3">
+      {/* SESSÕES WA (Sem botões, apenas visualização) */}
+      <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞</span>
+        ) : isOnlyFinance ? (
+          <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
         ) : (
-          <div className="flex items-center gap-1.5">
-            {/* Indicador visual */}
-            <div className="flex gap-0.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="Sessão 1 ativa" />
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  t.whatsapp_sessions >= 2
-                    ? "bg-emerald-500"
-                    : "bg-slate-200 dark:bg-white/10"
-                }`}
-                title={t.whatsapp_sessions >= 2 ? "Sessão 2 ativa" : "Sessão 2 inativa"}
-              />
-            </div>
-            <span className="text-xs font-bold text-slate-500 dark:text-white/50">
-              {t.whatsapp_sessions}/2
-            </span>
-            {/* Botões +/- */}
-            {canManage && !t.is_trial && t.license_status !== "ARCHIVED" && (
-              <div className="flex gap-0.5 ml-1">
-                {t.whatsapp_sessions < 2 ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onAddSession(); }}
-                    title="Adicionar 2ª sessão"
-                    className="w-5 h-5 flex items-center justify-center rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 transition-colors text-xs font-bold leading-none"
-                  >
-                    +
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
-                    title="Remover 2ª sessão"
-                    className="w-5 h-5 flex items-center justify-center rounded bg-rose-100 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-200 transition-colors text-xs font-bold leading-none"
-                  >
-                    −
-                  </button>
-                )}
-              </div>
-            )}
-            {t.is_trial && (
-              <span className="text-[9px] text-sky-400 font-bold uppercase ml-0.5">trial</span>
-            )}
+          <div className="flex flex-col items-center justify-center">
+            <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}</span>
+            {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase mt-0.5">trial</span>}
           </div>
         )}
       </td>
 
-      {/* ✅ NOVA CÉLULA — Controle Financeiro */}
+      {/* ✅ NOVA CÉLULA: MÓDULOS */}
       <td className="px-4 py-3 text-center">
-        {t.financial_control_enabled ?? true ? (
-           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">Ativo</span>
-        ) : (
-           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border border-slate-200 dark:border-white/10">Inativo</span>
-        )}
+        <div className="flex flex-wrap justify-center gap-1 max-w-[150px]">
+          {hasIptv && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">IPTV</span>}
+          {hasSaas && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">SaaS</span>}
+          {mods.includes("financeiro") && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-700 border border-sky-200">FIN</span>}
+          {hasAcademia && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-200">ACAD</span>}
+          {hasCondominio && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200">COND</span>}
+        </div>
       </td>
 
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity relative">
           
-          {/* Botões do WhatsApp */}
           <div className="relative">
             <ActionBtn title="Mensagem" tone="blue" onClick={(e) => { e.stopPropagation(); setMsgMenuForId((cur) => (cur === t.id ? null : t.id)); }}>
               <IconChat />
@@ -1473,13 +1456,12 @@ function TenantRow({
           </div>
 
           <ActionBtn title="Editar perfil" tone="amber" onClick={onEdit}><IconEdit /></ActionBtn>
-          
           <ActionBtn title="Novo alerta" tone="purple" onClick={onNewAlert}><IconBell /></ActionBtn>
 
           {!isSuperadmin && canManage && (
             <>
               <ActionBtn title="Renovar licença" tone="green" onClick={onRenew}><IconMoney /></ActionBtn>
-              {t.role !== "USER" && (
+              {t.role !== "USER" && !isOnlyFinance && !hasAcademia && !hasCondominio && (
                 <ActionBtn title="Enviar créditos" tone="blue" onClick={onCredits}><IconCoins /></ActionBtn>
               )}
               <ActionBtn 
