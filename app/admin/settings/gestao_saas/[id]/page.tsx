@@ -201,20 +201,30 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
 
           <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Módulos</div>
-            <div className="flex flex-wrap justify-center gap-1">
+            <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5">
               {master.active_modules?.includes("iptv") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="IPTV">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV Ativo">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+                    <polyline points="17 2 12 7 7 2"/>
+                  </svg>
                   IPTV
                 </span>
               )}
               {master.active_modules?.includes("saas") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="SaaS">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="Módulo SaaS Ativo">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
                   SaaS
                 </span>
               )}
               {master.active_modules?.includes("financeiro") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Financeiro">
-                  FIN
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro Ativo">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                  Financeiro
                 </span>
               )}
             </div>
