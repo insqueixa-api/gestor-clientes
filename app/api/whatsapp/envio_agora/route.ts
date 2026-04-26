@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 
 // Adiciona no topo junto com as outras funções
 function safeServerLog(...args: any[]) {
@@ -71,9 +72,6 @@ export const dynamic = "force-dynamic";
 
 const TZ_SP = "America/Sao_Paulo";
 
-function makeSessionKey(tenantId: string, userId: string) {
-  return crypto.createHash("sha256").update(`${tenantId}:${userId}`).digest("hex");
-}
 
 function normalizeToPhone(usernameRaw: unknown): string {
   // username hoje = telefone (pode vir com +, espaços, etc)
@@ -797,13 +795,7 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
 
   // ✅ NOVO: Lê a sessão requisitada do body e gera a chave correspondente
   const targetSession = String((body as any).whatsapp_session || "default");
-  let sessionKey = "";
-  
-  if (targetSession === "session2") {
-    sessionKey = crypto.createHash("sha256").update(`${tenantId}:${authedUserId}:2`).digest("hex");
-  } else {
-    sessionKey = makeSessionKey(tenantId, authedUserId);
-  }
+  const sessionKey = makeSessionKey(tenantId, authedUserId, targetSession === "session2" ? 2 : 1);
 
   safeServerLog("[WA][send_now]", {
     tenantId,
@@ -884,20 +876,28 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
     const renderedMessage = renderTemplate(message, vars);
 
     try {
-      const res = await fetch(`${baseUrl}/send`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${waToken}`,
-          "x-session-key": sessionKey,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          phone: contact.number,
-          message: renderedMessage,
-          ...(imageUrl ? { image_url: imageUrl } : {}) // ✅ Envia a imagem se existir
-        }),
-      });
+      const sendController = new AbortController();
+      const sendTimeout = setTimeout(() => sendController.abort(), 15_000);
+      let res: Response;
+      try {
+        res = await fetch(`${baseUrl}/send`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${waToken}`,
+            "x-session-key": sessionKey,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            phone: contact.number,
+            message: renderedMessage,
+            ...(imageUrl ? { image_url: imageUrl } : {})
+          }),
+          signal: sendController.signal,
+        });
+      } finally {
+        clearTimeout(sendTimeout);
+      }
 
       const raw = await res.text();
       let parsed: any = null;

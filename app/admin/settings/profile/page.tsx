@@ -6,7 +6,6 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 import { useTheme } from "@/components/theme/ThemeProvider";
 import Link from "next/link";
 import SaasProfileRenewModal from "./SaasProfileRenewModal";
-import QRCode from "qrcode";
 
 // ============================================================================
 // HELPERS & CONSTANTES
@@ -745,11 +744,15 @@ if (connected) {
   const ONE_DAY = 24 * 60 * 60 * 1000;
   const needProfile = !waPushName || !waProfilePicUrl || now - waLastProfileFetchRef.current > ONE_DAY;
   if (needProfile) {
-    await fetchWaProfile();
-    await fetchWaConfig();
-    waLastProfileFetchRef.current = now;
-  }
-  return;
+        await fetchWaProfile();
+        await fetchWaConfig();
+        waLastProfileFetchRef.current = now;
+      }
+      // Retry do nome se ainda não chegou
+      if (!waPushName) {
+        setTimeout(() => { void fetchWaProfile(); }, 3000);
+      }
+      return;
 }
 
 // ✅ TRAVA DE SEGURANÇA: Só bate na API de gerar QR se o botão for clicado (forceQr) 
@@ -767,15 +770,9 @@ if (forceQr || status === "qr" || status === "connecting") {
 }
 
 } finally {
-      if (showVisualLoading) setWaLoading(false);
-    }
-    // ✅ Se conectado mas sem nome, tenta buscar novamente após 3s
-    if (!waPushName) {
-      setTimeout(async () => {
-        await fetchWaProfile();
-      }, 3000);
-    }
+    if (showVisualLoading) setWaLoading(false);
   }
+}
 
 
 
@@ -2619,7 +2616,7 @@ setWaConnected(false);
     const onVis = () => { if (document.visibilityState === "visible") void tick(); };
     document.addEventListener("visibilitychange", onVis);
     return () => { stopped = true; clear(); document.removeEventListener("visibilitychange", onVis); };
-  }, [canPair, waConnected]);
+  }, [canPair, waConnected, isDormant]);
 
   return (
     <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">

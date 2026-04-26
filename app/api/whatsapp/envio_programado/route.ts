@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 
 function safeServerLog(...args: any[]) {
   if (process.env.NODE_ENV !== "production") {
@@ -14,9 +15,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const TZ_SP = "America/Sao_Paulo";
 
-function makeSessionKey(tenantId: string, userId: string) {
-  return crypto.createHash("sha256").update(`${tenantId}:${userId}`).digest("hex");
-}
+
 
 function normalizeToPhone(usernameRaw: unknown): string {
   // username hoje = telefone (pode vir com +, espaços, etc)
@@ -800,12 +799,7 @@ if (wa.dont_message_until) {
       
       // ✅ Avalia qual sessão o envio pediu e gera a chave correta
       const targetSession = String((job as any).whatsapp_session || "default");
-      let sessionKey = "";
-      if (targetSession === "session2") {
-        sessionKey = crypto.createHash("sha256").update(`${job.tenant_id}:${sessionUserIdStr}:2`).digest("hex");
-      } else {
-        sessionKey = makeSessionKey(job.tenant_id, sessionUserIdStr);
-      }
+      const sessionKey = makeSessionKey(job.tenant_id, sessionUserIdStr, targetSession === "session2" ? 2 : 1);
       
       let successCount = 0;
       let lastError = "";
@@ -848,25 +842,33 @@ if (wa.dont_message_until) {
 
         const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
-        const res = await fetch(`${baseUrl}/send`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${waToken}`,
-            "x-session-key": sessionKey,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ 
-            phone: contact.number, 
-            message: renderedMessage,
-            ...((job as any).image_url ? { image_url: String((job as any).image_url) } : {}) // ✅ Envia a imagem para a VM se existir
-          }),
-        });
+        const sendController = new AbortController();
+        const sendTimeout = setTimeout(() => sendController.abort(), 15_000);
+        let res: Response;
+        try {
+          res = await fetch(`${baseUrl}/send`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${waToken}`,
+              "x-session-key": sessionKey,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ 
+              phone: contact.number, 
+              message: renderedMessage,
+              ...((job as any).image_url ? { image_url: String((job as any).image_url) } : {})
+            }),
+            signal: sendController.signal,
+          });
+        } finally {
+          clearTimeout(sendTimeout);
+        }
 
         if (!res.ok) {
-           lastError = await res.text();
+          lastError = await res.text();
         } else {
-           successCount++;
+          successCount++;
         }
       }
 

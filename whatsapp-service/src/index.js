@@ -98,8 +98,8 @@ app.all("/status", authMiddleware, async (req, res) => {
 });
 
 // ── Validar número WhatsApp ──────────────────────────────────
-app.post("/validate-number", async (req, res) => {
-  const { sessionKey } = req;
+app.post("/validate-number", authMiddleware, async (req, res) => {
+  const sessionKey = getSessionKey(req);
   const { phone } = req.body || {};
   if (!phone) return res.status(400).json({ error: "phone obrigatório" });
 

@@ -321,12 +321,16 @@ if (connection === "open") {
       sessData.pushName = sock.user?.name || (cleanPhone ? `+${cleanPhone}` : "Sem Nome");
       console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Conectado: ${sessData.pushName}`);
 
-      // Tenta buscar foto de perfil
+     // Tenta buscar foto de perfil
       try {
         if (sessData.jid) {
           sessData.pictureUrl = await sock.profilePictureUrl(sessData.jid, "image").catch(() => null);
         }
       } catch {}
+
+      // ✅ Aparece como offline para os contatos mesmo com socket ativo
+      // Sem isso, o WhatsApp exibe "online" 24h enquanto a sessão estiver conectada
+      sock.sendPresenceUpdate("unavailable").catch(() => {});
 
       // Rastreador persistente para capturar o nome real (Normal ou Business)
       // ✅ BLINDAGEM: Mata qualquer rastreador antigo antes de criar um novo
@@ -462,10 +466,17 @@ async function disconnectSession(sessionKey) {
 
 function deleteSessionFiles(sessionKey) {
   const dir = getSessionDir(sessionKey);
-  if (fs.existsSync(dir)) {
-    fs.rmSync(dir, { recursive: true, force: true });
-    console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de sessão removidos`);
+  if (!fs.existsSync(dir)) return;
+
+  // ✅ Preserva config e lid-map — apaga só os arquivos de autenticação do Baileys
+  const PRESERVE = new Set(["wa-config.json", "lid-map.json"]);
+
+  for (const entry of fs.readdirSync(dir)) {
+    if (PRESERVE.has(entry)) continue;
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
+
+  console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de auth removidos (config preservada)`);
 }
 
 // ✅ AGORA RECEBE O imageUrl COMO TERCEIRO PARÂMETRO (OPCIONAL)
