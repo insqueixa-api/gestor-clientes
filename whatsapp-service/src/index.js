@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import {
   createSession,
   disconnectSession,
+  reconnectSession,
   sendMessage,
   validateNumber,
   getSession,
@@ -209,6 +210,19 @@ app.post("/disconnect", authMiddleware, async (req, res) => {
     return res.json({ success: true, status: "disconnected" });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Falha ao desconectar" });
+  }
+});
+
+// ── POST /reconnect ──────────────────────────────────────────
+app.post("/reconnect", authMiddleware, async (req, res) => {
+  const sessionKey = getSessionKey(req);
+  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
+
+  try {
+    await reconnectSession(sessionKey);
+    return res.json({ success: true, status: "reconnecting" });
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || "Falha ao reconectar" });
   }
 });
 

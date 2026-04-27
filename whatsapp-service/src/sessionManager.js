@@ -464,6 +464,26 @@ async function disconnectSession(sessionKey) {
   return true;
 }
 
+async function reconnectSession(sessionKey) {
+  const sess = sessions.get(sessionKey);
+
+  if (sess) {
+    // Mata o socket e os timers sem apagar nenhum arquivo
+    if (sess.nameTracker) clearInterval(sess.nameTracker);
+    if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
+    try { sess.socket?.end(); } catch {}
+    try { sess.socket?.ws?.close(); } catch {}
+    sessions.delete(sessionKey);
+    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔄 Sessão encerrada para reconexão`);
+  }
+
+  // Pequeno delay para o WhatsApp soltar a conexão antiga
+  await new Promise(r => setTimeout(r, 2000));
+
+  // Recria a sessão — credenciais no disco estão intactas
+  return await createSession(sessionKey);
+}
+
 function deleteSessionFiles(sessionKey) {
   const dir = getSessionDir(sessionKey);
   if (!fs.existsSync(dir)) return;
@@ -559,7 +579,7 @@ async function restoreExistingSessions() {
 }
 
 export {
-  createSession, disconnectSession, sendMessage, validateNumber,
+  createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage,
 };

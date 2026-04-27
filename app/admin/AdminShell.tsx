@@ -100,6 +100,39 @@ export default function AdminShell({
 
   const [localExpiresAt, setLocalExpiresAt] = useState<string | null>(expiresAt ?? null);
 
+  // ✅ Status das sessões WhatsApp
+  const [waDisconnected, setWaDisconnected] = useState(false);
+  const [showWaModal, setShowWaModal] = useState(false);
+
+  useEffect(() => {
+    // Só verifica se o tenant tem sessões habilitadas
+    if (!whatsappSessions || whatsappSessions < 1 || role === "SUPERADMIN") return;
+
+    async function checkWaSessions() {
+      try {
+        const [r1, r2] = await Promise.all([
+          fetch("/api/whatsapp/status", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
+          whatsappSessions! >= 2
+            ? fetch("/api/whatsapp/status2", { cache: "no-store" }).then(r => r.json()).catch(() => ({}))
+            : Promise.resolve({ connected: true }), // se não tem sessão 2, ignora
+        ]);
+
+        const sess1Ok = !!r1.connected;
+        const sess2Ok = !!r2.connected;
+
+        // Alerta se TODAS as sessões estiverem desconectadas
+        setWaDisconnected(!sess1Ok && !sess2Ok);
+      } catch {
+        // silencioso — não quebra o shell por falha de WA
+      }
+    }
+
+    void checkWaSessions();
+    // Verifica a cada 10 minutos — só pra dar um aviso passivo, sem martelo
+    const interval = setInterval(checkWaSessions, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [whatsappSessions, role]);
+
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
@@ -203,6 +236,17 @@ export default function AdminShell({
               }
               return null;
             })()}
+
+            {/* ✅ SINO DE ALERTA DE WHATSAPP DESCONECTADO */}
+            {waDisconnected && role !== "SUPERADMIN" && (
+              <button
+                onClick={() => setShowWaModal(true)}
+                className="flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors animate-pulse bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
+                title="WhatsApp desconectado"
+              >
+                <span className="text-sm leading-none">📵</span>
+              </button>
+            )}
           </div>
 
           <div className="flex-1" />
@@ -476,6 +520,40 @@ export default function AdminShell({
       )}
 
       {/* ✅ MODAL DE RENOVAÇÃO DO SINO */}
+      {/* ✅ MODAL DE WHATSAPP DESCONECTADO */}
+      {showWaModal && (
+        <Modal title="📵 WhatsApp Desconectado" onClose={() => setShowWaModal(false)}>
+          <div className="space-y-6">
+            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-4 rounded-lg flex gap-3">
+              <span className="text-2xl mt-0.5">📲</span>
+              <div>
+                <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
+                  Nenhuma sessão do WhatsApp está conectada no momento.
+                </p>
+                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                  Os disparos automáticos e manuais estão pausados. Reconecte para retomar o envio de mensagens.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowWaModal(false)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase"
+              >
+                Fechar
+              </button>
+              <a
+                href="/admin/settings/profile"
+                onClick={() => setShowWaModal(false)}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
+              >
+                Ir para Configurações
+              </a>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {showRenewModal && tenantId && (
         <SaasProfileRenewModal
           tenantId={tenantId}

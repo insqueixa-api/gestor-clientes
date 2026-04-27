@@ -260,6 +260,7 @@ const canPairWhatsApp = !!userId && !!tenantId;
 
   // WhatsApp (UI)
 const [waLoading, setWaLoading] = useState(false);
+const [waReconnecting, setWaReconnecting] = useState(false);
 const [waConnected, setWaConnected] = useState<boolean>(false);
 const [waQr, setWaQr] = useState<string | null>(null);
 const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
@@ -1246,6 +1247,33 @@ setWaIsDormant(true);
 
 }
 
+
+async function handleReconnectWhatsApp() {
+  if (!confirm("Forçar reconexão da sessão 1? O QR será gerado novamente.")) return;
+  setWaReconnecting(true);
+  try {
+    setWaLastError(null);
+    const res = await fetch("/api/whatsapp/reconnect", { method: "POST", cache: "no-store" });
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok) throw new Error(json?.error || "Falha ao reconectar");
+
+    addToast("success", "Reconectando...", "Aguarde o QR aparecer em alguns segundos.");
+    setWaConnected(false);
+    setWaQr(null);
+    setWaQrDataUrl(null);
+    setWaPushName(null);
+    setWaProfilePicUrl(null);
+    setWaIsDormant(false);
+
+    // Aguarda a VM reiniciar a sessão e busca o QR
+    setTimeout(() => void refreshWhatsAppPanel(true, false), 4000);
+  } catch (e: any) {
+    setWaLastError(e?.message);
+    addToast("error", "Falha ao reconectar", e?.message);
+  } finally {
+    setWaReconnecting(false);
+  }
+}
 
   async function handleImportFile(file: File) {
     if (!tenantId) {
@@ -2277,25 +2305,36 @@ Content-Type: application/json`}</code>
 </div>
 
 
-                {waConnected ? (
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => void handleDisconnectWhatsApp()}
-                    disabled={waLoading}
-                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    onClick={() => void handleReconnectWhatsApp()}
+                    disabled={waLoading || waReconnecting}
+                    className="flex-1 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    title="Força encerramento e reconexão sem apagar credenciais"
                   >
-                    {waLoading ? "Processando..." : "🔌 Desconectar Sessão 1"}
+                    {waReconnecting ? "Reconectando..." : "🔄 Forçar Reconexão"}
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void refreshWhatsAppPanel(true)} // ✅ AQUI SIM TEM O TRUE!
-                    disabled={waLoading}
-                    className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
-                  >
-                    {waLoading ? "Gerando..." : "📲 Gerar QR / Conectar"}
-              </button>
-            )}
+                  {waConnected ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleDisconnectWhatsApp()}
+                      disabled={waLoading || waReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    >
+                      {waLoading ? "Processando..." : "🔌 Desconectar"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void refreshWhatsAppPanel(true)}
+                      disabled={waLoading || waReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    >
+                      {waLoading ? "Gerando..." : "📲 Gerar QR"}
+                    </button>
+                  )}
+                </div>
 
           </>
         )}
@@ -2445,6 +2484,7 @@ function WhatsAppSession2Panel({
   );
   const [waSavingConfig, setWaSavingConfig] = useState(false);
   const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   async function fetchWaConfig() {
     try {
@@ -2531,6 +2571,7 @@ async function refreshPanel(forceQr = false) {
 
       const { connected, status } = await fetchWaStatus();
       
+      
       // ✅ Se a VM disser que já tá conectada, acorda o painel!
       if (connected) setIsDormant(false);
       
@@ -2591,6 +2632,32 @@ setWaConnected(false);
       setWaLoading(false);
     }
   }
+
+async function handleReconnect() {
+    if (!confirm("Forçar reconexão da sessão 2?")) return;
+    setIsReconnecting(true);
+    try {
+      setWaLastError(null);
+      const res = await fetch("/api/whatsapp/reconnect2", { method: "POST", cache: "no-store" });
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok) throw new Error(json?.error || "Falha ao reconectar sessão 2");
+
+      addToast("success", "Reconectando sessão 2...", "Aguarde o QR em alguns segundos.");
+      setWaConnected(false);
+      setWaQrDataUrl(null);
+      setWaPushName(null);
+      setWaProfilePicUrl(null);
+      setIsDormant(false);
+
+      setTimeout(() => void refreshPanel(true), 4000);
+    } catch (e: any) {
+      setWaLastError(e?.message);
+      addToast("error", "Falha ao reconectar", e?.message);
+    } finally {
+      setIsReconnecting(false);
+    }
+  }
+
 
   // Polling idêntico ao da sessão 1
   useEffect(() => {
@@ -2748,17 +2815,27 @@ setWaConnected(false);
                   )}
                 </div>
 
-                {waConnected ? (
-                  <button type="button" onClick={() => void handleDisconnect()} disabled={waLoading}
-                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
-                    {waLoading ? "Processando..." : "🔌 Desconectar Sessão 2"}
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => void handleReconnect()}
+                    disabled={waLoading || isReconnecting}
+                    className="flex-1 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    title="Força reconexão sem apagar credenciais">
+                    {isReconnecting ? "Reconectando..." : "🔄 Forçar Reconexão"}
                   </button>
-                ) : (
-                  <button type="button" onClick={() => void refreshPanel(true)} disabled={waLoading} 
-                    className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
-                    {waLoading ? "Gerando..." : "📲 Atualizar QR Code"}
-                  </button>
-                )}
+                  {waConnected ? (
+                    <button type="button" onClick={() => void handleDisconnect()}
+                      disabled={waLoading || isReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                      {waLoading ? "Processando..." : "🔌 Desconectar"}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => void refreshPanel(true)}
+                      disabled={waLoading || isReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                      {waLoading ? "Gerando..." : "📲 Gerar QR"}
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </>
