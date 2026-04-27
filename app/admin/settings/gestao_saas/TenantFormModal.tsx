@@ -205,9 +205,17 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   );
 
   const handleModuleToggle = (mod: string) => {
-    setActiveModules(prev => 
-      prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod]
-    );
+    setActiveModules(prev => {
+      const isRemoving = prev.includes(mod);
+      const nextModules = isRemoving ? prev.filter(m => m !== mod) : [...prev, mod];
+      
+      // Se estiver removendo o IPTV, rebaixa o perfil para USER automaticamente
+      if (mod === "iptv" && isRemoving) {
+        setRole("USER");
+      }
+      
+      return nextModules;
+    });
   };
 
   // Tabelas de plano SaaS
@@ -488,7 +496,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <FieldLabel>Papel (Perfil)</FieldLabel>
                 <div className="flex gap-2 mt-1">
                   {(["MASTER", "USER"] as const).map(r => (
-                    <button key={r} onClick={() => setRole(r)}
+                    <button key={r} onClick={() => {
+                      setRole(r);
+                      if (r === "MASTER" && !activeModules.includes("iptv")) {
+                        setActiveModules(prev => [...prev, "iptv"]);
+                      }
+                    }}
                       className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
                         role === r
                           ? r === "MASTER" ? "bg-amber-500 border-amber-500 text-white" : "bg-slate-700 dark:bg-slate-600 border-slate-700 text-white"
@@ -548,7 +561,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <FieldLabel>Perfil (Role)</FieldLabel>
                 <div className="flex gap-2 mt-1">
                   {(["MASTER", "USER"] as const).map(r => (
-                    <button key={r} type="button" onClick={() => setRole(r)}
+                    <button key={r} type="button" onClick={() => {
+                      setRole(r);
+                      if (r === "MASTER" && !activeModules.includes("iptv")) {
+                        setActiveModules(prev => [...prev, "iptv"]);
+                      }
+                    }}
                       className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
                         role === r
                           ? r === "MASTER" ? "bg-amber-500 border-amber-500 text-white" : "bg-slate-700 dark:bg-slate-600 border-slate-700 text-white"
