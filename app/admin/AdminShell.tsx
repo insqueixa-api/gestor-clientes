@@ -79,6 +79,7 @@ export default function AdminShell({
   creditBalance,
   saasPlanTableId,
   whatsappSessions,
+  isOnlyFinanceiro, // ✅ NOVA PROP
 }: {
   children: React.ReactNode;
   userLabel: string;
@@ -90,6 +91,7 @@ export default function AdminShell({
   creditBalance?: number;
   saasPlanTableId?: string | null;
   whatsappSessions?: number;
+  isOnlyFinanceiro?: boolean; // ✅ NOVA PROP
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
   
@@ -254,7 +256,11 @@ export default function AdminShell({
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             {/* ✅ MOBILE: mostra só Clientes + Menu */}
             <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href="/admin/cliente" label=<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span> />
+              {isOnlyFinanceiro ? (
+                <NavLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-1.5"><IconMenuFinanceiro /> Financeiro</span>} />
+              ) : (
+                <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
+              )}
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -279,72 +285,74 @@ export default function AdminShell({
               </div>
             </div>
 
-            {/* ✅ DESKTOP: mantém tudo */}
+            {/* ✅ DESKTOP: mantém tudo ou restringe ao Financeiro */}
             <div className="hidden sm:flex items-center gap-1">
-              <NavLink 
-  href="/admin" 
-  label={
-    <span className="flex items-center gap-1.5">
-      <IconDashboard /> Dashboard
-    </span>
-  } 
-/>
-              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>}></NavLink>
-              <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>}></NavLink>
-              <NavLink 
-  href="/admin/teste" 
-  label={
-    <span className="flex items-center gap-1.5">
-      <IconFastTimer /> Testes
-    </span>
-  } 
-/>
+              {isOnlyFinanceiro ? (
+                <>
+                  <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
+                  <NavLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-1.5"><IconMenuFinanceiro /> Controle Financeiro</span>} />
+                  <NavLink href="/admin/settings/profile" label={<span className="flex items-center gap-1.5"><IconMenuPerfil /> Perfil</span>} />
+                  
+                  <div className="w-px h-6 bg-white/10 mx-2" />
+                  
+                  <button onClick={() => window.location.href = "/logout"} className="rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-bold tracking-tight text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 gap-1.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair
+                  </button>
+                </>
+              ) : (
+                <>
+                  <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
+                  <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>}></NavLink>
+                  <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>}></NavLink>
+                  <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />
 
-              <div className="w-px h-6 bg-white/10 mx-2" />
+                  <div className="w-px h-6 bg-white/10 mx-2" />
 
-              <div ref={managerRef} className="relative">
-                <button
-                  onClick={openManager}
-                  className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                    managerActive
-                      ? "bg-white/15 text-emerald-400"
-                      : "text-white/70 hover:text-white hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
-                  <span
-                    className={[
-                      "transition-transform duration-200 text-[8px] opacity-40",
-                      openMenu === "manager" ? "rotate-180" : "",
-                    ].join(" ")}
-                  >
-                    ▼
-                  </span>
-                </button>
-              </div>
+                  <div ref={managerRef} className="relative">
+                    <button
+                      onClick={openManager}
+                      className={[
+                        "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                        managerActive
+                          ? "bg-white/15 text-emerald-400"
+                          : "text-white/70 hover:text-white hover:bg-white/5",
+                      ].join(" ")}
+                    >
+                      <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
+                      <span
+                        className={[
+                          "transition-transform duration-200 text-[8px] opacity-40",
+                          openMenu === "manager" ? "rotate-180" : "",
+                        ].join(" ")}
+                      >
+                        ▼
+                      </span>
+                    </button>
+                  </div>
 
-              <div ref={settingsRef} className="relative">
-                <button
-                  onClick={openSettings}
-                  className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                    settingsActive
-                      ? "bg-white/15 text-emerald-400"
-                      : "text-white/70 hover:text-white hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
-                  <span
-                    className={[
-                      "transition-transform duration-200 text-[8px] opacity-40",
-                      openMenu === "settings" ? "rotate-180" : "",
-                    ].join(" ")}
-                  >
-                    ▼
-                  </span>
-                </button>
-              </div>
+                  <div ref={settingsRef} className="relative">
+                    <button
+                      onClick={openSettings}
+                      className={[
+                        "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                        settingsActive
+                          ? "bg-white/15 text-emerald-400"
+                          : "text-white/70 hover:text-white hover:bg-white/5",
+                      ].join(" ")}
+                    >
+                      <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
+                      <span
+                        className={[
+                          "transition-transform duration-200 text-[8px] opacity-40",
+                          openMenu === "settings" ? "rotate-180" : "",
+                        ].join(" ")}
+                      >
+                        ▼
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </nav>
 
@@ -373,62 +381,41 @@ export default function AdminShell({
             {canUseDom && openMenu === "mobile" && mobilePos &&
         createPortal(
           <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Navegação 
-            </div>
-
-            <MenuLink 
-  href="/admin" 
-  label={
-    <span className="flex items-center gap-2">
-      <IconDashboard /> Dashboard
-    </span>
-  } 
-  onClick={() => setOpenMenu(null)} 
-/>
-            <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink 
-  href="/admin/teste" 
-  label={
-    <span className="flex items-center gap-2">
-      <IconFastTimer /> Testes
-    </span>
-  } 
-  onClick={() => setOpenMenu(null)} 
-/>
-
-            <Divider />
-
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Gerenciador
-            </div>
-            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
-            <Divider />
-
-            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
-              Conta
-            </div>
-            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-            
-            {/* ✅ APARECE SE O CONTROLE FINANCEIRO ESTIVER HABILITADO */}
-            {financialControlEnabled && (
-              <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
+            {isOnlyFinanceiro ? (
+              <>
+                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
+                <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
+                <Divider />
+                <LogoutLink onLogout={() => setOpenMenu(null)} />
+              </>
+            ) : (
+              <>
+                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
+                <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />
+                <Divider />
+                
+                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gerenciador</div>
+                <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
+                <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
+                <Divider />
+                
+                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
+                <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
+                {financialControlEnabled && <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />}
+                {role !== "USER" && <MenuLink href="/admin/settings/gestao_saas" label={<span className="flex items-center gap-2"><IconMenuSaas /> Gestão SaaS</span>} onClick={() => setOpenMenu(null)} />}
+                <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
+                <Divider />
+                <LogoutLink onLogout={() => setOpenMenu(null)} />
+              </>
             )}
-
-            {/* ✅ OCULTA GESTÃO SAAS SE FOR USER */}
-            {role !== "USER" && (
-              <MenuLink href="/admin/settings/gestao_saas" label={<span className="flex items-center gap-2"><IconMenuSaas /> Gestão SaaS</span>} onClick={() => setOpenMenu(null)} />
-            )}
-
-            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
-            <Divider />
-            <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
           document.body
         )
