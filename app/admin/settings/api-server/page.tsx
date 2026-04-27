@@ -40,6 +40,7 @@ type AppIntegration = {
 
 export default function ApiServerPage() {
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -68,7 +69,31 @@ const [isModalAppOpen, setIsModalAppOpen] = useState(false);
     try {
       setLoading(true);
       const tenantId = await getCurrentTenantId();
-      if (!tenantId) return;
+
+      if (tenantId) {
+        // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
+        const { data: tenantRow } = await supabaseBrowser
+          .from("tenants")
+          .select("active_modules")
+          .eq("id", tenantId)
+          .maybeSingle();
+
+        const mods = tenantRow?.active_modules || [];
+        const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas");
+
+        if (!hasAuthorizedModule) {
+          setHasAccess(false);
+          setLoading(false); // Libera a tela para mostrar o bloqueio
+          return; // 🛑 Interrompe totalmente o carregamento
+        }
+        
+        setHasAccess(true);
+      }
+
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
 
       const [srvRes, appRes] = await Promise.all([
   supabaseBrowser
@@ -266,6 +291,35 @@ return u || "--";
     } catch (e: any) {
       addToast("error", "Erro", e?.message ?? "Falha.");
     }
+  }
+
+  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
+  if (hasAccess === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
+        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
+      </div>
+    );
+  }
+
+  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
+          Acesso Restrito
+        </h1>
+        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
+          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
+        </p>
+      </div>
+    );
   }
 
   return (
