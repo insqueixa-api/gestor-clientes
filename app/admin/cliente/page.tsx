@@ -1570,10 +1570,10 @@ body: JSON.stringify({
           </svg>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito 
+          Acesso Restrito
         </h1>
         <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          O módulo de <strong>Clientes</strong> está disponível apenas para contas com gestão de IPTV ativada.
+          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
         </p>
       </div>
     );
