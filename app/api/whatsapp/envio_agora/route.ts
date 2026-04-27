@@ -813,13 +813,25 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
     safeServerLog("[WA][send_now][manual_payments] falhou", e?.message ?? e);
   }
 
+  // ✅ Jitter anti-flood: chamadas internas (webhook/renovação) esperam
+  // um tempo aleatório antes de bater na VM, evitando pico simultâneo
+  if (internal) {
+    const jitterMs = Math.floor(Math.random() * 8000) + 1000; // 1s a 9s
+    await new Promise(r => setTimeout(r, jitterMs));
+  }
+
   const results = [];
 
   // ==========================================
-  // LOOP DE DISPARO 
-  // O cadastro passou nos bloqueios? Agora dispara para o(s) número(s) atrelado(s) a ele.
+  // LOOP DE DISPARO
   // ==========================================
-  for (const contact of wa.phones) {
+  for (let i = 0; i < wa.phones.length; i++) {
+    const contact = wa.phones[i];
+
+    // ✅ Delay entre contatos do mesmo cliente (principal → secundário)
+    if (i > 0) {
+      await new Promise(r => setTimeout(r, 5000));
+    }
     const vars = buildTemplateVars({
       recipientType,
       recipientRow: wa.row,
