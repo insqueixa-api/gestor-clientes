@@ -64,7 +64,7 @@ export default async function AdminLayout({
   // 3) Nome e configs do tenant (topo)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, financial_control_enabled")
+    .select("name, financial_control_enabled, active_modules") // ✅ ADICIONADO active_modules
     .eq("id", member.tenant_id)
     .maybeSingle<any>();
 
@@ -96,11 +96,15 @@ export default async function AdminLayout({
 
   // ✅ NOVO: Pega a role que o banco já buscou lá em cima, padroniza e envia pro AdminShell
 const userRole =
-  profile?.role === "superadmin" && member.role === "owner"
-    ? "SUPERADMIN"
-    : member.role === "owner"
-    ? "MASTER"
-    : "USER";
+    profile?.role === "superadmin" && member.role === "owner"
+      ? "SUPERADMIN"
+      : member.role === "owner"
+      ? "MASTER"
+      : "USER";
+
+  // ✅ NOVO: Verifica se o cliente possui APENAS o módulo financeiro habilitado
+  const activeModules = tenantRow?.active_modules || [];
+  const isOnlyFinanceiro = activeModules.length === 1 && activeModules.includes("financeiro");
 
   return (
     <ThemeProvider defaultTheme="light">
@@ -114,6 +118,7 @@ const userRole =
         creditBalance={licenseData?.credit_balance ?? 0} 
         saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
         whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
+        isOnlyFinanceiro={isOnlyFinanceiro} // ✅ PASSANDO A PROP AQUI PARA O FRONT-END
       >
         {children}
       </AdminShell>
