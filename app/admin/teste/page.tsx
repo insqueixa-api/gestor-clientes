@@ -1000,6 +1000,16 @@ const { error } = await supabaseBrowser.rpc("delete_client_forever", {
     }, 3000);
   };
 
+  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
+  // Enquanto não tem a resposta do banco (null), segura a renderização
+  if (hasAccess === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
+        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
+      </div>
+    );
+  }
+
   // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
   if (hasAccess === false) {
     return (
