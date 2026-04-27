@@ -88,6 +88,7 @@ function normalizeApiUrl(url: string) {
 export default function AppManagerPage() {
 const [apps, setApps] = useState<AppData[]>([]);
 const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
+const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
 // ✅ Agora guardamos a URL além do nome da integração
 const [configuredIntegrations, setConfiguredIntegrations] = useState<{name: string, url: string}[]>([]);
 const [search, setSearch] = useState("");
@@ -174,14 +175,32 @@ const [editingId, setEditingId] = useState<string | null>(null);
   };
 
   // --- CARREGAR DADOS ---
-  async function loadData() {
-    setLoading(true);
-    try {
-      const tid = await getCurrentTenantId();
-      if (!tid) return;
-      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
+  async function loadData() {
+    setLoading(true);
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) return;
+      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
 
-      // 1. Carrega Apps e Integrações em paralelo
+      // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
+      const { data: tenantRow } = await supabaseBrowser
+        .from("tenants")
+        .select("active_modules")
+        .eq("id", tid)
+        .maybeSingle();
+
+      const mods = tenantRow?.active_modules || [];
+      const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas");
+
+      if (!hasAuthorizedModule) {
+        setHasAccess(false);
+        setLoading(false); // Libera o loading para mostrar a tela de erro
+        return; // 🛑 Interrompe o carregamento do restante
+      }
+      
+      setHasAccess(true);
+
+      // 1. Carrega Apps e Integrações em paralelo
       const [appsRes, integrationsRes] = await Promise.all([
         supabaseBrowser.rpc("get_my_visible_apps").order("name", { ascending: true }),
         supabaseBrowser
@@ -536,6 +555,34 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
   );
 }
 
+  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
+  if (hasAccess === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
+        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
+      </div>
+    );
+  }
+
+  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
+          Acesso Restrito
+        </h1>
+        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
+          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
+        </p>
+      </div>
+    );
+  }
 
 return (
   <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
