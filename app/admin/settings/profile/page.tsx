@@ -239,7 +239,6 @@ export default function ProfileSettingsPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("Carregando...");
   const [roleRaw, setRoleRaw] = useState<string | null>(null);
-  const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false); // ✅ Controle de módulo exclusivo
 
   // ✅ NOVO: Estados da Assinatura
 const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
@@ -455,11 +454,6 @@ const [waUserTouched, setWaUserTouched] = useState(false);
             .maybeSingle();
             
           if (saasData) {
-            // ✅ Descobre se o cliente tem APENAS financeiro ativo
-            const { data: tData } = await supabaseBrowser.from("tenants").select("active_modules").eq("id", currentTenantId).maybeSingle();
-            const mods = tData?.active_modules || [];
-            setIsOnlyFinanceiro(mods.length === 1 && mods.includes("financeiro"));
-
             setLicenseStatus(saasData.license_status || "ACTIVE");
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
@@ -1493,76 +1487,888 @@ return (
 
 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
-  {/* =======================================================
-      COLUNA ESQUERDA (DADOS PESSOAIS + API KEYS)
-      Ocupa 2 espaços no grid (xl:col-span-2)
-  ======================================================= */}
-  <div className="xl:col-span-2 space-y-6">
-    
-    {/* CARD 1: DADOS PESSOAIS */}
-    <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-      {/* 🟢 MANTENHA TODO O SEU CONTEÚDO DE DADOS PESSOAIS AQUI */}
-    </div>
-
-    {/* CARD 2: API KEYS (OCULTO PARA FINANCEIRO) */}
-    {!isOnlyFinanceiro && (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
-        {/* 🟢 MANTENHA TODO O SEU CONTEÚDO DAS API KEYS AQUI */}
-      </div>
+       
+        {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
+        <div className="xl:col-span-2 space-y-6">
+          <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
+<div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+    Dados Pessoais
+  </h3>
+  <div className="flex items-center gap-2">
+    {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
+    {role !== "SUPERADMIN" && (
+      <button
+        onClick={() => setShowRenewModal(true)}
+        className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-900/20"
+      >
+        <IconMoney /> Renovar
+      </button>
     )}
 
+    {!isEditing ? (
+      <button
+        onClick={() => setIsEditing(true)}
+        className="h-7 px-3 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-white/10 transition-all flex items-center gap-1.5"
+      >
+        ✏️ Editar
+      </button>
+    ) : (
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="h-7 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] transition-all disabled:opacity-50 flex items-center gap-1.5"
+      >
+        {saving ? "Salvando..." : "💾 Salvar"}
+      </button>
+    )}
   </div>
-
-
-  {/* =======================================================
-      COLUNA DIREITA (SIDEBAR: SISTEMA + WA + SEGURANÇA)
-      Ocupa 1 espaço no grid (Padrão)
-  ======================================================= */}
-  <div className="space-y-6">
-
-    {/* CARD 3: DADOS DO SISTEMA (MOVIDO PARA A DIREITA) */}
-    <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
-      {/* 🟢 MANTENHA TODO O SEU CONTEÚDO DE DADOS DO SISTEMA AQUI */}
-      {/* (Aqui dentro já está a sua trava do modal de exportação que você fez) */}
+</div>
+            
+            {/* LINHA 1: NOME + PERFIL */}
+            <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
+  <div className="col-span-2">
+    <Label>Nome Completo</Label>
+    <Input
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      placeholder="Seu nome"
+      readOnly={!isEditing}
+      onFocus={() => setIsEditing(true)}
+    />
+  </div>
+  <div className="col-span-1">
+    <Label>Perfil</Label>
+    <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${
+      role === "SUPERADMIN" ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20" :
+      role === "MASTER" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20" :
+      "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60 border-slate-200 dark:border-white/10"
+    }`}>
+      {role}
     </div>
+  </div>
+</div>
 
-    {/* CARD 4: WHATSAPP SESSÃO 1 (OCULTO PARA FINANCEIRO) */}
-    {!isOnlyFinanceiro && (
-      <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
-        {/* 🟢 MANTENHA TODO O SEU CONTEÚDO DA SESSÃO 1 AQUI */}
+            {/* LINHA 2: EMAIL + TELEFONE (2 COLUNAS AGORA) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <Label>E-mail</Label>
+                <Input value={email} disabled className="opacity-70 bg-slate-100 dark:bg-white/5 cursor-not-allowed" />
+              </div>
+              <div>
+                <PhoneRow 
+                    label="Telefone Celular" 
+                    prettyPrefix={phonePrettyPrefix} 
+                    rawValue={phoneRaw} 
+                    onRawChange={setPhoneRaw} 
+                    onDone={handlePhoneDone}
+                    readOnly={!isEditing} 
+                    onFocus={() => setIsEditing(true)} 
+                />
+              </div>
+            </div>
+
+            {/* LINHA 3: WHATSAPP + MEMBRO */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+                <div className="md:col-span-2">
+                    <Label>WhatsApp Username</Label>
+                    <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+                        
+                        {/* MODO LEITURA: Link Clicável */}
+                        <Input
+  className="pl-8 pr-10"
+  value={whatsappUsername}
+  onChange={handleWhatsChange}
+  placeholder="5521999999999"
+  readOnly={!isEditing}
+  onFocus={() => setIsEditing(true)}
+/>
+{whatsappUsername && (
+  <a
+    href={`https://wa.me/${whatsappUsername}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={e => e.stopPropagation()}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600"
+    title="Abrir no WhatsApp"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
+  </a>
+)}
+                    </div>
+                    {waValidation && (
+                      <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                        {waValidation.loading ? (
+                          <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                        ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado no WhatsApp</>}
+                      </div>
+                    )}
+                </div>
+                <div>
+                    <Label>Membro desde</Label>
+                    <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-slate-600 dark:text-white/70 text-sm opacity-70 cursor-not-allowed">
+                        {createdAt || "—"}
+                    </div>
+                </div>
+            </div>
+
+            {/* ✅ LINHA 4 - ASSINATURA (Oculta inteiramente para SUPERADMIN) */}
+            {role !== "SUPERADMIN" && (
+              <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
+                <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
+                  Detalhes da Assinatura
+                </div>
+                {/* Alterado para Grid para alinhar com os inputs acima */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* 1. Status Dinâmico */}
+                  <div>
+                    <Label>Status</Label>
+                    {(() => {
+                      // Cores no mesmo padrão do Perfil
+                      const mapColors: Record<string, string> = {
+                        ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+                        TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
+                        EXPIRED:  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
+                        ARCHIVED: "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-white/40 border-slate-200 dark:border-white/10",
+                        INACTIVE: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+                      };
+                      const mapLabels: Record<string, string> = {
+                        ACTIVE: "Ativo", TRIAL: "Trial", EXPIRED: "Expirado", ARCHIVED: "Arquivado", INACTIVE: "Inativo",
+                      };
+
+                      let boxColor = mapColors[licenseStatus] ?? mapColors.INACTIVE;
+                      let boxText = mapLabels[licenseStatus] ?? licenseStatus;
+
+                      if (expiresAt && role !== "SUPERADMIN") {
+                        const dias = daysUntil(expiresAt);
+                        if (dias !== null) {
+                          if (dias < 0) {
+                            boxColor = `${mapColors.EXPIRED} animate-pulse`;
+                            boxText = `⚠️ Vencido há ${Math.abs(dias)}d`;
+                          } else if (dias === 0) {
+                            boxColor = `${mapColors.EXPIRED} animate-pulse`;
+                            boxText = "⚠️ Vence Hoje";
+                          } else if (dias <= 7) {
+                            boxColor = mapColors.INACTIVE; // Laranja (Amber)
+                            boxText = `⏳ Vence em ${dias}d`;
+                          }
+                        }
+                      }
+
+                      return (
+                        <div className={`h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border transition-colors ${boxColor}`}>
+                          {boxText}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 2. Vencimento com Cor Dinâmica */}
+                  <div>
+                    <Label>Vencimento</Label>
+                    {(() => {
+                      let textColor = "text-slate-700 dark:text-white"; // Padrão cinza se Superadmin
+
+                      if (expiresAt && role !== "SUPERADMIN") {
+                        const dias = daysUntil(expiresAt);
+                        if (dias !== null) {
+                          if (dias < 0 || dias === 0) textColor = "text-rose-600 dark:text-rose-400";
+                          else if (dias <= 7) textColor = "text-amber-600 dark:text-amber-400";
+                          else textColor = "text-emerald-600 dark:text-emerald-400"; // Tudo ok, fica verde
+                        }
+                      }
+
+                      return (
+                        <div className={`h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold cursor-default transition-colors ${textColor}`}>
+                          {expiresAt ? new Date(expiresAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 3. Créditos: APENAS MASTER vê */}
+                  {role === "MASTER" && (
+                    <div>
+                      <Label>Saldo de Créditos</Label>
+                      <div className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-emerald-600 dark:text-emerald-400 opacity-90 cursor-default">
+                        {creditBalance}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+         {/* DADOS DO SISTEMA */}
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                Dados do Sistema
+              </h3>
+              {/* Ícone de template visível só no mobile */}
+              <button 
+                type="button" 
+                onClick={() => setActionModal("template")}
+                className="md:hidden p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-700 transition-colors"
+                title="Templates"
+              >
+                📄
+              </button>
+            </div>
+
+            {/* MODAL DE ESCOLHA (CLIENTES OU APPS) */}
+            {actionModal && (
+              <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4">
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                    {actionModal === "export" && "⬇️ Exportar Dados"}
+                    {actionModal === "template" && "📄 Baixar Templates"}
+                    {actionModal === "import" && "⬆️ Importar Dados"}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-white/60">
+                    O que você deseja {actionModal === "export" ? "exportar" : actionModal === "template" ? "baixar" : "importar"}?
+                  </p>
+
+                  <div className="flex flex-col gap-3 pt-1">
+                    {/* 1. Servidores */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportServers();
+                        else if (action === "template") handleDownloadTemplateServers();
+                        else if (action === "import") importServerFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">🖥️</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Servidores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Cadastros dos seus servidores e painéis</div>
+                      </div>
+                    </button>
+
+                    {/* 2. Mensagens */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportMessages();
+                        else if (action === "template") handleDownloadTemplateMessages();
+                        else if (action === "import") importMessageFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="flex items-center justify-center w-8 h-8 text-emerald-500 dark:text-emerald-400">
+                        <IconWhatsApp />
+                      </span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Mensagens WhatsApp</div>
+                        <div className="text-[11px] font-medium text-slate-400">Modelos de mensagens do sistema</div>
+                      </div>
+                    </button>
+
+                    {/* 3. Automações */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportAuto();
+                        else if (action === "template") handleDownloadTemplateAuto();
+                        else if (action === "import") importAutoFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">💵</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Automações</div>
+                        <div className="text-[11px] font-medium text-slate-400">Regras de cobrança no WhatsApp</div>
+                      </div>
+                    </button>
+
+                    {/* 4. Clientes */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportClients();
+                        else if (action === "template") handleDownloadTemplate();
+                        else if (action === "import") importFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">👥</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Clientes</div>
+                        <div className="text-[11px] font-medium text-slate-400">Dados cadastrais dos clientes</div>
+                      </div>
+                    </button>
+
+                    {/* 5. Aplicativos */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportApps();
+                        else if (action === "template") handleDownloadTemplateApps();
+                        else if (action === "import") importAppsFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">📱</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Aplicativos</div>
+                        <div className="text-[11px] font-medium text-slate-400">Apps vinculados aos clientes</div>
+                      </div>
+                    </button>
+
+                    {/* 6. Revendedores */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportResellers();
+                        else if (action === "template") handleDownloadTemplateResellers();
+                        else if (action === "import") importResellerFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">🤝</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Revendedores</div>
+                        <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* BOTÕES DE AÇÃO NA PÁGINA */}
+            <div className="flex flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => setActionModal("export")}
+                disabled={!tenantId || exporting}
+                className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exporting ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><circle className="opacity-25" cx="12" cy="12" r="10" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Gerando...</> : <><span>⬇️</span> Exportar</>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActionModal("template")}
+                disabled={!tenantId}
+                className="hidden md:flex flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>📄</span> Templates
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActionModal("import")}
+                disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer}
+                className="flex-1 h-10 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {(importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer) ? "⏳ Importando..." : <><span>⬆️</span> Importar</>}
+              </button>
+              
+              <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFile(f); }} />
+              <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAppsFile(f); }} />
+              <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
+              <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportResellerFile(f); }} />
+              <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportMessageFile(f); }} />
+              {/* ✅ NOVO INPUT PARA SERVIDOR */}
+              <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportServerFile(f); }} />
+            </div>
+          </div>
+
+        {/* ✅ CARD API KEYS */}
+        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              API Keys — Integração Bot
+            </h3>
+            <span className="text-[10px] px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
+              BETA
+            </span>
+          </div>
+
+          {/* Gerar nova key */}
+          <div className="flex gap-2">
+            <input
+              value={apiKeyLabel}
+              onChange={e => setApiKeyLabel(e.target.value)}
+              placeholder='Ex: "Bot WhatsApp" ou "Sistema XYZ"'
+              className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={handleGenerateApiKey}
+              disabled={generatingKey || !apiKeyLabel.trim()}
+              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {generatingKey ? "Gerando..." : "+ Gerar Key"}
+            </button>
+          </div>
+
+          {/* Lista de keys */}
+          {apiKeys.length > 0 ? (
+            <div className="space-y-2">
+              {apiKeys.map(k => (
+                <div key={k.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border text-sm ${k.is_active ? "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/2 opacity-50"}`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-700 dark:text-white text-xs truncate">{k.label}</span>
+                      {!k.is_active && <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-500/20">REVOGADA</span>}
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-white/30 mt-0.5">
+                      Criada: {new Date(k.created_at).toLocaleDateString("pt-BR")}
+                      {k.last_used_at && ` · Último uso: ${new Date(k.last_used_at).toLocaleDateString("pt-BR")}`}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+  {k.is_active && (
+    <button
+      type="button"
+      onClick={() => handleRevokeApiKey(k.id)}
+      className="text-[10px] font-bold text-amber-500 hover:bg-amber-500/10 px-2 py-1 rounded transition-colors"
+    >
+      Revogar
+    </button>
+  )}
+  <button
+    type="button"
+    onClick={() => handleDeleteApiKey(k.id)}
+    className="text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
+  >
+    Excluir
+  </button>
+</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 dark:text-white/30 italic">Nenhuma key gerada ainda.</p>
+          )}
+
+          {/* Documentação */}
+          <details className="group">
+  <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center justify-between gap-1">
+    <span className="flex items-center gap-1">
+      <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+      Ver documentação da API
+    </span>
+    <span className="flex items-center gap-1 not-sr-only" onClick={e => e.preventDefault()}>
+      <button
+        type="button"
+        onClick={() => {
+          const md = `# API de Consulta de Clientes — UniGestor\n\n## Endpoint\n\`\`\`\nPOST https://unigestor.net.br/api/public/client-info\n\`\`\`\n\n## Headers\n\`\`\`\nAuthorization: Bearer SUA_KEY_AQUI\nContent-Type: application/json\n\`\`\`\n\n## Body\n\`\`\`json\n{\n  "whatsapp_username": "5521999999999"\n}\n\`\`\`\n\n## Campos retornados por cliente\n\n| Campo | Descrição |\n|---|---|\n| client_name | Nome completo |\n| status | ACTIVE / OVERDUE / TRIAL / ARCHIVED |\n| vencimento | Data formatada (pt-BR) |\n| vencimento_iso | ISO 8601 para calcular no bot |\n| dias_restantes | Número inteiro de dias |\n| plan | Plano e quantidade de telas |\n| credentials | { username, password } |\n| m3u_url | Link da playlist M3U |\n| portal_link | Link de pagamento com token |\n| portal_pin | PIN de acesso (4 dígitos) |\n| server_name | Nome do servidor |\n| technology | IPTV / P2P / OTT |\n| phone_primary | Telefone principal (E.164) |\n| phone_secondary | Telefone secundário |\n\n## Exemplo completo\n\`\`\`javascript\nfetch("https://unigestor.net.br/api/public/client-info", {\n  method: "POST",\n  headers: {\n    "Authorization": "Bearer SUA_KEY_AQUI",\n    "Content-Type": "application/json"\n  },\n  body: JSON.stringify({\n    whatsapp_username: "5521999999999"\n  })\n})\n.then(r => r.json())\n.then(console.log);\n\`\`\`\n`;
+          const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "unigestor-api-docs.md";
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        className="text-[10px] font-bold px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-colors"
+      >
+        .md
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const collection = {
+            info: { name: "UniGestor API", schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+            item: [{
+              name: "Consultar clientes por WhatsApp",
+              request: {
+                method: "POST",
+                header: [
+                  { key: "Authorization", value: "Bearer SUA_KEY_AQUI" },
+                  { key: "Content-Type", value: "application/json" }
+                ],
+                body: { mode: "raw", raw: JSON.stringify({ whatsapp_username: "5521999999999" }, null, 2), options: { raw: { language: "json" } } },
+                url: { raw: "https://unigestor.net.br/api/public/client-info", protocol: "https", host: ["unigestor", "net", "br"], path: ["api", "public", "client-info"] }
+              }
+            }]
+          };
+          const blob = new Blob([JSON.stringify(collection, null, 2)], { type: "application/json;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "unigestor-postman.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        className="text-[10px] font-bold px-2 py-0.5 rounded border border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
+      >
+        Postman
+      </button>
+    </span>
+  </summary>
+            <div className="mt-3 space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Endpoint</p>
+                <code className="block font-mono text-[11px] text-sky-700 dark:text-sky-300">POST https://unigestor.net.br/api/public/client-info</code>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Headers</p>
+                <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`Authorization: Bearer ugs_...
+Content-Type: application/json`}</code>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+  <p className="font-bold text-slate-600 dark:text-white/70">Body</p>
+  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`{
+  "whatsapp_username": "5521999999999"
+}`}</code>
+</div>
+
+<div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+  <p className="font-bold text-slate-600 dark:text-white/70">Exemplo para testar no console do navegador</p>
+  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre overflow-x-auto">{`fetch("https://unigestor.net.br/api/public/client-info", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer SUA_KEY_AQUI",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    whatsapp_username: "5521999999999"
+  })
+})
+.then(r => r.json())
+.then(data => {
+  const w = window.open("about:blank");
+  w.document.write(
+    "<pre>" + JSON.stringify(data, null, 2) + "</pre>"
+  );
+})`}</code>
+</div>
+              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
+                <p className="font-bold text-slate-600 dark:text-white/70">Campos retornados por cliente</p>
+                <div className="space-y-1 text-slate-500 dark:text-white/50">
+                  {[
+                    ["client_name", "Nome completo"],
+                    ["status", "ACTIVE / OVERDUE / TRIAL / ARCHIVED"],
+                    ["vencimento", "Data formatada (pt-BR)"],
+                    ["vencimento_iso", "ISO 8601 para calcular no bot"],
+                    ["dias_restantes", "Número inteiro de dias"],
+                    ["plan", "Plano e quantidade de telas"],
+                    ["credentials", "{ username, password }"],
+                    ["m3u_url", "Link da playlist M3U"],
+                    ["portal_link", "Link do Portal do cliente"],
+                    ["portal_pin", "PIN de acesso (4 dígitos)"],
+                    ["server_name", "Nome do servidor"],
+                    ["technology", "IPTV / P2P"],
+                    ["phone_primary", "Telefone principal (E.164)"],
+                    ["phone_secondary", "Telefone secundário"],
+                  ].map(([campo, desc]) => (
+                    <div key={campo} className="flex gap-2">
+                      <code className="font-mono text-sky-600 dark:text-sky-400 shrink-0">{campo}</code>
+                      <span>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
       </div>
-    )}
 
-    {/* CARD 5: WHATSAPP SESSÃO 2 (OCULTO PARA FINANCEIRO) */}
-    {!isOnlyFinanceiro && whatsappSessions >= 2 && showSession2 && (
-      <WhatsAppSession2Panel
-        canPair={canPairWhatsApp}
-        tenantId={tenantId}
-        addToast={addToast}
-      />
-    )}
+        {/* === COLUNA DIREITA (SIDEBAR) === */}
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+              WhatsApp Web — Sessão 1
+            </h3>
+            {whatsappSessions >= 2 && !showSession2 && (
+              <button
+                type="button"
+                onClick={() => { setShowSession2(true); localStorage.setItem("wa_show_session2", "true"); }}
+                className="h-6 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors"
+              >
+                + Nova Sessão
+              </button>
+            )}
+          </div>
 
-    {/* CARD 6: SEGURANÇA */}
-    <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
-      <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
-        Segurança
-      </h3>
-      <div>
-        <Label>Senha</Label>
-        <button onClick={handleResetPassword} className="w-full mt-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2">
-          <span>🔒</span> Redefinir Senha
+          <div className="flex flex-col gap-3">
+
+            {/* Segurança SaaS: só o responsável (owner) pode parear */}
+            {!canPairWhatsApp ? (
+            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs">
+              Você precisa estar logado para conectar o WhatsApp.
+            </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-[11px] font-bold px-2 py-1 rounded border ${
+                      waConnected
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {waConnected ? "✅ Conectado" : "⚠️ Não conectado"}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => void refreshWhatsAppPanel()} // Aqui NÃO TEM o true
+                    disabled={waLoading}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    {waLoading ? "Atualizando..." : "Atualizar"}
+                  </button>
+                </div>
+
+                {!!waLastError && (
+                  <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs">
+                    {waLastError}
+                  </div>
+                )}
+
+                {/* ✅ Tela de dormência da Sessão 1 */}
+                {waIsDormant && !waConnected ? (
+                  <div className="text-center py-2">
+                    <button
+                      type="button" 
+                      onClick={() => {
+                        setWaIsDormant(false);
+                        void refreshWhatsAppPanel(true);
+                      }} 
+                      disabled={waLoading} 
+                      className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+                    >
+                      {waLoading ? "Gerando..." : "📲 Iniciar e Gerar QR"}
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      O painel ficará pausado até você iniciar o pareamento.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
+                      {waConnected && (
+                      <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+    <div className="flex items-center justify-between">
+      <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setWaConfigExpanded(v => !v)}
+          className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors"
+          title={waConfigExpanded ? "Minimizar" : "Expandir"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            {waConfigExpanded
+              ? <path d="M18 15l-6-6-6 6"/>
+              : <path d="M6 9l6 6 6-6"/>
+            }
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setWaRejectCalls(v => !v)}
+          className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
         </button>
       </div>
     </div>
-
+{waRejectCalls && waConfigExpanded && (
+  <div className="space-y-2">
+    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
+    <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
+    <div className="flex flex-wrap gap-1">
+      {["{saudacao}", "{hora}", "{data}"].map(tag => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => setWaRejectMessage(v => v + tag)}
+          className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono"
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
+    <textarea
+      value={waRejectMessage}
+      onChange={e => setWaRejectMessage(e.target.value)}
+      rows={3}
+      placeholder="Ex: {saudacao}! No momento não atendemos ligações. Você ligou às {hora} do dia {data}."
+      className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+    />
+    <div className="pt-1">
+      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+        Números que não serão rejeitados:
+      </label>
+      <textarea
+                value={waAllowedNumbers}
+                onChange={e => setWaAllowedNumbers(e.target.value)}
+                rows={3}
+                placeholder={"5521999998888 Nome\n5511999999999 Nome"}
+                className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
+              />
+              <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar (ex: 55219... José).</p>
+    </div>
   </div>
+)}
+{waConfigExpanded && (
+      <button
+        type="button"
+        onClick={() => void saveWaConfig()}
+        disabled={waSavingConfig}
+        className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
+      >
+        {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+      </button>
+    )}
+  </div>
+)}
 
+{waConnected ? (
+    <div className="flex items-center gap-4 py-1">
+      {/* Avatar */}
+      <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+        {waProfilePicUrl ? (
+          <img src={waProfilePicUrl} alt="Foto do WhatsApp" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-xs text-slate-400">WA</span>
+        )}
+      </div>
+
+      {/* Infos */}
+      <div className="flex-1 min-w-0">
+        {waSessionLabelEditing ? (
+        <input
+          autoFocus
+          value={waSessionLabel}
+          onChange={e => setWaSessionLabel(e.target.value)}
+          onBlur={() => { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); }}
+          onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); } }}
+          className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
+        />
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+            {waSessionLabel || "Contato principal"}
+          </span>
+          <button type="button" onClick={() => setWaSessionLabelEditing(true)}           className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0"
+ title="Renomear sessão">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      )}
+        <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                      {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
+                    </div>
+        {!!waStatusText && (
+          <div className="text-[11px] text-slate-400 dark:text-white/40">
+            Status: {waStatusText}
+          </div>
+        )}
+      </div>
+    </div>
+  ) : waQrDataUrl ? (
+    <div className="flex flex-col items-center gap-2">
+      <img
+        src={waQrDataUrl}
+        alt="QR Code do WhatsApp"
+        className="w-full max-w-[220px] rounded bg-white p-2"
+      />
+      <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
+        Abra o WhatsApp no celular → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie o QR.
+      </div>
+    </div>
+  ) : (
+    <div className="text-xs text-slate-500 dark:text-white/60 text-center">
+      QR ainda não disponível. Clique em <b>Atualizar</b>.
+    </div>
+  )}
 </div>
 
-{/* Modais como RevealedKey e SaasProfileRenewModal ficam AQUI, APÓS O GRID fechar */}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleReconnectWhatsApp()}
+                    disabled={waLoading || waReconnecting}
+                    className="flex-1 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    title="Força encerramento e reconexão sem apagar credenciais"
+                  >
+                    {waReconnecting ? "Reconectando..." : "🔄 Forçar Reconexão"}
+                  </button>
+                  {waConnected ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleDisconnectWhatsApp()}
+                      disabled={waLoading || waReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    >
+                      {waLoading ? "Processando..." : "🔌 Desconectar"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void refreshWhatsAppPanel(true)}
+                      disabled={waLoading || waReconnecting}
+                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                    >
+                      {waLoading ? "Gerando..." : "📲 Gerar QR"}
+                    </button>
+                  )}
+                </div>
+
+          </>
+        )}
 
 
-{/* ✅ MODAL: Exibir key gerada (única vez) */}
+            
+          </>
+        )}
+      </div>
+    </div>
+
+
+
+{/* ✅ SESSÃO 2 — só renderiza se o tenant tem 2 sessões E o usuário clicou em "+ Nova Sessão" */}
+          {whatsappSessions >= 2 && showSession2 && (
+            <WhatsAppSession2Panel
+              canPair={canPairWhatsApp}
+              tenantId={tenantId} // ✅ Passando a credencial
+              addToast={addToast}
+            />
+          )}
+
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
+            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Segurança</h3>
+            <div>
+              <Label>Senha</Label>
+              <button onClick={handleResetPassword} className="w-full mt-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center justify-center gap-2">
+                <span>🔒</span> Redefinir Senha
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    {/* ✅ MODAL: Exibir key gerada (única vez) */}
     {revealedKey && (
       <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
         <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-4">
