@@ -93,7 +93,14 @@ export async function GET(req: Request) {
   }
   const tenant_id = resolved.tenant_id;
 
-  const { data: transacoes, error } = await supabase
+  const yearsParam = url.searchParams.get("years");
+  const statusParam = url.searchParams.get("status");
+
+  const years = yearsParam
+    ? yearsParam.split(",").map(y => parseInt(y.trim(), 10)).filter(y => !isNaN(y))
+    : [];
+
+  let q = supabase
     .from("fin_transacoes")
     .select(`
       tipo,
@@ -112,6 +119,18 @@ export async function GET(req: Request) {
     `)
     .eq("tenant_id", tenant_id)
     .order("data_vencimento", { ascending: false });
+
+  if (years.length > 0) {
+    // Monta range OR: data_vencimento entre 01/01/YYYY e 31/12/YYYY para cada ano
+    const orFilters = years.map(y => `and(data_vencimento.gte.${y}-01-01,data_vencimento.lte.${y}-12-31)`).join(",");
+    q = q.or(orFilters);
+  }
+
+  if (statusParam === "PAGO" || statusParam === "PENDENTE") {
+    q = q.eq("status", statusParam);
+  }
+
+  const { data: transacoes, error } = await q;
 
   if (error) {
     return NextResponse.json({ error: "export_failed", details: error.message }, { status: 500 });

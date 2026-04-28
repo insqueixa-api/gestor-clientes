@@ -807,8 +807,11 @@ const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [importingServer, setImportingServer] = useState(false);
   const importServerFileRef = useRef<HTMLInputElement | null>(null);
 
-  const [importingFinanceiro, setImportingFinanceiro] = useState(false);
+const [importingFinanceiro, setImportingFinanceiro] = useState(false);
   const importFinanceiroFileRef = useRef<HTMLInputElement | null>(null);
+  const [showFinanceiroExportModal, setShowFinanceiroExportModal] = useState(false);
+  const [finExportYears, setFinExportYears] = useState<number[]>([new Date().getFullYear()]);
+  const [finExportStatus, setFinExportStatus] = useState<"todos" | "PAGO" | "PENDENTE">("todos");
 
   // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
@@ -927,12 +930,16 @@ addToast("success", "Sucesso", summary);
   
 
   // --- FUNÇÕES DE FINANCEIRO ---
-  async function handleExportFinanceiro() {
+  async function handleExportFinanceiro(years: number[], status: string) {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setShowFinanceiroExportModal(false);
     setExporting(true);
     addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
     try {
-      const res = await fetch(`/api/import_export/financeiro/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      const params = new URLSearchParams({ tenant_id: tenantId });
+      if (years.length > 0) params.set("years", years.join(","));
+      if (status !== "todos") params.set("status", status);
+      const res = await fetch(`/api/import_export/financeiro/export?${params.toString()}`, { method: "GET" });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
@@ -1805,7 +1812,7 @@ return (
                         onClick={() => {
                           const action = actionModal;
                           setActionModal(null);
-                          if (action === "export") void handleExportFinanceiro();
+                          if (action === "export") setShowFinanceiroExportModal(true);
                           else if (action === "template") handleDownloadTemplateFinanceiro();
                           else if (action === "import") importFinanceiroFileRef.current?.click();
                         }}
@@ -1940,7 +1947,7 @@ return (
                       onClick={() => {
                         const action = actionModal;
                         setActionModal(null);
-                        if (action === "export") void handleExportFinanceiro();
+                        if (action === "export") setShowFinanceiroExportModal(true);
                         else if (action === "template") handleDownloadTemplateFinanceiro();
                         else if (action === "import") importFinanceiroFileRef.current?.click();
                       }}
@@ -2471,6 +2478,72 @@ Content-Type: application/json`}</code>
           </div>
         </div>
       </div>
+    {/* MODAL: Filtros para exportar financeiro */}
+    {showFinanceiroExportModal && (() => {
+      const currentYear = new Date().getFullYear();
+      const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+      const allSelected = finExportYears.length === availableYears.length;
+      return (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-5">
+            <h3 className="text-base font-bold text-slate-800 dark:text-white">⬇️ Exportar Financeiro</h3>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Anos</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFinExportYears(allSelected ? [] : availableYears)}
+                  className={`h-8 px-3 rounded-lg border text-xs font-bold transition-colors ${allSelected ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                >
+                  Todos
+                </button>
+                {availableYears.map(y => (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => setFinExportYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])}
+                    className={`h-8 px-3 rounded-lg border text-xs font-bold transition-colors ${finExportYears.includes(y) ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
+              <div className="flex gap-2">
+                {([["todos", "Todos"], ["PAGO", "✅ Pagos"], ["PENDENTE", "⏳ Pendentes"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setFinExportStatus(val)}
+                    className={`flex-1 h-9 rounded-lg border text-xs font-bold transition-colors ${finExportStatus === val ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={finExportYears.length === 0}
+              onClick={() => void handleExportFinanceiro(finExportYears, finExportStatus)}
+              className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {finExportYears.length === 0 ? "Selecione ao menos 1 ano" : "Exportar"}
+            </button>
+
+            <button type="button" onClick={() => setShowFinanceiroExportModal(false)} className="w-full text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white/80">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      );
+    })()}
+
     {/* ✅ MODAL: Exibir key gerada (única vez) */}
     {revealedKey && (
       <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
