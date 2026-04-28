@@ -245,7 +245,8 @@ const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const [saasPlanTableId, setSaasPlanTableId] = useState<string | null>(null);
-  const [whatsappSessions, setWhatsappSessions] = useState(1);  // ✅ NOVO
+  const [whatsappSessions, setWhatsappSessions] = useState(1);
+  const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false);
   const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
@@ -449,17 +450,19 @@ const [waUserTouched, setWaUserTouched] = useState(false);
         if (currentTenantId) {
           const { data: saasData } = await supabaseBrowser
             .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
+            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id, active_modules")
             .eq("id", currentTenantId)
             .maybeSingle();
             
-          if (saasData) {
+         if (saasData) {
             setLicenseStatus(saasData.license_status || "ACTIVE");
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
             setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
             const sessions = saasData.whatsapp_sessions ?? 1;
             setWhatsappSessions(sessions);
+            const mods: string[] = (saasData as any).active_modules || [];
+            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
 
             // ✅ Se não tem 2 sessões habilitadas, derruba a sessão 2 imediatamente
             if (sessions < 2) {
@@ -1485,11 +1488,11 @@ return (
   </div>
 </div>
 
-<div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<div className={`grid gap-8 ${isOnlyFinanceiro ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-3"}`}>
 
        
         {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
-        <div className="xl:col-span-2 space-y-6">
+        <div className={`space-y-6 ${isOnlyFinanceiro ? "" : "xl:col-span-2"}`}>
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
@@ -1734,6 +1737,26 @@ return (
                   </p>
 
                   <div className="flex flex-col gap-3 pt-1">
+                    {/* ✅ Se for só financeiro, mostra apenas opções financeiras */}
+                    {isOnlyFinanceiro ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const action = actionModal;
+                          setActionModal(null);
+                          if (action === "export") addToast("error", "Em breve", "Exportação financeira em desenvolvimento.");
+                          else if (action === "template") addToast("error", "Em breve", "Template financeiro em desenvolvimento.");
+                          else if (action === "import") addToast("error", "Em breve", "Importação financeira em desenvolvimento.");
+                        }}
+                        className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                      >
+                        <span className="text-2xl">💰</span>
+                        <div className="text-left">
+                          <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
+                          <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
+                        </div>
+                      </button>
+                    ) : (<>
                     {/* 1. Servidores */}
                     <button
                       type="button"
@@ -1849,6 +1872,7 @@ return (
                         <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
                       </div>
                     </button>
+                  </>)}
                   </div>
 
                   <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
@@ -1897,8 +1921,8 @@ return (
             </div>
           </div>
 
-        {/* ✅ CARD API KEYS */}
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
+        {/* ✅ CARD API KEYS — oculto para usuários só-financeiro */}
+        {!isOnlyFinanceiro && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
               API Keys — Integração Bot
@@ -2087,12 +2111,12 @@ Content-Type: application/json`}</code>
               </div>
             </div>
           </details>
-        </div>
+        </div>}
       </div>
 
         {/* === COLUNA DIREITA (SIDEBAR) === */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
+          {!isOnlyFinanceiro && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
               WhatsApp Web — Sessão 1
@@ -2344,12 +2368,10 @@ Content-Type: application/json`}</code>
           </>
         )}
       </div>
-    </div>
+    </div>}
 
-
-
-{/* ✅ SESSÃO 2 — só renderiza se o tenant tem 2 sessões E o usuário clicou em "+ Nova Sessão" */}
-          {whatsappSessions >= 2 && showSession2 && (
+          {/* ✅ SESSÃO 2 — só renderiza se o tenant tem 2 sessões E o usuário clicou em "+ Nova Sessão" */}
+          {!isOnlyFinanceiro && whatsappSessions >= 2 && showSession2 && (
             <WhatsAppSession2Panel
               canPair={canPairWhatsApp}
               tenantId={tenantId} // ✅ Passando a credencial
