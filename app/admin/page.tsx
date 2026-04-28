@@ -930,28 +930,22 @@ return (
             />
           </div>
 
-          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) && (
+          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) ? (
             <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
               {finCatRevenueItems.length > 0 && (
                 <div className="sv">
-                  <RankingCard
-                    title="Receitas por Categoria"
-                    items={finCatRevenueItems}
-                    accentColor="emerald"
-                    mode="currency"
-                  />
+                  <RankingCard title="Receitas por Categoria" items={finCatRevenueItems} accentColor="emerald" mode="currency" />
                 </div>
               )}
               {finCatExpenseItems.length > 0 && (
                 <div className="sv">
-                  <RankingCard
-                    title="Despesas por Categoria"
-                    items={finCatExpenseItems}
-                    accentColor="rose"
-                    mode="currency"
-                  />
+                  <RankingCard title="Despesas por Categoria" items={finCatExpenseItems} accentColor="rose" mode="currency" />
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/10 p-10 text-center text-slate-400 dark:text-white/30 text-sm">
+              Nenhuma transação paga registrada no mês. <Link href="/admin/settings/financeiro_pessoal" className="underline hover:text-slate-600 dark:hover:text-white/60">Adicionar transações →</Link>
             </div>
           )}
         </>

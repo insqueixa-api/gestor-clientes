@@ -61,7 +61,7 @@ export function DashboardFilter({
 
             {/* Mostrar Tudo */}
             <button
-              onClick={() => setSelected(availableModules)}
+              onClick={() => setSelected(allSelected ? [] : availableModules)}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-white"
             >
               <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${allSelected ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 dark:border-white/20"}`}>
