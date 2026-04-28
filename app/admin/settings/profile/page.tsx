@@ -805,6 +805,9 @@ const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [importingServer, setImportingServer] = useState(false);
   const importServerFileRef = useRef<HTMLInputElement | null>(null);
 
+  const [importingFinanceiro, setImportingFinanceiro] = useState(false);
+  const importFinanceiroFileRef = useRef<HTMLInputElement | null>(null);
+
   // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
@@ -920,6 +923,62 @@ addToast("success", "Sucesso", summary);
   }
 
   
+
+  // --- FUNÇÕES DE FINANCEIRO ---
+  async function handleExportFinanceiro() {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setExporting(true);
+    addToast("success", "Iniciando Exportação", "Isto pode demorar alguns segundos...");
+    try {
+      const res = await fetch(`/api/import_export/financeiro/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `financeiro_export.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setExporting(false); }
+  }
+
+  function handleDownloadTemplateFinanceiro() {
+    window.location.href = "/api/import_export/financeiro/template";
+  }
+
+  async function handleImportFinanceiroFile(file: File) {
+    if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
+    setImportingFinanceiro(true);
+    setActionModal(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/import_export/financeiro/import?tenant_id=${encodeURIComponent(tenantId)}`, {
+        method: "POST", body: fd, credentials: "same-origin", cache: "no-store",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.details || json?.error || "Falha ao importar financeiro");
+
+      const errCount = Array.isArray(json?.errors) ? json.errors.length : 0;
+      const summary = `Total: ${json.total} | Inseridos: ${json.inserted} | Erros: ${errCount}`;
+
+      if (errCount > 0) {
+        addToast("error", "Import concluído com erros", "O relatório será baixado.");
+        let logContent = `RELATÓRIO DE IMPORTAÇÃO FINANCEIRA\nData: ${new Date().toLocaleString("pt-BR")}\n${summary}\n\n--- DETALHE DOS ERROS ---\n`;
+        json.errors.forEach((e: any) => { logContent += `Linha ${e.row}: ${e.error}\n`; });
+        const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `relatorio_import_financeiro_${Date.now()}.txt`;
+        document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        return;
+      }
+      addToast("success", "Sucesso", summary);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingFinanceiro(false); }
+  }
 
   // --- NOVAS FUNÇÕES DE AUTOMAÇÕES ---
   const [importingAuto, setImportingAuto] = useState(false);
@@ -1737,16 +1796,16 @@ return (
                   </p>
 
                   <div className="flex flex-col gap-3 pt-1">
-                    {/* ✅ Se for só financeiro, mostra apenas opções financeiras */}
+                    {/* Financeiro — aparece para quem tem o módulo */}
                     {isOnlyFinanceiro ? (
                       <button
                         type="button"
                         onClick={() => {
                           const action = actionModal;
                           setActionModal(null);
-                          if (action === "export") addToast("error", "Em breve", "Exportação financeira em desenvolvimento.");
-                          else if (action === "template") addToast("error", "Em breve", "Template financeiro em desenvolvimento.");
-                          else if (action === "import") addToast("error", "Em breve", "Importação financeira em desenvolvimento.");
+                          if (action === "export") void handleExportFinanceiro();
+                          else if (action === "template") handleDownloadTemplateFinanceiro();
+                          else if (action === "import") importFinanceiroFileRef.current?.click();
                         }}
                         className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
                       >
@@ -1872,6 +1931,25 @@ return (
                         <div className="text-[11px] font-medium text-slate-400">Revendas do seu servidor</div>
                       </div>
                     </button>
+
+                    {/* 7. Financeiro */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const action = actionModal;
+                        setActionModal(null);
+                        if (action === "export") void handleExportFinanceiro();
+                        else if (action === "template") handleDownloadTemplateFinanceiro();
+                        else if (action === "import") importFinanceiroFileRef.current?.click();
+                      }}
+                      className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
+                    >
+                      <span className="text-2xl">💰</span>
+                      <div className="text-left">
+                        <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
+                        <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
+                      </div>
+                    </button>
                   </>)}
                   </div>
 
@@ -1918,6 +1996,7 @@ return (
               <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportMessageFile(f); }} />
               {/* ✅ NOVO INPUT PARA SERVIDOR */}
               <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportServerFile(f); }} />
+              <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFinanceiroFile(f); }} />
             </div>
           </div>
 
