@@ -247,6 +247,7 @@ const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [saasPlanTableId, setSaasPlanTableId] = useState<string | null>(null);
   const [whatsappSessions, setWhatsappSessions] = useState(1);
   const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false);
+  const [hasFinanceiro, setHasFinanceiro] = useState(false);
   const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
@@ -463,6 +464,7 @@ const [waUserTouched, setWaUserTouched] = useState(false);
             setWhatsappSessions(sessions);
             const mods: string[] = (saasData as any).active_modules || [];
             setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
+            setHasFinanceiro(mods.includes("financeiro"));
 
             // ✅ Se não tem 2 sessões habilitadas, derruba a sessão 2 imediatamente
             if (sessions < 2) {
@@ -1932,8 +1934,8 @@ return (
                       </div>
                     </button>
 
-                    {/* 7. Financeiro */}
-                    <button
+                    {/* 7. Financeiro — só aparece se tem o módulo */}
+                    {hasFinanceiro && <button
                       type="button"
                       onClick={() => {
                         const action = actionModal;
@@ -1946,10 +1948,10 @@ return (
                     >
                       <span className="text-2xl">💰</span>
                       <div className="text-left">
-                        <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
-                        <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
-                      </div>
-                    </button>
+                          <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
+                          <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
+                        </div>
+                    </button>}
                   </>)}
                   </div>
 
