@@ -436,13 +436,16 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         // ✅ Log da alteração de módulos/perfil
         try {
           const modulosLabel = finalModules.join(", ") || "nenhum";
-          await supabaseBrowser.from("saas_credit_transactions").insert({
+          const { error: logErr } = await supabaseBrowser.from("saas_credit_transactions").insert({
             tenant_id:   tenant!.id,
             type:        "module_update",
             amount:      0,
             description: `Perfil atualizado: ${role} | Módulos: ${modulosLabel}`,
           });
-        } catch {}
+          if (logErr) console.error("[LOG] Falha ao gravar log:", logErr.message, logErr.details);
+        } catch (logEx: any) {
+          console.error("[LOG] Exceção ao gravar log:", logEx?.message);
+        }
       }
       onSuccess();
     } catch (e: any) {
