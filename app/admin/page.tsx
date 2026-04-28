@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { EyeToggle } from "@/app/admin/eye-toggle";
 import { DashboardFilter } from "./dashboard-filter";
+import EvolucaoFinanceira from "./evolucao-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -636,9 +637,14 @@ return (
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
             <EyeToggle />
           </div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Visão Geral - {monthLabelPtBr()}
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md">
+              {monthLabelPtBr()}
+            </p>
+            <a href="#evolucao-financeira" className="text-xs font-bold text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 underline underline-offset-2">
+              Ver Evolução Anual 👇
+            </a>
+          </div>
         </div>
 
         {availableModules.length > 1 && (
@@ -1046,6 +1052,13 @@ return (
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>}
 
+      {/* EVOLUÇÃO 12 MESES (Inserido dinamicamente) */}
+      {showFinView && (
+        <div id="evolucao-financeira" className="scroll-mt-24">
+          {/* @ts-expect-error Async Server Component (Ignora falso alerta do TS) */}
+          <EvolucaoFinanceira myTenantId={myTenantId} />
+        </div>
+      )}
       
     </div>
   );
