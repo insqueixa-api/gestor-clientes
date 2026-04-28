@@ -3,6 +3,7 @@ import { SimpleBarChart } from "@/app/admin/simplebarchart";
 import { RankingCard } from "@/app/admin/ranking-card";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { DashboardFilter } from "./dashboard-filter";
 import { EyeToggle } from "@/app/admin/eye-toggle";
 
 export const dynamic = "force-dynamic";
@@ -212,25 +213,6 @@ export default async function AdminDashboardPage({
   const supabase = await createClient();
   const resolvedParams = await searchParams;
 
-  // Filtros de seção — default: todos ativos
-  const ALL = ["iptv", "saas", "financeiro"];
-  const activeViews: string[] = resolvedParams?.view
-    ? resolvedParams.view.split(",").filter(v => ALL.includes(v))
-    : ALL;
-  const showIPTV      = activeViews.includes("iptv");
-  const showSaasView  = activeViews.includes("saas");
-  const showFinView   = activeViews.includes("financeiro");
-
-  // Helper: calcula o href ao clicar num chip (toggle)
-  const toggleHref = (key: string) => {
-    const next = activeViews.includes(key)
-      ? activeViews.filter(v => v !== key)
-      : [...activeViews, key];
-    const effective = next.length === 0 ? ALL : next;
-    if (effective.length === ALL.length) return "/admin";
-    return `/admin?view=${effective.join(",")}`;
-  };
-
   // Views only
   const [authRes, { data: roleData }] = await Promise.all([
     supabase.auth.getUser(),
@@ -244,6 +226,26 @@ export default async function AdminDashboardPage({
     ? await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle()
     : null;
   const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
+
+  // Módulos ativos do tenant
+  const saasRow = myTenantId
+    ? await supabase.from("vw_saas_tenants").select("active_modules").eq("id", myTenantId).maybeSingle()
+    : null;
+  const activeModules: string[] = (saasRow?.data as any)?.active_modules ?? ["iptv"];
+  const hasIPTV       = activeModules.includes("iptv");
+  const hasSaaS       = activeModules.includes("saas") && showSaas;
+  const hasFinanceiro = activeModules.includes("financeiro");
+  const availableForFilter = ["iptv", "saas", "financeiro"].filter(m =>
+    m === "iptv" ? hasIPTV : m === "saas" ? hasSaaS : hasFinanceiro
+  );
+
+  // Filtros de seção
+  const activeViews: string[] = resolvedParams?.view
+    ? resolvedParams.view.split(",").filter(v => availableForFilter.includes(v))
+    : availableForFilter;
+  const showIPTV      = hasIPTV      && activeViews.includes("iptv");
+  const showSaasView  = hasSaaS      && activeViews.includes("saas");
+  const showFinView   = hasFinanceiro && activeViews.includes("financeiro");
 
   // Datas do mês atual para o painel de finanças pessoais
   const _finToday = todayInSaoPaulo();
@@ -638,60 +640,7 @@ return (
           </p>
         </div>
 
-        {/* Chips de filtro */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {([
-            {
-              key: "iptv",
-              label: "IPTV",
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
-                  <polyline points="17 2 12 7 7 2"/>
-                </svg>
-              ),
-              activeColor: "bg-sky-500 border-sky-500 text-white shadow-sky-900/20",
-              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-sky-300 hover:text-sky-600 dark:hover:border-sky-500/40 dark:hover:text-sky-400",
-            },
-            {
-              key: "saas",
-              label: "SaaS",
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                </svg>
-              ),
-              activeColor: "bg-violet-500 border-violet-500 text-white shadow-violet-900/20",
-              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-violet-300 hover:text-violet-600 dark:hover:border-violet-500/40 dark:hover:text-violet-400",
-            },
-            {
-              key: "financeiro",
-              label: "Financeiro",
-              icon: (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-              ),
-              activeColor: "bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20",
-              inactiveColor: "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:border-emerald-300 hover:text-emerald-600 dark:hover:border-emerald-500/40 dark:hover:text-emerald-400",
-            },
-          ] as const).map(({ key, label, icon, activeColor, inactiveColor }) => {
-            const active = activeViews.includes(key);
-            return (
-              <Link
-                key={key}
-                href={toggleHref(key)}
-                prefetch={false}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all select-none shadow-sm ${
-                  active ? activeColor : `bg-white dark:bg-zinc-900 ${inactiveColor}`
-                }`}
-              >
-                {icon}
-                {label}
-              </Link>
-            );
-          })}
-        </div>
+        <DashboardFilter availableModules={availableForFilter} />
       </div>
 
       {/* CARDS TOPO */}
