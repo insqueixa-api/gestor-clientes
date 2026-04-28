@@ -432,6 +432,17 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           const data = await res.json();
           if (!res.ok) throw new Error(data.hint || data.error || "Falha ao atualizar e-mail.");
         }
+
+        // ✅ Log da alteração de módulos/perfil
+        try {
+          const modulosLabel = finalModules.join(", ") || "nenhum";
+          await supabaseBrowser.from("saas_credit_transactions").insert({
+            tenant_id:   tenant!.id,
+            type:        "module_update",
+            amount:      0,
+            description: `Perfil atualizado: ${role} | Módulos: ${modulosLabel}`,
+          });
+        } catch {}
       }
       onSuccess();
     } catch (e: any) {

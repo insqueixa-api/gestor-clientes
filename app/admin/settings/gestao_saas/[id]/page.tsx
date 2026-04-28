@@ -116,16 +116,18 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
     consume:        "Consumo",
     grant:          "Recebido",
     refund:         "Reembolso",
-    session_add:    "Sessão Adicionada",   // ✅
-    session_remove: "Sessão Removida",     // ✅
+    session_add:    "Sessão Adicionada",
+    session_remove: "Sessão Removida",
+    module_update:  "Perfil Atualizado",
   };
   const typeStyle: Record<string, string> = {
     purchase:       "text-sky-600 dark:text-sky-400",
     consume:        "text-rose-600 dark:text-rose-400",
     grant:          "text-emerald-600 dark:text-emerald-400",
     refund:         "text-purple-600 dark:text-purple-400",
-    session_add:    "text-emerald-600 dark:text-emerald-400",  // ✅
-    session_remove: "text-amber-600 dark:text-amber-400",      // ✅
+    session_add:    "text-emerald-600 dark:text-emerald-400",
+    session_remove: "text-amber-600 dark:text-amber-400",
+    module_update:  "text-slate-600 dark:text-white/60",
   };
 
   if (loading) return (
