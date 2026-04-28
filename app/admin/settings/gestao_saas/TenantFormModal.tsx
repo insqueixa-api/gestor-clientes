@@ -587,19 +587,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   </div>
                 </div>
               )}
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perfil derivado dos módulos</div>
-                  <div className={`text-sm font-bold mt-0.5 ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
-                    {role === "MASTER" ? "🏆 MASTER — IPTV + SaaS" : "👤 USER — Acesso básico"}
-                  </div>
-                </div>
-                <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${
-                  role === "MASTER"
-                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
-                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
-                }`}>{role}</span>
-              </div>
+              
             </>
           )}
 
@@ -739,15 +727,18 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             </div>
             <div>
               <FieldLabel>Perfil Derivado</FieldLabel>
-              <div className="h-10 px-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="h-10 px-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center">
                 <span className={`text-sm font-bold ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
                   {role === "MASTER" ? "🏆 MASTER" : "👤 USER"}
+                  {" — "}
+                  {[
+                    activeModules.includes("iptv") && "IPTV",
+                    activeModules.includes("saas") && "SaaS",
+                    activeModules.includes("financeiro") && "Financeiro",
+                    activeModules.includes("academia") && "Academia",
+                    activeModules.includes("condominio") && "Condomínio",
+                  ].filter(Boolean).join(", ") || "Sem módulos"}
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                  role === "MASTER"
-                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
-                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
-                }`}>{role}</span>
               </div>
             </div>
           </div>
