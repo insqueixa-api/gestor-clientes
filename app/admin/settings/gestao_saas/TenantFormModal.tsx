@@ -291,6 +291,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const waTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showEmailPopup, setShowEmailPopup] = useState(false);
 
   useEffect(() => {
     if (tenant?.phone_e164) {
@@ -495,19 +496,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   </div>
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perfil derivado dos módulos</div>
-                  <div className={`text-sm font-bold mt-0.5 ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
-                    {role === "MASTER" ? "🏆 MASTER — IPTV + SaaS" : "👤 USER — Acesso básico"}
-                  </div>
-                </div>
-                <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${
-                  role === "MASTER"
-                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
-                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
-                }`}>{role}</span>
-              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>Dias de Teste</FieldLabel>
@@ -541,18 +530,63 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             <>
               <SectionTitle>Acesso</SectionTitle>
               <div>
-                <FieldLabel>E-mail atual</FieldLabel>
-                <FieldInput value={email} disabled className="opacity-50 cursor-not-allowed" />
+                <FieldLabel>E-mail</FieldLabel>
+                <div className="flex gap-2">
+                  <FieldInput value={newEmail || email} disabled className="opacity-70 cursor-not-allowed flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPopup(true)}
+                    className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+                  >
+                    ✏️ Alterar
+                  </button>
+                </div>
+                {newEmail && newEmail !== email && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
+                    Novo e-mail: <strong>{newEmail}</strong>
+                  </p>
+                )}
               </div>
-              <div>
-                <FieldLabel>Novo e-mail (deixe em branco para não alterar)</FieldLabel>
-                <FieldInput
-                  type="email"
-                  value={newEmail}
-                  onChange={e => setNewEmail(e.target.value)}
-                  placeholder="novo@email.com"
-                />
-              </div>
+
+              {/* Popup de alteração de e-mail */}
+              {showEmailPopup && (
+                <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                  <div className="w-full max-w-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 space-y-4">
+                    <h3 className="text-base font-bold text-slate-800 dark:text-white">Alterar E-mail</h3>
+                    <div>
+                      <FieldLabel>E-mail atual</FieldLabel>
+                      <FieldInput value={email} disabled className="opacity-50 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <FieldLabel>Novo e-mail</FieldLabel>
+                      <FieldInput
+                        type="email"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                        placeholder="novo@email.com"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setNewEmail(""); setShowEmailPopup(false); }}
+                        className="flex-1 h-10 rounded-lg border border-slate-200 dark:border-white/10 text-sm font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailPopup(false)}
+                        disabled={!newEmail.trim() || newEmail === email}
+                        className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
+                      >
+                        Confirmar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perfil derivado dos módulos</div>
@@ -670,10 +704,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   className="pl-9"
                 />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Deixe em branco para usar o valor da tabela{defaultMonthlyPrice ? ` (R$ ${String(defaultMonthlyPrice).replace(".", ",")})` : ""}.
-              </p>
-            </div>
+              </div>
 
             {role === "MASTER" && (
               <div>
@@ -705,6 +736,19 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <FieldLabel>Perfil Derivado</FieldLabel>
+              <div className="h-10 px-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <span className={`text-sm font-bold ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
+                  {role === "MASTER" ? "🏆 MASTER" : "👤 USER"}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                  role === "MASTER"
+                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
+                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
+                }`}>{role}</span>
+              </div>
             </div>
           </div>
 

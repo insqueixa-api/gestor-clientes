@@ -1413,27 +1413,25 @@ function TenantRow({
         ) : isOnlyFinance ? (
           <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-1">
-            <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
+          <div className="flex flex-col items-center justify-center gap-0.5">
+            <div className="flex items-center gap-1.5">
+              {canManage && t.whatsapp_sessions >= 2 && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
+                  title="Remover 2ª sessão"
+                  className="w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center font-bold text-xs leading-none shadow transition-all hover:scale-110">
+                  −
+                </button>
+              )}
+              <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
+              {canManage && t.whatsapp_sessions < 2 && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
+                  title="Adicionar 2ª sessão"
+                  className="w-4 h-4 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center font-bold text-xs leading-none shadow transition-all hover:scale-110">
+                  +
+                </button>
+              )}
+            </div>
             {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase">trial</span>}
-            {canManage && (
-              <div className="flex items-center gap-1">
-                {t.whatsapp_sessions >= 2 && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
-                    title="Remover 2ª sessão"
-                    className="w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center font-bold text-sm leading-none shadow transition-all hover:scale-110">
-                    −
-                  </button>
-                )}
-                {t.whatsapp_sessions < 2 && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
-                    title="Adicionar 2ª sessão"
-                    className="w-5 h-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center font-bold text-sm leading-none shadow transition-all hover:scale-110">
-                    +
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         )}
       </td>
