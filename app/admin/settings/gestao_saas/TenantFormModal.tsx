@@ -199,10 +199,15 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
   
-  // ✅ Módulos Modulares
-  const [activeModules, setActiveModules] = useState<string[]>(
-    tenant?.active_modules || ["iptv", "financeiro"]
-  );
+  // ✅ Módulos Modulares (Sincronizado com a coluna booleana)
+  const [activeModules, setActiveModules] = useState<string[]>(() => {
+    let initial = tenant?.active_modules ? [...tenant.active_modules] : ["iptv", "financeiro"];
+    if (tenant) {
+      if (tenant.financial_control_enabled && !initial.includes("financeiro")) initial.push("financeiro");
+      if (tenant.financial_control_enabled === false) initial = initial.filter(m => m !== "financeiro");
+    }
+    return initial;
+  });
 
   const handleModuleToggle = (mod: string) => {
     setActiveModules(prev => {
@@ -375,31 +380,38 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               whatsapp_username: waUsername.trim() || null,
               notes: notes.trim() || null,
               saas_plan_table_id: saasPlanTableId || null,
-              credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
-              whatsapp_session: selectedSession, 
-              active_modules: finalModules, 
-              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ENVIA O PREÇO
-            }),
+              credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
+              whatsapp_session: selectedSession, 
+              active_modules: finalModules, 
+              financial_control_enabled: finalModules.includes("financeiro"), // ✅ FORÇA A SINCRONIA DO BOOLEANO
+              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ENVIA O PREÇO
+            }),
           });
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
         const { error } = await supabaseBrowser.rpc("saas_update_profile", {
-          p_tenant_id:         tenant!.id,
-          p_responsible_name:  responsibleName.trim() || null,
-          p_phone_e164:        phoneE164 || null,
-          p_whatsapp_username: waUsername.trim() || null,
-          p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, 
-          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ATUALIZA O PREÇO
-        });
-        if (error) throw new Error(error.message);
+          p_tenant_id:         tenant!.id,
+          p_responsible_name:  responsibleName.trim() || null,
+          p_phone_e164:        phoneE164 || null,
+          p_whatsapp_username: waUsername.trim() || null,
+          p_notes:             notes.trim() || null,
+          p_active_modules:    finalModules, 
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ATUALIZA O PREÇO
+        });
+        if (error) throw new Error(error.message);
 
-        const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
-          p_tenant_id: tenant!.id,
-          p_role: role,
-        });
-        if (roleErr) throw new Error(roleErr.message);
+        // ✅ GARANTIA ABSOLUTA: Atualiza a coluna booleana para o Menu e a Página trancarem o acesso
+        const { error: dbErr } = await supabaseBrowser.from("tenants").update({
+          financial_control_enabled: finalModules.includes("financeiro")
+        }).eq("id", tenant!.id);
+        if (dbErr) throw new Error("Erro ao sincronizar a permissão do módulo financeiro.");
+
+        const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
+          p_tenant_id: tenant!.id,
+          p_role: role,
+        });
+        if (roleErr) throw new Error(roleErr.message);
 
         const { data: sess } = await supabaseBrowser.auth.getSession();
         const token = sess?.session?.access_token;
