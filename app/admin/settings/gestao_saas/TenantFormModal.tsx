@@ -207,13 +207,16 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const handleModuleToggle = (mod: string) => {
     setActiveModules(prev => {
       const isRemoving = prev.includes(mod);
-      const nextModules = isRemoving ? prev.filter(m => m !== mod) : [...prev, mod];
-      
-      // Se estiver removendo o IPTV, rebaixa o perfil para USER automaticamente
+      let nextModules = isRemoving ? prev.filter(m => m !== mod) : [...prev, mod];
+
       if (mod === "iptv" && isRemoving) {
-        setRole("USER");
+        nextModules = nextModules.filter(m => m !== "saas");
       }
-      
+
+      const hasSaas = nextModules.includes("saas");
+      const hasIptv = nextModules.includes("iptv");
+      setRole(hasSaas && hasIptv ? "MASTER" : "USER");
+
       return nextModules;
     });
   };
@@ -492,25 +495,18 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   </div>
                 </div>
               </div>
-              <div>
-                <FieldLabel>Papel (Perfil)</FieldLabel>
-                <div className="flex gap-2 mt-1">
-                  {(["MASTER", "USER"] as const).map(r => (
-                    <button key={r} onClick={() => {
-                      setRole(r);
-                      if (r === "MASTER" && !activeModules.includes("iptv")) {
-                        setActiveModules(prev => [...prev, "iptv"]);
-                      }
-                    }}
-                      className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
-                        role === r
-                          ? r === "MASTER" ? "bg-amber-500 border-amber-500 text-white" : "bg-slate-700 dark:bg-slate-600 border-slate-700 text-white"
-                          : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"
-                      }`}>
-                      {r}
-                    </button>
-                  ))}
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perfil derivado dos módulos</div>
+                  <div className={`text-sm font-bold mt-0.5 ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
+                    {role === "MASTER" ? "🏆 MASTER — IPTV + SaaS" : "👤 USER — Acesso básico"}
+                  </div>
                 </div>
+                <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${
+                  role === "MASTER"
+                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
+                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
+                }`}>{role}</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -557,25 +553,18 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   placeholder="novo@email.com"
                 />
               </div>
-              <div>
-                <FieldLabel>Perfil (Role)</FieldLabel>
-                <div className="flex gap-2 mt-1">
-                  {(["MASTER", "USER"] as const).map(r => (
-                    <button key={r} type="button" onClick={() => {
-                      setRole(r);
-                      if (r === "MASTER" && !activeModules.includes("iptv")) {
-                        setActiveModules(prev => [...prev, "iptv"]);
-                      }
-                    }}
-                      className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-all ${
-                        role === r
-                          ? r === "MASTER" ? "bg-amber-500 border-amber-500 text-white" : "bg-slate-700 dark:bg-slate-600 border-slate-700 text-white"
-                          : "bg-white dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"
-                      }`}>
-                      {r}
-                    </button>
-                  ))}
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perfil derivado dos módulos</div>
+                  <div className={`text-sm font-bold mt-0.5 ${role === "MASTER" ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-white/70"}`}>
+                    {role === "MASTER" ? "🏆 MASTER — IPTV + SaaS" : "👤 USER — Acesso básico"}
+                  </div>
                 </div>
+                <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${
+                  role === "MASTER"
+                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20"
+                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/10 dark:text-white/60 dark:border-white/10"
+                }`}>{role}</span>
               </div>
             </>
           )}
@@ -721,48 +710,82 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
 
           {/* MÓDULOS MODULARES */}
           <SectionTitle>Módulos Habilitados</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 mt-2">
-            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${activeModules.includes('iptv') ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
-              <input type="checkbox" checked={activeModules.includes('iptv')} onChange={() => handleModuleToggle('iptv')} className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500/50 cursor-pointer" />
-              <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white">
-                  {role === "MASTER" ? "IPTV & SaaS" : "IPTV"}
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">
-                  {role === "MASTER" 
-                    ? "Gestão de Servidores, Apps, Clientes e Revendedores." 
-                    : "Gestão de Servidores, Aplicativos e Clientes."}
-                </div>
-              </div>
-            </label>
+          <div className="space-y-2">
 
-            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${activeModules.includes('financeiro') ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
-              <input type="checkbox" checked={activeModules.includes('financeiro')} onChange={() => handleModuleToggle('financeiro')} className="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500/50 cursor-pointer" />
+            {/* IPTV */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('iptv') ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white">Gestão Financeira</div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">Faturas automáticas, Pix e fluxo de caixa.</div>
-              </div>
-            </label>
-
-            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${activeModules.includes('academia') ? 'border-sky-500 bg-sky-500/10' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
-              <input type="checkbox" checked={activeModules.includes('academia')} onChange={() => handleModuleToggle('academia')} className="mt-1 w-4 h-4 text-sky-600 rounded focus:ring-sky-500/50 cursor-pointer" />
-              <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-1.5">
-                  Academia <span className="text-[8px] bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
+                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                  📺 IPTV
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">Gestão de alunos, mensalidades e treinos.</div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Servidores, Aplicativos e Clientes</div>
               </div>
-            </label>
+              <button type="button" onClick={() => handleModuleToggle('iptv')}
+                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('iptv') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('iptv') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
 
-            <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${activeModules.includes('condominio') ? 'border-purple-500 bg-purple-500/10' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
-              <input type="checkbox" checked={activeModules.includes('condominio')} onChange={() => handleModuleToggle('condominio')} className="mt-1 w-4 h-4 text-purple-600 rounded focus:ring-purple-500/50 cursor-pointer" />
-              <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-1.5">
-                  Condomínio <span className="text-[8px] bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Em breve</span>
+            {/* SaaS — só aparece se IPTV estiver ativo */}
+            {activeModules.includes('iptv') && (
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ml-4 ${activeModules.includes('saas') ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+                <div>
+                  <div className="text-sm font-bold text-slate-700 dark:text-white">⚡ SaaS / Rede de Revendas</div>
+                  <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Habilita perfil MASTER e gestão de revendedores</div>
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 leading-tight mt-0.5">Moradores, encomendas, estoque e reservas.</div>
+                <button type="button" onClick={() => {
+                    const next = !activeModules.includes('saas');
+                    setActiveModules(prev => next ? [...prev, 'saas'] : prev.filter(m => m !== 'saas'));
+                    setRole(next ? 'MASTER' : 'USER');
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('saas') ? 'bg-amber-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('saas') ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
-            </label>
+            )}
+
+            {/* Financeiro */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('financeiro') ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white">💰 Gestão Financeira</div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Faturas automáticas, Pix e fluxo de caixa</div>
+              </div>
+              <button type="button" onClick={() => handleModuleToggle('financeiro')}
+                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('financeiro') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('financeiro') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Academia */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('academia') ? 'border-sky-500/50 bg-sky-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                  🏋️ Academia
+                  <span className="text-[8px] bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
+              </div>
+              <button type="button" onClick={() => handleModuleToggle('academia')}
+                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('academia') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Condomínio */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('condominio') ? 'border-purple-500/50 bg-purple-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                  🏢 Condomínio
+                  <span className="text-[8px] bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Em breve</span>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Moradores, encomendas, estoque e reservas</div>
+              </div>
+              <button type="button" onClick={() => handleModuleToggle('condominio')}
+                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('condominio') ? 'bg-purple-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('condominio') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
           </div>
 
           <div className="mt-2">

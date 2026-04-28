@@ -1413,9 +1413,22 @@ function TenantRow({
         ) : isOnlyFinance ? (
           <span className="text-xs font-bold text-slate-300 dark:text-white/20">N/A</span>
         ) : (
-          <div className="flex flex-col items-center justify-center">
-            <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}</span>
-            {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase mt-0.5">trial</span>}
+          <div className="flex flex-col items-center justify-center gap-1">
+            <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
+            {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase">trial</span>}
+            {canManage && (
+              t.whatsapp_sessions < 2 ? (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                  + Sessão
+                </button>
+              ) : (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+                  − Sessão
+                </button>
+              )
+            )}
           </div>
         )}
       </td>
