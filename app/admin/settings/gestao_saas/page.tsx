@@ -1417,17 +1417,22 @@ function TenantRow({
             <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
             {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase">trial</span>}
             {canManage && (
-              t.whatsapp_sessions < 2 ? (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
-                  + Sessão
-                </button>
-              ) : (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
-                  − Sessão
-                </button>
-              )
+              <div className="flex items-center gap-1">
+                {t.whatsapp_sessions >= 2 && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveSession(); }}
+                    title="Remover 2ª sessão"
+                    className="w-5 h-5 rounded-full bg-rose-500 hover:bg-rose-400 text-white flex items-center justify-center font-bold text-sm leading-none shadow transition-all hover:scale-110">
+                    −
+                  </button>
+                )}
+                {t.whatsapp_sessions < 2 && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
+                    title="Adicionar 2ª sessão"
+                    className="w-5 h-5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center font-bold text-sm leading-none shadow transition-all hover:scale-110">
+                    +
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

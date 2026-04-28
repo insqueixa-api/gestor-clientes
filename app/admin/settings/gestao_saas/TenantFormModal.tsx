@@ -721,7 +721,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Servidores, Aplicativos e Clientes</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('iptv')}
-                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('iptv') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('iptv') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('iptv') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
@@ -738,7 +738,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                     setActiveModules(prev => next ? [...prev, 'saas'] : prev.filter(m => m !== 'saas'));
                     setRole(next ? 'MASTER' : 'USER');
                   }}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('saas') ? 'bg-amber-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                  className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('saas') ? 'bg-amber-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                   <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('saas') ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
@@ -751,7 +751,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Faturas automáticas, Pix e fluxo de caixa</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('financeiro')}
-                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('financeiro') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('financeiro') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('financeiro') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
@@ -766,7 +766,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('academia')}
-                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('academia') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
@@ -781,7 +781,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Moradores, encomendas, estoque e reservas</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('condominio')}
-                className={`relative w-11 h-6 rounded-full transition-colors ${activeModules.includes('condominio') ? 'bg-purple-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('condominio') ? 'bg-purple-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('condominio') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
