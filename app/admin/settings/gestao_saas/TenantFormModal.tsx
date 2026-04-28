@@ -401,11 +401,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         });
         if (error) throw new Error(error.message);
 
-        // ✅ GARANTIA ABSOLUTA: Atualiza a coluna booleana para o Menu e a Página trancarem o acesso
+        // ✅ FORÇA A ATUALIZAÇÃO DIRETA NO BANCO (Garante que módulos e booleana fiquem salvos de verdade)
         const { error: dbErr } = await supabaseBrowser.from("tenants").update({
+          active_modules: finalModules,
           financial_control_enabled: finalModules.includes("financeiro")
         }).eq("id", tenant!.id);
-        if (dbErr) throw new Error("Erro ao sincronizar a permissão do módulo financeiro.");
+        if (dbErr) throw new Error("Erro ao sincronizar os módulos na tabela tenants.");
 
         const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
           p_tenant_id: tenant!.id,
