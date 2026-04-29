@@ -652,8 +652,12 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
     .reduce((acc, t) => acc + t.valor, 0);
   
   let saldoAtualReal = 0;
-  if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
-  else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
+  if (contaFilter !== "Todos") {
+    const conta = contasDB.find(c => c.id === contaFilter);
+    saldoAtualReal = Number(conta?.saldo_manual || 0);
+  } else {
+    saldoAtualReal = contasDB.reduce((acc, c) => acc + Number(c.saldo_manual || 0), 0);
+  }
   
   const saldoPrevisao = saldoAtualReal + (receitasTotal - receitasPagas) - (despesasTotal - despesasPagas);
 
@@ -1137,15 +1141,14 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
 
     setSalvando(true);
     try {
-      const isReceita = diff > 0;
-      const { error } = await supabaseBrowser.from("fin_transacoes").insert({
-        tenant_id: tenantId, tipo: isReceita ? "RECEITA" : "DESPESA", descricao: "Ajuste Automático de Saldo",
-        valor: Math.abs(diff), data_vencimento: new Date().toISOString().split("T")[0], status: "PAGO",
-        data_pagamento: new Date().toISOString(), conta_id: contaId, is_recorrente: false, observacoes: "Ajuste automático de saldo"
-      });
+      // Atualiza diretamente o campo saldo_manual na tabela de contas
+      const { error } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .update({ saldo_manual: val }) // Grava o valor exato que você digitou
+        .eq("id", contaId);
 
       if (error) throw error;
-      addToast("success", "Saldo Ajustado", "O ajuste foi lançado na conta selecionada.");
+      addToast("success", "Saldo Alterado", "Saldo atualizado silenciosamente.");
       onSuccess();
     } catch(e: any) { addToast("error", "Erro ao ajustar", e.message); } finally { setSalvando(false); }
   }
