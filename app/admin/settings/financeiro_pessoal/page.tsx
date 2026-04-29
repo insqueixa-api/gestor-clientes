@@ -1479,6 +1479,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
     });
   };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
+  const [dataPagamento, setDataPagamento] = useState<string | null>(transacaoEdit?.data_pagamento || null);
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
   let rTipoInicial: "UNICA"|"RECORRENTE"|"PARCELADA" = "UNICA";
@@ -1831,7 +1832,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Status</label>
               <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
                 <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>⏳ Pendente</button>
-                <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
+                <button onClick={() => { setStatus("PAGO"); if(!dataPagamento) setDataPagamento(new Date().toISOString()); }} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
               </div>
             </div>
           </div>
@@ -1912,21 +1913,17 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
 
-          {isEdit && transacaoEdit?.data_pagamento && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
-              <span className="text-emerald-500 text-base">✅</span>
-              <div>
-                <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Data de Pagamento</div>
-                <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300 font-mono">
-                  {(() => {
-                    const dt = new Date(transacaoEdit.data_pagamento);
-                    const d = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', day: '2-digit' })).padStart(2,'0');
-                    const m = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', month: '2-digit' })).padStart(2,'0');
-                    const y = dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric' });
-                    const h = dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-                    return `${d}/${m}/${y} às ${h}`;
-                  })()}
-                </div>
+          {status === "PAGO" && (
+            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 animate-in fade-in slide-in-from-top-1 duration-200">
+              <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Data e Hora do Pagamento</label>
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-500 text-base">✅</span>
+                <input 
+                  type="datetime-local" 
+                  value={dataPagamento ? new Date(new Date(dataPagamento).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
+                  onChange={(e) => setDataPagamento(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                  className="bg-transparent border-none outline-none text-sm font-bold text-emerald-800 dark:text-emerald-300 font-mono w-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded px-1 transition-colors"
+                />
               </div>
             </div>
           )}
