@@ -1051,7 +1051,7 @@ return (
 
       {/* EVOLUÇÃO 12 MESES (Apenas na visão exclusiva do Financeiro) */}
       {activeViews.length === 1 && activeViews.includes("financeiro") && (
-        <div id="evolucao-financeira" className="scroll-mt-24">
+        <div id="evolucao-financeira" className="scroll-mt-24 sv">
           <EvolucaoFinanceira myTenantId={myTenantId} />
         </div>
       )}
