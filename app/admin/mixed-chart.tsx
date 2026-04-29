@@ -131,7 +131,7 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
           const y = getY(t);
           return (
             <g key={i}>
-              <text x={paddingLeft - 10} y={y + 4} fontSize="10" fill={textColor} textAnchor="end" fontFamily="sans-serif">
+              <text className="sv transition-all duration-300" x={paddingLeft - 10} y={y + 4} fontSize="10" fill={textColor} textAnchor="end" fontFamily="sans-serif">
                 {fmt(t)}
               </text>
               <line x1={paddingLeft} y1={y} x2={chartWidth - paddingRight} y2={y} stroke={gridLine} strokeWidth="1" strokeDasharray={i === 0 ? "none" : "4 4"} />
@@ -223,7 +223,7 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
                 return (
                   <div key={i} className="flex justify-between items-center text-xs">
                     <span className={item.colorClass}>{item.label}</span>
-                    <span className="font-mono finance-value text-slate-800 dark:text-white">{item.value}</span>
+                    <span className="sv font-mono finance-value text-slate-800 dark:text-white transition-all duration-300">{item.value}</span>
                   </div>
                 );
               })}
