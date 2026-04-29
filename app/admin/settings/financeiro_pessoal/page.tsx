@@ -1980,31 +1980,18 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           {isEdit && status === "PAGO" && (
             <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 space-y-2">
               <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">✅ Data de Pagamento</label>
-              <div className="flex items-center gap-2 bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden h-10 pr-1">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={pagamentoDisplay}
-                  onChange={handlePagamentoChange}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="DD/MM/AAAA"
-                  maxLength={10}
-                  className="flex-1 h-full px-3 bg-transparent outline-none text-sm text-emerald-800 dark:text-emerald-300 font-mono font-bold min-w-0"
-                />
+              <button
+                type="button"
+                onClick={() => setShowPagamentoPicker(true)}
+                className="w-full h-10 px-3 flex items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
+              >
+                {pagamentoDisplay}
                 {transacaoEdit?.data_pagamento && (
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-500 font-medium whitespace-nowrap shrink-0">
-                    🕐 {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}h
+                  <span className="ml-2 text-emerald-600 dark:text-emerald-400">
+                    {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setShowPagamentoPicker(true)}
-                  className="shrink-0 p-1.5 text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-md transition-colors"
-                  title="Abrir calendário"
-                >
-                  <IconCalendar />
-                </button>
-              </div>
+              </button>
               {showPagamentoPicker && (
                 <ModalDayPicker
                   currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
