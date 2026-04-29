@@ -31,8 +31,6 @@ function useIsDark() {
   return dark;
 }
 
-
-
 function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
