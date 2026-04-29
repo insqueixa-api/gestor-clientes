@@ -1,14 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import dynamic from "next/dynamic";
-
-// IMPORTAÇÃO DINÂMICA buscando o export nomeado corretamente
-const MixedChart = dynamic(
-  () => import("./mixed-chart").then((mod) => mod.MixedChart),
-  { 
-    ssr: false,
-    loading: () => <div className="h-80 w-full animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-xl"></div>
-  }
-);
+import { MixedChart } from "./mixed-chart";
 
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 
 export type MixedChartDatum = {
   label: string;
@@ -30,7 +31,7 @@ function useIsDark() {
   return dark;
 }
 
-export function MixedChart({ data, heightClass = "h-80", formatValue }: MixedChartProps) {
+function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const chartRef = useRef<HTMLDivElement>(null);
@@ -241,3 +242,8 @@ export function MixedChart({ data, heightClass = "h-80", formatValue }: MixedCha
     </div>
   );
 }
+
+export const MixedChart = dynamic(() => Promise.resolve(MixedChartBase), { 
+  ssr: false,
+  loading: () => <div className="h-80 w-full animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-xl"></div>
+});
