@@ -1053,12 +1053,11 @@ return (
 </div>}
 
       {/* EVOLUÇÃO 12 MESES (Inserido dinamicamente) */}
-      {showFinView && (
+      {showFinView && (
         <div id="evolucao-financeira" className="scroll-mt-24">
-          {/* @ts-expect-error Async Server Component (Ignora falso alerta do TS) */}
-          <EvolucaoFinanceira myTenantId={myTenantId} />
+          <EvolucaoFinanceira myTenantId={myTenantId} />
         </div>
-      )}
+      )}
       
     </div>
   );
