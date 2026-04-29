@@ -1132,20 +1132,29 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
   async function handleSave() {
     const val = parseFloat(novoSaldo);
     if (isNaN(val)) return;
-    const diff = val - saldoAtual;
-    if (diff === 0) { onClose(); return; }
+    if (val === saldoAtual) { onClose(); return; }
 
     setSalvando(true);
     try {
-      const isReceita = diff > 0;
-      const { error } = await supabaseBrowser.from("fin_transacoes").insert({
-        tenant_id: tenantId, tipo: isReceita ? "RECEITA" : "DESPESA", descricao: "Ajuste Automático de Saldo",
-        valor: Math.abs(diff), data_vencimento: new Date().toISOString().split("T")[0], status: "PAGO",
-        data_pagamento: new Date().toISOString(), conta_id: contaId, is_recorrente: false, observacoes: "Ajuste automático de saldo"
-      });
+      // Busca o saldo_inicial atual da conta para recalcular
+      const { data: conta, error: errConta } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .select("saldo_inicial")
+        .eq("id", contaId)
+        .single();
+      if (errConta) throw errConta;
+
+      const saldoInicialAtual = Number(conta.saldo_inicial || 0);
+      const diff = val - saldoAtual;
+      const novoSaldoInicial = saldoInicialAtual + diff;
+
+      const { error } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .update({ saldo_inicial: novoSaldoInicial })
+        .eq("id", contaId);
 
       if (error) throw error;
-      addToast("success", "Saldo Ajustado", "O ajuste foi lançado na conta selecionada.");
+      addToast("success", "Saldo Atualizado", "O saldo foi ajustado diretamente na conta.");
       onSuccess();
     } catch(e: any) { addToast("error", "Erro ao ajustar", e.message); } finally { setSalvando(false); }
   }
@@ -1153,7 +1162,7 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
   return (
     <Modal title="Ajustar Saldo" onClose={onClose}>
       <div className="space-y-4">
-        <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">O sistema criará um lançamento de ajuste para igualar o saldo com o seu banco real.</div>
+        <div className="p-3 bg-sky-50 border border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20 rounded-xl text-sm text-sky-800 dark:text-sky-300">O saldo será ajustado diretamente — nenhum lançamento será criado.</div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Conta / Carteira</label>
           <select value={contaId} onChange={e=>setContaId(e.target.value)} className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm focus:border-emerald-500 text-slate-800 dark:text-white">
@@ -1479,7 +1488,6 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
     });
   };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(transacaoEdit?.status || "PENDENTE");
-  const [dataPagamento, setDataPagamento] = useState<string | null>(transacaoEdit?.data_pagamento || null);
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
   let rTipoInicial: "UNICA"|"RECORRENTE"|"PARCELADA" = "UNICA";
@@ -1501,6 +1509,37 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [salvando, setSalvando] = useState(false);
 
   const [showVencimentoPicker, setShowVencimentoPicker] = useState(false);
+
+  // ── Data de Pagamento editável ──────────────────────────────────────────
+  const initDataPagamento = (() => {
+    if (transacaoEdit?.data_pagamento) {
+      const dt = new Date(transacaoEdit.data_pagamento);
+      const d = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', day: '2-digit' })).padStart(2, '0');
+      const m = String(dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', month: '2-digit' })).padStart(2, '0');
+      const y = dt.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric' });
+      return `${y}-${m}-${d}`;
+    }
+    return new Date().toISOString().split('T')[0];
+  })();
+  const [dataPagamento, setDataPagamento] = useState(initDataPagamento);
+  const [rawDigitsPagamento, setRawDigitsPagamento] = useState(isoToRaw(initDataPagamento));
+  const [showPagamentoPicker, setShowPagamentoPicker] = useState(false);
+  const pagamentoDisplay = rawToDisplay(rawDigitsPagamento);
+  const handlePagamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const raw = input.value.replace(/\D/g, '').slice(0, 8);
+    setRawDigitsPagamento(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2), m = raw.slice(2, 4), y = raw.slice(4);
+      setDataPagamento(`${y}-${m}-${d}`);
+    }
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input) input.setSelectionRange(cursorPos, cursorPos);
+    });
+  };
+  // ────────────────────────────────────────────────────────────────────────
+
   const [showNovaConta, setShowNovaConta] = useState(false);
   const [showGerenciarContas, setShowGerenciarContas] = useState(false);
   
@@ -1556,7 +1595,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
         if (escopoEdicao === "UNICA" || !transacaoEdit.recorrencia_id) {
           const { error } = await supabaseBrowser.from("fin_transacoes").update({
             tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs,
-            data_pagamento: status === "PAGO" ? (transacaoEdit.data_pagamento || new Date().toISOString()) : null
+            data_pagamento: status === "PAGO" ? new Date(`${dataPagamento}T12:00:00`).toISOString() : null
           }).eq("id", transacaoEdit.id);
           if (error) throw error;
         } else {
@@ -1564,7 +1603,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
           const { error: errCurrent } = await supabaseBrowser.from("fin_transacoes").update({
             tipo, descricao, valor: Number(valor), data_vencimento: vencimento, status, conta_id: contaSelecionada, categoria_id: categoriaSelecionada, observacoes: obs,
             frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
-            data_pagamento: status === "PAGO" ? (transacaoEdit.data_pagamento || new Date().toISOString()) : null
+            data_pagamento: status === "PAGO" ? new Date(`${dataPagamento}T12:00:00`).toISOString() : null
           }).eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
 
@@ -1832,7 +1871,7 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Status</label>
               <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
                 <button onClick={() => setStatus("PENDENTE")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PENDENTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>⏳ Pendente</button>
-                <button onClick={() => { setStatus("PAGO"); if(!dataPagamento) setDataPagamento(new Date().toISOString()); }} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
+                <button onClick={() => setStatus("PAGO")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>✅ Pago</button>
               </div>
             </div>
           </div>
@@ -1913,18 +1952,43 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
 
-          {status === "PAGO" && (
-            <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 animate-in fade-in slide-in-from-top-1 duration-200">
-              <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">Data e Hora do Pagamento</label>
-              <div className="flex items-center gap-2">
-                <span className="text-emerald-500 text-base">✅</span>
-                <input 
-                  type="datetime-local" 
-                  value={dataPagamento ? new Date(new Date(dataPagamento).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
-                  onChange={(e) => setDataPagamento(e.target.value ? new Date(e.target.value).toISOString() : null)}
-                  className="bg-transparent border-none outline-none text-sm font-bold text-emerald-800 dark:text-emerald-300 font-mono w-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded px-1 transition-colors"
+          {isEdit && status === "PAGO" && (
+            <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 space-y-2">
+              <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">✅ Data de Pagamento</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={pagamentoDisplay}
+                  onChange={handlePagamentoChange}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="DD/MM/AAAA"
+                  maxLength={10}
+                  className="w-full h-10 px-3 pr-10 bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg text-sm text-emerald-800 dark:text-emerald-300 font-mono font-bold outline-none focus:border-emerald-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPagamentoPicker(true)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-md transition-colors"
+                  title="Abrir calendário"
+                >
+                  <IconCalendar />
+                </button>
               </div>
+              {showPagamentoPicker && (
+                <ModalDayPicker
+                  currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, '0');
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const y = date.getFullYear();
+                    setDataPagamento(`${y}-${m}-${d}`);
+                    setRawDigitsPagamento(`${d}${m}${y}`);
+                    setShowPagamentoPicker(false);
+                  }}
+                  onClose={() => setShowPagamentoPicker(false)}
+                />
+              )}
             </div>
           )}
           
