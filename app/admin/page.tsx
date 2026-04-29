@@ -641,9 +641,6 @@ return (
             <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md">
               {monthLabelPtBr()}
             </p>
-            <a href="#evolucao-financeira" className="text-xs font-bold text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 underline underline-offset-2">
-              Ver Evolução Anual 👇
-            </a>
           </div>
         </div>
 
@@ -1052,8 +1049,8 @@ return (
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>}
 
-      {/* EVOLUÇÃO 12 MESES (Inserido dinamicamente) */}
-      {showFinView && (
+      {/* EVOLUÇÃO 12 MESES (Apenas na visão exclusiva do Financeiro) */}
+      {activeViews.length === 1 && activeViews.includes("financeiro") && (
         <div id="evolucao-financeira" className="scroll-mt-24">
           <EvolucaoFinanceira myTenantId={myTenantId} />
         </div>
@@ -1157,12 +1154,12 @@ function MetricCardView({
         {/* Ícone discreto indicando link */}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
-      <div className="sv p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
+      <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
         <div className="min-w-0 flex-1">
           <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
             {leftLabel}
           </div>
-          <div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+          <div className="sv text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
             {leftValue}
           </div>
         </div>
@@ -1172,7 +1169,7 @@ function MetricCardView({
             <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
               {rightLabel}
             </div>
-            <div className="text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+            <div className="sv text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
               {rightValue}
             </div>
           </div>
