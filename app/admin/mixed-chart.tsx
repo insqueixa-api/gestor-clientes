@@ -124,18 +124,26 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
 
   return (
     <div className={`relative w-full ${heightClass}`} ref={chartRef} onMouseLeave={handleMouseLeave}>
+      
+      {/* ── NÚMEROS DO EIXO Y (HTML normal para a classe sv funcionar) ── */}
+      {ticks.map((t, i) => {
+        const y = getY(t);
+        return (
+          <div key={`tick-lbl-${i}`} className="absolute pointer-events-none" style={{ left: 0, top: y - 6, width: paddingLeft - 10, textAlign: "right", zIndex: 10 }}>
+            <span className="sv text-[10px] transition-all duration-300" style={{ color: textColor, fontFamily: "sans-serif" }}>
+              {fmt(t)}
+            </span>
+          </div>
+        );
+      })}
+
       <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="absolute inset-0">
         
-        {/* ── GRADES E EIXO Y ── */}
+        {/* ── GRADES (Apenas as linhas no SVG) ── */}
         {ticks.map((t, i) => {
           const y = getY(t);
           return (
-            <g key={i}>
-              <text className="sv transition-all duration-300" x={paddingLeft - 10} y={y + 4} fontSize="10" fill={textColor} textAnchor="end" fontFamily="sans-serif">
-                {fmt(t)}
-              </text>
-              <line x1={paddingLeft} y1={y} x2={chartWidth - paddingRight} y2={y} stroke={gridLine} strokeWidth="1" strokeDasharray={i === 0 ? "none" : "4 4"} />
-            </g>
+            <line key={`tick-line-${i}`} x1={paddingLeft} y1={y} x2={chartWidth - paddingRight} y2={y} stroke={gridLine} strokeWidth="1" strokeDasharray={i === 0 ? "none" : "4 4"} />
           );
         })}
 
