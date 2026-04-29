@@ -1924,6 +1924,56 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             </div>
           </div>
 
+          {isEdit && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                {status === "PAGO" ? (
+                  <>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Pagamento</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPagamentoPicker(true)}
+                      className="w-full h-10 px-3 flex items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
+                    >
+                      {pagamentoDisplay}
+                      {transacaoEdit?.data_pagamento && (
+                        <span className="ml-2 text-emerald-600 dark:text-emerald-400">
+                          {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </button>
+                    {showPagamentoPicker && (
+                      <ModalDayPicker
+                        currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
+                        onSelect={(date) => {
+                          const d = String(date.getDate()).padStart(2, '0');
+                          const m = String(date.getMonth() + 1).padStart(2, '0');
+                          const y = date.getFullYear();
+                          setDataPagamento(`${y}-${m}-${d}`);
+                          setRawDigitsPagamento(`${d}${m}${y}`);
+                          setShowPagamentoPicker(false);
+                        }}
+                        onClose={() => setShowPagamentoPicker(false)}
+                      />
+                    )}
+                  </>
+                ) : <div />}
+              </div>
+
+              <div>
+                {rTipoInicial !== "UNICA" ? (
+                  <>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Alterar</label>
+                    <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
+                      <button onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Este mês</button>
+                      <button onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Futuras</button>
+                    </div>
+                  </>
+                ) : <div />}
+              </div>
+            </div>
+          )}
+
           {!isEdit && (
             <div className="p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Recorrência e Parcelamento</label>
@@ -1956,59 +2006,10 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
             </div>
           )}
 
-          {isEdit && rTipoInicial !== "UNICA" && (
-            <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 space-y-2">
-              <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider">⚠️ Alteração em Conta Programada</label>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center">
-                <label className="flex items-center gap-2 text-xs font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
-                  <input type="radio" checked={escopoEdicao === "UNICA"} onChange={() => setEscopoEdicao("UNICA")} className="w-3.5 h-3.5 text-emerald-600 focus:ring-emerald-500" />
-                  Apenas neste mês
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
-                  <input type="radio" checked={escopoEdicao === "TODAS"} onChange={() => setEscopoEdicao("TODAS")} className="w-3.5 h-3.5 text-emerald-600 focus:ring-emerald-500" />
-                  Nesta e nas futuras
-                </label>
-              </div>
-            </div>
-          )}
-
           <div>
             <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Observações</label>
             <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Detalhes adicionais..." className="w-full p-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
           </div>
-
-          {isEdit && status === "PAGO" && (
-            <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 space-y-2">
-              <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">✅ Data de Pagamento</label>
-              <button
-                type="button"
-                onClick={() => setShowPagamentoPicker(true)}
-                className="w-full h-10 px-3 flex items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
-              >
-                {pagamentoDisplay}
-                {transacaoEdit?.data_pagamento && (
-                  <span className="ml-2 text-emerald-600 dark:text-emerald-400">
-                    {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
-              </button>
-              {showPagamentoPicker && (
-                <ModalDayPicker
-                  currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
-                  onSelect={(date) => {
-                    const d = String(date.getDate()).padStart(2, '0');
-                    const m = String(date.getMonth() + 1).padStart(2, '0');
-                    const y = date.getFullYear();
-                    setDataPagamento(`${y}-${m}-${d}`);
-                    setRawDigitsPagamento(`${d}${m}${y}`);
-                    setShowPagamentoPicker(false);
-                  }}
-                  onClose={() => setShowPagamentoPicker(false)}
-                />
-              )}
-            </div>
-          )}
-          
         </div>
 
         <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-white/10">
