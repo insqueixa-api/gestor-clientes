@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { EyeToggle } from "@/app/admin/eye-toggle";
@@ -1531,7 +1531,63 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
   const [contaSelecionada, setContaSelecionada] = useState(transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""));
   const [categoriaSelecionada, setCategoriaSelecionada] = useState(transacaoEdit?.categoria_id || "");
 
-  const [salvando, setSalvando] = useState(false);
+const [salvando, setSalvando] = useState(false);
+
+  // ── Autocomplete ────────────────────────────────────────────────────────
+  type Sugestao = { descricao: string; valor: number; conta_id: string; categoria_id: string; tipo: "RECEITA" | "DESPESA" };
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+  const [sugestaoHover, setSugestaoHover] = useState<Sugestao | null>(null);
+  const [showSugestoes, setShowSugestoes] = useState(false);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const buscarSugestoes = (q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.trim().length < 2) { setSugestoes([]); setShowSugestoes(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      const { data } = await supabaseBrowser
+        .from("fin_transacoes")
+        .select("descricao, valor, conta_id, categoria_id, tipo")
+        .eq("tenant_id", tenantId)
+        .ilike("descricao", `%${q.trim()}%`)
+        .order("data_vencimento", { ascending: false })
+        .limit(50);
+      if (!data) return;
+      // Deduplica: mantém só o mais recente por descrição
+      const seen = new Set<string>();
+      const uniq: Sugestao[] = [];
+      for (const r of data) {
+        const key = r.descricao.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); uniq.push(r as Sugestao); }
+        if (uniq.length >= 5) break;
+      }
+      setSugestoes(uniq);
+      setShowSugestoes(uniq.length > 0);
+    }, 280);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setShowSugestoes(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const aplicarSugestao = (s: Sugestao) => {
+    setDescricao(s.descricao);
+    setTipo(s.tipo);
+    setRawCents(Math.round(s.valor * 100));
+    setValor(String(s.valor));
+    if (s.conta_id) setContaSelecionada(s.conta_id);
+    if (s.categoria_id) setCategoriaSelecionada(s.categoria_id);
+    setSugestoes([]);
+    setShowSugestoes(false);
+    setSugestaoHover(null);
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const [showVencimentoPicker, setShowVencimentoPicker] = useState(false);
 
@@ -1848,18 +1904,57 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
         <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
           
           <div className="flex p-1 bg-slate-100 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/5">
-            <button onClick={() => setTipo("DESPESA")} disabled={isEdit} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📉 Despesa</button>
-            <button onClick={() => setTipo("RECEITA")} disabled={isEdit} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"} ${isEdit ? "opacity-50 cursor-not-allowed" : ""}`}>📈 Receita</button>
+            <button onClick={() => setTipo("DESPESA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "DESPESA" ? "bg-white dark:bg-[#161b22] text-rose-600 dark:text-rose-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}>📉 Despesa</button>
+            <button onClick={() => setTipo("RECEITA")} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-all ${tipo === "RECEITA" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/80"}`}>📈 Receita</button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 relative" ref={autocompleteRef}>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Descrição</label>
-              <input type="text" value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Conta de Luz" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50" />
+              <input
+                type="text"
+                value={sugestaoHover ? sugestaoHover.descricao : descricao}
+                onChange={e => { setDescricao(e.target.value); buscarSugestoes(e.target.value); }}
+                onFocus={() => { if (sugestoes.length > 0) setShowSugestoes(true); }}
+                placeholder="Ex: Conta de Luz"
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50"
+              />
+              {showSugestoes && sugestoes.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
+                    Lançamentos anteriores
+                  </div>
+                  {sugestoes.map((s, i) => {
+                    const conta = contas.find(c => c.id === s.conta_id);
+                    const cat = categorias.find(c => c.id === s.categoria_id);
+                    const isHov = sugestaoHover?.descricao === s.descricao;
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={() => setSugestaoHover(s)}
+                        onMouseLeave={() => setSugestaoHover(null)}
+                        onClick={() => aplicarSugestao(s)}
+                        className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-50 dark:bg-emerald-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-semibold text-slate-700 dark:text-white truncate">{s.descricao}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {conta && <span className="text-[10px] text-slate-400">{conta.icone} {conta.nome}</span>}
+                            {cat && <span className="text-[10px] text-slate-400">{cat.icone} {cat.nome}</span>}
+                          </div>
+                        </div>
+                        <span className={`text-sm font-bold ml-3 shrink-0 ${s.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                          {s.tipo === "RECEITA" ? "+" : "-"} {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(s.valor)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Valor {tipoRecorrencia === "PARCELADA" && !isEdit ? "Total" : ""} (R$)</label>
-              <input type="text" inputMode="numeric" value={valorDisplay} onChange={handleValorChange} onFocus={(e) => e.target.select()} placeholder="0,00" className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 ${tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+              <input type="text" inputMode="numeric" value={sugestaoHover ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(sugestaoHover.valor) : valorDisplay} onChange={handleValorChange} onFocus={(e) => e.target.select()} placeholder="0,00" className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm font-bold outline-none focus:border-emerald-500/50 ${(sugestaoHover?.tipo ?? tipo) === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
             </div>
           </div>
 
