@@ -61,8 +61,18 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
       if (n <= 0) return 1;
       const exp = Math.pow(10, Math.floor(Math.log10(n)));
       const f = n / exp;
-      const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
-      return nice * exp;
+      const nice =
+        f <= 1   ? 1   :
+        f <= 1.2 ? 1.2 :
+        f <= 1.5 ? 1.5 :
+        f <= 2   ? 2   :
+        f <= 2.5 ? 2.5 :
+        f <= 3   ? 3   :
+        f <= 4   ? 4   :
+        f <= 5   ? 5   :
+        f <= 6   ? 6   :
+        f <= 8   ? 8   : 10;
+      return Math.ceil(nice * exp);
     };
     const max = niceCeil(rawMax || 1);
     return { maxNice: max, ticks: Array.from({ length: 5 }, (_, i) => (max * i) / 4) };

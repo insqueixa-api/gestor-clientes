@@ -67,20 +67,19 @@ export async function GET() {
   const notes = [
     "⚠️ INSTRUÇÕES PARA IMPORTAÇÃO DE LANÇAMENTOS FINANCEIROS ⚠️",
     "• Campos Obrigatórios: Tipo, Descrição, Valor, Data Vencimento, Status, Conta e Categoria.",
-    "• Tipo: Use exatamente RECEITA ou DESPESA (em maiúsculas).",
-    "• Valor: Use apenas números e vírgula para os centavos (Ex: 1500,00 ou 40,00). Não use R$ nem pontos de milhar.",
-    "• Data Vencimento e Data Pagamento: Use obrigatoriamente o formato DD/MM/AAAA (Ex: 30/04/2026).",
-    "• Status: Use exatamente PAGO ou PENDENTE (em maiúsculas).",
-    "• Data Pagamento: Obrigatória se Status = PAGO. Se deixar vazio com Status PAGO, o sistema usará a Data Vencimento.",
-    "• Conta: Digite o nome EXATO da conta cadastrada no seu painel (Ex: C6 Bank, Nubank, Carteira). A conta precisa existir antes da importação.",
-    "• Categoria: Digite o nome EXATO da categoria cadastrada no seu painel (Ex: Salário, Moradia, Cartão de Crédito). A categoria precisa existir antes da importação.",
-    "• Recorrência: Use Única, Recorrente ou Parcelada.",
+    "• Tipo: Use RECEITA ou DESPESA (aceita maiúsculas, minúsculas e variações como 'entrada', 'saida', 'gasto').",
+    "• Valor: Aceita qualquer formato — R$ 1.500,00 / 1500,00 / 1500.00 / R$40. O sistema normaliza automaticamente.",
+    "• Data Vencimento e Data Pagamento: Aceita vários formatos — 30/04/2026 / 30-04-2026 / 2026-04-30 / 30 abr 26 / 30 abril 2026 / abr 30 2026.",
+    "• Status: Use PAGO ou PENDENTE (aceita variações como 'Paga', 'Recebido', 'Em aberto', 'Aguardando').",
+    "• Data Pagamento: Obrigatória se Status = PAGO. Se deixar vazio, o sistema usará a Data Vencimento como fallback.",
+    "• Conta: Digite o nome da conta. Se a conta não existir no painel, o sistema criará automaticamente.",
+    "• Categoria: Digite o nome da categoria. Se não existir, o sistema criará automaticamente.",
+    "• Recorrência: Use Única, Recorrente ou Parcelada (aceita variações como 'fixo', 'parcelado', 'continuo').",
     "• Frequência: Obrigatória para Recorrente e Parcelada. Use: MENSAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL ou ANUAL.",
-    "• Parcelas: Obrigatório para Parcelada. Informe o número total de parcelas (Ex: 6, 12, 24). O sistema cria automaticamente todas as parcelas futuras.",
+    "• Parcelas: Obrigatório para Parcelada. Informe o número total de parcelas (Ex: 6, 12, 24). O sistema cria todas as parcelas futuras automaticamente.",
     "• Para Recorrente, o sistema cria automaticamente 60 ocorrências futuras (5 anos).",
-    "🔒 ATENÇÃO 1: Conta e Categoria precisam estar cadastradas no painel antes da importação. Caso contrário, a linha será ignorada com erro.",
-    "🔒 ATENÇÃO 2: Não altere, não apague e não mude a ordem dos cabeçalhos das colunas (Linha 1).",
-    "🔒 ATENÇÃO 3: Exclua as linhas de exemplo e estas instruções antes de realizar o upload do arquivo.",
+    "🔒 ATENÇÃO 1: Não altere, não apague e não mude a ordem dos cabeçalhos das colunas (Linha 1).",
+    "🔒 ATENÇÃO 2: Exclua as linhas de exemplo e estas instruções antes de realizar o upload do arquivo.",
   ];
 
   const worksheet = XLSX.utils.aoa_to_sheet([
@@ -90,8 +89,8 @@ export async function GET() {
     ...notes.map((n) => [n]),
   ]);
 
-  // Forçar coluna Valor (col 2) como texto para não virar número com formatação errada
-  const textColumns = [2];
+  // Forçar coluna Valor (col 2) como texto para preservar formato pt-BR
+  const textColumns = [2]; // Valor
   examples.forEach((_, rowIdx) => {
     textColumns.forEach((C) => {
       const cellAddress = XLSX.utils.encode_cell({ r: rowIdx + 1, c: C });
@@ -106,10 +105,10 @@ export async function GET() {
   worksheet["!cols"] = [
     { wch: 10 }, // Tipo
     { wch: 30 }, // Descrição
-    { wch: 12 }, // Valor
-    { wch: 16 }, // Data Vencimento
+    { wch: 14 }, // Valor
+    { wch: 18 }, // Data Vencimento
     { wch: 10 }, // Status
-    { wch: 16 }, // Data Pagamento
+    { wch: 18 }, // Data Pagamento
     { wch: 20 }, // Conta
     { wch: 25 }, // Categoria
     { wch: 14 }, // Recorrência
