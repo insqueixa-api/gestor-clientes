@@ -1124,14 +1124,25 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 
 function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToast }: { tenantId: string, contas: any[], saldos: Record<string, number>, onClose: ()=>void, onSuccess: ()=>void, addToast: any }) {
   const [contaId, setContaId] = useState(contas[0]?.id || "");
-  const [novoSaldo, setNovoSaldo] = useState("");
+  const [rawCentsSaldo, setRawCentsSaldo] = useState(0);
   const [salvando, setSalvando] = useState(false);
 
   const saldoAtual = saldos[contaId] || 0;
 
+  const centsToDisplay = (cents: number) => {
+    const negative = cents < 0;
+    const abs = Math.abs(cents);
+    const str = String(abs).padStart(3, '0');
+    const int = str.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const dec = str.slice(-2);
+    return (negative ? '-' : '') + (int || '0') + ',' + dec;
+  };
+
+  const novoSaldoVal = rawCentsSaldo / 100;
+
   async function handleSave() {
-    const val = parseFloat(novoSaldo);
-    if (isNaN(val)) return;
+    if (rawCentsSaldo === 0 && saldoAtual === 0) { onClose(); return; }
+    const val = novoSaldoVal;
     if (val === saldoAtual) { onClose(); return; }
 
     setSalvando(true);
@@ -1171,7 +1182,21 @@ function ModalAjusteSaldo({ tenantId, contas, saldos, onClose, onSuccess, addToa
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Qual é o saldo real hoje?</label>
-          <input autoFocus type="number" step="0.01" value={novoSaldo} onChange={e=>setNovoSaldo(e.target.value)} placeholder="0.00" className="w-full h-11 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg outline-none text-sm font-bold focus:border-emerald-500" />
+          <div className="flex items-center h-11 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
+            <span className="pl-3 pr-1 text-sm font-bold text-slate-400 dark:text-white/40 select-none shrink-0">R$</span>
+            <input
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              value={centsToDisplay(rawCentsSaldo)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+                setRawCentsSaldo(parseInt(digits || '0', 10));
+              }}
+              onFocus={(e) => e.target.select()}
+              className="flex-1 h-full pr-3 bg-transparent outline-none text-sm font-bold text-slate-800 dark:text-white"
+            />
+          </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">Cancelar</button>
@@ -1966,6 +1991,11 @@ function ModalTransacao({ tenantId, onClose, transacaoEdit, addToast, onSuccess,
                   maxLength={10}
                   className="w-full h-10 px-3 pr-10 bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg text-sm text-emerald-800 dark:text-emerald-300 font-mono font-bold outline-none focus:border-emerald-500"
                 />
+                {transacaoEdit?.data_pagamento && (
+                  <div className="mt-1 px-1 text-[11px] text-emerald-600 dark:text-emerald-500 font-medium">
+                    🕐 {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}h
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowPagamentoPicker(true)}
