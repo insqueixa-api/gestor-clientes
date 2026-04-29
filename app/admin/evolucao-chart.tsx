@@ -3,13 +3,13 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 
 export type MixedChartDatum = {
-  label: string;
-  bar1?: number; // Previsão Receita (Barra Verde clara)
-  bar2?: number; // Previsão Despesa (Barra Vermelha clara)
-  line1?: number; // Executado Receita (Linha Verde forte)
-  line2?: number; // Executado Despesa (Linha Vermelha forte)
-  tooltipTitle: string;
-  tooltipContent: React.ReactNode;
+  label: string;
+  bar1?: number; // Previsão Receita (Barra Verde clara)
+  bar2?: number; // Previsão Despesa (Barra Vermelha clara)
+  line1?: number; // Executado Receita (Linha Verde forte)
+  line2?: number; // Executado Despesa (Linha Vermelha forte)
+  tooltipTitle: string;
+  tooltipItems: { label: string; value: string; colorClass: string; isSeparator?: boolean }[];
 };
 
 interface MixedChartProps {
@@ -221,19 +221,27 @@ export default function MixedChart({ data, heightClass = "h-80", formatValue }: 
       </div>
 
       {/* ── TOOLTIP ── */}
-      {hoveredItem && (
-        <div className="pointer-events-none absolute z-50 animate-in fade-in zoom-in-95 duration-100 ease-out shadow-xl"
-             style={{ left: tipLeft, top: tipTop < 0 ? tooltipPos.y + 16 : tipTop, width: TIP_W }}>
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl p-3">
-            <div className="font-bold text-xs text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-100 dark:border-white/5">
-              {hoveredItem.tooltipTitle}
-            </div>
-            <div className="space-y-1">
-              {hoveredItem.tooltipContent}
-            </div>
-          </div>
-        </div>
-      )}
+      {hoveredItem && (
+        <div className="pointer-events-none absolute z-50 animate-in fade-in zoom-in-95 duration-100 ease-out shadow-xl"
+             style={{ left: tipLeft, top: tipTop < 0 ? tooltipPos.y + 16 : tipTop, width: TIP_W }}>
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl p-3">
+            <div className="font-bold text-xs text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-100 dark:border-white/5">
+              {hoveredItem.tooltipTitle}
+            </div>
+            <div className="space-y-1">
+              {hoveredItem.tooltipItems?.map((item, i) => {
+                if (item.isSeparator) return <div key={i} className="h-px bg-slate-100 dark:bg-white/10 my-1"></div>;
+                return (
+                  <div key={i} className="flex justify-between items-center text-xs">
+                    <span className={item.colorClass}>{item.label}</span>
+                    <span className="font-mono finance-value text-slate-800 dark:text-white">{item.value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

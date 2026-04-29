@@ -9,7 +9,7 @@ export type MixedChartDatum = {
   line1?: number; // Executado Receita (Linha Verde forte)
   line2?: number; // Executado Despesa (Linha Vermelha forte)
   tooltipTitle: string;
-  tooltipContent: React.ReactNode;
+  tooltipItems: { label: string; value: string; colorClass: string; isSeparator?: boolean }[];
 };
 
 interface MixedChartProps {
@@ -217,7 +217,15 @@ export function MixedChart({ data, heightClass = "h-80", formatValue }: MixedCha
               {hoveredItem.tooltipTitle}
             </div>
             <div className="space-y-1">
-              {hoveredItem.tooltipContent}
+              {hoveredItem.tooltipItems?.map((item, i) => {
+                if (item.isSeparator) return <div key={i} className="h-px bg-slate-100 dark:bg-white/10 my-1"></div>;
+                return (
+                  <div key={i} className="flex justify-between items-center text-xs">
+                    <span className={item.colorClass}>{item.label}</span>
+                    <span className="font-mono finance-value text-slate-800 dark:text-white">{item.value}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
           {/* Seta do Balão */}
