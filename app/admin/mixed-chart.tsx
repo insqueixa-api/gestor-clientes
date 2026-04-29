@@ -31,6 +31,20 @@ function useIsDark() {
   return dark;
 }
 
+function useValuesHidden() {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const el = document.getElementById("dashboard-values");
+    if (!el) return;
+    const check = () => setHidden(el.getAttribute("data-values-hidden") === "true");
+    check();
+    const mo = new MutationObserver(check);
+    mo.observe(el, { attributes: true, attributeFilter: ["data-values-hidden"] });
+    return () => mo.disconnect();
+  }, []);
+  return hidden;
+}
+
 function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -38,6 +52,7 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
   const [chartWidth, setChartWidth] = useState(800);
   
   const isDark = useIsDark();
+  const isHidden = useValuesHidden();
 
   // Resize Observer para manter o SVG responsivo perfeito
   useEffect(() => {
@@ -131,7 +146,7 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
         return (
           <div key={`tick-lbl-${i}`} className="absolute pointer-events-none" style={{ left: 0, top: y - 6, width: paddingLeft - 10, textAlign: "right", zIndex: 10 }}>
             <span className="sv text-[10px] transition-all duration-300" style={{ color: textColor, fontFamily: "sans-serif" }}>
-              {fmt(t)}
+              {isHidden ? "••••" : fmt(t)}
             </span>
           </div>
         );
@@ -231,7 +246,9 @@ function MixedChartBase({ data, heightClass = "h-80", formatValue }: MixedChartP
                 return (
                   <div key={i} className="flex justify-between items-center text-xs">
                     <span className={item.colorClass}>{item.label}</span>
-                    <span className="sv font-mono finance-value text-slate-800 dark:text-white transition-all duration-300">{item.value}</span>
+                    <span className="sv font-mono finance-value text-slate-800 dark:text-white transition-all duration-300">
+                      {isHidden ? "••••" : item.value}
+                    </span>
                   </div>
                 );
               })}
