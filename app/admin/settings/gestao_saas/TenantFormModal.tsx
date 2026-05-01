@@ -199,15 +199,11 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
   
-  // ✅ Módulos Modulares (Sincronizado com a coluna booleana)
-  const [activeModules, setActiveModules] = useState<string[]>(() => {
-    let initial = tenant?.active_modules ? [...tenant.active_modules] : ["iptv", "financeiro"];
-    if (tenant) {
-      if (tenant.financial_control_enabled && !initial.includes("financeiro")) initial.push("financeiro");
-      if (tenant.financial_control_enabled === false) initial = initial.filter(m => m !== "financeiro");
-    }
-    return initial;
-  });
+  // ✅ Módulos Modulares (Agora a única fonte da verdade é o array do banco)
+  const [activeModules, setActiveModules] = useState<string[]>(() => {
+    // Se não tiver nenhum dado (novo cliente), o padrão é ter apenas iptv
+    return tenant?.active_modules ? [...tenant.active_modules] : ["iptv"];
+  });
 
   const handleModuleToggle = (mod: string) => {
     setActiveModules(prev => {
@@ -356,13 +352,11 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
     if (errors.length > 0) return;
     setSaving(true);
     try {
-      // ✅ TRAVA DE SEGURANÇA: Garante que o módulo SaaS obedece a Role
-      let finalModules = [...activeModules];
-      if (role === "MASTER" && !finalModules.includes("saas")) {
-        finalModules.push("saas");
-      } else if (role === "USER") {
-        finalModules = finalModules.filter(m => m !== "saas");
-      }
+      // ✅ O array final é EXATAMENTE o que está na tela (os botões ativos)
+      const finalModules = [...activeModules];
+
+      // ✅ O Role agora é escravo dos módulos. Se tem SaaS ativado, é MASTER. Senão, é USER.
+      const finalRole = finalModules.includes("saas") ? "MASTER" : "USER";
 
       if (mode === "new") {
         const res = await fetch("/api/saas/provision", {
@@ -372,7 +366,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               name: name.trim(),
               email: email.trim().toLowerCase(),
               password,
-              role,
+              role: finalRole, // ✅ Usando o perfil exato calculado
               trial_days: trialDays,
               credits_initial: 0,
               responsible_name: responsibleName.trim() || name.trim(),
@@ -380,12 +374,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               whatsapp_username: waUsername.trim() || null,
               notes: notes.trim() || null,
               saas_plan_table_id: saasPlanTableId || null,
-              credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
-              whatsapp_session: selectedSession, 
-              active_modules: finalModules, 
-              financial_control_enabled: finalModules.includes("financeiro"), // ✅ FORÇA A SINCRONIA DO BOOLEANO
-              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ENVIA O PREÇO
-            }),
+              credits_plan_table_id: finalRole === "MASTER" ? (creditsPlanTableId || null) : null, // ✅ Usando o perfil calculado
+              whatsapp_session: selectedSession, 
+              active_modules: finalModules, // ✅ ENVIA O ARRAY LIMPO
+              financial_control_enabled: finalModules.includes("financeiro"), 
+              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null,
+            }),
           });
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
@@ -393,22 +387,20 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         // Envia TODOS os dados pela porta da frente da RPC
         const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
-          p_tenant_name:       name.trim(), // ✅ Agora enviamos o NOME
+          p_tenant_name:       name.trim(),
           p_responsible_name:  responsibleName.trim() || null,
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, // ✅ Agora enviamos os MÓDULOS
-          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ Enviamos o PREÇO
+          p_active_modules:    finalModules, // ✅ ENVIA O ARRAY LIMPO
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, 
         });
         if (error) throw new Error(error.message);
 
-        // ❌ AQUELE UPDATE DIRETO NA TABELA TENANTS FOI APAGADO DAQUI!
-        // A função do banco (acima) já fez esse trabalho com segurança.
-
+        // Atualiza a Role no banco baseado nos módulos escolhidos
         const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
           p_tenant_id: tenant!.id,
-          p_role: role,
+          p_role: finalRole, // ✅ Usando o perfil calculado
         });
         if (roleErr) throw new Error(roleErr.message);
 
@@ -424,7 +416,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           body: JSON.stringify({
             child_tenant_id: tenant!.id,
             saas_plan_table_id: saasPlanTableId || null,
-            credits_plan_table_id: role === "MASTER" ? (creditsPlanTableId || null) : null,
+            credits_plan_table_id: finalRole === "MASTER" ? (creditsPlanTableId || null) : null, // ✅ Usando o perfil calculado
             auto_whatsapp_session: selectedSession,
           }),
         });
@@ -450,7 +442,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             tenant_id:   tenant!.id,
             type:        "module_update",
             amount:      0,
-            description: `Perfil atualizado: ${role} | Módulos: ${modulosLabel}`,
+            description: `Perfil atualizado: ${finalRole} | Módulos: ${modulosLabel}`, // ✅ Usando o perfil calculado
           });
           if (logErr) console.error("[LOG] Falha ao gravar log:", logErr.message, logErr.details);
         } catch (logEx: any) {
