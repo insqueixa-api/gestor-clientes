@@ -646,7 +646,8 @@ if (tenantsRes.error) {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
       // 1. Oculta sumariamente os deletados de TODAS as visões (não vai pra lixeira)
-      if (t.license_status === "DELETED") return false;
+      // Agora filtramos também pelo prefixo que adicionamos no banco de dados
+      if (t.license_status === "DELETED" || String(t.name).startsWith("Deletado -")) return false;
 
       // 2. Lógica normal de Arquivados (Lixeira) vs Ativos
       if (archivedFilter === "Sim") {
