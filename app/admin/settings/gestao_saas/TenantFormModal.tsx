@@ -760,6 +760,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                     activeModules.includes("saas") && "SaaS",
                     activeModules.includes("financeiro") && "Financeiro",
                     activeModules.includes("academia") && "Academia",
+                    activeModules.includes("personal") && "Personal", // ✅ NOVO
                     activeModules.includes("condominio") && "Condomínio",
                   ].filter(Boolean).join(", ") || "Sem módulos"}
                 </span>
@@ -820,7 +821,6 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
                   🏋️ Academia
-                  <span className="text-[8px] bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
               </div>
@@ -830,12 +830,25 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               </button>
             </div>
 
+            {/* Personal (NOVO MÓDULO) */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('personal') ? 'border-orange-500/50 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                  🏃 Personal Trainer
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de avaliações, planos de treino e agendas</div>
+              </div>
+              <button type="button" onClick={() => handleModuleToggle('personal')}
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('personal') ? 'bg-orange-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('personal') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
             {/* Condomínio */}
             <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('condominio') ? 'border-purple-500/50 bg-purple-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
                   🏢 Condomínio
-                  <span className="text-[8px] bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Em breve</span>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Moradores, encomendas, estoque e reservas</div>
               </div>
