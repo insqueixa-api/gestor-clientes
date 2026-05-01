@@ -15,9 +15,9 @@ export default function LandingPage() {
           </div>
           
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#solucoes" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Soluções</a>
             <a href="#financeiro" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Financeiro Integrado</a>
-            <a href="#lgpd" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Segurança & LGPD</a>
+            <a href="#solucoes" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Módulos Extras</a>
+            <a href="#lgpd" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Segurança</a>
             <a href="#contato" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Contato</a>
           </nav>
 
@@ -25,144 +25,256 @@ export default function LandingPage() {
             href="/login"
             className="h-10 px-5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-transform hover:scale-105 active:scale-95"
           >
-            Entrar no Sistema
+            Acessar Sistema
           </Link>
         </div>
       </header>
 
       {/* =====================
-          HERO SECTION (Topo)
+          HERO SECTION (Topo focado em Finanças)
       ===================== */}
       <main className="relative pt-32 pb-20 sm:pt-40 sm:pb-32 px-4 flex flex-col items-center justify-center text-center">
         {/* Glows de Fundo */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-10" />
         
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white max-w-4xl">
-          Tudo o que seu negócio precisa, em <span className="text-emerald-600 dark:text-emerald-500">um só lugar.</span>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          Para você e para o seu negócio
+        </div>
+
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+          Assuma o controle do seu <span className="text-emerald-600 dark:text-emerald-500">dinheiro.</span>
         </h1>
         
-        <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
-          O UniGestor é a plataforma definitiva de gestão White Label. Controle financeiro automatizado, recorrências, clientes e acessos — feito para quem quer escalar sem dores de cabeça.
+        <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-zinc-400 max-w-2xl leading-relaxed animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+          Chega de planilhas confusas e contas atrasadas. Organize suas despesas do dia a dia, projete seus ganhos e acompanhe sua evolução financeira em tempo real com o UniGestor.
         </p>
 
-        <div className="mt-10 flex flex-col sm:flex-row gap-4">
+        <div className="mt-10 flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
           <Link
             href="/login"
-            className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold rounded-xl flex items-center justify-center shadow-xl shadow-emerald-500/20 transition-transform hover:-translate-y-1"
+            className="h-14 px-8 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-base font-bold rounded-xl flex items-center justify-center shadow-xl shadow-slate-900/20 dark:shadow-emerald-500/20 transition-transform hover:-translate-y-1"
           >
-            Acessar meu Painel
+            Começar a organizar agora
           </Link>
           <a
-            href="#solucoes"
+            href="#financeiro"
             className="h-14 px-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white text-base font-bold rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
           >
-            Conhecer Soluções
+            Ver como funciona
           </a>
         </div>
       </main>
 
       {/* =====================
-          DESTAQUE: FINANCEIRO
+          MOCKUP INTERATIVO (Identificação com o Público Real)
       ===================== */}
-      <section id="financeiro" className="py-24 bg-white dark:bg-[#10161d] border-y border-slate-100 dark:border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col lg:flex-row items-center gap-16">
+      <section className="relative px-4 pb-24 max-w-6xl mx-auto z-20">
+        <div className="rounded-2xl sm:rounded-[2rem] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden transform-gpu -rotate-1 hover:rotate-0 transition-transform duration-500">
+          {/* Falso Header do Sistema */}
+          <div className="h-12 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/10 flex items-center px-4 gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-rose-400"></div>
+              <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+              <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
+            </div>
+            <div className="mx-auto bg-white dark:bg-[#161b22] px-4 py-1 rounded-md border border-slate-200 dark:border-white/10 text-[10px] font-bold text-slate-400 flex items-center gap-2 shadow-sm">
+              🔒 unigestor.net.br/admin
+            </div>
+          </div>
+          
+          {/* Conteúdo do Mockup (Focado no dia a dia do Brasileiro) */}
+          <div className="p-4 sm:p-8 space-y-6 bg-slate-50 dark:bg-transparent pointer-events-none">
             
-            <div className="flex-1 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                Módulo Ativo
+            {/* Header Dashboard */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Dashboard Financeiro</h3>
+                <p className="text-xs text-slate-500 font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase tracking-wider">Mês Atual</p>
               </div>
-              <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Controle Financeiro de Alto Nível
-              </h2>
-              <p className="text-lg text-slate-600 dark:text-zinc-400 leading-relaxed">
-                Pare de perder dinheiro com cobranças esquecidas. O módulo financeiro do UniGestor automatiza conciliações, projeta recebimentos futuros e envia lembretes inteligentes via WhatsApp.
-              </p>
-              
-              <ul className="space-y-3 pt-4">
-                {[
-                  "Faturamento e previsão de recebíveis automatizados.",
-                  "Cobranças e notificações via WhatsApp sem esforço.",
-                  "Separação clara entre despesas e receitas por categorias.",
-                  "Relatórios e Dashboards executivos em tempo real."
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="flex shrink-0 w-6 h-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-bold">✓</span>
-                    <span className="text-slate-700 dark:text-zinc-300 font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
 
-            <div className="flex-1 w-full relative">
-               {/* Imagem representativa do Dashboard Financeiro (Você pode trocar por um print real do seu sistema depois) */}
-              <div className="aspect-video w-full rounded-2xl bg-slate-100 dark:bg-black/50 border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden flex items-center justify-center p-6">
-                 <div className="w-full space-y-4 opacity-50">
-                    <div className="h-4 w-1/3 bg-slate-300 dark:bg-white/20 rounded"></div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="h-24 bg-emerald-500/20 rounded-xl border border-emerald-500/30"></div>
-                       <div className="h-24 bg-rose-500/20 rounded-xl border border-rose-500/30"></div>
+            {/* Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 p-4 rounded-xl shadow-sm">
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-2">💰 Receitas do Mês</p>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">R$ 5.450,00</p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-2">Previsão total: R$ 5.600,00</p>
+              </div>
+              <div className="bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 p-4 rounded-xl shadow-sm">
+                <p className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-2">📉 Despesas do Mês</p>
+                <p className="text-2xl font-black text-rose-600 dark:text-rose-400">R$ 4.230,50</p>
+                <p className="text-[10px] text-rose-600/70 dark:text-rose-400/70 mt-2">Previsão total: R$ 4.500,00</p>
+              </div>
+              <div className="bg-white border border-slate-200 dark:bg-[#161b22] dark:border-white/10 p-4 rounded-xl shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">💳 Saldo Atual</p>
+                <p className="text-2xl font-black text-slate-800 dark:text-white">R$ 3.120,50</p>
+                <p className="text-[10px] text-slate-400 mt-2">Disponível em contas</p>
+              </div>
+            </div>
+
+            {/* Listagem fake realista */}
+            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+              <div className="p-3 border-b border-slate-100 dark:border-white/5 font-bold text-xs text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-white/5">
+                Lançamentos Recentes
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
+                <div className="p-3 flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">📈</span>
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-white">Salário Mensal</p>
+                      <p className="text-[10px] text-slate-400">💼 Pagamentos • Nubank</p>
                     </div>
-                    <div className="h-40 bg-slate-300 dark:bg-white/10 rounded-xl"></div>
-                 </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600">+ R$ 4.500,00</p>
+                    <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase">Recebido</span>
+                  </div>
+                </div>
+                <div className="p-3 flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">📈</span>
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-white">Renda Extra (Serviço)</p>
+                      <p className="text-[10px] text-slate-400">🤝 Prestação de Serviços • Mercado Pago</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600">+ R$ 950,00</p>
+                    <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase">Recebido</span>
+                  </div>
+                </div>
+                <div className="p-3 flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">📉</span>
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-white">Supermercado Atacadão</p>
+                      <p className="text-[10px] text-slate-400">🛒 Compras • Cartão Nubank</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-rose-600">- R$ 850,50</p>
+                    <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase">Pago</span>
+                  </div>
+                </div>
+                <div className="p-3 flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">📉</span>
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-white">Conta de Luz (Light)</p>
+                      <p className="text-[10px] text-slate-400">💡 Serviços Essenciais • Nubank</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-rose-600">- R$ 210,00</p>
+                    <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">Pendente</span>
+                  </div>
+                </div>
+                <div className="p-3 flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">📉</span>
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-white">Parcela Empréstimo</p>
+                      <p className="text-[10px] text-slate-400">🏦 Dívidas • Caixa Econômica</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-rose-600">- R$ 400,00</p>
+                    <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">Pendente</span>
+                  </div>
+                </div>
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
       {/* =====================
-          MODULARES (Grid)
+          DETALHES: FINANCEIRO
+      ===================== */}
+      <section id="financeiro" className="py-24 bg-white dark:bg-[#10161d] border-y border-slate-100 dark:border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center max-w-3xl mx-auto mb-16">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+            Gestão Financeira Descomplicada
+          </h2>
+          <p className="text-lg text-slate-600 dark:text-zinc-400">
+            Da pessoa física que quer organizar as contas de casa, à pequena empresa estruturando seu fluxo de caixa diário.
+          </p>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 text-2xl flex items-center justify-center mb-4">📊</div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Visão 360º do seu caixa</h3>
+            <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Dashboards visuais que mostram exatamente quanto você ganhou, quanto gastou e qual o seu saldo real projetado para o fim do mês.</p>
+          </div>
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+            <div className="w-12 h-12 rounded-xl bg-sky-100 dark:bg-sky-500/20 text-sky-600 text-2xl flex items-center justify-center mb-4">🔁</div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Contas Recorrentes</h3>
+            <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Cadastre salários, aluguel, internet e parcelamentos uma única vez. O UniGestor projeta seu futuro financeiro automaticamente.</p>
+          </div>
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+            <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 text-2xl flex items-center justify-center mb-4">🏷️</div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Ranking de Despesas</h3>
+            <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Descubra para onde seu dinheiro está fugindo. Categorize gastos (Supermercado, Lazer, Empréstimos) e veja um ranking dos seus maiores custos.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================
+          MÓDULOS EXTRAS E FUTUROS
       ===================== */}
       <section id="solucoes" className="py-24 max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
-            Uma plataforma. Várias soluções.
+            Evolua conforme sua necessidade
           </h2>
           <p className="text-lg text-slate-600 dark:text-zinc-400">
-            Adapte o sistema para a realidade da sua empresa. Ative e desative módulos conforme a sua necessidade.
+            O UniGestor acompanha o seu crescimento. Se você tem um negócio específico, ative ferramentas exclusivas desenhadas para o seu nicho.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Card SaaS */}
-          <div className="p-8 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-500/50 transition-colors group">
+          <div className="p-8 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-500/50 transition-colors group relative">
+            <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wide">
+              Disponível
+            </div>
             <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">
               ⚡
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Rede de Revendas (SaaS)</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">SaaS & Revendas</h3>
             <p className="text-slate-600 dark:text-zinc-400 text-sm leading-relaxed">
-              Crie sub-contas, distribua créditos e monte sua própria rede hierárquica. Controle total sobre lojistas parceiros.
+              Crie sub-contas, gerencie lojistas parceiros, controle renovações automáticas via WhatsApp e escale seu negócio digital.
             </p>
           </div>
 
           {/* Card Academia */}
-          <div className="p-8 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-sky-500/50 transition-colors group relative overflow-hidden">
+          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 opacity-80 group relative overflow-hidden">
             <div className="absolute top-4 right-4 bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wide">
-              Novo
+              A Caminho
             </div>
-            <div className="w-12 h-12 rounded-xl bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-white/10 flex items-center justify-center text-2xl mb-6 grayscale">
               🏋️
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Módulo Academia</h3>
-            <p className="text-slate-600 dark:text-zinc-400 text-sm leading-relaxed">
-              Catraca virtual, reconhecimento facial, gestão de planos e acesso de alunos. Modernize a recepção do seu espaço.
+            <h3 className="text-xl font-bold text-slate-500 dark:text-white/60 mb-3">Academia & Personal</h3>
+            <p className="text-slate-500 dark:text-zinc-500 text-sm leading-relaxed">
+              Catraca virtual por biometria facial, gestão de turmas, recebimentos recorrentes de alunos e evolução de treinos.
             </p>
           </div>
 
           {/* Card Condominio */}
-          <div className="p-8 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-500/50 transition-colors group relative overflow-hidden">
+          <div className="p-8 rounded-2xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 opacity-80 group relative overflow-hidden">
              <div className="absolute top-4 right-4 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wide opacity-80">
-              Em Breve
+              A Caminho
             </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform grayscale">
+            <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-white/10 flex items-center justify-center text-2xl mb-6 grayscale">
               🏢
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">Condomínios</h3>
-            <p className="text-slate-600 dark:text-zinc-400 text-sm leading-relaxed opacity-80">
-              Gestão de moradores, controle de encomendas na portaria e reservas de espaços comuns.
+            <h3 className="text-xl font-bold text-slate-500 dark:text-white/60 mb-3">Gestão de Condomínios</h3>
+            <p className="text-slate-500 dark:text-zinc-500 text-sm leading-relaxed opacity-80">
+              Controle financeiro do prédio, moradores, recebimento de encomendas na portaria e reservas de espaços comuns.
             </p>
           </div>
 
@@ -178,15 +290,11 @@ export default function LandingPage() {
             🔒
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-6">
-            Sua Empresa Segura (LGPD)
+            Seus dados blindados (LGPD)
           </h2>
           <p className="text-lg text-slate-400 leading-relaxed mb-8">
-            Nossa infraestrutura é construída com os mais altos padrões de criptografia e isolamento de dados. Asseguramos que os dados sensíveis dos seus clientes permaneçam totalmente confidenciais, em conformidade estrita com a Lei Geral de Proteção de Dados (LGPD).
+            Nossa infraestrutura é construída com os mais altos padrões de criptografia. Asseguramos que os dados sensíveis e as suas finanças pessoais permaneçam totalmente confidenciais, em estrita conformidade com a Lei Geral de Proteção de Dados.
           </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-bold text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Isolamento Multi-Tenant Ativo
-          </div>
         </div>
       </section>
 
@@ -200,7 +308,7 @@ export default function LandingPage() {
               Fale Conosco
             </h2>
             <p className="text-lg text-slate-600 dark:text-zinc-400">
-              Ficou com alguma dúvida? Entre em contato agora mesmo e descubra como podemos ajudar a transformar a gestão do seu negócio.
+              Ficou com alguma dúvida? Entre em contato agora mesmo e descubra como podemos ajudar a organizar a sua vida financeira.
             </p>
           </div>
 
@@ -211,7 +319,7 @@ export default function LandingPage() {
               <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-2xl border border-slate-200 dark:border-white/10">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Atendimento Rápido</h3>
                 <p className="text-slate-600 dark:text-zinc-400 mb-6 leading-relaxed">
-                  A forma mais rápida de falar com nossos especialistas é através do nosso WhatsApp. Clique no botão abaixo para iniciar a conversa.
+                  A forma mais rápida de falar conosco é através do WhatsApp. Clique no botão abaixo para iniciar a conversa.
                 </p>
                 <a
                   href="https://wa.me/5521992347771?text=Ol%C3%A1!%20Vim%20pelo%20site%20e%20gostaria%20de%20saber%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20UniGestor."
