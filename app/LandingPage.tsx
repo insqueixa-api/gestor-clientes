@@ -712,7 +712,7 @@ const FinalCTA = () => (
           <IconWhatsApp /> Falar com o Administrador
         </a>
         
-        <a  href="/login"
+        <a  href="/admin"
           className="h-[56px] px-8 bg-transparent border-2 border-slate-300 dark:border-white/20 text-slate-700 dark:text-zinc-300 text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
         >
           Já tenho conta <IconArrow />
