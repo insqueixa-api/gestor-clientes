@@ -391,24 +391,21 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
         const { error } = await supabaseBrowser.rpc("saas_update_profile", {
-          p_tenant_id:         tenant!.id,
-          p_responsible_name:  responsibleName.trim() || null,
-          p_phone_e164:        phoneE164 || null,
-          p_whatsapp_username: waUsername.trim() || null,
-          p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, 
-          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ATUALIZA O PREÇO
-        });
-        if (error) throw new Error(error.message);
+          p_tenant_id:         tenant!.id,
+          p_tenant_name:       name.trim(), // ✅ ENVIANDO O NOME AQUI (Verifique se sua RPC aceita este parâmetro)
+          p_responsible_name:  responsibleName.trim() || null,
+          p_phone_e164:        phoneE164 || null,
+          p_whatsapp_username: waUsername.trim() || null,
+          p_notes:             notes.trim() || null,
+          p_active_modules:    finalModules, 
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null,
+        });
+        if (error) throw new Error(error.message);
 
-        // ✅ FORÇA A ATUALIZAÇÃO DIRETA NO BANCO (Garante que módulos e booleana fiquem salvos de verdade)
-        const { error: dbErr } = await supabaseBrowser.from("tenants").update({
-          active_modules: finalModules,
-          financial_control_enabled: finalModules.includes("financeiro")
-        }).eq("id", tenant!.id);
-        if (dbErr) throw new Error("Erro ao sincronizar os módulos na tabela tenants.");
+        // ❌ REMOVIDO: O update direto na tabela tenants via frontend foi apagado.
+        // A RPC saas_update_profile já recebe o p_active_modules e deve salvar os módulos lá no backend.
 
-        const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
+        const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
           p_tenant_id: tenant!.id,
           p_role: role,
         });
