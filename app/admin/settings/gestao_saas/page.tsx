@@ -1469,6 +1469,22 @@ function TenantRow({
               Financeiro
             </span>
           )}
+          {/* ✅ NOVOS MÓDULOS */}
+          {mods.includes("academia") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo Academia Ativo">
+              🏋️ Academia
+            </span>
+          )}
+          {mods.includes("personal") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-orange-500 border-orange-500 text-white shadow-orange-900/20" title="Módulo Personal Trainer Ativo">
+              🏃 Personal
+            </span>
+          )}
+          {mods.includes("condominio") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-purple-500 border-purple-500 text-white shadow-purple-900/20" title="Módulo Condomínio Ativo">
+              🏢 Condomínio
+            </span>
+          )}
         </div>
       </td>
 
