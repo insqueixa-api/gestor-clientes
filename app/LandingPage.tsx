@@ -264,19 +264,7 @@ const FinancialDashboard = () => (
         </div>
       </div>
     </div>{/* Dashboard Premium Realista - Formato Tabela */}
-    <div className="bg-white dark:bg-[#161b22] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-w-5xl mx-auto">
-      <div className="w-full">
-        {/* Header da Tabela */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-          <div className="md:col-span-2">Descrição</div>
-          <div className="hidden md:block">Vencimento</div>
-          <div className="hidden md:block">Status</div>
-          <div className="hidden md:block">Categoria</div>
-          <div className="hidden md:block">Conta / Recorrência</div>
-          <div className="text-right">Valor</div>
-        </div>
-      </div>
-    </div>
+    
   </section>
 );
 
