@@ -261,6 +261,9 @@ export default function GestaoSaasPage() {
 
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({ open: false, resellerId: null });
+
+  // ✅ NOVO: Armazena os preços base das tabelas para mostrar na coluna 'Valor'
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>({});
   
 const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
   const [tenantAlerts, setTenantAlerts] = useState<any[]>([]);
@@ -304,6 +307,22 @@ const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: st
         // ✅ Traz a categoria também
         const { data: tpls } = await supabaseBrowser.from("message_templates").select("id,name,content,category").eq("tenant_id", tid);
         setMessageTemplates(tpls || []);
+
+        // ✅ NOVO: Traz os preços das tabelas para cruzar com os tenants
+        const { data: pricesData } = await supabaseBrowser
+          .from("plan_table_items")
+          .select(`plan_table_id, prices:plan_table_item_prices(price_amount)`)
+          .eq("period", "MONTHLY");
+        
+        if (pricesData) {
+          const pricesMap: Record<string, number> = {};
+          pricesData.forEach((item: any) => {
+             if (item.prices && item.prices.length > 0) {
+                 pricesMap[item.plan_table_id] = item.prices[0].price_amount;
+             }
+          });
+          setPlanPrices(pricesMap);
+        }
       }
 
       const [roleRes, tenantsRes] = await Promise.all([
@@ -964,16 +983,16 @@ const sortedTenants = useMemo(() => {
               <table className="w-full text-sm text-left min-w-[700px]">
                 <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                   <tr>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Cliente / Revenda ↕</th>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Perfil ↕</th>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Status ↕</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-left">Cliente / Revenda ↕</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Perfil ↕</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Status ↕</th>
                     <th className="px-4 py-3 text-center">Módulos</th>
-                    <th className="px-4 py-3">Slug</th>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Validade ↕</th>
-                    <th className="px-4 py-3">Valor</th>
+                    <th className="px-4 py-3 text-center">Slug</th> {/* ✅ Centralizado */}
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Validade ↕</th>
+                    <th className="px-4 py-3 text-center">Valor</th>
                     <th className="px-4 py-3 text-center">Créditos</th>
                     <th className="px-4 py-3 text-center">Sessões WA</th>
-                    <th className="px-4 py-3 text-right">Ações</th>
+                    <th className="px-4 py-3 text-right">Ações</th> {/* ✅ Alinhado à direita e remoção da duplicidade visual */}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -981,6 +1000,7 @@ const sortedTenants = useMemo(() => {
                       <TenantRow
                         key={t.id} t={t} canManage={canManage}
                         networkCount={networkCount[t.id] || 0}
+                        planPrices={planPrices} // ✅ Passando a lista de preços para a linha
                         onEdit={() => setEditTarget(t)}
                         onRenew={() => setRenewTarget(t)}
                         onCredits={() => setCreditsTarget(t)}
@@ -1328,10 +1348,10 @@ const sortedTenants = useMemo(() => {
 // LINHA DESKTOP
 // ============================================================
 function TenantRow({ 
-  t, canManage, networkCount, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore, onAddSession, onRemoveSession,
+  t, canManage, networkCount, planPrices, onEdit, onRenew, onCredits, onArchive, onDelete, onRestore, onAddSession, onRemoveSession,
   scheduledMap, msgMenuForId, setMsgMenuForId, onMessageNow, onMessageSchedule, onOpenScheduled, onNewAlert, onOpenAlerts
 }: {
-  t: SaasTenant; canManage: boolean; networkCount: number;
+  t: SaasTenant; canManage: boolean; networkCount: number; planPrices: Record<string, number>; // ✅ Adicionado
   onEdit: () => void; onRenew: () => void; onCredits: () => void;
   onArchive: () => void; onDelete: () => void; onRestore: () => void;
   onAddSession: () => void; onRemoveSession: () => void;
@@ -1353,10 +1373,10 @@ function TenantRow({
   return (
     <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
       <td className="px-4 py-3">
+        {/* Bloco de Nome/Telefone/Email se mantém igual */}
         <div className="flex flex-col max-w-[180px] sm:max-w-none">
           <div className="flex items-center gap-2 whitespace-nowrap">
             <div className="font-semibold truncate">
-              {/* ✅ MUDANÇA: O link agora aparece para qualquer conta SaaS (MASTER ou USER) */}
               <a href={`/admin/settings/gestao_saas/${t.id}`} className="text-emerald-600 dark:text-emerald-400 hover:underline transition-colors" onClick={e => e.stopPropagation()}>
                 {t.name}
               </a>
@@ -1394,20 +1414,20 @@ function TenantRow({
           </div>
         </div>
       </td>
-      <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
-      <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
+      <td className="px-4 py-3 text-center"><RoleBadge role={t.role} /></td>
+      <td className="px-4 py-3 text-center"><StatusBadge status={t.license_status} /></td>
       
-      {/* MÓDULOS (Movido para cá) */}
+      {/* MÓDULOS */}
       <td className="px-4 py-3 text-center">
-        <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[220px]">
+        <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[180px]">
           {hasIptv && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-blue-500 border-blue-500 text-white shadow-blue-900/20" title="Módulo IPTV">IPTV</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-blue-500 border-blue-500 text-white shadow-blue-900/20" title="Módulo IPTV">📺 IPTV</span>
           )}
           {hasSaas && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-indigo-500 border-indigo-500 text-white shadow-indigo-900/20" title="Módulo SaaS">SaaS</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-indigo-500 border-indigo-500 text-white shadow-indigo-900/20" title="Módulo SaaS">⚡ SaaS</span>
           )}
           {mods.includes("financeiro") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro">Financeiro</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro">💰 Financeiro</span>
           )}
           {mods.includes("academia") && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-rose-500 border-rose-500 text-white shadow-rose-900/20" title="Módulo Academia">🏋️ Academia</span>
@@ -1421,19 +1441,19 @@ function TenantRow({
         </div>
       </td>
 
-      {/* ✅ SLUG (Aparece Unigestor para os módulos antigos, ou o slug personalizado para os novos) */}
-      <td className="px-4 py-3">
+      {/* ✅ SLUG: Centralizado */}
+      <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-slate-400 text-xs">—</span>
         ) : (
-          <span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70">
+          <span className="text-xs font-mono font-bold text-slate-600 dark:text-white/70">
             {(mods.includes("academia") || mods.includes("personal") || mods.includes("condominio")) ? (t.slug || "—") : "unigestor"}
           </span>
         )}
       </td>
 
-      {/* ✅ VALIDADE (Fica vermelho quando days <= 7) */}
-      <td className="px-4 py-3">
+      {/* VALIDADE */}
+      <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞ Permanente</span>
         ) : t.expires_at ? (
@@ -1443,17 +1463,20 @@ function TenantRow({
         ) : <span className="text-slate-400 text-xs">—</span>}
       </td>
 
-      {/* ✅ VALOR (Sempre mostra o valor, puxado da tabela ou custom) */}
-      <td className="px-4 py-3">
+      {/* ✅ VALOR: Exibe custom, ou tenta buscar da tabela, ou fallback pra tabela */}
+      <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-slate-400 text-xs">—</span>
+        ) : t.custom_monthly_price !== null ? (
+           <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400" title="Valor Personalizado (Override)">
+              R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
+           </span>
+        ) : t.saas_plan_table_id && planPrices[t.saas_plan_table_id] ? (
+           <span className="text-xs font-bold text-slate-700 dark:text-white" title="Preço Padrão da Tabela">
+              R$ {Number(planPrices[t.saas_plan_table_id]).toFixed(2).replace(".", ",")}
+           </span>
         ) : (
-          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-            R$ {Number(t.custom_monthly_price || 0).toFixed(2).replace(".", ",")}
-            {/* Como não temos o plano padrão injetado no objeto t, coloquei 0 como fallback provisório. 
-                Se você quiser que ele cruze com os IDs de tabela para puxar o preço default real sem ser via override,
-                precisaremos fazer um JOIN na query do banco que alimenta essa tabela. */}
-          </span>
+           <span className="text-[10px] italic text-slate-400">Tabela</span>
         )}
       </td>
       
@@ -1470,7 +1493,7 @@ function TenantRow({
         )}
       </td>
 
-      {/* ✅ SESSÕES WA (Sem o 'trial' embaixo e só permite adicionar se estiver ACTIVE) */}
+      {/* SESSÕES WA */}
       <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞</span>
@@ -1489,7 +1512,6 @@ function TenantRow({
               
               <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
               
-              {/* O Botão '+' só aparece se a licença estiver ACTIVE e tiver < 2 sessões */}
               {canManage && t.whatsapp_sessions < 2 && t.license_status === "ACTIVE" && (
                 <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
                   title="Adicionar 2ª sessão"
@@ -1502,67 +1524,10 @@ function TenantRow({
         )}
       </td>
 
-      {/* ✅ NOVA CÉLULA: MÓDULOS (Estilo Dashboard) */}
-      <td className="px-4 py-3 text-center">
-        <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[220px]">
-          
-          {/* IPTV (Azul) */}
-          {hasIptv && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-blue-500 border-blue-500 text-white shadow-blue-900/20" title="Módulo IPTV Ativo">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
-                <polyline points="17 2 12 7 7 2"/>
-              </svg>
-              IPTV
-            </span>
-          )}
-
-          {/* SaaS (Índigo - Próximo do Azul) */}
-          {hasSaas && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-indigo-500 border-indigo-500 text-white shadow-indigo-900/20" title="Módulo SaaS Ativo">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
-              SaaS
-            </span>
-          )}
-
-          {/* Financeiro (Verde Esmeralda) */}
-          {mods.includes("financeiro") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro Ativo">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-              Financeiro
-            </span>
-          )}
-
-          {/* Academia (Rosa/Avermelhado) */}
-          {mods.includes("academia") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-rose-500 border-rose-500 text-white shadow-rose-900/20" title="Módulo Academia Ativo">
-              🏋️ Academia
-            </span>
-          )}
-
-          {/* Personal (Laranja - Próximo do Rosa) */}
-          {mods.includes("personal") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-orange-500 border-orange-500 text-white shadow-orange-900/20" title="Módulo Personal Trainer Ativo">
-              🏃 Personal
-            </span>
-          )}
-
-          {/* Condomínio (Âmbar/Amarelo) */}
-          {mods.includes("condominio") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-amber-500 border-amber-500 text-white shadow-amber-900/20" title="Módulo Condomínio Ativo">
-              🏢 Condomínio
-            </span>
-          )}
-          
-        </div>
-      </td>
-
+      {/* AÇÕES */}
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity relative">
+          
           
           <div className="relative">
             <ActionBtn title="Mensagem" tone="blue" onClick={(e) => { e.stopPropagation(); setMsgMenuForId((cur) => (cur === t.id ? null : t.id)); }}>
