@@ -196,6 +196,7 @@ export default function GestaoSaasPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState("Todos"); // ✅ MUDADO PARA "Todos"
+  const [moduleFilter, setModuleFilter] = useState("Todos"); // ✅ NOVO: Estado para o filtro de módulos
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [archivedFilter, setArchivedFilter] = useState<"Não" | "Sim">("Não"); // ✅ ADICIONADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -657,6 +658,11 @@ if (tenantsRes.error) {
       }
       if (roleFilter !== "Todos" && t.role !== roleFilter) return false;
       if (statusFilter !== "Todos" && t.license_status !== statusFilter) return false;
+      
+      // ✅ NOVO: Lógica do Filtro de Módulo
+      if (moduleFilter !== "Todos") {
+        if (!t.active_modules || !t.active_modules.includes(moduleFilter)) return false;
+      }
       if (q) {
         const hay = [t.name, t.slug, t.responsible_name, t.auth_email, t.contact_email, t.whatsapp_username, t.phone_e164, t.role]
           .filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -664,7 +670,7 @@ if (tenantsRes.error) {
       }
       return true;
     });
-  }, [tenants, search, roleFilter, statusFilter, archivedFilter]);
+  }, [tenants, search, roleFilter, statusFilter, moduleFilter, archivedFilter]);
 
   // ✅ Stats: Remove o seu próprio usuário e os SUPERADMINS das estatísticas
 const directTenants = useMemo(() =>
@@ -828,16 +834,30 @@ const sortedTenants = useMemo(() => {
               </button>
             )}
           </div>
-          <div className="w-[190px]">
+          <div className="w-[150px]">
             <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
-              <option value="Todos">Role (Todos)</option>
-              <option value="SUPERADMIN">Superadmin</option>
+              <option value="Todos">Perfil (Todos)</option>
               <option value="MASTER">Master</option>
               <option value="USER">User</option>
             </select>
           </div>
-          <div className="w-[190px]">
+          
+          {/* ✅ NOVO: Filtro por Módulo */}
+          <div className="w-[180px]">
+            <select value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}
+              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
+              <option value="Todos">Módulo (Todos)</option>
+              <option value="iptv">📺 IPTV</option>
+              <option value="saas">⚡ SaaS</option>
+              <option value="financeiro">💰 Financeiro</option>
+              <option value="academia">🏋️ Academia</option>
+              <option value="personal">🏃 Personal</option>
+              <option value="condominio">🏢 Condomínio</option>
+            </select>
+          </div>
+
+          <div className="w-[150px]">
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50">
               <option value="Todos">Status (Todos)</option>
@@ -846,7 +866,7 @@ const sortedTenants = useMemo(() => {
               <option value="EXPIRED">Expirado</option>
             </select>
           </div>
-          <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); setArchivedFilter("Não"); }}
+          <button onClick={() => { setSearch(""); setRoleFilter("Todos"); setStatusFilter("Todos"); setModuleFilter("Todos"); setArchivedFilter("Não"); }}
             className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 transition-colors flex items-center gap-1.5">
             <IconX /> Limpar
           </button>
@@ -944,14 +964,15 @@ const sortedTenants = useMemo(() => {
               <table className="w-full text-sm text-left min-w-[700px]">
                 <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                   <tr>
-                    <th className="px-4 py-3">Cliente / Revenda</th>
-                    <th className="px-4 py-3">Perfil</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Validade</th>
-                    <th className="px-4 py-3">Valor</th> {/* ✅ NOVA COLUNA DE VALOR */}
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Cliente / Revenda ↕</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Perfil ↕</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Status ↕</th>
+                    <th className="px-4 py-3 text-center">Módulos</th>
+                    <th className="px-4 py-3">Slug</th>
+                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors">Validade ↕</th>
+                    <th className="px-4 py-3">Valor</th>
                     <th className="px-4 py-3 text-center">Créditos</th>
                     <th className="px-4 py-3 text-center">Sessões WA</th>
-                    <th className="px-4 py-3 text-center">Módulos</th>
                     <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -1376,25 +1397,63 @@ function TenantRow({
       <td className="px-4 py-3"><RoleBadge role={t.role} /></td>
       <td className="px-4 py-3"><StatusBadge status={t.license_status} /></td>
       
-      {/* VALIDADE */}
+      {/* MÓDULOS (Movido para cá) */}
+      <td className="px-4 py-3 text-center">
+        <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[220px]">
+          {hasIptv && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-blue-500 border-blue-500 text-white shadow-blue-900/20" title="Módulo IPTV">IPTV</span>
+          )}
+          {hasSaas && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-indigo-500 border-indigo-500 text-white shadow-indigo-900/20" title="Módulo SaaS">SaaS</span>
+          )}
+          {mods.includes("financeiro") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro">Financeiro</span>
+          )}
+          {mods.includes("academia") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-rose-500 border-rose-500 text-white shadow-rose-900/20" title="Módulo Academia">🏋️ Academia</span>
+          )}
+          {mods.includes("personal") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-orange-500 border-orange-500 text-white shadow-orange-900/20" title="Módulo Personal">🏃 Personal</span>
+          )}
+          {mods.includes("condominio") && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-amber-500 border-amber-500 text-white shadow-amber-900/20" title="Módulo Condomínio">🏢 Condomínio</span>
+          )}
+        </div>
+      </td>
+
+      {/* ✅ SLUG (Aparece Unigestor para os módulos antigos, ou o slug personalizado para os novos) */}
+      <td className="px-4 py-3">
+        {isSuperadmin ? (
+          <span className="text-slate-400 text-xs">—</span>
+        ) : (
+          <span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70">
+            {(mods.includes("academia") || mods.includes("personal") || mods.includes("condominio")) ? (t.slug || "—") : "unigestor"}
+          </span>
+        )}
+      </td>
+
+      {/* ✅ VALIDADE (Fica vermelho quando days <= 7) */}
       <td className="px-4 py-3">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞ Permanente</span>
         ) : t.expires_at ? (
-          <span className="text-xs font-medium text-slate-700 dark:text-white">{fmtDate(t.expires_at)}</span>
+          <span className={`text-xs font-bold ${days !== null && days <= 7 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-white"}`}>
+            {fmtDate(t.expires_at)}
+          </span>
         ) : <span className="text-slate-400 text-xs">—</span>}
       </td>
 
-      {/* ✅ VALOR (Nova Coluna Separada) */}
+      {/* ✅ VALOR (Sempre mostra o valor, puxado da tabela ou custom) */}
       <td className="px-4 py-3">
         {isSuperadmin ? (
           <span className="text-slate-400 text-xs">—</span>
-        ) : t.custom_monthly_price !== null ? (
-          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400" title="Preço Acordado (Override)">
-            R$ {Number(t.custom_monthly_price).toFixed(2).replace(".", ",")}
-          </span>
         ) : (
-          <span className="text-[10px] italic text-slate-400" title="Usa o preço padrão da tabela">Tabela</span>
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            R$ {Number(t.custom_monthly_price || 0).toFixed(2).replace(".", ",")}
+            {/* Como não temos o plano padrão injetado no objeto t, coloquei 0 como fallback provisório. 
+                Se você quiser que ele cruze com os IDs de tabela para puxar o preço default real sem ser via override,
+                precisaremos fazer um JOIN na query do banco que alimenta essa tabela. */}
+          </span>
         )}
       </td>
       
@@ -1411,7 +1470,7 @@ function TenantRow({
         )}
       </td>
 
-      {/* SESSÕES WA (Sem botões, apenas visualização) */}
+      {/* ✅ SESSÕES WA (Sem o 'trial' embaixo e só permite adicionar se estiver ACTIVE) */}
       <td className="px-4 py-3 text-center">
         {isSuperadmin ? (
           <span className="text-xs font-bold text-purple-500">∞</span>
@@ -1427,8 +1486,11 @@ function TenantRow({
                   −
                 </button>
               )}
+              
               <span className="text-xs font-bold text-slate-700 dark:text-white">{t.whatsapp_sessions}/2</span>
-              {canManage && t.whatsapp_sessions < 2 && (
+              
+              {/* O Botão '+' só aparece se a licença estiver ACTIVE e tiver < 2 sessões */}
+              {canManage && t.whatsapp_sessions < 2 && t.license_status === "ACTIVE" && (
                 <button type="button" onClick={(e) => { e.stopPropagation(); onAddSession(); }}
                   title="Adicionar 2ª sessão"
                   className="w-4 h-4 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center font-bold text-xs leading-none shadow transition-all hover:scale-110">
@@ -1436,7 +1498,6 @@ function TenantRow({
                 </button>
               )}
             </div>
-            {t.is_trial && <span className="text-[9px] text-sky-400 font-bold uppercase">trial</span>}
           </div>
         )}
       </td>
