@@ -737,6 +737,26 @@ const stats = {
         } else if (sortConfig.key === 'expires_at') {
           aValue = a.expires_at ? new Date(a.expires_at).getTime() : 0;
           bValue = b.expires_at ? new Date(b.expires_at).getTime() : 0;
+        } 
+        // ✅ NOVAS REGRAS DE ORDENAÇÃO
+        else if (sortConfig.key === 'active_modules') {
+          // Transforma o array em texto para comparar alfabeticamente
+          aValue = (a.active_modules || []).slice().sort().join(', ');
+          bValue = (b.active_modules || []).slice().sort().join(', ');
+        } else if (sortConfig.key === 'slug') {
+          // Usa a mesma regra visual: se não tiver módulo especial, cai como "unigestor"
+          const aMods = a.active_modules || [];
+          const bMods = b.active_modules || [];
+          aValue = (aMods.includes("academia") || aMods.includes("personal") || aMods.includes("condominio")) ? (a.slug || "") : "unigestor";
+          bValue = (bMods.includes("academia") || bMods.includes("personal") || bMods.includes("condominio")) ? (b.slug || "") : "unigestor";
+        } else if (sortConfig.key === 'price') {
+          // Verifica override, senão busca da tabela, senão 0
+          aValue = a.custom_monthly_price !== null ? Number(a.custom_monthly_price) : (a.saas_plan_table_id && planPrices[a.saas_plan_table_id] ? Number(planPrices[a.saas_plan_table_id]) : 0);
+          bValue = b.custom_monthly_price !== null ? Number(b.custom_monthly_price) : (b.saas_plan_table_id && planPrices[b.saas_plan_table_id] ? Number(planPrices[b.saas_plan_table_id]) : 0);
+        } else if (sortConfig.key === 'credit_balance') {
+          // Garante que é número
+          aValue = Number(a.credit_balance || 0);
+          bValue = Number(b.credit_balance || 0);
         }
 
         if (aValue < bValue) {
@@ -753,7 +773,7 @@ const stats = {
     }
 
     return diretos;
-  }, [filtered, tenantId, sortConfig]);
+  }, [filtered, tenantId, sortConfig, planPrices]); // ✅ planPrices adicionado aqui!
 
   // Contador de rede por tenant (calculado do array completo)
   const networkCount = useMemo(() => {
@@ -1035,15 +1055,23 @@ const stats = {
                     <th onClick={() => requestSort('license_status')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
                       Status <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('license_status')}</span>
                     </th>
-                    <th className="px-4 py-3 text-center">Módulos</th>
-                    <th className="px-4 py-3 text-center">Slug</th>
+                    <th onClick={() => requestSort('active_modules')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Módulos <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('active_modules')}</span>
+                    </th>
+                    <th onClick={() => requestSort('slug')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Slug <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('slug')}</span>
+                    </th>
                     <th onClick={() => requestSort('expires_at')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
                       Validade <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('expires_at')}</span>
                     </th>
-                    <th className="px-4 py-3 text-center">Valor</th>
-                    <th className="px-4 py-3 text-center">Créditos</th>
+                    <th onClick={() => requestSort('price')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Valor <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('price')}</span>
+                    </th>
+                    <th onClick={() => requestSort('credit_balance')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Créditos <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('credit_balance')}</span>
+                    </th>
                     <th className="px-4 py-3 text-center">Sessões WA</th>
-                    <th className="px-4 py-3 text-right">Ações</th> {/* ✅ Alinhado à direita e remoção da duplicidade visual */}
+                    <th className="px-4 py-3 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">

@@ -504,18 +504,6 @@ export default function SaasCreditsModal({
                 </div>
               )}
 
-              {/* ✅ CONTROLE FINANCEIRO */}
-              <div 
-                className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 flex items-center gap-3 cursor-pointer mb-4" 
-                onClick={() => setFinancialControl(v => !v)}
-              >
-                <Switch checked={financialControl} onChange={setFinancialControl} />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Módulo Financeiro</span>
-                  <span className="text-[10px] text-slate-400 dark:text-white/40">Habilitar ou desabilitar o controle financeiro para esta revenda</span>
-                </div>
-              </div>
-
               {/* WHATSAPP */}
               <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-xl border border-slate-200 dark:border-white/5 space-y-3">
                 <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSendWhats(v => !v)}>

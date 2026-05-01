@@ -414,7 +414,7 @@ export default function SaasRenewModal({
         <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-800 dark:text-white tracking-tight">
-              Renovar Licença SaaS
+              Renovar Painel
             </h2>
             <div className="text-xs text-slate-500 dark:text-white/40 mt-0.5 font-medium">
               {tenantName} · Expira: <strong>{fmtDate(currentExpiry)}</strong>
