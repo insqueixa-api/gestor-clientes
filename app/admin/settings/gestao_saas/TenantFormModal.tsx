@@ -200,12 +200,16 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [notes, setNotes] = useState(tenant?.notes ?? "");
   
   // ✅ Módulos Modulares (Agora a única fonte da verdade é o array do banco)
-  const [activeModules, setActiveModules] = useState<string[]>(() => {
-    // Se não tiver nenhum dado (novo cliente), o padrão é ter apenas iptv
-    return tenant?.active_modules ? [...tenant.active_modules] : ["iptv"];
-  });
+  const [activeModules, setActiveModules] = useState<string[]>(() => {
+    // Se não tiver nenhum dado (novo cliente), o padrão é ter apenas iptv
+    return tenant?.active_modules ? [...tenant.active_modules] : ["iptv"];
+  });
 
-  const handleModuleToggle = (mod: string) => {
+  // ✅ NOVO: Estado para o Slug e Regra de Exibição da Landing Page
+  const [slug, setSlug] = useState<string>(tenant?.slug ?? "");
+  const showLandingConfig = activeModules.some(m => ["academia", "personal", "condominio"].includes(m));
+
+  const handleModuleToggle = (mod: string) => {
     setActiveModules(prev => {
       const isRemoving = prev.includes(mod);
       let nextModules = isRemoving ? prev.filter(m => m !== mod) : [...prev, mod];
@@ -375,26 +379,28 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               notes: notes.trim() || null,
               saas_plan_table_id: saasPlanTableId || null,
               credits_plan_table_id: finalRole === "MASTER" ? (creditsPlanTableId || null) : null, // ✅ Usando o perfil calculado
-              whatsapp_session: selectedSession, 
-              active_modules: finalModules, // ✅ ENVIA O ARRAY LIMPO
-              financial_control_enabled: finalModules.includes("financeiro"), 
-              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null,
-            }),
-          });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
-      } else {
-        // Envia TODOS os dados pela porta da frente da RPC
-        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
-          p_tenant_id:         tenant!.id,
-          p_tenant_name:       name.trim(),
-          p_responsible_name:  responsibleName.trim() || null,
-          p_phone_e164:        phoneE164 || null,
-          p_whatsapp_username: waUsername.trim() || null,
-          p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, // ✅ ENVIA O ARRAY LIMPO
-          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, 
-        });
+              whatsapp_session: selectedSession, 
+              active_modules: finalModules, // ✅ ENVIA O ARRAY LIMPO
+              financial_control_enabled: finalModules.includes("financeiro"), 
+              custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null,
+              slug: showLandingConfig && slug.trim() ? slug.trim() : null, // ✅ ENVIA O SLUG
+            }),
+          });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
+      } else {
+        // Envia TODOS os dados pela porta da frente da RPC
+        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
+          p_tenant_id:         tenant!.id,
+          p_tenant_name:       name.trim(),
+          p_responsible_name:  responsibleName.trim() || null,
+          p_phone_e164:        phoneE164 || null,
+          p_whatsapp_username: waUsername.trim() || null,
+          p_notes:             notes.trim() || null,
+          p_active_modules:    finalModules, // ✅ ENVIA O ARRAY LIMPO
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, 
+          p_slug: showLandingConfig && slug.trim() ? slug.trim() : null, // ✅ ENVIA O SLUG (Edição)
+        });
         if (error) throw new Error(error.message);
 
         // Atualiza a Role no banco baseado nos módulos escolhidos
@@ -850,6 +856,28 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             </div>
 
           </div>
+
+          {/* ✅ NOVA SEÇÃO: PÁGINA PERSONALIZADA (Aparece dinamicamente) */}
+          {showLandingConfig && (
+            <>
+              <SectionTitle>Página Personalizada</SectionTitle>
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <FieldLabel>Slug (URL personalizada)</FieldLabel>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">seusite.com/</span>
+                  <FieldInput 
+                    value={slug} 
+                    onChange={(e: any) => setSlug(e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, ""))} 
+                    placeholder="nome-da-empresa"
+                    className="pl-[104px]" // Dá o espaçamento exato para não sobrepor o texto base
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Link: seusite.com/<strong>{slug || "nome-da-empresa"}</strong>
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="mt-2">
             <FieldLabel>Observações Internas (Opcional)</FieldLabel>
