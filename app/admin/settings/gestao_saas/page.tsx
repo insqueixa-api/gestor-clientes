@@ -262,8 +262,24 @@ export default function GestaoSaasPage() {
   const [scheduledMap, setScheduledMap] = useState<Record<string, ScheduledMsg[]>>({});
   const [showScheduledModal, setShowScheduledModal] = useState<{ open: boolean; resellerId: string | null; resellerName?: string }>({ open: false, resellerId: null });
 
-  // ✅ NOVO: Armazena os preços base das tabelas para mostrar na coluna 'Valor'
+  // ✅ Armazena os preços base das tabelas para mostrar na coluna 'Valor'
   const [planPrices, setPlanPrices] = useState<Record<string, number>>({});
+
+  // ✅ ESTADOS E FUNÇÕES DE ORDENAÇÃO (SORTING)
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (columnName: string) => {
+    if (!sortConfig || sortConfig.key !== columnName) return "↕";
+    return sortConfig.direction === 'asc' ? "↑" : "↓";
+  };
   
 const [showAlertList, setShowAlertList] = useState<{ open: boolean; targetId: string | null; targetName?: string }>({ open: false, targetId: null });
   const [tenantAlerts, setTenantAlerts] = useState<any[]>([]);
@@ -705,12 +721,39 @@ const stats = {
 
   const canManage = myRole.toUpperCase() === "SUPERADMIN" || myRole.toUpperCase() === "MASTER";
 
-  // ✅ Remove o SEU PRÓPRIO usuário logado de aparecer na tabela!
-const sortedTenants = useMemo(() => {
-    const diretos = filtered.filter(t => t.parent_tenant_id === tenantId);
-    diretos.sort((a, b) => a.name.localeCompare(b.name));
+  // ✅ Remove o SEU PRÓPRIO usuário logado de aparecer na tabela e APLICA ORDENAÇÃO!
+  const sortedTenants = useMemo(() => {
+    let diretos = filtered.filter(t => t.parent_tenant_id === tenantId);
+
+    if (sortConfig !== null) {
+      diretos.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Trata ordenação de datas e strings para não quebrar
+        if (sortConfig.key === 'name') {
+          aValue = (a.name || "").toLowerCase();
+          bValue = (b.name || "").toLowerCase();
+        } else if (sortConfig.key === 'expires_at') {
+          aValue = a.expires_at ? new Date(a.expires_at).getTime() : 0;
+          bValue = b.expires_at ? new Date(b.expires_at).getTime() : 0;
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    } else {
+      // Ordenação padrão (por nome crescente) se ninguém clicou em nada
+      diretos.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     return diretos;
-  }, [filtered, tenantId]);
+  }, [filtered, tenantId, sortConfig]);
 
   // Contador de rede por tenant (calculado do array completo)
   const networkCount = useMemo(() => {
@@ -983,12 +1026,20 @@ const sortedTenants = useMemo(() => {
               <table className="w-full text-sm text-left min-w-[700px]">
                 <thead className="bg-slate-50 dark:bg-white/5 text-xs uppercase tracking-wider text-slate-500 dark:text-white/40 font-bold border-b border-slate-100 dark:border-white/5">
                   <tr>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-left">Cliente / Revenda ↕</th>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Perfil ↕</th>
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Status ↕</th>
+                    <th onClick={() => requestSort('name')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-left group">
+                      Cliente / Revenda <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('name')}</span>
+                    </th>
+                    <th onClick={() => requestSort('role')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Perfil <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('role')}</span>
+                    </th>
+                    <th onClick={() => requestSort('license_status')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Status <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('license_status')}</span>
+                    </th>
                     <th className="px-4 py-3 text-center">Módulos</th>
-                    <th className="px-4 py-3 text-center">Slug</th> {/* ✅ Centralizado */}
-                    <th className="px-4 py-3 cursor-pointer hover:text-slate-700 transition-colors text-center">Validade ↕</th>
+                    <th className="px-4 py-3 text-center">Slug</th>
+                    <th onClick={() => requestSort('expires_at')} className="px-4 py-3 cursor-pointer hover:text-emerald-600 select-none transition-colors text-center group">
+                      Validade <span className="text-slate-400 group-hover:text-emerald-500">{getSortIcon('expires_at')}</span>
+                    </th>
                     <th className="px-4 py-3 text-center">Valor</th>
                     <th className="px-4 py-3 text-center">Créditos</th>
                     <th className="px-4 py-3 text-center">Sessões WA</th>
