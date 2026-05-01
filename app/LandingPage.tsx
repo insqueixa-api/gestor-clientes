@@ -1,113 +1,267 @@
 import Link from "next/link";
 import React from "react";
 
-// ==========================================
-// COMPONENTES DA PÁGINA
-// ==========================================
+// ─────────────────────────────────────────────
+// ÍCONES INLINE (sem dependência externa)
+// ─────────────────────────────────────────────
+const IconCheck = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+const IconWhatsApp = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </svg>
+);
+const IconArrow = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M12 5l7 7-7 7" />
+  </svg>
+);
+const IconShield = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
 
+// ─────────────────────────────────────────────
+// DADOS BRASILEIROS REALISTAS
+// ─────────────────────────────────────────────
+const RECEITAS = [
+  { desc: "Salário CLT", cat: "💼 Salário", conta: "Nubank", valor: 3200, status: "RECEBIDO", tipo: "MENSAL", data: "05/05" },
+  { desc: "Adiantamento", cat: "💼 Salário", conta: "Nubank", valor: 700, status: "RECEBIDO", tipo: "AVULSO", data: "20/04" },
+  { desc: "Prestação de Serviços", cat: "🤝 Renda Extra", conta: "Mercado Pago", valor: 450, status: "RECEBIDO", tipo: "AVULSO", data: "14/05" },
+  { desc: "Venda de Produto", cat: "🛍️ Vendas", conta: "Pix", valor: 320, status: "PENDENTE", tipo: "AVULSO", data: "18/05" },
+];
+
+const DESPESAS = [
+  { desc: "Aluguel", cat: "🏠 Moradia", conta: "Nubank", valor: 1200, status: "PAGO", tipo: "MENSAL", data: "10/05" },
+  { desc: "Fatura Cartão Nubank", cat: "💳 Cartão de Crédito", conta: "Nubank", valor: 1140, status: "PENDENTE", tipo: "MENSAL", data: "15/05" },
+  { desc: "Supermercado Atacadão", cat: "🛒 Compras", conta: "Cartão", valor: 780, status: "PAGO", tipo: "AVULSO", data: "08/05" },
+  { desc: "Empréstimo Pessoal", cat: "🏦 Dívidas", conta: "Caixa", valor: 620, status: "PAGO", tipo: "PARCELA 4/24", data: "12/05" },
+  { desc: "Conta de Luz (ENEL)", cat: "⚡ Essenciais", conta: "Débito Auto", valor: 187, status: "PENDENTE", tipo: "MENSAL", data: "20/05" },
+  { desc: "Plano de Internet", cat: "📶 Essenciais", conta: "Débito Auto", valor: 129, status: "PAGO", tipo: "MENSAL", data: "05/05" },
+  { desc: "Conta de Água", cat: "💧 Essenciais", conta: "Débito Auto", valor: 84, status: "PENDENTE", tipo: "MENSAL", data: "22/05" },
+];
+
+const CATEGORIAS_DESPESAS = [
+  { nome: "Moradia", valor: 1200, pct: 100, cor: "bg-rose-500" },
+  { nome: "Cartão de Crédito", valor: 1140, pct: 95, cor: "bg-orange-500" },
+  { nome: "Supermercado", valor: 780, pct: 65, cor: "bg-amber-500" },
+  { nome: "Empréstimo", valor: 620, pct: 52, cor: "bg-red-500" },
+  { nome: "Essenciais", valor: 400, pct: 33, cor: "bg-rose-400" },
+];
+
+// ─────────────────────────────────────────────
+// HEADER
+// ─────────────────────────────────────────────
 const Header = () => (
-  <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-[#0b1015]/80 backdrop-blur-md border-b border-slate-200 dark:border-white/5">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-7" />
-      </div>
-      <nav className="hidden md:flex items-center gap-8">
-        <a href="#beneficios" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Como Funciona</a>
-        <a href="#modulos" className="text-sm font-semibold text-slate-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">Módulos</a>
+  <header className="fixed top-0 w-full z-50 bg-white/90 dark:bg-[#080d12]/90 backdrop-blur-xl border-b border-slate-100 dark:border-white/[0.06]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[60px] flex items-center justify-between gap-4">
+      <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-7 dark:hidden" />
+      <img src="/brand/logo-gestor.png" alt="UniGestor" className="h-7 hidden dark:block" />
+
+      <nav className="hidden md:flex items-center gap-6">
+        {[
+          { label: "Como Funciona", href: "#como-funciona" },
+          { label: "Para sua Família", href: "#dashboard" },
+          { label: "Módulos", href: "#modulos" },
+        ].map(({ label, href }) => (
+          <a
+            key={href}
+            href={href}
+            className="text-[13px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            {label}
+          </a>
+        ))}
       </nav>
-      <Link
-        href="/admin"
-        className="h-9 px-5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-transform hover:scale-105 active:scale-95"
-      >
-        Acessar Sistema
-      </Link>
+
+      <div className="flex items-center gap-3">
+        <a
+          href="https://wa.me/5521992347771?text=Ol%C3%A1%21%20Gostaria%20de%20saber%20mais%20sobre%20o%20UniGestor."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:flex items-center gap-2 h-9 px-4 border border-[#25D366]/40 text-[#128c4a] dark:text-[#25D366] text-[13px] font-bold rounded-lg hover:bg-[#25D366]/5 transition-colors"
+        >
+          <IconWhatsApp /> Falar no WhatsApp
+        </a>
+        <Link
+          href="/login"
+          className="h-9 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[13px] font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
+        >
+          Acessar Sistema <IconArrow />
+        </Link>
+      </div>
     </div>
   </header>
 );
 
+// ─────────────────────────────────────────────
+// HERO SECTION
+// ─────────────────────────────────────────────
 const Hero = () => (
-  <section className="relative pt-32 pb-16 sm:pt-40 sm:pb-24 px-4 overflow-hidden">
-    <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-    
-    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-      {/* Esquerda: Copywriter de Conversão */}
-      <div className="max-w-2xl">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter text-slate-900 dark:text-white leading-tight">
-          Seu dinheiro entra. <br className="hidden sm:block" />
-          <span className="text-emerald-600 dark:text-emerald-500">Mas para onde ele vai?</span>
-        </h1>
-        <p className="mt-6 text-lg text-slate-600 dark:text-zinc-400 leading-relaxed">
-          Organize salário, contas da casa, empréstimos, cartão, compras e renda extra em um único painel. Entenda seu presente e planeje seu futuro.
-        </p>
-        
-        <ul className="mt-8 space-y-3">
-          {['Salários e receitas', 'Contas recorrentes', 'Cartões e empréstimos', 'Metas e investimentos'].map((item, i) => (
-            <li key={i} className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-zinc-300">
-              <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs">✓</span>
-              {item}
-            </li>
-          ))}
-        </ul>
+  <section className="relative pt-[100px] pb-0 overflow-hidden bg-white dark:bg-[#080d12]">
+    {/* Grid de fundo */}
+    <div
+      className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04] pointer-events-none"
+      style={{
+        backgroundImage: "linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)",
+        backgroundSize: "60px 60px",
+      }}
+    />
+    {/* Glow */}
+    <div className="absolute top-20 left-1/4 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
 
-        <div className="mt-10">
-          <a
-            href="https://wa.me/5521992347771?text=Ol%C3%A1!%20Gostaria%20de%20come%C3%A7ar%20a%20usar%20o%20UniGestor."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-14 px-8 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-base font-bold rounded-xl items-center justify-center shadow-xl shadow-slate-900/20 dark:shadow-emerald-500/20 transition-transform hover:-translate-y-1"
-          >
-            Começar agora
-          </a>
-        </div>
-      </div>
+    <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start pt-8 pb-0">
 
-      {/* Direita: Mockup Estático e Premium */}
-      <div className="relative">
-        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-[#161b22]/50 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col min-h-[420px]">
-          {/* Header Fake */}
-          <div className="h-10 bg-slate-100 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 flex items-center px-4 gap-2 shrink-0">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-rose-400"></div>
-              <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-              <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-            </div>
-            <div className="mx-auto text-[10px] font-bold text-slate-400 tracking-widest uppercase">Visão Geral</div>
+        {/* — LEFT: Copy —*/}
+        <div className="max-w-lg">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-widest mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Controle Financeiro Pessoal
           </div>
-          {/* Corpo do Mockup Simplificado */}
-          <div className="p-6 flex-1 flex flex-col gap-4">
-             <div className="grid grid-cols-2 gap-4">
-                <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-500/20">
-                  <p className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Entradas</p>
-                  <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">R$ 5.250,00</p>
+
+          <h1 className="text-[42px] sm:text-[52px] font-black tracking-tighter text-slate-900 dark:text-white leading-[1.05]">
+            Seu dinheiro entra.{" "}
+            <br />
+            <span className="text-emerald-600 dark:text-emerald-400">
+              Mas para onde
+              <br />
+              ele vai?
+            </span>
+          </h1>
+
+          <p className="mt-6 text-[17px] text-slate-600 dark:text-zinc-400 leading-relaxed">
+            Organize salário, aluguel, empréstimos, cartão e mercado em um único painel. Entenda onde está gastando demais e comece a construir seu futuro.
+          </p>
+
+          <ul className="mt-8 grid grid-cols-2 gap-y-3 gap-x-4">
+            {[
+              "Salários e renda extra",
+              "Contas recorrentes",
+              "Cartões e empréstimos",
+              "Categorias inteligentes",
+              "Projeção mensal",
+              "Metas financeiras",
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-2.5 text-[13px] font-semibold text-slate-700 dark:text-zinc-300">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <IconCheck />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-10 flex flex-col sm:flex-row gap-3">
+            <Link
+              href="/login"
+              className="h-[52px] px-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 transition-all hover:-translate-y-0.5"
+            >
+              Começar a organizar <IconArrow />
+            </Link>
+            <a
+              href="#dashboard"
+              className="h-[52px] px-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 text-[15px] font-bold rounded-xl flex items-center justify-center transition-colors hover:bg-slate-50 dark:hover:bg-white/10"
+            >
+              Ver como funciona
+            </a>
+          </div>
+        </div>
+
+        {/* — RIGHT: Dashboard Mockup Estático Premium — */}
+        <div className="relative flex justify-center lg:justify-end">
+          <div className="w-full max-w-[520px] rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111820] shadow-2xl shadow-slate-900/10 dark:shadow-black/50 overflow-hidden">
+            {/* Barra de título */}
+            <div className="h-10 bg-slate-50 dark:bg-[#0c1117] border-b border-slate-100 dark:border-white/[0.06] flex items-center px-4 gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-rose-400" />
+                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                <div className="w-3 h-3 rounded-full bg-emerald-400" />
+              </div>
+              <div className="flex-1 flex justify-center">
+                <div className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 tracking-widest uppercase">
+                  unigestor.net.br/admin
                 </div>
-                <div className="bg-rose-50 dark:bg-rose-500/10 p-4 rounded-xl border border-rose-100 dark:border-rose-500/20">
-                  <p className="text-[10px] uppercase font-bold text-rose-600 mb-1">Saídas</p>
-                  <p className="text-xl font-black text-rose-700 dark:text-rose-400">R$ 3.390,00</p>
-                </div>
-             </div>
-             {/* Barras de progresso simuladas (Ranking de Despesas) */}
-             <div className="space-y-3 mt-4">
-               <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Aluguel da Casa</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 1.200</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[85%] rounded-full"></div></div>
-               </div>
-               <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Supermercado</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 980</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[70%] rounded-full"></div></div>
-               </div>
-               <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Cartão de Crédito</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 950</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[65%] rounded-full"></div></div>
-               </div>
-               <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Conta de Luz</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 180</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[20%] rounded-full"></div></div>
-               </div>
-               <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Conta de Água</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 80</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[10%] rounded-full"></div></div>
-               </div>
-             </div>
+              </div>
+            </div>
+
+            {/* Cards de resumo */}
+            <div className="p-4 grid grid-cols-3 gap-3">
+              <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 rounded-xl">
+                <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Receitas</p>
+                <p className="text-[17px] font-black text-emerald-700 dark:text-emerald-300 tabular-nums">R$ 4.670</p>
+                <p className="text-[9px] text-emerald-600/60 dark:text-emerald-400/60 mt-0.5">Recebido no mês</p>
+              </div>
+              <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-3 rounded-xl">
+                <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider mb-1">Despesas</p>
+                <p className="text-[17px] font-black text-rose-700 dark:text-rose-300 tabular-nums">R$ 4.140</p>
+                <p className="text-[9px] text-rose-600/60 dark:text-rose-400/60 mt-0.5">Pago no mês</p>
+              </div>
+              <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 p-3 rounded-xl">
+                <p className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Saldo</p>
+                <p className="text-[17px] font-black text-slate-800 dark:text-white tabular-nums">R$ 2.810</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">Disponível</p>
+              </div>
+            </div>
+
+            {/* Ranking de despesas */}
+            <div className="px-4 pb-2">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-3">
+                Despesas por Categoria
+              </p>
+              <div className="space-y-2.5">
+                {CATEGORIAS_DESPESAS.map(({ nome, valor, pct, cor }) => (
+                  <div key={nome}>
+                    <div className="flex justify-between text-[11px] mb-1">
+                      <span className="font-semibold text-slate-600 dark:text-zinc-300">{nome}</span>
+                      <span className="font-black text-slate-700 dark:text-zinc-200 tabular-nums">R$ {valor.toLocaleString("pt-BR")}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 dark:bg-white/[0.06] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${cor} rounded-full`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Últimas transações */}
+            <div className="mt-3 border-t border-slate-100 dark:border-white/[0.06]">
+              <div className="px-4 py-2 flex items-center justify-between">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Lançamentos</p>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">ver todos →</span>
+              </div>
+              <div className="divide-y divide-slate-50 dark:divide-white/[0.04]">
+                {[
+                  { desc: "Salário CLT", cat: "💼 Salário", valor: "+R$ 3.200", status: "RECEBIDO", cor: "text-emerald-600" },
+                  { desc: "Aluguel", cat: "🏠 Moradia", valor: "-R$ 1.200", status: "PAGO", cor: "text-rose-600" },
+                  { desc: "Supermercado", cat: "🛒 Compras", valor: "-R$ 780", status: "PAGO", cor: "text-rose-600" },
+                  { desc: "Fatura Cartão", cat: "💳 Cartão", valor: "-R$ 1.140", status: "PENDENTE", cor: "text-rose-600" },
+                ].map(({ desc, cat, valor, status, cor }) => (
+                  <div key={desc} className="px-4 py-2.5 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-bold text-slate-700 dark:text-zinc-200 truncate">{desc}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-500">{cat}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className={`text-[12px] font-black tabular-nums ${cor}`}>{valor}</p>
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                        status === "RECEBIDO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                        : status === "PAGO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
+                      }`}>{status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="h-3" />
+            </div>
           </div>
         </div>
       </div>
@@ -115,26 +269,36 @@ const Hero = () => (
   </section>
 );
 
+// ─────────────────────────────────────────────
+// PAIN POINTS
+// ─────────────────────────────────────────────
 const PainPoints = () => (
-  <section className="py-16 bg-slate-100 dark:bg-white/[0.02] border-y border-slate-200 dark:border-white/5">
-    <div className="max-w-4xl mx-auto px-4 text-center">
-      <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight mb-6">
-        Você recebe. Paga conta. Usa cartão.<br/> Faz mercado. Paga internet.
+  <section className="py-20 bg-slate-900 dark:bg-[#060a0f] text-white">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+      <p className="text-slate-400 text-sm font-bold uppercase tracking-[0.2em] mb-6">Isso parece familiar?</p>
+      <h2 className="text-[32px] sm:text-[42px] font-extrabold tracking-tight leading-tight mb-4">
+        Você recebe. Paga conta. Usa cartão.<br />
+        Faz mercado. Paga internet. Coloca gasolina.
       </h2>
-      <p className="text-xl text-emerald-600 dark:text-emerald-400 font-medium mb-12">
-        No fim do mês sobra a dúvida: <span className="font-black italic">"Pra onde foi meu dinheiro?"</span>
+      <p className="text-xl text-emerald-400 font-bold mb-14">
+        No fim do mês sobra sempre a mesma dúvida:{" "}
+        <span className="italic text-white">"Cadê o meu dinheiro?"</span>
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: '😰', text: 'Final do mês apertado' },
-          { icon: '💳', text: 'Cartão acumulando' },
-          { icon: '📅', text: 'Contas vencendo' },
-          { icon: '💨', text: 'Dinheiro sumindo' }
-        ].map((item, i) => (
-          <div key={i} className="bg-white dark:bg-[#161b22] p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="text-3xl mb-3">{item.icon}</div>
-            <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">{item.text}</p>
+          { icon: "💸", title: "Dinheiro sumindo", sub: "Sem saber para onde vai" },
+          { icon: "💳", title: "Cartão acumulando", sub: "Fatura surpresa no fim do mês" },
+          { icon: "📅", title: "Contas vencendo", sub: "Lembretes chegando tarde" },
+          { icon: "😰", title: "Mês apertado", sub: "Dificuldade de guardar algo" },
+        ].map(({ icon, title, sub }) => (
+          <div
+            key={title}
+            className="bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-2xl p-6 text-left transition-colors"
+          >
+            <div className="text-3xl mb-3">{icon}</div>
+            <p className="font-bold text-white text-[15px]">{title}</p>
+            <p className="text-slate-400 text-[12px] mt-1 leading-relaxed">{sub}</p>
           </div>
         ))}
       </div>
@@ -142,255 +306,451 @@ const PainPoints = () => (
   </section>
 );
 
-const FinancialDashboard = () => (
-  <section className="py-16 max-w-7xl mx-auto px-4">
-    <div className="text-center mb-12">
-      <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-4">A realidade financeira mapeada</h2>
-      <p className="text-slate-600 dark:text-zinc-400">Dados claros, organizados e idênticos ao que você verá no seu painel.</p>
-    </div>
-
-    {/* Dashboard Premium Realista - Formato Tabela */}
-    <div className="bg-white dark:bg-[#161b22] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-w-5xl mx-auto">
-      <div className="w-full">
-        {/* Header da Tabela */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-          <div className="md:col-span-2">Descrição</div>
-          <div className="hidden md:block">Vencimento</div>
-          <div className="hidden md:block">Status</div>
-          <div className="hidden md:block">Categoria</div>
-          <div className="hidden md:block">Conta / Recorrência</div>
-          <div className="text-right">Valor</div>
-        </div>
-
-        {/* Linhas da Tabela */}
-        <div className="divide-y divide-slate-100 dark:divide-white/5">
-          
-          {/* Linha 1 */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Salário Mensal</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">05/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💼 Salário</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">🏦 Nubank</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
-            </div>
-            <div className="text-sm font-bold text-emerald-600 text-right">+ R$ 3.500,00</div>
-          </div>
-
-          {/* Linha 2 */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Prestação de Serviços</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🤝 Renda Extra</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">💛 Mercado Pago</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">AVULSO</p>
-            </div>
-            <div className="text-sm font-bold text-emerald-600 text-right">+ R$ 850,00</div>
-          </div>
-
-          {/* Linha 3 */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Aluguel da Casa</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏠 Moradia</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">🏦 Nubank</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
-            </div>
-            <div className="text-sm font-bold text-rose-600 text-right">- R$ 1.200,00</div>
-          </div>
-
-          {/* Linha 4 (NOVA: Empréstimo) */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Empréstimo Pessoal</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">12/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏦 Dívidas</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">🏦 Caixa Econômica</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">PARCELA 5/12</p>
-            </div>
-            <div className="text-sm font-bold text-rose-600 text-right">- R$ 450,00</div>
-          </div>
-
-          {/* Linha 5 */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Fatura Cartão de Crédito</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">15/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💳 Cartão de Crédito</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">🏦 Banco Inter</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
-            </div>
-            <div className="text-sm font-bold text-rose-600 text-right">- R$ 950,00</div>
-          </div>
-
-          {/* Linha 6 */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="md:col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Conta de Luz</p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
-            </div>
-            <div className="hidden md:block text-sm text-slate-500">20/05/2026</div>
-            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
-            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">⚡ Serviços Essenciais</div>
-            <div className="hidden md:block">
-              <p className="text-xs text-slate-500">🏦 Nubank</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
-            </div>
-            <div className="text-sm font-bold text-rose-600 text-right">- R$ 180,00</div>
-          </div>
-
-        </div>
+// ─────────────────────────────────────────────
+// COMO FUNCIONA
+// ─────────────────────────────────────────────
+const ComoFunciona = () => (
+  <section id="como-funciona" className="py-24 bg-white dark:bg-[#080d12]">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="text-center mb-16">
+        <p className="text-emerald-600 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-[0.2em] mb-3">Como Funciona</p>
+        <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white">
+          Tudo no lugar certo, em 3 passos simples
+        </h2>
       </div>
-    </div>{/* Dashboard Premium Realista - Formato Tabela */}
-    
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {[
+          {
+            num: "01",
+            icon: "📝",
+            title: "Cadastre suas contas",
+            desc: "Adicione suas receitas (salário, bicos, vendas) e despesas (aluguel, cartão, empréstimos, contas essenciais). Uma única vez.",
+            color: "border-emerald-200 dark:border-emerald-500/30",
+            numColor: "text-emerald-600 dark:text-emerald-400",
+          },
+          {
+            num: "02",
+            icon: "📊",
+            title: "Visualize o panorama",
+            desc: "Veja em tempo real quanto entrou, quanto saiu, qual é o seu saldo real e para onde seu dinheiro está indo mês a mês.",
+            color: "border-sky-200 dark:border-sky-500/30",
+            numColor: "text-sky-600 dark:text-sky-400",
+          },
+          {
+            num: "03",
+            icon: "🎯",
+            title: "Tome o controle",
+            desc: "Identifique gastos excessivos, organize prioridades, crie metas e acompanhe sua evolução financeira com clareza.",
+            color: "border-violet-200 dark:border-violet-500/30",
+            numColor: "text-violet-600 dark:text-violet-400",
+          },
+        ].map(({ num, icon, title, desc, color, numColor }) => (
+          <div
+            key={num}
+            className={`p-8 rounded-2xl border-2 ${color} bg-slate-50 dark:bg-white/[0.03] relative`}
+          >
+            <span className={`absolute top-6 right-6 text-[11px] font-black ${numColor} opacity-40`}>
+              {num}
+            </span>
+            <div className="text-4xl mb-5">{icon}</div>
+            <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-3">{title}</h3>
+            <p className="text-[14px] text-slate-600 dark:text-zinc-400 leading-relaxed">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   </section>
 );
 
+// ─────────────────────────────────────────────
+// DASHBOARD COMPLETO (A PEÇA CENTRAL)
+// ─────────────────────────────────────────────
+const FullDashboard = () => (
+  <section id="dashboard" className="py-24 bg-slate-50 dark:bg-[#060a0f] border-y border-slate-100 dark:border-white/[0.04]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="text-center mb-12">
+        <p className="text-emerald-600 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-[0.2em] mb-3">
+          Para Sua Família
+        </p>
+        <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white">
+          A realidade financeira brasileira,{" "}
+          <span className="text-emerald-600 dark:text-emerald-400">finalmente mapeada</span>
+        </h2>
+        <p className="mt-4 text-[15px] text-slate-600 dark:text-zinc-400 max-w-xl mx-auto">
+          Dados reais, organizados como você vai ver no seu painel — com categorias do dia a dia de qualquer família.
+        </p>
+      </div>
+
+      {/* Painel Principal */}
+      <div className="bg-white dark:bg-[#111820] rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-2xl overflow-hidden max-w-5xl mx-auto">
+        {/* Header do painel */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50 dark:bg-[#0c1117]">
+          <div>
+            <h3 className="font-bold text-slate-800 dark:text-white">Finanças Pessoais</h3>
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 uppercase tracking-wider">Maio 2026</p>
+          </div>
+          <div className="flex gap-2">
+            {["Receitas", "Despesas", "Saldo"].map((t, i) => (
+              <span
+                key={t}
+                className={`text-[10px] font-bold px-3 py-1 rounded-full ${
+                  i === 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                  : i === 1 ? "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
+                  : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-zinc-300"
+                }`}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabela de Lançamentos */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left" style={{ minWidth: 700 }}>
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                <th className="px-6 py-3">Descrição</th>
+                <th className="px-4 py-3 text-center">Data</th>
+                <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3">Categoria</th>
+                <th className="px-4 py-3">Conta</th>
+                <th className="px-6 py-3 text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-white/[0.04]">
+              {/* RECEITAS */}
+              <tr className="bg-slate-50/50 dark:bg-white/[0.02]">
+                <td colSpan={6} className="px-6 py-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
+                  📈 Receitas do Mês
+                </td>
+              </tr>
+              {RECEITAS.map(({ desc, cat, conta, valor, status, tipo, data }) => (
+                <tr key={desc} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+                  <td className="px-6 py-3">
+                    <p className="text-[13px] font-bold text-slate-700 dark:text-zinc-200">{desc}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 uppercase tracking-wide">{tipo}</p>
+                  </td>
+                  <td className="px-4 py-3 text-center text-[12px] font-mono text-slate-500 dark:text-zinc-400">{data}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                      status === "RECEBIDO"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
+                    }`}>{status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-[12px] text-slate-600 dark:text-zinc-400">{cat}</td>
+                  <td className="px-4 py-3 text-[12px] text-slate-500 dark:text-zinc-500">{conta}</td>
+                  <td className="px-6 py-3 text-right text-[13px] font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                    + R$ {valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+
+              {/* DESPESAS */}
+              <tr className="bg-slate-50/50 dark:bg-white/[0.02]">
+                <td colSpan={6} className="px-6 py-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest">
+                  📉 Despesas do Mês
+                </td>
+              </tr>
+              {DESPESAS.map(({ desc, cat, conta, valor, status, tipo, data }) => (
+                <tr key={desc} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+                  <td className="px-6 py-3">
+                    <p className="text-[13px] font-bold text-slate-700 dark:text-zinc-200">{desc}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 uppercase tracking-wide">{tipo}</p>
+                  </td>
+                  <td className="px-4 py-3 text-center text-[12px] font-mono text-slate-500 dark:text-zinc-400">{data}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                      status === "PAGO"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
+                    }`}>{status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-[12px] text-slate-600 dark:text-zinc-400">{cat}</td>
+                  <td className="px-4 py-3 text-[12px] text-slate-500 dark:text-zinc-500">{conta}</td>
+                  <td className="px-6 py-3 text-right text-[13px] font-black text-rose-600 dark:text-rose-400 tabular-nums">
+                    - R$ {valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              ))}
+
+              {/* Rodapé com totais */}
+              <tr className="bg-slate-900 dark:bg-black/40 text-white">
+                <td colSpan={4} className="px-6 py-4 text-[12px] font-bold text-slate-300">
+                  💰 Saldo Final do Mês
+                </td>
+                <td className="px-4 py-4 text-right text-[11px] text-slate-400">
+                  <span className="text-emerald-400">Receitas: R$ 4.670</span>
+                  <br />
+                  <span className="text-rose-400">Despesas: R$ 4.140</span>
+                </td>
+                <td className="px-6 py-4 text-right text-[18px] font-black text-emerald-400 tabular-nums">
+                  R$ 530,00
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Nota contextual */}
+      <p className="text-center mt-6 text-[12px] text-slate-400 dark:text-zinc-500 italic">
+        * Dados fictícios baseados na realidade de uma família brasileira de classe média.
+      </p>
+    </div>
+  </section>
+);
+
+// ─────────────────────────────────────────────
+// BENEFÍCIOS
+// ─────────────────────────────────────────────
 const Benefits = () => (
-  <section id="beneficios" className="py-16 bg-slate-50 dark:bg-[#0b1015]">
-    <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[
-        { title: 'Controle Mensal', desc: 'Saiba exatamente qual será seu saldo até o último dia do mês.' },
-        { title: 'Contas Recorrentes', desc: 'Cadastre uma vez. O sistema projeta os meses seguintes sozinho.' },
-        { title: 'Categorias Inteligentes', desc: 'Identifique os ralos financeiros que estão consumindo sua renda.' },
-        { title: 'Planejamento Futuro', desc: 'Tome decisões hoje baseadas em como seu caixa estará amanhã.' }
-      ].map((b, i) => (
-        <div key={i} className="p-6 border border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-[#161b22]">
-          <h3 className="font-bold text-slate-900 dark:text-white mb-2">{b.title}</h3>
-          <p className="text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">{b.desc}</p>
-        </div>
-      ))}
+  <section className="py-24 bg-white dark:bg-[#080d12]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="text-center mb-16">
+        <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white">
+          Por que funciona de verdade
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          {
+            icon: "🔁",
+            title: "Recorrências Automáticas",
+            desc: "Cadastre aluguel, internet, empréstimento uma vez. O sistema projeta os próximos meses sozinho.",
+            bg: "bg-sky-50 dark:bg-sky-500/10",
+            border: "border-sky-200 dark:border-sky-500/20",
+          },
+          {
+            icon: "📊",
+            title: "Visão de Caixa Real",
+            desc: "Saiba exatamente seu saldo projetado até o último dia do mês. Sem surpresas.",
+            bg: "bg-emerald-50 dark:bg-emerald-500/10",
+            border: "border-emerald-200 dark:border-emerald-500/20",
+          },
+          {
+            icon: "🏷️",
+            title: "Categorias Inteligentes",
+            desc: "Descubra os ralos financeiros. Supermercado, lazer, dívidas — tudo categorizado e rankeado.",
+            bg: "bg-amber-50 dark:bg-amber-500/10",
+            border: "border-amber-200 dark:border-amber-500/20",
+          },
+          {
+            icon: "🎯",
+            title: "Planejamento de Futuro",
+            desc: "Com o passado organizado, fica fácil planejar: economizar, investir, quitar dívidas.",
+            bg: "bg-violet-50 dark:bg-violet-500/10",
+            border: "border-violet-200 dark:border-violet-500/20",
+          },
+        ].map(({ icon, title, desc, bg, border }) => (
+          <div
+            key={title}
+            className={`p-6 rounded-2xl border ${bg} ${border}`}
+          >
+            <div className="text-3xl mb-4">{icon}</div>
+            <h3 className="text-[16px] font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
+            <p className="text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed">{desc}</p>
+          </div>
+        ))}
+      </div>
     </div>
   </section>
 );
 
+// ─────────────────────────────────────────────
+// MÓDULOS
+// ─────────────────────────────────────────────
 const Modules = () => (
-  <section id="modulos" className="py-16 max-w-7xl mx-auto px-4 border-t border-slate-200 dark:border-white/5">
-    <div className="text-center mb-16">
-      <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-4">Expanda quando precisar</h2>
-      <p className="text-slate-600 dark:text-zinc-400">Ferramentas extras nativas para quem precisa gerenciar mais do que a própria casa.</p>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      {/* Academia */}
-      <div className="p-8 border border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-white/5 relative">
-        <span className="absolute top-4 right-4 text-[10px] font-bold uppercase px-2 py-1 bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 rounded">Em Desenvolvimento</span>
-        <div className="text-3xl mb-4">🏋️</div>
-        <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-4">Academia</h3>
-        <ul className="space-y-2 text-sm text-slate-600 dark:text-zinc-400">
-          <li>• Gestão de Alunos</li>
-          <li>• Controle de Mensalidades</li>
-          <li>• Check-in e Catraca</li>
-          <li>• Planos Personalizados</li>
-        </ul>
+  <section id="modulos" className="py-24 bg-slate-50 dark:bg-[#060a0f] border-t border-slate-100 dark:border-white/[0.04]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="text-center mb-16">
+        <p className="text-slate-400 dark:text-zinc-500 text-[11px] font-bold uppercase tracking-[0.2em] mb-3">
+          Módulos Específicos
+        </p>
+        <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-slate-900 dark:text-white">
+          Expanda quando seu negócio pedir
+        </h2>
+        <p className="mt-4 text-[15px] text-slate-600 dark:text-zinc-400">
+          Ferramentas extras para quem precisa gerenciar mais do que a própria casa.
+        </p>
       </div>
 
-      {/* Personal */}
-      <div className="p-8 border border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-white/5 relative">
-        <span className="absolute top-4 right-4 text-[10px] font-bold uppercase px-2 py-1 bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 rounded">Em Desenvolvimento</span>
-        <div className="text-3xl mb-4">⏱️</div>
-        <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-4">Personal Trainer</h3>
-        <ul className="space-y-2 text-sm text-slate-600 dark:text-zinc-400">
-          <li>• Ficha de Clientes</li>
-          <li>• Evolução de Treinos</li>
-          <li>• Pagamentos e Pacotes</li>
-          <li>• Agenda Automática</li>
-        </ul>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Academia */}
+        <div className="bg-white dark:bg-[#111820] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-8 relative group hover:border-sky-300 dark:hover:border-sky-500/40 transition-colors">
+          <div className="absolute top-5 right-5">
+            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30">
+              Em desenvolvimento
+            </span>
+          </div>
+          <div className="w-14 h-14 rounded-2xl bg-sky-100 dark:bg-sky-500/20 flex items-center justify-center text-2xl mb-6">
+            🏋️
+          </div>
+          <h3 className="text-[20px] font-bold text-slate-900 dark:text-white mb-2">Academia</h3>
+          <p className="text-[13px] text-slate-500 dark:text-zinc-400 mb-6 leading-relaxed">
+            Sistema completo para quem tem uma academia ou espaço fitness.
+          </p>
+          <ul className="space-y-2">
+            {["Cadastro e gestão de alunos", "Controle de mensalidades", "Check-in e acesso", "Planos e modalidades"].map((item) => (
+              <li key={item} className="flex items-center gap-2 text-[12px] text-slate-600 dark:text-zinc-400">
+                <span className="w-4 h-4 rounded-full bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0">
+                  <IconCheck />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-      {/* Condominio */}
-      <div className="p-8 border border-slate-200 dark:border-white/10 rounded-2xl bg-white dark:bg-white/5 relative opacity-70 grayscale hover:grayscale-0 transition-all">
-        <span className="absolute top-4 right-4 text-[10px] font-bold uppercase px-2 py-1 bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-400 rounded">Em Breve</span>
-        <div className="text-3xl mb-4">🏢</div>
-        <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-4">Condomínio</h3>
-        <ul className="space-y-2 text-sm text-slate-600 dark:text-zinc-400">
-          <li>• Cadastro de Moradores</li>
-          <li>• Reservas de Áreas</li>
-          <li>• Cobranças (Boleto/Pix)</li>
-          <li>• Financeiro e Transparência</li>
-        </ul>
-      </div>
+        {/* Personal */}
+        <div className="bg-white dark:bg-[#111820] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-8 relative group hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-colors">
+          <div className="absolute top-5 right-5">
+            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 border border-sky-200 dark:border-sky-500/30">
+              Em desenvolvimento
+            </span>
+          </div>
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-2xl mb-6">
+            ⏱️
+          </div>
+          <h3 className="text-[20px] font-bold text-slate-900 dark:text-white mb-2">Personal Trainer</h3>
+          <p className="text-[13px] text-slate-500 dark:text-zinc-400 mb-6 leading-relaxed">
+            Organize sua carteira de clientes, treinos e recebimentos em um só lugar.
+          </p>
+          <ul className="space-y-2">
+            {["Ficha e evolução de clientes", "Planilha de treinos", "Controle de pagamentos", "Agenda automática"].map((item) => (
+              <li key={item} className="flex items-center gap-2 text-[12px] text-slate-600 dark:text-zinc-400">
+                <span className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                  <IconCheck />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
 
+        {/* Condomínio */}
+        <div className="bg-slate-50 dark:bg-[#0c1117] border border-slate-200 dark:border-white/[0.05] rounded-2xl p-8 relative opacity-70 hover:opacity-90 transition-opacity">
+          <div className="absolute top-5 right-5">
+            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-full bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-zinc-400 border border-slate-200 dark:border-white/10">
+              Em breve
+            </span>
+          </div>
+          <div className="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-white/10 flex items-center justify-center text-2xl mb-6 grayscale">
+            🏢
+          </div>
+          <h3 className="text-[20px] font-bold text-slate-600 dark:text-zinc-300 mb-2">Condomínio</h3>
+          <p className="text-[13px] text-slate-400 dark:text-zinc-500 mb-6 leading-relaxed">
+            Gestão financeira e administrativa completa para síndicos e administradoras.
+          </p>
+          <ul className="space-y-2">
+            {["Cadastro de moradores", "Reservas de áreas comuns", "Cobranças via Pix/Boleto", "Transparência financeira"].map((item) => (
+              <li key={item} className="flex items-center gap-2 text-[12px] text-slate-500 dark:text-zinc-500">
+                <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-white/10 text-slate-400 flex items-center justify-center flex-shrink-0">
+                  <IconCheck />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   </section>
 );
 
+// ─────────────────────────────────────────────
+// SEGURANÇA
+// ─────────────────────────────────────────────
 const Security = () => (
-  <section className="py-12 bg-emerald-900 text-emerald-50 text-center px-4">
-    <p className="text-sm font-medium flex items-center justify-center gap-2">
-      <span className="text-xl">🔒</span> Seus dados bancários e pessoais são blindados e seguem rigorosamente a LGPD.
-    </p>
-  </section>
-);
-
-const FinalCTA = () => (
-  <section className="py-16 px-4 text-center">
-    <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
-      Pare de adivinhar. <br className="hidden sm:block" />
-      <span className="text-emerald-600">Comece a controlar.</span>
-    </h2>
-    
-    <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
-      <Link
-        href="/admin"
-        className="h-14 px-10 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl flex items-center justify-center shadow-xl shadow-emerald-500/20 transition-transform hover:scale-105"
-      >
-        Entrar no UniGestor
-      </Link>
-      <a
-        href="https://wa.me/5521992347771?text=Ol%C3%A1!%20Fiquei%20com%20d%C3%BAvidas%20sobre%20o%20UniGestor."
-        target="_blank"
-        rel="noopener noreferrer"
-        className="h-14 px-8 bg-transparent border border-slate-300 dark:border-white/20 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/5 text-base font-bold rounded-xl flex items-center justify-center transition-colors gap-2"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
-        </svg>
-        Dúvidas? WhatsApp
-      </a>
+  <section className="py-16 bg-slate-900 dark:bg-black/60 text-white">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/10 text-emerald-400 mb-6">
+        <IconShield />
+      </div>
+      <h2 className="text-2xl font-extrabold tracking-tight mb-4">
+        Seus dados sempre protegidos
+      </h2>
+      <p className="text-slate-400 text-[15px] leading-relaxed max-w-2xl mx-auto">
+        A infraestrutura do UniGestor é construída com criptografia ponta-a-ponta. Suas informações financeiras e pessoais permanecem{" "}
+        <strong className="text-white">100% confidenciais</strong> e em estrita conformidade com a{" "}
+        <strong className="text-emerald-400">Lei Geral de Proteção de Dados (LGPD)</strong>.
+      </p>
     </div>
   </section>
 );
 
+// ─────────────────────────────────────────────
+// CTA FINAL
+// ─────────────────────────────────────────────
+const FinalCTA = () => (
+  <section className="py-32 bg-white dark:bg-[#080d12] relative overflow-hidden">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="w-[800px] h-[400px] bg-emerald-500/10 rounded-full blur-[120px]" />
+    </div>
+    <div className="relative max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <h2 className="text-[42px] sm:text-[56px] font-black tracking-tighter text-slate-900 dark:text-white leading-tight mb-6">
+        Pare de adivinhar.
+        <br />
+        <span className="text-emerald-600 dark:text-emerald-400">Comece a controlar.</span>
+      </h2>
+      <p className="text-[17px] text-slate-600 dark:text-zinc-400 mb-10 max-w-xl mx-auto leading-relaxed">
+        O primeiro passo para uma vida financeira organizada é ter clareza. E clareza começa com dados reais no lugar certo.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Link
+          href="/login"
+          className="h-[56px] px-10 bg-emerald-600 hover:bg-emerald-500 text-white text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-2xl shadow-emerald-500/30 transition-all hover:-translate-y-1 hover:scale-105"
+        >
+          Entrar no UniGestor <IconArrow />
+        </Link>
+        <a
+          href="https://wa.me/5521992347771?text=Ol%C3%A1%21%20Fiquei%20com%20d%C3%BAvidas%20sobre%20o%20UniGestor."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="h-[56px] px-8 bg-transparent border-2 border-[#25D366]/40 text-[#128c4a] dark:text-[#25D366] text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366]/5 transition-colors"
+        >
+          <IconWhatsApp /> Tirar dúvidas no WhatsApp
+        </a>
+      </div>
+    </div>
+  </section>
+);
+
+// ─────────────────────────────────────────────
+// FOOTER
+// ─────────────────────────────────────────────
 const Footer = () => (
-  <footer className="border-t border-slate-200 dark:border-white/5 py-8 text-center bg-slate-50 dark:bg-[#0b1015]">
-    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-      &copy; {new Date().getFullYear()} UniGestor. Todos os direitos reservados.
-    </p>
+  <footer className="border-t border-slate-100 dark:border-white/[0.05] bg-slate-50 dark:bg-[#060a0f] py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-6 opacity-40 grayscale dark:hidden" />
+      <img src="/brand/logo-gestor.png" alt="UniGestor" className="h-6 opacity-30 grayscale hidden dark:block" />
+      <p className="text-[11px] text-slate-400 dark:text-zinc-600 font-medium tracking-wide">
+        &copy; {new Date().getFullYear()} UniGestor · Todos os direitos reservados · LGPD
+      </p>
+      <div className="flex gap-4 text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
+        <a href="#como-funciona" className="hover:text-slate-700 dark:hover:text-zinc-300 transition-colors">Como Funciona</a>
+        <a href="#modulos" className="hover:text-slate-700 dark:hover:text-zinc-300 transition-colors">Módulos</a>
+        <Link href="/login" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Acessar</Link>
+      </div>
+    </div>
   </footer>
 );
 
+// ─────────────────────────────────────────────
+// PÁGINA PRINCIPAL
+// ─────────────────────────────────────────────
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0b1015] text-slate-800 dark:text-zinc-200 font-sans overflow-x-hidden selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-white dark:bg-[#080d12] text-slate-800 dark:text-zinc-200 overflow-x-hidden selection:bg-emerald-500 selection:text-white">
       <Header />
       <main>
         <Hero />
         <PainPoints />
-        <FinancialDashboard />
+        <ComoFunciona />
+        <FullDashboard />
         <Benefits />
         <Modules />
         <Security />
