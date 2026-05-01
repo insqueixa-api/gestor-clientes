@@ -764,8 +764,8 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           <SectionTitle>Módulos Habilitados</SectionTitle>
           <div className="space-y-2">
 
-            {/* IPTV */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('iptv') ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+            {/* IPTV (Azul) */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('iptv') ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
                   📺 IPTV
@@ -773,14 +773,14 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Servidores, Aplicativos e Clientes</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('iptv')}
-                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('iptv') ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('iptv') ? 'bg-blue-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('iptv') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
 
-            {/* SaaS — só aparece se IPTV estiver ativo */}
+            {/* SaaS (Índigo) */}
             {activeModules.includes('iptv') && (
-              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ml-4 ${activeModules.includes('saas') ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ml-4 ${activeModules.includes('saas') ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-200 dark:border-white/10'}`}>
                 <div>
                   <div className="text-sm font-bold text-slate-700 dark:text-white">⚡ SaaS / Rede de Revendas</div>
                   <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Habilita perfil MASTER e gestão de revendedores</div>
@@ -788,15 +788,14 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <button type="button" onClick={() => {
                     const next = !activeModules.includes('saas');
                     setActiveModules(prev => next ? [...prev, 'saas'] : prev.filter(m => m !== 'saas'));
-                    setRole(next ? 'MASTER' : 'USER');
                   }}
-                  className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('saas') ? 'bg-amber-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                  className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('saas') ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                   <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('saas') ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
             )}
 
-            {/* Financeiro */}
+            {/* Financeiro (Verde Esmeralda) */}
             <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('financeiro') ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white">💰 Gestão Financeira</div>
@@ -808,8 +807,8 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               </button>
             </div>
 
-            {/* Academia */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('academia') ? 'border-sky-500/50 bg-sky-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+            {/* Academia (Rosa) */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('academia') ? 'border-rose-500/50 bg-rose-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
                   🏋️ Academia
@@ -817,12 +816,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('academia')}
-                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('academia') ? 'bg-rose-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('academia') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
 
-            {/* Personal (NOVO MÓDULO) */}
+            {/* Personal (Laranja) */}
             <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('personal') ? 'border-orange-500/50 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
@@ -836,8 +835,8 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               </button>
             </div>
 
-            {/* Condomínio */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('condominio') ? 'border-purple-500/50 bg-purple-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+            {/* Condomínio (Âmbar) */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('condominio') ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
                   🏢 Condomínio
@@ -845,7 +844,7 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                 <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Moradores, encomendas, estoque e reservas</div>
               </div>
               <button type="button" onClick={() => handleModuleToggle('condominio')}
-                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('condominio') ? 'bg-purple-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('condominio') ? 'bg-amber-500' : 'bg-slate-300 dark:bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('condominio') ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>

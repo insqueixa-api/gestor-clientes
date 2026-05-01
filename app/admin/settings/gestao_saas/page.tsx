@@ -1444,8 +1444,10 @@ function TenantRow({
       {/* ✅ NOVA CÉLULA: MÓDULOS (Estilo Dashboard) */}
       <td className="px-4 py-3 text-center">
         <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[220px]">
+          
+          {/* IPTV (Azul) */}
           {hasIptv && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV Ativo">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-blue-500 border-blue-500 text-white shadow-blue-900/20" title="Módulo IPTV Ativo">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
                 <polyline points="17 2 12 7 7 2"/>
@@ -1453,14 +1455,18 @@ function TenantRow({
               IPTV
             </span>
           )}
+
+          {/* SaaS (Índigo - Próximo do Azul) */}
           {hasSaas && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="Módulo SaaS Ativo">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-indigo-500 border-indigo-500 text-white shadow-indigo-900/20" title="Módulo SaaS Ativo">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
               SaaS
             </span>
           )}
+
+          {/* Financeiro (Verde Esmeralda) */}
           {mods.includes("financeiro") && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro Ativo">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -1469,22 +1475,28 @@ function TenantRow({
               Financeiro
             </span>
           )}
-          {/* ✅ NOVOS MÓDULOS */}
+
+          {/* Academia (Rosa/Avermelhado) */}
           {mods.includes("academia") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo Academia Ativo">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-rose-500 border-rose-500 text-white shadow-rose-900/20" title="Módulo Academia Ativo">
               🏋️ Academia
             </span>
           )}
+
+          {/* Personal (Laranja - Próximo do Rosa) */}
           {mods.includes("personal") && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-orange-500 border-orange-500 text-white shadow-orange-900/20" title="Módulo Personal Trainer Ativo">
               🏃 Personal
             </span>
           )}
+
+          {/* Condomínio (Âmbar/Amarelo) */}
           {mods.includes("condominio") && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-purple-500 border-purple-500 text-white shadow-purple-900/20" title="Módulo Condomínio Ativo">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-amber-500 border-amber-500 text-white shadow-amber-900/20" title="Módulo Condomínio Ativo">
               🏢 Condomínio
             </span>
           )}
+          
         </div>
       </td>
 
