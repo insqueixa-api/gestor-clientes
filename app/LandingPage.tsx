@@ -63,7 +63,7 @@ const Hero = () => (
 
       {/* Direita: Mockup Estático e Premium */}
       <div className="relative">
-        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-[#161b22]/50 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col h-[400px]">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-[#161b22]/50 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col min-h-[420px]">
           {/* Header Fake */}
           <div className="h-10 bg-slate-100 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 flex items-center px-4 gap-2 shrink-0">
             <div className="flex gap-1.5">
@@ -85,15 +85,27 @@ const Hero = () => (
                   <p className="text-xl font-black text-rose-700 dark:text-rose-400">R$ 3.390,00</p>
                 </div>
              </div>
-             {/* Barras de progresso simuladas */}
+             {/* Barras de progresso simuladas (Ranking de Despesas) */}
              <div className="space-y-3 mt-4">
                <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Mercado</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 1.120</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[60%]"></div></div>
+                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Aluguel da Casa</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 1.200</span></div>
+                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[85%] rounded-full"></div></div>
                </div>
                <div>
-                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Cartão de Crédito</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 1.240</span></div>
-                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[75%]"></div></div>
+                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Supermercado</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 980</span></div>
+                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[70%] rounded-full"></div></div>
+               </div>
+               <div>
+                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Cartão de Crédito</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 950</span></div>
+                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[65%] rounded-full"></div></div>
+               </div>
+               <div>
+                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Conta de Luz</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 180</span></div>
+                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[20%] rounded-full"></div></div>
+               </div>
+               <div>
+                 <div className="flex justify-between text-xs mb-1"><span className="text-slate-500">Conta de Água</span><span className="font-bold text-slate-700 dark:text-zinc-200">R$ 80</span></div>
+                 <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-rose-400 w-[10%] rounded-full"></div></div>
                </div>
              </div>
           </div>
@@ -104,7 +116,7 @@ const Hero = () => (
 );
 
 const PainPoints = () => (
-  <section className="py-24 bg-slate-100 dark:bg-white/[0.02] border-y border-slate-200 dark:border-white/5">
+  <section className="py-16 bg-slate-100 dark:bg-white/[0.02] border-y border-slate-200 dark:border-white/5">
     <div className="max-w-4xl mx-auto px-4 text-center">
       <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight mb-6">
         Você recebe. Paga conta. Usa cartão.<br/> Faz mercado. Paga internet.
@@ -131,22 +143,22 @@ const PainPoints = () => (
 );
 
 const FinancialDashboard = () => (
-  <section className="py-24 max-w-7xl mx-auto px-4">
+  <section className="py-16 max-w-7xl mx-auto px-4">
     <div className="text-center mb-12">
       <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-4">A realidade financeira mapeada</h2>
       <p className="text-slate-600 dark:text-zinc-400">Dados claros, organizados e idênticos ao que você verá no seu painel.</p>
     </div>
 
     {/* Dashboard Premium Realista - Formato Tabela */}
-    <div className="bg-white dark:bg-[#161b22] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-w-5xl mx-auto overflow-x-auto">
-      <div className="min-w-[900px]">
+    <div className="bg-white dark:bg-[#161b22] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-w-5xl mx-auto">
+      <div className="w-full">
         {/* Header da Tabela */}
-        <div className="grid grid-cols-7 gap-4 p-4 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-          <div className="col-span-2">Descrição</div>
-          <div>Vencimento</div>
-          <div>Status</div>
-          <div>Categoria</div>
-          <div>Conta / Recorrência</div>
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+          <div className="md:col-span-2">Descrição</div>
+          <div className="hidden md:block">Vencimento</div>
+          <div className="hidden md:block">Status</div>
+          <div className="hidden md:block">Categoria</div>
+          <div className="hidden md:block">Conta / Recorrência</div>
           <div className="text-right">Valor</div>
         </div>
 
@@ -154,15 +166,15 @@ const FinancialDashboard = () => (
         <div className="divide-y divide-slate-100 dark:divide-white/5">
           
           {/* Linha 1 */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Salário Mensal</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Salário Mensal</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
             </div>
-            <div className="text-sm text-slate-500">05/05/2026</div>
-            <div><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">💼 Salário</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">05/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💼 Salário</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">🏦 Nubank</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
             </div>
@@ -170,15 +182,15 @@ const FinancialDashboard = () => (
           </div>
 
           {/* Linha 2 */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Prestação de Serviços</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Prestação de Serviços</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
             </div>
-            <div className="text-sm text-slate-500">10/05/2026</div>
-            <div><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">🤝 Renda Extra</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🤝 Renda Extra</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">💛 Mercado Pago</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">AVULSO</p>
             </div>
@@ -186,15 +198,15 @@ const FinancialDashboard = () => (
           </div>
 
           {/* Linha 3 */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-            <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Aluguel da Casa</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Aluguel da Casa</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
             </div>
-            <div className="text-sm text-slate-500">10/05/2026</div>
-            <div><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">🏠 Moradia</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏠 Moradia</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">🏦 Nubank</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
             </div>
@@ -202,15 +214,15 @@ const FinancialDashboard = () => (
           </div>
 
           {/* Linha 4 (NOVA: Empréstimo) */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Empréstimo Pessoal</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Empréstimo Pessoal</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
             </div>
-            <div className="text-sm text-slate-500">12/05/2026</div>
-            <div><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">🏦 Dívidas</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">12/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏦 Dívidas</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">🏦 Caixa Econômica</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">PARCELA 5/12</p>
             </div>
@@ -218,15 +230,15 @@ const FinancialDashboard = () => (
           </div>
 
           {/* Linha 5 */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Fatura Cartão de Crédito</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Fatura Cartão de Crédito</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
             </div>
-            <div className="text-sm text-slate-500">15/05/2026</div>
-            <div><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">💳 Cartão de Crédito</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">15/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💳 Cartão de Crédito</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">🏦 Banco Inter</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
             </div>
@@ -234,15 +246,129 @@ const FinancialDashboard = () => (
           </div>
 
           {/* Linha 6 */}
-          <div className="grid grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-             <div className="col-span-2">
-              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">Conta de Luz</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Conta de Luz</p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
             </div>
-            <div className="text-sm text-slate-500">20/05/2026</div>
-            <div><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
-            <div className="text-xs text-slate-500 flex items-center gap-1">⚡ Serviços Essenciais</div>
-            <div>
+            <div className="hidden md:block text-sm text-slate-500">20/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">⚡ Serviços Essenciais</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">🏦 Nubank</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
+            </div>
+            <div className="text-sm font-bold text-rose-600 text-right">- R$ 180,00</div>
+          </div>
+
+        </div>
+      </div>
+    </div>{/* Dashboard Premium Realista - Formato Tabela */}
+    <div className="bg-white dark:bg-[#161b22] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-w-5xl mx-auto">
+      <div className="w-full">
+        {/* Header da Tabela */}
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 bg-slate-50 dark:bg-[#0f141a] border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+          <div className="md:col-span-2">Descrição</div>
+          <div className="hidden md:block">Vencimento</div>
+          <div className="hidden md:block">Status</div>
+          <div className="hidden md:block">Categoria</div>
+          <div className="hidden md:block">Conta / Recorrência</div>
+          <div className="text-right">Valor</div>
+        </div>
+
+        {/* Linhas da Tabela */}
+        <div className="divide-y divide-slate-100 dark:divide-white/5">
+          
+          {/* Linha 1 */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Salário Mensal</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">05/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💼 Salário</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">🏦 Nubank</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
+            </div>
+            <div className="text-sm font-bold text-emerald-600 text-right">+ R$ 3.500,00</div>
+          </div>
+
+          {/* Linha 2 */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Prestação de Serviços</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/20 mt-1">↗ RECEITA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Recebido</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🤝 Renda Extra</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">💛 Mercado Pago</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">AVULSO</p>
+            </div>
+            <div className="text-sm font-bold text-emerald-600 text-right">+ R$ 850,00</div>
+          </div>
+
+          {/* Linha 3 */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+            <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Aluguel da Casa</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">10/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏠 Moradia</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">🏦 Nubank</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
+            </div>
+            <div className="text-sm font-bold text-rose-600 text-right">- R$ 1.200,00</div>
+          </div>
+
+          {/* Linha 4 (NOVA: Empréstimo) */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Empréstimo Pessoal</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">12/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-full uppercase">Pago</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">🏦 Dívidas</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">🏦 Caixa Econômica</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">PARCELA 5/12</p>
+            </div>
+            <div className="text-sm font-bold text-rose-600 text-right">- R$ 450,00</div>
+          </div>
+
+          {/* Linha 5 */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Fatura Cartão de Crédito</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">15/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">💳 Cartão de Crédito</div>
+            <div className="hidden md:block">
+              <p className="text-xs text-slate-500">🏦 Banco Inter</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
+            </div>
+            <div className="text-sm font-bold text-rose-600 text-right">- R$ 950,00</div>
+          </div>
+
+          {/* Linha 6 */}
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+             <div className="md:col-span-2">
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate">Conta de Luz</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-100 dark:border-rose-500/20 mt-1">↘ DESPESA</span>
+            </div>
+            <div className="hidden md:block text-sm text-slate-500">20/05/2026</div>
+            <div className="hidden md:block"><span className="text-[10px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-full uppercase">Pendente</span></div>
+            <div className="hidden md:block text-xs text-slate-500 flex items-center gap-1">⚡ Serviços Essenciais</div>
+            <div className="hidden md:block">
               <p className="text-xs text-slate-500">🏦 Nubank</p>
               <p className="text-[10px] text-slate-400 mt-0.5 uppercase">MENSAL</p>
             </div>
@@ -256,7 +382,7 @@ const FinancialDashboard = () => (
 );
 
 const Benefits = () => (
-  <section id="beneficios" className="py-24 bg-slate-50 dark:bg-[#0b1015]">
+  <section id="beneficios" className="py-16 bg-slate-50 dark:bg-[#0b1015]">
     <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {[
         { title: 'Controle Mensal', desc: 'Saiba exatamente qual será seu saldo até o último dia do mês.' },
@@ -274,7 +400,7 @@ const Benefits = () => (
 );
 
 const Modules = () => (
-  <section id="modulos" className="py-24 max-w-7xl mx-auto px-4 border-t border-slate-200 dark:border-white/5">
+  <section id="modulos" className="py-16 max-w-7xl mx-auto px-4 border-t border-slate-200 dark:border-white/5">
     <div className="text-center mb-16">
       <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-4">Expanda quando precisar</h2>
       <p className="text-slate-600 dark:text-zinc-400">Ferramentas extras nativas para quem precisa gerenciar mais do que a própria casa.</p>
@@ -334,21 +460,21 @@ const Security = () => (
 );
 
 const FinalCTA = () => (
-  <section className="py-32 px-4 text-center">
+  <section className="py-16 px-4 text-center">
     <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
       Pare de adivinhar. <br className="hidden sm:block" />
       <span className="text-emerald-600">Comece a controlar.</span>
     </h2>
     
-    <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
+    <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
       <Link
-        href="/login"
+        href="/admin"
         className="h-14 px-10 bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold rounded-xl flex items-center justify-center shadow-xl shadow-emerald-500/20 transition-transform hover:scale-105"
       >
         Entrar no UniGestor
       </Link>
       <a
-        href="https://wa.me/5521992347771"
+        href="https://wa.me/5521992347771?text=Ol%C3%A1!%20Fiquei%20com%20d%C3%BAvidas%20sobre%20o%20UniGestor."
         target="_blank"
         rel="noopener noreferrer"
         className="h-14 px-8 bg-transparent border border-slate-300 dark:border-white/20 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/5 text-base font-bold rounded-xl flex items-center justify-center transition-colors gap-2"
