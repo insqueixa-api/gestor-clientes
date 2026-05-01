@@ -860,16 +860,22 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <FieldLabel>Slug (URL personalizada)</FieldLabel>
                 
-                {/* Estrutura Flex Inteligente: O texto base empurra o input automaticamente */}
-                <div className="flex items-center w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg focus-within:border-emerald-500/50 transition-colors overflow-hidden">
-                  <span className="text-slate-500 dark:text-white/40 text-sm font-medium shrink-0 select-none">
-                    unigestor.net.br/
-                  </span>
+                {/* Estrutura Input Group: Bloco fixo separado do texto digitável */}
+                <div className="flex items-center w-full h-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all overflow-hidden">
+                  
+                  {/* Bloco visual do domínio (Fundo cinza e borda) */}
+                  <div className="flex items-center h-full px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 select-none">
+                    <span className="text-slate-500 dark:text-white/40 text-sm">
+                      unigestor.net.br/
+                    </span>
+                  </div>
+                  
+                  {/* Campo de digitação (Em negrito e colorido) */}
                   <input 
                     value={slug} 
                     onChange={(e: any) => setSlug(e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, ""))} 
-                    placeholder="nome-da-empresa"
-                    className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 dark:text-white ml-0.5 placeholder-slate-400 dark:placeholder-white/20 min-w-0"
+                    placeholder="sua-marca"
+                    className="flex-1 h-full px-3 bg-transparent border-none outline-none text-sm font-bold text-emerald-600 dark:text-emerald-400 placeholder-slate-300 dark:placeholder-white/20 min-w-0"
                   />
                 </div>
                 
