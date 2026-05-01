@@ -87,10 +87,7 @@ const Header = () => (
         >
           <IconWhatsApp /> Falar no WhatsApp
         </a>
-        <Link
-          href="/login"
-          className="h-9 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[13px] font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
-        >
+        <Link href="/login" className="h-9 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[13px] font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95">
           Acessar Sistema <IconArrow />
         </Link>
       </div>
@@ -157,19 +154,21 @@ const Hero = () => (
           </ul>
 
           <div className="mt-10 flex flex-col sm:flex-row gap-3">
-            <Link
-              href="/login"
-              className="h-[52px] px-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 transition-all hover:-translate-y-0.5"
-            >
-              Começar a organizar <IconArrow />
-            </Link>
-            <a
-              href="#dashboard"
-              className="h-[52px] px-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 text-[15px] font-bold rounded-xl flex items-center justify-center transition-colors hover:bg-slate-50 dark:hover:bg-white/10"
-            >
-              Ver como funciona
-            </a>
-          </div>
+  
+    <a href="https://wa.me/5521992347771?text=Ol%C3%A1%21%20Quero%20come%C3%A7ar%20a%20organizar%20minhas%20finan%C3%A7as%20com%20o%20UniGestor."
+    target="_blank"
+    rel="noopener noreferrer"
+    className="h-[52px] px-8 bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 transition-all hover:-translate-y-0.5"
+  >
+    Começar a organizar <IconArrow />
+  </a>
+  
+    <a href="#dashboard"
+    className="h-[52px] px-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 text-[15px] font-bold rounded-xl flex items-center justify-center transition-colors hover:bg-slate-50 dark:hover:bg-white/10"
+  >
+    Ver como funciona
+  </a>
+</div>
         </div>
 
         {/* — RIGHT: Dashboard Mockup Estático Premium — */}
@@ -184,7 +183,7 @@ const Hero = () => (
               </div>
               <div className="flex-1 flex justify-center">
                 <div className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 tracking-widest uppercase">
-                  unigestor.net.br/admin
+                  unigestor.net.br
                 </div>
               </div>
             </div>
