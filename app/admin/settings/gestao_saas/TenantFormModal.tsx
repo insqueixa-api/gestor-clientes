@@ -390,26 +390,27 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         const data = await res.json();
         if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
       } else {
+        // Envia TODOS os dados pela porta da frente da RPC
         const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
-          p_tenant_name:       name.trim(), // ✅ ENVIANDO O NOME AQUI (Verifique se sua RPC aceita este parâmetro)
+          p_tenant_name:       name.trim(), // ✅ Agora enviamos o NOME
           p_responsible_name:  responsibleName.trim() || null,
           p_phone_e164:        phoneE164 || null,
           p_whatsapp_username: waUsername.trim() || null,
           p_notes:             notes.trim() || null,
-          p_active_modules:    finalModules, 
-          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null,
+          p_active_modules:    finalModules, // ✅ Agora enviamos os MÓDULOS
+          p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ Enviamos o PREÇO
         });
         if (error) throw new Error(error.message);
 
-        // ❌ REMOVIDO: O update direto na tabela tenants via frontend foi apagado.
-        // A RPC saas_update_profile já recebe o p_active_modules e deve salvar os módulos lá no backend.
+        // ❌ AQUELE UPDATE DIRETO NA TABELA TENANTS FOI APAGADO DAQUI!
+        // A função do banco (acima) já fez esse trabalho com segurança.
 
         const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
-          p_tenant_id: tenant!.id,
-          p_role: role,
-        });
-        if (roleErr) throw new Error(roleErr.message);
+          p_tenant_id: tenant!.id,
+          p_role: role,
+        });
+        if (roleErr) throw new Error(roleErr.message);
 
         const { data: sess } = await supabaseBrowser.auth.getSession();
         const token = sess?.session?.access_token;
@@ -443,7 +444,6 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           if (!res.ok) throw new Error(data.hint || data.error || "Falha ao atualizar e-mail.");
         }
 
-        // ✅ Log da alteração de módulos/perfil
         try {
           const modulosLabel = finalModules.join(", ") || "nenhum";
           const { error: logErr } = await supabaseBrowser.from("saas_credit_transactions").insert({
