@@ -27,7 +27,7 @@ export type SaasTenant = {
   is_trial: boolean;
   credit_balance: number;
   parent_tenant_id: string | null;
-  license_status: "ACTIVE" | "TRIAL" | "EXPIRED" | "ARCHIVED" | "INACTIVE";
+  license_status: "ACTIVE" | "TRIAL" | "EXPIRED" | "ARCHIVED" | "INACTIVE" | "DELETED";
   responsible_name: string | null;
   contact_email: string | null;
   phone_e164: string | null;
@@ -645,6 +645,10 @@ if (tenantsRes.error) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return tenants.filter(t => {
+      // 1. Oculta sumariamente os deletados de TODAS as visões (não vai pra lixeira)
+      if (t.license_status === "DELETED") return false;
+
+      // 2. Lógica normal de Arquivados (Lixeira) vs Ativos
       if (archivedFilter === "Sim") {
         if (t.license_status !== "ARCHIVED") return false;
       } else {
@@ -667,7 +671,7 @@ const directTenants = useMemo(() =>
 [tenants, tenantId]);
 
 const stats = {
-  total:   directTenants.filter(t => t.license_status !== "ARCHIVED").length,
+  total:   directTenants.filter(t => t.license_status !== "ARCHIVED" && t.license_status !== "DELETED").length,
   active:  directTenants.filter(t => t.license_status === "ACTIVE").length,
   trial:   directTenants.filter(t => t.license_status === "TRIAL").length,
   expired: directTenants.filter(t => t.license_status === "EXPIRED").length,
