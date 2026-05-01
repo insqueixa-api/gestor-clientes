@@ -10,5 +10,5 @@ export async function logoutAction(): Promise<void> {
   await supabase.auth.signOut({ scope: 'local' });
 
   // Redireciona imediatamente sem deixar rastros no console
-  redirect("/login");
+  redirect("/");
 }
