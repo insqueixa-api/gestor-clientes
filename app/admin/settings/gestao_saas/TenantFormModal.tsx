@@ -196,13 +196,10 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   }, [trialDays]);
 
   // Contato e Observações
-  const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
-  const [notes, setNotes] = useState(tenant?.notes ?? "");
-
-  // ✅ Personalização da Marca
-  const [slug, setSlug] = useState(tenant?.slug ?? "");
-  
-  // ✅ Módulos Modulares (Sincronizado com a coluna booleana)
+  const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
+  const [notes, setNotes] = useState(tenant?.notes ?? "");
+  
+  // ✅ Módulos Modulares (Sincronizado com a coluna booleana)
   const [activeModules, setActiveModules] = useState<string[]>(() => {
     let initial = tenant?.active_modules ? [...tenant.active_modules] : ["iptv", "financeiro"];
     if (tenant) {
@@ -347,13 +344,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   }
 
   const errors = useMemo(() => {
-    const out: string[] = [];
-    if (!name.trim()) out.push("Nome é obrigatório.");
-    if (!slug.trim()) out.push("O Link de Acesso (Slug) é obrigatório.");
-    if (mode === "new" && !email.trim()) out.push("E-mail é obrigatório.");
-    if (mode === "new" && password.length < 8) out.push("Senha deve ter pelo menos 8 caracteres.");
-    return out;
-  }, [name, slug, email, password, mode]);
+    const out: string[] = [];
+    if (!name.trim()) out.push("Nome é obrigatório.");
+    if (mode === "new" && !email.trim()) out.push("E-mail é obrigatório.");
+    if (mode === "new" && password.length < 8) out.push("Senha deve ter pelo menos 8 caracteres.");
+    return out;
+  }, [name, email, password, mode]);
 
   const handleSubmit = async () => {
     setSubmitAttempted(true);
@@ -389,19 +385,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
               active_modules: finalModules, 
               financial_control_enabled: finalModules.includes("financeiro"), // ✅ FORÇA A SINCRONIA DO BOOLEANO
               custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, // ✅ ENVIA O PREÇO
-              slug: slug.trim(), // ✅ ENVIA O SLUG
             }),
-          });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
-        
-        // ✅ FORÇA A ATUALIZAÇÃO DO SLUG NO BANCO APÓS CRIAÇÃO
-        const createdTenantId = data.tenant?.id || data.id;
-        if (createdTenantId) {
-          await supabaseBrowser.from("tenants").update({ slug: slug.trim() }).eq("id", createdTenantId);
-        }
-      } else {
-        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
+          });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.hint || data.error || "Falha ao criar revenda.");
+      } else {
+        const { error } = await supabaseBrowser.rpc("saas_update_profile", {
           p_tenant_id:         tenant!.id,
           p_responsible_name:  responsibleName.trim() || null,
           p_phone_e164:        phoneE164 || null,
@@ -412,11 +401,10 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
         });
         if (error) throw new Error(error.message);
 
-        // ✅ FORÇA A ATUALIZAÇÃO DIRETA NO BANCO (Garante que módulos, booleana e SLUG fiquem salvos de verdade)
+        // ✅ FORÇA A ATUALIZAÇÃO DIRETA NO BANCO (Garante que módulos e booleana fiquem salvos de verdade)
         const { error: dbErr } = await supabaseBrowser.from("tenants").update({
           active_modules: finalModules,
-          financial_control_enabled: finalModules.includes("financeiro"),
-          slug: slug.trim()
+          financial_control_enabled: finalModules.includes("financeiro")
         }).eq("id", tenant!.id);
         if (dbErr) throw new Error("Erro ao sincronizar os módulos na tabela tenants.");
 
@@ -630,30 +618,9 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             </>
           )}
 
-          {/* Seção: Marca / Slug */}
-          <SectionTitle>Personalização da Marca</SectionTitle>
-          <div className="mb-4">
-            <FieldLabel>Link de Acesso (Slug) *</FieldLabel>
-            <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10 transition-colors focus-within:border-emerald-500/50">
-              <span className="flex items-center px-3 bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 text-[11px] font-medium border-r border-slate-200 dark:border-white/10 whitespace-nowrap">
-                unigestor.net.br/
-              </span>
-              <input
-                value={slug}
-                onChange={e => {
-                  // Força letras minúsculas e troca espaços por hifens na hora
-                  const formatted = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, "");
-                  setSlug(formatted);
-                }}
-                className="flex-1 w-full px-3 text-sm bg-transparent outline-none text-slate-700 dark:text-white placeholder-slate-400"
-                placeholder="nome-da-academia"
-              />
-            </div>
-          </div>
-
-          {/* Seção: WhatsApp */}
-          <SectionTitle>Contato WhatsApp</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Seção: WhatsApp */}
+          <SectionTitle>Contato WhatsApp</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FieldLabel>Telefone principal</FieldLabel>
               <div className="flex gap-2">
@@ -792,13 +759,12 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
                   {role === "MASTER" ? "🏆 MASTER" : "👤 USER"}
                   {" — "}
                   {[
-                    activeModules.includes("iptv") && "IPTV",
-                    activeModules.includes("saas") && "SaaS",
-                    activeModules.includes("financeiro") && "Financeiro",
-                    activeModules.includes("academia") && "Academia",
-                    activeModules.includes("personal") && "Personal",
-                    activeModules.includes("condominio") && "Condomínio",
-                  ].filter(Boolean).join(", ") || "Sem módulos"}
+                    activeModules.includes("iptv") && "IPTV",
+                    activeModules.includes("saas") && "SaaS",
+                    activeModules.includes("financeiro") && "Financeiro",
+                    activeModules.includes("academia") && "Academia",
+                    activeModules.includes("condominio") && "Condomínio",
+                  ].filter(Boolean).join(", ") || "Sem módulos"}
                 </span>
               </div>
             </div>
@@ -853,36 +819,21 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
             </div>
 
             {/* Academia */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('academia') ? 'border-sky-500/50 bg-sky-500/5' : 'border-slate-200 dark:border-white/10'}`}>
-              <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
-                  🏋️ Academia
-                  <span className="text-[8px] bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
-              </div>
-              <button type="button" onClick={() => handleModuleToggle('academia')}
-                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('academia') ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
+            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('academia') ? 'border-sky-500/50 bg-sky-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+              <div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                  🏋️ Academia
+                  <span className="text-[8px] bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de alunos, mensalidades e treinos</div>
+              </div>
+              <button type="button" onClick={() => handleModuleToggle('academia')}
+                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('academia') ? 'bg-sky-500' : 'bg-slate-300 dark:bg-white/20'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('academia') ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
 
-            {/* Personal */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('personal') ? 'border-orange-500/50 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}>
-              <div>
-                <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
-                  ⏱️ Personal Trainer
-                  <span className="text-[8px] bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 px-1.5 py-0.5 rounded uppercase font-black tracking-wider">Novo</span>
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Gestão de clientes, fichas e pacotes</div>
-              </div>
-              <button type="button" onClick={() => handleModuleToggle('personal')}
-                className={`relative w-11 h-6 rounded-full transition-colors overflow-hidden ${activeModules.includes('personal') ? 'bg-orange-500' : 'bg-slate-300 dark:bg-white/20'}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${activeModules.includes('personal') ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-
-            {/* Condomínio */}
+            {/* Condomínio */}
             <div className={`flex items-center justify-between p-3 rounded-xl border transition-all ${activeModules.includes('condominio') ? 'border-purple-500/50 bg-purple-500/5' : 'border-slate-200 dark:border-white/10'}`}>
               <div>
                 <div className="text-sm font-bold text-slate-700 dark:text-white flex items-center gap-2">
