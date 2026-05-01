@@ -695,23 +695,27 @@ const FinalCTA = () => (
         <br />
         <span className="text-emerald-600 dark:text-emerald-400">Comece a controlar.</span>
       </h2>
-      <p className="text-[17px] text-slate-600 dark:text-zinc-400 mb-10 max-w-xl mx-auto leading-relaxed">
-        O primeiro passo para uma vida financeira organizada é ter clareza. E clareza começa com dados reais no lugar certo.
+      <p className="text-[17px] text-slate-600 dark:text-zinc-400 mb-4 max-w-xl mx-auto leading-relaxed">
+        Quer entender como o UniGestor pode transformar sua organização financeira?
+        Fale direto comigo no WhatsApp — sem enrolação, sem robô.
+      </p>
+      <p className="text-[14px] text-slate-400 dark:text-zinc-500 mb-10">
+        Já é cliente? Acesse o sistema e comece agora mesmo.
       </p>
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Link
-          href="/login"
-          className="h-[56px] px-10 bg-emerald-600 hover:bg-emerald-500 text-white text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-2xl shadow-emerald-500/30 transition-all hover:-translate-y-1 hover:scale-105"
-        >
-          Entrar no UniGestor <IconArrow />
-        </Link>
-        <a
-          href="https://wa.me/5521992347771?text=Ol%C3%A1%21%20Fiquei%20com%20d%C3%BAvidas%20sobre%20o%20UniGestor."
+        
+        <a  href="https://wa.me/5521992347771?text=Ol%C3%A1%21%20Quero%20entender%20como%20o%20UniGestor%20pode%20me%20ajudar%20a%20controlar%20minhas%20finan%C3%A7as."
           target="_blank"
           rel="noopener noreferrer"
-          className="h-[56px] px-8 bg-transparent border-2 border-[#25D366]/40 text-[#128c4a] dark:text-[#25D366] text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366]/5 transition-colors"
+          className="h-[56px] px-10 bg-emerald-600 hover:bg-emerald-500 text-white text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 shadow-2xl shadow-emerald-500/30 transition-all hover:-translate-y-1 hover:scale-105"
         >
-          <IconWhatsApp /> Tirar dúvidas no WhatsApp
+          <IconWhatsApp /> Falar com o Administrador
+        </a>
+        
+        <a  href="/login"
+          className="h-[56px] px-8 bg-transparent border-2 border-slate-300 dark:border-white/20 text-slate-700 dark:text-zinc-300 text-[16px] font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+        >
+          Já tenho conta <IconArrow />
         </a>
       </div>
     </div>
