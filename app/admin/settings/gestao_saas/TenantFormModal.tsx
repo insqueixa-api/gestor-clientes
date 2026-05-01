@@ -857,27 +857,23 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
 
           </div>
 
-          {/* ✅ NOVA SEÇÃO: PÁGINA PERSONALIZADA (Aparece dinamicamente) */}
-          {showLandingConfig && (
-            <>
-              <SectionTitle>Página Personalizada</SectionTitle>
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <FieldLabel>Slug (URL personalizada)</FieldLabel>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">seusite.com/</span>
-                  <FieldInput 
-                    value={slug} 
-                    onChange={(e: any) => setSlug(e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, ""))} 
-                    placeholder="nome-da-empresa"
-                    className="pl-[104px]" // Dá o espaçamento exato para não sobrepor o texto base
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Link: seusite.com/<strong>{slug || "nome-da-empresa"}</strong>
-                </p>
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <FieldLabel>Slug (URL personalizada)</FieldLabel>
+                
+                {/* Estrutura Flex Inteligente: O texto base empurra o input automaticamente */}
+                <div className="flex items-center w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg focus-within:border-emerald-500/50 transition-colors overflow-hidden">
+                  <span className="text-slate-500 dark:text-white/40 text-sm font-medium shrink-0 select-none">
+                    unigestor.net.br/
+                  </span>
+                  <input 
+                    value={slug} 
+                    onChange={(e: any) => setSlug(e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]/g, ""))} 
+                    placeholder="nome-da-empresa"
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-slate-700 dark:text-white ml-0.5 placeholder-slate-400 dark:placeholder-white/20 min-w-0"
+                  />
+                </div>
+                
               </div>
-            </>
-          )}
 
           <div className="mt-2">
             <FieldLabel>Observações Internas (Opcional)</FieldLabel>
