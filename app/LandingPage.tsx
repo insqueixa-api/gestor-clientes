@@ -87,7 +87,7 @@ const Header = () => (
         >
           <IconWhatsApp /> Falar no WhatsApp
         </a>
-        <Link href="/login" className="h-9 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[13px] font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95">
+        <Link href="/admin" className="h-9 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-[13px] font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95">
           Acessar Sistema <IconArrow />
         </Link>
       </div>
@@ -736,7 +736,7 @@ const Footer = () => (
       <div className="flex gap-4 text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
         <a href="#como-funciona" className="hover:text-slate-700 dark:hover:text-zinc-300 transition-colors">Como Funciona</a>
         <a href="#modulos" className="hover:text-slate-700 dark:hover:text-zinc-300 transition-colors">Módulos</a>
-        <Link href="/login" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Acessar</Link>
+        <Link href="/admin" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Acessar</Link>
       </div>
     </div>
   </footer>
