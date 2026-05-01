@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
@@ -193,6 +193,7 @@ function calculateDiscount(monthlyPrice: number, totalPrice: number, months: num
 // ========= MAIN COMPONENT =========
 export default function RenewClient() {
   const sp = useSearchParams();
+  const router = useRouter(); // ✅ router instanciado para redirecionamento
 
   // ✅ sessão agora vem da URL OU do sessionStorage, e removemos da URL depois (sem quebrar reload)
   const [session, setSession] = useState<string | null>(null);
@@ -1594,8 +1595,14 @@ return (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-red-500 mb-2">Sessão Inválida</h1>
-          <p className="text-slate-500 dark:text-white/60">{error}</p>
+          <h1 className="text-2xl font-bold text-red-500 mb-2">Sessão Expirada</h1>
+          <p className="text-slate-500 dark:text-white/60 mb-6">{error}</p>
+          <button 
+            onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Botão para fugir do erro e ir pra home
+            className="px-6 py-3 w-full bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors"
+          >
+            Voltar para a Página Inicial
+          </button>
         </div>
       </div>
     );
@@ -1665,7 +1672,7 @@ return (
             )}
               
               <button 
-                onClick={() => { clearStoredSession(); window.location.reload(); }}
+                onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Redireciona para Landing Page
                 className="text-white/50 hover:text-rose-500 transition-colors"
                 title="Sair"
               >
@@ -1841,7 +1848,7 @@ return (
             )}
             
             <button 
-              onClick={() => { clearStoredSession(); window.location.reload(); }}
+              onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Redireciona para Landing Page
               className="text-white/50 hover:text-rose-500 transition-colors"
               title="Sair"
             >
