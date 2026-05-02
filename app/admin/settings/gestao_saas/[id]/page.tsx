@@ -190,8 +190,8 @@ export default function GestaoSaasDetailPage() {
       </div>
 
       {/* INFO DO CLIENTE / REVENDA */}
-      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 text-sm items-start">
+      <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 sm:p-6 shadow-sm sm:mx-0">
+        <div className="flex flex-wrap items-start justify-center sm:justify-between gap-y-6 gap-x-4 w-full text-sm">
           
           <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
