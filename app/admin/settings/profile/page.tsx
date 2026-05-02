@@ -666,6 +666,12 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         logoData.append("file", logoFile);
         logoData.append("folder", `tenants/${tenantId}/branding`);
         const res = await fetch("/api/upload", { method: "POST", body: logoData });
+        
+        if (!res.ok) {
+          if (res.status === 413) throw new Error("A imagem da logo é muito grande para o servidor. Tente um arquivo menor.");
+          throw new Error(`Falha ao enviar logo (Status: ${res.status})`);
+        }
+        
         const result = await res.json();
         if (result.success) finalLogoUrl = result.url;
       }
@@ -678,6 +684,12 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           bData.append("file", file);
           bData.append("folder", `tenants/${tenantId}/branding/banners`);
           const res = await fetch("/api/upload", { method: "POST", body: bData });
+          
+          if (!res.ok) {
+            if (res.status === 413) throw new Error(`O arquivo ${file.name} é muito grande para o servidor.`);
+            throw new Error(`Falha ao enviar arquivo ${file.name} (Status: ${res.status})`);
+          }
+          
           const result = await res.json();
           if (result.success) uploadedUrls.push(result.url);
         }
@@ -1872,7 +1884,8 @@ return (
                     <Input 
                       value={slug} 
                       readOnly 
-                      className="border-none bg-transparent rounded-none flex-1 text-slate-600 dark:text-white/70"
+                      className="border-none bg-transparent rounded-none flex-1 font-bold"
+                      style={{ color: primaryColor }}
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
