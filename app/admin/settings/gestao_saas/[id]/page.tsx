@@ -4,18 +4,26 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-
 type SaasTenant = {
-  id: string; name: string; role: string;
-  expires_at: string | null; license_active: boolean; is_trial: boolean;
-  credit_balance: number; license_status: string;
-  whatsapp_sessions: number;          // ✅ NOVO
-  financial_control_enabled?: boolean; // ✅ NOVO - Controle Financeiro
-  responsible_name: string | null; contact_email: string | null;
-  phone_e164: string | null; whatsapp_username: string | null;
+  id: string; 
+  name: string; 
+  role: string;
+  expires_at: string | null; 
+  license_active: boolean; 
+  is_trial: boolean;
+  credit_balance: number; 
+  license_status: string;
+  whatsapp_sessions: number;
+  financial_control_enabled?: boolean;
+  responsible_name: string | null; 
+  contact_email: string | null;
+  phone_e164: string | null; 
+  whatsapp_username: string | null;
   parent_tenant_id: string | null;
-  active_modules?: string[];           // ✅ Módulos Ativos adicionados
-  custom_monthly_price?: number | null; // ✅ Preço Acordado adicionado
+  active_modules?: string[];
+  custom_monthly_price?: number | null;
+  saas_plan_table_id?: string | null; // ✅ Para buscar o preço
+  slug?: string; // ✅ Para a página personalizada
 };
 
 type Transaction = {
@@ -23,14 +31,17 @@ type Transaction = {
 };
 
 const BILLING_TZ = "America/Sao_Paulo";
+
 function fmtDate(s?: string | null) {
   if (!s) return "--";
   return new Date(s).toLocaleDateString("pt-BR", { timeZone: BILLING_TZ });
 }
+
 function fmtDateTime(s?: string | null) {
   if (!s) return "--";
   return new Date(s).toLocaleString("pt-BR", { timeZone: BILLING_TZ });
 }
+
 function daysUntil(s?: string | null) {
   if (!s) return null;
   return Math.ceil((new Date(s).getTime() - Date.now()) / 86400000);
@@ -74,10 +85,11 @@ export default function GestaoSaasDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) | null>(null);
+  const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [defaultPrice, setDefaultPrice] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -93,6 +105,21 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
       const networkCount = all.filter(t => t.parent_tenant_id === id).length;
 
       setMaster(thisMaster ? { ...thisMaster, _networkCount: networkCount } : null);
+
+      // ✅ BUSCAR PREÇO PADRÃO DA TABELA
+      if (thisMaster?.saas_plan_table_id) {
+        const { data: priceData } = await supabaseBrowser
+          .from("plan_table_items")
+          .select(`prices:plan_table_item_prices(price_amount)`)
+          .eq("plan_table_id", thisMaster.saas_plan_table_id)
+          .eq("period", "MONTHLY")
+          .maybeSingle();
+
+        if (priceData?.prices?.[0]?.price_amount) {
+          setDefaultPrice(priceData.prices[0].price_amount);
+        }
+      }
+
       setLoading(false);
     }
     load();
@@ -120,6 +147,7 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
     session_remove: "Sessão Removida",
     module_update:  "Perfil Atualizado",
   };
+  
   const typeStyle: Record<string, string> = {
     purchase:       "text-sky-600 dark:text-sky-400",
     consume:        "text-rose-600 dark:text-rose-400",
@@ -159,12 +187,11 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
             </p>
           </div>
         </div>
-        
       </div>
 
-      {/* INFO DO MASTER */}
+      {/* INFO DO CLIENTE / REVENDA */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl p-4 shadow-sm sm:mx-0">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-4 text-sm items-start">
+        <div className="flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 text-sm items-start">
           
           <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</div>
@@ -181,16 +208,30 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
             <div className="font-bold text-emerald-600 dark:text-emerald-400">
               {master.custom_monthly_price !== null && master.custom_monthly_price !== undefined 
                 ? `R$ ${Number(master.custom_monthly_price).toFixed(2).replace(".", ",")}` 
-                : <span className="text-slate-400 font-normal italic text-[10px]">Tabela Padrão</span>}
+                : defaultPrice !== null 
+                  ? `R$ ${Number(defaultPrice).toFixed(2).replace(".", ",")}`
+                  : <span className="text-slate-400 font-normal italic text-[10px]">Tabela</span>}
             </div>
           </div>
 
-          <div className="flex flex-col items-center text-center">
-            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
-            <div className="font-bold text-emerald-600 dark:text-emerald-400">
-              {Number(master.credit_balance).toFixed(1).replace(".0", "")}
-            </div>
-          </div>
+          {/* ✅ SÓ MOSTRA CRÉDITOS E REDE SE FOR MASTER */}
+          {master.role !== "USER" && (
+            <>
+              <div className="flex flex-col items-center text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Créditos</div>
+                <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {Number(master.credit_balance).toFixed(1).replace(".0", "")}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Na Rede</div>
+                <div className="font-bold text-slate-700 dark:text-white">
+                  {master._networkCount ?? 0}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Sessões WA</div>
@@ -203,50 +244,46 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
 
           <div className="flex flex-col items-center text-center">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Módulos</div>
-            <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5">
+            <div className="flex flex-wrap justify-center items-center mx-auto gap-1.5 max-w-[160px]">
               {master.active_modules?.includes("iptv") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV Ativo">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
-                    <polyline points="17 2 12 7 7 2"/>
-                  </svg>
-                  IPTV
-                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-sky-500 border-sky-500 text-white shadow-sky-900/20" title="Módulo IPTV">📺 IPTV</span>
               )}
               {master.active_modules?.includes("saas") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="Módulo SaaS Ativo">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                  </svg>
-                  SaaS
-                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-violet-500 border-violet-500 text-white shadow-violet-900/20" title="Módulo SaaS">⚡ SaaS</span>
               )}
               {master.active_modules?.includes("financeiro") && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro Ativo">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                  </svg>
-                  Financeiro
-                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/20" title="Módulo Financeiro">💰 Financeiro</span>
+              )}
+              {/* ✅ NOVOS MÓDULOS */}
+              {master.active_modules?.includes("academia") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-rose-500 border-rose-500 text-white shadow-rose-900/20" title="Módulo Academia">🏋️ Academia</span>
+              )}
+              {master.active_modules?.includes("personal") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-orange-500 border-orange-500 text-white shadow-orange-900/20" title="Módulo Personal">🏃 Personal</span>
+              )}
+              {master.active_modules?.includes("condominio") && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-bold shadow-sm bg-amber-500 border-amber-500 text-white shadow-amber-900/20" title="Módulo Condomínio">🏢 Condomínio</span>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col items-center text-center">
-            <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Na Rede</div>
-            <div className="font-bold text-slate-700 dark:text-white">
-              {master._networkCount ?? 0}
+          {/* ✅ COLUNA SLUG (Somente para módulos específicos) */}
+          {(master.active_modules?.includes("academia") || master.active_modules?.includes("personal") || master.active_modules?.includes("condominio")) && (
+            <div className="flex flex-col items-center text-center">
+              <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Slug</div>
+              <div className="text-xs font-mono font-bold text-slate-700 dark:text-white truncate max-w-[120px]" title={master.slug || ""}>
+                {master.slug || "—"}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col items-center text-center min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">E-mail</div>
-            <div className="text-xs text-slate-500 dark:text-white/50 truncate w-full" title={master.contact_email || ""}>
+            <div className="text-xs text-slate-500 dark:text-white/50 truncate w-full max-w-[150px]" title={master.contact_email || ""}>
               {master.contact_email || "—"}
             </div>
           </div>
 
-          {/* ✅ WhatsApp Restaurado */}
           <div className="flex flex-col items-center text-center min-w-0">
             <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">WhatsApp</div>
             {master.whatsapp_username ? (
@@ -265,7 +302,7 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
       </div>
       
 
-      {/* ✅ HISTÓRICO INLINE */}
+      {/* ✅ HISTÓRICO INLINE (SEM COLUNA VALOR) */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 rounded-none sm:rounded-xl shadow-sm overflow-hidden transition-colors sm:mx-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
           <div className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -289,7 +326,6 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
                 <tr>
                   <th className="px-4 py-3">Data</th>
                   <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Valor</th>
                   <th className="px-4 py-3">Descrição</th>
                 </tr>
               </thead>
@@ -303,9 +339,6 @@ const [master, setMaster] = useState<(SaasTenant & { _networkCount?: number }) |
                       <span className={`text-xs font-bold ${typeStyle[tx.type] ?? "text-slate-500"}`}>
                         {typeLabel[tx.type] ?? tx.type}
                       </span>
-                    </td>
-                    <td className={`px-4 py-3 font-bold text-sm whitespace-nowrap ${typeStyle[tx.type] ?? "text-slate-500"}`}>
-                      {Number(tx.amount) > 0 ? "+" : ""}{Number(tx.amount).toFixed(1).replace(".0", "")}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/50">
                       {tx.description}
