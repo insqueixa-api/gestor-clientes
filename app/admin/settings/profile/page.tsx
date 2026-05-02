@@ -1852,8 +1852,8 @@ return (
             )}
           </div>
 {/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
-          {canEditBranding && (
-            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 mt-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
+          {canEditBranding && (
+            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Identidade Visual e Marca
@@ -1903,6 +1903,22 @@ return (
                       className="w-28 font-mono text-center uppercase"
                       maxLength={7}
                     />
+                    
+                    {/* BOTÃO RESETAR COR */}
+                    {primaryColor.toLowerCase() !== "#10b981" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrimaryColor("#10b981");
+                          setIsEditing(true);
+                        }}
+                        className="h-8 px-2.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:text-white font-bold text-[10px] transition-colors flex items-center gap-1.5"
+                        title="Restaurar cor padrão da UniGestor"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        Padrão
+                      </button>
+                    )}
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões e destaques na sua tela de login.</p>
                 </div>
