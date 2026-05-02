@@ -6,6 +6,7 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 import { useTheme } from "@/components/theme/ThemeProvider";
 import Link from "next/link";
 import SaasProfileRenewModal from "./SaasProfileRenewModal";
+import MediaUploader from "./MediaUploader";
 
 // ============================================================================
 // HELPERS & CONSTANTES
@@ -330,6 +331,15 @@ async function saveWaConfig() {
   const [name, setName] = useState("");
   const [createdAt, setCreatedAt] = useState<string>(""); 
 
+  // --- NOVOS ESTADOS: IDENTIDADE VISUAL E SLUG ---
+  const [slug, setSlug] = useState<string>("");
+  const [primaryColor, setPrimaryColor] = useState<string>("#10b981"); // Cor padrão: Emerald 500
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFiles, setBannerFiles] = useState<File[]>([]);
+  // Strings para mostrar o que já tem no banco
+  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
+  const [currentBannersUrl, setCurrentBannersUrl] = useState<string[]>([]);
+
  
   const importFileRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
@@ -343,7 +353,7 @@ async function saveWaConfig() {
   const [phonePrettyPrefix, setPhonePrettyPrefix] = useState("Brasil (+55)");
   
   const [whatsappUsername, setWhatsappUsername] = useState("");
-const [waUserTouched, setWaUserTouched] = useState(false);
+  const [waUserTouched, setWaUserTouched] = useState(false);
 
   type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
@@ -451,7 +461,9 @@ const [waUserTouched, setWaUserTouched] = useState(false);
         if (currentTenantId) {
           const { data: saasData } = await supabaseBrowser
             .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id, active_modules")
+            // Incluindo slug e campos visuais. Se sua view vw_saas_tenants não tiver, 
+// você pode precisar adicionar na view ou buscar da tabela tenants normal.
+.select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id, active_modules, slug, primary_color, logo_url, banner_urls")
             .eq("id", currentTenantId)
             .maybeSingle();
             
@@ -465,6 +477,10 @@ const [waUserTouched, setWaUserTouched] = useState(false);
             const mods: string[] = (saasData as any).active_modules || [];
             setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
             setHasFinanceiro(mods.includes("financeiro"));
+            setSlug(saasData.slug || "");
+            setPrimaryColor(saasData.primary_color || "#10b981");
+            setCurrentLogoUrl(saasData.logo_url || null);
+            setCurrentBannersUrl(saasData.banner_urls || []);
 
             // ✅ Se não tem 2 sessões habilitadas, derruba a sessão 2 imediatamente
             if (sessions < 2) {
@@ -629,9 +645,37 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!userId) return;
     setSaving(true);
     try {
+      // --- LOGICA NOVA: UPLOAD PARA CLOUDFLARE R2 ---
+      let finalLogoUrl = currentLogoUrl;
+      let finalBannersUrls = currentBannersUrl;
+
+      // Upload da Logo
+      if (logoFile) {
+        const logoData = new FormData();
+        logoData.append("file", logoFile);
+        logoData.append("folder", `tenants/${tenantId}/branding`);
+        const res = await fetch("/api/upload", { method: "POST", body: logoData });
+        const result = await res.json();
+        if (result.success) finalLogoUrl = result.url;
+      }
+
+      // Upload dos Banners
+      if (bannerFiles.length > 0) {
+        const uploadedUrls = [];
+        for (const file of bannerFiles) {
+          const bData = new FormData();
+          bData.append("file", file);
+          bData.append("folder", `tenants/${tenantId}/branding/banners`);
+          const res = await fetch("/api/upload", { method: "POST", body: bData });
+          const result = await res.json();
+          if (result.success) uploadedUrls.push(result.url);
+        }
+        finalBannersUrls = uploadedUrls;
+      }
+
+      // --- LOGICA ORIGINAL: PERFIL ---
       const norm = applyPhoneNormalization(phoneRaw);
-     
-      const { error } = await supabaseBrowser
+      const { error: profileError } = await supabaseBrowser
         .from("profiles")
         .upsert({
           id: userId,
@@ -641,15 +685,28 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           updated_at: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (profileError) throw profileError;
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
-      addToast("success", "Perfil salvo", "A página será recarregada...");
+      // --- LOGICA NOVA: SALVAR NO TENANT ---
+      if ((role === "MASTER" || role === "SUPERADMIN") && tenantId) {
+        const { error: tenantError } = await supabaseBrowser
+          .from("tenants")
+          .update({
+            primary_color: primaryColor,
+            logo_url: finalLogoUrl,
+            banner_urls: finalBannersUrls
+          })
+          .eq("id", tenantId);
+        if (tenantError) throw tenantError;
+      }
+
+      addToast("success", "Perfil e Marca atualizados", "A página será recarregada...");
       setIsEditing(false);
 
       setTimeout(() => {
         window.location.reload();
-      }, 5000);
+      }, 3000);
 
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
@@ -1562,7 +1619,7 @@ return (
         {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
         <div className={`space-y-6 ${isOnlyFinanceiro ? "" : "xl:col-span-2"}`}>
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-<div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+    <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
     Dados Pessoais
   </h3>
@@ -2200,6 +2257,123 @@ Content-Type: application/json`}</code>
             </div>
           </details>
         </div>}
+{/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA (APENAS MASTER/SUPERADMIN) === */}
+          {(role === "MASTER" || role === "SUPERADMIN") && (
+            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 mt-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                  Identidade Visual e Marca
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* SLUG DA EMPRESA (LEITURA) */}
+                <div>
+                  <Label>Endereço de Acesso (Slug)</Label>
+                  <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
+                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-xs text-slate-500 font-mono">
+                      unigestor.net.br/
+                    </span>
+                    <Input 
+                      value={slug} 
+                      readOnly 
+                      className="border-none bg-transparent rounded-none flex-1 text-slate-600 dark:text-white/70"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Para alterar o endereço da sua empresa, entre em contato com o suporte.
+                  </p>
+                </div>
+
+                {/* COR PRIMÁRIA (TEMA) */}
+                <div>
+                  <Label>Cor Primária do Sistema</Label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="color" 
+                      value={primaryColor}
+                      onChange={(e) => {
+                         setPrimaryColor(e.target.value);
+                         if (!isEditing) setIsEditing(true);
+                      }}
+                      disabled={!isEditing}
+                      className="w-10 h-10 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <Input 
+                      value={primaryColor.toUpperCase()} 
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      placeholder="#10B981"
+                      readOnly={!isEditing}
+                      className="w-28 font-mono text-center uppercase"
+                      maxLength={7}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões e destaques na sua tela de login.</p>
+                </div>
+              </div>
+
+              {/* UPLOADS DE MÍDIA */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                
+                {/* LOGO */}
+                <div className="space-y-2">
+                  <MediaUploader 
+                    label="Logotipo da Empresa (Favicon/Login)" 
+                    maxFiles={1} 
+                    accept="image/png, image/jpeg, image/webp"
+                    onFilesReady={(files) => {
+                      setLogoFile(files.length > 0 ? files[0] : null);
+                      if (!isEditing) setIsEditing(true);
+                    }} 
+                  />
+                  {/* Se tiver logo salva e não tiver selecionado uma nova, mostra a atual */}
+                  {currentLogoUrl && !logoFile && (
+                    <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10">
+                      <img src={currentLogoUrl} alt="Logo Atual" className="h-8 w-8 object-contain bg-white rounded" />
+                      <span className="text-[10px] text-slate-500">Logotipo atual em uso</span>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Fundo transparente recomendado. Se vazio, usará a logo padrão da UniGestor.
+                  </p>
+                </div>
+
+                {/* BANNERS / VÍDEOS */}
+                <div className="space-y-2">
+                  <MediaUploader 
+                    label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
+                    maxFiles={5} 
+                    accept="image/*, video/mp4, video/webm"
+                    onFilesReady={(files) => {
+                      setBannerFiles(files);
+                      if (!isEditing) setIsEditing(true);
+                    }} 
+                  />
+                  {/* Mostra miniaturas dos banners salvos se não houver novos selecionados */}
+                  {currentBannersUrl.length > 0 && bannerFiles.length === 0 && (
+                    <div className="space-y-2 mt-2">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Mídias atuais em exibição:</span>
+                      <div className="grid grid-cols-5 gap-2">
+                        {currentBannersUrl.map((url, idx) => (
+                          <div key={idx} className="aspect-video rounded border border-slate-200 dark:border-white/10 overflow-hidden bg-black">
+                            {url.includes('.mp4') || url.includes('.webm') ? (
+                              <video src={url} className="w-full h-full object-cover opacity-50" muted />
+                            ) : (
+                              <img src={url} className="w-full h-full object-cover" alt="Banner" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+
       </div>
 
         {/* === COLUNA DIREITA (SIDEBAR) === */}
