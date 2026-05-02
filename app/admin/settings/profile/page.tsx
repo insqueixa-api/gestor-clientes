@@ -1953,18 +1953,16 @@ return (
                     label="Logotipo da Empresa (Favicon/Login)" 
                     maxFiles={1} 
                     accept="image/png, image/jpeg, image/webp"
+                    initialUrls={currentLogoUrl ? [currentLogoUrl] : []}
+                    onRemoveInitialUrl={() => {
+                      setCurrentLogoUrl(null);
+                      if (!isEditing) setIsEditing(true);
+                    }}
                     onFilesReady={(files) => {
                       setLogoFile(files.length > 0 ? files[0] : null);
                       if (!isEditing) setIsEditing(true);
                     }} 
                   />
-                  {/* Se tiver logo salva e não tiver selecionado uma nova, mostra a atual */}
-                  {currentLogoUrl && !logoFile && (
-                    <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10">
-                      <img src={currentLogoUrl} alt="Logo Atual" className="h-8 w-8 object-contain bg-white rounded" />
-                      <span className="text-[10px] text-slate-500">Logotipo atual em uso</span>
-                    </div>
-                  )}
                   <p className="text-[10px] text-slate-400 leading-tight">
                     Fundo transparente recomendado. Se vazio, usará a logo padrão da UniGestor.
                   </p>
@@ -1976,28 +1974,16 @@ return (
                     label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
                     maxFiles={5} 
                     accept="image/*, video/mp4, video/webm"
+                    initialUrls={currentBannersUrl}
+                    onRemoveInitialUrl={(urlToRemove) => {
+                      setCurrentBannersUrl(prev => prev.filter(url => url !== urlToRemove));
+                      if (!isEditing) setIsEditing(true);
+                    }}
                     onFilesReady={(files) => {
                       setBannerFiles(files);
                       if (!isEditing) setIsEditing(true);
                     }} 
                   />
-                  {/* Mostra miniaturas dos banners salvos se não houver novos selecionados */}
-                  {currentBannersUrl.length > 0 && bannerFiles.length === 0 && (
-                    <div className="space-y-2 mt-2">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Mídias atuais em exibição:</span>
-                      <div className="grid grid-cols-5 gap-2">
-                        {currentBannersUrl.map((url, idx) => (
-                          <div key={idx} className="aspect-video rounded border border-slate-200 dark:border-white/10 overflow-hidden bg-black">
-                            {url.includes('.mp4') || url.includes('.webm') ? (
-                              <video src={url} className="w-full h-full object-cover opacity-50" muted />
-                            ) : (
-                              <img src={url} className="w-full h-full object-cover" alt="Banner" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
