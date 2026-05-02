@@ -199,10 +199,14 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
   const [responsibleName, setResponsibleName] = useState(tenant?.responsible_name ?? "");
   const [notes, setNotes] = useState(tenant?.notes ?? "");
   
-  // ✅ Módulos Modulares (Agora a única fonte da verdade é o array do banco)
+  // ✅ Módulos Modulares 
   const [activeModules, setActiveModules] = useState<string[]>(() => {
-    // Se não tiver nenhum dado (novo cliente), o padrão é ter apenas iptv
-    return tenant?.active_modules ? [...tenant.active_modules] : ["iptv"];
+    const initial = tenant?.active_modules ? [...tenant.active_modules] : ["iptv"];
+    // Garante que o array inclua 'financeiro' se a flag booleana estiver true no banco
+    if ((tenant as any)?.financial_control_enabled && !initial.includes("financeiro")) {
+      initial.push("financeiro");
+    }
+    return initial;
   });
 
   // ✅ NOVO: Estado para o Slug e Regra de Exibição da Landing Page
@@ -401,9 +405,16 @@ export default function TenantFormModal({ mode, tenant, myRole, parentTenantId, 
           p_custom_monthly_price: customMonthlyPrice.trim() ? Number(customMonthlyPrice.replace(",", ".")) : null, 
           p_slug: showLandingConfig && slug.trim() ? slug.trim() : null, // ✅ ENVIA O SLUG (Edição)
         });
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(error.message);
 
-        // Atualiza a Role no banco baseado nos módulos escolhidos
+        // ✅ CORREÇÃO: Força a atualização da flag booleana do financeiro (Sincroniza com o array)
+        const { error: finError } = await supabaseBrowser
+          .from("saas_tenants")
+          .update({ financial_control_enabled: finalModules.includes("financeiro") })
+          .eq("id", tenant!.id);
+        if (finError) console.error("Erro ao sincronizar flag do financeiro:", finError.message);
+
+        // Atualiza a Role no banco baseado nos módulos escolhidos
         const { error: roleErr } = await supabaseBrowser.rpc("saas_update_role", {
           p_tenant_id: tenant!.id,
           p_role: finalRole, // ✅ Usando o perfil calculado
