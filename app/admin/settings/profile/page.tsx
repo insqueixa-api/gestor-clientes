@@ -1528,12 +1528,16 @@ if (warnCount > 0) {
 
 
   // ✅ REGRA DE NEGÓCIO DA MARCA:
-  // Tem algum módulo diferente de iptv, saas ou financeiro?
-  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes((m || "").toLowerCase()));
-  // Superadmin não vê. O restante vê se tiver o módulo customizado.
-  const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
+  // Tem algum módulo diferente de iptv, saas ou financeiro?
+  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes((m || "").toLowerCase()));
+  // Superadmin não vê. O restante vê se tiver o módulo customizado.
+  const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
 
-  if (loading) {
+  // ✅ REGRA DE NEGÓCIO DAS API KEYS:
+  // Visível APENAS para quem tem módulo IPTV ou SAAS
+  const canViewApiKeys = activeModules.some(m => ["iptv", "saas"].includes((m || "").toLowerCase()));
+
+  if (loading) {
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
       <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
@@ -1639,10 +1643,7 @@ return (
     <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
     Dados Pessoais
-    <span className="bg-slate-100 dark:bg-white/10 text-slate-500 rounded px-2 py-0.5 lowercase tracking-normal text-[9px]">
-      (Módulos: {activeModules.length > 0 ? activeModules.join(", ") : "nenhum"})
-    </span>
-  </h3>
+    </h3>
   <div className="flex items-center gap-2">
     {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
     {role !== "SUPERADMIN" && (
@@ -1850,6 +1851,122 @@ return (
               </div>
             )}
           </div>
+{/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
+          {canEditBranding && (
+            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 mt-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                  Identidade Visual e Marca
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* SLUG DA EMPRESA (LEITURA) */}
+                <div>
+                  <Label>Endereço de Acesso (Slug)</Label>
+                  <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
+                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-xs text-slate-500 font-mono">
+                      unigestor.net.br/
+                    </span>
+                    <Input 
+                      value={slug} 
+                      readOnly 
+                      className="border-none bg-transparent rounded-none flex-1 text-slate-600 dark:text-white/70"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Para alterar o endereço da sua empresa, entre em contato com o suporte.
+                  </p>
+                </div>
+
+                {/* COR PRIMÁRIA (TEMA) */}
+                <div>
+                  <Label>Cor Primária do Sistema</Label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="color" 
+                      value={primaryColor}
+                      onChange={(e) => {
+                         setPrimaryColor(e.target.value);
+                         if (!isEditing) setIsEditing(true);
+                      }}
+                      disabled={!isEditing}
+                      className="w-10 h-10 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <Input 
+                      value={primaryColor.toUpperCase()} 
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      placeholder="#10B981"
+                      readOnly={!isEditing}
+                      className="w-28 font-mono text-center uppercase"
+                      maxLength={7}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões e destaques na sua tela de login.</p>
+                </div>
+              </div>
+
+              {/* UPLOADS DE MÍDIA */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                
+                {/* LOGO */}
+                <div className="space-y-2">
+                  <MediaUploader 
+                    label="Logotipo da Empresa (Favicon/Login)" 
+                    maxFiles={1} 
+                    accept="image/png, image/jpeg, image/webp"
+                    onFilesReady={(files) => {
+                      setLogoFile(files.length > 0 ? files[0] : null);
+                      if (!isEditing) setIsEditing(true);
+                    }} 
+                  />
+                  {/* Se tiver logo salva e não tiver selecionado uma nova, mostra a atual */}
+                  {currentLogoUrl && !logoFile && (
+                    <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10">
+                      <img src={currentLogoUrl} alt="Logo Atual" className="h-8 w-8 object-contain bg-white rounded" />
+                      <span className="text-[10px] text-slate-500">Logotipo atual em uso</span>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Fundo transparente recomendado. Se vazio, usará a logo padrão da UniGestor.
+                  </p>
+                </div>
+
+                {/* BANNERS / VÍDEOS */}
+                <div className="space-y-2">
+                  <MediaUploader 
+                    label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
+                    maxFiles={5} 
+                    accept="image/*, video/mp4, video/webm"
+                    onFilesReady={(files) => {
+                      setBannerFiles(files);
+                      if (!isEditing) setIsEditing(true);
+                    }} 
+                  />
+                  {/* Mostra miniaturas dos banners salvos se não houver novos selecionados */}
+                  {currentBannersUrl.length > 0 && bannerFiles.length === 0 && (
+                    <div className="space-y-2 mt-2">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Mídias atuais em exibição:</span>
+                      <div className="grid grid-cols-5 gap-2">
+                        {currentBannersUrl.map((url, idx) => (
+                          <div key={idx} className="aspect-video rounded border border-slate-200 dark:border-white/10 overflow-hidden bg-black">
+                            {url.includes('.mp4') || url.includes('.webm') ? (
+                              <video src={url} className="w-full h-full object-cover opacity-50" muted />
+                            ) : (
+                              <img src={url} className="w-full h-full object-cover" alt="Banner" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
 
          {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
@@ -2086,9 +2203,9 @@ return (
             </div>
           </div>
 
-        {/* ✅ CARD API KEYS — oculto para usuários só-financeiro */}
-        {!isOnlyFinanceiro && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+        {/* ✅ CARD API KEYS — visível apenas para IPTV ou SAAS */}
+          {canViewApiKeys && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
               API Keys — Integração Bot
             </h3>
@@ -2277,122 +2394,6 @@ Content-Type: application/json`}</code>
             </div>
           </details>
         </div>}
-{/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
-          {canEditBranding && (
-            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 mt-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Identidade Visual e Marca
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* SLUG DA EMPRESA (LEITURA) */}
-                <div>
-                  <Label>Endereço de Acesso (Slug)</Label>
-                  <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
-                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-xs text-slate-500 font-mono">
-                      unigestor.net.br/
-                    </span>
-                    <Input 
-                      value={slug} 
-                      readOnly 
-                      className="border-none bg-transparent rounded-none flex-1 text-slate-600 dark:text-white/70"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    Para alterar o endereço da sua empresa, entre em contato com o suporte.
-                  </p>
-                </div>
-
-                {/* COR PRIMÁRIA (TEMA) */}
-                <div>
-                  <Label>Cor Primária do Sistema</Label>
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="color" 
-                      value={primaryColor}
-                      onChange={(e) => {
-                         setPrimaryColor(e.target.value);
-                         if (!isEditing) setIsEditing(true);
-                      }}
-                      disabled={!isEditing}
-                      className="w-10 h-10 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    <Input 
-                      value={primaryColor.toUpperCase()} 
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      placeholder="#10B981"
-                      readOnly={!isEditing}
-                      className="w-28 font-mono text-center uppercase"
-                      maxLength={7}
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões e destaques na sua tela de login.</p>
-                </div>
-              </div>
-
-              {/* UPLOADS DE MÍDIA */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                
-                {/* LOGO */}
-                <div className="space-y-2">
-                  <MediaUploader 
-                    label="Logotipo da Empresa (Favicon/Login)" 
-                    maxFiles={1} 
-                    accept="image/png, image/jpeg, image/webp"
-                    onFilesReady={(files) => {
-                      setLogoFile(files.length > 0 ? files[0] : null);
-                      if (!isEditing) setIsEditing(true);
-                    }} 
-                  />
-                  {/* Se tiver logo salva e não tiver selecionado uma nova, mostra a atual */}
-                  {currentLogoUrl && !logoFile && (
-                    <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10">
-                      <img src={currentLogoUrl} alt="Logo Atual" className="h-8 w-8 object-contain bg-white rounded" />
-                      <span className="text-[10px] text-slate-500">Logotipo atual em uso</span>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Fundo transparente recomendado. Se vazio, usará a logo padrão da UniGestor.
-                  </p>
-                </div>
-
-                {/* BANNERS / VÍDEOS */}
-                <div className="space-y-2">
-                  <MediaUploader 
-                    label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
-                    maxFiles={5} 
-                    accept="image/*, video/mp4, video/webm"
-                    onFilesReady={(files) => {
-                      setBannerFiles(files);
-                      if (!isEditing) setIsEditing(true);
-                    }} 
-                  />
-                  {/* Mostra miniaturas dos banners salvos se não houver novos selecionados */}
-                  {currentBannersUrl.length > 0 && bannerFiles.length === 0 && (
-                    <div className="space-y-2 mt-2">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Mídias atuais em exibição:</span>
-                      <div className="grid grid-cols-5 gap-2">
-                        {currentBannersUrl.map((url, idx) => (
-                          <div key={idx} className="aspect-video rounded border border-slate-200 dark:border-white/10 overflow-hidden bg-black">
-                            {url.includes('.mp4') || url.includes('.webm') ? (
-                              <video src={url} className="w-full h-full object-cover opacity-50" muted />
-                            ) : (
-                              <img src={url} className="w-full h-full object-cover" alt="Banner" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
 
       </div>
 
