@@ -458,42 +458,49 @@ async function saveWaConfig() {
           setTenantId(null);
         }
 
-        // ✅ 2. BUSCA SEGURA DOS DETALHES DE ASSINATURA NA VIEW CORRETA
-        if (currentTenantId) {
-          const { data: saasData } = await supabaseBrowser
-            .from("vw_saas_tenants")
-            // Incluindo slug e campos visuais. Se sua view vw_saas_tenants não tiver, 
-// você pode precisar adicionar na view ou buscar da tabela tenants normal.
-.select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id, active_modules, slug, primary_color, logo_url, banner_urls")
+        // ✅ 2. BUSCA SEGURA DOS DETALHES NA VIEW E NA TABELA RAIZ
+        if (currentTenantId) {
+          // Busca dados financeiros/assinatura na view (pode vir nulo para USER comum)
+          const { data: saasData } = await supabaseBrowser
+            .from("vw_saas_tenants")
+            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
+            .eq("id", currentTenantId)
+            .maybeSingle();
+
+          // ✅ BUSCA OS MÓDULOS E BRANDING DIRETO DA TABELA RAIZ (Acessível a qualquer membro logado)
+          const { data: rawTenant } = await supabaseBrowser
+            .from("tenants")
+            .select("active_modules, slug, primary_color, logo_url, banner_urls")
             .eq("id", currentTenantId)
             .maybeSingle();
-            
-         if (saasData) {
-            setLicenseStatus(saasData.license_status || "ACTIVE");
-            setExpiresAt(saasData.expires_at || null);
-            setCreditBalance(saasData.credit_balance || 0);
-            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
-            const sessions = saasData.whatsapp_sessions ?? 1;
-            setWhatsappSessions(sessions);
-            const mods: string[] = (saasData as any).active_modules || [];
-            setActiveModules(mods); // ✅ Salva para podermos verificar a regra
-            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
+            
+          if (saasData) {
+            setLicenseStatus(saasData.license_status || "ACTIVE");
+            setExpiresAt(saasData.expires_at || null);
+            setCreditBalance(saasData.credit_balance || 0);
+            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
+            const sessions = saasData.whatsapp_sessions ?? 1;
+            setWhatsappSessions(sessions);
+            
+            if (sessions < 2) {
+              setShowSession2(false);
+              localStorage.removeItem("wa_show_session2");
+              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
+            }
+          }
+
+          // ✅ LÊ AS INFORMAÇÕES VISUAIS DA TABELA REAL PARA NÃO DEPENDER DA VIEW
+          if (rawTenant) {
+            const mods: string[] = rawTenant.active_modules || [];
+            setActiveModules(mods);
+            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
             setHasFinanceiro(mods.includes("financeiro"));
-            setSlug(saasData.slug || "");
-            setPrimaryColor(saasData.primary_color || "#10b981");
-            setCurrentLogoUrl(saasData.logo_url || null);
-            setCurrentBannersUrl(saasData.banner_urls || []);
-
-            // ✅ Se não tem 2 sessões habilitadas, derruba a sessão 2 imediatamente
-            if (sessions < 2) {
-              setShowSession2(false);
-              localStorage.removeItem("wa_show_session2");
-              // Desconecta silenciosamente — ignora erro (pode já estar desconectada)
-              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
-            }
+            setSlug(rawTenant.slug || "");
+            setPrimaryColor(rawTenant.primary_color || "#10b981");
+            setCurrentLogoUrl(rawTenant.logo_url || null);
+            setCurrentBannersUrl(rawTenant.banner_urls || []);
           }
-        }
-
+        }
 
 
 
