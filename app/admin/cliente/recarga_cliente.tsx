@@ -712,15 +712,28 @@ let baseDate: Date;
 
     // ========= REGRAS DE UI =========
 
-    // 1. Vencimento ao mudar plano
+    // 1. Vencimento ao mudar plano (Corrigido para forçar a Hora Atual de SP em vencidos)
     useEffect(() => {
       if (!clientData) return;
       const monthsToAdd = PLAN_MONTHS[selectedPlanPeriod] || 1;
-const vencDate = clientData.vencimento ? new Date(clientData.vencimento) : null;
-const isActive = vencDate != null && vencDate > new Date();
-const base = isActive ? vencDate! : new Date();
+      const vencDate = clientData.vencimento ? new Date(clientData.vencimento) : null;
+      const isActive = vencDate != null && vencDate > new Date();
+
+      let base: Date;
+      if (isActive && clientData.vencimento) {
+          base = new Date(clientData.vencimento);
+          // Cliente ativo: Mantém a hora exata que já estava no vencimento dele
+          setDueTime(hhmmFromTimestamptzInSaoPaulo(clientData.vencimento));
+      } else {
+          base = new Date();
+          // Cliente vencido/novo: Força a hora para AGORA no fuso de São Paulo
+          setDueTime(nowInSaoPauloParts().timeHHmm);
+      }
+
       const target = new Date(base);
       target.setMonth(target.getMonth() + monthsToAdd);
+
+      // Garante que o dia/mês/ano salvo seja correspondente a São Paulo
       const fmtDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
       setDueDate(fmtDate.format(target));
     }, [clientData, selectedPlanPeriod]);
