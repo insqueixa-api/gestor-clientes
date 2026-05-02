@@ -712,16 +712,23 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
       // --- LOGICA NOVA: SALVAR NO TENANT ---
-      if (canEditBranding && tenantId) {
-        const { error: tenantError } = await supabaseBrowser
+      if (canEditBranding && tenantId) {
+        const { data: tenantData, error: tenantError } = await supabaseBrowser
           .from("tenants")
           .update({
             primary_color: primaryColor,
             logo_url: finalLogoUrl,
             banner_urls: finalBannersUrls
           })
-          .eq("id", tenantId);
+          .eq("id", tenantId)
+          .select(); // ✅ Obriga o Supabase a devolver a linha que foi alterada
+
         if (tenantError) throw tenantError;
+        
+        // ✅ Se voltar vazio, o RLS (Segurança) bloqueou silenciosamente
+        if (!tenantData || tenantData.length === 0) {
+          throw new Error("Permissão negada no Banco de Dados. Verifique as políticas RLS (Update) da tabela 'tenants'.");
+        }
       }
 
       addToast("success", "Perfil e Marca atualizados", "A página será recarregada...");

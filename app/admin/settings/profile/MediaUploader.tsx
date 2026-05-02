@@ -16,8 +16,8 @@ export default function MediaUploader({
   accept = "image/*, application/pdf", // Aceita imagens e pdf por padrão
   onFilesReady 
 }: MediaUploaderProps) {
-  // Adicionamos 'name' para poder exibir o nome do documento
-  const [previews, setPreviews] = useState<{ id: string; url: string; type: string; name: string }[]>([]);
+  // ✅ CORREÇÃO: O state agora guarda o arquivo real (File) para podermos avisar o pai corretamente quando for apagado
+  const [previews, setPreviews] = useState<{ id: string; url: string; type: string; name: string; file: File }[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,8 +33,7 @@ export default function MediaUploader({
     }
 
     setIsCompressing(true);
-    const processedFiles: File[] = [];
-    const newPreviews: { id: string; url: string; type: string; name: string }[] = [];
+    const newPreviews: { id: string; url: string; type: string; name: string; file: File }[] = [];
 
     for (const file of selectedFiles) {
       // 2. Lógica para Vídeos
@@ -43,8 +42,7 @@ export default function MediaUploader({
           alert(`O vídeo ${file.name} é muito grande. O limite é 10MB.`);
           continue;
         }
-        processedFiles.push(file);
-        newPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(file), type: "video", name: file.name });
+        newPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(file), type: "video", name: file.name, file: file });
       } 
       // 3. Lógica para Imagens (Compressão Mágica)
       else if (file.type.startsWith("image/")) {
@@ -61,8 +59,7 @@ export default function MediaUploader({
             type: "image/webp",
           });
 
-          processedFiles.push(compressedFile);
-          newPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(compressedFile), type: "image", name: compressedFile.name });
+          newPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(compressedFile), type: "image", name: compressedFile.name, file: compressedFile });
         } catch (error) {
           console.error("Erro ao comprimir imagem", error);
         }
@@ -73,21 +70,25 @@ export default function MediaUploader({
           alert(`O documento ${file.name} é muito grande. O limite é 5MB.`);
           continue;
         }
-        processedFiles.push(file);
         // Arquivos não-visuais não geram objectURL para preview visual direto, usamos um ícone
-        newPreviews.push({ id: Math.random().toString(), url: "", type: "document", name: file.name });
+        newPreviews.push({ id: Math.random().toString(), url: "", type: "document", name: file.name, file: file });
       }
     }
 
-    setPreviews(prev => [...prev, ...newPreviews]);
-    onFilesReady(processedFiles); 
-    setIsCompressing(false);
+    // ✅ CORREÇÃO: Atualiza a lista interna e já manda a lista real de arquivos (File) para a página principal
+    const updatedPreviews = [...previews, ...newPreviews];
+    setPreviews(updatedPreviews);
+    onFilesReady(updatedPreviews.map(p => p.file)); 
     
+    setIsCompressing(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeFile = (idToRemove: string) => {
-    setPreviews(prev => prev.filter(p => p.id !== idToRemove));
+    // ✅ CORREÇÃO: Remove o arquivo da lista e avisa a página principal da remoção
+    const updatedPreviews = previews.filter(p => p.id !== idToRemove);
+    setPreviews(updatedPreviews);
+    onFilesReady(updatedPreviews.map(p => p.file));
   };
 
   return (
@@ -125,7 +126,7 @@ export default function MediaUploader({
             
             {/* Botão de Excluir */}
             <button 
-              type="button" // Previne trigger acidental de forms parentes
+              type="button" 
               onClick={(e) => { e.stopPropagation(); removeFile(preview.id); }}
               className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 font-bold text-xs z-10"
             >
