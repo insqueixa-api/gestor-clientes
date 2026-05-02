@@ -490,11 +490,13 @@ async function saveWaConfig() {
           }
 
           // ✅ LÊ AS INFORMAÇÕES VISUAIS DA TABELA REAL PARA NÃO DEPENDER DA VIEW
-          if (rawTenant) {
-            const mods: string[] = rawTenant.active_modules || [];
-            setActiveModules(mods);
-            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
-            setHasFinanceiro(mods.includes("financeiro"));
+          if (rawTenant) {
+            const mods: string[] = rawTenant.active_modules || [];
+            setActiveModules(mods);
+            
+            // 🛡️ BLINDAGEM: converte para minúsculo antes de checar
+            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
+            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
             setSlug(rawTenant.slug || "");
             setPrimaryColor(rawTenant.primary_color || "#10b981");
             setCurrentLogoUrl(rawTenant.logo_url || null);
@@ -1527,7 +1529,7 @@ if (warnCount > 0) {
 
   // ✅ REGRA DE NEGÓCIO DA MARCA:
   // Tem algum módulo diferente de iptv, saas ou financeiro?
-  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes(m));
+  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes((m || "").toLowerCase()));
   // Superadmin não vê. O restante vê se tiver o módulo customizado.
   const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
 
@@ -1635,9 +1637,12 @@ return (
         <div className={`space-y-6 ${isOnlyFinanceiro ? "" : "xl:col-span-2"}`}>
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
     <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-    Dados Pessoais
-  </h3>
+  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
+    Dados Pessoais
+    <span className="bg-slate-100 dark:bg-white/10 text-slate-500 rounded px-2 py-0.5 lowercase tracking-normal text-[9px]">
+      (Módulos: {activeModules.length > 0 ? activeModules.join(", ") : "nenhum"})
+    </span>
+  </h3>
   <div className="flex items-center gap-2">
     {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
     {role !== "SUPERADMIN" && (
