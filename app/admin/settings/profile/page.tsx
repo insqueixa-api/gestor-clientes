@@ -249,8 +249,7 @@ const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [whatsappSessions, setWhatsappSessions] = useState(1);
   const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false);
   const [hasFinanceiro, setHasFinanceiro] = useState(false);
-  // ✅ NOVO: Módulos ativos (precisamos salvar no state para checar na UI)
-  const [activeModules, setActiveModules] = useState<string[]>([]);
+  const [activeModules, setActiveModules] = useState<string[]>([]); // ✅ Guardar módulos na tela
   const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
@@ -477,10 +476,10 @@ async function saveWaConfig() {
             const sessions = saasData.whatsapp_sessions ?? 1;
             setWhatsappSessions(sessions);
             const mods: string[] = (saasData as any).active_modules || [];
-            setActiveModules(mods); // ✅ Salva para uso na UI
+            setActiveModules(mods); // ✅ Salva para podermos verificar a regra
             setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => m === "financeiro"));
-            setHasFinanceiro(mods.includes("financeiro"));
-            setSlug(saasData.slug || "");
+            setHasFinanceiro(mods.includes("financeiro"));
+            setSlug(saasData.slug || "");
             setPrimaryColor(saasData.primary_color || "#10b981");
             setCurrentLogoUrl(saasData.logo_url || null);
             setCurrentBannersUrl(saasData.banner_urls || []);
@@ -692,9 +691,7 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
       // --- LOGICA NOVA: SALVAR NO TENANT ---
-      // Usa a mesma regra do frontend para liberar a gravação
-      const canSaveBranding = role === "MASTER" || role === "SUPERADMIN" || activeModules.some(m => ["academia", "personal", "condominio", "saas"].includes(m));
-      if (canSaveBranding && tenantId) {
+      if (canEditBranding && tenantId) {
         const { error: tenantError } = await supabaseBrowser
           .from("tenants")
           .update({
@@ -1521,23 +1518,25 @@ if (warnCount > 0) {
   }
 
 
-  if (loading) {
+  // ✅ REGRA DE NEGÓCIO DA MARCA:
+  // Tem algum módulo diferente de iptv, saas ou financeiro?
+  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes(m));
+  // Superadmin não vê. O restante vê se tiver o módulo customizado.
+  const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
+
+  if (loading) {
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
-      <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
-        Carregando configurações...
-      </div>
-    </div>
-  );
+      <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
+        Carregando configurações...
+      </div>
+    </div>
+  );
 }
 
-// ✅ Regra de Ouro: Quem pode editar a identidade visual?
-// - SUPERADMIN e MASTER sempre podem.
-// - Qualquer tenant que tenha módulos que necessitam de landing page/aplicativo próprio (Academia, Personal, Condomínio, etc).
-const canEditBranding = role === "MASTER" || role === "SUPERADMIN" || activeModules.some(m => ["academia", "personal", "condominio", "saas"].includes(m));
 
 return (
-  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
+  <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
      
@@ -2269,7 +2268,7 @@ Content-Type: application/json`}</code>
 {/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
           {canEditBranding && (
             <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 mt-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Identidade Visual e Marca
                 </h3>
