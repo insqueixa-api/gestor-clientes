@@ -34,7 +34,7 @@ const DDI_OPTIONS: DdiOption[] = [
   { code: "49", label: "Alemanha", flag: "🇩🇪" },
   { code: "33", label: "França", flag: "🇫🇷" },
   { code: "39", label: "Itália", flag: "🇮🇹" },
-  { code: "353", label: "Irlanda", flag: "🇮🇪" }, // ✅ ADICIONADO
+  { code: "353", label: "Irlanda", flag: "🇮🇪" },
   { code: "52", label: "México", flag: "🇲🇽" },
   { code: "54", label: "Argentina", flag: "🇦🇷" },
   { code: "56", label: "Chile", flag: "🇨🇱" },
@@ -83,7 +83,6 @@ function onlyDigits(raw: string) {
   return raw.replace(/\D+/g, "");
 }
 
-// ✅ 1. Melhorada a função inferDDIFromDigits para aceitar o originalInput
 function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
   const digits = onlyDigits(allDigits || "");
   if (!digits) return "55";
@@ -93,7 +92,6 @@ function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
     if (digits.startsWith(opt.code)) return opt.code;
   }
 
-  // ✅ Se tem "+" explícito, não força "55", extrai os primeiros dígitos possíveis
   if (originalInput && originalInput.trim().startsWith("+")) {
     return digits.slice(0, 3);
   }
@@ -106,7 +104,7 @@ function ddiMeta(ddi: string) {
   if (!opt) return { 
       label: `DDI Desconhecido (+${ddi})`, 
       code: ddi,
-      pretty: `🌍 DDI (+${ddi})` // ✅ Mais seguro e claro
+      pretty: `🌍 DDI (+${ddi})` 
   };
   return { 
       label: `${opt.label} (+${opt.code})`, 
@@ -144,7 +142,6 @@ function formatNational(ddi: string, nationalDigits: string) {
   return groups.join(" ").trim();
 }
 
-// ✅ 2. Passar o input cru para a splitE164
 function splitE164(raw: string) {
   const digits = onlyDigits(raw);
   const ddi = inferDDIFromDigits(digits, raw);
@@ -152,14 +149,12 @@ function splitE164(raw: string) {
   return { ddi, national };
 }
 
-// ✅ 3. Passar o input cru para a applyPhoneNormalization
 function applyPhoneNormalization(rawInput: string) {
   const rawDigits = onlyDigits(rawInput);
   if (!rawDigits) {
     return { prettyPrefix: "—", e164: "", formattedNational: "", nationalDigits: "" };
   }
   
-  // Se o user digitou apenas os 10 ou 11 do Brasil sem +, garante o 55
   let finalInputToInfer = rawInput;
   if (!rawInput.trim().startsWith("+") && (rawDigits.length === 10 || rawDigits.length === 11)) {
      finalInputToInfer = `+55${rawDigits}`;
@@ -200,10 +195,9 @@ function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...input
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        {/* ✅ AUMENTADO: Largura min-w-[140px] para caber "Brasil (+55)" */}
-<div className="h-10 w-[90px] shrink-0 px-2 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] font-bold text-slate-700 dark:text-white truncate justify-center">
-  {prettyPrefix || "—"}
-</div>
+        <div className="h-10 w-[90px] shrink-0 px-2 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] font-bold text-slate-700 dark:text-white truncate justify-center">
+          {prettyPrefix || "—"}
+        </div>
         <div className="relative flex-1">
           <Input 
             value={rawValue} 
@@ -234,8 +228,10 @@ function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...input
 
 export default function ProfileSettingsPage() {
   const { theme, setTheme } = useTheme();
+  
+  // ✅ Instanciando o hook de confirm UMA VEZ de forma global para a tela
   const { confirm: confirmAction, ConfirmUI } = useConfirm();
- 
+  
   const [userId, setUserId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -243,116 +239,95 @@ export default function ProfileSettingsPage() {
   const [role, setRole] = useState("Carregando...");
   const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
-  // ✅ NOVO: Estados da Assinatura
-const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
+  const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const [saasPlanTableId, setSaasPlanTableId] = useState<string | null>(null);
   const [whatsappSessions, setWhatsappSessions] = useState(1);
   const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false);
-  const [hasFinanceiro, setHasFinanceiro] = useState(false);
-  const [activeModules, setActiveModules] = useState<string[]>([]); // ✅ Guardar módulos na tela
-  const [showSession2, setShowSession2] = useState(() => {
+  const [hasFinanceiro, setHasFinanceiro] = useState(false);
+  const [activeModules, setActiveModules] = useState<string[]>([]);
+  const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
   });
 
-  // ✅ NOVO: Controle do modal de renovação
   const [showRenewModal, setShowRenewModal] = useState(false);
+  const canPairWhatsApp = !!userId && !!tenantId;
 
-  // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
-const canPairWhatsApp = !!userId && !!tenantId;
-
-
-  // WhatsApp (UI)
-const [waLoading, setWaLoading] = useState(false);
-const [waReconnecting, setWaReconnecting] = useState(false);
-const [waConnected, setWaConnected] = useState<boolean>(false);
-const [waQr, setWaQr] = useState<string | null>(null);
-const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
-const [waLastError, setWaLastError] = useState<string | null>(null);
-
-// ✅ NOVO: Controle de dormência da Sessão 1
-const [waIsDormant, setWaIsDormant] = useState(true);
-
-const [waConfigExpanded, setWaConfigExpanded] = useState(false);
-
-// UI: info da sessão WhatsApp (vem do /api/whatsapp/status)
-const [waSessionLabel, setWaSessionLabel] = useState<string>(() => {
+  const [waLoading, setWaLoading] = useState(false);
+  const [waReconnecting, setWaReconnecting] = useState(false);
+  const [waConnected, setWaConnected] = useState<boolean>(false);
+  const [waQr, setWaQr] = useState<string | null>(null);
+  const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
+  const [waLastError, setWaLastError] = useState<string | null>(null);
+  const [waIsDormant, setWaIsDormant] = useState(true);
+  const [waConfigExpanded, setWaConfigExpanded] = useState(false);
+  const [waSessionLabel, setWaSessionLabel] = useState<string>(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_label_1") || "Contato principal";
     return "Contato principal";
   });
   const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
-const [waPushName, setWaPushName] = useState<string | null>(null);
-const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null); // vem do /api/whatsapp/profile (pictureUrl)
-// controle cache profile (evita bater na VM toda hora)
-const waLastProfileFetchRef = useRef<number>(0);
-const [waStatusText, setWaStatusText] = useState<string | null>(null);
-const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
-const [waRejectMessage, setWaRejectMessage] = useState<string>(
-  "{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno. \nObrigado!"
-);
-const [waSavingConfig, setWaSavingConfig] = useState(false);
-const [waAllowedNumbers, setWaAllowedNumbers] = useState<string>("");
+  const [waPushName, setWaPushName] = useState<string | null>(null);
+  const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
+  const waLastProfileFetchRef = useRef<number>(0);
+  const [waStatusText, setWaStatusText] = useState<string | null>(null);
+  const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
+  const [waRejectMessage, setWaRejectMessage] = useState<string>(
+    "{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno. \nObrigado!"
+  );
+  const [waSavingConfig, setWaSavingConfig] = useState(false);
+  const [waAllowedNumbers, setWaAllowedNumbers] = useState<string>("");
 
-async function fetchWaConfig() {
-  try {
-    const res = await fetch("/api/whatsapp/config", { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
-if (res.ok) {
-  setWaRejectCalls(json.rejectCalls ?? true);
-  setWaRejectMessage(json.rejectMessage ?? "");
-  setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
-}
-  } catch {}
-}
+  async function fetchWaConfig() {
+    try {
+      const res = await fetch("/api/whatsapp/config", { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setWaRejectCalls(json.rejectCalls ?? true);
+        setWaRejectMessage(json.rejectMessage ?? "");
+        setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
+      }
+    } catch {}
+  }
 
-async function saveWaConfig() {
+  async function saveWaConfig() {
     setWaSavingConfig(true);
     try {
-      // ✅ Agora apenas remove espaços extras, mantendo as letras e nomes
       const allowedNumbers = waAllowedNumbers
         .split("\n")
         .map(n => n.trim())
         .filter(Boolean);
 
       const res = await fetch("/api/whatsapp/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
-    });
-    if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
-    else addToast("error", "Erro", "Falha ao salvar configuração.");
-} catch (e: any) {
-        addToast("error", "Erro ao salvar", e.message);
-  } finally {
-    setWaSavingConfig(false);
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
+      });
+      if (res.ok) addToast("success", "Configuração salva", "Rejeição de chamadas atualizada.");
+      else addToast("error", "Erro", "Falha ao salvar configuração.");
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setWaSavingConfig(false);
+    }
   }
-}
-
 
   const [name, setName] = useState("");
   const [createdAt, setCreatedAt] = useState<string>(""); 
 
-  // --- NOVOS ESTADOS: IDENTIDADE VISUAL E SLUG ---
   const [slug, setSlug] = useState<string>("");
-  const [primaryColor, setPrimaryColor] = useState<string>("#10b981"); // Cor padrão: Emerald 500
+  const [primaryColor, setPrimaryColor] = useState<string>("#10b981");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFiles, setBannerFiles] = useState<File[]>([]);
-  // Strings para mostrar o que já tem no banco
   const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
   const [currentBannersUrl, setCurrentBannersUrl] = useState<string[]>([]);
 
- 
   const importFileRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
-
-  // controle do popup de import
   const [showImportModal, setShowImportModal] = useState(false);
 
-
   const [phoneRaw, setPhoneRaw] = useState("");
-  // Estado para armazenar o prefixo bonito (Ex: Brasil (+55))
   const [phonePrettyPrefix, setPhonePrettyPrefix] = useState("Brasil (+55)");
   
   const [whatsappUsername, setWhatsappUsername] = useState("");
@@ -391,7 +366,6 @@ async function saveWaConfig() {
   const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-
   const toastSeq = useRef(1);
 
   const addToast = (type: "success" | "error", title: string, message?: string) => {
@@ -400,7 +374,6 @@ async function saveWaConfig() {
   };
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
-  // --- CARREGAR DADOS ---
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -416,19 +389,16 @@ async function saveWaConfig() {
             setCreatedAt(d.toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' }));
         }
 
-        // Busca tenant_members + saas_my_role em paralelo
         const [memberRes, roleRes] = await Promise.all([
           supabaseBrowser
             .from("tenant_members")
-            .select(
-              `
+            .select(`
                 role,
                 tenants (
                   id,
                   name
                 )
-              `
-            )
+              `)
             .eq("user_id", user.id)
             .maybeSingle(),
           supabaseBrowser.rpc("saas_my_role"),
@@ -460,53 +430,45 @@ async function saveWaConfig() {
           setTenantId(null);
         }
 
-        // ✅ 2. BUSCA SEGURA DOS DETALHES NA VIEW E NA TABELA RAIZ
-        if (currentTenantId) {
-          // Busca dados financeiros/assinatura na view (pode vir nulo para USER comum)
-          const { data: saasData } = await supabaseBrowser
-            .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
-            .eq("id", currentTenantId)
-            .maybeSingle();
+        if (currentTenantId) {
+          const { data: saasData } = await supabaseBrowser
+            .from("vw_saas_tenants")
+            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
+            .eq("id", currentTenantId)
+            .maybeSingle();
 
-          // ✅ BUSCA OS MÓDULOS E BRANDING DIRETO DA TABELA RAIZ (Acessível a qualquer membro logado)
           const { data: rawTenant } = await supabaseBrowser
             .from("tenants")
             .select("active_modules, slug, primary_color, logo_url, banner_urls")
             .eq("id", currentTenantId)
             .maybeSingle();
-            
-          if (saasData) {
-            setLicenseStatus(saasData.license_status || "ACTIVE");
-            setExpiresAt(saasData.expires_at || null);
-            setCreditBalance(saasData.credit_balance || 0);
-            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
-            const sessions = saasData.whatsapp_sessions ?? 1;
-            setWhatsappSessions(sessions);
-            
-            if (sessions < 2) {
-              setShowSession2(false);
-              localStorage.removeItem("wa_show_session2");
-              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
-            }
-          }
+            
+          if (saasData) {
+            setLicenseStatus(saasData.license_status || "ACTIVE");
+            setExpiresAt(saasData.expires_at || null);
+            setCreditBalance(saasData.credit_balance || 0);
+            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
+            const sessions = saasData.whatsapp_sessions ?? 1;
+            setWhatsappSessions(sessions);
+            
+            if (sessions < 2) {
+              setShowSession2(false);
+              localStorage.removeItem("wa_show_session2");
+              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
+            }
+          }
 
-          // ✅ LÊ AS INFORMAÇÕES VISUAIS DA TABELA REAL PARA NÃO DEPENDER DA VIEW
-          if (rawTenant) {
-            const mods: string[] = rawTenant.active_modules || [];
-            setActiveModules(mods);
-            
-            // 🛡️ BLINDAGEM: converte para minúsculo antes de checar
-            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
-            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
+          if (rawTenant) {
+            const mods: string[] = rawTenant.active_modules || [];
+            setActiveModules(mods);
+            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
+            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
             setSlug(rawTenant.slug || "");
             setPrimaryColor(rawTenant.primary_color || "#10b981");
             setCurrentLogoUrl(rawTenant.logo_url || null);
             setCurrentBannersUrl(rawTenant.banner_urls || []);
           }
-        }
-
-
+        }
 
         const { data: profile } = await supabaseBrowser
           .from("profiles")
@@ -516,18 +478,15 @@ async function saveWaConfig() {
 
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
         const emailName = user.email ? user.email.split("@")[0] : "";
-       
         const finalName = profile?.display_name || companyName || metaName || emailName || "";
 
         if (profile) {
           setName(finalName);
           setWhatsappUsername(profile.whatsapp_username || "");
-         
+          
           if (profile.phone) {
             const { ddi, national } = splitE164(profile.phone);
             const meta = ddiMeta(ddi);
-            
-            // Define prefixo inicial
             setPhonePrettyPrefix(meta.pretty); 
             setPhoneRaw(formatNational(ddi, national));
           }
@@ -535,7 +494,6 @@ async function saveWaConfig() {
           setName(finalName);
         }
 
-      // ✅ Carrega API Keys inline (dentro do try, onde currentTenantId existe)
       if (currentTenantId) {
         const { data: keysData } = await supabaseBrowser
           .from("tenant_api_keys")
@@ -552,7 +510,6 @@ async function saveWaConfig() {
         setLoading(false);
       }
 
-      // ✅ Descobre se já estava conectado ou conectando e acorda o painel sozinho
       fetchWaStatus().then(async ({ connected, status }) => {
         if (connected || status === "qr" || status === "connecting") {
           setWaIsDormant(false);
@@ -565,15 +522,14 @@ async function saveWaConfig() {
   }, []);
 
   useEffect(() => {
-  // ✅ Interrompe o polling imediatamente se o painel estiver dormente
   if (!tenantId || !canPairWhatsApp || waIsDormant) return;
 
   let stopped = false;
   let timer: any = null;
 
-  const INTERVAL_CONNECTED = 5 * 60 * 1000;     // 5 min
-  const INTERVAL_DISCONNECTED = 8 * 1000;       // 8s
-  const INTERVAL_HIDDEN = 10 * 60 * 1000;       // 10 min
+  const INTERVAL_CONNECTED = 5 * 60 * 1000;
+  const INTERVAL_DISCONNECTED = 8 * 1000;
+  const INTERVAL_HIDDEN = 10 * 60 * 1000;
 
   const clear = () => {
     if (timer) {
@@ -591,24 +547,16 @@ async function saveWaConfig() {
 
   const tick = async () => {
     if (stopped) return;
-
-    // Se a aba estiver oculta, não martela a VM
     if (typeof document !== "undefined" && document.visibilityState !== "visible") {
       scheduleNext(INTERVAL_HIDDEN);
       return;
     }
-
-    // ✅ Roda o refresh de forma totalmente invisível (sem loading chato)
     await refreshWhatsAppPanel(false, false);
-
-    // agenda próximo check baseado no status atual
     scheduleNext(waConnected ? INTERVAL_CONNECTED : INTERVAL_DISCONNECTED);
   };
 
-  // primeira rodada
   void tick();
 
-  // ao voltar pra aba, atualiza imediatamente
   const onVis = () => {
     if (document.visibilityState === "visible") {
       void tick();
@@ -622,17 +570,13 @@ async function saveWaConfig() {
     clear();
     document.removeEventListener("visibilitychange", onVis);
   };
-}, [tenantId, canPairWhatsApp, waConnected, waIsDormant]); // ✅ Inserido aqui
-
-
-
+}, [tenantId, canPairWhatsApp, waConnected, waIsDormant]);
 
   function handlePhoneDone() {
   const norm = applyPhoneNormalization(phoneRaw);
   setPhonePrettyPrefix(norm.prettyPrefix);
   setPhoneRaw(norm.formattedNational || norm.nationalDigits || phoneRaw);
 
-  // Só auto-preenche o username se o usuário não tiver tocado nele manualmente
   if (norm.e164) {
     const digits = onlyDigits(norm.e164);
     const finalUser = waUserTouched && whatsappUsername.trim() ? whatsappUsername.trim() : digits;
@@ -644,7 +588,6 @@ async function saveWaConfig() {
   if (isEditing === false) setIsEditing(true);
 }
 
-  // Permite qualquer caractere no WhatsApp
 const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const val = e.target.value;
   setWhatsappUsername(val);
@@ -658,11 +601,9 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!userId) return;
     setSaving(true);
     try {
-      // --- LOGICA NOVA: UPLOAD PARA CLOUDFLARE R2 ---
       let finalLogoUrl = currentLogoUrl;
       let finalBannersUrls = currentBannersUrl;
 
-      // Upload da Logo
       if (logoFile) {
         const logoData = new FormData();
         logoData.append("file", logoFile);
@@ -678,7 +619,6 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (result.success) finalLogoUrl = result.url;
       }
 
-      // Upload dos Banners
       if (bannerFiles.length > 0) {
         const uploadedUrls = [];
         for (const file of bannerFiles) {
@@ -698,7 +638,6 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         finalBannersUrls = uploadedUrls;
       }
 
-      // --- LOGICA ORIGINAL: PERFIL ---
       const norm = applyPhoneNormalization(phoneRaw);
       const { error: profileError } = await supabaseBrowser
         .from("profiles")
@@ -713,7 +652,6 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (profileError) throw profileError;
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
-      // --- LOGICA NOVA: SALVAR NO TENANT ---
       if (canEditBranding && tenantId) {
         const { data: tenantData, error: tenantError } = await supabaseBrowser
           .from("tenants")
@@ -723,11 +661,10 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             banner_urls: finalBannersUrls
           })
           .eq("id", tenantId)
-          .select(); // ✅ Obriga o Supabase a devolver a linha que foi alterada
+          .select();
 
         if (tenantError) throw tenantError;
         
-        // ✅ Se voltar vazio, o RLS (Segurança) bloqueou silenciosamente
         if (!tenantData || tenantData.length === 0) {
           throw new Error("Permissão negada no Banco de Dados. Verifique as políticas RLS (Update) da tabela 'tenants'.");
         }
@@ -775,16 +712,12 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 setWaConnected(!!json.connected);
 setWaStatusText(json.status ?? null);
 
-// status não traz mais profile/session info
 if (!json.connected) {
   setWaPushName(null);
   setWaProfilePicUrl(null);
-  // ✅ NÃO RESETA O LABEL AQUI! Mantém o nome customizado ("Suporte", etc) salvo no localStorage.
 }
 
-// ✅ Agora retornamos um objeto para sabermos qual é o status exato lá na VM
 return { connected: !!json.connected, status: json.status };
-
 
 } catch (e: any) {
   const msg = e?.message || "Erro ao consultar status do WhatsApp";
@@ -818,28 +751,23 @@ async function fetchWaProfile() {
     const json = await res.json().catch(() => ({} as any));
     if (!res.ok) throw new Error(json?.error || "Falha ao obter perfil do WhatsApp");
 
-    // payload do back:
-    // { connected, status, jid, pushName, pictureUrl }
 setWaPushName(json.pushName ?? null);
     setWaProfilePicUrl(json.pictureUrl ?? null);
 
     return { pushName: json.pushName ?? null, pictureUrl: json.pictureUrl ?? null };
   } catch (e: any) {
-    // não derruba o painel por falha de foto
-    // silencioso: falha de foto não é crítica
     return { pushName: null, pictureUrl: null };
   }
 }
 
 
-// ✅ Adicionado o parâmetro showVisualLoading para rodar em background
 async function refreshWhatsAppPanel(forceQr = false, showVisualLoading = true) {
   if (showVisualLoading) setWaLoading(true);
   try {
     const { connected, status } = await fetchWaStatus();
 
 if (connected) {
-  setWaIsDormant(false); // ✅ Acorda o painel caso descubra que está conectado
+  setWaIsDormant(false);
   setWaQr(null);
   setWaQrDataUrl(null);
   const now = Date.now();
@@ -850,15 +778,12 @@ if (connected) {
         await fetchWaConfig();
         waLastProfileFetchRef.current = now;
       }
-      // Retry do nome se ainda não chegou
       if (!waPushName) {
         setTimeout(() => { void fetchWaProfile(); }, 3000);
       }
       return;
 }
 
-// ✅ TRAVA DE SEGURANÇA: Só bate na API de gerar QR se o botão for clicado (forceQr) 
-// OU se a VM informar que já existe uma tentativa de conexão rolando ("qr" ou "connecting")
 if (forceQr || status === "qr" || status === "connecting") {
   const qr = await fetchWaQr();
   if (!qr) {
@@ -867,7 +792,6 @@ if (forceQr || status === "qr" || status === "connecting") {
   }
   setWaQrDataUrl(qr);
 } else {
-  // Se está totalmente desconectado e não clicou no botão, limpa o QR.
   setWaQrDataUrl(null);
 }
 
@@ -883,7 +807,10 @@ const [exporting, setExporting] = useState(false);
   const importAppsFileRef = useRef<HTMLInputElement | null>(null);
   const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
 
-// ✅ API Keys
+  // 👇 ADICIONE ESTAS DUAS LINHAS AQUI 👇
+  const [importingAuto, setImportingAuto] = useState(false);
+  const importAutoFileRef = useRef<HTMLInputElement | null>(null);
+
 type ApiKey = { id: string; label: string; is_active: boolean; created_at: string; last_used_at: string | null; };
 const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
 const [apiKeyLabel, setApiKeyLabel] = useState("");
@@ -891,15 +818,12 @@ const [generatingKey, setGeneratingKey] = useState(false);
 const [revealedKey, setRevealedKey] = useState<string | null>(null);
 const [apiKeyCopied, setApiKeyCopied] = useState(false);
 
-  // ✅ NOVO: Estados e Refs para Revendas
   const [importingReseller, setImportingReseller] = useState(false);
   const importResellerFileRef = useRef<HTMLInputElement | null>(null);
 
-// ✅ NOVO: Estados e Refs para Mensagens
   const [importingMessage, setImportingMessage] = useState(false);
   const importMessageFileRef = useRef<HTMLInputElement | null>(null);
 
-  // ✅ NOVO: Estados e Refs para Servidores
   const [importingServer, setImportingServer] = useState(false);
   const importServerFileRef = useRef<HTMLInputElement | null>(null);
 
@@ -909,7 +833,6 @@ const [importingFinanceiro, setImportingFinanceiro] = useState(false);
   const [finExportYears, setFinExportYears] = useState<number[]>([new Date().getFullYear()]);
   const [finExportStatus, setFinExportStatus] = useState<"todos" | "PAGO" | "PENDENTE">("todos");
 
-  // --- NOVAS FUNÇÕES DE APLICATIVOS ---
   async function handleExportApps() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setExporting(true);
@@ -967,7 +890,6 @@ addToast("success", "Sucesso", summary);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingApps(false); }
   }
 
-  // --- ✅ NOVAS FUNÇÕES DE SERVIDORES ---
   async function handleExportServers() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setExporting(true);
@@ -1025,7 +947,6 @@ addToast("success", "Sucesso", summary);
 
   
 
-  // --- FUNÇÕES DE FINANCEIRO ---
   async function handleExportFinanceiro(years: number[], status: string) {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setShowFinanceiroExportModal(false);
@@ -1085,10 +1006,6 @@ addToast("success", "Sucesso", summary);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingFinanceiro(false); }
   }
 
-  // --- NOVAS FUNÇÕES DE AUTOMAÇÕES ---
-  const [importingAuto, setImportingAuto] = useState(false);
-  const importAutoFileRef = useRef<HTMLInputElement | null>(null);
-
   async function handleExportAuto() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setExporting(true);
@@ -1141,10 +1058,8 @@ addToast("success", "Sucesso", summary);
         return;
       }
       addToast("success", "Sucesso", summary);
-      // Não precisa recarregar a tela inteira pois as automações ficam em outra página.
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingAuto(false); }
   }
-// --- ✅ NOVAS FUNÇÕES DE REVENDAS ---
   async function handleExportResellers() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setExporting(true);
@@ -1152,7 +1067,6 @@ addToast("success", "Sucesso", summary);
     try {
       const res = await fetch(`/api/import_export/revenda/export?tenant_id=${encodeURIComponent(tenantId)}`, { method: "GET" });
       if (!res.ok) {
-        // ✅ Tenta pegar a mensagem de erro real enviada pela API
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || errorData.details || "Falha ao gerar o arquivo de exportação.");
       }
@@ -1202,7 +1116,6 @@ addToast("success", "Sucesso", summary);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingReseller(false); }
   }
 
-  // --- ✅ NOVAS FUNÇÕES DE MENSAGENS ---
   async function handleExportMessages() {
     if (!tenantId) return addToast("error", "Erro", "Sem tenant vinculado.");
     setExporting(true);
@@ -1259,7 +1172,6 @@ addToast("success", "Sucesso", summary);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
   }
 
-  // ✅ API KEYS
   async function loadApiKeys(tid?: string) {
   const resolvedId = tid || tenantId;
   if (!resolvedId) return;
@@ -1356,13 +1268,11 @@ try {
         throw new Error("Falha ao gerar o arquivo de exportação.");
       }
 
-      // Baixa o arquivo gerado via Blob
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       
-      // Tenta pegar o nome do arquivo no Header, senao usa fallback
       const disposition = res.headers.get("Content-Disposition");
       let filename = `clientes_export.xlsx`;
       if (disposition && disposition.includes("filename=")) {
@@ -1413,16 +1323,13 @@ try {
 
 addToast("success", "Desconectado", "Sessão do WhatsApp removida com sucesso.");
 
-// ✅ limpa UI imediatamente (evita avatar/qr “fantasma”)
 setWaConnected(false);
 setWaStatusText(null);
 setWaQr(null);
 setWaQrDataUrl(null);
 setWaPushName(null);
 setWaProfilePicUrl(null);
-// ✅ Mantém o nome da sessão intacto para quando você conectar de novo!
 
-// ✅ Bota a sessão pra dormir para parar de martelar a VM à toa
 setWaIsDormant(true);
 
 } catch (e: any) {
@@ -1460,7 +1367,6 @@ async function handleReconnectWhatsApp() {
     setWaProfilePicUrl(null);
     setWaIsDormant(false);
 
-    // Aguarda a VM reiniciar a sessão e busca o QR
     setTimeout(() => void refreshWhatsAppPanel(true, false), 4000);
   } catch (e: any) {
     setWaLastError(e?.message);
@@ -1477,15 +1383,13 @@ async function handleReconnectWhatsApp() {
     }
 
     setImporting(true);
-setShowImportModal(false); // ✅ fecha modal ao iniciar
+setShowImportModal(false); 
     try {
       const fd = new FormData();
       fd.append("file", file);
 
-      // 👇 INÍCIO DA INJEÇÃO DO TOKEN 👇
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
-      // 👆 FIM DA INJEÇÃO 👆
 
 const res = await fetch(
         `/api/import_export/cliente/import?tenant_id=${encodeURIComponent(tenantId)}`,
@@ -1495,7 +1399,7 @@ const res = await fetch(
           credentials: "same-origin",
           cache: "no-store",
           headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒 Envia a credencial
+            ...(token ? { Authorization: `Bearer ${token}` } : {}) 
           }
         }
       );
@@ -1516,11 +1420,9 @@ const res = await fetch(
 
       const summary = `Total: ${json.total} | Atualizados: ${json.updated} | Inseridos: ${json.inserted} | Avisos: ${warnCount} | Erros: ${errCount}`;
 
-      // ✅ Se teve erro, gera um log para download
       if (errCount > 0) {
         addToast("error", "Import concluído com erros", `${summary}. O relatório de erros será descarregado.`);
 
-        // Criar conteúdo do Log
         let logContent = `RELATÓRIO DE IMPORTAÇÃO DE CLIENTES\n`;
         logContent += `Data: ${new Date().toLocaleString("pt-BR")}\n`;
         logContent += `${summary}\n\n`;
@@ -1537,7 +1439,6 @@ const res = await fetch(
           });
         }
 
-        // Fazer download do Log (.txt)
         const blob = new Blob([logContent], { type: "text/plain;charset=utf-8" });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -1548,13 +1449,11 @@ const res = await fetch(
         a.remove();
         window.URL.revokeObjectURL(url);
 
-        return; // ✅ não recarrega, pois o utilizador tem de corrigir o ficheiro
+        return; 
       }
 
-// ✅ Sem erro: sucesso de verdade
 addToast("success", "Import concluído", summary);
 
-// warnings não bloqueiam
 if (warnCount > 0) {
   const topWarnings = (json.warnings || []).slice(0, 3);
   for (const it of topWarnings) {
@@ -1566,13 +1465,11 @@ if (warnCount > 0) {
 }
 
 
-      // se teve warnings, não precisa bloquear, mas informa o primeiro
       if (warnCount > 0) {
         const firstW = json.warnings[0];
         addToast("error", "Avisos no import", `Linha ${firstW.row}: ${firstW.warning}`);
       }
 
-      // recarrega só se não teve erro
       setTimeout(() => window.location.reload(), 1200);
 
     } catch (e: any) {
@@ -1583,19 +1480,14 @@ if (warnCount > 0) {
   }
 
 
-  // ✅ REGRA DE NEGÓCIO DA MARCA:
-  // Tem algum módulo diferente de iptv, saas ou financeiro?
   const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes((m || "").toLowerCase()));
-  // Superadmin não vê. O restante vê se tiver o módulo customizado.
   const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
 
-  // ✅ REGRA DE NEGÓCIO DAS API KEYS:
-  // Visível APENAS para quem tem módulo IPTV ou SAAS
   const canViewApiKeys = activeModules.some(m => ["iptv", "saas"].includes((m || "").toLowerCase()));
 
   if (loading) {
-  return (
-    <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
+  return (
+    <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
       <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
         Carregando configurações...
       </div>
@@ -1608,8 +1500,8 @@ return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
-      {ConfirmUI} {/* ⬅️ ADICIONADO AQUI */}
-     
+      {ConfirmUI} 
+      
      {showImportModal && (
   <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
 
@@ -1636,7 +1528,6 @@ return (
           type="button"
           disabled={importing}
           onClick={() => {
-            // Nao fecha o modal AQUI, senao voce nao ve o loader! O modal fecha na funcao handleImportFile
             importFileRef.current?.click();
           }}
           className="w-full h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1663,15 +1554,13 @@ return (
     </div>
   </div>
   )}
-      {/* HEADER + BOTÃO DINÂMICO */}
-<div className="flex items-center justify-between gap-2 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
   <div className="min-w-0 text-left">
     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
       Gerenciar Perfil
     </h1>
   </div>
   <div className="flex items-center gap-2 shrink-0">
-    {/* Tema */}
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       className={`h-9 md:h-10 px-3 rounded-lg border font-bold text-xs flex items-center gap-2 transition-all ${
@@ -1694,15 +1583,13 @@ return (
 <div className={`grid gap-8 ${isOnlyFinanceiro ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-3"}`}>
 
        
-        {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
         <div className={`space-y-6 ${isOnlyFinanceiro ? "" : "xl:col-span-2"}`}>
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
     <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
-    Dados Pessoais
-    </h3>
+  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
+    Dados Pessoais
+    </h3>
   <div className="flex items-center gap-2">
-    {/* ✅ Botão Renovar SÓ aparece se não for SUPERADMIN */}
     {role !== "SUPERADMIN" && (
       <button
         onClick={() => setShowRenewModal(true)}
@@ -1731,7 +1618,6 @@ return (
   </div>
 </div>
             
-            {/* LINHA 1: NOME + PERFIL */}
             <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
   <div className="col-span-2">
     <Label>Nome Completo</Label>
@@ -1755,7 +1641,6 @@ return (
   </div>
 </div>
 
-            {/* LINHA 2: EMAIL + TELEFONE (2 COLUNAS AGORA) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <Label>E-mail</Label>
@@ -1774,14 +1659,12 @@ return (
               </div>
             </div>
 
-            {/* LINHA 3: WHATSAPP + MEMBRO */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
                 <div className="md:col-span-2">
                     <Label>WhatsApp Username</Label>
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
                         
-                        {/* MODO LEITURA: Link Clicável */}
                         <Input
   className="pl-8 pr-10"
   value={whatsappUsername}
@@ -1821,19 +1704,15 @@ return (
                 </div>
             </div>
 
-            {/* ✅ LINHA 4 - ASSINATURA (Oculta inteiramente para SUPERADMIN) */}
             {role !== "SUPERADMIN" && (
               <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5">
                 <div className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest mb-3">
                   Detalhes da Assinatura
                 </div>
-                {/* Alterado para Grid para alinhar com os inputs acima */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* 1. Status Dinâmico */}
                   <div>
                     <Label>Status</Label>
                     {(() => {
-                      // Cores no mesmo padrão do Perfil
                       const mapColors: Record<string, string> = {
                         ACTIVE:   "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
                         TRIAL:    "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
@@ -1858,7 +1737,7 @@ return (
                             boxColor = `${mapColors.EXPIRED} animate-pulse`;
                             boxText = "⚠️ Vence Hoje";
                           } else if (dias <= 7) {
-                            boxColor = mapColors.INACTIVE; // Laranja (Amber)
+                            boxColor = mapColors.INACTIVE; 
                             boxText = `⏳ Vence em ${dias}d`;
                           }
                         }
@@ -1872,18 +1751,17 @@ return (
                     })()}
                   </div>
 
-                  {/* 2. Vencimento com Cor Dinâmica */}
                   <div>
                     <Label>Vencimento</Label>
                     {(() => {
-                      let textColor = "text-slate-700 dark:text-white"; // Padrão cinza se Superadmin
+                      let textColor = "text-slate-700 dark:text-white"; 
 
                       if (expiresAt && role !== "SUPERADMIN") {
                         const dias = daysUntil(expiresAt);
                         if (dias !== null) {
                           if (dias < 0 || dias === 0) textColor = "text-rose-600 dark:text-rose-400";
                           else if (dias <= 7) textColor = "text-amber-600 dark:text-amber-400";
-                          else textColor = "text-emerald-600 dark:text-emerald-400"; // Tudo ok, fica verde
+                          else textColor = "text-emerald-600 dark:text-emerald-400"; 
                         }
                       }
 
@@ -1895,7 +1773,6 @@ return (
                     })()}
                   </div>
 
-                  {/* 3. Créditos: APENAS MASTER vê */}
                   {role === "MASTER" && (
                     <div>
                       <Label>Saldo de Créditos</Label>
@@ -1908,7 +1785,6 @@ return (
               </div>
             )}
           </div>
-{/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
           {canEditBranding && (
             <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
@@ -1919,7 +1795,6 @@ return (
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* SLUG DA EMPRESA (LEITURA) */}
                 <div>
                   <Label>Endereço de Acesso (Slug)</Label>
                   <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
@@ -1939,7 +1814,6 @@ return (
                   </p>
                 </div>
 
-                {/* COR PRIMÁRIA (TEMA) */}
                 <div>
                   <Label>Cor Primária do Sistema</Label>
                   <div className="flex items-center gap-3">
@@ -1962,7 +1836,6 @@ return (
                       maxLength={7}
                     />
                     
-                    {/* BOTÃO RESETAR COR */}
                     {primaryColor.toLowerCase() !== "#10b981" && (
                       <button
                         type="button"
@@ -1982,10 +1855,8 @@ return (
                 </div>
               </div>
 
-              {/* UPLOADS DE MÍDIA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
                 
-                {/* LOGO */}
                 <div className="space-y-2">
                   <MediaUploader 
                     label="Logotipo da Empresa (Favicon/Login)" 
@@ -2006,7 +1877,6 @@ return (
                   </p>
                 </div>
 
-                {/* BANNERS / VÍDEOS */}
                 <div className="space-y-2">
                   <MediaUploader 
                     label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
@@ -2028,13 +1898,11 @@ return (
           )}
 
 
-         {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 Dados do Sistema
               </h3>
-              {/* Ícone de template visível só no mobile */}
               <button 
                 type="button" 
                 onClick={() => setActionModal("template")}
@@ -2045,7 +1913,6 @@ return (
               </button>
             </div>
 
-            {/* MODAL DE ESCOLHA (CLIENTES OU APPS) */}
             {actionModal && (
               <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
                 <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4">
@@ -2059,7 +1926,6 @@ return (
                   </p>
 
                   <div className="flex flex-col gap-3 pt-1">
-                    {/* Financeiro — aparece para quem tem o módulo */}
                     {isOnlyFinanceiro ? (
                       <button
                         type="button"
@@ -2079,7 +1945,6 @@ return (
                         </div>
                       </button>
                     ) : (<>
-                    {/* 1. Servidores */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2098,7 +1963,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 2. Mensagens */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2119,7 +1983,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 3. Automações */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2138,7 +2001,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 4. Clientes */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2157,7 +2019,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 5. Aplicativos */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2176,7 +2037,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 6. Revendedores */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2195,7 +2055,6 @@ return (
                       </div>
                     </button>
 
-                    {/* 7. Financeiro — só aparece se tem o módulo */}
                     {hasFinanceiro && <button
                       type="button"
                       onClick={() => {
@@ -2223,7 +2082,6 @@ return (
               </div>
             )}
 
-            {/* BOTÕES DE AÇÃO NA PÁGINA */}
             <div className="flex flex-row gap-3">
               <button
                 type="button"
@@ -2257,13 +2115,11 @@ return (
               <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportAutoFile(f); }} />
               <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportResellerFile(f); }} />
               <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportMessageFile(f); }} />
-              {/* ✅ NOVO INPUT PARA SERVIDOR */}
               <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportServerFile(f); }} />
               <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) void handleImportFinanceiroFile(f); }} />
             </div>
           </div>
 
-        {/* ✅ CARD API KEYS — visível apenas para IPTV ou SAAS */}
           {canViewApiKeys && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
@@ -2274,7 +2130,6 @@ return (
             </span>
           </div>
 
-          {/* Gerar nova key */}
           <div className="flex gap-2">
             <input
               value={apiKeyLabel}
@@ -2292,7 +2147,6 @@ return (
             </button>
           </div>
 
-          {/* Lista de keys */}
           {apiKeys.length > 0 ? (
             <div className="space-y-2">
               {apiKeys.map(k => (
@@ -2332,7 +2186,6 @@ return (
             <p className="text-xs text-slate-400 dark:text-white/30 italic">Nenhuma key gerada ainda.</p>
           )}
 
-          {/* Documentação */}
           <details className="group">
   <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center justify-between gap-1">
     <span className="flex items-center gap-1">
@@ -2497,7 +2350,7 @@ Content-Type: application/json`}</code>
 
                   <button
                     type="button"
-                    onClick={() => void refreshWhatsAppPanel()} // Aqui NÃO TEM o true
+                    onClick={() => void refreshWhatsAppPanel()} 
                     disabled={waLoading}
                     className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
                   >
