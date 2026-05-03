@@ -181,24 +181,24 @@ export default function TenantLoginPage() {
       ========================================== */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-50 dark:bg-[#0f141a] overflow-hidden">
         
-        {/* Fundo com Glow Dinâmico baseado na cor do cliente */}
+        {/* Fundo com textura suave e brilho discreto */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Luz superior */}
+          {/* Luz superior bem mais suave */}
           <div 
-            className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-3xl opacity-20 dark:opacity-10" 
+            className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
             style={{ backgroundColor: brandColor }}
           />
-          {/* Luz inferior */}
+          {/* Luz inferior bem mais suave */}
           <div 
-            className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-3xl opacity-20 dark:opacity-10" 
+            className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
             style={{ backgroundColor: brandColor }}
           />
-          {/* Grid leve (padrão da Landing Page) */}
+          {/* Grain leve (padrão do login principal) */}
           <div
-            className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04]"
+            className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
             style={{
-              backgroundImage: "linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E\")",
             }}
           />
         </div>
@@ -227,12 +227,12 @@ export default function TenantLoginPage() {
           </div>
 
           {/* Abas Login / Reset */}
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1 dark:bg-black/20 mb-6 border border-slate-200/50 dark:border-white/5">
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-black/20 mb-6">
             <button
               type="button"
               onClick={() => { setMsg(null); setMode("login"); }}
-              className={`rounded-lg px-3 py-2 text-sm font-bold transition-all ${
-                mode === "login" ? "bg-white shadow-sm text-slate-900 dark:bg-[#161b22] dark:text-white" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white"
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                mode === "login" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"
               }`}
             >
               Login
@@ -240,8 +240,8 @@ export default function TenantLoginPage() {
             <button
               type="button"
               onClick={() => { setMsg(null); setMode("reset"); }}
-              className={`rounded-lg px-3 py-2 text-sm font-bold transition-all ${
-                mode === "reset" ? "bg-white shadow-sm text-slate-900 dark:bg-[#161b22] dark:text-white" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white"
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                mode === "reset" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"
               }`}
             >
               Esqueci a senha
@@ -253,7 +253,7 @@ export default function TenantLoginPage() {
             <form action={formAction} className="space-y-4">
               {/* E-mail */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
                   E-mail
                 </label>
                 <input
@@ -263,14 +263,19 @@ export default function TenantLoginPage() {
                   onFocus={() => setFocusedInput('email')}
                   onBlur={() => setFocusedInput(null)}
                   placeholder="voce@exemplo.com"
-                  className="w-full h-12 px-4 rounded-xl border-2 bg-white text-slate-900 outline-none transition-colors dark:bg-[#161b22] dark:text-white"
-                  style={{ borderColor: focusedInput === 'email' ? brandColor : 'transparent' }}
+                  autoComplete="email"
+                  inputMode="email"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                  style={{ 
+                    borderColor: focusedInput === 'email' ? brandColor : undefined,
+                    boxShadow: focusedInput === 'email' ? `0 0 0 2px ${brandColor}40` : undefined
+                  }}
                 />
               </div>
 
               {/* Senha */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1.5 uppercase tracking-wider">
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
                   Senha
                 </label>
                 <div className="relative">
@@ -282,16 +287,29 @@ export default function TenantLoginPage() {
                     onFocus={() => setFocusedInput('password')}
                     onBlur={() => setFocusedInput(null)}
                     placeholder="••••••••"
-                    className="w-full h-12 px-4 pr-12 rounded-xl border-2 bg-white text-slate-900 outline-none transition-colors dark:bg-[#161b22] dark:text-white"
-                    style={{ borderColor: focusedInput === 'password' ? brandColor : 'transparent' }}
+                    autoComplete="current-password"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                    style={{ 
+                      borderColor: focusedInput === 'password' ? brandColor : undefined,
+                      boxShadow: focusedInput === 'password' ? `0 0 0 2px ${brandColor}40` : undefined
+                    }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/80 transition-colors"
                     tabIndex={-1}
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
@@ -337,15 +355,22 @@ export default function TenantLoginPage() {
           ) : (
             <form onSubmit={onReset} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-white/60 mb-1.5 uppercase tracking-wider">E-mail Cadastrado</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
+                  E-mail Cadastrado
+                </label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onFocus={() => setFocusedInput('reset')}
                   onBlur={() => setFocusedInput(null)}
                   placeholder="voce@exemplo.com"
-                  className="w-full h-12 px-4 rounded-xl border-2 bg-white text-slate-900 outline-none transition-colors dark:bg-[#161b22] dark:text-white"
-                  style={{ borderColor: focusedInput === 'reset' ? brandColor : 'transparent' }}
+                  autoComplete="email"
+                  inputMode="email"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
+                  style={{ 
+                    borderColor: focusedInput === 'reset' ? brandColor : undefined,
+                    boxShadow: focusedInput === 'reset' ? `0 0 0 2px ${brandColor}40` : undefined
+                  }}
                 />
               </div>
 
