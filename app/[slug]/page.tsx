@@ -14,19 +14,21 @@ export default function TenantLoginPage() {
   // Estado para controlar o foco do input e mudar a cor da borda dinamicamente
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     async function loadTenantBrand() {
       if (!slug) return;
       
-      // Agora buscamos também o media_type e media_url
+      // ✅ CORREÇÃO: Usamos os nomes reais das colunas da sua tabela tenants
       const { data, error } = await supabaseBrowser
         .from("tenants")
-        .select("id, name, logo_url, brand_color, media_type, media_url")
+        .select("id, name, logo_url, primary_color, banner_urls")
         .eq("slug", slug)
-        .single();
+        .maybeSingle(); // maybeSingle evita jogar um erro vermelho no console se não achar
 
       if (data) {
         setTenantData(data);
+      } else {
+        console.error("Erro ou Tenant não encontrado:", error);
       }
       setLoading(false);
     }
@@ -46,13 +48,20 @@ export default function TenantLoginPage() {
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b1015] flex items-center justify-center px-4">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Página não encontrada</h2>
-          <p className="text-slate-500 dark:text-zinc-400 text-sm">Verifique o endereço da sua academia e tente novamente.</p>
+          <p className="text-slate-500 dark:text-zinc-400 text-sm">Verifique o endereço de acesso e tente novamente.</p>
         </div>
       </div>
     );
   }
 
-  const brandColor = tenantData.brand_color || "#10b981";
+  // ✅ CORREÇÃO: Usa a coluna primary_color
+  const brandColor = tenantData.primary_color || "#10b981";
+  
+  // ✅ CORREÇÃO: Pega o primeiro banner da lista (se existir)
+  const backgroundMedia = tenantData.banner_urls && tenantData.banner_urls.length > 0 ? tenantData.banner_urls[0] : null;
+  
+  // ✅ CORREÇÃO: Descobre se é vídeo lendo a extensão do arquivo
+  const isVideo = backgroundMedia ? (backgroundMedia.includes('.mp4') || backgroundMedia.includes('.webm')) : false;
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-[#0b1015] selection:bg-emerald-500 selection:text-white">
@@ -64,18 +73,18 @@ export default function TenantLoginPage() {
       <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center">
         
         {/* Renderiza Vídeo ou Imagem baseada no banco de dados */}
-        {tenantData.media_type === "video" && tenantData.media_url ? (
+        {isVideo && backgroundMedia ? (
           <video 
             autoPlay 
             loop 
             muted 
             playsInline
             className="absolute inset-0 w-full h-full object-cover opacity-60"
-            src={tenantData.media_url}
+            src={backgroundMedia}
           />
-        ) : tenantData.media_url ? (
+        ) : backgroundMedia ? (
           <img 
-            src={tenantData.media_url} 
+            src={backgroundMedia} 
             alt={`Ambiente da ${tenantData.name}`}
             className="absolute inset-0 w-full h-full object-cover opacity-60"
           />
