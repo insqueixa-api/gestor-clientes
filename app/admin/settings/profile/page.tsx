@@ -2016,7 +2016,7 @@ return (
                 {/* BANNERS / VÍDEOS */}
                 <div className="space-y-2">
                   <MediaUploader 
-                    label="Banners da Tela de Login (Até 5 Fotos/Vídeos)" 
+                    label="Mídia da Tela de Login (Até 5 Fotos/Vídeos)" 
                     maxFiles={5} 
                     accept="image/*, video/mp4, video/webm"
                     initialUrls={currentBannersUrl}
@@ -2029,6 +2029,10 @@ return (
                       if (!isEditing) setIsEditing(true);
                     }} 
                   />
+                  {/* ✅ NOVA DICA VISUAL AQUI */}
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Para melhor encaixe, recomendamos o envio de <strong>Vídeos ou Fotos na vertical</strong> (formato celular). Imagens horizontais serão cortadas nas laterais para preencher a tela.
+                  </p>
                 </div>
               </div>
 
