@@ -340,6 +340,7 @@ async function saveWaConfig() {
   const [primaryColor, setPrimaryColor] = useState<string>("#10b981"); // Cor padrão: Emerald 500
   const [loginTitle, setLoginTitle] = useState<string>(""); // ✅ NOVO Título
   const [loginSubtitle, setLoginSubtitle] = useState<string>(""); // ✅ NOVO Subtítulo
+  const [bannerInterval, setBannerInterval] = useState<number>(5); // ✅ NOVO Tempo de transição
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFiles, setBannerFiles] = useState<File[]>([]);
   // Strings para mostrar o que já tem no banco
@@ -476,7 +477,7 @@ async function saveWaConfig() {
           const { data: rawTenant } = await supabaseBrowser
             .from("tenants")
             // ✅ INCLUÍDO AS COLUNAS AQUI
-            .select("active_modules, slug, primary_color, logo_url, banner_urls, login_title, login_subtitle")
+            .select("active_modules, slug, primary_color, logo_url, banner_urls, login_title, login_subtitle, banner_interval")
             .eq("id", currentTenantId)
             .maybeSingle();
             
@@ -509,8 +510,9 @@ async function saveWaConfig() {
             setCurrentBannersUrl(rawTenant.banner_urls || []);
             setLoginTitle(rawTenant.login_title || ""); // ✅ INCLUÍDO
             setLoginSubtitle(rawTenant.login_subtitle || ""); // ✅ INCLUÍDO
+            setBannerInterval(rawTenant.banner_interval || 5); // ✅ INCLUÍDO
           }
-        }
+        }
 
 
 
@@ -728,7 +730,8 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             logo_url: finalLogoUrl,
             banner_urls: finalBannersUrls,
             login_title: loginTitle, // ✅ SALVA O TÍTULO NOVO
-            login_subtitle: loginSubtitle // ✅ SALVA O SUBTÍTULO NOVO
+            login_subtitle: loginSubtitle, // ✅ SALVA O SUBTÍTULO NOVO
+            banner_interval: bannerInterval // ✅ SALVA O TEMPO DE TRANSIÇÃO
           })
           .eq("id", tenantId)
           .select(); // ✅ Obriga o Supabase a devolver a linha que foi alterada
@@ -2056,6 +2059,26 @@ return (
                     placeholder="Ex: Acesse sua área exclusiva para acompanhar resultados."
                     readOnly={!isEditing}
                   />
+                </div>
+                
+                {/* ✅ TEMPO DE TRANSIÇÃO (Ocupando largura total abaixo dos textos) */}
+                <div className="md:col-span-2">
+                  <Label>Tempo de transição das mídias</Label>
+                  <div className="flex items-center gap-3">
+                    <Input 
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={bannerInterval} 
+                      onChange={(e) => { setBannerInterval(Number(e.target.value)); if (!isEditing) setIsEditing(true); }}
+                      readOnly={!isEditing}
+                      className="w-24 text-center"
+                    />
+                    <span className="text-sm text-slate-600 dark:text-white/70">segundos</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    Define o tempo que cada imagem ficará na tela (Padrão: 5 segundos). Ignorado se houver apenas 1 mídia.
+                  </p>
                 </div>
               </div>
 

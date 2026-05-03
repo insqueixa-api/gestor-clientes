@@ -45,11 +45,10 @@ export default function TenantLoginPage() {
       if (!slug) return;
       
       const { data, error } = await supabaseBrowser
-        .from("tenants")
-        // ✅ Buscando os novos campos de texto
-        .select("id, name, logo_url, primary_color, banner_urls, login_title, login_subtitle")
-        .eq("slug", slug)
-        .maybeSingle();
+  .from("tenants")
+  .select("id, name, logo_url, primary_color, banner_urls, login_title, login_subtitle, banner_interval")
+  .eq("slug", slug)
+  .maybeSingle();
 
       if (data) setTenantData(data);
       setLoadingTenant(false);
@@ -133,9 +132,23 @@ export default function TenantLoginPage() {
     );
   }
 
-  // --- VARIÁVEIS VISUAIS DO CLIENTE ---
+  // --- ESTADO E LÓGICA DE TRANSIÇÃO ---
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const brandColor = tenantData.primary_color || "#10b981";
-  const backgroundMedia = tenantData.banner_urls && tenantData.banner_urls.length > 0 ? tenantData.banner_urls[0] : null;
+  const bannerUrls = tenantData.banner_urls || [];
+  const intervalSeconds = tenantData.banner_interval || 5;
+
+  useEffect(() => {
+    if (bannerUrls.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
+    }, intervalSeconds * 1000);
+
+    return () => clearInterval(timer);
+  }, [bannerUrls, intervalSeconds]);
+
+  const backgroundMedia = bannerUrls[currentImgIndex] || null;
   const isVideo = backgroundMedia ? (backgroundMedia.includes('.mp4') || backgroundMedia.includes('.webm')) : false;
   
   // Textos customizados ou Fallbacks padrão
@@ -150,16 +163,33 @@ export default function TenantLoginPage() {
       ========================================== */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#0b1015] overflow-hidden items-end">
         
-        {/* Mídia de Fundo */}
-        {isVideo && backgroundMedia ? (
-          <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-70" src={backgroundMedia} />
-        ) : backgroundMedia ? (
-          <img src={backgroundMedia} alt={tenantData.name} className="absolute inset-0 w-full h-full object-cover opacity-70" />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-             <span className="text-slate-700 text-8xl">🚀</span>
-          </div>
-        )}
+        {/* Mídia de Fundo com Transição Suave */}
+        <div className="absolute inset-0 bg-[#0b1015]">
+          {bannerUrls.map((url, index) => {
+            const isVid = url.includes('.mp4') || url.includes('.webm');
+            return (
+              <div
+                key={url}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  index === currentImgIndex ? "opacity-70" : "opacity-0"
+                }`}
+              >
+                {isVid ? (
+                  <video autoPlay loop muted playsInline className="w-full h-full object-cover" src={url} />
+                ) : (
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                )}
+              </div>
+            );
+          })}
+          
+          {/* Fallback caso não tenha imagens */}
+          {bannerUrls.length === 0 && (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+               <span className="text-slate-700 text-8xl">🚀</span>
+            </div>
+          )}
+        </div>
 
         {/* ✅ A MÁGICA DA LEITURA: Gradiente que escurece apenas a parte de baixo + Blur suave */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b1015] via-[#0b1015]/60 to-transparent" />
