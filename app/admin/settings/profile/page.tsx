@@ -7,6 +7,7 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import Link from "next/link";
 import SaasProfileRenewModal from "./SaasProfileRenewModal";
 import MediaUploader from "./MediaUploader";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ============================================================================
 // HELPERS & CONSTANTES
@@ -233,6 +234,7 @@ function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...input
 
 export default function ProfileSettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { confirm: confirmAction, ConfirmUI } = useConfirm();
  
   const [userId, setUserId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -745,7 +747,14 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 
   async function handleResetPassword() {
-    if (!confirm(`Enviar link para ${email}?`)) return;
+    const ok = await confirmAction({
+      title: "Redefinir Senha",
+      subtitle: `Enviar link para ${email}?`,
+      tone: "sky",
+      icon: "🔒",
+      confirmText: "Sim, enviar",
+    });
+    if (!ok) return;
     try {
       const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + "/auth/update-password",
@@ -1290,7 +1299,14 @@ addToast("success", "Sucesso", summary);
   }
 
   async function handleRevokeApiKey(id: string) {
-  if (!confirm("Revogar esta API Key? Sistemas que a usam perderão acesso imediatamente.")) return;
+  const ok = await confirmAction({
+    title: "Revogar API Key?",
+    subtitle: "Sistemas que a usam perderão acesso imediatamente.",
+    tone: "amber",
+    icon: "⚠️",
+    confirmText: "Sim, revogar"
+  });
+  if (!ok) return;
   const { error } = await supabaseBrowser
     .from("tenant_api_keys")
     .update({ is_active: false })
@@ -1302,7 +1318,14 @@ addToast("success", "Sucesso", summary);
 }
 
 async function handleDeleteApiKey(id: string) {
-  if (!confirm("Excluir permanentemente esta key? Esta ação não pode ser desfeita.")) return;
+  const ok = await confirmAction({
+    title: "Excluir permanentemente?",
+    subtitle: "Esta ação não pode ser desfeita.",
+    tone: "rose",
+    icon: "🗑️",
+    confirmText: "Sim, excluir"
+  });
+  if (!ok) return;
   const { error } = await supabaseBrowser
     .from("tenant_api_keys")
     .delete()
@@ -1372,7 +1395,14 @@ try {
   }
 
   async function handleDisconnectWhatsApp() {
-  if (!confirm("Desconectar esta sessão do WhatsApp agora?")) return;
+  const ok = await confirmAction({
+    title: "Desconectar Sessão 1?",
+    subtitle: "Desconectar esta sessão do WhatsApp agora?",
+    tone: "rose",
+    icon: "🔌",
+    confirmText: "Sim, desconectar"
+  });
+  if (!ok) return;
 
   setWaLoading(true);
   try {
@@ -1407,7 +1437,14 @@ setWaIsDormant(true);
 
 
 async function handleReconnectWhatsApp() {
-  if (!confirm("Forçar reconexão da sessão 1? O QR será gerado novamente.")) return;
+  const ok = await confirmAction({
+    title: "Forçar Reconexão?",
+    subtitle: "O QR da Sessão 1 será gerado novamente.",
+    tone: "amber",
+    icon: "🔄",
+    confirmText: "Sim, reconectar"
+  });
+  if (!ok) return;
   setWaReconnecting(true);
   try {
     setWaLastError(null);
@@ -1571,6 +1608,7 @@ return (
   <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
+      {ConfirmUI} {/* ⬅️ ADICIONADO AQUI */}
      
      {showImportModal && (
   <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
@@ -2854,6 +2892,7 @@ function WhatsAppSession2Panel({
   tenantId: string | null; // ✅ Nova prop
   addToast: (type: "success" | "error", title: string, msg?: string) => void;
 }) {
+  const { confirm: confirmAction, ConfirmUI } = useConfirm(); // ⬅️ ADICIONADO
   const [waLoading, setWaLoading]           = useState(false);
   const [waConnected, setWaConnected]       = useState(false);
   const [waQrDataUrl, setWaQrDataUrl]       = useState<string | null>(null);
@@ -2997,7 +3036,14 @@ async function refreshPanel(forceQr = false) {
   }
 
   async function handleDisconnect() {
-    if (!confirm("Desconectar a 2ª sessão do WhatsApp?")) return;
+    const ok = await confirmAction({
+      title: "Desconectar Sessão 2?",
+      subtitle: "Remover a 2ª sessão do WhatsApp?",
+      tone: "rose",
+      icon: "🔌",
+      confirmText: "Sim, desconectar"
+    });
+    if (!ok) return;
     setWaLoading(true);
     try {
       setWaLastError(null);
@@ -3027,7 +3073,14 @@ setWaConnected(false);
   }
 
 async function handleReconnect() {
-    if (!confirm("Forçar reconexão da sessão 2?")) return;
+    const ok = await confirmAction({
+      title: "Forçar Reconexão?",
+      subtitle: "O QR da Sessão 2 será gerado novamente.",
+      tone: "amber",
+      icon: "🔄",
+      confirmText: "Sim, reconectar"
+    });
+    if (!ok) return;
     setIsReconnecting(true);
     try {
       setWaLastError(null);
@@ -3080,6 +3133,7 @@ async function handleReconnect() {
 
   return (
     <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
+      {ConfirmUI} {/* ⬅️ ADICIONADO AQUI */}
       <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
         WhatsApp Web — Sessão 2
       </h3>
