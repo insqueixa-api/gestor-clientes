@@ -19,7 +19,9 @@ function isLikelyEmail(v: string): boolean {
 
 export default function TenantLoginPage() {
   const params = useParams();
-  const slug = params.slug as string;
+  
+  // ✅ CORREÇÃO: Pega o slug com fallback para evitar erro se ele vier undefined no primeiro render
+  const slug = params?.slug as string | undefined;
 
   // --- ESTADOS DO TENANT ---
   const [tenantData, setTenantData] = useState<any>(null);
