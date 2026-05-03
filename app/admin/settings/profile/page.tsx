@@ -1927,32 +1927,32 @@ return (
                 </h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* SLUG DA EMPRESA (LEITURA) */}
                 <div>
                   <Label>Endereço de Acesso (Slug)</Label>
                   <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
-                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-xs text-slate-500 font-mono">
+                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-[11px] text-slate-500 font-mono shrink-0">
                       unigestor.net.br/
                     </span>
                     <Input 
                       value={slug} 
                       readOnly 
-                      className="border-none bg-transparent rounded-none flex-1 font-bold"
+                      className="border-none bg-transparent rounded-none flex-1 font-bold pl-2 min-w-0"
                       style={{ color: primaryColor }}
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    Para alterar o endereço da sua empresa, entre em contato com o suporte.
+                    <svg width="12" height="12" shrink-0 viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Para alterar, contate o suporte.
                   </p>
                 </div>
 
                 {/* COR PRIMÁRIA (TEMA) */}
                 <div>
-                  <Label>Cor Primária do Sistema</Label>
-                  <div className="flex items-center gap-3">
+                  <Label>Cor Primária</Label>
+                  <div className="flex items-center gap-2">
                     <input 
                       type="color" 
                       value={primaryColor}
@@ -1961,35 +1961,58 @@ return (
                          if (!isEditing) setIsEditing(true);
                       }}
                       disabled={!isEditing}
-                      className="w-10 h-10 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-10 h-10 shrink-0 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <Input 
-                      value={primaryColor.toUpperCase()} 
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      placeholder="#10B981"
-                      readOnly={!isEditing}
-                      className="w-28 font-mono text-center uppercase"
-                      maxLength={7}
-                    />
-                    
-                    {/* BOTÃO RESETAR COR */}
-                    {primaryColor.toLowerCase() !== "#10b981" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPrimaryColor("#10b981");
-                          setIsEditing(true);
-                        }}
-                        className="h-8 px-2.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-700 dark:text-white/60 dark:hover:text-white font-bold text-[10px] transition-colors flex items-center gap-1.5"
-                        title="Restaurar cor padrão da UniGestor"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                        Padrão
-                      </button>
-                    )}
+                    <div className="relative flex-1">
+                      <Input 
+                        value={primaryColor.toUpperCase()} 
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        placeholder="#10B981"
+                        readOnly={!isEditing}
+                        className="w-full font-mono text-center uppercase pr-8"
+                        maxLength={7}
+                      />
+                      {/* BOTÃO RESETAR COR (DENTRO DO INPUT) */}
+                      {primaryColor.toLowerCase() !== "#10b981" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrimaryColor("#10b981");
+                            setIsEditing(true);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 transition-colors p-1"
+                          title="Restaurar cor padrão"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões e destaques na sua tela de login.</p>
+                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões do login.</p>
                 </div>
+
+                {/* TEMPO DE TRANSIÇÃO */}
+                <div>
+                  <Label>Tempo de transição</Label>
+                  <div className="relative">
+                    <Input 
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={bannerInterval} 
+                      onChange={(e) => { setBannerInterval(Number(e.target.value)); if (!isEditing) setIsEditing(true); }}
+                      readOnly={!isEditing}
+                      className="w-full text-left pl-3 pr-16"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-slate-400 pointer-events-none">
+                      segundos
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5">
+                    Duração de cada mídia no painel.
+                  </p>
+                </div>
+
               </div>
 
               {/* UPLOADS DE MÍDIA */}
@@ -2059,26 +2082,6 @@ return (
                     placeholder="Ex: Acesse sua área exclusiva para acompanhar resultados."
                     readOnly={!isEditing}
                   />
-                </div>
-                
-                {/* ✅ TEMPO DE TRANSIÇÃO (Ocupando largura total abaixo dos textos) */}
-                <div className="md:col-span-2">
-                  <Label>Tempo de transição das mídias</Label>
-                  <div className="flex items-center gap-3">
-                    <Input 
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={bannerInterval} 
-                      onChange={(e) => { setBannerInterval(Number(e.target.value)); if (!isEditing) setIsEditing(true); }}
-                      readOnly={!isEditing}
-                      className="w-24 text-center"
-                    />
-                    <span className="text-sm text-slate-600 dark:text-white/70">segundos</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-                    Define o tempo que cada imagem ficará na tela (Padrão: 5 segundos). Ignorado se houver apenas 1 mídia.
-                  </p>
                 </div>
               </div>
 
