@@ -338,6 +338,8 @@ async function saveWaConfig() {
   // --- NOVOS ESTADOS: IDENTIDADE VISUAL E SLUG ---
   const [slug, setSlug] = useState<string>("");
   const [primaryColor, setPrimaryColor] = useState<string>("#10b981"); // Cor padrão: Emerald 500
+  const [loginTitle, setLoginTitle] = useState<string>(""); // ✅ NOVO Título
+  const [loginSubtitle, setLoginSubtitle] = useState<string>(""); // ✅ NOVO Subtítulo
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFiles, setBannerFiles] = useState<File[]>([]);
   // Strings para mostrar o que já tem no banco
@@ -473,7 +475,8 @@ async function saveWaConfig() {
           // ✅ BUSCA OS MÓDULOS E BRANDING DIRETO DA TABELA RAIZ (Acessível a qualquer membro logado)
           const { data: rawTenant } = await supabaseBrowser
             .from("tenants")
-            .select("active_modules, slug, primary_color, logo_url, banner_urls")
+            // ✅ INCLUÍDO AS COLUNAS AQUI
+            .select("active_modules, slug, primary_color, logo_url, banner_urls, login_title, login_subtitle")
             .eq("id", currentTenantId)
             .maybeSingle();
             
@@ -493,17 +496,19 @@ async function saveWaConfig() {
           }
 
           // ✅ LÊ AS INFORMAÇÕES VISUAIS DA TABELA REAL PARA NÃO DEPENDER DA VIEW
-          if (rawTenant) {
-            const mods: string[] = rawTenant.active_modules || [];
-            setActiveModules(mods);
-            
-            // 🛡️ BLINDAGEM: converte para minúsculo antes de checar
-            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
-            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
+          if (rawTenant) {
+            const mods: string[] = rawTenant.active_modules || [];
+            setActiveModules(mods);
+            
+            // 🛡️ BLINDAGEM: converte para minúsculo antes de checar
+            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
+            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
             setSlug(rawTenant.slug || "");
             setPrimaryColor(rawTenant.primary_color || "#10b981");
             setCurrentLogoUrl(rawTenant.logo_url || null);
             setCurrentBannersUrl(rawTenant.banner_urls || []);
+            setLoginTitle(rawTenant.login_title || ""); // ✅ INCLUÍDO
+            setLoginSubtitle(rawTenant.login_subtitle || ""); // ✅ INCLUÍDO
           }
         }
 
@@ -721,7 +726,9 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           .update({
             primary_color: primaryColor,
             logo_url: finalLogoUrl,
-            banner_urls: finalBannersUrls
+            banner_urls: finalBannersUrls,
+            login_title: loginTitle, // ✅ SALVA O TÍTULO NOVO
+            login_subtitle: loginSubtitle // ✅ SALVA O SUBTÍTULO NOVO
           })
           .eq("id", tenantId)
           .select(); // ✅ Obriga o Supabase a devolver a linha que foi alterada
@@ -2024,9 +2031,32 @@ return (
                   />
                 </div>
               </div>
+
+              {/* ✅ TEXTOS DA TELA DE LOGIN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                <div>
+                  <Label>Título do Portal (Aparece sobre a Mídia)</Label>
+                  <Input 
+                    value={loginTitle} 
+                    onChange={(e) => { setLoginTitle(e.target.value); if (!isEditing) setIsEditing(true); }}
+                    placeholder="Ex: Supere seus limites."
+                    readOnly={!isEditing}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">Pode ficar vazio para exibir apenas o vídeo/imagem.</p>
+                </div>
+                <div>
+                  <Label>Mensagem de Boas-vindas</Label>
+                  <Input 
+                    value={loginSubtitle} 
+                    onChange={(e) => { setLoginSubtitle(e.target.value); if (!isEditing) setIsEditing(true); }}
+                    placeholder="Ex: Acesse sua área exclusiva para acompanhar resultados."
+                    readOnly={!isEditing}
+                  />
+                </div>
+              </div>
+
             </div>
           )}
-
 
          {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
