@@ -64,6 +64,25 @@ export default function TenantLoginPage() {
     }
   }, [pending, state?.error]);
 
+  // ✅ INJETA O TÍTULO E O FAVICON DINAMICAMENTE
+  useEffect(() => {
+    if (tenantData) {
+      // Muda o título da aba
+      document.title = `UniGestor | ${tenantData.name}`;
+
+      // Muda o Favicon
+      if (tenantData.logo_url) {
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = tenantData.logo_url;
+      }
+    }
+  }, [tenantData]);
+
   const canSubmit = useMemo(() => {
     if (!isLikelyEmail(email)) return false;
     if (mode === "reset") return true;
@@ -178,7 +197,8 @@ export default function TenantLoginPage() {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               {mode === "reset" ? "Redefinir Senha" : "Acesso ao Portal"}
             </h1>
-            <p className="text-sm font-bold text-slate-500 dark:text-zinc-500 mt-1 uppercase tracking-widest">
+            {/* ✅ Subtítulo dinâmico usando o nome real do Tenant */}
+            <p className="text-sm font-bold mt-1 uppercase tracking-widest" style={{ color: brandColor }}>
               {tenantData.name}
             </p>
           </div>
@@ -331,9 +351,16 @@ export default function TenantLoginPage() {
           )}
 
           {/* Rodapé Tech */}
-          <div className="mt-12 text-center text-xs text-slate-400 dark:text-white/30 flex flex-col items-center justify-center gap-1">
-            <span className="uppercase tracking-widest font-bold text-[9px]">Tecnologia por</span>
-            <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-4 opacity-40 grayscale invert dark:invert-0" />
+          <div className="mt-12 text-center flex flex-col items-center justify-center gap-1.5">
+            <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">
+              Tecnologia por
+            </span>
+            {/* ✅ Removido grayscale, invert e opacidade extrema. Tamanho levemente ajustado para h-5 */}
+            <img 
+              src="/brand/logo-full-light.png" 
+              alt="UniGestor" 
+              className="h-5 drop-shadow-sm transition-all hover:scale-105" 
+            />
           </div>
 
         </div>
