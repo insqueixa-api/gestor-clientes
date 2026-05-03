@@ -19,9 +19,7 @@ function isLikelyEmail(v: string): boolean {
 
 export default function TenantLoginPage() {
   const params = useParams();
-  
-  // ✅ CORREÇÃO: Pega o slug com fallback para evitar erro se ele vier undefined no primeiro render
-  const slug = params?.slug as string | undefined;
+  const slug = params.slug as string;
 
   // --- ESTADOS DO TENANT ---
   const [tenantData, setTenantData] = useState<any>(null);
@@ -69,22 +67,21 @@ export default function TenantLoginPage() {
   // ✅ INJETA O TÍTULO E O FAVICON DINAMICAMENTE
   useEffect(() => {
     if (tenantData) {
-      // Usa o slug (formatado) se quiser, ou o name
-      const displayName = tenantData.name && tenantData.name !== "Academia" ? tenantData.name : slug.toUpperCase();
-      document.title = `UniGestor | ${displayName}`;
+      // Muda o título da aba
+      document.title = `UniGestor | ${tenantData.name}`;
 
-      // Força a atualização do Favicon removendo os antigos e adicionando o novo
+      // Muda o Favicon
       if (tenantData.logo_url) {
-        const links = document.querySelectorAll("link[rel~='icon']");
-        links.forEach(link => link.remove()); // Remove favicons existentes
-        
-        const link = document.createElement('link');
-        link.rel = 'icon';
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
         link.href = tenantData.logo_url;
-        document.head.appendChild(link);
       }
     }
-  }, [tenantData, slug]);
+  }, [tenantData]);
 
   const canSubmit = useMemo(() => {
     if (!isLikelyEmail(email)) return false;
@@ -179,42 +176,19 @@ export default function TenantLoginPage() {
       </div>
 
       {/* ==========================================
-          LADO DIREITO: O Formulário Seguro (Com Visual Premium)
+          LADO DIREITO: O Formulário Seguro
       ========================================== */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-50 dark:bg-[#0f141a] overflow-hidden">
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-50 dark:bg-[#0b1015]">
         
-        {/* Fundo com Glow Dinâmico baseado na cor do cliente */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Luz superior */}
-          <div 
-            className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-3xl opacity-20 dark:opacity-10" 
-            style={{ backgroundColor: brandColor }}
-          />
-          {/* Luz inferior */}
-          <div 
-            className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-3xl opacity-20 dark:opacity-10" 
-            style={{ backgroundColor: brandColor }}
-          />
-          {/* Grid leve (padrão da Landing Page) */}
-          <div
-            className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04]"
-            style={{
-              backgroundImage: "linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
-        </div>
-
-        {/* ✅ Wrapper do Formulário (Efeito Glassmorphism) */}
-        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/40 bg-white/80 backdrop-blur-2xl shadow-2xl shadow-black/[0.03] dark:bg-[#161b22]/80 dark:border-white/10 p-6 sm:p-8">
+        <div className="w-full max-w-[400px]">
           
           {/* Cabeçalho do Form */}
-          <div className="flex flex-col items-center mb-6 text-center">
+          <div className="flex flex-col items-center mb-8 text-center">
             {tenantData.logo_url ? (
-              <img src={tenantData.logo_url} alt={tenantData.name} className="h-20 object-contain mb-5 drop-shadow-md" />
+              <img src={tenantData.logo_url} alt={tenantData.name} className="h-20 object-contain mb-6 drop-shadow-md" />
             ) : (
               <div 
-                className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white mb-5 shadow-lg"
+                className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white mb-6 shadow-lg"
                 style={{ backgroundColor: brandColor }}
               >
                 {tenantData.name.charAt(0).toUpperCase()}
@@ -223,13 +197,14 @@ export default function TenantLoginPage() {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               {mode === "reset" ? "Redefinir Senha" : "Acesso ao Portal"}
             </h1>
+            {/* ✅ Subtítulo dinâmico usando o nome real do Tenant */}
             <p className="text-sm font-bold mt-1 uppercase tracking-widest" style={{ color: brandColor }}>
-               {tenantData.name && tenantData.name !== "Academia" ? tenantData.name : slug}
+              {tenantData.name}
             </p>
           </div>
 
           {/* Abas Login / Reset */}
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1 dark:bg-black/20 mb-6 border border-slate-200/50 dark:border-white/5">
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-200/50 p-1 dark:bg-white/5 mb-8">
             <button
               type="button"
               onClick={() => { setMsg(null); setMode("login"); }}
@@ -375,11 +350,12 @@ export default function TenantLoginPage() {
             </form>
           )}
 
-          {/* Rodapé Tech (Dentro do Card) */}
-          <div className="mt-8 pt-6 border-t border-slate-200/60 dark:border-white/10 text-center flex flex-col items-center justify-center gap-1.5">
+          {/* Rodapé Tech */}
+          <div className="mt-12 text-center flex flex-col items-center justify-center gap-1.5">
             <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">
               Tecnologia por
             </span>
+            {/* ✅ Removido grayscale, invert e opacidade extrema. Tamanho levemente ajustado para h-5 */}
             <img 
               src="/brand/logo-full-light.png" 
               alt="UniGestor" 
@@ -387,14 +363,8 @@ export default function TenantLoginPage() {
             />
           </div>
 
-        </div> {/* Fim do Wrapper do Formulário */}
-        
-        {/* Aviso de Segurança Flutuante no Rodapé */}
-        <div className="absolute bottom-6 text-center text-[10px] sm:text-xs text-slate-400 dark:text-white/40">
-          Acesso protegido • Sistema em conformidade com a LGPD
         </div>
-
-      </div> {/* Fim do Lado Direito */}
+      </div>
     </div>
   );
 }
