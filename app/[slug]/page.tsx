@@ -179,7 +179,7 @@ export default function TenantLoginPage() {
       {/* ==========================================
           LADO DIREITO: O Formulário Seguro (Com Visual Premium)
       ========================================== */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-50 dark:bg-[#0f141a] overflow-hidden">
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-100 dark:bg-[#0f141a] overflow-hidden">
         
         {/* Fundo com textura suave e brilho discreto */}
         <div className="absolute inset-0 pointer-events-none">
@@ -204,8 +204,7 @@ export default function TenantLoginPage() {
         </div>
 
         {/* ✅ Wrapper do Formulário (Efeito Glassmorphism) */}
-        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/40 bg-white/80 backdrop-blur-2xl shadow-2xl shadow-black/[0.03] dark:bg-[#161b22]/80 dark:border-white/10 p-6 sm:p-8">
-          
+        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-black/[0.05] dark:bg-[#161b22]/90 dark:border-white/10 p-6 sm:p-8">  
           {/* Cabeçalho do Form */}
           <div className="flex flex-col items-center mb-6 text-center">
             {tenantData.logo_url ? (
