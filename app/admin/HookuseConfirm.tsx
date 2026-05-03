@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { createContext, useContext, useCallback, useState, ReactNode } from "react";
 import ConfirmDialog, { ConfirmDialogProps } from "@/app/admin/ConfirmDialog";
 
 type ConfirmOptions = Omit<
@@ -8,7 +8,13 @@ type ConfirmOptions = Omit<
   "open" | "onConfirm" | "onCancel" | "loading"
 >;
 
-export function useConfirm() {
+type ConfirmContextType = {
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+};
+
+const ConfirmContext = createContext<ConfirmContextType | undefined>(undefined);
+
+export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const [resolver, setResolver] = useState<((v: boolean) => void) | null>(null);
@@ -33,24 +39,36 @@ export function useConfirm() {
     setResolver(null);
   }, [resolver]);
 
-  const ConfirmUI = useMemo(() => {
-    if (!opts) return null;
+  return (
+    <ConfirmContext.Provider value={{ confirm }}>
+      {children}
+      
+      {opts && (
+        <ConfirmDialog
+          open={open}
+          title={opts.title}
+          subtitle={opts.subtitle}
+          details={opts.details}
+          tone={opts.tone}
+          icon={opts.icon}
+          confirmText={opts.confirmText}
+          cancelText={opts.cancelText}
+          onCancel={onCancel}
+          onConfirm={onConfirm}
+        />
+      )}
+    </ConfirmContext.Provider>
+  );
+}
 
-    return (
-      <ConfirmDialog
-        open={open}
-        title={opts.title}
-        subtitle={opts.subtitle}
-        details={opts.details}
-        tone={opts.tone}
-        icon={opts.icon}
-        confirmText={opts.confirmText}
-        cancelText={opts.cancelText}
-        onCancel={onCancel}
-        onConfirm={onConfirm}
-      />
-    );
-  }, [open, opts, onCancel, onConfirm]);
-
-  return { confirm, ConfirmUI };
+export function useConfirm() {
+  const context = useContext(ConfirmContext);
+  if (!context) {
+    throw new Error("useConfirm deve ser usado dentro de um ConfirmProvider");
+  }
+  
+  // ✅ TRUQUE DE MESTRE: Retornamos ConfirmUI como null.
+  // Assim, as páginas antigas que fazem `const { confirm, ConfirmUI } = useConfirm()`
+  // NÃO VÃO QUEBRAR. Elas simplesmente vão renderizar null onde estava o {ConfirmUI}.
+  return { confirm: context.confirm, ConfirmUI: null };
 }

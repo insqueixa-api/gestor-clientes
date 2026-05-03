@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import imageCompression from "browser-image-compression";
+import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ 1. Import adicionado
 
 interface MediaUploaderProps {
   label: string;
@@ -12,7 +13,7 @@ interface MediaUploaderProps {
   onRemoveInitialUrl?: (url: string) => void; // ✨ NOVO: Avisa o pai quando o usuário apaga um link salvo
 }
 
-export default function MediaUploader({ 
+export default function MediaUploader({
   label, 
   maxFiles = 1, 
   accept = "image/*, application/pdf",
@@ -23,6 +24,8 @@ export default function MediaUploader({
   const [newFiles, setNewFiles] = useState<{ id: string; url: string; type: string; name: string; file: File }[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { confirm } = useConfirm(); // ✅ 2. Hook inicializado aqui
 
   // Descobre se a URL que veio do banco é vídeo ou imagem
   const getMediaType = (url: string) => {
@@ -38,7 +41,13 @@ export default function MediaUploader({
     
     // 1. Limite de quantidade (soma os salvos + os novos)
     if (totalCurrent + selectedFiles.length > maxFiles) {
-      alert(`Você só pode ter até ${maxFiles} arquivo(s) no total.`);
+      await confirm({
+        title: "Limite atingido",
+        subtitle: `Você só pode ter até ${maxFiles} arquivo(s) no total.`,
+        tone: "amber",
+        confirmText: "Entendi",
+        cancelText: "Voltar"
+      });
       return;
     }
 
@@ -50,7 +59,13 @@ export default function MediaUploader({
       if (file.type.startsWith("video/")) {
         // 🛑 BAIXAMOS O LIMITE PARA 4.5MB PARA COMBINAR COM A VERCEL/NGINX E EVITAR O ERRO AO SALVAR
         if (file.size > 4.5 * 1024 * 1024) { 
-          alert(`O vídeo ${file.name} tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite seguro do servidor é 4.5MB.`);
+          await confirm({
+            title: "Vídeo muito grande",
+            subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite seguro do servidor é 4.5MB.`,
+            tone: "rose",
+            confirmText: "Entendi",
+            cancelText: "Voltar"
+          });
           continue; // Bloqueia imediatamente na seleção
         }
         addedPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(file), type: "video", name: file.name, file: file });
@@ -68,7 +83,13 @@ export default function MediaUploader({
       }
       else {
         if (file.size > 4.5 * 1024 * 1024) { 
-          alert(`O documento ${file.name} é muito grande. O limite é 4.5MB.`);
+          await confirm({
+            title: "Arquivo muito grande",
+            subtitle: `O documento "${file.name}" é muito grande. O limite é 4.5MB.`,
+            tone: "rose",
+            confirmText: "Entendi",
+            cancelText: "Voltar"
+          });
           continue;
         }
         addedPreviews.push({ id: Math.random().toString(), url: "", type: "document", name: file.name, file: file });

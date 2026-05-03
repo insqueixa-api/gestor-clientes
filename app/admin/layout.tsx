@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
+import { ConfirmProvider } from "@/app/admin/HookuseConfirm"; // ✅ 1. ADICIONADO IMPORT
 
 export const dynamic = "force-dynamic";
 
@@ -108,20 +109,22 @@ const userRole =
 
   return (
     <ThemeProvider defaultTheme="light">
-      <AdminShell 
-        userLabel={userLabel} 
-        tenantName={tenantName} 
-        role={userRole}
-        financialControlEnabled={isFinancialEnabled} // ✅ Usando a variável corrigida
-        tenantId={member.tenant_id} 
-        expiresAt={licenseData?.expires_at ?? null} 
-        creditBalance={licenseData?.credit_balance ?? 0} 
-        saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
-        whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
-        isOnlyFinanceiro={isOnlyFinanceiro} // ✅ PASSANDO A PROP AQUI PARA O FRONT-END
-      >
-        {children}
-      </AdminShell>
+      <ConfirmProvider> {/* ✅ 2. ADICIONADO PROVIDER AQUI */}
+        <AdminShell 
+          userLabel={userLabel} 
+          tenantName={tenantName} 
+          role={userRole}
+          financialControlEnabled={isFinancialEnabled}
+          tenantId={member.tenant_id} 
+          expiresAt={licenseData?.expires_at ?? null} 
+          creditBalance={licenseData?.credit_balance ?? 0} 
+          saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
+          whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
+          isOnlyFinanceiro={isOnlyFinanceiro}
+        >
+          {children}
+        </AdminShell>
+      </ConfirmProvider> {/* ✅ 3. FECHAMENTO DO PROVIDER AQUI */}
     </ThemeProvider>
   );
 }
