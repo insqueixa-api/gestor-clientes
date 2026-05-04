@@ -57,11 +57,10 @@ export default function MediaUploader({
     for (const file of selectedFiles) {
       // 2. Lógica para Vídeos
       if (file.type.startsWith("video/")) {
-        // 🛑 BAIXAMOS O LIMITE PARA 4.5MB PARA COMBINAR COM A VERCEL/NGINX E EVITAR O ERRO AO SALVAR
-        if (file.size > 4.5 * 1024 * 1024) { 
+        if (file.size > 10 * 1024 * 1024) { 
           await confirm({
             title: "Vídeo muito grande",
-            subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite seguro do servidor é 4.5MB.`,
+            subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite do servidor é 10MB.`,
             tone: "rose",
             confirmText: "Entendi",
             cancelText: "Voltar"
@@ -82,10 +81,10 @@ export default function MediaUploader({
         }
       }
       else {
-        if (file.size > 4.5 * 1024 * 1024) { 
+        if (file.size > 10 * 1024 * 1024) { 
           await confirm({
             title: "Arquivo muito grande",
-            subtitle: `O documento "${file.name}" é muito grande. O limite é 4.5MB.`,
+            subtitle: `O documento "${file.name}" é muito grande. O limite é 10MB.`,
             tone: "rose",
             confirmText: "Entendi",
             cancelText: "Voltar"

@@ -347,6 +347,9 @@ async function saveWaConfig() {
   const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
   const [currentBannersUrl, setCurrentBannersUrl] = useState<string[]>([]);
 
+  // ✅ NOVO: Estado para guardar os ficheiros que devem ser apagados do Cloudflare
+  const [urlsToDelete, setUrlsToDelete] = useState<string[]>([]);
+
  
   const importFileRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
@@ -742,6 +745,20 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!tenantData || tenantData.length === 0) {
           throw new Error("Permissão negada no Banco de Dados. Verifique as políticas RLS (Update) da tabela 'tenants'.");
         }
+      }
+
+      // ✅ DISPARA A EXCLUSÃO REAL NO CLOUDFLARE R2
+      if (urlsToDelete.length > 0) {
+        await Promise.all(
+          urlsToDelete.map(url => 
+            fetch("/api/upload", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url })
+            })
+          )
+        ).catch(err => console.error("Erro ao limpar R2:", err));
+        setUrlsToDelete([]); // Limpa a lista
       }
 
       addToast("success", "Perfil e Marca atualizados", "A página será recarregada...");
@@ -2026,6 +2043,9 @@ return (
                     accept="image/png, image/jpeg, image/webp"
                     initialUrls={currentLogoUrl ? [currentLogoUrl] : []}
                     onRemoveInitialUrl={() => {
+                      if (currentLogoUrl) {
+                        setUrlsToDelete(prev => [...prev, currentLogoUrl]); // ✅ Marca para apagar do Cloudflare
+                      }
                       setCurrentLogoUrl(null);
                       if (!isEditing) setIsEditing(true);
                     }}
@@ -2047,6 +2067,7 @@ return (
                     accept="image/*, video/mp4, video/webm"
                     initialUrls={currentBannersUrl}
                     onRemoveInitialUrl={(urlToRemove) => {
+                      setUrlsToDelete(prev => [...prev, urlToRemove]); // ✅ Marca para apagar do Cloudflare
                       setCurrentBannersUrl(prev => prev.filter(url => url !== urlToRemove));
                       if (!isEditing) setIsEditing(true);
                     }}
