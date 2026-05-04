@@ -44,17 +44,15 @@ export default function TenantHead() {
 
     document.title = desiredTitle;
 
-    // Observa o <title> e reaplica se o Next.js tentar mudar
-    const titleEl = document.querySelector("title");
-    if (!titleEl) return;
-
+    // Observa o <head> inteiro — captura quando o Next.js
+    // remove e recria o <title> durante navegação RSC
     const observer = new MutationObserver(() => {
       if (document.title !== desiredTitle) {
         document.title = desiredTitle;
       }
     });
 
-    observer.observe(titleEl, { childList: true });
+    observer.observe(document.head, { childList: true, subtree: true });
 
     return () => observer.disconnect();
   }, [pathname, slug]);
