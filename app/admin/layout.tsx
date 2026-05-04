@@ -35,8 +35,8 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       description: "Painel Administrativo",
       icons: tenant?.logo_url
-        ? { icon: `/api/upload/admin-favicon?t=${Date.now()}` }
-        : undefined,
+        ? { icon: tenant.logo_url }
+        : { icon: "/favicon.ico" },
     };
   } catch {
     return { description: "Painel Administrativo" };
@@ -101,11 +101,7 @@ export default async function AdminLayout({
     .eq("id", member.tenant_id)
     .maybeSingle<any>();
 
-  console.log("TENANT ROW:", {
-    slug: tenantRow?.slug,
-    logo_url: tenantRow?.logo_url,
-    tenantLogo: tenantRow?.logo_url || null,
-  });
+  
   // 4) Busca os dados da Licença SEPARADAMENTE (Garante que não quebra o Menu)
   const { data: licenseData } = await supabase
     .from("vw_saas_tenants") // ✅ AGORA SIM, BUSCA NA VIEW LIBERADA

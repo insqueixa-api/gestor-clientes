@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  title: "UniGestor",
   description: "Sistema de Gestão",
 };
 
