@@ -31,9 +31,7 @@ export default function MediaUploader({
   initialUrls = [],
   onRemoveInitialUrl
 }: MediaUploaderProps) {
-  const [newFiles, setNewFiles] = useState<{
-    uploadedUrl?: any; id: string; url: string; type: string; name: string; file: File 
-}[]>([]);
+  const [newFiles, setNewFiles] = useState<{ id: string; url: string; type: string; name: string; file: File; uploadedUrl?: string }[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
