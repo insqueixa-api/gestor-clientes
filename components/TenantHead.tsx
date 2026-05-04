@@ -36,7 +36,10 @@ export default function TenantHead() {
   const { slug, logoUrl } = useModules();
   const pathname = usePathname();
 
-  console.log("TENANT HEAD:", { slug, logoUrl, pathname });
+  // fora do effect — roda imediatamente na renderização
+  if (typeof window !== "undefined") {
+    console.log("TENANT HEAD:", { slug, logoUrl, pathname });
+  }
 
   // Atualiza título a cada mudança de rota
   useEffect(() => {
