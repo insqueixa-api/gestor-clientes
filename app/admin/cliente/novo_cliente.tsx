@@ -40,6 +40,7 @@ export type ClientData = {
   apps_names?: string[];
   technology?: string;
   m3u_url?: string; // ✅ ADICIONADO
+  tipo_cadastro?: string; // ✅ PREPARATIVO PARA A NOVA FASE
 };
 
 type ModalMode = "client" | "trial";
@@ -2936,20 +2937,22 @@ console.log("🔵 DEBUG M3U antes de salvar:", {
 
 
 
-// ✅ UPDATE ÚNICO (evita writes extras): m3u_url + external_user_id + created_at
+// ✅ UPDATE ÚNICO (evita writes extras): m3u_url + external_user_id + created_at + tipo_cadastro
 
 // ✅ Na criação, usa apiUsername/apiPassword que já vieram da API (ou do form se manual)
 finalM3u = (apiM3uUrl || m3uUrl || buildM3uUrlSilent(apiUsername, apiPassword) || "").trim();
 
 const finalExternalUserId = (apiExternalUserId || externalUserId || "").trim();
 
-if (clientId && (finalM3u || finalExternalUserId || finalCreatedAt)) {
-  const patch: any = {};
-  if (finalM3u) patch.m3u_url = finalM3u;
-  if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
-  if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
+if (clientId) {
+  const patch: any = {
+    tipo_cadastro: "iptv" // ✅ GARANTE QUE TODO NOVO TESTE/CLIENTE DESTA TELA SEJA IPTV
+  };
+  if (finalM3u) patch.m3u_url = finalM3u;
+  if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
+  if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
 
-  console.log("🟢 Salvando PATCH no banco:", patch);
+  console.log("🟢 Salvando PATCH no banco:", patch);
 
 
 
