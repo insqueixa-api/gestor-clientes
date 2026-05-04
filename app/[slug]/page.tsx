@@ -45,10 +45,10 @@ export default function TenantLoginPage() {
       if (!slug) return;
       
       const { data, error } = await supabaseBrowser
-  .from("tenants")
-  .select("id, name, logo_url, primary_color, banner_urls, login_title, login_subtitle, banner_interval")
-  .eq("slug", slug)
-  .maybeSingle();
+        .from("vw_tenant_branding") // ✅ Puxando da View protegida
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
 
       if (data) setTenantData(data);
       setLoadingTenant(false);
@@ -66,8 +66,9 @@ export default function TenantLoginPage() {
   // ✅ INJETA O TÍTULO E O FAVICON DINAMICAMENTE
   useEffect(() => {
     if (tenantData) {
+      const safeSlug = slug || "Acesso"; // ✅ Blindagem contra crash na hidratação
       // Usa o slug (formatado) se quiser, ou o name
-      const displayName = tenantData.name && tenantData.name !== "Academia" ? tenantData.name : slug.toUpperCase();
+      const displayName = tenantData.name && tenantData.name !== "Academia" ? tenantData.name : safeSlug.toUpperCase();
       document.title = `UniGestor | ${displayName}`;
 
       // Força a atualização do Favicon removendo os antigos e adicionando o novo
@@ -238,13 +239,14 @@ export default function TenantLoginPage() {
           {/* Cabeçalho do Form */}
           <div className="flex flex-col items-center mb-6 text-center">
             {tenantData.logo_url ? (
-              <img src={tenantData.logo_url} alt={tenantData.name} className="h-20 object-contain mb-5 drop-shadow-md" />
+              <img src={tenantData.logo_url} alt={tenantData.name || "Logo"} className="h-20 object-contain mb-5 drop-shadow-md" />
             ) : (
               <div 
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white mb-5 shadow-lg"
                 style={{ backgroundColor: brandColor }}
               >
-                {tenantData.name.charAt(0).toUpperCase()}
+                {/* ✅ Blindagem caso a empresa não tenha nome no banco */}
+                {(tenantData.name || slug || "U").charAt(0).toUpperCase()}
               </div>
             )}
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -404,7 +406,12 @@ export default function TenantLoginPage() {
               </div>
 
               <div className="flex justify-center pt-2">
-                <Turnstile siteKey="0x4AAAAAACgrYURZlknhmi-J" onSuccess={setTurnstileToken} onError={() => setTurnstileToken(null)} onExpire={() => setTurnstileToken(null)} />
+                <Turnstile 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  onSuccess={(token) => setTurnstileToken(token)} // ✅ Fix seguro para o callback
+                  onError={() => setTurnstileToken(null)} 
+                  onExpire={() => setTurnstileToken(null)} 
+                />
               </div>
 
               <button
