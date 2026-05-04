@@ -36,10 +36,16 @@ export default function TenantHead() {
   const { slug, logoUrl } = useModules();
   const pathname = usePathname();
 
+  useEffect(() => {
+    console.log("TENANT HEAD VALUES:", { slug, logoUrl });
+  }, [slug, logoUrl]);
+
   // Título — MutationObserver impede o Next.js de sobrescrever
   useEffect(() => {
     const pageName = getPageName(pathname);
-    const tenantSlug = slug || "UniGestor";
+    const tenantSlug = slug
+      ? slug.charAt(0).toUpperCase() + slug.slice(1)
+      : "UniGestor";
     const desiredTitle = `${tenantSlug} | ${pageName}`;
 
     document.title = desiredTitle;
