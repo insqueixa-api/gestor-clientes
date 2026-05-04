@@ -10,9 +10,38 @@ import TenantHead from "@/components/TenantHead";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  description: "Painel Administrativo",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { description: "Painel Administrativo" };
+
+    const { data: member } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!member?.tenant_id) return { description: "Painel Administrativo" };
+
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("logo_url")
+      .eq("id", member.tenant_id)
+      .maybeSingle();
+
+    return {
+      description: "Painel Administrativo",
+      icons: tenant?.logo_url
+        ? { icon: `/api/upload/admin-favicon?t=${Date.now()}` }
+        : undefined,
+    };
+  } catch {
+    return { description: "Painel Administrativo" };
+  }
+}
 
 type TenantMemberRow = {
   tenant_id: string;

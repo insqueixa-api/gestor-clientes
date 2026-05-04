@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useActionState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useMemo, useActionState, useRef } from "react";
+import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Turnstile } from '@marsidev/react-turnstile';
-import { loginAction, type LoginState } from "@/app/login/actions";
+// 👇 ATENÇÃO: Ajuste este caminho para onde está o seu arquivo actions.ts do login oficial
+import { loginAction, type LoginState } from "@/app/login/actions"; 
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 const supabase = createClient(
@@ -17,79 +18,106 @@ function isLikelyEmail(v: string): boolean {
 }
 
 export default function TenantLoginPage() {
-  const params = useParams();
-  const router = useRouter();
+const params = useParams();
   const slug = params?.slug as string;
 
+  // --- ESTADOS DO TENANT ---
   const [tenantData, setTenantData] = useState<any>(null);
   const [loadingTenant, setLoadingTenant] = useState(true);
 
+  // --- ESTADOS DE SEGURANÇA E LOGIN (Iguais ao oficial) ---
   const [mode, setMode] = useState<"login" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState(0); 
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   const initialState: LoginState = {};
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
-  // ── Carrega dados do tenant ──────────────────────────────────────────────
+  // --- CARREGA OS DADOS DO CLIENTE ---
   useEffect(() => {
     async function loadTenantBrand() {
       if (!slug) return;
-      const { data } = await supabaseBrowser
-        .from("vw_tenant_branding")
+      
+      const { data, error } = await supabaseBrowser
+        .from("vw_tenant_branding") // ✅ Puxando da View protegida
         .select("*")
         .eq("slug", slug)
         .maybeSingle();
+
       if (data) setTenantData(data);
       setLoadingTenant(false);
     }
     loadTenantBrand();
   }, [slug]);
 
-  // ── Redireciona para /admin após login bem-sucedido ──────────────────────
-  useEffect(() => {
-    if (!pending && state && !state.error) {
-      // state sem error = login ok
-      // Verifica a sessão para ter certeza antes de redirecionar
-      supabaseBrowser.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          router.replace("/admin");
-        }
-      });
-    }
-  }, [pending, state]);
-
-  // ── Contagem de falhas ───────────────────────────────────────────────────
+  // --- MONITORA FALHAS DE LOGIN ---
   useEffect(() => {
     if (!pending && state?.error) {
       setFailedAttempts((prev) => prev + 1);
     }
   }, [pending, state?.error]);
 
-  // ── Título e Favicon dinâmicos ───────────────────────────────────────────
+  // ✅ INJETA O TÍTULO E O FAVICON DINAMICAMENTE
   useEffect(() => {
-    if (!tenantData) return;
+    if (tenantData) {
+      const safeSlug = slug || "Acesso"; // ✅ Blindagem contra crash na hidratação
+      // Usa o slug (formatado) se quiser, ou o name
+      const displayName = tenantData.name && tenantData.name !== "Academia" ? tenantData.name : safeSlug.toUpperCase();
+      document.title = `UniGestor | ${displayName}`;
 
-    const displayName = tenantData.name || slug || "Acesso";
-    document.title = `${displayName} | Acesso`;
-
-    if (tenantData.logo_url) {
-      document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
-      const link = document.createElement("link");
-      link.rel = "icon";
-      link.href = `${tenantData.logo_url}?v=${Date.now()}`;
-      document.head.insertBefore(link, document.head.firstChild);
+      // Força a atualização do Favicon removendo os antigos e adicionando o novo
+      if (tenantData.logo_url) {
+        const links = document.querySelectorAll("link[rel~='icon']");
+        links.forEach(link => link.remove()); // Remove favicons existentes
+        
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.href = tenantData.logo_url;
+        document.head.appendChild(link);
+      }
     }
   }, [tenantData, slug]);
 
-  // ── Carrossel de mídia ───────────────────────────────────────────────────
+  const canSubmit = useMemo(() => {
+    if (!isLikelyEmail(email)) return false;
+    if (mode === "reset") return true;
+    if (failedAttempts >= 3) return false;
+    return password.length >= 6 && turnstileToken !== null;
+  }, [email, password, mode, turnstileToken, failedAttempts]);
+
+  async function onReset(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setIsResetting(true);
+
+    try {
+      const safeEmail = email.trim().toLowerCase();
+      if (!isLikelyEmail(safeEmail)) {
+        setMsg("Informe um e-mail válido.");
+        setIsResetting(false);
+        return;
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, {
+        redirectTo: `${location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setMsg("Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.");
+    } catch (err: unknown) {
+      setMsg("Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.");
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+  // --- ESTADO E LÓGICA DE TRANSIÇÃO (🚨 MOVIDO PARA CIMA DOS RETURNS!) ---
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const bannerUrls = tenantData?.banner_urls || [];
   const intervalSeconds = tenantData?.banner_interval || 5;
@@ -98,15 +126,19 @@ export default function TenantLoginPage() {
     setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
   }
 
+  // Imagens: avança pelo tempo configurado
+  // Vídeos: deixa o onEnded cuidar — este effect não faz nada para eles
   useEffect(() => {
     if (bannerUrls.length <= 1) return;
     const currentUrl = bannerUrls[currentImgIndex];
     const isCurrentVideo = currentUrl?.includes(".mp4") || currentUrl?.includes(".webm");
     if (isCurrentVideo) return;
+
     const timer = setTimeout(goNext, intervalSeconds * 1000);
     return () => clearTimeout(timer);
   }, [currentImgIndex, bannerUrls, intervalSeconds]);
 
+  // Quando muda o índice, reinicia o vídeo ativo do zero
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
@@ -114,39 +146,11 @@ export default function TenantLoginPage() {
     }
   }, [currentImgIndex]);
 
-  // ── canSubmit ────────────────────────────────────────────────────────────
-  const canSubmit = useMemo(() => {
-    if (!isLikelyEmail(email)) return false;
-    if (mode === "reset") return true;
-    if (failedAttempts >= 3) return false;
-    return password.length >= 6 && turnstileToken !== null;
-  }, [email, password, mode, turnstileToken, failedAttempts]);
-
-  // ── Reset de senha ───────────────────────────────────────────────────────
-  async function onReset(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg(null);
-    setIsResetting(true);
-    try {
-      const safeEmail = email.trim().toLowerCase();
-      if (!isLikelyEmail(safeEmail)) { setMsg("Informe um e-mail válido."); return; }
-      const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, {
-        redirectTo: `${location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      setMsg("Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.");
-    } catch {
-      setMsg("Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.");
-    } finally {
-      setIsResetting(false);
-    }
-  }
-
-  // ── Loading / Not found ──────────────────────────────────────────────────
+  // --- TELAS DE CARREGAMENTO / ERRO ---
   if (loadingTenant) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b1015] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -160,35 +164,41 @@ export default function TenantLoginPage() {
     );
   }
 
-  // ── Variáveis visuais ────────────────────────────────────────────────────
+  // --- VARIÁVEIS VISUAIS DO CLIENTE ---
   const brandColor = tenantData.primary_color || "#10b981";
   const backgroundMedia = bannerUrls[currentImgIndex] || null;
-  const isVideo = backgroundMedia
-    ? backgroundMedia.includes('.mp4') || backgroundMedia.includes('.webm')
-    : false;
-  const customTitle    = tenantData.login_title    || "Supere seus limites.";
+  const isVideo = backgroundMedia ? (backgroundMedia.includes('.mp4') || backgroundMedia.includes('.webm')) : false;
+  
+  // Textos customizados ou Fallbacks padrão
+  const customTitle = tenantData.login_title || "Supere seus limites.";
   const customSubtitle = tenantData.login_subtitle || "Acesse sua área exclusiva para acompanhar seu progresso e gerenciar sua conta.";
 
   return (
     <div className="min-h-[100dvh] flex bg-white dark:bg-[#0b1015] selection:text-white" style={{ '--theme-color': brandColor } as React.CSSProperties}>
-
-      {/* ── LADO ESQUERDO: Mídia ── */}
+      
+      {/* ==========================================
+          LADO ESQUERDO: Mídia Customizada
+      ========================================== */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-[#0b1015] overflow-hidden items-end">
+        
+        {/* Mídia de Fundo com Transição Suave */}
         <div className="absolute inset-0 bg-[#0b1015]">
-          {bannerUrls.map((url: string, index: number) => {
+          {bannerUrls.map((url, index) => {
             const isVid = url.includes('.mp4') || url.includes('.webm');
             const isActive = index === currentImgIndex;
             return (
               <div
                 key={url}
-                className={`absolute inset-0 transition-opacity duration-1000 ${isActive ? "opacity-70" : "opacity-0"}`}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  isActive ? "opacity-70" : "opacity-0"
+                }`}
               >
                 {isVid ? (
                   <video
                     ref={isActive ? videoRef : null}
                     autoPlay
                     playsInline
-                    muted
+                    muted={isMuted}
                     className="w-full h-full object-cover"
                     src={url}
                     onEnded={isActive ? goNext : undefined}
@@ -200,46 +210,99 @@ export default function TenantLoginPage() {
             );
           })}
 
+          {/* Fallback caso não tenha imagens */}
           {bannerUrls.length === 0 && (
             <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
               <span className="text-slate-700 text-8xl">🚀</span>
             </div>
           )}
+
+          {/* Botão de som — só aparece se o item atual for vídeo */}
+          {(() => {
+            const currentUrl = bannerUrls[currentImgIndex];
+            const isCurrentVideo = currentUrl?.includes(".mp4") || currentUrl?.includes(".webm");
+            if (!isCurrentVideo) return null;
+            return (
+              <button
+                type="button"
+                onClick={() => setIsMuted((v) => !v)}
+                className="absolute bottom-5 right-5 z-20 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white transition-all"
+                title={isMuted ? "Ativar som" : "Silenciar"}
+              >
+                {isMuted ? (
+                  // Alto-falante mudo
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <line x1="23" y1="9" x2="17" y2="15"/>
+                    <line x1="17" y1="9" x2="23" y2="15"/>
+                  </svg>
+                ) : (
+                  // Alto-falante com som
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
+        {/* ✅ A MÁGICA DA LEITURA: Gradiente que escurece apenas a parte de baixo + Blur suave */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b1015] via-[#0b1015]/60 to-transparent" />
-
+        
         <div className="relative z-10 p-16 max-w-2xl text-white">
           <div className="backdrop-blur-sm bg-black/10 p-6 rounded-2xl border border-white/5">
-            <h2 className="text-4xl lg:text-5xl font-black mb-4 leading-tight">{customTitle}</h2>
-            <p className="text-lg text-white/80 font-medium">{customSubtitle}</p>
+            <h2 className="text-4xl lg:text-5xl font-black mb-4 leading-tight">
+              {customTitle}
+            </h2>
+            <p className="text-lg text-white/80 font-medium">
+              {customSubtitle}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* ── LADO DIREITO: Formulário ── */}
+      {/* ==========================================
+          LADO DIREITO: O Formulário Seguro (Com Visual Premium)
+      ========================================== */}
       <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-100 dark:bg-[#0f141a] overflow-hidden">
-
+        
+        {/* Fundo com textura suave e brilho discreto */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" style={{ backgroundColor: brandColor }} />
-          <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" style={{ backgroundColor: brandColor }} />
+          {/* Luz superior bem mais suave */}
+          <div 
+            className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
+            style={{ backgroundColor: brandColor }}
+          />
+          {/* Luz inferior bem mais suave */}
+          <div 
+            className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
+            style={{ backgroundColor: brandColor }}
+          />
+          {/* Grain leve (padrão do login principal) */}
           <div
             className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
-            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E\")" }}
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E\")",
+            }}
           />
         </div>
 
-        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-black/[0.05] dark:bg-[#161b22]/90 dark:border-white/10 p-6 sm:p-8">
-
-          {/* Cabeçalho */}
+        {/* ✅ Wrapper do Formulário (Efeito Glassmorphism) */}
+        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-black/[0.05] dark:bg-[#161b22]/90 dark:border-white/10 p-6 sm:p-8">  
+          {/* Cabeçalho do Form */}
           <div className="flex flex-col items-center mb-6 text-center">
             {tenantData.logo_url ? (
               <img src={tenantData.logo_url} alt={tenantData.name || "Logo"} className="h-20 object-contain mb-5 drop-shadow-md" />
             ) : (
-              <div
+              <div 
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white mb-5 shadow-lg"
                 style={{ backgroundColor: brandColor }}
               >
+                {/* ✅ Blindagem caso a empresa não tenha nome no banco */}
                 {(tenantData.name || slug || "U").charAt(0).toUpperCase()}
               </div>
             )}
@@ -247,33 +310,40 @@ export default function TenantLoginPage() {
               {mode === "reset" ? "Redefinir Senha" : "Acesso ao Portal"}
             </h1>
             <p className="text-sm font-bold mt-1 uppercase tracking-widest" style={{ color: brandColor }}>
-              {tenantData.name && tenantData.name !== "Academia" ? tenantData.name : slug}
+               {tenantData.name && tenantData.name !== "Academia" ? tenantData.name : slug}
             </p>
           </div>
 
-          {/* Abas */}
+          {/* Abas Login / Reset */}
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-black/20 mb-6">
             <button
               type="button"
               onClick={() => { setMsg(null); setMode("login"); }}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${mode === "login" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"}`}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                mode === "login" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"
+              }`}
             >
               Login
             </button>
             <button
               type="button"
               onClick={() => { setMsg(null); setMode("reset"); }}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${mode === "reset" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"}`}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                mode === "reset" ? "bg-white shadow text-slate-900 dark:bg-[#0f141a] dark:text-white" : "text-slate-600 hover:text-slate-800 dark:text-white/70 dark:hover:text-white"
+              }`}
             >
               Esqueci a senha
             </button>
           </div>
 
-          {/* Formulário */}
+          {/* === FORMULÁRIO === */}
           {mode === "login" ? (
             <form action={formAction} className="space-y-4">
+              {/* E-mail */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">E-mail</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
+                  E-mail
+                </label>
                 <input
                   name="email"
                   value={email}
@@ -284,15 +354,18 @@ export default function TenantLoginPage() {
                   autoComplete="email"
                   inputMode="email"
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
-                  style={{
+                  style={{ 
                     borderColor: focusedInput === 'email' ? brandColor : undefined,
-                    boxShadow: focusedInput === 'email' ? `0 0 0 2px ${brandColor}40` : undefined,
+                    boxShadow: focusedInput === 'email' ? `0 0 0 2px ${brandColor}40` : undefined
                   }}
                 />
               </div>
 
+              {/* Senha */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">Senha</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
+                  Senha
+                </label>
                 <div className="relative">
                   <input
                     name="password"
@@ -304,9 +377,9 @@ export default function TenantLoginPage() {
                     placeholder="••••••••"
                     autoComplete="current-password"
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
-                    style={{
+                    style={{ 
                       borderColor: focusedInput === 'password' ? brandColor : undefined,
-                      boxShadow: focusedInput === 'password' ? `0 0 0 2px ${brandColor}40` : undefined,
+                      boxShadow: focusedInput === 'password' ? `0 0 0 2px ${brandColor}40` : undefined
                     }}
                   />
                   <button
@@ -329,9 +402,10 @@ export default function TenantLoginPage() {
                 </div>
               </div>
 
+              {/* Turnstile */}
               <div className="flex justify-center pt-2">
-                <Turnstile
-                  siteKey="0x4AAAAAACgrYURZlknhmi-J"
+                <Turnstile 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
                   onSuccess={(token) => setTurnstileToken(token)}
                   onError={() => setTurnstileToken(null)}
                   onExpire={() => setTurnstileToken(null)}
@@ -339,18 +413,20 @@ export default function TenantLoginPage() {
                 <input type="hidden" name="cf-turnstile-response" value={turnstileToken || ""} />
               </div>
 
+              {/* Botão de Submit Dinâmico */}
               <button
                 type="submit"
                 disabled={!canSubmit || pending || failedAttempts >= 3}
                 className="w-full h-12 mt-2 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none hover:-translate-y-0.5"
-                style={{
+                style={{ 
                   backgroundColor: (!canSubmit || pending || failedAttempts >= 3) ? '#94a3b8' : brandColor,
-                  boxShadow: (!canSubmit || pending || failedAttempts >= 3) ? 'none' : `0 8px 20px -6px ${brandColor}80`,
+                  boxShadow: (!canSubmit || pending || failedAttempts >= 3) ? 'none' : `0 8px 20px -6px ${brandColor}80`
                 }}
               >
                 {pending ? "Autenticando..." : failedAttempts >= 3 ? "Acesso Bloqueado" : "Entrar no Portal"}
               </button>
 
+              {/* Erros */}
               {failedAttempts >= 3 ? (
                 <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 text-center">
                   <span>Acesso bloqueado por segurança após 3 tentativas inválidas.</span>
@@ -367,7 +443,9 @@ export default function TenantLoginPage() {
           ) : (
             <form onSubmit={onReset} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">E-mail Cadastrado</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-white/80 mb-1">
+                  E-mail Cadastrado
+                </label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -377,19 +455,19 @@ export default function TenantLoginPage() {
                   autoComplete="email"
                   inputMode="email"
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition shadow-sm dark:border-white/10 dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
-                  style={{
+                  style={{ 
                     borderColor: focusedInput === 'reset' ? brandColor : undefined,
-                    boxShadow: focusedInput === 'reset' ? `0 0 0 2px ${brandColor}40` : undefined,
+                    boxShadow: focusedInput === 'reset' ? `0 0 0 2px ${brandColor}40` : undefined
                   }}
                 />
               </div>
 
               <div className="flex justify-center pt-2">
-                <Turnstile
-                  siteKey="0x4AAAAAACgrYURZlknhmi-J"
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onError={() => setTurnstileToken(null)}
-                  onExpire={() => setTurnstileToken(null)}
+                <Turnstile 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  onSuccess={(token) => setTurnstileToken(token)} // ✅ Fix seguro para o callback
+                  onError={() => setTurnstileToken(null)} 
+                  onExpire={() => setTurnstileToken(null)} 
                 />
               </div>
 
@@ -397,9 +475,9 @@ export default function TenantLoginPage() {
                 type="submit"
                 disabled={!canSubmit || isResetting}
                 className="w-full h-12 mt-2 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
-                style={{
+                style={{ 
                   backgroundColor: (!canSubmit || isResetting) ? '#94a3b8' : brandColor,
-                  boxShadow: (!canSubmit || isResetting) ? 'none' : `0 8px 20px -6px ${brandColor}80`,
+                  boxShadow: (!canSubmit || isResetting) ? 'none' : `0 8px 20px -6px ${brandColor}80`
                 }}
               >
                 {isResetting ? "Enviando..." : "Enviar link de recuperação"}
@@ -413,17 +491,26 @@ export default function TenantLoginPage() {
             </form>
           )}
 
-          {/* Rodapé */}
+          {/* Rodapé Tech (Dentro do Card) */}
           <div className="mt-8 pt-6 border-t border-slate-200/60 dark:border-white/10 text-center flex flex-col items-center justify-center gap-1.5">
-            <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">Tecnologia por</span>
-            <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-5 drop-shadow-sm transition-all hover:scale-105" />
+            <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">
+              Tecnologia por
+            </span>
+            <img 
+              src="/brand/logo-full-light.png" 
+              alt="UniGestor" 
+              className="h-5 drop-shadow-sm transition-all hover:scale-105" 
+            />
           </div>
-        </div>
 
+        </div> {/* Fim do Wrapper do Formulário */}
+        
+        {/* Aviso de Segurança Flutuante no Rodapé */}
         <div className="absolute bottom-6 text-center text-[10px] sm:text-xs text-slate-400 dark:text-white/40">
           Acesso protegido • Sistema em conformidade com a LGPD
         </div>
-      </div>
+
+      </div> {/* Fim do Lado Direito */}
     </div>
   );
 }
