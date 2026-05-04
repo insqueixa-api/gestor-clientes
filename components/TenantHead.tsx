@@ -68,7 +68,8 @@ export default function TenantHead() {
     document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
     const link = document.createElement("link");
     link.rel = "icon";
-    link.href = logoUrl || "/favicon.ico";
+    // Cache-busting: força o browser a recarregar o favicon quando mudar
+    link.href = logoUrl ? `${logoUrl}?v=${Date.now()}` : "/favicon.ico";
     document.head.appendChild(link);
   }, [logoUrl]);
 
