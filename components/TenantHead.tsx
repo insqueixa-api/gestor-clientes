@@ -65,12 +65,22 @@ export default function TenantHead() {
 
   // Favicon
   useEffect(() => {
-    document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+    if (!logoUrl) return; // sem logo = deixa o favicon padrão do Next.js
+
+    // Remove todos os favicons possíveis que o Next.js injeta
+    document.querySelectorAll(`
+      link[rel='icon'],
+      link[rel='shortcut icon'],
+      link[rel='apple-touch-icon'],
+      link[rel='apple-touch-icon-precomposed']
+    `).forEach(el => el.remove());
+
+    // Injeta o favicon do tenant com prioridade máxima
     const link = document.createElement("link");
     link.rel = "icon";
-    // Cache-busting: força o browser a recarregar o favicon quando mudar
-    link.href = logoUrl ? `${logoUrl}?v=${Date.now()}` : "/favicon.ico";
-    document.head.appendChild(link);
+    link.type = "image/png";
+    link.href = `${logoUrl}?v=${Date.now()}`;
+    document.head.insertBefore(link, document.head.firstChild);
   }, [logoUrl]);
 
   return null;
