@@ -343,6 +343,7 @@ async function saveWaConfig() {
   const [bannerInterval, setBannerInterval] = useState<number>(5); // ✅ NOVO Tempo de transição
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFiles, setBannerFiles] = useState<File[]>([]);
+  const [bannerUploadedUrls, setBannerUploadedUrls] = useState<(string | undefined)[]>([]);
   // Strings para mostrar o que já tem no banco
   const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
   const [currentBannersUrl, setCurrentBannersUrl] = useState<string[]>([]);
@@ -691,22 +692,33 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
       // Upload dos Banners
       if (bannerFiles.length > 0) {
-        const uploadedUrls = [];
-        for (const file of bannerFiles) {
+        const resolvedUrls: string[] = [];
+        for (let i = 0; i < bannerFiles.length; i++) {
+          const file = bannerFiles[i];
+          const alreadyUploaded = bannerUploadedUrls?.[i];
+
+          // ✅ Vídeo já enviado via presigned URL — usa a URL diretamente
+          if (alreadyUploaded) {
+            resolvedUrls.push(alreadyUploaded);
+            continue;
+          }
+
+          // Imagem/documento — envia pelo fluxo normal
           const bData = new FormData();
           bData.append("file", file);
           bData.append("folder", `tenants/${tenantId}/branding/banners`);
+
           const res = await fetch("/api/upload", { method: "POST", body: bData });
-          
+
           if (!res.ok) {
             if (res.status === 413) throw new Error(`O arquivo ${file.name} é muito grande para o servidor.`);
             throw new Error(`Falha ao enviar arquivo ${file.name} (Status: ${res.status})`);
           }
-          
+
           const result = await res.json();
-          if (result.success) uploadedUrls.push(result.url);
+          if (result.success) resolvedUrls.push(result.url);
         }
-        finalBannersUrls = uploadedUrls;
+        finalBannersUrls = resolvedUrls;
       }
 
       // --- LOGICA ORIGINAL: PERFIL ---
@@ -2071,10 +2083,11 @@ return (
                       setCurrentBannersUrl(prev => prev.filter(url => url !== urlToRemove));
                       if (!isEditing) setIsEditing(true);
                     }}
-                    onFilesReady={(files) => {
+                    onFilesReady={(files, uploadedUrls) => {
                       setBannerFiles(files);
+                      setBannerUploadedUrls(uploadedUrls || []);
                       if (!isEditing) setIsEditing(true);
-                    }} 
+                    }}
                   />
                   {/* ✅ NOVA DICA VISUAL AQUI */}
                   <p className="text-[10px] text-slate-400 leading-tight">

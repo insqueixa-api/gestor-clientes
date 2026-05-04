@@ -8,10 +8,20 @@ interface MediaUploaderProps {
   label: string;
   maxFiles?: number;
   accept?: string;
-  onFilesReady: (files: File[]) => void;
-  initialUrls?: string[]; // ✨ NOVO: Recebe os links que já estão salvos no banco
-  onRemoveInitialUrl?: (url: string) => void; // ✨ NOVO: Avisa o pai quando o usuário apaga um link salvo
+  // ✅ uploadedUrls: URLs já no R2 (para vídeos enviados via presigned URL)
+  onFilesReady: (files: File[], uploadedUrls?: (string | undefined)[]) => void;
+  initialUrls?: string[];
+  onRemoveInitialUrl?: (url: string) => void;
 }
+
+type MediaPreview = {
+  id: string;
+  url: string;
+  type: string;
+  name: string;
+  file: File;
+  uploadedUrl?: string;
+};
 
 export default function MediaUploader({
   label, 
@@ -21,7 +31,9 @@ export default function MediaUploader({
   initialUrls = [],
   onRemoveInitialUrl
 }: MediaUploaderProps) {
-  const [newFiles, setNewFiles] = useState<{ id: string; url: string; type: string; name: string; file: File }[]>([]);
+  const [newFiles, setNewFiles] = useState<{
+    uploadedUrl?: any; id: string; url: string; type: string; name: string; file: File 
+}[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -38,8 +50,7 @@ export default function MediaUploader({
 
     const selectedFiles = Array.from(e.target.files);
     const totalCurrent = initialUrls.length + newFiles.length;
-    
-    // 1. Limite de quantidade (soma os salvos + os novos)
+
     if (totalCurrent + selectedFiles.length > maxFiles) {
       await confirm({
         title: "Limite atingido",
@@ -52,36 +63,80 @@ export default function MediaUploader({
     }
 
     setIsCompressing(true);
-    const addedPreviews: { id: string; url: string; type: string; name: string; file: File }[] = [];
+    const addedPreviews: { id: string; url: string; type: string; name: string; file: File; uploadedUrl?: string }[] = [];
 
     for (const file of selectedFiles) {
-      // 2. Lógica para Vídeos
       if (file.type.startsWith("video/")) {
-        if (file.size > 10 * 1024 * 1024) { 
+        // ✅ Limite generoso (50MB) só como proteção extrema — o R2 aguenta bem mais
+        if (file.size > 50 * 1024 * 1024) {
           await confirm({
             title: "Vídeo muito grande",
-            subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite do servidor é 10MB.`,
+            subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite máximo é 50MB.`,
             tone: "rose",
             confirmText: "Entendi",
             cancelText: "Voltar"
           });
-          continue; // Bloqueia imediatamente na seleção
+          continue;
         }
-        addedPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(file), type: "video", name: file.name, file: file });
-      } 
-      // 3. Lógica para Imagens (Compressão)
-      else if (file.type.startsWith("image/")) {
+
+        // ✅ Upload direto para o R2 via presigned URL (ignora o Next.js/Vercel)
+        try {
+          const presignRes = await fetch("/api/upload/presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: file.name,
+              contentType: file.type,
+              folder: "tenants/branding/banners",
+            }),
+          });
+
+          if (!presignRes.ok) throw new Error("Falha ao obter URL de upload.");
+          const { presignedUrl, publicUrl } = await presignRes.json();
+
+          // ✅ PUT direto no R2 — sem passar pelo Next.js
+          const uploadRes = await fetch(presignedUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+
+          if (!uploadRes.ok) throw new Error("Falha ao enviar vídeo para a nuvem.");
+
+          addedPreviews.push({
+            id: Math.random().toString(),
+            url: URL.createObjectURL(file), // preview local
+            type: "video",
+            name: file.name,
+            file, // mantido por compatibilidade, mas o pai deve usar uploadedUrl
+            uploadedUrl: publicUrl, // ✅ URL pública já no R2
+          });
+        } catch (err: any) {
+          await confirm({
+            title: "Erro no upload do vídeo",
+            subtitle: err.message || "Não foi possível enviar o vídeo.",
+            tone: "rose",
+            confirmText: "Entendi",
+            cancelText: "Voltar"
+          });
+        }
+      } else if (file.type.startsWith("image/")) {
         try {
           const options = { maxSizeMB: 0.3, maxWidthOrHeight: 1920, useWebWorker: true, fileType: "image/webp" };
           const compressedBlob = await imageCompression(file, options);
           const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: "image/webp" });
-          addedPreviews.push({ id: Math.random().toString(), url: URL.createObjectURL(compressedFile), type: "image", name: compressedFile.name, file: compressedFile });
+          addedPreviews.push({
+            id: Math.random().toString(),
+            url: URL.createObjectURL(compressedFile),
+            type: "image",
+            name: compressedFile.name,
+            file: compressedFile,
+          });
         } catch (error) {
           console.error("Erro na compressão", error);
         }
-      }
-      else {
-        if (file.size > 10 * 1024 * 1024) { 
+      } else {
+        if (file.size > 10 * 1024 * 1024) {
           await confirm({
             title: "Arquivo muito grande",
             subtitle: `O documento "${file.name}" é muito grande. O limite é 10MB.`,
@@ -91,13 +146,14 @@ export default function MediaUploader({
           });
           continue;
         }
-        addedPreviews.push({ id: Math.random().toString(), url: "", type: "document", name: file.name, file: file });
+        addedPreviews.push({ id: Math.random().toString(), url: "", type: "document", name: file.name, file });
       }
     }
 
     const updatedNewFiles = [...newFiles, ...addedPreviews];
     setNewFiles(updatedNewFiles);
-    onFilesReady(updatedNewFiles.map(p => p.file)); 
+    // ✅ Passa os files + as URLs já enviadas (vídeos) para o componente pai
+    onFilesReady(updatedNewFiles.map(p => p.file), updatedNewFiles.map(p => p.uploadedUrl));
     setIsCompressing(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
