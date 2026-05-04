@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
 import { ModulesProvider } from "@/lib/modules/ModulesContext";
+import TenantHead from "@/components/TenantHead";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,13 @@ const userRole =
   return (
     <ThemeProvider defaultTheme="light">
       <ConfirmProvider>
-        <ModulesProvider activeModules={activeModules}>
+<ModulesProvider
+          activeModules={activeModules}
+          slug={tenantRow?.slug ?? null}
+          logoUrl={tenantLogo}
+          tenantName={tenantName}
+        >
+          <TenantHead />
           <div style={{ "--theme-color": brandColor } as React.CSSProperties} className="contents">
             <AdminShell 
               userLabel={userLabel} 

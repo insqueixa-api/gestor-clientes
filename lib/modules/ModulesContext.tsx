@@ -7,7 +7,6 @@ interface ModulesContextValue {
   modules: Module[];
   can: (key: PermissionKey) => boolean;
   hasModule: (mod: Module) => boolean;
-  // Helpers prontos mais usados
   hasIPTV: boolean;
   hasSaaS: boolean;
   hasIPTVorSaaS: boolean;
@@ -17,6 +16,10 @@ interface ModulesContextValue {
   hasCondominio: boolean;
   isOnlyFinanceiro: boolean;
   hasAlunos: boolean;
+  // Identidade visual do tenant
+  slug: string | null;
+  logoUrl: string | null;
+  tenantName: string | null;
 }
 
 const ModulesContext = createContext<ModulesContextValue | null>(null);
@@ -24,9 +27,15 @@ const ModulesContext = createContext<ModulesContextValue | null>(null);
 export function ModulesProvider({
   children,
   activeModules,
+  slug = null,
+  logoUrl = null,
+  tenantName = null,
 }: {
   children: React.ReactNode;
   activeModules: string[];
+  slug?: string | null;
+  logoUrl?: string | null;
+  tenantName?: string | null;
 }) {
   const value = useMemo<ModulesContextValue>(() => {
     const modules = activeModules.map(m => (m || "").toLowerCase()) as Module[];
@@ -55,8 +64,11 @@ export function ModulesProvider({
       hasCondominio,
       isOnlyFinanceiro: modules.length > 0 && modules.every(m => m === "financeiro"),
       hasAlunos:        hasAcademia || hasPersonal,
+      slug,
+      logoUrl,
+      tenantName,
     };
-  }, [activeModules]);
+  }, [activeModules, slug, logoUrl, tenantName]);
 
   return (
     <ModulesContext.Provider value={value}>
