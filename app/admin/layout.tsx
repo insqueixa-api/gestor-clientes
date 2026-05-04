@@ -124,7 +124,7 @@ const userRole =
       <ConfirmProvider>
 <ModulesProvider
           activeModules={activeModules}
-          slug={tenantRow?.slug ?? null}
+          slug={userRole === "SUPERADMIN" ? null : (tenantRow?.slug ?? null)}
           logoUrl={tenantLogo}
           tenantName={tenantName}
         >

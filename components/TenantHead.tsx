@@ -36,19 +36,30 @@ export default function TenantHead() {
   const { slug, logoUrl } = useModules();
   const pathname = usePathname();
 
-  // fora do effect — roda imediatamente na renderização
-  if (typeof window !== "undefined") {
-    console.log("TENANT HEAD:", { slug, logoUrl, pathname });
-  }
-
-  // Atualiza título a cada mudança de rota
+  // Título — MutationObserver impede o Next.js de sobrescrever
   useEffect(() => {
     const pageName = getPageName(pathname);
     const tenantSlug = slug || "UniGestor";
-    document.title = `${tenantSlug} | ${pageName}`;
+    const desiredTitle = `${tenantSlug} | ${pageName}`;
+
+    document.title = desiredTitle;
+
+    // Observa o <title> e reaplica se o Next.js tentar mudar
+    const titleEl = document.querySelector("title");
+    if (!titleEl) return;
+
+    const observer = new MutationObserver(() => {
+      if (document.title !== desiredTitle) {
+        document.title = desiredTitle;
+      }
+    });
+
+    observer.observe(titleEl, { childList: true });
+
+    return () => observer.disconnect();
   }, [pathname, slug]);
 
-  // Atualiza favicon apenas quando o logoUrl muda
+  // Favicon
   useEffect(() => {
     document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
     const link = document.createElement("link");
