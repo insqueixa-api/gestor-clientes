@@ -36,9 +36,17 @@ export default function TenantHead() {
   const { slug, logoUrl } = useModules();
   const pathname = usePathname();
 
+  // Favicon
   useEffect(() => {
-    console.log("TENANT HEAD VALUES:", { slug, logoUrl });
-  }, [slug, logoUrl]);
+    document.querySelectorAll(
+      "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
+    ).forEach(el => el.remove());
+
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.href = logoUrl ? `${logoUrl}?v=${Date.now()}` : "/favicon.ico";
+    document.head.insertBefore(link, document.head.firstChild);
+  }, [logoUrl]);
 
   // Título — MutationObserver impede o Next.js de sobrescrever
   useEffect(() => {
