@@ -27,31 +27,44 @@ function daysUntil(s?: string | null): number | null {
 
 
 // Componente que exibe Logo + Nome do Usuário (agora vem do SERVER)
-function BrandUser({ userLabel, tenantName }: { userLabel: string; tenantName: string }) {
+function BrandUser({ userLabel, tenantName, logoUrl }: { userLabel: string; tenantName: string; logoUrl?: string | null }) {
   return (
     <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
-            {/* Mobile: logo curta */}
-      <Image
-        src="/brand/logo-gestor-celular.png"
-        alt="Gestor"
-        width={44}
-        height={44}
-        className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
-        draggable={false}
-        priority
-      />
+      
+      {logoUrl ? (
+        /* ✅ Se tiver logo do cliente, exibe ela (Tanto mobile quanto desktop) */
+        <img
+          src={logoUrl}
+          alt={tenantName}
+          className="h-10 w-auto max-w-[140px] select-none object-contain transition-transform group-hover:scale-105 drop-shadow-md"
+          draggable={false}
+        />
+      ) : (
+        /* Se não tiver logo, usa as originais da UniGestor */
+        <>
+          {/* Mobile: logo curta */}
+          <Image
+            src="/brand/logo-gestor-celular.png"
+            alt="Gestor"
+            width={44}
+            height={44}
+            className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
+            draggable={false}
+            priority
+          />
 
-      {/* Desktop: logo completa */}
-      <Image
-        src="/brand/logo-gestor.png"
-        alt="Gestor"
-        width={160}
-        height={40}
-        className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
-        draggable={false}
-        priority
-      />
-
+          {/* Desktop: logo completa */}
+          <Image
+            src="/brand/logo-gestor.png"
+            alt="Gestor"
+            width={160}
+            height={40}
+            className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
+            draggable={false}
+            priority
+          />
+        </>
+      )}
 
       <div className="min-w-0 flex flex-col justify-center">
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 group-hover:text-white/60 transition-colors">
@@ -74,12 +87,13 @@ export default function AdminShell({
   tenantName,
   role,
   financialControlEnabled,
-  tenantId, // ✅ NOVAS PROPS
+  tenantId, 
   expiresAt,
   creditBalance,
   saasPlanTableId,
   whatsappSessions,
-  isOnlyFinanceiro, // ✅ NOVA PROP
+  isOnlyFinanceiro, 
+  logoUrl, // ✅ ADICIONADO
 }: {
   children: React.ReactNode;
   userLabel: string;
@@ -91,7 +105,8 @@ export default function AdminShell({
   creditBalance?: number;
   saasPlanTableId?: string | null;
   whatsappSessions?: number;
-  isOnlyFinanceiro?: boolean; // ✅ NOVA PROP
+  isOnlyFinanceiro?: boolean; 
+  logoUrl?: string | null; // ✅ ADICIONADO
 }) {
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
   
@@ -214,7 +229,7 @@ export default function AdminShell({
               href="/admin"
               className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline"
             >
-              <BrandUser userLabel={userLabel} tenantName={tenantName} />
+              <BrandUser userLabel={userLabel} tenantName={tenantName} logoUrl={logoUrl} /> {/* ✅ ADICIONADO logoUrl */}
             </Link>
 
             {/* ✅ SINO DE ALERTA DE VENCIMENTO (Apenas o ícone piscando) */}

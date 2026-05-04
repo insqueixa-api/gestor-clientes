@@ -65,7 +65,7 @@ export default async function AdminLayout({
   // 3) Nome e configs do tenant (topo)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, financial_control_enabled, active_modules") // ✅ ADICIONADO active_modules
+    .select("name, financial_control_enabled, active_modules, primary_color, logo_url") // ✅ ADICIONADO branding
     .eq("id", member.tenant_id)
     .maybeSingle<any>();
 
@@ -107,23 +107,31 @@ const userRole =
   const activeModules = tenantRow?.active_modules || [];
   const isOnlyFinanceiro = activeModules.length === 1 && activeModules.includes("financeiro");
 
+  // ✅ EXTRAI AS CORES E LOGO DO CLIENTE
+  const brandColor = tenantRow?.primary_color || "#10b981"; // Fallback para Emerald
+  const tenantLogo = tenantRow?.logo_url || null;
+
   return (
     <ThemeProvider defaultTheme="light">
       <ConfirmProvider> {/* ✅ 2. ADICIONADO PROVIDER AQUI */}
-        <AdminShell 
-          userLabel={userLabel} 
-          tenantName={tenantName} 
-          role={userRole}
-          financialControlEnabled={isFinancialEnabled}
-          tenantId={member.tenant_id} 
-          expiresAt={licenseData?.expires_at ?? null} 
-          creditBalance={licenseData?.credit_balance ?? 0} 
-          saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
-          whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
-          isOnlyFinanceiro={isOnlyFinanceiro}
-        >
-          {children}
-        </AdminShell>
+        {/* ✅ INJETA A COR DO CLIENTE NO CSS */}
+        <div style={{ "--theme-color": brandColor } as React.CSSProperties} className="contents">
+          <AdminShell 
+            userLabel={userLabel} 
+            tenantName={tenantName} 
+            role={userRole}
+            financialControlEnabled={isFinancialEnabled}
+            tenantId={member.tenant_id} 
+            expiresAt={licenseData?.expires_at ?? null} 
+            creditBalance={licenseData?.credit_balance ?? 0} 
+            saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
+            whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
+            isOnlyFinanceiro={isOnlyFinanceiro}
+            logoUrl={tenantLogo} // ✅ PASSA A LOGO PARA O MENU
+          >
+            {children}
+          </AdminShell>
+        </div>
       </ConfirmProvider> {/* ✅ 3. FECHAMENTO DO PROVIDER AQUI */}
     </ThemeProvider>
   );
