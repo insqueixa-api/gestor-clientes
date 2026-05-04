@@ -718,7 +718,7 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const result = await res.json();
           if (result.success) resolvedUrls.push(result.url);
         }
-        finalBannersUrls = resolvedUrls;
+        finalBannersUrls = [...currentBannersUrl, ...resolvedUrls];
       }
 
       // --- LOGICA ORIGINAL: PERFIL ---

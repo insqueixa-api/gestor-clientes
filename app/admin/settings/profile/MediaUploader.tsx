@@ -66,7 +66,7 @@ export default function MediaUploader({
     for (const file of selectedFiles) {
       if (file.type.startsWith("video/")) {
         // ✅ Limite generoso (50MB) só como proteção extrema — o R2 aguenta bem mais
-        if (file.size > 50 * 1024 * 1024) {
+        if (file.size > 10 * 1024 * 1024) {
           await confirm({
             title: "Vídeo muito grande",
             subtitle: `O vídeo "${file.name}" tem ${(file.size / 1024 / 1024).toFixed(1)}MB. O limite máximo é 50MB.`,
