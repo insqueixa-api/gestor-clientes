@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useActionState } from "react";
+import { useEffect, useState, useMemo, useActionState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -117,18 +117,34 @@ const params = useParams();
 
   // --- ESTADO E LÓGICA DE TRANSIÇÃO (🚨 MOVIDO PARA CIMA DOS RETURNS!) ---
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const bannerUrls = tenantData?.banner_urls || [];
   const intervalSeconds = tenantData?.banner_interval || 5;
 
+  function goNext() {
+    setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
+  }
+
+  // Imagens: avança pelo tempo configurado
+  // Vídeos: deixa o onEnded cuidar — este effect não faz nada para eles
   useEffect(() => {
     if (bannerUrls.length <= 1) return;
+    const currentUrl = bannerUrls[currentImgIndex];
+    const isCurrentVideo = currentUrl?.includes(".mp4") || currentUrl?.includes(".webm");
+    if (isCurrentVideo) return;
 
-    const timer = setInterval(() => {
-      setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
-    }, intervalSeconds * 1000);
+    const timer = setTimeout(goNext, intervalSeconds * 1000);
+    return () => clearTimeout(timer);
+  }, [currentImgIndex, bannerUrls, intervalSeconds]);
 
-    return () => clearInterval(timer);
-  }, [bannerUrls, intervalSeconds]);
+  // Quando muda o índice, reinicia o vídeo ativo do zero
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [currentImgIndex]);
 
   // --- TELAS DE CARREGAMENTO / ERRO ---
   if (loadingTenant) {
@@ -169,28 +185,68 @@ const params = useParams();
         <div className="absolute inset-0 bg-[#0b1015]">
           {bannerUrls.map((url, index) => {
             const isVid = url.includes('.mp4') || url.includes('.webm');
+            const isActive = index === currentImgIndex;
             return (
               <div
                 key={url}
                 className={`absolute inset-0 transition-opacity duration-1000 ${
-                  index === currentImgIndex ? "opacity-70" : "opacity-0"
+                  isActive ? "opacity-70" : "opacity-0"
                 }`}
               >
                 {isVid ? (
-                  <video autoPlay loop muted playsInline className="w-full h-full object-cover" src={url} />
+                  <video
+                    ref={isActive ? videoRef : null}
+                    autoPlay
+                    playsInline
+                    muted={isMuted}
+                    className="w-full h-full object-cover"
+                    src={url}
+                    onEnded={isActive ? goNext : undefined}
+                  />
                 ) : (
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 )}
               </div>
             );
           })}
-          
+
           {/* Fallback caso não tenha imagens */}
           {bannerUrls.length === 0 && (
             <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-               <span className="text-slate-700 text-8xl">🚀</span>
+              <span className="text-slate-700 text-8xl">🚀</span>
             </div>
           )}
+
+          {/* Botão de som — só aparece se o item atual for vídeo */}
+          {(() => {
+            const currentUrl = bannerUrls[currentImgIndex];
+            const isCurrentVideo = currentUrl?.includes(".mp4") || currentUrl?.includes(".webm");
+            if (!isCurrentVideo) return null;
+            return (
+              <button
+                type="button"
+                onClick={() => setIsMuted((v) => !v)}
+                className="absolute bottom-5 right-5 z-20 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white transition-all"
+                title={isMuted ? "Ativar som" : "Silenciar"}
+              >
+                {isMuted ? (
+                  // Alto-falante mudo
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <line x1="23" y1="9" x2="17" y2="15"/>
+                    <line x1="17" y1="9" x2="23" y2="15"/>
+                  </svg>
+                ) : (
+                  // Alto-falante com som
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
         {/* ✅ A MÁGICA DA LEITURA: Gradiente que escurece apenas a parte de baixo + Blur suave */}
