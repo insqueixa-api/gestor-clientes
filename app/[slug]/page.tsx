@@ -18,8 +18,8 @@ function isLikelyEmail(v: string): boolean {
 }
 
 export default function TenantLoginPage() {
-  const params = useParams();
-  const slug = params.slug as string;
+const params = useParams();
+  const slug = params?.slug as string;
 
   // --- ESTADOS DO TENANT ---
   const [tenantData, setTenantData] = useState<any>(null);
@@ -115,6 +115,21 @@ export default function TenantLoginPage() {
     }
   }
 
+  // --- ESTADO E LÓGICA DE TRANSIÇÃO (🚨 MOVIDO PARA CIMA DOS RETURNS!) ---
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const bannerUrls = tenantData?.banner_urls || [];
+  const intervalSeconds = tenantData?.banner_interval || 5;
+
+  useEffect(() => {
+    if (bannerUrls.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
+    }, intervalSeconds * 1000);
+
+    return () => clearInterval(timer);
+  }, [bannerUrls, intervalSeconds]);
+
   // --- TELAS DE CARREGAMENTO / ERRO ---
   if (loadingTenant) {
     return (
@@ -133,22 +148,8 @@ export default function TenantLoginPage() {
     );
   }
 
-  // --- ESTADO E LÓGICA DE TRANSIÇÃO ---
-  const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  // --- VARIÁVEIS VISUAIS DO CLIENTE ---
   const brandColor = tenantData.primary_color || "#10b981";
-  const bannerUrls = tenantData.banner_urls || [];
-  const intervalSeconds = tenantData.banner_interval || 5;
-
-  useEffect(() => {
-    if (bannerUrls.length <= 1) return;
-
-    const timer = setInterval(() => {
-      setCurrentImgIndex((prev) => (prev + 1) % bannerUrls.length);
-    }, intervalSeconds * 1000);
-
-    return () => clearInterval(timer);
-  }, [bannerUrls, intervalSeconds]);
-
   const backgroundMedia = bannerUrls[currentImgIndex] || null;
   const isVideo = backgroundMedia ? (backgroundMedia.includes('.mp4') || backgroundMedia.includes('.webm')) : false;
   
