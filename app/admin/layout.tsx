@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
-import { ConfirmProvider } from "@/app/admin/HookuseConfirm"; // ✅ 1. ADICIONADO IMPORT
+import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
+import { ModulesProvider } from "@/lib/modules/ModulesContext";
 
 export const dynamic = "force-dynamic";
 
@@ -113,26 +114,26 @@ const userRole =
 
   return (
     <ThemeProvider defaultTheme="light">
-      <ConfirmProvider> {/* ✅ 2. ADICIONADO PROVIDER AQUI */}
-        {/* ✅ INJETA A COR DO CLIENTE NO CSS */}
-        <div style={{ "--theme-color": brandColor } as React.CSSProperties} className="contents">
-          <AdminShell 
-            userLabel={userLabel} 
-            tenantName={tenantName} 
-            role={userRole}
-            financialControlEnabled={isFinancialEnabled}
-            tenantId={member.tenant_id} 
-            expiresAt={licenseData?.expires_at ?? null} 
-            creditBalance={licenseData?.credit_balance ?? 0} 
-            saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
-            whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
-            isOnlyFinanceiro={isOnlyFinanceiro}
-            logoUrl={tenantLogo} // ✅ PASSA A LOGO PARA O MENU
-          >
-            {children}
-          </AdminShell>
-        </div>
-      </ConfirmProvider> {/* ✅ 3. FECHAMENTO DO PROVIDER AQUI */}
+      <ConfirmProvider>
+        <ModulesProvider activeModules={activeModules}>
+          <div style={{ "--theme-color": brandColor } as React.CSSProperties} className="contents">
+            <AdminShell 
+              userLabel={userLabel} 
+              tenantName={tenantName} 
+              role={userRole}
+              financialControlEnabled={isFinancialEnabled}
+              tenantId={member.tenant_id} 
+              expiresAt={licenseData?.expires_at ?? null} 
+              creditBalance={licenseData?.credit_balance ?? 0} 
+              saasPlanTableId={licenseData?.saas_plan_table_id ?? null} 
+              whatsappSessions={licenseData?.whatsapp_sessions ?? 1} 
+              logoUrl={tenantLogo}
+            >
+              {children}
+            </AdminShell>
+          </div>
+        </ModulesProvider>
+      </ConfirmProvider>
     </ThemeProvider>
   );
 }
