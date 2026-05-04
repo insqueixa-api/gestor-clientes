@@ -11,7 +11,6 @@ import TenantHead from "@/components/TenantHead";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Dashboard | UniGestor", // <--- O NOME QUE VAI NA ABA
   description: "Painel Administrativo",
 };
 
@@ -67,7 +66,7 @@ export default async function AdminLayout({
   // 3) Nome e configs do tenant (topo)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, financial_control_enabled, active_modules, primary_color, logo_url") // ✅ ADICIONADO branding
+    .select("name, financial_control_enabled, active_modules, primary_color, logo_url, slug")
     .eq("id", member.tenant_id)
     .maybeSingle<any>();
 
