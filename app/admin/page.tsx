@@ -659,7 +659,8 @@ return (
       </div>
 
       {/* CARDS TOPO */}
-            {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+                  {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+
 
 <MetricCardView title="Ativos"
           accent="green"
@@ -958,7 +959,7 @@ return (
       )}
 
       {/* GRÁFICOS */}
-      {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+      {showClientesView && <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}>
 
 
 
