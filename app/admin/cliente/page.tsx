@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import NovoCliente, { ClientData } from "./novo_cliente";
 import RecargaCliente from "./recarga_cliente";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useModules } from "@/lib/modules/ModulesContext";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
@@ -325,8 +326,9 @@ function formatMoney(amount: number | null, currency: string | null) {
 
 
 function ClientePageContent() {
-  const searchParams = useSearchParams(); // <--- Hook do Next.js
-  // --- ESTADOS ---
+  const searchParams = useSearchParams();
+  const { hasAlunos } = useModules();
+  const entidadeLabel = hasAlunos ? "Aluno" : "Cliente";
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ NOVO: Controle de Acesso
@@ -659,11 +661,15 @@ async function loadData() {
         .maybeSingle();
 
       const mods = tenantRow?.active_modules || [];
-      const hasIptvOrSaas = mods.includes("iptv") || mods.includes("saas");
+      const hasClientesAccess = 
+        mods.includes("iptv") || 
+        mods.includes("saas") || 
+        mods.includes("academia") || 
+        mods.includes("personal");
 
-      if (!hasIptvOrSaas) {
+      if (!hasClientesAccess) {
         setHasAccess(false);
-        return; // 🛑 Bloqueia o carregamento do resto da página e preserva o banco!
+        return;
       }
       
       setHasAccess(true);
@@ -1595,8 +1601,8 @@ body: JSON.stringify({
   {/* Título (esquerda) */}
 <div className="min-w-0 text-left">
   <div className="flex items-center gap-3">
-    <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-      Gestão de Clientes
+<h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+      Gestão de {entidadeLabel}s
     </h1>
     <button
       onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
@@ -1647,9 +1653,9 @@ body: JSON.stringify({
     setEditInitialTab("dados");
     setShowFormModal(true);
   }}
-  className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
 >
-  <span>+</span> Novo Cliente
+  <span>+</span> Novo {entidadeLabel}
 </button>
 
 
