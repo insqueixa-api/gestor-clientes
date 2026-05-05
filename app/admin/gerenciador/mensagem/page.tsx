@@ -986,7 +986,7 @@ return createPortal(
             {/* ✅ NOVO: Seletor de Categoria */}
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-white/50 uppercase mb-1.5 tracking-wider">
-                Categoria da Mensagem
+                Categoria da Mensagem 
               </label>
               <select
                 value={category}
