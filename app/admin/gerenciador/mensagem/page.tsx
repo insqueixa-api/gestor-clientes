@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
+import { useModules } from "@/lib/modules/ModulesContext";
+
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
 function IconEye() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>; }
@@ -157,11 +159,12 @@ function getTemplateCategory(msg: MessageTemplate) {
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function MessagesPage() {
+  const { hasAlunos, hasIPTVorSaaS } = useModules();
   const [messages, setMessages] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [search, setSearch] = useState("");
-  const [isMaster, setIsMaster] = useState(false); // ✅ NOVO ESTADO
+  const [isMaster, setIsMaster] = useState(false);
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -466,15 +469,35 @@ return (
             return (
               <>
                 {MESSAGE_CATEGORIES.map(cat => {
-                  // Oculta a categoria SaaS inteira se não for Master
+                  // Oculta SaaS se não for Master
                   if (cat === "Revenda SaaS" && !isMaster) return null;
-                  
-                  const items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+
+                  // Para Academia e Personal: oculta categorias irrelevantes
+                  // e mantém apenas "Cliente IPTV" (que mostra só Pagamento Realizado)
+                  if (hasAlunos && !hasIPTVorSaaS) {
+                    if (cat !== "Cliente IPTV" && cat !== "Geral") return null;
+                  }
+
+                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+
+                  // Para Academia e Personal: filtra só "Pagamento Realizado" na categoria principal
+                  if (hasAlunos && !hasIPTVorSaaS && cat === "Cliente IPTV") {
+                    items = items.filter(m => m.name === "Pagamento Realizado");
+                  }
+
                   if (items.length === 0) return null;
 
-                  // Define os ícones automaticamente
+                  // Título dinâmico: remove "IPTV" para Academia e Personal
+                  let displayTitle = cat;
+                  if (cat === "Cliente IPTV") {
+                    displayTitle = hasAlunos && !hasIPTVorSaaS ? "Alunos" : "Clientes";
+                  } else if (cat === "Revenda IPTV") {
+                    displayTitle = "Revendas";
+                  }
+
+                  // Ícones
                   let icon = "💬";
-                  if (cat === "Cliente IPTV") icon = "📺";
+                  if (cat === "Cliente IPTV") icon = hasAlunos && !hasIPTVorSaaS ? "🎓" : "📺";
                   else if (cat === "Revenda IPTV") icon = "🤝";
                   else if (cat === "Revenda SaaS") icon = "☁️";
                   else if (cat === "Vencimentos") icon = "📅";
@@ -482,7 +505,7 @@ return (
                   else if (cat === "Manutenção") icon = "⚙️";
                   else if (cat === "Fidelidade") icon = "⭐";
 
-                  return <div key={cat}>{renderGroup(cat, icon, items)}</div>;
+                  return <div key={cat}>{renderGroup(displayTitle, icon, items)}</div>;
                 })}
               </>
             );

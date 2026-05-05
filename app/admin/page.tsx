@@ -969,7 +969,7 @@ return (
 
             <div>
               <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-  Novos clientes
+  {(hasAcademia || hasPersonal) ? "Novos alunos" : "Novos clientes"}
 </h3>
 
             </div>
