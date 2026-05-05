@@ -12,7 +12,7 @@ import { useModules } from "@/lib/modules/ModulesContext";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation"; // <--- NOVO
+import { useSearchParams, useRouter } from "next/navigation";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
@@ -327,7 +327,8 @@ function formatMoney(amount: number | null, currency: string | null) {
 
 function ClientePageContent() {
   const searchParams = useSearchParams();
-  const { hasAlunos } = useModules();
+  const router = useRouter();
+  const { hasAlunos, hasIPTVorSaaS } = useModules();
   const entidadeLabel = hasAlunos ? "Aluno" : "Cliente";
   const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -672,7 +673,12 @@ async function loadData() {
         return;
       }
       
-      setHasAccess(true);
+      // Academia e Personal puro → redireciona para página de alunos
+    if ((mods.includes("academia") || mods.includes("personal")) && !mods.includes("iptv") && !mods.includes("saas")) {
+      router.replace("/admin/aluno");
+      return;
+    }
+    setHasAccess(true);
 
       await loadMessageTemplates(tid);
       await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista

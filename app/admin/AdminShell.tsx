@@ -138,7 +138,7 @@ export default function AdminShell({
 
   const pathname = usePathname();
 
-  const managerActive = useMemo(() => {
+const managerActive = useMemo(() => {
     return (
       pathname.startsWith("/admin/servers") ||
       pathname.startsWith("/admin/plano") ||
@@ -148,6 +148,8 @@ export default function AdminShell({
       pathname.startsWith("/admin/aplicativo")
     );
   }, [pathname]);
+
+  const alunoActive = pathname.startsWith("/admin/aluno");
 
   const settingsActive = useMemo(() => pathname.startsWith("/admin/settings"), [pathname]);
 
@@ -241,7 +243,7 @@ export default function AdminShell({
               ) : hasIPTVorSaaS ? (
                 <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
               ) : hasAlunos ? (
-                <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />
+                <NavLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />
               ) : (
                 <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
               )}
@@ -276,7 +278,7 @@ export default function AdminShell({
                 <>
                   {can("dashboard")  && <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />}
                   {hasIPTVorSaaS    && <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />}
-                  {hasAlunos        && <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />}
+                  {hasAlunos        && <NavLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />}
                   {can("revendas")  && <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} />}
                   {can("testes")    && <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />}
 
@@ -349,7 +351,7 @@ export default function AdminShell({
                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
                 {can("dashboard")   && <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />}
                 {hasIPTVorSaaS      && <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />}
-                {hasAlunos          && <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} onClick={() => setOpenMenu(null)} />}
+                {hasAlunos          && <MenuLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} onClick={() => setOpenMenu(null)} />}
                 {can("revendas")    && <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />}
                 {can("testes")      && <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />}
                 <Divider />
