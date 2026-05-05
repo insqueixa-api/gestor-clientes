@@ -521,7 +521,9 @@ return (
       {showEditor && (
         <EditorModal
           templateToEdit={selectedTemplate}
-          isMaster={isMaster} // ✅ Passando a prop para esconder variáveis SaaS
+          isMaster={isMaster}
+          hasAlunos={hasAlunos}
+          hasIPTVorSaaS={hasIPTVorSaaS}
           onClose={() => setShowEditor(false)}
           onSuccess={() => {
             setShowEditor(false);
@@ -652,17 +654,22 @@ function PreviewModal({
 // ============================================================================
 function EditorModal({
   templateToEdit,
-  isMaster, // ✅ NOVA PROP
+  isMaster,
+  hasAlunos,
+  hasIPTVorSaaS,
   onClose,
   onSuccess,
   onError,
 }: {
   templateToEdit?: MessageTemplate | null;
-  isMaster: boolean; // ✅ NOVA PROP
+  isMaster: boolean;
+  hasAlunos?: boolean;
+  hasIPTVorSaaS?: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
+  const isAlunosOnly = !!hasAlunos && !hasIPTVorSaaS;
 const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
   const [category, setCategory] = useState(templateToEdit ? getTemplateCategory(templateToEdit) : "Geral"); // ✅ Inicia com a categoria certa
@@ -815,7 +822,29 @@ const [name, setName] = useState(templateToEdit?.name || "");
   };
 
   // ✅ Filtra dinamicamente as tags (Tira a tag do SaaS para quem for User comum)
-  const allowedTagGroups = isMaster ? TAG_GROUPS : TAG_GROUPS.filter(g => g.title !== "☁️ SaaS Revenda (Sistema)");
+  const allowedTagGroups = TAG_GROUPS
+    .filter(g => {
+      if (!isMaster && g.title === "☁️ SaaS Revenda (Sistema)") return false;
+      if (isAlunosOnly && g.title === "🖥️ Acesso e Servidor") return false;
+      if (isAlunosOnly && g.title === "🏢 Dados da Revenda") return false;
+      return true;
+    })
+    .map(g => {
+      // Renomeia "Dados do Cliente" para "Dados do Aluno"
+      if (isAlunosOnly && g.title === "👤 Dados do Cliente") {
+        return { ...g, title: "👤 Dados do Aluno" };
+      }
+      // Remove tags irrelevantes do Financeiro
+      if (isAlunosOnly && g.title === "💰 Financeiro") {
+        return {
+          ...g,
+          tags: g.tags.filter(t =>
+            !["venda_creditos", "transfer_iban", "transfer_swift"].some(k => t.label.includes(k))
+          ),
+        };
+      }
+      return g;
+    });
 
   const filteredMobileTags = useMemo(() => {
     const all = allowedTagGroups.flatMap((group) => // ✅ USANDO A VARIÁVEL FILTRADA AQUI
@@ -966,7 +995,10 @@ return createPortal(
               >
                 {MESSAGE_CATEGORIES.map(cat => {
                   if (cat === "Revenda SaaS" && !isMaster) return null;
-                  return <option key={cat} value={cat}>{cat}</option>;
+                  if (isAlunosOnly && cat === "Revenda IPTV") return null;
+                  if (isAlunosOnly && cat === "Manutenção") return null;
+                  const label = isAlunosOnly && cat === "Cliente IPTV" ? "Alunos" : cat;
+                  return <option key={cat} value={cat}>{label}</option>;
                 })}
               </select>
             </div>
