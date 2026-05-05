@@ -14,6 +14,8 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+import { useModules } from "@/lib/modules/ModulesContext";
+
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -503,11 +505,13 @@ function GatewayModal({
   onClose,
   onSave,
   addToast,
+  isAlunosOnly = false,
 }: {
   gateway: PaymentGateway | null;
   onClose: () => void;
   onSave: () => void;
   addToast: (type: "success" | "error", title: string, message?: string) => void;
+  isAlunosOnly?: boolean;
 }) {
   const isEdit = !!gateway;
 
@@ -627,8 +631,12 @@ function GatewayModal({
                 <HelpModal type={helpType} onClose={() => setHelpType(null)} />
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GATEWAY_META.map((m) => {
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {GATEWAY_META.filter(m =>
+                  isAlunosOnly
+                    ? m.type === "pix_manual" || m.type === "mercadopago"
+                    : true
+                ).map((m) => {
                   const selected = selectedType === m.type;
                   const hasHelp = !!GATEWAY_HELP[m.type];
                   return (
@@ -1007,6 +1015,8 @@ function GatewayCard({
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function PagamentosPage() {
+  const { hasAlunos, hasIPTVorSaaS } = useModules();
+  const isAlunosOnly = hasAlunos && !hasIPTVorSaaS;
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
@@ -1146,9 +1156,11 @@ export default function PagamentosPage() {
 
   // Agrupar por moeda
   const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
-  const intlGateways = gateways.filter(
-    (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
-  );
+  const intlGateways = isAlunosOnly
+    ? [] // Academia e Personal não veem internacionais
+    : gateways.filter(
+        (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
+      );
 
   // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
   if (hasAccess === null) {
@@ -1312,6 +1324,7 @@ export default function PagamentosPage() {
       {modalOpen && (
         <GatewayModal
           gateway={editingGateway}
+          isAlunosOnly={isAlunosOnly}
           onClose={() => {
             setModalOpen(false);
             setEditingGateway(null);
