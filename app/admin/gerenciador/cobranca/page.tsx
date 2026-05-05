@@ -1046,12 +1046,14 @@ return (
             </span>
           </div>
 
-          <button
-            onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
-          >
-            Limpar
-          </button>
+          {search.trim() && (
+            <button
+              onClick={() => setSearch("")}
+              className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </div>
     </div>
