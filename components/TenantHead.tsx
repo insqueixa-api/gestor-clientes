@@ -4,39 +4,37 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useModules } from "@/lib/modules/ModulesContext";
 
-// Mapa de rota → nome legível da página
-const PAGE_NAMES: Record<string, string> = {
-  "/admin":                              "Dashboard",
-  "/admin/cliente":                      "Clientes",
-  "/admin/revendedor":                   "Revendas",
-  "/admin/teste":                        "Testes",
-  "/admin/gerenciador/servidor":         "Servidores",
-  "/admin/gerenciador/plano":            "Planos",
-  "/admin/gerenciador/mensagem":         "Mensagens",
-  "/admin/gerenciador/cobranca":         "Automação",
-  "/admin/gerenciador/pagamento":        "Pagamento",
-  "/admin/gerenciador/aplicativo":       "Aplicativos",
-  "/admin/settings/profile":            "Perfil",
-  "/admin/settings/financeiro_pessoal": "Financeiro",
-  "/admin/settings/gestao_saas":        "Gestão SaaS",
-  "/admin/settings/api-server":         "API",
-};
 
-function getPageName(pathname: string): string {
-  // Tenta match exato primeiro
-  if (PAGE_NAMES[pathname]) return PAGE_NAMES[pathname];
-  // Tenta match por prefixo (para sub-rotas dinâmicas)
-  const match = Object.keys(PAGE_NAMES)
-    .sort((a, b) => b.length - a.length) // mais específico primeiro
-    .find(key => pathname.startsWith(key));
-  return match ? PAGE_NAMES[match] : "Painel";
-}
 
 export default function TenantHead() {
-  const { slug, logoUrl } = useModules();
+  const { slug, logoUrl, hasAlunos } = useModules();
   const pathname = usePathname();
 
-  // Favicon
+  const PAGE_NAMES: Record<string, string> = {
+    "/admin":                              "Dashboard",
+    "/admin/cliente":                      hasAlunos ? "Alunos" : "Clientes",
+    "/admin/revendedor":                   "Revendas",
+    "/admin/teste":                        "Testes",
+    "/admin/gerenciador/servidor":         "Servidores",
+    "/admin/gerenciador/plano":            "Planos",
+    "/admin/gerenciador/mensagem":         "Mensagens",
+    "/admin/gerenciador/cobranca":         "Automação",
+    "/admin/gerenciador/pagamento":        "Pagamento",
+    "/admin/gerenciador/aplicativo":       "Aplicativos",
+    "/admin/settings/profile":            "Perfil",
+    "/admin/settings/financeiro_pessoal": "Financeiro",
+    "/admin/settings/gestao_saas":        "Gestão SaaS",
+    "/admin/settings/api-server":         "API Integração",
+  };
+
+  function getPageName(path: string): string {
+    if (PAGE_NAMES[path]) return PAGE_NAMES[path];
+    const match = Object.keys(PAGE_NAMES)
+      .sort((a, b) => b.length - a.length)
+      .find(key => path.startsWith(key));
+    return match ? PAGE_NAMES[match] : "Painel";
+  }
+
   useEffect(() => {
     document.querySelectorAll(
       "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"

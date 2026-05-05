@@ -548,7 +548,7 @@ const addToast = (
         .maybeSingle();
 
       const mods = tenantRow?.active_modules || [];
-      const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas");
+      const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas") || mods.includes("academia") || mods.includes("personal");
 
       if (!hasAuthorizedModule) {
         setHasAccess(false);
