@@ -233,11 +233,15 @@ export default async function AdminDashboardPage({
     ? await supabase.from("vw_saas_tenants").select("active_modules").eq("id", myTenantId).maybeSingle()
     : null;
   const tenantModules: string[] = (saasRow?.data as any)?.active_modules ?? ["iptv"];
-  const hasIPTV       = tenantModules.includes("iptv");
-  const hasSaaS       = tenantModules.includes("saas") && showSaas;
-  const hasFinanceiro = tenantModules.includes("financeiro");
+  const hasIPTV          = tenantModules.includes("iptv");
+  const hasSaaS          = tenantModules.includes("saas") && showSaas;
+  const hasFinanceiro    = tenantModules.includes("financeiro");
+  const hasAcademia      = tenantModules.includes("academia");
+  const hasPersonal      = tenantModules.includes("personal");
+  // Academia e Personal compartilham os mesmos cards/gráficos do IPTV
+  const hasClientesView  = hasIPTV || hasAcademia || hasPersonal;
   const availableModules = (["iptv", "saas", "financeiro"] as const).filter(m =>
-    m === "iptv" ? hasIPTV : m === "saas" ? hasSaaS : hasFinanceiro
+    m === "iptv" ? hasClientesView : m === "saas" ? hasSaaS : hasFinanceiro
   );
 
   // Filtro via URL
@@ -245,9 +249,11 @@ export default async function AdminDashboardPage({
     ? resolvedParams.view.split(",").filter(v => availableModules.includes(v as any))
     : [];
   const activeViews = paramViews.length > 0 ? paramViews : [...availableModules];
-  const showIPTV     = hasIPTV      && activeViews.includes("iptv");
-  const showSaasView = hasSaaS      && activeViews.includes("saas");
-  const showFinView  = hasFinanceiro && activeViews.includes("financeiro");
+  const showClientesView = hasClientesView && activeViews.includes("iptv");
+  const showTestes       = hasIPTV         && activeViews.includes("iptv");
+  const showRankings     = hasIPTV         && activeViews.includes("iptv");
+  const showSaasView     = hasSaaS         && activeViews.includes("saas");
+  const showFinView      = hasFinanceiro   && activeViews.includes("financeiro");
 
   // Datas do mês atual para o painel de finanças pessoais
   const _finToday = todayInSaoPaulo();
@@ -653,9 +659,9 @@ return (
       </div>
 
       {/* CARDS TOPO */}
-      {showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
-<MetricCardView
-          title="Ativos"
+            {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+
+<MetricCardView title="Ativos"
           accent="green"
           leftLabel="Clientes"
           leftValue={fmtInt(activeClients)}
@@ -665,8 +671,7 @@ return (
           href="/admin/cliente?filter=ativos" // ✅ Abre lista filtrada por Status: Ativo
         />
 
-<MetricCardView
-          title="Vencidos"
+<MetricCardView title="Vencidos"
           accent="red"
           leftLabel="Clientes"
           leftValue={fmtInt(overdueClients)}
@@ -676,8 +681,7 @@ return (
           href="/admin/cliente?filter=vencidos" // ✅ Abre lista filtrada por Status: Vencido
         />
 
-<MetricCardView
-          title="Testes"
+{showTestes && <MetricCardView title="Testes"
           accent="blue"
           leftLabel="Criados"
           leftValue={fmtInt(trialsCreated)}
@@ -685,11 +689,11 @@ return (
           rightValue={fmtPct(trialsConvPct)}
           footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
           href="/admin/teste" // <--- Link direto para página de testes
-       />
+       />}
       </div>}
 
       {/* VENCIMENTOS */}
-      {showIPTV && <><SectionTitle title="VENCIMENTOS (5 DIAS)" />
+      {showClientesView && <><SectionTitle title="VENCIMENTOS (5 DIAS)" />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
 
         <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
@@ -699,8 +703,7 @@ return (
         <VencimentoCard diff={2} map={dueByOffset} title="Vence em 2 dias" color="blue" />
       </div></>}
 
-      {/* FINANCEIRO */}
-      {showIPTV && <><div className="sm:hidden">
+      {showClientesView && <><div className="sm:hidden">
   <SectionTitle title="FINANCEIRO R$" />
 </div>
 <div className="hidden sm:block">
@@ -955,7 +958,7 @@ return (
       )}
 
       {/* GRÁFICOS */}
-      {showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+      {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
 
 
 
@@ -1044,7 +1047,7 @@ return (
 
 
       {/* RANKINGS */}
-{showIPTV && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+{showRankings && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
   <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
   <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
 </div>}
