@@ -192,12 +192,15 @@ function generateUsername(fullName: string): string {
     .filter(Boolean);
 
   if (!parts.length) return "";
-  const first = parts[0];
-  const last  = parts.length > 1 ? parts[parts.length - 1] : "";
-  return (first + last)
-    .split("")
-    .map((c, i) => i === 0 ? c.toUpperCase() : c.toLowerCase())
-    .join("");
+  
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  const first = cap(parts[0]);
+  
+  if (parts.length === 1) return first;
+  
+  const last = cap(parts[parts.length - 1]);
+  const randomSuffix = Math.floor(100 + Math.random() * 900); // 3 dígitos para blindar contra duplicatas no BD
+  return `${first}_${last}_${randomSuffix}`;
 }
 
 function getDefaultDueDate() {
@@ -373,9 +376,24 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   const [showEmergency, setShowEmergency]           = useState(false);
   const [emergencySalut, setEmergencySalut]         = useState("");
   const [emergencyName, setEmergencyName]           = useState("");
-  const [emergencyPhone, setEmergencyPhone]         = useState("");
-  const [emergencyWa, setEmergencyWa]               = useState("");
   const [emergencyRelation, setEmergencyRelation]   = useState("");
+  
+  // Normalização do Telefone Secundário
+  const [emergencyPhoneRaw, setEmergencyPhoneRaw]   = useState("");
+  const [emergencyCountryLabel, setEmergencyCountryLabel] = useState<string>(ddiMeta("55").label);
+  const [emergencyWa, setEmergencyWa]               = useState("");
+  const [emergencyWhatsUserTouched, setEmergencyWhatsUserTouched] = useState(false);
+  const [emergencyWaValidation, setEmergencyWaValidation] = useState<WaValidation>(null);
+  const emergencyWaValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleDoneEmergency() {
+    const norm = applyPhoneNormalization(emergencyPhoneRaw);
+    setEmergencyCountryLabel(norm.countryLabel);
+    setEmergencyPhoneRaw(norm.formattedNational || norm.nationalDigits || emergencyPhoneRaw);
+    const finalUser = emergencyWhatsUserTouched ? emergencyWa : onlyDigits(norm.e164);
+    if (!emergencyWhatsUserTouched) setEmergencyWa(finalUser);
+    void validateWa(finalUser, setEmergencyWaValidation, setEmergencyCountryLabel);
+  }
 
   // Foto
   const [photoFile, setPhotoFile]     = useState<File | null>(null);
@@ -582,8 +600,14 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           if (alunoToEdit.secondary_display_name) {
             setShowEmergency(true);
             setEmergencyName(alunoToEdit.secondary_display_name);
-            setEmergencyPhone(alunoToEdit.secondary_phone_e164 || "");
             setEmergencyWa(alunoToEdit.secondary_whatsapp_username || "");
+            if (alunoToEdit.secondary_phone_e164) {
+              const digits = onlyDigits(alunoToEdit.secondary_phone_e164);
+              const ddi = inferDDIFromDigits(digits, alunoToEdit.secondary_phone_e164);
+              const national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
+              setEmergencyCountryLabel(ddiMeta(ddi).label);
+              setEmergencyPhoneRaw(formatNational(ddi, national) || national);
+            }
           }
 
           if (alunoToEdit.price_amount) {
@@ -678,6 +702,92 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
     setNovaAv(emptyAv());
   }
 
+  // ─── PDF AVALIAÇÃO ────────────────────────────────────────────────────────
+  function gerarPDFAvaliacao(av: AvaliacaoFisica) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    // Calcula IMC para o Relatório, assim como faz no front
+    const pesoN = Number(av.peso_kg || 0);
+    const alturaM = Number(altura || 0) / 100;
+    const imcCard = (pesoN > 0 && alturaM > 0) ? (pesoN / (alturaM * alturaM)).toFixed(1) : '--';
+
+    const html = `
+      <html>
+        <head>
+          <title>Avaliação Física - ${name || 'Aluno'}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>@media print { @page { margin: 10mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style>
+        </head>
+        <body class="p-8 text-slate-800 font-sans bg-white">
+          <div class="max-w-4xl mx-auto border-2 border-slate-100 p-8 rounded-3xl shadow-sm">
+            
+            <div class="flex items-center justify-between border-b-[3px] border-emerald-500 pb-6 mb-8">
+              <div class="flex items-center gap-6">
+                ${photoPreview 
+                  ? `<img src="${photoPreview}" class="w-24 h-24 rounded-2xl object-cover border-4 border-emerald-50 shadow-md" />` 
+                  : `<div class="w-24 h-24 rounded-2xl bg-slate-100 flex items-center justify-center text-4xl shadow-inner">👤</div>`
+                }
+                <div>
+                  <h1 class="text-4xl font-black text-slate-800 uppercase tracking-tight">${name || 'Aluno'}</h1>
+                  <p class="text-lg text-slate-500 font-medium mt-1">Avaliação Bioimpedância • ${new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <h2 class="text-2xl font-black text-emerald-600 tracking-tighter">UniGestor</h2>
+                <p class="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Saúde & Performance</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-6 mb-10">
+              <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Peso Total</p>
+                <p class="text-3xl font-black text-slate-700">${av.peso_kg || '--'}<span class="text-sm font-bold text-slate-400 ml-1">kg</span></p>
+              </div>
+              <div class="bg-rose-50 p-5 rounded-2xl border border-rose-100 flex flex-col items-center justify-center">
+                <p class="text-xs text-rose-400 font-bold uppercase tracking-wider mb-2">Gordura Corporal</p>
+                <p class="text-3xl font-black text-rose-600">${av.gordura_pct || '--'}<span class="text-sm font-bold text-rose-400 ml-1">%</span></p>
+              </div>
+              <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center">
+                <p class="text-xs text-emerald-500 font-bold uppercase tracking-wider mb-2">Massa Magra</p>
+                <p class="text-3xl font-black text-emerald-600">${av.massa_magra_kg || '--'}<span class="text-sm font-bold text-emerald-500 ml-1">kg</span></p>
+              </div>
+              <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex flex-col items-center justify-center">
+                <p class="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2">IMC Físico</p>
+                <p class="text-3xl font-black text-indigo-600">${imcCard}</p>
+              </div>
+            </div>
+
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Perimetria (Medidas Corporais)</h3>
+            <div class="grid grid-cols-4 gap-4 mb-10">
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Cintura</span><span class="font-black text-xl text-slate-700">${av.cintura_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Quadril</span><span class="font-black text-xl text-slate-700">${av.quadril_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Braço</span><span class="font-black text-xl text-slate-700">${av.braco_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Coxa</span><span class="font-black text-xl text-slate-700">${av.coxa_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Panturrilha</span><span class="font-black text-xl text-slate-700">${av.panturrilha_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Abdômen</span><span class="font-black text-xl text-slate-700">${av.abdomen_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ombro</span><span class="font-black text-xl text-slate-700">${av.ombro_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
+            </div>
+
+            ${av.observacoes ? `
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Diagnóstico / Observações</h3>
+            <p class="text-sm text-slate-600 bg-slate-50 p-6 rounded-2xl font-medium leading-relaxed border border-slate-100">${av.observacoes.replace(/\n/g, '<br/>')}</p>
+            ` : ''}
+            
+            <div class="mt-16 text-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">
+              Documento gerado e autenticado por UniGestor
+            </div>
+          </div>
+          <script>
+            window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
+
   // ─── SAVE ─────────────────────────────────────────────────────────────────
 
   async function handleSave() {
@@ -696,7 +806,10 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
       const primaryDdi = rawPrimaryDigits ? extractDdiFromLabel(primaryCountryLabel) : "55";
       const primaryNat = rawPrimaryDigits.startsWith(primaryDdi) ? rawPrimaryDigits.slice(primaryDdi.length) : rawPrimaryDigits;
       const finalPhone = rawPrimaryDigits ? `+${primaryDdi}${primaryNat}` : null;
-      const finalEmergPhone  = emergencyPhone.replace(/\D/g, "") ? `+${emergencyPhone.replace(/\D/g, "")}` : null;
+      const rawEmergDigits = onlyDigits(emergencyPhoneRaw);
+      const emergDdi = rawEmergDigits ? extractDdiFromLabel(emergencyCountryLabel) : "55";
+      const emergNat = rawEmergDigits.startsWith(emergDdi) ? rawEmergDigits.slice(emergDdi.length) : rawEmergDigits;
+      const finalEmergPhone = rawEmergDigits ? `+${emergDdi}${emergNat}` : null;
       const dueISO           = new Date(`${dueDate}T23:59:00`).toISOString();
       const finalPrice       = safeNumber(planPrice);
       const planLabel        = PLAN_LABELS[period] || "Mensal";
@@ -936,42 +1049,44 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
             {activeTab === "dados" && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
 
-                {/* Foto + Nome */}
-                <div className="flex items-start gap-4">
-                  {/* Foto */}
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                    <FL>Foto</FL>
-                    {photoPreview ? (
-                      <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-sm">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
+                {/* Foto + Nome + Nascimento + Documento Centralizados em Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-4">
+                  {/* FOTO - Ocupa a coluna da esquerda com as duas linhas no Desktop */}
+                  <div className="flex justify-center sm:row-span-2 sm:pt-4">
+                    <div className="flex-shrink-0 flex flex-col items-center gap-1 w-24">
+                      <FL>Foto</FL>
+                      {photoPreview ? (
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoUrl(null); if (photoRef.current) photoRef.current.value = ""; }}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 shadow-md"
+                            title="Remover"
+                          >
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                          </button>
+                        </div>
+                      ) : (
                         <button
-                          onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoUrl(null); if (photoRef.current) photoRef.current.value = ""; }}
-                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 shadow-md"
-                          title="Remover"
+                          onClick={() => photoRef.current?.click()}
+                          className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-600 transition-all bg-slate-50 dark:bg-black/20"
                         >
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                          <IconCamera />
+                          <span className="text-[9px] font-bold">Foto</span>
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => photoRef.current?.click()}
-                        className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-600 transition-all bg-slate-50 dark:bg-black/20"
-                      >
-                        <IconCamera />
-                        <span className="text-[9px] font-bold">Foto</span>
+                      )}
+                      <button onClick={() => photoRef.current?.click()} className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
+                        {photoPreview ? "Trocar" : "Carregar"}
                       </button>
-                    )}
-                    <button onClick={() => photoRef.current?.click()} className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
-                      {photoPreview ? "Trocar" : "Carregar"}
-                    </button>
-                    {/* Sem o capture="environment", o celular perguntará: Câmera ou Galeria? */}
-                    <input ref={photoRef} type="file" accept="image/*" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
+                      <input ref={photoRef} type="file" accept="image/*" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
+                    </div>
                   </div>
 
-                  {/* Nome + saudação */}
-                  <div className="flex-1 space-y-3">
+                  {/* Lado Direito: Linha 1 (Nome) e Linha 2 (Nascimento/Doc) */}
+                  <div className="flex flex-col gap-3">
+                    {/* Saudação + Nome */}
                     <div className="grid grid-cols-4 gap-2">
                       <div className="col-span-1">
                         <FL>Saudação</FL>
@@ -986,25 +1101,17 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                         <FI value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Nome completo" />
                       </div>
                     </div>
-                    {autoUsername && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-lg text-[10px]">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <span className="text-slate-500 dark:text-white/50">Login: <strong className="text-emerald-600 dark:text-emerald-400">{autoUsername}</strong></span>
-                        <span className="ml-auto text-slate-400">Servidor: <strong className="text-slate-600 dark:text-white/60">{tenantDisplay}</strong></span>
+                    {/* Nascimento + CPF/RG (Agora imediatamente abaixo do nome) */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <FL>Data de Nascimento</FL>
+                        <FI type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className="dark:[color-scheme:dark]" />
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Nascimento + CPF/RG */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <FL>Data de Nascimento</FL>
-                    <FI type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className="dark:[color-scheme:dark]" />
-                  </div>
-                  <div>
-                    <FL>CPF / RG</FL>
-                    <FI value={cpfRg} onChange={e => setCpfRg(e.target.value)} placeholder="000.000.000-00" />
+                      <div>
+                        <FL>CPF / RG</FL>
+                        <FI value={cpfRg} onChange={e => setCpfRg(e.target.value)} placeholder="000.000.000-00" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1073,7 +1180,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                       <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">🆘 Contato de Emergência</h3>
                       <button
                         type="button"
-                        onClick={() => { setShowEmergency(false); setEmergencyName(""); setEmergencyPhone(""); setEmergencyWa(""); setEmergencyRelation(""); }}
+                        onClick={() => { setShowEmergency(false); setEmergencyName(""); setEmergencyPhoneRaw(""); setEmergencyWa(""); setEmergencyRelation(""); }}
                         className="text-[10px] text-rose-500 font-bold hover:bg-rose-500/10 px-2 py-0.5 rounded"
                       >
                         REMOVER
@@ -1081,7 +1188,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       <div className="col-span-1">
-                        <FL>Título</FL>
+                        <FL>Saudação</FL>
                         <FS value={emergencySalut} onChange={e => setEmergencySalut(e.target.value)}>
                           <option value=""> </option>
                           <option>Sr.</option><option>Sra.</option>
@@ -1092,21 +1199,52 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                         <FI value={emergencyName} onChange={e => setEmergencyName(e.target.value)} placeholder="Nome completo" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Linha tripla no Desktop (Parentesco / Tel / Whats) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_1.5fr] gap-3 items-start">
                       <div>
                         <FL>Parentesco</FL>
-                        <FI value={emergencyRelation} onChange={e => setEmergencyRelation(e.target.value)} placeholder="Mãe, Pai, Cônjuge..." />
+                        <FI value={emergencyRelation} onChange={e => setEmergencyRelation(e.target.value)} placeholder="Ex: Pai" />
                       </div>
+                      
+                      <PhoneRow
+                        label="Telefone Secundário"
+                        countryLabel={emergencyCountryLabel}
+                        rawValue={emergencyPhoneRaw}
+                        onRawChange={setEmergencyPhoneRaw}
+                        onDone={handleDoneEmergency}
+                      />
+                      
                       <div>
-                        <FL>Telefone</FL>
-                        <FI type="tel" value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value)} placeholder="+55 11 9..." />
-                      </div>
-                    </div>
-                    <div>
-                      <FL>WhatsApp</FL>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
-                        <FI className="pl-7" value={emergencyWa} onChange={e => setEmergencyWa(e.target.value)} placeholder="username" />
+                        <FL>WhatsApp Username</FL>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
+                          <FI 
+                            className="pl-8 pr-10" 
+                            value={emergencyWa} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEmergencyWa(val);
+                              setEmergencyWhatsUserTouched(true);
+                              setEmergencyWaValidation(null);
+                              if (emergencyWaValidateTimer.current) clearTimeout(emergencyWaValidateTimer.current);
+                              emergencyWaValidateTimer.current = setTimeout(() => {
+                                void validateWa(val, setEmergencyWaValidation, setEmergencyCountryLabel);
+                              }, 800);
+                            }} 
+                            placeholder="username" 
+                          />
+                        </div>
+                        {emergencyWaValidation && (
+                          <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${emergencyWaValidation.loading ? "text-slate-400" : emergencyWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                            {emergencyWaValidation.loading ? (
+                              <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                            ) : emergencyWaValidation.exists ? (
+                              <>✅ Ativo</>
+                            ) : (
+                              <>❌ Não existe</>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1230,33 +1368,10 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                   )}
                 </div>
 
-                {/* Servidor + Username — info */}
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-200 dark:border-indigo-500/20 space-y-2">
-                  <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Cadastro no Sistema</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <FL>Servidor</FL>
-                      {servers.length > 1 ? (
-                        <FS value={serverId} onChange={e => setServerId(e.target.value)} className="text-xs">
-                          {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </FS>
-                      ) : (
-                        <div className="h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-sm font-bold text-slate-700 dark:text-white">
-                          {tenantDisplay}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <FL>Usuário (gerado)</FL>
-                      <div className="h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg flex items-center font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        {autoUsername || <span className="text-slate-400 font-normal italic text-xs">Preencha o nome</span>}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Servidor e Username foram removidos da interface conforme regra de negócio, mas continuam sendo registrados nos bastidores */}
 
                 {/* Plano / Valor / Vencimento */}
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
+                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3 mt-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
                     {tables.length > 1 && (
@@ -1285,9 +1400,8 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                   </div>
 
                   <div>
-                    <FL>Vencimento (sempre 23:59)</FL>
+                    <FL>Vencimento</FL>
                     <FI type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="dark:[color-scheme:dark]" />
-                    <p className="text-[9px] text-slate-400 mt-1">Padrão: 1 mês a partir de hoje · Horário fixo: 23:59</p>
                   </div>
                 </div>
 
@@ -1510,15 +1624,26 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                             {av.quadril_cm  && <span className="text-slate-500">Q:{av.quadril_cm}</span>}
                             {av.observacoes && <span className="text-slate-400 italic truncate max-w-[120px]">{av.observacoes}</span>}
                           </div>
-                          <button
-                            onClick={async () => {
-                              const ok = await confirmDialog({ title: "Remover avaliação?", subtitle: `Data: ${av.data}`, tone: "rose", confirmText: "Remover", cancelText: "Cancelar" });
-                              if (ok) setAvaliacoes(p => p.filter(a => a.id !== av.id));
-                            }}
-                            className="text-slate-400 hover:text-rose-500 transition-colors shrink-0"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <button
+                              onClick={() => gerarPDFAvaliacao(av)}
+                              className="px-2.5 py-1.5 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 rounded font-bold text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5"
+                              title="Gerar Relatório em PDF"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                              PDF
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const ok = await confirmDialog({ title: "Remover avaliação?", subtitle: `Data: ${av.data}`, tone: "rose", confirmText: "Remover", cancelText: "Cancelar" });
+                                if (ok) setAvaliacoes(p => p.filter(a => a.id !== av.id));
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded transition-colors"
+                              title="Remover avaliação"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
