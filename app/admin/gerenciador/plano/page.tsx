@@ -60,6 +60,7 @@
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [search, setSearch] = useState("");
     const [userRole, setUserRole] = useState<"SUPERADMIN" | "MASTER" | "USER" | null>(null);
+  const [isAlunosOnly, setIsAlunosOnly] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [newTableType, setNewTableType] = useState<"iptv" | "saas" | "saas_credits" | null>(null);
 
@@ -68,6 +69,11 @@
       let plans = userRole === "USER"
         ? plano.filter((p) => p.table_type === "iptv")
         : plano;
+
+      // Academia/Personal: só tabela BRL
+      if (isAlunosOnly) {
+        plans = plans.filter((p) => p.currency === "BRL");
+      }
 
       const q = search.trim().toLowerCase();
       if (!q) return plans;
@@ -221,7 +227,10 @@
           return; // 🛑 Interrompe totalmente o carregamento
         }
         
-        setHasAccess(true);
+setHasAccess(true);
+        const isAlunos = (mods.includes("academia") || mods.includes("personal"))
+          && !mods.includes("iptv") && !mods.includes("saas");
+        setIsAlunosOnly(isAlunos);
       }
 
     const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
@@ -611,9 +620,7 @@
                         <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                           <div className="flex items-center gap-3">
                             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-                              {plan.is_system_default && plan.table_type === "iptv"
-                                ? plan.name.split(" ")[0]
-                                : plan.name}
+                              {plan.name.split(" ")[0]}
                             </h2>
 
                             <div className="flex items-center gap-2">
@@ -676,29 +683,7 @@
                               </svg>
                             </button>
 
-                            {!plan.is_system_default && (
-                              <button
-                                onClick={() => handleDelete(plan)}
-                                className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
-                                title="Excluir Tabela"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  />
-                                </svg>
-                              </button>
-                            )}
-
-                            {plan.is_system_default && (
-                              <div className="p-1.5 opacity-20 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center cursor-not-allowed">
-                                <svg className="w-4 h-4 text-slate-500 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              </div>
-                            )}
+                            
                           </div>
                         </div>
 

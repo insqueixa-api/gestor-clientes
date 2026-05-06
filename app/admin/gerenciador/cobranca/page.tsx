@@ -1893,7 +1893,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+                <div className="absolute z-50 bottom-full mb-1 w-full bg-white dark:bg-[#1c2128] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
                     <div className="max-h-48 overflow-y-auto custom-scrollbar p-1">
                         {options.map((opt: any) => (
                             <div 
