@@ -630,7 +630,7 @@ setHasAccess(true);
                               </span>
 
                               {/* Badges de Status (Tones Suaves) */}
-                              {(plan.is_system_default || isAlunosOnly) ? (
+                              {(plan.is_system_default || plan.name.startsWith("Padrão")) ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
                                 Padrão do Sistema
                               </span>
@@ -682,7 +682,7 @@ setHasAccess(true);
                                 />
                               </svg>
                             </button>
-{!plan.is_system_default && (
+{!plan.is_system_default && !plan.name.startsWith("Padrão") && (
                               <button
                                 onClick={() => handleDelete(plan)}
                                 className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shadow-sm"
