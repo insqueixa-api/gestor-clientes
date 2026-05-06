@@ -1797,7 +1797,9 @@ if (error) throw error;
                               <MultiSelectDropdown label="Servidores" options={auxData.servers} selected={form.servers} onChange={(v:any) => setForm({...form, servers: v})} />
                             )}
                             <MultiSelectDropdown label="Planos" options={auxData.plans} selected={form.plans} onChange={(v:any) => setForm({...form, plans: v})} />
-                            <MultiSelectDropdown label="Aplicativos" options={auxData.apps} selected={form.apps} onChange={(v:any) => setForm({...form, apps: v})} />
+                            {!isAlunosOnly && (
+                              <MultiSelectDropdown label="Aplicativos" options={auxData.apps} selected={form.apps} onChange={(v:any) => setForm({...form, apps: v})} />
+                            )}
                         </div>
                     )}
 
