@@ -796,6 +796,7 @@ setHasAccess(true);
     <PlanoModal
       plan={editingPlan}
       newTableType={newTableType}
+      isAlunosOnly={isAlunosOnly}
       onClose={() => {
         setIsNewOpen(false);
         setEditingPlan(null);

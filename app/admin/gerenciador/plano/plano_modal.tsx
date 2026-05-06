@@ -33,6 +33,7 @@ type PlanRow = {
 type Props = {
   plan?: PlanRow | null;
   newTableType?: "iptv" | "saas" | "saas_credits" | null;
+  isAlunosOnly?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 };
@@ -70,7 +71,7 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: Props) {
+export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, onSuccess }: Props) {
   const isEditing = !!plan;
   const effectiveType = plan?.table_type ?? newTableType ?? "iptv";
   const isSaasCredits = effectiveType === "saas_credits";
@@ -399,7 +400,7 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
               ? "Nova Tabela — Venda Créditos SaaS"
               : isSaas
               ? "Nova Tabela SaaS"
-              : "Nova Tabela IPTV"}
+              : "Nova Tabela de Preço"}
           </h2>
 
           <div className="flex gap-2 sm:gap-3">
@@ -436,7 +437,7 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
               <div>
                 <Label>Moeda</Label>
                 <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-                  {(['BRL', 'USD', 'EUR'] as const).map(c => (
+                  {(['BRL', 'USD', 'EUR'] as const).filter(c => !isAlunosOnly || c === 'BRL').map(c => (
                     <button
                       key={c}
                       type="button"
@@ -511,9 +512,13 @@ export default function PlanoModal({ plan, newTableType, onClose, onSuccess }: P
               (isMasterOnly ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                 <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                    Preços para {screenCount} {isMasterOnly
-                      ? screenCount === 1 ? 'Sessão WhatsApp' : 'Sessões WhatsApp'
-                      : screenCount === 1 ? 'tela' : 'telas'}
+                    {isAlunosOnly
+                      ? screenCount === 1 ? "Plano Individual"
+                      : screenCount === 2 ? "Plano Família"
+                      : "Família Total"
+                    : isMasterOnly
+                      ? screenCount === 1 ? "Preços para 1 Sessão WhatsApp" : `Preços para ${screenCount} Sessões WhatsApp`
+                      : `Preços para ${screenCount} ${screenCount === 1 ? "tela" : "telas"}`}
                   </h3>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
