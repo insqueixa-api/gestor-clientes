@@ -240,12 +240,59 @@ function pickPrice(table: PlanTable | null, period: string, screens = 1): number
   return 0;
 }
 
-function normalizePhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("55") && digits.length >= 12) return `+${digits}`;
-  if (digits.length >= 10 && digits.length <= 11)     return `+55${digits}`;
-  return `+${digits}`;
+function onlyDigits(raw: string) {
+  return raw.replace(/\D+/g, "");
+}
+
+const DDI_OPTIONS = [
+  { code: "55", label: "Brasil", flag: "🇧🇷" },
+  { code: "1", label: "EUA/Canadá", flag: "🇺🇸" },
+  { code: "351", label: "Portugal", flag: "🇵🇹" },
+  // (Pode adicionar os outros países aqui se quiser a lista completa depois)
+];
+
+function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
+  const digits = onlyDigits(allDigits || "");
+  if (!digits) return "55";
+  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
+  for (const opt of sorted) if (digits.startsWith(opt.code)) return opt.code;
+  if (originalInput && originalInput.trim().startsWith("+")) return digits.slice(0, 3);
+  return "55";
+}
+
+function ddiMeta(ddi: string) {
+  const opt = DDI_OPTIONS.find((o) => o.code === ddi);
+  if (!opt) return { label: `DDI Desconhecido (+${ddi})` };
+  return { label: `${opt.label} (+${opt.code})` };
+}
+
+function formatNational(ddi: string, nationalDigits: string) {
+  const d = onlyDigits(nationalDigits);
+  if (ddi === "55") {
+    const area = d.slice(0, 2);
+    const rest = d.slice(2);
+    if (!area) return "";
+    if (rest.length >= 9) return `${area} ${rest.slice(0, 5)}-${rest.slice(5)}`.trim();
+    if (rest.length >= 8) return `${area} ${rest.slice(0, 4)}-${rest.slice(4)}`.trim();
+    return `${area} ${rest}`.trim();
+  }
+  return d;
+}
+
+function applyPhoneNormalization(rawInput: string) {
+  const rawDigits = onlyDigits(rawInput);
+  if (!rawDigits) return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
+  const ddi = inferDDIFromDigits(rawDigits, rawInput);
+  const meta = ddiMeta(ddi);
+  const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
+  const formattedNational = formatNational(ddi, nationalDigits);
+  const e164 = `+${ddi}${nationalDigits}`;
+  return { countryLabel: meta.label, e164, nationalDigits, formattedNational };
+}
+
+function extractDdiFromLabel(label: string): string {
+  const match = label.match(/\+(\d+)\)/);
+  return match ? match[1] : "55";
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
@@ -273,9 +320,48 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   const [name, setName]                   = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [cpfRg, setCpfRg]                 = useState("");
-  const [primaryPhone, setPrimaryPhone]   = useState("");
+  const [primaryPhoneRaw, setPrimaryPhoneRaw] = useState("");
+  const [primaryCountryLabel, setPrimaryCountryLabel] = useState<string>(ddiMeta("55").label);
   const [waUsername, setWaUsername]       = useState("");
+  const [whatsUserTouched, setWhatsUserTouched] = useState(false);
   const [waOptIn, setWaOptIn]             = useState(true);
+
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
+  const [waValidation, setWaValidation] = useState<WaValidation>(null);
+  const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function validateWa(username: string, setter: (v: WaValidation) => void, countryLabelSetter?: (v: string) => void) {
+    const digits = username.replace(/\D/g, "");
+    if (digits.length < 8) { setter(null); return; }
+    setter({ loading: true, exists: false });
+    try {
+      const res = await fetch("/api/whatsapp/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const json = await res.json().catch(() => ({}));
+      setter({ loading: false, exists: !!json.exists, jid: json.jid });
+      if (json.exists && json.jid && countryLabelSetter) {
+        const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        if (jidDigits) {
+          const ddi = inferDDIFromDigits(jidDigits);
+          countryLabelSetter(ddiMeta(ddi).label);
+        }
+      }
+    } catch {
+      setter({ loading: false, exists: false });
+    }
+  }
+
+  function handleDonePrimary() {
+    const norm = applyPhoneNormalization(primaryPhoneRaw);
+    setPrimaryCountryLabel(norm.countryLabel);
+    setPrimaryPhoneRaw(norm.formattedNational || norm.nationalDigits || primaryPhoneRaw);
+    const finalUser = whatsUserTouched ? waUsername : onlyDigits(norm.e164);
+    if (!whatsUserTouched) setWaUsername(finalUser);
+    void validateWa(finalUser, setWaValidation, setPrimaryCountryLabel);
+  }
   const [createdAt, setCreatedAt]         = useState(() => {
     const n = new Date();
     n.setMinutes(n.getMinutes() - n.getTimezoneOffset());
@@ -482,7 +568,13 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         // ── PREFILL EDIÇÃO ────────────────────────────────────────────────
         if (isEditing && alunoToEdit) {
           setName(alunoToEdit.name || "");
-          setPrimaryPhone(alunoToEdit.whatsapp || "");
+          if (alunoToEdit.whatsapp) {
+            const digits = onlyDigits(alunoToEdit.whatsapp);
+            const ddi = inferDDIFromDigits(digits, alunoToEdit.whatsapp);
+            const national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
+            setPrimaryCountryLabel(ddiMeta(ddi).label);
+            setPrimaryPhoneRaw(formatNational(ddi, national) || national);
+          }
           setWaUsername(alunoToEdit.whatsapp_username || "");
           setWaOptIn(alunoToEdit.whatsapp_opt_in ?? true);
           setNotes(alunoToEdit.notes || "");
@@ -600,8 +692,11 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
       const createdBy = userRes?.user?.id;
 
       const finalUsername    = autoUsername || "aluno";
-      const finalPhone       = normalizePhone(primaryPhone);
-      const finalEmergPhone  = normalizePhone(emergencyPhone);
+      const rawPrimaryDigits = onlyDigits(primaryPhoneRaw);
+      const primaryDdi = rawPrimaryDigits ? extractDdiFromLabel(primaryCountryLabel) : "55";
+      const primaryNat = rawPrimaryDigits.startsWith(primaryDdi) ? rawPrimaryDigits.slice(primaryDdi.length) : rawPrimaryDigits;
+      const finalPhone = rawPrimaryDigits ? `+${primaryDdi}${primaryNat}` : null;
+      const finalEmergPhone  = emergencyPhone.replace(/\D/g, "") ? `+${emergencyPhone.replace(/\D/g, "")}` : null;
       const dueISO           = new Date(`${dueDate}T23:59:00`).toISOString();
       const finalPrice       = safeNumber(planPrice);
       const planLabel        = PLAN_LABELS[period] || "Mensal";
@@ -796,14 +891,14 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           onPointerDown={e => e.stopPropagation()}
         >
           {/* HEADER */}
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
+          <div className="relative px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-center items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-lg">🎓</div>
+              <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-lg">🏋️‍♂️</div>
               <h2 className="text-base font-bold text-slate-800 dark:text-white">
                 {isEditing ? `Editar: ${alunoToEdit?.name}` : "Novo Aluno"}
               </h2>
             </div>
-            <button onClick={onClose} type="button" className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-colors">
+            <button onClick={onClose} type="button" className="absolute right-4 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-colors">
               <IconX />
             </button>
           </div>
@@ -870,7 +965,8 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                     <button onClick={() => photoRef.current?.click()} className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
                       {photoPreview ? "Trocar" : "Carregar"}
                     </button>
-                    <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    {/* Sem o capture="environment", o celular perguntará: Câmera ou Galeria? */}
+                    <input ref={photoRef} type="file" accept="image/*" className="hidden"
                       onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
                   </div>
 
@@ -912,27 +1008,51 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                   </div>
                 </div>
 
-                {/* Telefone + WhatsApp */}
+                {/* Telefone + WhatsApp (Formato Novo Cliente) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <FL>Telefone / WhatsApp</FL>
-                    <FI
-                      value={primaryPhone}
-                      type="tel"
-                      placeholder="+55 11 99999-9999"
-                      onChange={e => {
-                        setPrimaryPhone(e.target.value);
-                        const d = e.target.value.replace(/\D/g, "");
-                        if (!waUsername || waUsername === primaryPhone.replace(/\D/g, "")) setWaUsername(d);
-                      }}
-                    />
-                  </div>
+                  <PhoneRow
+                    label="Telefone / WhatsApp"
+                    countryLabel={primaryCountryLabel}
+                    rawValue={primaryPhoneRaw}
+                    onRawChange={setPrimaryPhoneRaw}
+                    onDone={handleDonePrimary}
+                  />
                   <div>
                     <FL>Username WhatsApp</FL>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">@</span>
-                      <FI className="pl-7" value={waUsername} onChange={e => setWaUsername(e.target.value)} placeholder="username" />
+                      <FI 
+                        className="pl-8 pr-10" 
+                        value={waUsername} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWaUsername(val);
+                          setWhatsUserTouched(true);
+                          setWaValidation(null);
+                          if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
+                          waValidateTimer.current = setTimeout(() => {
+                            void validateWa(val, setWaValidation, setPrimaryCountryLabel);
+                          }, 800);
+                        }} 
+                        placeholder="username" 
+                      />
+                      {waUsername && (
+                        <a href={`https://wa.me/${waUsername}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600" title="Abrir conversa">
+                          <IconChat />
+                        </a>
+                      )}
                     </div>
+                    {waValidation && (
+                      <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+                        {waValidation.loading ? (
+                          <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+                        ) : waValidation.exists ? (
+                          <>✅ WhatsApp ativo</>
+                        ) : (
+                          <>❌ Não encontrado no WhatsApp</>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1004,7 +1124,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                       onClick={() => setWaOptIn(v => !v)}
                     >
                       <span className="text-xs text-slate-600 dark:text-white/70">Aceita mensagem?</span>
-                      <SW checked={waOptIn} onChange={setWaOptIn} />
+                      <Switch checked={waOptIn} onChange={setWaOptIn} label="" />
                     </div>
                   </div>
                   <div>
@@ -1189,16 +1309,17 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                             Registrar Matrícula no Financeiro
                           </span>
                           <span className="text-[9px] text-slate-400">Gera log de pagamento local</span>
-                        </div>
-                      </div>
-                      <SW checked={registerFin} onChange={v => { setRegisterFin(v); setSendMsg(v); }} />
-                    </div>
+                  </div>
+                </div>
+                <Switch checked={registerFin} onChange={v => { setRegisterFin(v); setSendMsg(v); }} label="" />
+              </div>
 
-                    <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
-                      <div className="flex items-center justify-between gap-3 cursor-pointer" onClick={() => setSendMsg(v => !v)}>
-                        <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar mensagem de boas-vindas?</span>
-                        <SW checked={sendMsg} onChange={setSendMsg} />
-                      </div>
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
+                <div className="flex items-center justify-between gap-3 cursor-pointer" onClick={() => setSendMsg(v => !v)}>
+                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar mensagem de boas-vindas?</span>
+                  <Switch checked={sendMsg} onChange={setSendMsg} label="" />
+                </div>
+
                       {sendMsg && (
                         <div className="animate-in fade-in duration-200 space-y-1">
                           <FS
@@ -1465,15 +1586,44 @@ function FS({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectE
   );
 }
 
-function SW({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Switch({ checked, onChange, label, disabled = false }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors ${checked ? "bg-emerald-600" : "bg-slate-200 dark:bg-white/20"}`}
-    >
-      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? "left-6" : "left-1"}`} />
-    </button>
+    <div className="flex items-center justify-between gap-3">
+      {label && <span className="text-xs text-slate-700 dark:text-white/70">{label}</span>}
+      <button
+        type="button"
+        onClick={() => !disabled && onChange(!checked)}
+        disabled={disabled}
+        className={`relative w-12 h-7 rounded-full transition-colors border ${checked ? "bg-emerald-600 border-emerald-600" : "bg-slate-200 dark:bg-white/10 border-slate-300 dark:border-white/10"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      </button>
+    </div>
+  );
+}
+
+function PhoneRow({ label, countryLabel, rawValue, onRawChange, onDone }: { label: string; countryLabel: string; rawValue: string; onRawChange: (v: string) => void; onDone: () => void; }) {
+  return (
+    <div>
+      <FL>{label}</FL>
+      <div className="flex gap-2">
+        <div className="h-10 min-w-[140px] px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-xs font-bold text-slate-700 dark:text-white truncate">
+          {countryLabel || "—"}
+        </div>
+        <div className="relative flex-1">
+          <FI value={rawValue} onChange={(e) => onRawChange(e.target.value)} placeholder="Telefone" className="pr-12" />
+          <button type="button" onClick={onDone} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title="Normalizar">✓</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 4.98 0 11.111c0 3.508 1.777 6.64 4.622 8.67L3.333 24l4.444-2.222c1.333.37 2.592.556 4.223.556 6.627 0 12-4.98 12-11.111S18.627 0 12 0zm0 20c-1.37 0-2.703-.247-3.963-.733l-.283-.111-2.592 1.296.852-2.37-.37-.259C3.852 16.37 2.667 13.852 2.667 11.11 2.667 6.148 6.963 2.222 12 2.222c5.037 0 9.333 3.926 9.333 8.889S17.037 20 12 20zm5.037-6.63c-.278-.139-1.63-.815-1.889-.907-.259-.093-.445-.139-.63.139-.185.278-.722.907-.889 1.093-.167.185-.333.208-.611.069-.278-.139-1.167-.43-2.222-1.37-.822-.733-1.37-1.63-1.528-1.907-.157-.278-.017-.43.122-.569.126-.126.278-.333.417-.5.139-.167.185-.278.278-.463.093-.185.046-.347-.023-.486-.069-.139-.63-1.519-.863-2.083-.227-.546-.458-.472-.63-.48l-.54-.01c-.185 0-.486.069-.74.347-.254.278-.972.95-.972 2.315 0 1.365.996 2.685 1.135 2.87.139.185 1.96 2.997 4.87 4.207.681.294 1.213.47 1.628.602.684.217 1.306.187 1.797.113.548-.082 1.63-.667 1.86-1.31.23-.643.23-1.193.162-1.31-.069-.116-.254-.185-.532-.324z"/>
+    </svg>
   );
 }
 
@@ -1490,7 +1640,7 @@ function BoolRow({ label, icon, checked, onChange }: { label: string; icon: stri
       <span className={`text-xs font-medium flex items-center gap-1.5 ${checked ? "text-rose-700 dark:text-rose-400" : "text-slate-500 dark:text-white/50"}`}>
         {icon} {label}
       </span>
-      <SW checked={checked} onChange={onChange} />
+      <Switch checked={checked} onChange={onChange} label="" />
     </div>
   );
 }
