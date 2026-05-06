@@ -8,11 +8,12 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { useModules } from "@/lib/modules/ModulesContext";
+import NovoAluno from "./NovoAluno"; // ⚠️ Ajuste o caminho/nome do arquivo se necessário
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
 
 // ⚠️ Confirme o nome exato da coluna JSONB no seu banco (clients table)
-const JSONB_COLUMN = "dados_aluno";
+const JSONB_COLUMN = "dados_extras"; // Alterado para alinhar com o 'dados_extras' salvo pelo Modal
 
 const MODALIDADES = [
   "Musculação", "Jiu-Jitsu", "Ioga", "Natação",
@@ -814,23 +815,20 @@ function AlunosPageContent() {
         </div>
       )}
 
-      {/* Modal Novo/Editar — placeholder, a implementar */}
+      {/* Modal Novo/Editar */}
       {showFormModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#161b22] rounded-xl p-6 max-w-sm w-full text-center border border-slate-200 dark:border-white/10 shadow-2xl">
-            <div className="text-4xl mb-3">🎓</div>
-            <p className="text-slate-700 dark:text-white font-bold mb-2">
-              Modal de {alunoToEdit ? "Edição" : "Novo Aluno"}
-            </p>
-            <p className="text-xs text-slate-400 dark:text-white/40 mb-4">Em desenvolvimento — em breve disponível.</p>
-            <button
-              onClick={() => setShowFormModal(false)}
-              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
+        <NovoAluno
+          alunoToEdit={alunoToEdit}
+          onClose={() => {
+            setShowFormModal(false);
+            setAlunoToEdit(null);
+          }}
+          onSuccess={() => {
+            setShowFormModal(false);
+            setAlunoToEdit(null);
+            loadData(); // Recarrega a tabela de alunos para exibir as alterações
+          }}
+        />
       )}
 
       {ConfirmUI}
