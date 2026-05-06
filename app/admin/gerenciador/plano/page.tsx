@@ -554,7 +554,7 @@ setHasAccess(true);
           const groups = [
             {
               key: "iptv",
-              label: "Tabelas IPTV",
+              label: "Tabela de Preço",
               icon: <IconTV />,
               color: "text-sky-500",
               plans: filteredPlans.filter((p) => p.table_type === "iptv"),
@@ -630,7 +630,7 @@ setHasAccess(true);
                               </span>
 
                               {/* Badges de Status (Tones Suaves) */}
-                              {plan.is_system_default ? (
+                              {(plan.is_system_default || isAlunosOnly) ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
                                 Padrão do Sistema
                               </span>
@@ -731,9 +731,13 @@ setHasAccess(true);
                             {(plan.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                               <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                                 <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                                  Preços para {screenCount} {plan.is_master_only 
-                                  ? screenCount === 1 ? "Sessão WhatsApp" : "Sessões WhatsApp"
-                                  : screenCount === 1 ? "Tela" : "Telas"}
+                                  {isAlunosOnly
+                                    ? screenCount === 1 ? "Plano Individual"
+                                    : screenCount === 2 ? "Plano Família"
+                                    : "Família Total"
+                                  : plan.is_master_only
+                                    ? screenCount === 1 ? "Preços para 1 Sessão WhatsApp" : `Preços para ${screenCount} Sessões WhatsApp`
+                                    : `Preços para ${screenCount} ${screenCount === 1 ? "Tela" : "Telas"}`}
                                 </h3>
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
