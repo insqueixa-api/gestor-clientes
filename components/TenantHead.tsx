@@ -12,7 +12,8 @@ export default function TenantHead() {
 
   const PAGE_NAMES: Record<string, string> = {
     "/admin":                              "Dashboard",
-    "/admin/cliente":                      hasAlunos ? "Alunos" : "Clientes",
+    "/admin/cliente":                      "Clientes",
+    "/admin/aluno":                        "Alunos",
     "/admin/revendedor":                   "Revendas",
     "/admin/teste":                        "Testes",
     "/admin/gerenciador/servidor":         "Servidores",
