@@ -502,6 +502,7 @@ export default function BillingPage() {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
   const [search, setSearch] = useState("");
   const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
+  const [isAlunosOnly, setIsAlunosOnly] = useState(false);
   
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{show: boolean, editingRule: Automation | null}>({ show: false, editingRule: null });
@@ -556,7 +557,10 @@ const addToast = (
         return; // 🛑 Interrompe totalmente o carregamento
       }
       
-      setHasAccess(true);
+setHasAccess(true);
+      const isAlunos = (mods.includes("academia") || mods.includes("personal"))
+        && !mods.includes("iptv") && !mods.includes("saas");
+      setIsAlunosOnly(isAlunos);
     }
 
     if (!tid) { setLoading(false); return; }
@@ -637,17 +641,11 @@ const addToast = (
         const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato principal" : "Contato principal";
         const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
 
-        // ✅ Monta a Sessão 1 (ID "default")
-        if (!waProfRes?.ok) {
-          result.push({ id: "default", label: `${name1} (não conectado)` });
-        } else {
-          result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes.json, name1) });
-        }
+        // Sessão 1: sempre exibe (é a principal)
+        result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes?.ok ? waProfRes.json : null, name1) });
 
-        // ✅ Monta a Sessão 2 (ID "session2")
-        if (!waProfRes2?.ok) {
-          result.push({ id: "session2", label: `${name2} (não conectado)` });
-        } else {
+        // Sessão 2: só exibe se estiver efetivamente conectada
+        if (waProfRes2?.ok && waProfRes2.json?.connected) {
           result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, name2) });
         }
 
@@ -1103,6 +1101,7 @@ return (
             auxData={auxData}
             editingRule={wizardState.editingRule}
             isMasterOrAdmin={isMasterOrAdmin}
+            isAlunosOnly={isAlunosOnly}
             onClose={() => setWizardState({ show: false, editingRule: null })}
             onSuccess={() => { setWizardState({ show: false, editingRule: null }); loadData(); addToast("success", "Salvo", "Regra atualizada."); }}
             onError={(msg) => addToast("error", "Erro", msg)}
@@ -1509,7 +1508,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 // ============================================================================
 // WIZARD DE CRIAÇÃO (MANTIDO E OTIMIZADO)
 // ============================================================================
-function AutomationWizard({ auxData, editingRule, isMasterOrAdmin, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, isMasterOrAdmin?: boolean, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
+function AutomationWizard({ auxData, editingRule, isMasterOrAdmin, isAlunosOnly, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, isMasterOrAdmin?: boolean, isAlunosOnly?: boolean, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
     // ✅ PROTEÇÃO SSR
     if (typeof document === "undefined") return null;
 
@@ -1704,8 +1703,10 @@ if (error) throw error;
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
                                     <Label>Tipo</Label>
-                                    <Select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
-                                        {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+<Select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+                                        {TYPES
+                                          .filter(t => !(isAlunosOnly && t === "Manutenção"))
+                                          .map(t => <option key={t} value={t}>{t}</option>)}
                                     </Select>
                                 </div>
                             </div>
@@ -1715,9 +1716,10 @@ if (error) throw error;
                                     <Label>Mensagem</Label>
                                     <Select value={form.message_template_id} onChange={e => setForm({...form, message_template_id: e.target.value})}>
                                         <option value="">Selecione...</option>
-                                        {auxData.templates
+{auxData.templates
                                           .filter((t: any) => {
                                             if (t.label === "Recarga Revenda") return false;
+                                            if (String(t.label).toLowerCase().startsWith("teste")) return false;
                                             if (form.target_audience === "saas") {
                                               return t.category === "Revenda SaaS" || String(t.label).toUpperCase().includes("SAAS");
                                             }
@@ -1783,8 +1785,17 @@ if (error) throw error;
                     {step === 2 && (
                         <div className="space-y-6">
                             <p className="text-sm text-slate-500 dark:text-white/60 mb-4">Selecione quem receberá esta mensagem. Deixe vazio para "Todos".</p>
-                            <MultiSelectDropdown label="Status do Cliente" options={CLIENT_STATUS} selected={form.status} onChange={(v:any) => setForm({...form, status: v})} />
-                            <MultiSelectDropdown label="Servidores" options={auxData.servers} selected={form.servers} onChange={(v:any) => setForm({...form, servers: v})} />
+                            <MultiSelectDropdown
+                              label={isAlunosOnly ? "Status do Aluno" : "Status do Cliente"}
+                              options={isAlunosOnly
+                                ? CLIENT_STATUS.filter(s => s.id !== "TRIAL")
+                                : CLIENT_STATUS}
+                              selected={form.status}
+                              onChange={(v: any) => setForm({...form, status: v})}
+                            />
+                            {!isAlunosOnly && (
+                              <MultiSelectDropdown label="Servidores" options={auxData.servers} selected={form.servers} onChange={(v:any) => setForm({...form, servers: v})} />
+                            )}
                             <MultiSelectDropdown label="Planos" options={auxData.plans} selected={form.plans} onChange={(v:any) => setForm({...form, plans: v})} />
                             <MultiSelectDropdown label="Aplicativos" options={auxData.apps} selected={form.apps} onChange={(v:any) => setForm({...form, apps: v})} />
                         </div>
