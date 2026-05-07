@@ -48,6 +48,7 @@ type VwClientRow = {
   secondary_phone_e164?: string | null;
   secondary_whatsapp_username?: string | null;
   dont_message_until: string | null; notes: string | null;
+  alerts_open: number | null; // Adicione este campo
 };
 
 type AlunoRow = {
@@ -64,6 +65,7 @@ type AlunoRow = {
   rawVencimento?: string | null;
   whatsapp_opt_in?: boolean; notes?: string; dont_message_until?: string;
   dados: DadosAluno;
+  alertsCount: number; // Adicione este campo
 };
 
 type ScheduledMsg = { id: string; client_id: string; send_at: string; message: string; status?: string | null; };
@@ -357,6 +359,7 @@ function AlunosPageContent() {
           notes: r.notes ?? "",
           dont_message_until: r.dont_message_until ?? undefined,
           dados: dadosMap[id] || {},
+          alertsCount: Number(r.alerts_open || 0), // Adicione esta linha
         };
       });
 
@@ -839,7 +842,6 @@ function AlunosPageContent() {
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.map(r => {
                   const diff = getDiffDays(r.dueISODate);
-                  const alertCount = 0; // sem campo alerts_open na view (implementar se necessário)
                   const schedCount = scheduledMap[r.id]?.length || 0;
 
                   return (
@@ -860,6 +862,19 @@ function AlunosPageContent() {
                               {r.secondary_display_name && <span className="text-slate-400 dark:text-white/30 font-normal"> / {r.secondary_display_name.split(" ")[0]}</span>}
                             </Link>
                             <div className="flex items-center gap-1 shrink-0">
+                              {r.alertsCount > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAlertList(r.id, r.name);
+                                  }}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+                                  title="Ver alertas pendentes"
+                                >
+                                  🔔 {r.alertsCount}
+                                </button>
+                              )}
+
                               {schedCount > 0 && (
                                 <button onClick={e => { e.stopPropagation(); setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name }); }}
                                   className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse" title="Agendamentos">
@@ -876,31 +891,52 @@ function AlunosPageContent() {
 
                       {/* Vencimento */}
                       <Td>
-                        <div className="flex flex-col">
-                          <span className="font-mono font-medium text-slate-600 dark:text-white/80">{r.dueLabelDate}</span>
-                          <span className="text-xs text-slate-500 dark:text-white/60">{r.dueTime}</span>
-                        </div>
+                        <span className="font-mono font-medium text-slate-600 dark:text-white/80">
+                          {r.dueLabelDate}
+                        </span>
                       </Td>
 
                       {/* Status com dias */}
                       <Td align="center">
                         {(() => {
                           let label = r.status as string;
-                          let tone: "green" | "red" | "amber" | "blue" = "green";
+
+                          // 1. Textos dinâmicos baseados nos dias
+                          let textDiff = "";
+                          if (diff < -2) textDiff = `Venceu há ${Math.abs(diff)} dias`;
+                          else if (diff === -2) textDiff = "Venceu há 2 dias";
+                          else if (diff === -1) textDiff = "Venceu Ontem";
+                          else if (diff === 0) textDiff = "Vence Hoje";
+                          else if (diff === 1) textDiff = "Vence Amanhã";
+                          else if (diff === 2) textDiff = "Vence em 2 dias";
+                          else if (diff > 2) textDiff = `Vence em ${diff} dias`;
+
+                          // 2. Aplicação do texto no label
                           if (r.status === "Arquivado") {
-                            label = diff < 0 ? `Lixeira (há ${Math.abs(diff)}d)` : "Lixeira"; tone = "red";
-                          } else if (r.status === "Vencido") {
-                            if (diff === -1) label = "Venceu Ontem";
-                            else if (diff === -2) label = "Venceu há 2 dias";
-                            else if (diff < -2) label = `Venceu há ${Math.abs(diff)} dias`;
-                            tone = "red";
+                            label = textDiff ? `Lixeira (${textDiff})` : "Lixeira";
                           } else {
-                            if (diff === 0) { label = "Vence Hoje"; tone = "amber"; }
-                            else if (diff === 1) { label = "Vence Amanhã"; tone = "green"; }
-                            else if (diff === 2) { label = "Vence em 2 dias"; tone = "green"; }
-                            else { tone = "green"; }
+                            label = textDiff || label;
                           }
-                          const colors = { green: "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20", red: "bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20", amber: "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20", blue: "bg-sky-100 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/20" };
+
+                          // 3. Regra exata de cores do Cliente
+                          let tone: "green" | "red" | "amber" | "blue" = "blue";
+                          if (r.status === "Vencido") {
+                            tone = "red";
+                          } else if (r.status === "Ativo") {
+                            if (diff === 0) tone = "amber";
+                            else tone = "green";
+                          } else if (r.status === "Arquivado") {
+                            tone = "red";
+                          }
+
+                          // 4. Classes otimizadas de tema claro/escuro
+                          const colors = {
+                            green: "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border-emerald-200 dark:border-emerald-400/30",
+                            red: "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-200 border-rose-200 dark:border-rose-400/30",
+                            amber: "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-400/30",
+                            blue: "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-200 border-sky-200 dark:border-sky-400/30"
+                          };
+
                           return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${colors[tone]}`}>{label}</span>;
                         })()}
                       </Td>
@@ -1060,18 +1096,41 @@ function AlunosPageContent() {
       {/* Lista de alertas */}
       {showAlertList.open && (
         <Modal title={`Alertas: ${showAlertList.clientName}`} onClose={() => setShowAlertList({ open: false, clientId: null })}>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-            {(clientAlerts as any[]).length === 0
-              ? <div className="flex flex-col items-center py-8 text-slate-400 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl"><span className="text-2xl mb-2">✅</span><p className="text-sm">Nenhum alerta pendente.</p></div>
-              : (clientAlerts as any[]).map(a => (
-                <div key={a.id} className="p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex justify-between items-start gap-4">
-                  <div className="flex gap-3"><span className="text-rose-500 mt-0.5">⚠️</span><p className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap">{a.message || ""}</p></div>
-                  <button onClick={() => handleDeleteAlert(String(a.id))} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors" title="Resolver"><IconTrash /></button>
+          <div className="space-y-4">
+            
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-3">
+              {(clientAlerts as any[]).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-white/30 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+                   <span className="text-2xl mb-2">✅</span>
+                   <p className="text-sm">Nenhum alerta pendente.</p>
                 </div>
-              ))}
-          </div>
-          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-white/5 mt-4">
-            <button onClick={() => setShowAlertList({ open: false, clientId: null })} className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 text-sm">Fechar</button>
+              ) : (
+                (clientAlerts as any[]).map((alert) => (
+                  <div key={alert.id} className="group p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm hover:border-rose-200 dark:hover:border-rose-500/30 transition-all flex justify-between items-start gap-4">
+                    <div className="flex gap-3">
+                        <span className="text-rose-500 mt-0.5">⚠️</span>
+                        <p className="text-sm text-slate-700 dark:text-white/90 whitespace-pre-wrap leading-relaxed">{alert.message || ""}</p>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteAlert(String(alert.id))} 
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                      title="Resolver / Excluir"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-slate-100 dark:border-white/5 pt-4">
+              <button 
+                onClick={() => setShowAlertList({ open: false, clientId: null })} 
+                className="px-6 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors text-sm"
+              >
+                Fechar Lista
+              </button>
+            </div>
           </div>
         </Modal>
       )}
