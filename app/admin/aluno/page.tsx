@@ -8,7 +8,8 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { useModules } from "@/lib/modules/ModulesContext";
-import NovoAluno from "./NovoAluno"; // ⚠️ Ajuste o caminho/nome do arquivo se necessário
+import NovoAluno from "./NovoAluno";
+import RecargaAluno from "./RecargaAluno";
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
 
@@ -317,7 +318,17 @@ function AlunosPageContent() {
       if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
       if (modalidadeFilter !== "Todos" && r.dados?.modalidade !== modalidadeFilter) return false;
       if (q) {
-        const hay = [r.name, r.username, r.secondary_display_name ?? "", r.dados?.modalidade ?? ""].join(" ").toLowerCase();
+        const hay = [
+          r.name,
+          r.username,
+          r.secondary_display_name ?? "",
+          r.dados?.modalidade ?? "",
+          r.whatsapp ?? "",
+          r.whatsapp_username ?? "",
+          r.secondary_phone_e164 ?? "",
+          r.secondary_whatsapp_username ?? "",
+          r.dados?.cpf_rg ?? "",
+        ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -769,11 +780,7 @@ function AlunosPageContent() {
                             <ActionBtn
                               title="Renovar mensalidade"
                               tone="green"
-                              onClick={() => {
-                                setShowRenovarId(r.id);
-                                // TODO: implementar modal de renovação
-                                addToast("error", "Em breve", "Modal de renovação em desenvolvimento.");
-                              }}
+                              onClick={() => setShowRenovarId(r.id)}
                             >
                               <IconRenew />
                             </ActionBtn>
@@ -813,6 +820,17 @@ function AlunosPageContent() {
             <div className="h-24 md:h-20" />
           </div>
         </div>
+      )}
+
+      {/* Modal Renovação */}
+      {showRenovarId && (
+        <RecargaAluno
+          clientId={showRenovarId}
+          clientName={rows.find(r => r.id === showRenovarId)?.name || ""}
+          onClose={() => setShowRenovarId(null)}
+          onSuccess={() => { setShowRenovarId(null); loadData(); }}
+          toastKey="alunos_list_toasts"
+        />
       )}
 
       {/* Modal Novo/Editar */}
