@@ -859,14 +859,14 @@ function AlunosPageContent() {
                           {/* FOTO MINIATURA */}
                           {r.dados?.foto_url ? (
                             <div 
-                              className="w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-500/20 shrink-0 cursor-pointer hover:opacity-80 hover:scale-105 transition-all shadow-sm"
+                              className="w-16 h-16 rounded-lg overflow-hidden border-2 border-emerald-500/20 shrink-0 cursor-pointer hover:opacity-80 hover:scale-105 transition-all shadow-sm"
                               onClick={(e) => { e.stopPropagation(); setEnlargedPhoto(r.dados.foto_url || null); }}
                               title="Ampliar foto"
                             >
                               <img src={r.dados.foto_url} alt={r.name} className="w-full h-full object-cover" />
                             </div>
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 border-2 border-slate-200 dark:border-white/10 shrink-0 flex items-center justify-center text-slate-400 text-lg shadow-sm">
+                            <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-white/5 border-2 border-slate-200 dark:border-white/10 shrink-0 flex items-center justify-center text-slate-400 text-2xl shadow-sm">
                               👤
                             </div>
                           )}
