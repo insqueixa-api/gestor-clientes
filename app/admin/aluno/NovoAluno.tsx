@@ -401,6 +401,82 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   const [photoUrl, setPhotoUrl]       = useState<string | null>(null);
   const photoRef                      = useRef<HTMLInputElement>(null);
 
+  // Controle de Câmera e Menu
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
+  const [showCamera, setShowCamera]       = useState(false);
+  const videoRef                          = useRef<HTMLVideoElement>(null);
+  const streamRef                         = useRef<MediaStream | null>(null);
+
+  async function openCamera() {
+    setPhotoMenuOpen(false);
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (e) {
+      addToast("error", "Câmera bloqueada", "Permita o acesso à câmera no seu navegador.");
+      setShowCamera(false);
+    }
+  }
+
+  function closeCamera() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+  }
+
+  function capturePhoto() {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Inverte a imagem se for câmera frontal (espelho)
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const file = new File([blob], "foto.jpg", { type: "image/jpeg" });
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      closeCamera();
+    }, "image/jpeg", 0.9);
+  }
+
+  async function handleRemovePhoto() {
+    const ok = await confirmDialog({ title: "Remover foto?", subtitle: "Isso apagará a imagem permanentemente do servidor.", tone: "rose", confirmText: "Apagar", cancelText: "Voltar" });
+    if (!ok) return;
+
+    if (photoUrl && alunoToEdit?.id) {
+      try {
+        const tid = await getCurrentTenantId();
+        // Extrai o caminho exato do bucket a partir da URL pública
+        const pathMatch = photoUrl.split('/chat_media/')[1];
+        if (pathMatch) {
+          await supabaseBrowser.storage.from("chat_media").remove([pathMatch]);
+        }
+        
+        // Remove do banco de dados
+        const patch = { dados_extras: { ...(alunoToEdit.dados || {}), foto_url: null } };
+        await supabaseBrowser.from("clients").update(patch).eq("id", alunoToEdit.id).eq("tenant_id", tid);
+      } catch (e) {
+        console.error("Erro ao apagar foto do storage:", e);
+      }
+    }
+
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoUrl(null);
+    if (photoRef.current) photoRef.current.value = "";
+  }
+
   // WhatsApp session
   const [selectedSession, setSelectedSession] = useState("default");
   const [sessionOptions, setSessionOptions]   = useState<{ id: string; label: string }[]>([
@@ -1051,37 +1127,57 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
 
                 {/* Foto + Nome + Nascimento + Documento Centralizados em Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-4">
-                  {/* FOTO - Ocupa a coluna da esquerda com as duas linhas no Desktop */}
-                  <div className="flex justify-center sm:row-span-2 sm:pt-4">
-                    <div className="flex-shrink-0 flex flex-col items-center gap-1 w-24">
-                      <FL>Foto</FL>
+                  {/* FOTO - Ocupa a coluna da esquerda */}
+                  <div className="flex justify-center sm:row-span-2 sm:pt-4 relative">
+                    <div className="flex-shrink-0 flex flex-col items-center gap-1 w-24 relative">
+                      <FL>Foto/Facial</FL>
+                      
                       {photoPreview ? (
-                        <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-sm">
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-sm group">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
                           <button
-                            onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoUrl(null); if (photoRef.current) photoRef.current.value = ""; }}
-                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 shadow-md"
-                            title="Remover"
+                            onClick={handleRemovePhoto}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remover permanentemente"
                           >
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            <IconX />
                           </button>
                         </div>
                       ) : (
                         <button
-                          onClick={() => photoRef.current?.click()}
-                          className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-600 transition-all bg-slate-50 dark:bg-black/20"
+                          onClick={() => setPhotoMenuOpen(v => !v)}
+                          className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all bg-slate-50 dark:bg-black/20"
                         >
                           <IconCamera />
-                          <span className="text-[9px] font-bold">Foto</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-center px-1">Registrar</span>
                         </button>
                       )}
-                      <button onClick={() => photoRef.current?.click()} className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
-                        {photoPreview ? "Trocar" : "Carregar"}
+                      
+                      <button onClick={() => setPhotoMenuOpen(v => !v)} className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline tracking-wider uppercase mt-1">
+                        {photoPreview ? "Trocar Foto" : "Opções"}
                       </button>
+
+                      {/* Menu de Escolha da Foto */}
+                      {photoMenuOpen && (
+                        <div className="absolute top-12 left-24 w-40 bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-200">
+                           <button onClick={openCamera} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 border-b border-slate-100 dark:border-white/5">
+                             <IconCamera /> Tirar Foto
+                           </button>
+                           <button onClick={() => { setPhotoMenuOpen(false); photoRef.current?.click(); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2">
+                             📁 Galeria
+                           </button>
+                        </div>
+                      )}
+
                       <input ref={photoRef} type="file" accept="image/*" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
                     </div>
+
+                    {/* Fecha o menu clicando fora */}
+                    {photoMenuOpen && (
+                      <div className="fixed inset-0 z-40" onClick={() => setPhotoMenuOpen(false)} />
+                    )}
                   </div>
 
                   {/* Lado Direito: Linha 1 (Nome) e Linha 2 (Nascimento/Doc) */}
@@ -1676,7 +1772,35 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
             </button>
           </div>
         </div>
-      </div>
+     </div>
+
+      {/* MODAL DA WEBCAM (TIRAR FOTO) */}
+      {showCamera && (
+        <div className="fixed inset-0 z-[999999] flex flex-col bg-black animate-in fade-in duration-300">
+          <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-10">
+            <span className="text-white font-bold tracking-widest uppercase text-sm drop-shadow-md">Registro Facial</span>
+            <button onClick={closeCamera} className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white backdrop-blur-sm transition-colors">
+              <IconX />
+            </button>
+          </div>
+          
+          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+             {/* Efeito espelho (scale-x-[-1]) nativo na câmera frontal */}
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover sm:max-w-2xl scale-x-[-1]" />
+            
+            {/* Guia visual para o rosto */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+               <div className="w-64 h-80 border-2 border-dashed border-white/50 rounded-[40px] shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]"></div>
+            </div>
+          </div>
+
+          <div className="p-8 bg-black flex justify-center pb-12">
+            <button onClick={capturePhoto} className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform">
+               <div className="w-16 h-16 rounded-full bg-white"></div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {ConfirmUI}
     </>

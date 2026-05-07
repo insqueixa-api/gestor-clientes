@@ -180,6 +180,7 @@ function AlunosPageContent() {
   const [showFormModal, setShowFormModal]   = useState(false);
   const [alunoToEdit, setAlunoToEdit]       = useState<AlunoRow | null>(null);
   const [showRenewId, setShowRenewId]       = useState<string | null>(null);
+  const [enlargedPhoto, setEnlargedPhoto]   = useState<string | null>(null); // Novo estado para foto grande
   const [editingId, setEditingId]           = useState<string | null>(null);
   const [renewingId, setRenewingId]         = useState<string | null>(null);
 
@@ -854,11 +855,28 @@ function AlunosPageContent() {
 
                       {/* Aluno */}
                       <Td>
-                        <div className="flex flex-col max-w-[200px]">
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            <Link href={`/admin/aluno/${r.id}`}
-                              className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 truncate">
-                              {r.name.split(" ")[0]}
+                        <div className="flex items-center gap-3">
+                          {/* FOTO MINIATURA */}
+                          {r.dados?.foto_url ? (
+                            <div 
+                              className="w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-500/20 shrink-0 cursor-pointer hover:opacity-80 hover:scale-105 transition-all shadow-sm"
+                              onClick={(e) => { e.stopPropagation(); setEnlargedPhoto(r.dados.foto_url); }}
+                              title="Ampliar foto"
+                            >
+                              <img src={r.dados.foto_url} alt={r.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 border-2 border-slate-200 dark:border-white/10 shrink-0 flex items-center justify-center text-slate-400 text-lg shadow-sm">
+                              👤
+                            </div>
+                          )}
+
+                          {/* DADOS DO ALUNO */}
+                          <div className="flex flex-col max-w-[200px]">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <Link href={`/admin/aluno/${r.id}`}
+                                className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 truncate">
+                                {r.name.split(" ")[0]}
                               {r.secondary_display_name && <span className="text-slate-400 dark:text-white/30 font-normal"> / {r.secondary_display_name.split(" ")[0]}</span>}
                             </Link>
                             <div className="flex items-center gap-1 shrink-0">
@@ -1146,6 +1164,29 @@ function AlunosPageContent() {
           onDeleted={async () => { if (tenantId) await loadScheduledForClients(tenantId, rows.map(x => x.id)); }}
           addToast={addToast}
         />
+      )}
+
+      {/* MODAL FOTO AMPLIADA */}
+      {enlargedPhoto && (
+        <div 
+          className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setEnlargedPhoto(null)}
+        >
+          <div className="relative max-w-2xl w-full flex flex-col items-center">
+            <button 
+              onClick={() => setEnlargedPhoto(null)}
+              className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+            >
+              <IconX />
+            </button>
+            <img 
+              src={enlargedPhoto} 
+              alt="Foto ampliada" 
+              className="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10" 
+              onClick={(e) => e.stopPropagation()} 
+            />
+          </div>
+        </div>
       )}
 
       {ConfirmUI}
