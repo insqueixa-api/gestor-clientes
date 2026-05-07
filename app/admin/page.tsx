@@ -666,7 +666,7 @@ return (
       </div>
 
       {/* CARDS TOPO */}
-                  {showClientesView && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+                  {showClientesView && <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showTestes ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
 
 
 <MetricCardView title="Ativos"
@@ -1089,10 +1089,12 @@ async function ensureAcademiaServer(
     // 1. Verifica se já existe
     const { data: existing } = await supabase
       .from("servers")
-      .select("id, credits_available")
+      .select("id, credits_available, panel_integration")
       .eq("tenant_id", tenantId)
       .eq("slug", serverSlug)
       .maybeSingle();
+
+    let serverId: string | null = existing?.id ?? null;
 
     if (!existing) {
       // 2. Cria o servidor virtual
@@ -1115,13 +1117,41 @@ async function ensureAcademiaServer(
         return;
       }
 
-      // 3. Aplica os 999 créditos via RPC
+      serverId = newServer.id;
+
+      // 3. Aplica 999 créditos
       await supabase.rpc("update_server_credits_manual", {
-        p_server_id:  newServer.id,
+        p_server_id:   serverId,
         p_new_credits: 999,
       });
     }
-    // Se já existe, não faz nada — admin pode ajustar créditos manualmente se precisar
+
+    // 4. Cria integração ALUNO se ainda não existir
+    if (serverId && !existing?.panel_integration) {
+      const { data: integ, error: integErr } = await supabase
+        .from("server_integrations")
+        .insert({
+          tenant_id:        tenantId,
+          provider:         "ALUNO",
+          integration_name: `${serverName} — Academia`,
+          api_token:        "internal",
+          is_active:        true,
+          api_base_url:     "/api/integrations/aluno/renew",
+        })
+        .select("id")
+        .single();
+
+      if (integErr || !integ) {
+        console.error("[ensureAcademiaServer] Falha ao criar integração:", integErr?.message);
+        return;
+      }
+
+      await supabase
+        .from("servers")
+        .update({ panel_integration: integ.id })
+        .eq("id", serverId)
+        .eq("tenant_id", tenantId);
+    }
   } catch (e) {
     console.error("[ensureAcademiaServer] Erro inesperado:", e);
   }
