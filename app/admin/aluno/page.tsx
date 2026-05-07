@@ -860,7 +860,7 @@ function AlunosPageContent() {
                           {r.dados?.foto_url ? (
                             <div 
                               className="w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-500/20 shrink-0 cursor-pointer hover:opacity-80 hover:scale-105 transition-all shadow-sm"
-                              onClick={(e) => { e.stopPropagation(); setEnlargedPhoto(r.dados.foto_url); }}
+                              onClick={(e) => { e.stopPropagation(); setEnlargedPhoto(r.dados.foto_url || null); }}
                               title="Ampliar foto"
                             >
                               <img src={r.dados.foto_url} alt={r.name} className="w-full h-full object-cover" />
@@ -877,33 +877,36 @@ function AlunosPageContent() {
                               <Link href={`/admin/aluno/${r.id}`}
                                 className="font-semibold text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 truncate">
                                 {r.name.split(" ")[0]}
-                              {r.secondary_display_name && <span className="text-slate-400 dark:text-white/30 font-normal"> / {r.secondary_display_name.split(" ")[0]}</span>}
-                            </Link>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {r.alertsCount > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenAlertList(r.id, r.name);
-                                  }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
-                                  title="Ver alertas pendentes"
-                                >
-                                  🔔 {r.alertsCount}
-                                </button>
-                              )}
+                                {r.secondary_display_name && <span className="text-slate-400 dark:text-white/30 font-normal"> / {r.secondary_display_name.split(" ")[0]}</span>}
+                              </Link>
+                              
+                              <div className="flex items-center gap-1 shrink-0">
+                                {r.alertsCount > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenAlertList(r.id, r.name);
+                                    }}
+                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-600 border border-amber-200 text-[10px] font-bold hover:bg-amber-200 transition-colors animate-pulse"
+                                    title="Ver alertas pendentes"
+                                  >
+                                    🔔 {r.alertsCount}
+                                  </button>
+                                )}
 
-                              {schedCount > 0 && (
-                                <button onClick={e => { e.stopPropagation(); setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name }); }}
-                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse" title="Agendamentos">
-                                  🗓️ {schedCount}
-                                </button>
-                              )}
+                                {schedCount > 0 && (
+                                  <button onClick={e => { e.stopPropagation(); setShowScheduledModal({ open: true, clientId: r.id, clientName: r.name }); }}
+                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-bold hover:bg-purple-200 transition-colors animate-pulse" title="Agendamentos">
+                                    🗓️ {schedCount}
+                                  </button>
+                                )}
+                              </div>
                             </div>
+                            
+                            <span className={`text-xs font-medium text-slate-500 dark:text-white/70 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>{r.username}</span>
+                            {r.whatsapp_username && <span className={`text-xs text-emerald-600 dark:text-emerald-400 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>@{r.whatsapp_username}</span>}
+                            {r.secondary_whatsapp_username && <span className={`text-xs text-slate-400 dark:text-white/45 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>@{r.secondary_whatsapp_username}</span>}
                           </div>
-                          <span className={`text-xs font-medium text-slate-500 dark:text-white/70 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>{r.username}</span>
-                          {r.whatsapp_username && <span className={`text-xs text-emerald-600 dark:text-emerald-400 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>@{r.whatsapp_username}</span>}
-                          {r.secondary_whatsapp_username && <span className={`text-xs text-slate-400 dark:text-white/45 truncate ${valuesHidden ? "blur-sm select-none" : ""}`}>@{r.secondary_whatsapp_username}</span>}
                         </div>
                       </Td>
 
