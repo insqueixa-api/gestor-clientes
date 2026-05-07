@@ -230,9 +230,10 @@ export default async function AdminDashboardPage({
 
   // Módulos ativos do tenant
   const saasRow = myTenantId
-    ? await supabase.from("vw_saas_tenants").select("active_modules").eq("id", myTenantId).maybeSingle()
+    ? await supabase.from("vw_saas_tenants").select("active_modules, slug").eq("id", myTenantId).maybeSingle()
     : null;
   const tenantModules: string[] = (saasRow?.data as any)?.active_modules ?? ["iptv"];
+  const tenantSlug: string       = (saasRow?.data as any)?.slug ?? "";
   const hasIPTV          = tenantModules.includes("iptv");
   const hasSaaS          = tenantModules.includes("saas") && showSaas;
   const hasFinanceiro    = tenantModules.includes("financeiro");
@@ -261,6 +262,12 @@ export default async function AdminDashboardPage({
   const _finMonth = _finToday.getMonth() + 1;
   const _finMonthStart = isoDateFromYMD(_finYear, _finMonth, 1);
   const _finMonthEnd = isoDateFromYMD(_finYear, _finMonth, new Date(_finYear, _finMonth, 0).getDate());
+
+  // Auto-cria servidor virtual para academia/personal (roda a cada acesso, idempotente)
+  const isAlunosOnlyDash = (hasAcademia || hasPersonal) && !hasIPTV && !hasSaaS;
+  if (isAlunosOnlyDash && myTenantId && tenantSlug) {
+    await ensureAcademiaServer(supabase, myTenantId, tenantSlug);
+  }
 
   const [
     kpisRes,
@@ -1065,6 +1072,60 @@ return (
 }
 
 
+
+/* =====================
+   ACADEMIA/PERSONAL — SERVIDOR VIRTUAL AUTOMÁTICO
+===================== */
+
+async function ensureAcademiaServer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tenantId: string,
+  slug: string
+) {
+  try {
+    const serverName = slug.charAt(0).toUpperCase() + slug.slice(1).toLowerCase();
+    const serverSlug = slug.toLowerCase();
+
+    // 1. Verifica se já existe
+    const { data: existing } = await supabase
+      .from("servers")
+      .select("id, credits_available")
+      .eq("tenant_id", tenantId)
+      .eq("slug", serverSlug)
+      .maybeSingle();
+
+    if (!existing) {
+      // 2. Cria o servidor virtual
+      const { data: newServer, error: insertErr } = await supabase
+        .from("servers")
+        .insert({
+          tenant_id:           tenantId,
+          name:                serverName,
+          slug:                serverSlug,
+          default_currency:    "BRL" as any,
+          avg_credit_cost_brl: 0,
+          whatsapp_session:    "default",
+          is_archived:         false,
+        })
+        .select("id")
+        .single();
+
+      if (insertErr || !newServer) {
+        console.error("[ensureAcademiaServer] Falha ao criar servidor:", insertErr?.message);
+        return;
+      }
+
+      // 3. Aplica os 999 créditos via RPC
+      await supabase.rpc("update_server_credits_manual", {
+        p_server_id:  newServer.id,
+        p_new_credits: 999,
+      });
+    }
+    // Se já existe, não faz nada — admin pode ajustar créditos manualmente se precisar
+  } catch (e) {
+    console.error("[ensureAcademiaServer] Erro inesperado:", e);
+  }
+}
 
 /* =====================
    COMPONENTES VISUAIS
