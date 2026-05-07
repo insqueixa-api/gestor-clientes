@@ -457,9 +457,10 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
     if (photoUrl && alunoToEdit?.id) {
       try {
         const tid = await getCurrentTenantId();
-        // Extrai o caminho exato do bucket a partir da URL pública
-        const pathMatch = photoUrl.split('/chat_media/')[1];
-        if (pathMatch) {
+        // Extrai o caminho exato do bucket a partir da URL pública (ignorando parâmetros como ?t=...)
+        const rawPathMatch = photoUrl.split('/chat_media/')[1];
+        if (rawPathMatch) {
+          const pathMatch = rawPathMatch.split('?')[0]; 
           await supabaseBrowser.storage.from("chat_media").remove([pathMatch]);
         }
         
@@ -740,7 +741,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         .from("chat_media").upload(path, photoFile, { contentType: photoFile.type, upsert: true });
       if (error) throw error;
       const { data } = supabaseBrowser.storage.from("chat_media").getPublicUrl(path);
-      return data.publicUrl;
+      return `${data.publicUrl}?t=${Date.now()}`; // <-- Força a quebra de cache no BD e CDN
     } catch (e) { console.error("Upload foto:", e); return null; }
   }
 
@@ -754,7 +755,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         .from("chat_media").upload(path, atestadoFile, { contentType: atestadoFile.type, upsert: true });
       if (error) throw error;
       const { data } = supabaseBrowser.storage.from("chat_media").getPublicUrl(path);
-      return data.publicUrl;
+      return `${data.publicUrl}?t=${Date.now()}`; // <-- Força a quebra de cache
     } catch (e) { console.error("Upload atestado:", e); return null; }
   }
 

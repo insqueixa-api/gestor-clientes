@@ -330,12 +330,23 @@ function AlunosPageContent() {
         for (const row of cData || []) dadosMap[String(row.id)] = (row[JSONB_COLUMN] as DadosAluno) || {};
       }
 
+      const ts = Date.now(); // <-- NOVO: timestamp para quebrar o cache das imagens
+
       const mapped: AlunoRow[] = typed.map(r => {
         const due   = formatDue(r.vencimento);
         const money = formatMoney(r.price_amount, r.price_currency);
         const archived = Boolean(r.client_is_archived);
         const screens  = Number(r.screens || 1);
         const id       = String(r.id);
+
+        // Tratamento para quebrar o cache da foto
+        const rawDados = dadosMap[id] || {} as DadosAluno;
+        let fotoUrlComCacheBuster = rawDados.foto_url;
+        if (fotoUrlComCacheBuster) {
+           const separator = fotoUrlComCacheBuster.includes("?") ? "&" : "?";
+           fotoUrlComCacheBuster = `${fotoUrlComCacheBuster}${separator}cb=${ts}`;
+        }
+
         return {
           id, name: String(r.client_name ?? "Sem Nome"),
           username: String(r.username ?? "—"),
@@ -359,8 +370,8 @@ function AlunosPageContent() {
           whatsapp_opt_in: r.whatsapp_opt_in ?? undefined,
           notes: r.notes ?? "",
           dont_message_until: r.dont_message_until ?? undefined,
-          dados: dadosMap[id] || {},
-          alertsCount: Number(r.alerts_open || 0), // Adicione esta linha
+          dados: { ...rawDados, foto_url: fotoUrlComCacheBuster }, // <-- ALTERADO
+          alertsCount: Number(r.alerts_open || 0),
         };
       });
 
