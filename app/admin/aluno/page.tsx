@@ -621,43 +621,7 @@ function AlunosPageContent() {
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
-  const filterSelects = (
-    <>
-      {/* Status */}
-      <FSel value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
-        <option value="Todos">Status (Todos)</option>
-        <option value="Ativo">Ativo</option>
-        <option value="Vencido">Vencido</option>
-      </FSel>
-      {/* Modalidade */}
-      <FSel value={modalidadeFilter} onChange={e => setModalidadeFilter(e.target.value)}>
-        <option value="Todos">Modalidade (Todos)</option>
-        {uniqueModalidades.map(m => <option key={m} value={m}>{m}</option>)}
-      </FSel>
-      {/* Tipo de Plano */}
-      <FSel value={tipoPlanFilter} onChange={e => setTipoPlanFilter(e.target.value)}>
-        <option value="Todos">Tipo Plano (Todos)</option>
-        <option value="Individual">Individual</option>
-        <option value="Família">Família</option>
-        <option value="Família Total">Família Total</option>
-      </FSel>
-      {/* Recorrência */}
-      <FSel value={recorrenciaFilter} onChange={e => setRecorrenciaFilter(e.target.value)}>
-        <option value="Todos">Recorrência (Todos)</option>
-        {uniqueRecorrencias.map(r => <option key={r} value={r}>{r}</option>)}
-      </FSel>
-      {/* Vencimento */}
-      <FSel value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
-        <option value="Todos">Vencimento (Todos)</option>
-        <option value="Venceu há 2 dias">Venceu há 2 dias</option>
-        <option value="Venceu Ontem">Venceu Ontem</option>
-        <option value="Hoje">Hoje</option>
-        <option value="Vence Amanhã">Vence Amanhã</option>
-        <option value="Vence em 2 dias">Vence em 2 dias</option>
-        <option value="Mês Atual">Mês Atual</option>
-      </FSel>
-    </>
-  );
+  
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => setMsgMenuForId(null)}>
@@ -693,55 +657,131 @@ function AlunosPageContent() {
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="p-0 px-3 sm:px-0 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 mb-6 md:sticky md:top-4 z-20" onClick={e => e.stopPropagation()}>
+      {/* --- BARRA DE FILTROS COMPLETA --- */}
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20" onClick={e => e.stopPropagation()}>
         <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-white/40 tracking-wider mb-2">Filtros Rápidos</div>
 
-        {/* Mobile */}
+        {/* ✅ MOBILE (somente): pesquisa + botão abrir painel */}
         <div className="md:hidden flex items-center gap-2">
           <div className="flex-1 relative">
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar aluno..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..."
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
           <button
             onClick={() => setMobileFiltersOpen(v => !v)}
-            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${hasActiveFilters ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70"}`}
+            className={`h-10 px-3 rounded-lg border font-bold text-sm transition-colors ${hasActiveFilters ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/10"}`}
+            title="Filtros"
           >
             Filtros
           </button>
         </div>
 
-        {/* Desktop */}
-        <div className="hidden md:flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[180px] relative">
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar aluno, telefone, CPF/RG..."
+        {/* ✅ DESKTOP (somente): tudo na mesma linha */}
+        <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex-1 min-w-[200px] relative">
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar aluno, telefone..."
               className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
           </div>
-          {filterSelects}
-          {hasActiveFilters && (
-            <button onClick={resetFilters} className="h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center gap-2">
-              <IconX /> Limpar
-            </button>
-          )}
+
+          <div className="w-[140px] shrink-0">
+            <FSel value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
+              <option value="Todos">Status (Todos)</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Vencido">Vencido</option>
+            </FSel>
+          </div>
+
+          <div className="w-[150px] shrink-0">
+            <FSel value={modalidadeFilter} onChange={e => setModalidadeFilter(e.target.value)}>
+              <option value="Todos">Modalidade (Todos)</option>
+              {uniqueModalidades.map(m => <option key={m} value={m}>{m}</option>)}
+            </FSel>
+          </div>
+
+          <div className="w-[150px] shrink-0">
+            <FSel value={tipoPlanFilter} onChange={e => setTipoPlanFilter(e.target.value)}>
+              <option value="Todos">Plano (Todos)</option>
+              <option value="Individual">Individual</option>
+              <option value="Família">Família</option>
+              <option value="Família Total">Família Total</option>
+            </FSel>
+          </div>
+
+          <div className="w-[150px] shrink-0">
+            <FSel value={recorrenciaFilter} onChange={e => setRecorrenciaFilter(e.target.value)}>
+              <option value="Todos">Recorrência (Todos)</option>
+              {uniqueRecorrencias.map(r => <option key={r} value={r}>{r}</option>)}
+            </FSel>
+          </div>
+
+          <div className="w-[160px] shrink-0">
+            <FSel value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
+              <option value="Todos">Vencimento (Todos)</option>
+              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+              <option value="Venceu Ontem">Venceu Ontem</option>
+              <option value="Hoje">Hoje</option>
+              <option value="Vence Amanhã">Vence Amanhã</option>
+              <option value="Vence em 2 dias">Vence em 2 dias</option>
+              <option value="Mês Atual">Mês Atual</option>
+            </FSel>
+          </div>
+
+          <button
+            onClick={resetFilters}
+            className="h-10 px-3 shrink-0 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+          >
+            <IconX /> Limpar
+          </button>
         </div>
 
-        {/* Mobile expandido */}
+        {/* ✅ Painel de filtros no mobile */}
         {mobileFiltersOpen && (
           <div className="md:hidden mt-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-2">
-            <button onClick={() => setArchivedFilter(v => v === "Não" ? "Sim" : "Não")}
+            <button onClick={(e) => { e.stopPropagation(); setArchivedFilter(v => v === "Não" ? "Sim" : "Não"); }}
               className={`w-full h-10 px-3 rounded-lg text-sm font-bold border flex items-center justify-between transition-colors ${archivedFilter === "Sim" ? "bg-amber-500/10 text-amber-600 border-amber-500/30" : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70"}`}>
               <span className="flex items-center gap-2"><IconTrash /> Lixeira</span>
               <span className="text-xs opacity-80">{archivedFilter === "Sim" ? "ON" : "OFF"}</span>
             </button>
-            {filterSelects}
-            {hasActiveFilters && (
-              <button onClick={() => { resetFilters(); setMobileFiltersOpen(false); }}
-                className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                <IconX /> Limpar
-              </button>
-            )}
+
+            <FSel value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
+              <option value="Todos">Status (Todos)</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Vencido">Vencido</option>
+            </FSel>
+
+            <FSel value={modalidadeFilter} onChange={e => setModalidadeFilter(e.target.value)}>
+              <option value="Todos">Modalidade (Todos)</option>
+              {uniqueModalidades.map(m => <option key={m} value={m}>{m}</option>)}
+            </FSel>
+
+            <FSel value={tipoPlanFilter} onChange={e => setTipoPlanFilter(e.target.value)}>
+              <option value="Todos">Tipo Plano (Todos)</option>
+              <option value="Individual">Individual</option>
+              <option value="Família">Família</option>
+              <option value="Família Total">Família Total</option>
+            </FSel>
+
+            <FSel value={recorrenciaFilter} onChange={e => setRecorrenciaFilter(e.target.value)}>
+              <option value="Todos">Recorrência (Todos)</option>
+              {uniqueRecorrencias.map(r => <option key={r} value={r}>{r}</option>)}
+            </FSel>
+
+            <FSel value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
+              <option value="Todos">Vencimento (Todos)</option>
+              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+              <option value="Venceu Ontem">Venceu Ontem</option>
+              <option value="Hoje">Hoje</option>
+              <option value="Vence Amanhã">Vence Amanhã</option>
+              <option value="Vence em 2 dias">Vence em 2 dias</option>
+              <option value="Mês Atual">Mês Atual</option>
+            </FSel>
+
+            <button onClick={() => { resetFilters(); setMobileFiltersOpen(false); }}
+              className="w-full h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              <IconX /> Limpar
+            </button>
           </div>
         )}
       </div>
