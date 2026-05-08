@@ -384,7 +384,7 @@ function AuditoriaPageContent() {
                   <th className="px-4 py-3">Data / Hora</th>
                   <th className="px-4 py-3">Cliente / Login / Servidor</th>
                   <th className="px-4 py-3 text-center">Plano / Telas</th>
-                  <th className="px-4 py-3 text-center">Método</th>
+                  <th className="px-4 py-3 text-center">Banco</th>
                   <th className="px-4 py-3 text-center">Pagamento</th>
                   <th className="px-4 py-3 text-center">Renovação</th>
                   <th className="px-4 py-3 text-center">Mensagem WA</th>
@@ -439,7 +439,7 @@ function AuditoriaPageContent() {
                           </div>
                         </td>
 
-                        {/* Método */}
+                        {/* Banco */}
                         <td className="px-4 py-3 text-center">
                           <span className="text-[10px] font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider">
                             {r.gateway_name || r.payment_method}
