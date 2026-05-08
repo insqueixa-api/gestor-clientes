@@ -90,7 +90,7 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
-        // 1. Busca os logs exatos de pagamento
+        // 1. Busca os logs de pagamento
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type")
@@ -98,14 +98,13 @@ function AuditoriaPageContent() {
           .order("created_at", { ascending: false })
           .limit(100);
 
-        // Se houver pesquisa, buscamos primeiro os IDs dos clientes
         if (searchTerm) {
           const term = searchTerm.trim();
           const { data: matchedClients } = await supabaseBrowser
             .from("clients")
             .select("id")
             .eq("tenant_id", tid)
-            .or(`display_name.ilike.%${term}%,server_username.ilike.%${term}%,server_name.ilike.%${term}%`);
+            .or(`display_name.ilike.%${term}%,server_username.ilike.%${term}%`);
           
           if (matchedClients && matchedClients.length > 0) {
             const matchedIds = matchedClients.map(c => c.id);
@@ -118,14 +117,14 @@ function AuditoriaPageContent() {
         const { data: paymentsData, error } = await query;
         if (error) throw error;
 
-        // 2. Extrai os IDs de clientes que vieram no log e busca os dados deles na tabela `clients`
+        // 2. Extrai clientes e busca dados completos (incluindo telas e ID do servidor)
         const clientIds = [...new Set((paymentsData || []).map((p: any) => p.client_id))].filter(Boolean);
         const clientsMap: Record<string, any> = {};
 
         if (clientIds.length > 0) {
           const { data: clientsData } = await supabaseBrowser
             .from("clients")
-            .select("id, display_name, server_username, server_name, screens") // Puxando as informações que faltavam
+            .select("id, display_name, server_username, server_id, screens")
             .in("id", clientIds)
             .eq("tenant_id", tid);
 
@@ -136,22 +135,36 @@ function AuditoriaPageContent() {
           }
         }
 
-        // 3. Junta tudo para montar a linha da tabela
+        // 3. Puxa a lista de servidores para mapear o ID para o Nome real
+        const { data: serversData } = await supabaseBrowser
+          .from("servers")
+          .select("id, name")
+          .eq("tenant_id", tid);
+          
+        const serversMap: Record<string, string> = {};
+        if (serversData) {
+          serversData.forEach((s: any) => {
+            serversMap[s.id] = s.name;
+          });
+        }
+
+        // 4. Junta tudo na linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
           const cInfo = clientsMap[r.client_id] || {};
+          const serverName = serversMap[cInfo.server_id] || "—";
+
           return {
             id: r.id,
             created_at: r.created_at,
             client_id: r.client_id,
-            client_name: cInfo.display_name || "Cliente Excluído/Desconhecido",
+            client_name: cInfo.display_name || "Cliente Excluído",
             server_username: cInfo.server_username || "—",
-            server_name: cInfo.server_name || "—",
-            screens: cInfo.screens || 1, // Quantidade de telas do cliente
+            server_name: serverName,
+            screens: cInfo.screens || 1, // Puxa as telas ou assume 1
             payment_method: r.payment_method,
             payment_status: r.status, 
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
-            // O webhook do whatsapp manda logo após a API dar 'done', inferimos esse visualmente:
             whatsapp_status: r.fulfillment_status === 'done' ? 'sent' : null, 
             price_amount: r.price_amount,
             price_currency: r.price_currency,
@@ -175,7 +188,6 @@ function AuditoriaPageContent() {
     loadData();
   }, []);
 
-  // Dispara a busca no banco ao pressionar Enter
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       loadData(search);
@@ -239,7 +251,7 @@ function AuditoriaPageContent() {
     }
   };
 
-  // --- HELPERS VISUAIS (Com Bloqueio) ---
+  // --- HELPERS VISUAIS (Com Bloqueio de Fluxo) ---
   function getPaymentBadge(status: string) {
     if (status === "approved" || status === "PAGO") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Aprovado</span>;
     if (status === "pending") return <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-500/30">Pendente</span>;
@@ -337,7 +349,7 @@ function AuditoriaPageContent() {
             className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
           >
             <option value="Todos">Processamento (Todos)</option>
-            <option value="done">Concluídos (API OK)</option>
+            <option value="done">Concluídos</option>
             <option value="manual_pending">Pendentes Elite</option>
             <option value="error">Erros na Renovação</option>
             <option value="pending">Aguardando Pagamento</option>
@@ -407,7 +419,7 @@ function AuditoriaPageContent() {
 
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-col gap-0.5 items-center">
                             <span className="text-xs font-bold text-slate-600 dark:text-white/80">{r.plan_label || PERIOD_LABELS[r.period] || r.period}</span>
                             <span className="text-[10px] text-slate-400">{r.screens} tela(s)</span>
                           </div>
@@ -425,7 +437,7 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
                             {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
-                            {r.fulfillment_error && (
+                            {r.fulfillment_error && r.payment_status === 'approved' && (
                               <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
                                 {r.fulfillment_error}
                               </span>
