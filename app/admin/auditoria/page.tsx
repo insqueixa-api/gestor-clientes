@@ -15,6 +15,7 @@ type LogRow = {
   client_name: string;
   server_username: string;
   server_name: string;
+  screens: number; // ✅ Adicionado
   payment_method: string;
   payment_status: string;
   fulfillment_status: string;
@@ -128,7 +129,7 @@ function AuditoriaPageContent() {
         if (clientIds.length > 0) {
           const { data: clientsData } = await supabaseBrowser
             .from("clients")
-            .select("id, display_name, server_username, server_name")
+            .select("id, display_name, server_username, server_name, screens") // ✅ Adicionado screens
             .in("id", clientIds)
             .eq("tenant_id", tid);
 
@@ -148,16 +149,17 @@ function AuditoriaPageContent() {
             client_name: cInfo.display_name || "Cliente Excluído",
             server_username: cInfo.server_username || "—",
             server_name: cInfo.server_name || "—",
+            screens: cInfo.screens || 1, // ✅ Adicionado
             payment_method: r.payment_method,
-            payment_status: r.status, // ⚠️ Mapeando 'status' do banco para a variável que a tela usa
+            payment_status: r.status, 
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
-            whatsapp_status: null, // Ainda não existe no banco, deixamos null
+            whatsapp_status: r.fulfillment_status === 'done' ? 'sent' : null, // ✅ Lógica visual para o ZAP
             price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
             plan_label: r.plan_label,
-            gateway_name: r.gateway_type, // ⚠️ Mapeando 'gateway_type' do banco para a tela
+            gateway_name: r.gateway_type, 
           };
         });
 
@@ -250,12 +252,20 @@ function AuditoriaPageContent() {
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">{status}</span>;
   }
 
-  function getFulfillmentBadge(status: string) {
-    if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">API OK</span>;
+  function getFulfillmentBadge(status: string, paymentStatus: string) {
+    // ✅ Se o pagamento não está aprovado, bloqueia o status da renovação
+    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") return <span className="text-slate-300 dark:text-white/20">—</span>;
+
+    if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
     if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Pendente Elite</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
-    if (status === "processing" || status === "pending") return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">{status}</span>;
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Aguardando</span>;
+  }
+
+  function getWhatsappBadge(status: string | null, paymentStatus: string) {
+    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") return <span className="text-slate-300 dark:text-white/20">—</span>;
+    if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Pendente</span>;
   }
 
   if (hasAccess === false) {
@@ -345,10 +355,11 @@ function AuditoriaPageContent() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 bg-slate-50 dark:bg-white/5">
                   <th className="px-4 py-3">Data / Hora</th>
-                  <th className="px-4 py-3">Cliente / Login</th>
-                  <th className="px-4 py-3">Servidor / Plano</th>
-                  <th className="px-4 py-3">Pagamento</th>
-                  <th className="px-4 py-3">Integração API</th>
+                  <th className="px-4 py-3">Cliente / Login / Servidor</th>
+                  <th className="px-4 py-3 text-center">Plano / Telas</th>
+                  <th className="px-4 py-3 text-center">Pagamento</th>
+                  <th className="px-4 py-3 text-center">Renovação</th>
+                  <th className="px-4 py-3 text-center">Mensagem WA</th>
                   <th className="px-4 py-3 text-right">Valor</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
@@ -375,45 +386,49 @@ function AuditoriaPageContent() {
                               {dateObj.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-white/50">
-                              {dateObj.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              {dateObj.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </td>
 
-                        {/* Cliente */}
+                        {/* Cliente / Login / Servidor */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-800 dark:text-white truncate max-w-[200px]">{r.client_name}</span>
-                            <span className="text-xs font-mono text-slate-500 dark:text-white/60">{r.server_username}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-xs font-mono text-slate-500 dark:text-white/60">{r.server_username}</span>
+                              <span className="text-slate-300 dark:text-white/20">•</span>
+                              <span className="text-[11px] text-slate-400">{r.server_name}</span>
+                            </div>
                           </div>
                         </td>
 
-                        {/* Servidor e Plano */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-xs text-slate-600 dark:text-white/80">{r.server_name}</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-400">{PERIOD_LABELS[r.period] || r.period}</span>
+                        {/* Plano / Telas */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">{r.plan_label || r.period}</span>
+                            <span className="text-[10px] text-slate-400">{r.screens} tela(s)</span>
                           </div>
                         </td>
 
                         {/* Pagamento */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1 items-start">
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-1 items-center">
                             {getPaymentBadge(r.payment_status)}
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider">{r.payment_method === 'manual' ? r.gateway_name : r.payment_method}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider">{r.gateway_name || r.payment_method}</span>
                           </div>
                         </td>
 
-                        {/* Fulfillment */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1 items-start">
-                            {getFulfillmentBadge(r.fulfillment_status)}
-                            {r.fulfillment_error && (
-                              <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
-                                {r.fulfillment_error}
-                              </span>
-                            )}
+                        {/* Renovação */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-1 items-center">
+                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
                           </div>
+                        </td>
+
+                        {/* Mensagem WA */}
+                        <td className="px-4 py-3 text-center">
+                           {getWhatsappBadge(r.whatsapp_status, r.payment_status)}
                         </td>
 
                         {/* Valor */}
