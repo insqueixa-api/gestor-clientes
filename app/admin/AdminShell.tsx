@@ -66,6 +66,18 @@ function BrandUser({ userLabel, tenantName, logoUrl }: { userLabel: string; tena
   );
 }
 
+// Estrutura das notificações
+type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  link: string; // Para onde ir ao clicar
+  type: 'warning' | 'error' | 'info' | 'whatsapp'; // Para estilizar ou filtrar
+  data?: any; // Dados extras
+  is_read: boolean;
+  created_at: string;
+};
+
 export default function AdminShell({
   children,
   userLabel,
@@ -106,6 +118,14 @@ export default function AdminShell({
   const [waDisconnected, setWaDisconnected] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
 
+  // Estados para notificações
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null); // Para o modal de detalhes
+
+  // unreadCount
+  const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
+
   useEffect(() => {
     if (!whatsappSessions || whatsappSessions < 1 || role === "SUPERADMIN") return;
 
@@ -127,6 +147,56 @@ export default function AdminShell({
     const interval = setInterval(checkWaSessions, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [whatsappSessions, role]);
+
+  // useEffect para "carregar" notificações (simulado)
+  // INSTRUÇÃO: Substitua esta lógica pela busca real no Supabase
+  useEffect(() => {
+    const loadNotifications = () => {
+      const list: Notification[] = [];
+      // Notificação de vencimento (baseada na lógica existente)
+      const dias = daysUntil(localExpiresAt);
+      if (dias !== null && dias <= 7) {
+        list.push({
+          id: 'expires_at',
+          title: dias <= 0 ? 'PAINEL VENCIDO' : 'Aviso de Vencimento',
+          message: dias <= 0 ? `Seu painel venceu há ${Math.abs(dias)} dia(s).` : `Seu painel vence em ${dias} dia(s). Renove agora.`,
+          link: '/admin/settings/profile',
+          type: 'warning',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      // Notificação de WhatsApp (baseada na lógica existente)
+      if (waDisconnected && role !== "SUPERADMIN") {
+        list.push({
+          id: 'whatsapp_disconnected',
+          title: 'WhatsApp Desconectado',
+          message: 'Reconecte para retomar o envio de mensagens.',
+          link: '/admin/settings/profile',
+          type: 'whatsapp',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      // Adicionar uma notificação genérica para exemplo
+      list.push({
+        id: 'example_gen',
+        title: 'Nova Funcionalidade: Relatórios',
+        message: 'Confira a nova seção de relatórios financeiros, agora mais detalhada.',
+        link: '/admin/settings/financeiro_pessoal',
+        type: 'info',
+        is_read: false,
+        created_at: new Date(Date.now() - 3600000).toISOString(), // Uma hora atrás
+      });
+
+      setNotifications(list);
+    };
+
+    loadNotifications();
+    // INSTRUÇÃO: Configure o Supabase Realtime aqui para receber novas notificações em tempo real.
+  }, [localExpiresAt, waDisconnected, role]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -183,6 +253,31 @@ const managerActive = useMemo(() => {
     setOpenMenu("mobile");
   }
 
+  // Função para limpar todas
+  const clearAllNotifications = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    // INSTRUÇÃO: Faça a chamada para o Supabase para marcar todas as notificações deste tenant como lidas.
+  };
+
+  // Função de clique na notificação
+  const handleNotificationClick = (n: Notification) => {
+    // 1. Marcar como lida localmente
+    setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
+    // INSTRUÇÃO: Marcar como lida no Supabase (update).
+
+    // 2. Abrir o modal de detalhes
+    setSelectedNotification(n);
+    // 3. Se for vencimento ou whatsapp, também abrir o modal específico já existente (o usuário quer o "modalzinho"...)
+    if (n.type === 'warning' && n.id === 'expires_at') {
+      setShowWarningModal(true);
+    } else if (n.type === 'whatsapp' && n.id === 'whatsapp_disconnected') {
+      setShowWaModal(true);
+    }
+
+    // 4. Levar para o local correto
+    window.location.href = n.link;
+  };
+
   const canUseDom = typeof document !== "undefined";
 
   return (
@@ -199,37 +294,25 @@ const managerActive = useMemo(() => {
               <BrandUser userLabel={userLabel} tenantName={tenantName} logoUrl={logoUrl} />
             </Link>
 
-            {/* Sino de vencimento */}
-            {role !== "SUPERADMIN" && (() => {
-              const dias = daysUntil(localExpiresAt);
-              if (dias !== null && dias <= 7) {
-                const isDanger = dias <= 0;
-                const colorClass = isDanger
-                  ? "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30"
-                  : "bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30";
-                return (
-                  <button
-                    onClick={() => setShowWarningModal(true)}
-                    className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors animate-pulse ${colorClass}`}
-                    title="Aviso de Vencimento"
-                  >
-                    <span className="text-sm leading-none">🔔</span>
-                  </button>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Sino de WhatsApp desconectado */}
-            {waDisconnected && role !== "SUPERADMIN" && (
+            {/* Novo Sininho Unificado */}
+            <div className="relative">
               <button
-                onClick={() => setShowWaModal(true)}
-                className="flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors animate-pulse bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
-                title="WhatsApp desconectado"
+                onClick={() => setShowNotificationsModal(true)}
+                className={[
+                  "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
+                  unreadCount > 0 ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-white/5 hover:bg-white/10 text-white/60",
+                ].join(" ")}
+                title="Notificações"
               >
-                <span className="text-sm leading-none">📵</span>
+                <IconSininho className="w-5 h-5" />
               </button>
-            )}
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow">
+                  {unreadCount}
+                </div>
+              )}
+            </div>
+
           </div>
 
           <div className="flex-1" />
@@ -406,6 +489,84 @@ const managerActive = useMemo(() => {
       <main className="mx-auto w-full max-w-screen-2xl px-2 sm:px-6 lg:px-8 pt-2 pb-6 animate-in fade-in duration-500">
         {children}
       </main>
+
+      {/* Modal Principal de Notificações */}
+      {showNotificationsModal && (
+        <Modal title="Notificações" onClose={() => setShowNotificationsModal(false)}>
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <div className="text-center text-slate-500 dark:text-white/60 py-8">
+                Você não tem notificações.
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-end">
+                  <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
+                    Limpar todas
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-1.5">
+                  {notifications.map(n => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={[
+                        "p-4 rounded-lg border cursor-pointer transition-colors flex gap-3 items-start",
+                        n.is_read
+                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                          : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
+                      ].join(" ")}
+                    >
+                      <div className="text-2xl mt-0.5">
+                        {n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-slate-800 dark:text-white text-sm font-medium">
+                          {n.title}
+                        </p>
+                        <p className="text-slate-600 dark:text-white/70 text-xs mt-1 line-clamp-2">
+                          {n.message}
+                        </p>
+                        <p className="text-slate-400 dark:text-white/40 text-[10px] mt-2">
+                          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.created_at))}
+                        </p>
+                      </div>
+                      {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de Detalhes da Notificação (genérico) */}
+      {selectedNotification && selectedNotification.type === 'info' && (
+        <Modal title={`📢 ${selectedNotification.title}`} onClose={() => setSelectedNotification(null)}>
+          <div className="space-y-6">
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-4 rounded-lg flex gap-3">
+              <span className="text-2xl mt-0.5">📢</span>
+              <div>
+                <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
+                  {selectedNotification.title}
+                </p>
+                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
+                  {selectedNotification.message}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setSelectedNotification(null)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
+                Fechar
+              </button>
+              <Link href={selectedNotification.link} onClick={() => setSelectedNotification(null)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20">
+                Ver mais
+              </Link>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal aviso de vencimento */}
       {showWarningModal && (
@@ -632,4 +793,13 @@ function IconMenuSaas() {
 }
 function IconMenuApi() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+}
+// Novo ícone de Sininho
+function IconSininho({ className }: { className?: string }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
 }
