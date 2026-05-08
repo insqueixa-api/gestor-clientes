@@ -1705,10 +1705,13 @@ const [salvando, setSalvando] = useState(false);
           const mergeData = (lista: any[]) => {
             if (!lista) return;
             lista.forEach(f => {
-              idsToDelete.add(f.id); // Coloca na lista de extermínio
-              if (f.status === "PAGO") {
-                const ym = f.data_vencimento.substring(0, 7);
-                if (!mapPagos[ym]) mapPagos[ym] = { status: f.status, data_pagamento: f.data_pagamento };
+              // FIX: Previne que a transação atual cometa suicídio caso a nova data caia na query de futuras
+              if (f.id !== transacaoEdit.id) {
+                idsToDelete.add(f.id); // Coloca na lista de extermínio
+                if (f.status === "PAGO") {
+                  const ym = f.data_vencimento.substring(0, 7);
+                  if (!mapPagos[ym]) mapPagos[ym] = { status: f.status, data_pagamento: f.data_pagamento };
+                }
               }
             });
           };
