@@ -15,7 +15,7 @@ type LogRow = {
   client_name: string;
   server_username: string;
   server_name: string;
-  screens: number; // ✅ Adicionado
+  screens: number;
   payment_method: string;
   payment_status: string;
   fulfillment_status: string;
@@ -90,15 +90,13 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
-        console.log("Tenant ID da sessão atual:", tid);
-        
-        // ✅ Nomes EXATOS das colunas que existem no seu banco
+        // 1. Busca os logs exatos de pagamento
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type")
-          // .eq("tenant_id", tid) // ⚠️ COMENTADO PARA TESTE RLS
+          .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
-          .limit(50);
+          .limit(100);
 
         // Se houver pesquisa, buscamos primeiro os IDs dos clientes
         if (searchTerm) {
@@ -111,10 +109,8 @@ function AuditoriaPageContent() {
           
           if (matchedClients && matchedClients.length > 0) {
             const matchedIds = matchedClients.map(c => c.id);
-            // Filtra logs que sejam desses clientes OU que o gateway tenha esse nome
             query = query.or(`client_id.in.(${matchedIds.join(',')}),gateway_type.ilike.%${term}%`);
           } else {
-            // Se não achou cliente nenhum, busca apenas pelo nome do gateway
             query = query.ilike("gateway_type", `%${term}%`);
           }
         }
@@ -122,14 +118,14 @@ function AuditoriaPageContent() {
         const { data: paymentsData, error } = await query;
         if (error) throw error;
 
-        // SEGUNDA ETAPA: Contorna o erro do Supabase puxando os clientes manualmente
+        // 2. Extrai os IDs de clientes que vieram no log e busca os dados deles na tabela `clients`
         const clientIds = [...new Set((paymentsData || []).map((p: any) => p.client_id))].filter(Boolean);
         const clientsMap: Record<string, any> = {};
 
         if (clientIds.length > 0) {
           const { data: clientsData } = await supabaseBrowser
             .from("clients")
-            .select("id, display_name, server_username, server_name, screens") // ✅ Adicionado screens
+            .select("id, display_name, server_username, server_name, screens") // Puxando as informações que faltavam
             .in("id", clientIds)
             .eq("tenant_id", tid);
 
@@ -140,21 +136,23 @@ function AuditoriaPageContent() {
           }
         }
 
+        // 3. Junta tudo para montar a linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
           const cInfo = clientsMap[r.client_id] || {};
           return {
             id: r.id,
             created_at: r.created_at,
             client_id: r.client_id,
-            client_name: cInfo.display_name || "Cliente Excluído",
+            client_name: cInfo.display_name || "Cliente Excluído/Desconhecido",
             server_username: cInfo.server_username || "—",
             server_name: cInfo.server_name || "—",
-            screens: cInfo.screens || 1, // ✅ Adicionado
+            screens: cInfo.screens || 1, // Quantidade de telas do cliente
             payment_method: r.payment_method,
             payment_status: r.status, 
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
-            whatsapp_status: r.fulfillment_status === 'done' ? 'sent' : null, // ✅ Lógica visual para o ZAP
+            // O webhook do whatsapp manda logo após a API dar 'done', inferimos esse visualmente:
+            whatsapp_status: r.fulfillment_status === 'done' ? 'sent' : null, 
             price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
@@ -177,14 +175,19 @@ function AuditoriaPageContent() {
     loadData();
   }, []);
 
-    // --- FILTROS ---
+  // Dispara a busca no banco ao pressionar Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      loadData(search);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
     return rows.filter((r) => {
       if (filterFulfillment !== "Todos" && r.fulfillment_status !== filterFulfillment) return false;
       
-      // Filtro visual secundário para quando trouxer os resultados do banco
       if (q) {
         const hay = [r.client_name, r.server_username, r.server_name, r.gateway_name, r.payment_method]
           .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -194,14 +197,6 @@ function AuditoriaPageContent() {
     });
   }, [rows, search, filterFulfillment]);
 
-  // Dispara a busca no banco ao pressionar Enter
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      loadData(search);
-    }
-  };
-
-  // --- PAGINAÇÃO ---
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -230,7 +225,7 @@ function AuditoriaPageContent() {
         .from("client_portal_payments")
         .update({ 
           fulfillment_status: "done",
-          fulfilled_at: new Date().toISOString() // Opcional se você tiver essa coluna
+          fulfilled_at: new Date().toISOString()
         })
         .eq("id", log.id)
         .eq("tenant_id", tenantId);
@@ -238,34 +233,41 @@ function AuditoriaPageContent() {
       if (error) throw error;
 
       addToast("success", "Auditoria Atualizada", "Processo marcado como concluído com sucesso!");
-      loadData(); // Recarrega a lista
+      loadData(); 
     } catch (e: any) {
       addToast("error", "Erro ao atualizar", e.message);
     }
   };
 
-  // --- HELPERS VISUAIS ---
+  // --- HELPERS VISUAIS (Com Bloqueio) ---
   function getPaymentBadge(status: string) {
-    if (status === "approved") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Aprovado</span>;
+    if (status === "approved" || status === "PAGO") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Aprovado</span>;
     if (status === "pending") return <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-500/30">Pendente</span>;
     if (status === "rejected" || status === "cancelled") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Recusado</span>;
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">{status}</span>;
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // ✅ Se o pagamento não está aprovado, bloqueia o status da renovação
-    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") return <span className="text-slate-300 dark:text-white/20">—</span>;
+    // Se o pagamento NÃO foi aprovado, a renovação nunca acontece. Mostra o traço.
+    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
+      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+    }
 
     if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
     if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Pendente Elite</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Aguardando</span>;
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
   }
 
   function getWhatsappBadge(status: string | null, paymentStatus: string) {
-    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") return <span className="text-slate-300 dark:text-white/20">—</span>;
+    // Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada. Mostra o traço.
+    if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
+      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+    }
+
     if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Pendente</span>;
+    if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro</span>;
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Aguardando</span>;
   }
 
   if (hasAccess === false) {
@@ -367,7 +369,7 @@ function AuditoriaPageContent() {
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -406,7 +408,7 @@ function AuditoriaPageContent() {
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">{r.plan_label || r.period}</span>
+                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">{r.plan_label || PERIOD_LABELS[r.period] || r.period}</span>
                             <span className="text-[10px] text-slate-400">{r.screens} tela(s)</span>
                           </div>
                         </td>
@@ -423,6 +425,11 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
                             {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
+                            {r.fulfillment_error && (
+                              <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
+                                {r.fulfillment_error}
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -462,7 +469,6 @@ function AuditoriaPageContent() {
             </table>
           </div>
           
-          {/* Paginação Fixa de Rodapé */}
           <div className="border-t border-slate-200 dark:border-white/10 px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-white/5">
             <span className="text-xs text-slate-500 dark:text-white/50">
               Mostrando página {safePage} de {totalPages}
