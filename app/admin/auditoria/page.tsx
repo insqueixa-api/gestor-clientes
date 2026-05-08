@@ -29,6 +29,7 @@ type LogRow = {
   period: string;
   plan_label: string | null;
   gateway_name: string;
+  mp_payment_id: string | null; // ✅ Adicionado
 };
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -96,10 +97,10 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
-        // 1. Busca os logs de pagamento
+        // 1. Busca os logs exatos de pagamento
         let query = supabaseBrowser
           .from("client_portal_payments")
-          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type")
+          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id") // ✅ Adicionado mp_payment_id
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -177,6 +178,7 @@ function AuditoriaPageContent() {
             period: r.period,
             plan_label: r.plan_label,
             gateway_name: r.gateway_type, 
+            mp_payment_id: r.mp_payment_id || null, // ✅ Adicionado ao mapeamento
           };
         });
 
@@ -266,7 +268,12 @@ function AuditoriaPageContent() {
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // Se o pagamento NÃO foi aprovado, a renovação nunca acontece. Mostra o traço.
+    // ✅ Se o pagamento foi recusado, a renovação foi cancelada automaticamente
+    if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
+      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
+    }
+
+    // Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
     }
@@ -394,11 +401,7 @@ function AuditoriaPageContent() {
                 ) : (
                   visible.map((r) => {
                     const dateObj = new Date(r.created_at);
-                    
-                    // Lógica para mostrar os botões
                     const isManualPending = r.fulfillment_status === "manual_pending";
-                    const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
-                    const canShowAction = isManualPending || isRejected;
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -440,9 +443,22 @@ function AuditoriaPageContent() {
                           <div className="flex flex-col gap-1 items-center">
                             {getPaymentBadge(r.payment_status)}
                             <span className="text-[10px] text-slate-400 uppercase tracking-wider">{r.gateway_name || r.payment_method}</span>
+                            {/* ✅ Mostra o ID da transação com clique para copiar */}
+                            {r.mp_payment_id && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(r.mp_payment_id!);
+                                  addToast("success", "Copiado", "Código da transação copiado!");
+                                }}
+                                className="text-[9px] font-mono text-slate-400 dark:text-white/40 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/10 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                                title="Clique para copiar a referência"
+                              >
+                                Ref: {String(r.mp_payment_id).slice(-8)}
+                              </button>
+                            )}
                           </div>
                         </td>
-
                         {/* Renovação */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
@@ -469,22 +485,17 @@ function AuditoriaPageContent() {
 
                         {/* Ações */}
                         <td className="px-4 py-3 text-center">
-                          {canShowAction && (
+                          {isManualPending && (
                             <button
                               onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
-                              className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-colors border shadow-sm flex items-center justify-center gap-1 mx-auto ${
-                                isManualPending 
-                                  ? "bg-purple-100 hover:bg-purple-200 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 dark:border-purple-500/30" 
-                                  : "bg-rose-100 hover:bg-rose-200 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:text-rose-300 dark:border-rose-500/30"
-                              }`}
-                              title={isManualPending ? "Concluir processo Elite" : "Tentar renovar manualmente"}
+                              className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1 mx-auto"
+                              title="Abrir painel de renovação para concluir o processo"
                             >
-                              {isManualPending ? <IconCheckCircle /> : <span className="text-sm leading-none">🔄</span>} 
-                              {isManualPending ? "Concluir" : "Renovar"}
+                              <IconCheckCircle /> Concluir
                             </button>
                           )}
-                          {!canShowAction && (
-                            <span className="text-slate-300 dark:text-white/20 text-xs font-bold">—</span>
+                          {!isManualPending && (
+                            <span className="text-slate-300 dark:text-white/20 text-xs">—</span>
                           )}
                         </td>
 
