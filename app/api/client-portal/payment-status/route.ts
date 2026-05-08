@@ -253,6 +253,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ✅ Servidores sem integração (UniGestor) e Elite caem aqui.
+    // Pagamento foi confirmado, mas a renovação no painel é manual (suporte humano).
+    // O front mostra a tela com ampulheta + "Renovando manualmente..." e NÃO recarrega.
+    if (fStatus === "manual_pending") {
+      return NextResponse.json(
+        {
+          ok: true,
+          status: "approved",
+          phase: "manual_pending",
+          fulfillment_error: payment.fulfillment_error ?? null,
+        },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
+    }
+
     if (fStatus === "error") {
       return NextResponse.json(
         {
@@ -308,6 +323,32 @@ if (!lock.acquired) {
     // Executa fulfillment
     try {
       const { expDateISO } = await runFulfillment({ supabaseAdmin, tenantId, origin, payment });
+
+      // ✅ Re-checa o estado REAL do banco após o fulfillment.
+      // O runFulfillment pode ter caído em manual_pending (servidor sem integração ou Elite).
+      // Sem essa verificação, retornaríamos phase: "done" e o front faria reload indevido.
+      const { data: postFulfillment } = await supabaseAdmin
+        .from("client_portal_payments")
+        .select("fulfillment_status, fulfillment_error, new_vencimento")
+        .eq("tenant_id", tenantId)
+        .eq("id", payment.id)
+        .single();
+
+      const finalStatus = String(postFulfillment?.fulfillment_status || "").toLowerCase();
+
+      if (finalStatus === "manual_pending") {
+        return NextResponse.json(
+          {
+            ok: true,
+            status: "approved",
+            phase: "manual_pending",
+            fulfillment_error: postFulfillment?.fulfillment_error ?? null,
+          },
+          { status: 200, headers: NO_STORE_HEADERS }
+        );
+      }
+
+      // Estado normal: marca como done e responde com novo vencimento.
       await markFulfillmentDone(supabaseAdmin, tenantId, payment.id, expDateISO);
 
       return NextResponse.json(

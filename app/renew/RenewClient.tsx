@@ -479,21 +479,9 @@ function copyField(key: string, value: string) {
 
     if (!renewPeriod) return;
 
-    // 👇 TRAVA DO FRONTEND: Detecção de Servidor Manual
-    // Como a API get-accounts pode ainda não retornar 'has_integration', 
-    // coloquei a checagem pelo NOME do servidor como garantia para o Elite funcionar na hora.
-    const isManualServer = 
-        selectedAccount.has_integration === false || 
-        selectedAccount.server_name.toLowerCase().includes("elite");
-
-    if (isManualServer) {
-      // Pula o PIX online / Stripe e vai direto para o Modal de Fallback (Pagamento Manual)
-      await handleMethodConfirmDirect("manual", renewPrice, renewPeriod);
-      return;
-    }
-    // 👆 FIM DA TRAVA
-
-    // BRL com integração: vai direto pro PIX Automático, sem seletor
+    // ✅ Sem trava de manual no front: TODOS os BRL pagam via PIX automático.
+    // Servidores sem integração (UniGestor) e Elite são detectados pelo fulfillment
+    // do backend e marcados como manual_pending APÓS a confirmação do pagamento.
     if (selectedAccount.price_currency === "BRL") {
       await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
       return;
@@ -569,8 +557,9 @@ function copyField(key: string, value: string) {
               setPollingInterval(null);
 
               // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
+              // Para renovação manual, NUNCA recarrega (cliente deve aguardar mensagem WA).
               if (!isManual) {
-                setTimeout(() => window.location.reload(), 5000);
+                setTimeout(() => window.location.reload(), 10000);
               }
               return;
             }
@@ -617,8 +606,9 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
   setPollingInterval(null);
 
   // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
+  // Para renovação manual, NUNCA recarrega (cliente deve aguardar mensagem WA).
   if (!isManual) {
-    setTimeout(() => window.location.reload(), 5000);
+    setTimeout(() => window.location.reload(), 10000);
   }
   return;
 }
@@ -946,10 +936,6 @@ const isOnline = paymentData.payment_method === "online";
     const isManual = paymentData.payment_method === "manual";
     const isStripe = paymentData.payment_method === "stripe";
 
-    // ✅ NOVO: Puxa o servidor da conta atual para verificar se é Elite
-    const isManualServer = selectedAccount?.has_integration === false || 
-                           selectedAccount?.server_name.toLowerCase().includes("elite");
-
 const effectiveGatewayType: string =
   paymentData.gateway_type ||
   (paymentData.currency === "EUR"
@@ -969,66 +955,116 @@ return (
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
           {/* Success */}
           {isApproved && (
-            <div className="p-8 text-center">
+            <div className="p-6 sm:p-8 text-center">
               
-              {/* ✅ MUDANÇA: Spinner a girar para renovação manual, Certinho Verde para automática */}
               {paymentData?.is_manual ? (
-                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-              
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">
-                {paymentData?.is_manual ? "Renovando manualmente..." : "Renovação com sucesso ✅"}
-              </h2>
-              
-              {/* ✅ MUDANÇA: Caixinha tranquilizadora por baixo do spinner */}
-              {paymentData?.is_manual ? (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 text-left">
-                  <p className="text-sm text-slate-800 font-bold mb-2 flex items-center gap-2">
-                    ✅ Pagamento Confirmado
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    A nossa equipe já foi notificada. O seu serviço está sendo renovado no servidor, <strong>não é necessário enviar o comprovante pelo WhatsApp</strong>.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-slate-600 mb-4 font-medium">
-                  Pagamento confirmado e assinatura atualizada.
-                </p>
-              )}
+                <>
+                  {/* Ampulheta animada (areia caindo + virando) */}
+                  <div className="flex justify-center mb-4">
+                    <AnimatedHourglass />
+                  </div>
 
-              {paymentData?.new_vencimento && !paymentData?.is_manual && (
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <p className="text-sm text-emerald-700 font-medium">
-                    Novo vencimento:{" "}
-                    {formatDateTime(paymentData.new_vencimento)}
-                  </p>
-                </div>
-              )}
-              
-              {!paymentData?.is_manual && (
-                <p className="text-xs text-slate-400 mt-4">Atualizando página...</p>
-              )}
+                  {/* Título */}
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-800 mb-5 leading-tight tracking-tight">
+                    Pagamento Confirmado!
+                  </h2>
 
-              {paymentData?.is_manual && (
-                <button
-                  onClick={() => {
-                    setPaymentModal(false);
-                    setPaymentData(null);
-                    setPaymentStatus("pending");
-                    setPaymentPhase("awaiting_payment");
-                  }}
-                  className="w-full mt-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors text-sm"
-                >
-                  Voltar à Minha Conta
-                </button>
+                  {/* Caixa Verde - Pagamento OK */}
+                  <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-3 sm:p-4 mb-3 text-left">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-emerald-800 mb-0.5">Pagamento recebido</p>
+                        <p className="text-xs text-emerald-700 leading-relaxed">
+                          Sua transação foi confirmada com sucesso.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Caixa Azul - Suporte notificado */}
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 sm:p-4 mb-3 text-left">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-base">🔔</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-blue-800 mb-0.5">Suporte já foi notificado</p>
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          Nossa equipe está renovando sua assinatura no servidor agora mesmo. Em alguns minutos estará tudo pronto.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Caixa Amarela - Não enviar comprovante */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 mb-4 text-left">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-base">⚠️</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-900 mb-0.5">Não envie comprovante</p>
+                        <p className="text-xs text-amber-800 leading-relaxed">
+                          <strong>Não é necessário enviar comprovante pelo WhatsApp.</strong> Apenas aguarde — você receberá uma mensagem de confirmação assim que sua assinatura for renovada.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status: barra com loader (decorativa, não clicável) */}
+                  <div className="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md mb-3">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Renovando manualmente...
+                  </div>
+
+                  {/* Link sutil de fechar */}
+                  <button
+                    onClick={() => {
+                      setPaymentModal(false);
+                      setPaymentData(null);
+                      setPaymentStatus("pending");
+                      setPaymentPhase("awaiting_payment");
+                    }}
+                    className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Voltar à Minha Conta
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Renovação automática (fluxo original) */}
+                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                    Renovação com sucesso ✅
+                  </h2>
+                  
+                  <p className="text-sm text-slate-600 mb-4 font-medium">
+                    Pagamento confirmado e assinatura atualizada.
+                  </p>
+
+                  {paymentData?.new_vencimento && (
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                      <p className="text-sm text-emerald-700 font-medium">
+                        Novo vencimento: {formatDateTime(paymentData.new_vencimento)}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-slate-400 mt-4">Atualizando página...</p>
+                </>
               )}
             </div>
           )}
@@ -1136,16 +1172,15 @@ return (
                   </div>
                 )}
 
-                {/* Status */}
+{/* Status */}
                 <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
                   <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   <div className="flex-1">
                     <p className="text-sm font-bold text-blue-800">
-                      {/* ✅ MUDANÇA: Se for servidor manual, sempre mostra 'Aguardando Pagamento' */}
-                      {(paymentPhase === "renewing" && !isManualServer) ? "Processando renovação..." : "Aguardando pagamento..."}
+                      {paymentPhase === "renewing" ? "Processando renovação..." : "Aguardando pagamento..."}
                     </p>
                     <p className="text-xs text-blue-600">
-                      {(paymentPhase === "renewing" && !isManualServer)
+                      {paymentPhase === "renewing"
                         ? "Estamos atualizando sua assinatura no servidor. Isso pode levar alguns segundos."
                         : "Detectaremos automaticamente quando você pagar"}
                     </p>
@@ -1295,8 +1330,7 @@ return (
                 )}
 
                 {/* Renovando */}
-                {/* ✅ MUDANÇA: Impede a mensagem de renovação automática se for servidor manual */}
-                {paymentPhase === "renewing" && !isManualServer && (
+                {paymentPhase === "renewing" && (
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
                     <div className="w-6 h-6 border-4 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
@@ -1373,8 +1407,7 @@ return (
                   </>
                 )}
 
-                {/* ✅ MUDANÇA: Impede a mensagem de renovação automática se for servidor manual */}
-                {paymentPhase === "renewing" && !isManualServer && (
+                {paymentPhase === "renewing" && (
                   <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
                     <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
                     <div>
@@ -2162,5 +2195,66 @@ function IconLogout() {
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
+  );
+}
+
+// --- AMPULHETA ANIMADA (Tela de renovação manual confirmada) ---
+function AnimatedHourglass() {
+  return (
+    <div className="inline-block" aria-hidden>
+      <style>{`
+        @keyframes mch-flip {
+          0%, 42% { transform: rotate(0deg); }
+          50%, 92% { transform: rotate(180deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes mch-sand-fall {
+          0% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: -12; }
+        }
+        .mch-svg {
+          animation: mch-flip 4s ease-in-out infinite;
+          transform-origin: 40px 50px;
+        }
+        .mch-fall {
+          animation: mch-sand-fall 0.6s linear infinite;
+        }
+      `}</style>
+      <svg width="80" height="100" viewBox="0 0 80 100" className="mch-svg">
+        {/* Frame */}
+        <path
+          d="M16 6 L64 6 L64 12 L48 36 L48 60 L64 84 L64 94 L16 94 L16 84 L32 60 L32 36 L16 12 Z"
+          fill="rgba(251, 191, 36, 0.05)"
+          stroke="#475569"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+        />
+        {/* Top cap */}
+        <rect x="13" y="4" width="54" height="4" fill="#334155" rx="1" />
+        {/* Bottom cap */}
+        <rect x="13" y="92" width="54" height="4" fill="#334155" rx="1" />
+        {/* Top sand */}
+        <path
+          d="M19 9 L61 9 L46 33 L34 33 Z"
+          fill="#f59e0b"
+        />
+        {/* Bottom sand */}
+        <path
+          d="M34 67 L46 67 L61 91 L19 91 Z"
+          fill="#f59e0b"
+        />
+        {/* Falling sand line (dashed, animated) */}
+        <line
+          x1="40"
+          y1="38"
+          x2="40"
+          y2="60"
+          stroke="#fbbf24"
+          strokeWidth="2"
+          strokeDasharray="3 3"
+          className="mch-fall"
+        />
+      </svg>
+    </div>
   );
 }
