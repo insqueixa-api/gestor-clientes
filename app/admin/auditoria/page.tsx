@@ -89,10 +89,10 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
-        // Busca logs respeitando as colunas exatas da sua tabela
+        // ✅ Nomes EXATOS das colunas que existem no seu banco
         let query = supabaseBrowser
           .from("client_portal_payments")
-          .select("id, created_at, client_id, payment_method, payment_status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_name")
+          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type")
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -109,10 +109,10 @@ function AuditoriaPageContent() {
           if (matchedClients && matchedClients.length > 0) {
             const matchedIds = matchedClients.map(c => c.id);
             // Filtra logs que sejam desses clientes OU que o gateway tenha esse nome
-            query = query.or(`client_id.in.(${matchedIds.join(',')}),gateway_name.ilike.%${term}%`);
+            query = query.or(`client_id.in.(${matchedIds.join(',')}),gateway_type.ilike.%${term}%`);
           } else {
             // Se não achou cliente nenhum, busca apenas pelo nome do gateway
-            query = query.ilike("gateway_name", `%${term}%`);
+            query = query.ilike("gateway_type", `%${term}%`);
           }
         }
 
@@ -147,15 +147,15 @@ function AuditoriaPageContent() {
             server_username: cInfo.server_username || "—",
             server_name: cInfo.server_name || "—",
             payment_method: r.payment_method,
-            payment_status: r.payment_status,
+            payment_status: r.status, // ⚠️ Mapeando 'status' do banco para a variável que a tela usa
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
             whatsapp_status: null, // Ainda não existe no banco, deixamos null
             price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
-            plan_label: r.plan_label, // Pegando direto do banco graças a sua foto!
-            gateway_name: r.gateway_name,
+            plan_label: r.plan_label,
+            gateway_name: r.gateway_type, // ⚠️ Mapeando 'gateway_type' do banco para a tela
           };
         });
 
@@ -390,7 +390,7 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1">
                             <span className="text-xs text-slate-600 dark:text-white/80">{r.server_name}</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-400">{r.plan_label || PERIOD_LABELS[r.period] || r.period}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400">{PERIOD_LABELS[r.period] || r.period}</span>
                           </div>
                         </td>
 
