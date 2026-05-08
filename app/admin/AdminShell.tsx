@@ -10,6 +10,18 @@ import React from "react";
 import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal";
 import { useModules } from "@/lib/modules/ModulesContext";
 
+function isOverdue(vencimentoIso?: string | null): boolean {
+  if (!vencimentoIso) return false;
+  const target = new Date(vencimentoIso + 'T12:00:00');
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const [d1, m1, y1] = fmt.format(target).split('/');
+  const [d2, m2, y2] = fmt.format(now).split('/');
+  const tDate = new Date(Number(y1), Number(m1) - 1, Number(d1));
+  const nDate = new Date(Number(y2), Number(m2) - 1, Number(d2));
+  return tDate < nDate;
+}
+
 function daysUntil(s?: string | null): number | null {
   if (!s) return null;
   const target = new Date(s);
@@ -148,55 +160,77 @@ export default function AdminShell({
     return () => clearInterval(interval);
   }, [whatsappSessions, role]);
 
-  // useEffect para "carregar" notificações (simulado)
-  // INSTRUÇÃO: Substitua esta lógica pela busca real no Supabase
+  // useEffect para carregar notificações reais e financeiras
   useEffect(() => {
-    const loadNotifications = () => {
+    const loadNotifications = async () => {
       const list: Notification[] = [];
-      // Notificação de vencimento (baseada na lógica existente)
+      const nowIso = new Date().toISOString();
+
+      // 1. Notificação de vencimento do painel
       const dias = daysUntil(localExpiresAt);
       if (dias !== null && dias <= 7) {
         list.push({
           id: 'expires_at',
-          title: dias <= 0 ? 'PAINEL VENCIDO' : 'Aviso de Vencimento',
+          title: dias <= 0 ? '⚠️ PAINEL VENCIDO' : '📢 Aviso de Vencimento',
           message: dias <= 0 ? `Seu painel venceu há ${Math.abs(dias)} dia(s).` : `Seu painel vence em ${dias} dia(s). Renove agora.`,
           link: '/admin/settings/profile',
           type: 'warning',
           is_read: false,
-          created_at: new Date().toISOString(),
+          created_at: nowIso,
         });
       }
 
-      // Notificação de WhatsApp (baseada na lógica existente)
+      // 2. Notificação de WhatsApp
       if (waDisconnected && role !== "SUPERADMIN") {
         list.push({
           id: 'whatsapp_disconnected',
-          title: 'WhatsApp Desconectado',
+          title: '📵 WhatsApp Desconectado',
           message: 'Reconecte para retomar o envio de mensagens.',
           link: '/admin/settings/profile',
           type: 'whatsapp',
           is_read: false,
-          created_at: new Date().toISOString(),
+          created_at: nowIso,
         });
       }
 
-      // Adicionar uma notificação genérica para exemplo
-      list.push({
-        id: 'example_gen',
-        title: 'Nova Funcionalidade: Relatórios',
-        message: 'Confira a nova seção de relatórios financeiros, agora mais detalhada.',
-        link: '/admin/settings/financeiro_pessoal',
-        type: 'info',
-        is_read: false,
-        created_at: new Date(Date.now() - 3600000).toISOString(), // Uma hora atrás
-      });
+      // 3. Monitoramento Financeiro (Vence hoje ou Vencido)
+      if (financialControlEnabled && tenantId) {
+        try {
+          const { data: transacoes, error } = await supabaseBrowser
+            .from("fin_transacoes")
+            .select("id, descricao, valor, data_vencimento, tipo")
+            .eq("status", "PENDENTE")
+            .lte("data_vencimento", nowIso.split('T')[0]);
+
+          if (!error && transacoes) {
+            transacoes.forEach(t => {
+              const vencido = isOverdue(t.data_vencimento);
+              const icone = t.tipo === "RECEITA" ? "📈" : "📉";
+              const tituloTipo = t.tipo === "RECEITA" ? "Recebimento" : "Pagamento";
+              const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(t.valor);
+              
+              list.push({
+                id: `fin_${t.id}`,
+                title: vencido ? `🟥 ${tituloTipo} VENCIDO` : `🟧 ${tituloTipo} VENCE HOJE`,
+                message: `${icone} ${t.descricao} - ${valorFmt}. Não perca o prazo!`,
+                link: '/admin/settings/financeiro_pessoal',
+                type: vencido ? 'error' : 'warning',
+                is_read: false,
+                created_at: nowIso,
+                data: { transacaoId: t.id }
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Erro ao buscar notificações financeiras:", e);
+        }
+      }
 
       setNotifications(list);
     };
 
     loadNotifications();
-    // INSTRUÇÃO: Configure o Supabase Realtime aqui para receber novas notificações em tempo real.
-  }, [localExpiresAt, waDisconnected, role]);
+  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -261,21 +295,17 @@ const managerActive = useMemo(() => {
 
   // Função de clique na notificação
   const handleNotificationClick = (n: Notification) => {
-    // 1. Marcar como lida localmente
     setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
-    // INSTRUÇÃO: Marcar como lida no Supabase (update).
-
-    // 2. Abrir o modal de detalhes
-    setSelectedNotification(n);
-    // 3. Se for vencimento ou whatsapp, também abrir o modal específico já existente (o usuário quer o "modalzinho"...)
-    if (n.type === 'warning' && n.id === 'expires_at') {
+    
+    setShowNotificationsModal(false); // Fecha o painel de notificações
+    
+    if (n.id === 'expires_at') {
       setShowWarningModal(true);
-    } else if (n.type === 'whatsapp' && n.id === 'whatsapp_disconnected') {
+    } else if (n.id === 'whatsapp_disconnected') {
       setShowWaModal(true);
+    } else {
+      window.location.href = n.link; // Leva para o financeiro ou outro local
     }
-
-    // 4. Levar para o local correto
-    window.location.href = n.link;
   };
 
   const canUseDom = typeof document !== "undefined";
@@ -518,7 +548,7 @@ const managerActive = useMemo(() => {
                       ].join(" ")}
                     >
                       <div className="text-2xl mt-0.5">
-                        {n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
+                        {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
                       </div>
                       <div className="flex-1">
                         <p className="text-slate-800 dark:text-white text-sm font-medium">
