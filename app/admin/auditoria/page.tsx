@@ -384,6 +384,7 @@ function AuditoriaPageContent() {
                   <th className="px-4 py-3">Data / Hora</th>
                   <th className="px-4 py-3">Cliente / Login / Servidor</th>
                   <th className="px-4 py-3 text-center">Plano / Telas</th>
+                  <th className="px-4 py-3 text-center">Método</th>
                   <th className="px-4 py-3 text-center">Pagamento</th>
                   <th className="px-4 py-3 text-center">Renovação</th>
                   <th className="px-4 py-3 text-center">Mensagem WA</th>
@@ -394,7 +395,7 @@ function AuditoriaPageContent() {
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
+                    <td colSpan={9} className="p-8 text-center text-slate-400 dark:text-white/40 italic">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -438,12 +439,17 @@ function AuditoriaPageContent() {
                           </div>
                         </td>
 
-                        {/* Pagamento */}
+                        {/* Método */}
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider">
+                            {r.gateway_name || r.payment_method}
+                          </span>
+                        </td>
+
+                        {/* Pagamento (Status + Ref) */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
                             {getPaymentBadge(r.payment_status)}
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider">{r.gateway_name || r.payment_method}</span>
-                            {/* ✅ Mostra o ID da transação com clique para copiar */}
                             {r.mp_payment_id && (
                               <button 
                                 onClick={(e) => {
