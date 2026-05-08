@@ -23,6 +23,7 @@ type LogRow = {
   price_amount: number;
   price_currency: string;
   period: string;
+  plan_label: string | null;
   gateway_name: string;
 };
 
@@ -88,12 +89,13 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
+        // Busca logs respeitando as colunas exatas da sua tabela
         let query = supabaseBrowser
           .from("client_portal_payments")
-          .select("id, created_at, client_id, payment_method, payment_status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, gateway_name")
+          .select("id, created_at, client_id, payment_method, payment_status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_name")
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
-          .limit(100); // Limita às últimas 100
+          .limit(100);
 
         // Se houver pesquisa, buscamos primeiro os IDs dos clientes
         if (searchTerm) {
@@ -141,17 +143,18 @@ function AuditoriaPageContent() {
             id: r.id,
             created_at: r.created_at,
             client_id: r.client_id,
-            client_name: cInfo.display_name || "Cliente Excluído/Desconhecido",
+            client_name: cInfo.display_name || "Cliente Excluído",
             server_username: cInfo.server_username || "—",
             server_name: cInfo.server_name || "—",
             payment_method: r.payment_method,
             payment_status: r.payment_status,
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
-            whatsapp_status: r.whatsapp_status || null,
+            whatsapp_status: null, // Ainda não existe no banco, deixamos null
             price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
+            plan_label: r.plan_label, // Pegando direto do banco graças a sua foto!
             gateway_name: r.gateway_name,
           };
         });
@@ -170,7 +173,7 @@ function AuditoriaPageContent() {
     loadData();
   }, []);
 
-  // --- FILTROS ---
+    // --- FILTROS ---
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
@@ -293,7 +296,7 @@ function AuditoriaPageContent() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Buscar por cliente, usuário, servidor... (Pressione Enter)"
+                placeholder="Buscar (Pressione Enter)"
                 className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
               />
               {search && (
@@ -387,7 +390,7 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1">
                             <span className="text-xs text-slate-600 dark:text-white/80">{r.server_name}</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-400">{PERIOD_LABELS[r.period] || r.period}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400">{r.plan_label || PERIOD_LABELS[r.period] || r.period}</span>
                           </div>
                         </td>
 
