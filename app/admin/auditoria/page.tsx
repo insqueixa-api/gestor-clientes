@@ -7,6 +7,9 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { useModules } from "@/lib/modules/ModulesContext";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 
+// ✅ Importa o modal de recarga (Ajuste o caminho se sua pasta cliente tiver outro nome)
+import RecargaCliente from "../cliente/recarga_cliente";
+
 // --- TIPOS ---
 type LogRow = {
   id: string;
@@ -59,6 +62,9 @@ function AuditoriaPageContent() {
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // ✅ NOVO: Estado para abrir o modal de renovação
+  const [renewState, setRenewState] = useState<{ logId: string; clientId: string; clientName: string } | null>(null);
 
   function addToast(type: "success" | "error" | "warning", title: string, message?: string) {
     const id = Date.now();
@@ -461,9 +467,9 @@ function AuditoriaPageContent() {
                         <td className="px-4 py-3 text-center">
                           {isManualPending && (
                             <button
-                              onClick={() => handleMarcarConcluido(r)}
+                              onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
                               className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1 mx-auto"
-                              title="Marcar que você já renovou manualmente no painel Elite"
+                              title="Abrir painel de renovação para concluir o processo"
                             >
                               <IconCheckCircle /> Concluir
                             </button>
@@ -491,6 +497,35 @@ function AuditoriaPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✅ Renderiza o Modal de Recarga ao clicar no Concluir */}
+      {renewState && (
+        <RecargaCliente
+          clientId={renewState.clientId}
+          clientName={renewState.clientName}
+          onClose={() => setRenewState(null)}
+          onSuccess={async () => {
+            try {
+              // 1. Atualiza o banco marcando a auditoria como concluída
+              await supabaseBrowser
+                .from("client_portal_payments")
+                .update({ 
+                  fulfillment_status: "done",
+                  fulfilled_at: new Date().toISOString()
+                })
+                .eq("id", renewState.logId)
+                .eq("tenant_id", tenantId);
+              
+              // 2. Fecha o modal e atualiza a lista
+              addToast("success", "Auditoria Atualizada", "Renovação registrada e auditoria concluída!");
+              setRenewState(null);
+              loadData(); 
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        />
       )}
 
       {ConfirmUI}
