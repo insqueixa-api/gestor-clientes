@@ -279,7 +279,7 @@ function AuditoriaPageContent() {
     }
 
     if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
-    if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Pendente Elite</span>;
+    if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Ação Manual</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
   }
@@ -363,7 +363,7 @@ function AuditoriaPageContent() {
           >
             <option value="Todos">Processamento (Todos)</option>
             <option value="done">Concluídos</option>
-            <option value="manual_pending">Pendentes Elite</option>
+            <option value="manual_pending">Ação Manual (Pendentes)</option>
             <option value="error">Erros na Renovação</option>
             <option value="pending">Aguardando Pagamento</option>
           </select>

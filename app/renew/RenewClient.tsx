@@ -550,23 +550,28 @@ function copyField(key: string, value: string) {
             return;
           }
 
-            if (phaseRaw === "done") {
-              // ✅ evita agendar duas vezes se o interval rodar de novo antes de limpar
+            // ✅ AJUSTE FINO 1: Aceitar manual_pending como sucesso visual
+            if (phaseRaw === "done" || phaseRaw === "manual_pending") {
               if ((window as any).__cp_done_scheduled) return;
               (window as any).__cp_done_scheduled = true;
+
+              const isManual = phaseRaw === "manual_pending";
 
               setPaymentPhase("done");
               setPaymentStatus("approved");
               setPaymentData((prev: any) => ({
                 ...prev,
                 new_vencimento: result.new_vencimento,
+                is_manual: isManual // 👈 Flag silenciosa para UI
               }));
 
               clearInterval(interval);
               setPollingInterval(null);
 
-              // ✅ aguarda 5s com a tela "concluído" antes de atualizar a página
-              setTimeout(() => window.location.reload(), 5000);
+              // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
+              if (!isManual) {
+                setTimeout(() => window.location.reload(), 5000);
+              }
               return;
             }
 
@@ -594,23 +599,27 @@ function copyField(key: string, value: string) {
           // Pagamento ok, mas fulfillment ainda rodando -> UI deve mostrar renovando
           setPaymentPhase("renewing");
 
-if (fulfillment === "done") {
-  // ✅ evita agendar duas vezes
+if (fulfillment === "done" || fulfillment === "manual_pending") {
   if ((window as any).__cp_done_scheduled) return;
   (window as any).__cp_done_scheduled = true;
+
+  const isManual = fulfillment === "manual_pending";
 
   setPaymentPhase("done");
   setPaymentStatus("approved");
   setPaymentData((prev: any) => ({
     ...prev,
     new_vencimento: result.new_vencimento,
+    is_manual: isManual // 👈 Flag silenciosa para UI
   }));
 
   clearInterval(interval);
   setPollingInterval(null);
 
-  // ✅ aguarda 5s com a tela "concluído" antes de atualizar a página
-  setTimeout(() => window.location.reload(), 5000);
+  // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
+  if (!isManual) {
+    setTimeout(() => window.location.reload(), 5000);
+  }
   return;
 }
 
@@ -961,33 +970,66 @@ return (
           {/* Success */}
           {isApproved && (
             <div className="p-8 text-center">
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-<h2 className="text-2xl font-bold text-slate-800 mb-2">Renovação realizada com sucesso ✅</h2>
-<p className="text-slate-600 mb-4">Pagamento confirmado e assinatura atualizada.</p>
+              
+              {/* ✅ MUDANÇA: Spinner a girar para renovação manual, Certinho Verde para automática */}
+              {paymentData?.is_manual ? (
+                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                {paymentData?.is_manual ? "Renovando manualmente..." : "Renovação com sucesso ✅"}
+              </h2>
+              
+              {/* ✅ MUDANÇA: Caixinha tranquilizadora por baixo do spinner */}
+              {paymentData?.is_manual ? (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 text-left">
+                  <p className="text-sm text-slate-800 font-bold mb-2 flex items-center gap-2">
+                    ✅ Pagamento Confirmado
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    A nossa equipe já foi notificada. O seu serviço está sendo renovado no servidor, <strong>não é necessário enviar o comprovante pelo WhatsApp</strong>.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600 mb-4 font-medium">
+                  Pagamento confirmado e assinatura atualizada.
+                </p>
+              )}
 
-              {paymentData.new_vencimento && (
+              {paymentData?.new_vencimento && !paymentData?.is_manual && (
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                   <p className="text-sm text-emerald-700 font-medium">
                     Novo vencimento:{" "}
-{paymentData.new_vencimento && (
-  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-    <p className="text-sm text-emerald-700 font-medium">
-      Novo vencimento:{" "}
-      {formatDateTime(paymentData.new_vencimento)}
-    </p>
-  </div>
-)}
-
-
-
+                    {formatDateTime(paymentData.new_vencimento)}
                   </p>
                 </div>
               )}
-              <p className="text-xs text-slate-400 mt-4">Atualizando página...</p>
+              
+              {!paymentData?.is_manual && (
+                <p className="text-xs text-slate-400 mt-4">Atualizando página...</p>
+              )}
+
+              {paymentData?.is_manual && (
+                <button
+                  onClick={() => {
+                    setPaymentModal(false);
+                    setPaymentData(null);
+                    setPaymentStatus("pending");
+                    setPaymentPhase("awaiting_payment");
+                  }}
+                  className="w-full mt-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors text-sm"
+                >
+                  Voltar à Minha Conta
+                </button>
+              )}
             </div>
           )}
 

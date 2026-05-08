@@ -75,8 +75,12 @@ export async function markFulfillmentDone(
   supabaseAdmin: any,
   tenantId: string,
   paymentRowId: string,
-  newVencimentoISO: string
+  newVencimentoISO: string | null
 ) {
+  // ✅ AJUSTE FINO 1: Impede que o webhook marque como "done" se a renovação caiu para manual
+  const { data: curr } = await supabaseAdmin.from("client_portal_payments").select("fulfillment_status").eq("id", paymentRowId).single();
+  if (curr?.fulfillment_status === "manual_pending") return;
+
   await supabaseAdmin
     .from("client_portal_payments")
     .update({
@@ -145,7 +149,12 @@ export async function runFulfillment(params: FulfillmentParams) {
     .single();
 
   if (sErr || !srv) throw new Error("Servidor não encontrado para renovação.");
-  if (!srv.panel_integration) throw new Error("Servidor sem integração (panel_integration).");
+  
+  // ✅ AJUSTE FINO 2: Em vez de quebrar tela vermelha, joga para fila manual
+  if (!srv.panel_integration) {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Servidor sem integração" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
 
   const integrationId = String(srv.panel_integration);
 
@@ -156,9 +165,18 @@ export async function runFulfillment(params: FulfillmentParams) {
     .eq("id", integrationId)
     .single();
 
-  if (iErr || !integ) throw new Error("Integração não encontrada para renovação.");
+  if (iErr || !integ) {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Integração inativa" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
 
 const provider = String(integ.provider || "").toUpperCase();
+
+  // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
+  if (provider === "ELITE") {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Provedor ELITE (Ação via extensão)" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
   const months = toPeriodMonths(payment.period);
   prodLog("fulfillment.provider_resolved", {
     tenant: tenantId.slice(-6),
@@ -212,7 +230,10 @@ if (!renewRes.ok || !renewJson?.ok) {
       http_status: renewRes.status,
     });
     const msg = renewJson?.error || `Falha ao renovar no provedor ${provider}. HTTP ${renewRes.status}`;
-    throw new Error(msg);
+    
+    // ✅ AJUSTE FINO 4: Erro na API agora cai pra fila manual para suporte humano
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: msg }).eq("id", payment.id);
+    return { expDateISO: null };
   }
 
   let expDateISO = renewJson?.data?.exp_date_iso;
