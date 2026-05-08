@@ -64,7 +64,7 @@ function AuditoriaPageContent() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }
 
-  async function loadData() {
+  async function loadData(searchTerm = "") {
     setLoading(true);
     try {
       const tid = await getCurrentTenantId();
@@ -88,37 +88,73 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
-        // Busca logs juntando com a tabela de clientes para pegar nomes
-        const { data, error } = await supabaseBrowser
+        let query = supabaseBrowser
           .from("client_portal_payments")
-          .select(`
-            id, created_at, client_id, payment_method, payment_status, 
-            fulfillment_status, fulfillment_error, price_amount, price_currency, period, gateway_name,
-            clients ( display_name, server_username, server_name )
-          `)
+          .select("id, created_at, client_id, payment_method, payment_status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, gateway_name")
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
-          .limit(500);
+          .limit(100); // Limita às últimas 100
 
+        // Se houver pesquisa, buscamos primeiro os IDs dos clientes
+        if (searchTerm) {
+          const term = searchTerm.trim();
+          const { data: matchedClients } = await supabaseBrowser
+            .from("clients")
+            .select("id")
+            .eq("tenant_id", tid)
+            .or(`display_name.ilike.%${term}%,server_username.ilike.%${term}%,server_name.ilike.%${term}%`);
+          
+          if (matchedClients && matchedClients.length > 0) {
+            const matchedIds = matchedClients.map(c => c.id);
+            // Filtra logs que sejam desses clientes OU que o gateway tenha esse nome
+            query = query.or(`client_id.in.(${matchedIds.join(',')}),gateway_name.ilike.%${term}%`);
+          } else {
+            // Se não achou cliente nenhum, busca apenas pelo nome do gateway
+            query = query.ilike("gateway_name", `%${term}%`);
+          }
+        }
+
+        const { data: paymentsData, error } = await query;
         if (error) throw error;
 
-        const mapped: LogRow[] = (data || []).map((r: any) => ({
-          id: r.id,
-          created_at: r.created_at,
-          client_id: r.client_id,
-          client_name: r.clients?.display_name || "Cliente Deletado",
-          server_username: r.clients?.server_username || "—",
-          server_name: r.clients?.server_name || "—",
-          payment_method: r.payment_method,
-          payment_status: r.payment_status,
-          fulfillment_status: r.fulfillment_status,
-          fulfillment_error: r.fulfillment_error,
-          whatsapp_status: r.whatsapp_status || null, // Assumindo que você adicione depois, deixamos null seguro
-          price_amount: r.price_amount,
-          price_currency: r.price_currency,
-          period: r.period,
-          gateway_name: r.gateway_name,
-        }));
+        // SEGUNDA ETAPA: Contorna o erro do Supabase puxando os clientes manualmente
+        const clientIds = [...new Set((paymentsData || []).map((p: any) => p.client_id))].filter(Boolean);
+        const clientsMap: Record<string, any> = {};
+
+        if (clientIds.length > 0) {
+          const { data: clientsData } = await supabaseBrowser
+            .from("clients")
+            .select("id, display_name, server_username, server_name")
+            .in("id", clientIds)
+            .eq("tenant_id", tid);
+
+          if (clientsData) {
+            clientsData.forEach((c: any) => {
+              clientsMap[c.id] = c;
+            });
+          }
+        }
+
+        const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
+          const cInfo = clientsMap[r.client_id] || {};
+          return {
+            id: r.id,
+            created_at: r.created_at,
+            client_id: r.client_id,
+            client_name: cInfo.display_name || "Cliente Excluído/Desconhecido",
+            server_username: cInfo.server_username || "—",
+            server_name: cInfo.server_name || "—",
+            payment_method: r.payment_method,
+            payment_status: r.payment_status,
+            fulfillment_status: r.fulfillment_status,
+            fulfillment_error: r.fulfillment_error,
+            whatsapp_status: r.whatsapp_status || null,
+            price_amount: r.price_amount,
+            price_currency: r.price_currency,
+            period: r.period,
+            gateway_name: r.gateway_name,
+          };
+        });
 
         setRows(mapped);
       }
@@ -141,6 +177,7 @@ function AuditoriaPageContent() {
     return rows.filter((r) => {
       if (filterFulfillment !== "Todos" && r.fulfillment_status !== filterFulfillment) return false;
       
+      // Filtro visual secundário para quando trouxer os resultados do banco
       if (q) {
         const hay = [r.client_name, r.server_username, r.server_name, r.gateway_name, r.payment_method]
           .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -149,6 +186,13 @@ function AuditoriaPageContent() {
       return true;
     });
   }, [rows, search, filterFulfillment]);
+
+  // Dispara a busca no banco ao pressionar Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      loadData(search);
+    }
+  };
 
   // --- PAGINAÇÃO ---
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -234,7 +278,7 @@ function AuditoriaPageContent() {
           </p>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <button onClick={loadData} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
+          <button onClick={() => loadData(search)} className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
             <IconRefresh /> <span className="hidden sm:inline">Atualizar</span>
           </button>
         </div>
@@ -243,14 +287,31 @@ function AuditoriaPageContent() {
       {/* FILTROS */}
       <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[200px] relative">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente, usuário, servidor..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
-            />
-            {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"><IconX /></button>}
+          <div className="flex-1 min-w-[200px] flex gap-2">
+            <div className="relative flex-1">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Buscar por cliente, usuário, servidor... (Pressione Enter)"
+                className="w-full h-10 px-3 pr-10 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+              />
+              {search && (
+                <button 
+                  onClick={() => { setSearch(""); loadData(""); }} 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500"
+                  title="Limpar busca"
+                >
+                  <IconX />
+                </button>
+              )}
+            </div>
+            <button 
+              onClick={() => loadData(search)}
+              className="h-10 px-4 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-sm font-bold transition-colors shadow-sm"
+            >
+              Buscar
+            </button>
           </div>
 
           <select
