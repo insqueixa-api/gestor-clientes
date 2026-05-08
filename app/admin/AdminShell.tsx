@@ -205,8 +205,6 @@ export default function AdminShell({
           if (!error && transacoes) {
             transacoes.forEach(t => {
               const vencido = isOverdue(t.data_vencimento);
-              
-              // Adicionamos T12:00:00 para evitar que o fuso horário mude o dia no cálculo
               const diasAtrasoRaw = daysUntil(t.data_vencimento + 'T12:00:00');
               const diasAtraso = diasAtrasoRaw !== null ? Math.abs(diasAtrasoRaw) : 0;
               const dataFormatada = t.data_vencimento.split('-').reverse().join('/');
@@ -243,11 +241,38 @@ export default function AdminShell({
         }
       }
 
+      // 4. Monitoramento de Renovações Manuais (Sem integração ou Elite)
+      if ((hasIPTVorSaaS || hasAlunos) && tenantId) {
+        try {
+          const { data: pendingManual, error: manualErr } = await supabaseBrowser
+            .from("client_portal_payments")
+            .select("id, created_at")
+            .eq("tenant_id", tenantId)
+            .eq("fulfillment_status", "manual_pending");
+
+          if (!manualErr && pendingManual) {
+            pendingManual.forEach(p => {
+              list.push({
+                id: `manual_${p.id}`,
+                title: '🟣 Renovação Pendente',
+                message: 'Um pagamento foi aprovado no portal e aguarda sua ação para renovar o cliente no servidor.',
+                link: '/admin/auditoria',
+                type: 'info', 
+                is_read: false,
+                created_at: p.created_at || nowIso,
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Erro ao buscar renovações pendentes:", e);
+        }
+      }
+
       setNotifications(list);
     };
 
     loadNotifications();
-  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId]);
+  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId, hasIPTVorSaaS, hasAlunos]); // ✅ Dependências atualizadas
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
