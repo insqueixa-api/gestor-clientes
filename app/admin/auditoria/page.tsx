@@ -89,13 +89,15 @@ function AuditoriaPageContent() {
         }
         setHasAccess(true);
 
+        console.log("Tenant ID da sessão atual:", tid);
+        
         // ✅ Nomes EXATOS das colunas que existem no seu banco
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type")
-          .eq("tenant_id", tid)
+          // .eq("tenant_id", tid) // ⚠️ COMENTADO PARA TESTE RLS
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(50);
 
         // Se houver pesquisa, buscamos primeiro os IDs dos clientes
         if (searchTerm) {
