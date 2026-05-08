@@ -205,14 +205,31 @@ export default function AdminShell({
           if (!error && transacoes) {
             transacoes.forEach(t => {
               const vencido = isOverdue(t.data_vencimento);
+              
+              // Adicionamos T12:00:00 para evitar que o fuso horário mude o dia no cálculo
+              const diasAtrasoRaw = daysUntil(t.data_vencimento + 'T12:00:00');
+              const diasAtraso = diasAtrasoRaw !== null ? Math.abs(diasAtrasoRaw) : 0;
+              const dataFormatada = t.data_vencimento.split('-').reverse().join('/');
+
               const icone = t.tipo === "RECEITA" ? "📈" : "📉";
               const tituloTipo = t.tipo === "RECEITA" ? "Recebimento" : "Pagamento";
               const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(t.valor);
               
+              let titleNotif = "";
+              let messageNotif = "";
+              
+              if (vencido) {
+                titleNotif = `🟥 ${tituloTipo} Vencido`;
+                messageNotif = `${icone} ${t.descricao} - ${valorFmt}. Vencido há ${diasAtraso} dia(s) (${dataFormatada}).`;
+              } else {
+                titleNotif = `🟧 ${tituloTipo} Vence Hoje`;
+                messageNotif = `${icone} ${t.descricao} - ${valorFmt}. Pendente para hoje (${dataFormatada}).`;
+              }
+
               list.push({
                 id: `fin_${t.id}`,
-                title: vencido ? `🟥 ${tituloTipo} VENCIDO` : `🟧 ${tituloTipo} VENCE HOJE`,
-                message: `${icone} ${t.descricao} - ${valorFmt}. Não perca o prazo!`,
+                title: titleNotif,
+                message: messageNotif,
                 link: '/admin/settings/financeiro_pessoal',
                 type: vencido ? 'error' : 'warning',
                 is_read: false,
@@ -392,6 +409,12 @@ const managerActive = useMemo(() => {
                   {can("dashboard")  && <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />}
                   {hasIPTVorSaaS    && <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />}
                   {hasAlunos        && <NavLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />}
+                  
+                  {/* Novo Menu de Auditoria - Visível apenas para quem tem Clientes/Alunos */}
+                  {(hasIPTVorSaaS || hasAlunos) && (
+                    <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><IconLog /> Log Portal</span>} />
+                  )}
+
                   {can("revendas")  && <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} />}
                   {can("testes")    && <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />}
 
@@ -462,6 +485,12 @@ const managerActive = useMemo(() => {
             ) : (
               <>
                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
+                
+                {/* Primeira opção no Mobile se tiver acesso */}
+                {(hasIPTVorSaaS || hasAlunos) && (
+                  <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><IconLog /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
+                )}
+
                 {can("dashboard")   && <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />}
                 {hasIPTVorSaaS      && <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />}
                 {hasAlunos          && <MenuLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} onClick={() => setOpenMenu(null)} />}
@@ -830,6 +859,17 @@ function IconSininho({ className }: { className?: string }) {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+function IconLog() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
     </svg>
   );
 }
