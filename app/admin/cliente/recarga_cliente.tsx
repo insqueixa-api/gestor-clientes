@@ -69,9 +69,9 @@ interface MessageTemplate {
   interface Props {
     clientId: string;
     clientName: string;
-    paymentLogId?: string; // ✅ NOVO: Recebe o ID da Auditoria
+    paymentLogId?: string; // ✅ Recebe o ID da Auditoria
     onClose: () => void;
-    onSuccess: (logId?: string) => void | Promise<void>; // ✅ NOVO: Permite devolver o ID para a Auditoria
+    onSuccess: (logId?: string) => void | Promise<void>; // ✅ Permite devolver o ID e aguardar
     onError?: (msg: string) => void;
     allowConvertWithoutPayment?: boolean;
     toastKey?: "clients_list_toasts" | "trials_list_toasts";
@@ -1347,9 +1347,9 @@ if (renewAutomatic) {
 }
 
 setTimeout(async () => {
-  // ✅ Avisa a Auditoria qual ID foi concluído e aguarda ela salvar no banco
+  // ✅ Avisa a Auditoria qual ID foi concluído e AGUARDA ela salvar no banco
   await onSuccess(paymentLogId);
-  onClose();
+  onClose(); // Só destrói o modal depois que a auditoria terminar
 }, 500);
 
     } catch (err: any) {

@@ -558,7 +558,7 @@ function AuditoriaPageContent() {
                                   className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
                                 >
-                                  <IconX /> Cancelar
+                                  <IconX /> 
                                 </button>
                               </>
                             )}
@@ -605,11 +605,12 @@ function AuditoriaPageContent() {
         <RecargaCliente
           clientId={renewState.clientId}
           clientName={renewState.clientName}
-          paymentLogId={renewState.logId} // ✅ Passa a Referência pendente
+          paymentLogId={renewState.logId} // ✅ Passa a Referência pendente pro Modal
           onClose={() => setRenewState(null)}
           onSuccess={async (returnedLogId) => {
-            if (!returnedLogId) return; // Se for chamado por outra tela (sem logId), ignora.
-            
+            // Se não retornar ID, significa que o modal foi aberto de outro lugar e não da Auditoria
+            if (!returnedLogId) return; 
+
             try {
               // 1. A auditoria conclui estritamente a referência devolvida pelo modal
               await supabaseBrowser
