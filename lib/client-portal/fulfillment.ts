@@ -174,7 +174,7 @@ const provider = String(integ.provider || "").toUpperCase();
 
   // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
   if (provider === "ELITE") {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Provedor ELITE (Ação via extensão)" }).eq("id", payment.id);
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "ELITE - Renovação via extensão" }).eq("id", payment.id);
     return { expDateISO: null };
   }
   const months = toPeriodMonths(payment.period);
@@ -191,7 +191,7 @@ const provider = String(integ.provider || "").toUpperCase();
   if (provider === "FAST") renewPath = "/api/integrations/fast/renew-client";
   else if (provider === "NATV") renewPath = "/api/integrations/natv/renew-client";
   else if (provider === "ELITE") renewPath = "/api/integrations/elite/renew";
-  else throw new Error(`Provedor não suportado: ${provider}`);
+  else throw new Error(`Servidor não suportado: ${provider}`);
 
   const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
   if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
