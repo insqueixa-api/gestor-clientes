@@ -277,16 +277,14 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      const { error } = await supabaseBrowser
-        .from("client_portal_payments")
-        .update({ 
-          fulfillment_status: "cancelled", // Muda para cancelado
-          fulfilled_at: new Date().toISOString()
-        })
-        .eq("id", log.id)
-        .eq("tenant_id", tenantId);
+      // ✅ AGORA SIM: Chamando a função SQL que tem permissão para alterar
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "cancelled"
+      });
 
-      if (error) throw error;
+      if (error) throw error;
 
       addToast("success", "Ação Encerrada", "A renovação foi marcada como cancelada.");
       loadData(); 
@@ -320,8 +318,9 @@ function AuditoriaPageContent() {
     }
 
     // 4. Fluxo normal pós-pagamento aprovado
-    if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
-    if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Ação Manual</span>;
+    if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
+    if (status === "manual_done") return <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold uppercase border border-indigo-200 dark:border-indigo-500/30">Concluído Manualmente</span>;
+    if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Ação Manual</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
     
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
@@ -405,8 +404,9 @@ function AuditoriaPageContent() {
             className="w-[180px] h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
           >
             <option value="Todos">Processamento (Todos)</option>
-            <option value="done">Concluídos</option>
-            <option value="manual_pending">Ação Manual (Pendentes)</option>
+            <option value="done">Concluídos (Auto)</option>
+            <option value="manual_done">Concluídos Manualmente</option>
+            <option value="manual_pending">Ação Manual (Pendentes)</option>
             <option value="error">Erros na Renovação</option>
             <option value="pending">Aguardando Pagamento</option>
           </select>
@@ -515,13 +515,19 @@ function AuditoriaPageContent() {
                         {/* Renovação */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
-                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
-                            {r.fulfillment_error && r.payment_status === 'approved' && (
-                              <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
-                                {r.fulfillment_error}
-                              </span>
-                            )}
-                          </div>
+                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
+                            {r.fulfillment_status === "manual_pending" ? (
+                              <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title="Renovação Manual">
+                                Renovação Manual
+                              </span>
+                            ) : (
+                              r.fulfillment_error && r.payment_status === 'approved' && (
+                                <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
+                                  {r.fulfillment_error}
+                                </span>
+                              )
+                            )}
+                          </div>
                         </td>
 
                         {/* Mensagem WA */}
@@ -607,14 +613,14 @@ function AuditoriaPageContent() {
           onClose={() => setRenewState(null)}
           onSuccess={async (returnedLogId) => {
             // Se não retornar ID, significa que o modal foi aberto de outro lugar e não da Auditoria
-            if (!returnedLogId) return; 
+            if (!returnedLogId) return;
 
             try {
-              // 1. A auditoria conclui estritamente a referência devolvida pelo modal
+              // ✅ Usa a RPC e manda o status novo: manual_done
               const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
                 p_log_id: returnedLogId,
                 p_tenant_id: tenantId,
-                p_status: "done"
+                p_status: "manual_done"
               });
 
               if (error) throw error;
