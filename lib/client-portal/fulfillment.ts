@@ -152,7 +152,7 @@ export async function runFulfillment(params: FulfillmentParams) {
   
   // ✅ AJUSTE FINO 2: Em vez de quebrar tela vermelha, joga para fila manual
   if (!srv.panel_integration) {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação Manual" }).eq("id", payment.id);
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending"}).eq("id", payment.id);
     return { expDateISO: null };
   }
 
@@ -166,7 +166,7 @@ export async function runFulfillment(params: FulfillmentParams) {
     .single();
 
   if (iErr || !integ) {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação Manual" }).eq("id", payment.id);
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending"}).eq("id", payment.id);
     return { expDateISO: null };
   }
 
@@ -174,7 +174,7 @@ const provider = String(integ.provider || "").toUpperCase();
 
   // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
   if (provider === "ELITE") {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Elite - Renovação Manual" }).eq("id", payment.id);
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending"}).eq("id", payment.id);
     return { expDateISO: null };
   }
   const months = toPeriodMonths(payment.period);
