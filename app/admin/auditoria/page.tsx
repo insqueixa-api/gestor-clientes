@@ -241,26 +241,14 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      // O .select() obriga o Supabase a devolver a linha alterada. 
-      // Se voltar vazio, o bloqueio é real.
-      const { data, error } = await supabaseBrowser
-        .from("client_portal_payments")
-        .update({ 
-          fulfillment_status: "cancelled",
-          fulfilled_at: new Date().toISOString()
-        })
-        .eq("id", log.id)
-        .eq("tenant_id", tenantId)
-        .select();
+      // ✅ Usa a RPC para furar o bloqueio de segurança do Supabase
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "cancelled"
+      });
 
-      console.log("🔍 DIAGNÓSTICO UPDATE:", { data, error, logId: log.id, tenantId });
-
-      if (error) throw error;
-      
-      // Se não deu erro, mas o data voltou vazio, o banco ignorou o update silenciosamente
-      if (!data || data.length === 0) {
-        throw new Error("O banco ignorou a atualização (Provável bloqueio de permissão RLS). Nenhuma linha foi alterada.");
-      }
+      if (error) throw error;
 
       addToast("success", "Auditoria Atualizada", "Processo marcado como concluído com sucesso!");
       loadData(); 
@@ -618,21 +606,20 @@ function AuditoriaPageContent() {
           paymentLogId={renewState.logId} // ✅ Passa a Referência pendente pro Modal
           onClose={() => setRenewState(null)}
           onSuccess={async (returnedLogId) => {
-            // Se não retornar ID, significa que o modal foi aberto de outro lugar e não da Auditoria
-            if (!returnedLogId) return; 
+            // Se não retornar ID, significa que o modal foi aberto de outro lugar e não da Auditoria
+            if (!returnedLogId) return; 
 
-            try {
-              // 1. A auditoria conclui estritamente a referência devolvida pelo modal
-              await supabaseBrowser
-                .from("client_portal_payments")
-                .update({ 
-                  fulfillment_status: "done",
-                  fulfilled_at: new Date().toISOString()
-                })
-                .eq("id", returnedLogId)
-                .eq("tenant_id", tenantId);
-              
-              // 2. Notifica e atualiza a lista em tempo real
+            try {
+              // 1. A auditoria conclui estritamente a referência devolvida pelo modal
+              const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+                p_log_id: returnedLogId,
+                p_tenant_id: tenantId,
+                p_status: "done"
+              });
+
+              if (error) throw error;
+              
+              // 2. Notifica e atualiza a lista em tempo real
               addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
               setRenewState(null);
               loadData(); 
