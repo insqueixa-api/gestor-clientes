@@ -259,6 +259,44 @@ function AuditoriaPageContent() {
     }
   };
 
+  // ✅ NOVA FUNÇÃO: Cancela a renovação manual sem abrir o modal
+  const handleCancelarAcao = async (log: LogRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Cancelar Renovação Manual",
+      subtitle: "Deseja marcar esta renovação como cancelada? Ela sairá da lista de pendências.",
+      tone: "rose",
+      icon: "🚫",
+      details: [
+        `Cliente: ${log.client_name}`,
+        `Login: ${log.server_username}`,
+      ],
+      confirmText: "Sim, Cancelar",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseBrowser
+        .from("client_portal_payments")
+        .update({ 
+          fulfillment_status: "cancelled", // Muda para cancelado
+          fulfilled_at: new Date().toISOString()
+        })
+        .eq("id", log.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+
+      addToast("success", "Ação Encerrada", "A renovação foi marcada como cancelada.");
+      loadData(); 
+    } catch (e: any) {
+      addToast("error", "Erro ao cancelar", e.message);
+    }
+  };
+
   // --- HELPERS VISUAIS (Com Bloqueio de Fluxo) ---
   function getPaymentBadge(status: string) {
     if (status === "approved" || status === "PAGO") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Aprovado</span>;
@@ -268,8 +306,8 @@ function AuditoriaPageContent() {
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // ✅ Se o pagamento foi recusado, a renovação foi cancelada automaticamente
-    if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
+    // ✅ Se o status for cancelado manualmente ou o pagamento falhou
+    if (status === "cancelled" || paymentStatus === "rejected" || paymentStatus === "cancelled") {
       return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
     }
 
@@ -403,6 +441,10 @@ function AuditoriaPageContent() {
                   visible.map((r) => {
                     const dateObj = new Date(r.created_at);
                     const isManualPending = r.fulfillment_status === "manual_pending";
+                    
+                    // ✅ Variáveis declaradas para corrigir o erro
+                    const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
+                    const canShowAction = isManualPending || isRejected;
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -491,18 +533,44 @@ function AuditoriaPageContent() {
 
                         {/* Ações */}
                         <td className="px-4 py-3 text-center">
-                          {isManualPending && (
-                            <button
-                              onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
-                              className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1 mx-auto"
-                              title="Abrir painel de renovação para concluir o processo"
-                            >
-                              <IconCheckCircle /> Concluir
-                            </button>
-                          )}
-                          {!isManualPending && (
-                            <span className="text-slate-300 dark:text-white/20 text-xs">—</span>
-                          )}
+                          <div className="flex items-center justify-center gap-2">
+                            {isManualPending && (
+                              <>
+                                {/* Botão Concluir (Roxo) */}
+                                <button
+                                  onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
+                                  className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
+                                  title="Abrir painel de renovação"
+                                >
+                                  <IconCheckCircle /> Concluir
+                                </button>
+                                
+                                {/* ✅ Botão Cancelar (Vermelho suave) */}
+                                <button
+                                  onClick={() => handleCancelarAcao(r)}
+                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                  title="Encerrar esta pendência sem renovar"
+                                >
+                                  <IconX /> Cancelar
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Caso de Renovação para Recusados */}
+                            {isRejected && (
+                               <button
+                               onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
+                               className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:text-rose-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/30 shadow-sm flex items-center justify-center gap-1 mx-auto"
+                               title="Tentar renovar manualmente"
+                             >
+                               <span className="text-sm leading-none">🔄</span> Renovar
+                             </button>
+                            )}
+
+                            {!canShowAction && (
+                              <span className="text-slate-300 dark:text-white/20 text-xs font-bold">—</span>
+                            )}
+                          </div>
                         </td>
 
                       </tr>
