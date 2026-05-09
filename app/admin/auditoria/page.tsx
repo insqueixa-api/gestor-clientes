@@ -515,19 +515,16 @@ function AuditoriaPageContent() {
                         {/* Renovação */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
-                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
-                            {r.fulfillment_status === "manual_pending" ? (
-                              <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title="Renovação Manual">
-                                Renovação Manual
-                              </span>
-                            ) : (
-                              r.fulfillment_error && r.payment_status === 'approved' && (
-                                <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
-                                  {r.fulfillment_error}
-                                </span>
-                              )
-                            )}
-                          </div>
+                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
+                            {r.fulfillment_error && r.payment_status === 'approved' && (
+                              <span 
+                                className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" 
+                                title={isManualPending ? "Renovação Manual" : r.fulfillment_error}
+                              >
+                                {isManualPending ? "Renovação Manual" : r.fulfillment_error}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Mensagem WA */}
