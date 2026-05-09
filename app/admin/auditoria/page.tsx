@@ -241,12 +241,12 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      // ✅ Usa a RPC para furar o bloqueio de segurança do Supabase
-      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
-        p_log_id: log.id,
-        p_tenant_id: tenantId,
-        p_status: "cancelled"
-      });
+      // ✅ Usa a RPC e manda o status correto de conclusão manual
+      const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "manual_done"
+      });
 
       if (error) throw error;
 
@@ -279,10 +279,10 @@ function AuditoriaPageContent() {
     try {
       // ✅ AGORA SIM: Chamando a função SQL que tem permissão para alterar
       const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
-        p_log_id: log.id,
-        p_tenant_id: tenantId,
-        p_status: "cancelled"
-      });
+        p_log_id: log.id,
+        p_tenant_id: tenantId,
+        p_status: "manual_cancelled" // ✅ Corrigido para Cancelado Manual
+      });
 
       if (error) throw error;
 
@@ -302,9 +302,13 @@ function AuditoriaPageContent() {
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // 1. Prioridade Máxima: Se foi cancelado manualmente na auditoria, mostra Cancelada independente do pagamento
-    if (status === "cancelled") {
-      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
+    // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
+    if (status === "manual_cancelled" || status === "cancelled") {
+      return (
+        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+          {status === "manual_cancelled" ? "Cancelada Manualmente" : "Cancelada"}
+        </span>
+      );
     }
 
     // 2. Se o pagamento foi recusado/cancelado no gateway
@@ -515,16 +519,25 @@ function AuditoriaPageContent() {
                         {/* Renovação */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-1 items-center">
-                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
-                            {r.fulfillment_error && r.payment_status === 'approved' && (
+                            {getFulfillmentBadge(r.fulfillment_status, r.payment_status)}
+                            
+                            {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
+                            {(r.fulfillment_status === "manual_pending" || r.fulfillment_status === "manual_done" || r.fulfillment_status === "manual_cancelled") ? (
                               <span 
-                                className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" 
-                                title={isManualPending ? "Renovação Manual" : r.fulfillment_error}
+                                className="text-[10px] text-slate-500 dark:text-white/50 leading-tight max-w-[200px] truncate font-medium" 
+                                title={r.fulfillment_error || "Renovação Manual"}
                               >
-                                {isManualPending ? "Renovação Manual" : r.fulfillment_error}
+                                {r.fulfillment_error || "Renovação Manual"}
                               </span>
+                            ) : (
+                              /* Erros reais de API continuam vermelhos */
+                              r.fulfillment_error && r.payment_status === 'approved' && (
+                                <span className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate" title={r.fulfillment_error}>
+                                  {r.fulfillment_error}
+                                </span>
+                              )
                             )}
-                          </div>
+                          </div>
                         </td>
 
                         {/* Mensagem WA */}

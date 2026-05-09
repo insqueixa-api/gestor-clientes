@@ -151,32 +151,32 @@ export async function runFulfillment(params: FulfillmentParams) {
   if (sErr || !srv) throw new Error("Servidor não encontrado para renovação.");
   
   // ✅ AJUSTE FINO 2: Em vez de quebrar tela vermelha, joga para fila manual
-  if (!srv.panel_integration) {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação Manual" }).eq("id", payment.id);
-    return { expDateISO: null };
-  }
+  if (!srv.panel_integration) {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação Manual" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
 
-  const integrationId = String(srv.panel_integration);
+  const integrationId = String(srv.panel_integration);
 
-  const { data: integ, error: iErr } = await supabaseAdmin
-    .from("server_integrations")
-    .select("id,provider")
-    .eq("tenant_id", tenantId)
-    .eq("id", integrationId)
-    .single();
+  const { data: integ, error: iErr } = await supabaseAdmin
+    .from("server_integrations")
+    .select("id,provider")
+    .eq("tenant_id", tenantId)
+    .eq("id", integrationId)
+    .single();
 
-  if (iErr || !integ) {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Integração inativa" }).eq("id", payment.id);
-    return { expDateISO: null };
-  }
+  if (iErr || !integ) {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação Manual" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
 
 const provider = String(integ.provider || "").toUpperCase();
 
-  // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
-  if (provider === "ELITE") {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Renovação via extensão" }).eq("id", payment.id);
-    return { expDateISO: null };
-  }
+  // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
+  if (provider === "ELITE") {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: "Elite - Renovação Manual" }).eq("id", payment.id);
+    return { expDateISO: null };
+  }
   const months = toPeriodMonths(payment.period);
   prodLog("fulfillment.provider_resolved", {
     tenant: tenantId.slice(-6),

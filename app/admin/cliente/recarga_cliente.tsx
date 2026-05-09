@@ -1304,28 +1304,29 @@ if (registerPayment && renewAutomatic) {
           }
 
           const res = await fetch("/api/whatsapp/envio_agora", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              tenant_id: tid,
-              client_id: clientId,
-              message: messageContent,
-              message_template_id: selectedTemplateId || null, // Opcional, para histórico
-              image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
-              whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida
-            }),
-          });
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              client_id: clientId,
+              message: messageContent,
+              message_template_id: selectedTemplateId || null, // Opcional, para histórico
+              image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
+              whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida
+            }),
+          });
 
-          if (!res.ok) throw new Error("API retornou erro");
+          if (!res.ok) throw new Error("API retornou erro");
 
-          queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
-        } catch (e) {
-          console.error("Falha envio Whats:", e);
-          queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.", toastKey);
-        }
+          // ✅ Usa addToast (imediato) em vez de queueToast (fila invisível da outra tela)
+          addToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.");
+        } catch (e) {
+          console.error("Falha envio Whats:", e);
+          addToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.");
+        }
       }
 
       // --- FIM ---
