@@ -241,16 +241,26 @@ function AuditoriaPageContent() {
     if (!ok) return;
 
     try {
-      const { error } = await supabaseBrowser
+      // O .select() obriga o Supabase a devolver a linha alterada. 
+      // Se voltar vazio, o bloqueio é real.
+      const { data, error } = await supabaseBrowser
         .from("client_portal_payments")
         .update({ 
-          fulfillment_status: "done",
+          fulfillment_status: "cancelled",
           fulfilled_at: new Date().toISOString()
         })
         .eq("id", log.id)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .select();
+
+      console.log("🔍 DIAGNÓSTICO UPDATE:", { data, error, logId: log.id, tenantId });
 
       if (error) throw error;
+      
+      // Se não deu erro, mas o data voltou vazio, o banco ignorou o update silenciosamente
+      if (!data || data.length === 0) {
+        throw new Error("O banco ignorou a atualização (Provável bloqueio de permissão RLS). Nenhuma linha foi alterada.");
+      }
 
       addToast("success", "Auditoria Atualizada", "Processo marcado como concluído com sucesso!");
       loadData(); 
