@@ -332,8 +332,8 @@ async function handleSyncIntegration(server: ServerRow) {
       
       // Se você mudou o nome sem querer, o sistema agora te diz QUAL nome está lá
       if (!url) {
-        console.warn(`[SYNC] Provedor desconhecido: "${provider}"`);
-        throw new Error(`O provedor "${provider}" não possui uma rota de sincronização. Verifique se escreveu 'ELITE' corretamente.`);
+        console.warn(`[SYNC] Servidor desconhecido: "${provider}"`);
+        throw new Error(`O servidor "${provider}" não possui uma rota de sincronização. Verifique se escreveu 'ELITE' corretamente.`);
       }
 
       addToast("success", "Sincronizando...", "Lendo dados diretamente do painel...");

@@ -69,12 +69,11 @@ interface MessageTemplate {
   interface Props {
     clientId: string;
     clientName: string;
+    paymentLogId?: string; // ✅ NOVO: Recebe o ID da Auditoria
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (logId?: string) => void | Promise<void>; // ✅ NOVO: Permite devolver o ID para a Auditoria
     onError?: (msg: string) => void;
     allowConvertWithoutPayment?: boolean;
-
-    // ✅ NOVO: define em qual lista a tela vai ler o toast depois
     toastKey?: "clients_list_toasts" | "trials_list_toasts";
   }
 
@@ -257,6 +256,7 @@ interface MessageTemplate {
   export default function RecargaCliente({
     clientId,
     clientName,
+    paymentLogId, // ✅ Recebido aqui
     onClose,
     onSuccess,
     allowConvertWithoutPayment = false,
@@ -479,7 +479,7 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
   // ✅ Prefill Observações (agora certo)
   setObs(cFixed.notes || "");
 
-  // ✅ NOVO: Detectar se servidor tem integração e QUAL O PROVEDOR
+  // ✅ NOVO: Detectar se servidor tem integração e QUAL O SERVIDOR
 if (c.server_id) {
   try {
     const { data: srv } = await supabaseBrowser
@@ -799,7 +799,7 @@ let baseDate: Date;
       setTotalBrl(currency === "BRL" ? rawVal : rawVal * (Number(fxRate) || 0));
     }, [planPrice, fxRate, currency]);
 
-    // ✅ TRAVA DE TECNOLOGIA POR PROVEDOR (Evita envios errados para API)
+    // ✅ TRAVA DE TECNOLOGIA POR Servidor (Evita envios errados para API)
     useEffect(() => {
       if (integrationProvider === "FAST" || integrationProvider === "NATV") {
         if (technology !== "IPTV") {
@@ -1090,7 +1090,7 @@ try {
                   if (provider === "FAST") apiUrl = "/api/integrations/fast/renew-client";
                   else if (provider === "NATV") apiUrl = "/api/integrations/natv/renew-client";
                   
-                  if (!apiUrl) throw new Error(`Provedor de integração não suportado: ${provider}`);
+                  if (!apiUrl) throw new Error(`Servidor de integração não suportado: ${provider}`);
 
                   const apiRes = await fetch(apiUrl, {
                     method: "POST",
@@ -1346,8 +1346,9 @@ if (renewAutomatic) {
   queueToast("success", `Cliente renovado manualmente`, "Renovação manual registrada com sucesso.", toastKey);
 }
 
-setTimeout(() => {
-  onSuccess();
+setTimeout(async () => {
+  // ✅ Avisa a Auditoria qual ID foi concluído e aguarda ela salvar no banco
+  await onSuccess(paymentLogId);
   onClose();
 }, 500);
 

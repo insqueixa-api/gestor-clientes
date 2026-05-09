@@ -12,7 +12,7 @@ function normalizeCurrency(v: any, fallback: string) {
   return fallback;
 }
 
-// --- PROVEDOR 1: FRANKFURTER (Banco Central Europeu) ---
+// --- Servidor 1: FRANKFURTER (Banco Central Europeu) ---
 async function tryFrankfurter(base: string, to: string) {
   const url = `https://api.frankfurter.app/latest?from=${base}&to=${to}`;
   const res = await fetch(url, { next: { revalidate: 3600 } }); // Cache Next.js
@@ -25,7 +25,7 @@ async function tryFrankfurter(base: string, to: string) {
   return { rate, source: "frankfurter", date: json.date };
 }
 
-// --- PROVEDOR 2: AWESOMEAPI (Excelente para BRL) ---
+// --- Servidor 2: AWESOMEAPI (Excelente para BRL) ---
 async function tryAwesomeApi(base: string, to: string) {
   // AwesomeAPI usa formato "USD-BRL"
   const pair = `${base}-${to}`;

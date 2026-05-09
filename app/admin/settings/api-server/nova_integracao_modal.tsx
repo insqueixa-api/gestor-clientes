@@ -214,7 +214,7 @@ return true;
         <div className="p-5 space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">
-              Provedor
+              Servidor
             </label>
             <select
               value={provider}

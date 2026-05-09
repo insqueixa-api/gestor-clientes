@@ -1609,7 +1609,7 @@ setSelectedApps(instances);
 
 
 
-// ✅ TRAVA DE TECNOLOGIA POR PROVEDOR
+// ✅ TRAVA DE TECNOLOGIA POR SERVIDOR
 
   useEffect(() => {
     if (isEditing) return; // ✅ Não sobrescreve tecnologia salva ao editar

@@ -229,7 +229,7 @@ if (!renewRes.ok || !renewJson?.ok) {
       provider,
       http_status: renewRes.status,
     });
-    const msg = renewJson?.error || `Falha ao renovar no provedor ${provider}. HTTP ${renewRes.status}`;
+    const msg = renewJson?.error || `Falha ao renovar no servidor ${provider}. HTTP ${renewRes.status}`;
     
     // ✅ AJUSTE FINO 4: Erro na API agora cai pra fila manual para suporte humano
     await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending", fulfillment_error: msg }).eq("id", payment.id);

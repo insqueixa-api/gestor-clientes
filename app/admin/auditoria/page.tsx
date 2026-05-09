@@ -306,19 +306,26 @@ function AuditoriaPageContent() {
   }
 
   function getFulfillmentBadge(status: string, paymentStatus: string) {
-    // ✅ Se o status for cancelado manualmente ou o pagamento falhou
-    if (status === "cancelled" || paymentStatus === "rejected" || paymentStatus === "cancelled") {
+    // 1. Prioridade Máxima: Se foi cancelado manualmente na auditoria, mostra Cancelada independente do pagamento
+    if (status === "cancelled") {
       return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
     }
 
-    // Se o pagamento ainda está pendente, mostra o traço aguardando
+    // 2. Se o pagamento foi recusado/cancelado no gateway
+    if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
+      return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/40 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Cancelada</span>;
+    }
+
+    // 3. Se o pagamento ainda está pendente, mostra o traço aguardando
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
     }
 
+    // 4. Fluxo normal pós-pagamento aprovado
     if (status === "done") return <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">Concluído</span>;
     if (status === "manual_pending") return <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">Ação Manual</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro API</span>;
+    
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
   }
 
@@ -598,21 +605,24 @@ function AuditoriaPageContent() {
         <RecargaCliente
           clientId={renewState.clientId}
           clientName={renewState.clientName}
+          paymentLogId={renewState.logId} // ✅ Passa a Referência pendente
           onClose={() => setRenewState(null)}
-          onSuccess={async () => {
+          onSuccess={async (returnedLogId) => {
+            if (!returnedLogId) return; // Se for chamado por outra tela (sem logId), ignora.
+            
             try {
-              // 1. Atualiza o banco marcando a auditoria como concluída
+              // 1. A auditoria conclui estritamente a referência devolvida pelo modal
               await supabaseBrowser
                 .from("client_portal_payments")
                 .update({ 
                   fulfillment_status: "done",
                   fulfilled_at: new Date().toISOString()
                 })
-                .eq("id", renewState.logId)
+                .eq("id", returnedLogId)
                 .eq("tenant_id", tenantId);
               
-              // 2. Fecha o modal e atualiza a lista
-              addToast("success", "Auditoria Atualizada", "Renovação registrada e auditoria concluída!");
+              // 2. Notifica e atualiza a lista em tempo real
+              addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
               setRenewState(null);
               loadData(); 
             } catch (e) {

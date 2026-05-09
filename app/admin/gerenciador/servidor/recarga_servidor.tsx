@@ -145,7 +145,7 @@ async function handleSave() {
         else if (provider === "ELITE") syncUrl = "/api/integrations/elite/sync";
 
         if (!syncUrl) {
-          throw new Error(`Provedor não suportado para sincronização: ${provider}`);
+          throw new Error(`Servidor não suportado para sincronização: ${provider}`);
         }
 
         // 👇 INÍCIO DO AJUSTE: Pegar o token para a API recém-blindada não nos bloquear 👇

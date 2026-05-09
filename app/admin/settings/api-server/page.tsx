@@ -235,7 +235,7 @@ return u || "--";
       cancelText: "Voltar",
       details: [
         "A integração será removida do UniGestor.",
-        "Isso não remove clientes no painel do provedor.",
+        "Isso não remove clientes no painel do servidor.",
       ],
     });
     if (!ok) return;
