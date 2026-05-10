@@ -441,9 +441,15 @@ credits_used: months * qtyScreens,
       throw new Error("A API de envio imediato recusou a mensagem ou VM estava offline.");
     }
 
+    // ✅ NOVO: Se passou sem erros, atualiza a nova coluna whatsapp_status na tabela de auditoria para "sent"
+    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", payment.id);
+
   } catch (e) {
     safeServerLog("fulfillment: failed whatsapp immediate", (e as any)?.message);
     
+    // ✅ NOVO: Se caiu no catch, atualiza a tabela de auditoria como "error" (Mesmo o Plano B agendando depois)
+    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", payment.id);
+
     // ✅ PLANO B: Se falhou (mas temos a mensagem montada), salva direto na fila do Cron (+2 min)
     if (messageToSend) {
       try {

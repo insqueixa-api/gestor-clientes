@@ -932,6 +932,33 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
 
   // Mantendo o mesmo padrão de erro 502 global se todos os números falharam
   const allFailed = results.length > 0 && results.every(r => r.status !== 200);
+  
+  // ✅ NOVO: Grava no histórico (client_message_jobs) para aparecer na listagem
+  try {
+    const insertPayload: any = {
+      tenant_id: tenantId,
+      message: message, // Grava o texto do template (variáveis brutas)
+      message_template_id: messageTemplateId || null,
+      image_url: imageUrl,
+      status: allFailed ? "FAILED" : "SENT",
+      send_at: new Date().toISOString(),
+      sent_at: allFailed ? null : new Date().toISOString(),
+      error_message: allFailed ? "Falha ao enviar via API do WhatsApp" : null,
+      whatsapp_session: targetSession,
+      created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
+    };
+
+    if (recipientType === "reseller" || recipientType === "saas") {
+      insertPayload.reseller_id = recipientId;
+    } else {
+      insertPayload.client_id = recipientId;
+    }
+
+    await sb.from("client_message_jobs").insert(insertPayload);
+  } catch (err) {
+    safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);
+  }
+
   if (allFailed) {
     return NextResponse.json({ error: "Falha ao enviar" }, { status: 502 });
   }

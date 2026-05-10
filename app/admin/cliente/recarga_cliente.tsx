@@ -1304,27 +1304,38 @@ if (registerPayment && renewAutomatic) {
           }
 
           const res = await fetch("/api/whatsapp/envio_agora", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              tenant_id: tid,
-              client_id: clientId,
-              message: messageContent,
-              message_template_id: selectedTemplateId || null, // Opcional, para histórico
-              image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
-              whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida
-            }),
-          });
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tenant_id: tid,
+              client_id: clientId,
+              message: messageContent,
+              message_template_id: selectedTemplateId || null, // Opcional, para histórico
+              image_url: imageUrlToSend, // ✅ ENVIA A IMAGEM AQUI!
+              whatsapp_session: selectedSession, // ✅ Usando a sessão escolhida
+            }),
+          });
 
-          if (!res.ok) throw new Error("API retornou erro");
+          if (!res.ok) throw new Error("API retornou erro");
 
-          // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
+          // ✅ NOVO: Atualiza a coluna no banco confirmando o envio!
+          if (paymentLogId) {
+            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", paymentLogId);
+          }
+
+          // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
           queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
         } catch (e) {
           console.error("Falha envio Whats:", e);
+
+          // ✅ NOVO: Atualiza a coluna no banco registrando a falha!
+          if (paymentLogId) {
+            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", paymentLogId);
+          }
+
           queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.", toastKey);
         }
       }

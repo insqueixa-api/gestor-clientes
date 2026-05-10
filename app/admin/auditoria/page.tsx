@@ -100,7 +100,7 @@ function AuditoriaPageContent() {
         // 1. Busca os logs exatos de pagamento
         let query = supabaseBrowser
           .from("client_portal_payments")
-          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id") // ✅ Adicionado mp_payment_id
+          .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status") // ✅ Adicionado whatsapp_status
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -172,7 +172,7 @@ function AuditoriaPageContent() {
             payment_status: r.status, 
             fulfillment_status: r.fulfillment_status,
           fulfillment_error: r.fulfillment_error,
-          whatsapp_status: (r.fulfillment_status === 'done' || r.fulfillment_status === 'manual_done') ? 'sent' : null, 
+          whatsapp_status: r.whatsapp_status, // ✅ Lendo o campo real do banco! 
           price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
@@ -310,6 +310,82 @@ function AuditoriaPageContent() {
       loadData(); 
     } catch (e: any) {
       addToast("error", "Erro ao cancelar", e.message);
+    }
+  };
+
+  // ✅ NOVA FUNÇÃO: Reenvia apenas o WhatsApp direto, sem abrir o modal
+  const handleReenviarWhatsapp = async (log: LogRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Reenviar WhatsApp",
+      subtitle: "A renovação já foi feita no servidor. Deseja reenviar apenas o comprovante via WhatsApp?",
+      tone: "sky",
+      icon: "💬",
+      details: [
+        `Cliente: ${log.client_name}`,
+        `Login: ${log.server_username}`,
+      ],
+      confirmText: "Sim, Reenviar",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+
+      // 1. Busca o template de pagamento exatamente como o webhook faz
+      const { data: tmpl } = await supabaseBrowser
+        .from("message_templates")
+        .select("id, content, image_url")
+        .eq("tenant_id", tenantId)
+        .or("name.ilike.%pagamento%,name.ilike.%pago%,name.ilike.%realizado%")
+        .order("name", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!tmpl || !tmpl.content) {
+        throw new Error("Template de 'Pagamento Realizado' não encontrado no banco.");
+      }
+
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      // 2. Dispara a API de envio agora
+      const res = await fetch("/api/whatsapp/envio_agora", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          client_id: log.client_id,
+          message: tmpl.content,
+          message_template_id: tmpl.id,
+          image_url: tmpl.image_url,
+          // Se quiser forçar uma sessão específica, adicione whatsapp_session: "session2"
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("A API recusou o envio ou a VM está offline.");
+      }
+
+      // 3. Atualiza o status do banco para sucesso
+      await supabaseBrowser
+        .from("client_portal_payments")
+        .update({ whatsapp_status: "sent" })
+        .eq("id", log.id);
+
+      addToast("success", "Mensagem enviada", "Comprovante enviado com sucesso!");
+      loadData(); 
+    } catch (err: any) {
+      console.error(err);
+      addToast("error", "Erro ao reenviar", err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -469,11 +545,13 @@ function AuditoriaPageContent() {
                 ) : (
                   visible.map((r) => {
                     const dateObj = new Date(r.created_at);
-                    const isManualPending = r.fulfillment_status === "manual_pending";
                     
-                    // ✅ Variáveis declaradas para corrigir o erro
+                    // ✅ Separação clara dos estados
+                    const isManualPending = r.fulfillment_status === "manual_pending";
+                    const isWhatsappError = r.whatsapp_status === "error" && (r.fulfillment_status === "done" || r.fulfillment_status === "manual_done");
                     const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
-                    const canShowAction = isManualPending || isRejected;
+                    
+                    const canShowAction = isManualPending || isWhatsappError || isRejected;
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -577,7 +655,7 @@ function AuditoriaPageContent() {
                           <div className="flex items-center justify-center gap-2">
                             {isManualPending && (
                               <>
-                                {/* Botão Concluir (Roxo) */}
+                                {/* Botão Concluir (Roxo) - Abre o Modal de Recarga */}
                                 <button
                                   onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
                                   className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
@@ -595,6 +673,17 @@ function AuditoriaPageContent() {
                                   <IconX /> 
                                 </button>
                               </>
+                            )}
+
+                            {/* ✅ NOVO: Botão direto para reenviar o comprovante de WhatsApp */}
+                            {isWhatsappError && (
+                              <button
+                                onClick={() => handleReenviarWhatsapp(r)}
+                                className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-700 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-sky-200 dark:border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                title="Reenviar comprovante via WhatsApp"
+                              >
+                                💬 Reenviar Zap
+                              </button>
                             )}
                             
                             {/* Caso de Renovação para Recusados */}
