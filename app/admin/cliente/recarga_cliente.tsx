@@ -74,7 +74,7 @@ interface MessageTemplate {
     onSuccess: (logId?: string) => void | Promise<void>; // ✅ Permite devolver o ID e aguardar
     onError?: (msg: string) => void;
     allowConvertWithoutPayment?: boolean;
-    toastKey?: "clients_list_toasts" | "trials_list_toasts";
+    toastKey?: "clients_list_toasts" | "trials_list_toasts" | "auditoria_list_toasts"; // ✅ Nova chave
   }
 
 
@@ -240,7 +240,7 @@ interface MessageTemplate {
     type: "success" | "error",
     title: string,
     message?: string,
-    key: "clients_list_toasts" | "trials_list_toasts" = "clients_list_toasts"
+    key: "clients_list_toasts" | "trials_list_toasts" | "auditoria_list_toasts" = "clients_list_toasts"
   ) {
     try {
       const raw = window.sessionStorage.getItem(key);
@@ -1321,12 +1321,12 @@ if (registerPayment && renewAutomatic) {
 
           if (!res.ok) throw new Error("API retornou erro");
 
-          // ✅ Usa addToast (imediato) em vez de queueToast (fila invisível da outra tela)
-          addToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.");
-        } catch (e) {
-          console.error("Falha envio Whats:", e);
-          addToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.");
-        }
+          // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
+          queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
+        } catch (e) {
+          console.error("Falha envio Whats:", e);
+          queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.", toastKey);
+        }
       }
 
       // --- FIM ---

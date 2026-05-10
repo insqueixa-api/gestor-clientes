@@ -171,9 +171,9 @@ function AuditoriaPageContent() {
             payment_method: r.payment_method,
             payment_status: r.status, 
             fulfillment_status: r.fulfillment_status,
-            fulfillment_error: r.fulfillment_error,
-            whatsapp_status: r.fulfillment_status === 'done' ? 'sent' : null, 
-            price_amount: r.price_amount,
+          fulfillment_error: r.fulfillment_error,
+          whatsapp_status: (r.fulfillment_status === 'done' || r.fulfillment_status === 'manual_done') ? 'sent' : null, 
+          price_amount: r.price_amount,
             price_currency: r.price_currency,
             period: r.period,
             plan_label: r.plan_label,
@@ -195,6 +195,26 @@ function AuditoriaPageContent() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // ✅ NOVO: Escuta os toasts que vieram do Modal quando o loading termina
+  useEffect(() => {
+    if (loading) return;
+
+    try {
+      const key = "auditoria_list_toasts";
+      const raw = window.sessionStorage.getItem(key);
+      if (!raw) return;
+
+      const arr = JSON.parse(raw) as { type: "success" | "error" | "warning"; title: string; message?: string }[];
+      window.sessionStorage.removeItem(key);
+
+      for (const t of arr) {
+        addToast(t.type, t.title, t.message);
+      }
+    } catch {
+      // ignora
+    }
+  }, [loading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -620,9 +640,9 @@ function AuditoriaPageContent() {
           clientId={renewState.clientId}
           clientName={renewState.clientName}
           paymentLogId={renewState.logId} // ✅ Passa a Referência pendente pro Modal
+          toastKey="auditoria_list_toasts" // ✅ Redireciona os Toasts para esta página
           onClose={() => setRenewState(null)}
           onSuccess={async (returnedLogId) => {
-            // Se não retornar ID, significa que o modal foi aberto de outro lugar e não da Auditoria
             if (!returnedLogId) return;
 
             try {
