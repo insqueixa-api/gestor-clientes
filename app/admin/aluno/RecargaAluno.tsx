@@ -22,6 +22,7 @@ interface AlunoData {
   vencimento: string | null;
   screens: number | null;
   notes?: string | null;
+  technology?: string | null; // ✅ Adicionado
 }
 
 interface PlanTableItemPrice { screens_count: number; price_amount: number | null; }
@@ -32,9 +33,11 @@ interface MessageTemplate     { id: string; name: string; content: string; image
 interface Props {
   clientId:  string;
   clientName: string;
+  paymentLogId?: string; // ✅
   onClose:   () => void;
-  onSuccess: () => void;
-  toastKey?: "clients_list_toasts" | "trials_list_toasts" | "alunos_list_toasts";
+  onSuccess: (logId?: string) => void | Promise<void>; // ✅
+  toastKey?: "clients_list_toasts" | "trials_list_toasts" | "alunos_list_toasts" | "auditoria_list_toasts"; // ✅
+  allowConvertWithoutPayment?: boolean; // ✅
 }
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
@@ -121,17 +124,31 @@ function pickCredits(table: PlanTable | null, period: string, screens: number): 
   return (item.credits_base || 0) * Math.max(1, screens);
 }
 
-function queueToast(
-  type: "success" | "error",
-  title: string,
-  message?: string,
-  key: string = "alunos_list_toasts"
-) {
-  try {
-    const arr = JSON.parse(window.sessionStorage.getItem(key) || "[]");
-    arr.push({ type, title, message, ts: Date.now() });
-    window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch {}
+// ─── HELPERS WHATSAPP ─────────────────────────────────────────────────────────
+function extractWaNumberFromJid(jid?: unknown): string {
+  if (typeof jid !== "string") return "";
+  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
+  return raw.replace(/\D/g, "");
+}
+
+function formatBRPhoneFromDigits(digits: string): string {
+  if (!digits) return "";
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const country = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const rest = digits.slice(4);
+    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `+${country} (${ddd}) ${rest}`;
+  }
+  return `+${digits}`;
+}
+
+function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
+  if (!profile?.connected) return `${sessionName} (não conectado)`;
+  const digits = extractWaNumberFromJid(profile?.jid);
+  const pretty = formatBRPhoneFromDigits(digits);
+  return `${sessionName} • ${pretty || "Conectado"}`;
 }
 
 // ─── COMPONENTE ───────────────────────────────────────────────────────────────
@@ -139,12 +156,27 @@ function queueToast(
 export default function RecargaAluno({
   clientId,
   clientName,
+  paymentLogId, // ✅
   onClose,
   onSuccess,
   toastKey = "alunos_list_toasts",
+  allowConvertWithoutPayment = false, // ✅
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const scrollYRef = useRef(0);
+
+  function queueToast(
+    type: "success" | "error" | "warning",
+    title: string,
+    message?: string,
+    key: string = toastKey // Usa a key passada por prop
+  ) {
+    try {
+      const arr = JSON.parse(window.sessionStorage.getItem(key) || "[]");
+      arr.push({ type, title, message, ts: Date.now() });
+      window.sessionStorage.setItem(key, JSON.stringify(arr));
+    } catch {}
+  }
 
   useEffect(() => {
     setMounted(true);
@@ -167,7 +199,11 @@ export default function RecargaAluno({
   const [loading, setLoading]             = useState(false);
   const [loadingText, setLoadingText]     = useState("Processando...");
   const isSavingRef                       = useRef(false);
+  const isCheckingRef                     = useRef(false); // ✅
   const isFirstLoad                       = useRef(true);
+
+  // ✅ NOVO: Guarda a tecnologia padrão baseada no módulo do cliente
+  const [defaultTech, setDefaultTech]     = useState("ACADEMIA");
 
   const [toasts, setToasts]               = useState<ToastMessage[]>([]);
   const { confirm, ConfirmUI }            = useConfirm();
@@ -200,6 +236,12 @@ export default function RecargaAluno({
   const [fxRate, setFxRate]               = useState(1);
   const [totalBrl, setTotalBrl]           = useState(0);
   const [obs, setObs]                     = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [payDate, setPayDate]             = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
 
   // WhatsApp
   const [sendWhats, setSendWhats]         = useState(true);
@@ -208,8 +250,10 @@ export default function RecargaAluno({
   const [msgContent, setMsgContent]       = useState("");
   const [selectedSession, setSelectedSession] = useState("default");
   const [sessionOptions, setSessionOptions] = useState([
-    { id: "default", label: "Sessão principal" },
+    { id: "default", label: "Carregando..." },
   ]);
+
+  const [renewAutomatic, setRenewAutomatic] = useState(false);
 
   const selectedTable = useMemo(
     () => tables.find(t => t.id === selectedTableId) || null,
@@ -223,7 +267,7 @@ export default function RecargaAluno({
 
   // ─── LOAD ───────────────────────────────────────────────────────────────────
 
-  const addToast = (type: "success" | "error", title: string, message?: string) => {
+  const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
     const id = Date.now() + Math.random();
     setToasts(p => [...p, { id, type, title, message, durationMs: 5000 }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
@@ -235,17 +279,28 @@ export default function RecargaAluno({
       try {
         const tid = await getCurrentTenantId();
 
+        // ✅ NOVO: Busca os módulos ativos para definir a tecnologia padrão correta
+        try {
+          const { data: tenantInfo } = await supabaseBrowser.from("tenants").select("active_modules").eq("id", tid).maybeSingle();
+          const mods = tenantInfo?.active_modules || [];
+          if (mods.includes("academia")) {
+            setDefaultTech("ACADEMIA");
+          } else if (mods.includes("personal")) {
+            setDefaultTech("PERSONAL");
+          }
+        } catch (e) {}
+
         // Sessões WhatsApp
         try {
           const [r1, r2] = await Promise.all([
             fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
             fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
           ]);
-          const n1 = localStorage.getItem("wa_label_1") || "Principal";
-          const n2 = localStorage.getItem("wa_label_2") || "Secundária";
+          const n1 = localStorage.getItem("wa_label_1") || "Contato Principal";
+          const n2 = localStorage.getItem("wa_label_2") || "Contato Secundário";
           if (alive) setSessionOptions([
-            { id: "default",  label: r1?.connected ? `${n1} (${(r1.jid?.split("@")[0] || "").slice(-9)})` : `${n1} (desconectado)` },
-            { id: "session2", label: r2?.connected ? `${n2} (${(r2.jid?.split("@")[0] || "").slice(-9)})` : `${n2} (desconectado)` },
+            { id: "default",  label: buildWhatsAppSessionLabel(r1, n1) },
+            { id: "session2", label: buildWhatsAppSessionLabel(r2, n2) },
           ]);
         } catch {}
 
@@ -271,6 +326,7 @@ export default function RecargaAluno({
           vencimento:     raw.vencimento,
           screens:        raw.screens,
           notes:          raw.notes,
+          technology:     raw.technology,
         };
         setAlunoData(aluno);
         setObs(aluno.notes || "");
@@ -313,12 +369,12 @@ export default function RecargaAluno({
         // Tabelas
         const { data: tRes } = await supabaseBrowser
           .from("plan_tables")
-          .select(`id, name, currency, is_system_default,
+          .select(`id, name, currency, is_system_default, table_type,
             items:plan_table_items(id, period, credits_base,
               prices:plan_table_item_prices(screens_count, price_amount))`)
           .eq("tenant_id", tid)
           .eq("is_active", true)
-          .eq("table_type", "iptv");
+          .eq("table_type", "iptv"); // Mudou para academia? Verifique se table_type é academia ou iptv no seu db.
 
         const allTables = (tRes || []) as unknown as PlanTable[];
         setTables(allTables);
@@ -384,6 +440,12 @@ export default function RecargaAluno({
     setDueTime(time);
   }, [alunoData, period]);
 
+  useEffect(() => {
+    const isFromTrial = Boolean(allowConvertWithoutPayment);
+    if (!isFromTrial) return;
+    if (!registerPayment) setSendWhats(false);
+  }, [allowConvertWithoutPayment, registerPayment]);
+
   // Reset override ao mudar estrutura
   useEffect(() => {
     if (isFirstLoad.current) return;
@@ -403,6 +465,22 @@ export default function RecargaAluno({
     setCurrency(selectedTable.currency || "BRL");
     if (tableChangedRef.current) setPriceTouched(false);
     tableChangedRef.current = false;
+
+    (async () => {
+      try {
+        const tid = await getCurrentTenantId();
+        if (selectedTable.currency === "BRL") {
+          setFxRate(1);
+          return;
+        }
+        const { data: fx } = await supabaseBrowser.from("tenant_fx_rates").select("*").eq("tenant_id", tid).order("as_of_date", { ascending: false }).limit(1).maybeSingle();
+        if (fx) {
+            const rate = selectedTable.currency === "USD" ? Number(fx.usd_to_brl) : Number(fx.eur_to_brl);
+            setFxRate(rate || 5);
+        } else { setFxRate(5); }
+      } catch (e) { console.error(e); setFxRate(5); }
+    })();
+
   }, [selectedTableId, selectedTable]);
 
   // Total BRL
@@ -411,15 +489,18 @@ export default function RecargaAluno({
     setTotalBrl(currency === "BRL" ? raw : raw * (fxRate || 1));
   }, [planPrice, fxRate, currency]);
 
+
   // ─── SAVE ───────────────────────────────────────────────────────────────────
 
   const handlePreCheck = async () => {
-    if (loading || isSavingRef.current || !alunoData) return;
-    isSavingRef.current = true;
+    if (loading || isSavingRef.current || isCheckingRef.current || !alunoData) return;
+    isCheckingRef.current = true;
 
     const rawPrice = safeNum(planPrice);
     const months = PLAN_MONTHS[period] || 1;
     const planType = PLAN_TYPES.find(p => p.screens === screens)?.label || `${screens} alunos`;
+    const isFromTrial = Boolean(allowConvertWithoutPayment);
+    const isPaymentFlow = Boolean(registerPayment);
 
     const details = [
       `Aluno: ${alunoData.display_name || clientName}`,
@@ -427,28 +508,36 @@ export default function RecargaAluno({
       "---",
       `Plano: ${PLAN_LABELS[period]} · ${planType}`,
       `Novo vencimento: ${dueDate.split("-").reverse().join("/")} às ${dueTime}`,
-      `Valor: ${fmtMoney(currency, rawPrice)}`,
-      ...(deductCredits && hasIntegration
-        ? [`Créditos a descontar: ${creditsInfo} (saldo atual: ${creditsAvailable})`]
-        : []),
     ];
 
+    if (isFromTrial && !isPaymentFlow) {
+      details.push(`Tipo: Conversão (Sem pagamento)`);
+    } else {
+      details.push(`Valor: ${fmtMoney(currency, rawPrice)}`);
+      if (deductCredits && hasIntegration) {
+        details.push(`Créditos a descontar: ${creditsInfo} (saldo atual: ${creditsAvailable})`);
+      }
+    }
+
     const ok = await confirm({
-      title: "Confirmar Renovação",
+      title: isFromTrial && !isPaymentFlow ? "Converter Aluno" : "Confirmar Renovação",
       subtitle: "Confira os dados antes de salvar.",
-      tone: "emerald",
-      icon: "🎓",
+      tone: isFromTrial && !isPaymentFlow ? "sky" : "emerald",
+      icon: isFromTrial && !isPaymentFlow ? "✨" : "🎓",
       details,
       confirmText: "Confirmar",
       cancelText: "Voltar",
     });
 
-    if (!ok) { isSavingRef.current = false; return; }
+    if (!ok) { isCheckingRef.current = false; return; }
     await executeSave();
-    isSavingRef.current = false;
+    isCheckingRef.current = false;
   };
 
   const executeSave = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
     setLoading(true);
     setLoadingText("Iniciando...");
 
@@ -488,7 +577,6 @@ export default function RecargaAluno({
           return;
         }
 
-        // Atualiza saldo exibido
         setCreditsAvailable(json.data?.credits_remaining ?? 0);
       }
 
@@ -510,12 +598,12 @@ export default function RecargaAluno({
         p_price_amount:           rawPrice,
         p_price_currency:         currency as any,
         p_vencimento:             alunoData?.vencimento || null, // mantém — renew_client_and_log atualiza
-        p_is_trial:               null,
+        p_is_trial:               allowConvertWithoutPayment ? false : null,
         p_whatsapp_opt_in:        true,
         p_whatsapp_username:      null,
         p_whatsapp_snooze_until:  null,
         p_is_archived:            false,
-        p_technology:             alunoData ? (alunoData as any).technology || "ACADEMIA" : "ACADEMIA",
+        p_technology:             alunoData ? alunoData.technology || defaultTech : defaultTech, // ✅ Usa a tecnologia correta
         p_clear_whatsapp_snooze_until: false,
         p_clear_secondary:        false,
       });
@@ -550,7 +638,7 @@ export default function RecargaAluno({
           const token = sess?.session?.access_token;
           const tpl = templates.find(t => t.id === selectedTemplateId);
 
-          await fetch("/api/whatsapp/envio_agora", {
+          const res = await fetch("/api/whatsapp/envio_agora", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -562,12 +650,32 @@ export default function RecargaAluno({
               whatsapp_session:    selectedSession,
             }),
           });
+          
+          if (!res.ok) throw new Error("API retornou erro");
+
+          // ✅ Atualiza a coluna no banco confirmando o envio
+          if (paymentLogId) {
+            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", paymentLogId);
+          }
+
           queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
-        } catch { queueToast("error", "Erro no envio", "Renovado, mas WhatsApp falhou.", toastKey); }
+        } catch { 
+          // ✅ Atualiza a coluna no banco registrando a falha
+          if (paymentLogId) {
+            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", paymentLogId);
+          }
+          queueToast("error", "Erro no envio", "Renovado, mas WhatsApp falhou.", toastKey); 
+        }
       }
 
+      // --- FIM ---
+      setLoadingText("Concluído!");
       queueToast("success", "Aluno renovado", "Renovação registrada com sucesso.", toastKey);
-      setTimeout(() => { onSuccess(); onClose(); }, 500);
+      
+      setTimeout(async () => { 
+        await onSuccess(paymentLogId); 
+        onClose(); 
+      }, 500);
 
     } catch (err: any) {
       console.error("[RecargaAluno] save:", err);
@@ -580,6 +688,8 @@ export default function RecargaAluno({
   if (fetching || !mounted) return null;
 
   const planType = PLAN_TYPES.find(p => p.screens === screens);
+  const isFromTrial = Boolean(allowConvertWithoutPayment);
+  const headerTitle = isFromTrial ? "Converter em Assinante" : "Renovação de Aluno";
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
 
@@ -596,9 +706,15 @@ export default function RecargaAluno({
           {/* HEADER */}
           <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-xl">🎓</div>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
+                {isFromTrial ? 
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 
+                    : 
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                }
+              </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">Renovação de Aluno</h2>
+                <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">{headerTitle}</h2>
                 <p className="text-xs text-slate-500 dark:text-white/50">
                   {alunoData?.server_username || "—"} · {alunoData?.server_name || "—"}
                 </p>
@@ -664,7 +780,7 @@ export default function RecargaAluno({
                 </FS>
               </div>
 
-              {/* Tipo de plano (Individual / Família / Família Total) */}
+              {/* Tipo de plano */}
               <div>
                 <FL>Tipo de Plano</FL>
                 <div className="flex gap-2">
@@ -737,25 +853,31 @@ export default function RecargaAluno({
             )}
 
             {/* Registrar Financeiro */}
-            <div
-              onClick={() => setRegisterPayment(v => !v)}
-              className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
-                registerPayment
-                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20"
-                  : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">💰</span>
-                <div>
-                  <span className={`text-xs font-bold block ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>
-                    Registrar no Financeiro
-                  </span>
-                  <span className="text-[9px] text-slate-400">Gera log de pagamento</span>
+            {Boolean(allowConvertWithoutPayment) && (
+              <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
+                <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
+                <SW checked={registerPayment} onChange={setRegisterPayment} />
+              </div>
+            )}
+
+            {registerPayment && (
+              <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-100 dark:border-white/5 animate-in slide-in-from-top-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FL>Método</FL>
+                    <FS value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                      <option value="PIX">PIX</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Cartão">Cartão</option>
+                    </FS>
+                  </div>
+                  <div>
+                    <FL>Data Pagto</FL>
+                    <FI type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="dark:[color-scheme:dark]" />
+                  </div>
                 </div>
               </div>
-              <SW checked={registerPayment} onChange={setRegisterPayment} />
-            </div>
+            )}
 
             {/* WhatsApp */}
             <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 space-y-2">
@@ -819,7 +941,7 @@ export default function RecargaAluno({
               ) : (
                 <>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                  Confirmar Renovação
+                  {isFromTrial && !registerPayment ? "Converter" : "Confirmar"}
                 </>
               )}
             </button>
@@ -845,7 +967,7 @@ function FL({ children }: { children: React.ReactNode }) {
   return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">{children}</label>;
 }
 function FI({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;
+  return <input {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors dark:[color-scheme:dark] ${className}`} />;
 }
 function FS({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`} />;

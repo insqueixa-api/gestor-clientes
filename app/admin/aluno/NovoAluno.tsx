@@ -306,6 +306,9 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   const [loading, setLoading]     = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
   const [fetchingAux, setFetchingAux] = useState(true);
+  
+  // ✅ NOVO: Guarda se a empresa é Personal ou Academia (Padrão: Academia)
+  const [tenantTech, setTenantTech] = useState("ACADEMIA");
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -599,6 +602,14 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
       try {
         const tid = await getCurrentTenantId();
         if (!alive) return;
+
+        // ✅ NOVO: Busca os módulos ativos para gravar a tecnologia correta
+        try {
+          const { data: tInfo } = await supabaseBrowser.from("tenants").select("active_modules").eq("id", tid).maybeSingle();
+          const mods = tInfo?.active_modules || [];
+          if (mods.includes("academia")) setTenantTech("ACADEMIA");
+          else if (mods.includes("personal")) setTenantTech("PERSONAL");
+        } catch(e) {}
 
         // Tenant slug
         const { data: tenant } = await supabaseBrowser
@@ -910,7 +921,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         p_whatsapp_snooze_until:    null,
         p_clear_whatsapp_snooze_until: true,
         p_name_prefix:              salutation || null,
-        p_technology:               modalidade,       // reutiliza campo technology para modalidade
+        p_technology:               tenantTech, // ✅ Agora salva a tecnologia real (Academia ou Personal)
         p_secondary_display_name:   emergencyName.trim() || null,
         p_secondary_name_prefix:    emergencySalut || null,
         p_secondary_phone_e164:     finalEmergPhone,

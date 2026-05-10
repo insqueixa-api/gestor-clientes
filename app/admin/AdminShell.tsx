@@ -254,8 +254,8 @@ export default function AdminShell({
             pendingManual.forEach(p => {
               list.push({
                 id: `manual_${p.id}`,
-                title: '🟣 Renovação Pendente',
-                message: 'Um pagamento foi aprovado no portal e aguarda sua ação para renovar o cliente no servidor.',
+                title: '🟣 Ação Necessária',
+                message: 'Um pagamento foi aprovado no portal e aguarda liberação manual no servidor.',
                 link: '/admin/auditoria',
                 type: 'info', 
                 is_read: false,
@@ -265,6 +265,34 @@ export default function AdminShell({
           }
         } catch (e) {
           console.error("Erro ao buscar renovações pendentes:", e);
+        }
+      }
+
+      // 5. Monitoramento de Falha no WhatsApp
+      if ((hasIPTVorSaaS || hasAlunos) && tenantId) {
+        try {
+          const { data: failedWa, error: waErr } = await supabaseBrowser
+            .from("client_portal_payments")
+            .select("id, created_at")
+            .eq("tenant_id", tenantId)
+            .eq("whatsapp_status", "error")
+            .in("fulfillment_status", ["done", "manual_done"]);
+
+          if (!waErr && failedWa) {
+            failedWa.forEach(p => {
+              list.push({
+                id: `wa_err_${p.id}`,
+                title: '💬 Falha no WhatsApp',
+                message: 'Uma recarga foi efetuada, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela auditoria.',
+                link: '/admin/auditoria',
+                type: 'error', // Usando vermelho para destacar a falha
+                is_read: false,
+                created_at: p.created_at || nowIso,
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Erro ao buscar falhas de whatsapp:", e);
         }
       }
 

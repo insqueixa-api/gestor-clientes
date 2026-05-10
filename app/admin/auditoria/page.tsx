@@ -7,8 +7,9 @@ import { useConfirm } from "@/app/admin/HookuseConfirm";
 import { useModules } from "@/lib/modules/ModulesContext";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 
-// ✅ Importa o modal de recarga (Ajuste o caminho se sua pasta cliente tiver outro nome)
+// ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
+import RecargaAluno from "../aluno/RecargaAluno"; // Ajuste o caminho conforme sua estrutura
 
 // --- TIPOS ---
 type LogRow = {
@@ -30,6 +31,7 @@ type LogRow = {
   plan_label: string | null;
   gateway_name: string;
   mp_payment_id: string | null; // ✅ Adicionado
+  technology: string; // ✅ Adicionado para controlar qual modal de recarga abrir
 };
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -38,6 +40,13 @@ const PERIOD_LABELS: Record<string, string> = {
   QUARTERLY: "Trimestral",
   SEMIANNUAL: "Semestral",
   ANNUAL: "Anual",
+};
+
+// ✅ Tradução de "screens" para tipo de plano de Academia
+const ACADEMIA_PLAN_TYPES: Record<number, string> = {
+  1: "Individual",
+  2: "Família",
+  3: "Família Total"
 };
 
 // --- ICONES ---
@@ -131,7 +140,7 @@ function AuditoriaPageContent() {
         if (clientIds.length > 0) {
           const { data: clientsData } = await supabaseBrowser
             .from("clients")
-            .select("id, display_name, server_username, server_id, screens")
+            .select("id, display_name, server_username, server_id, screens, technology") // ✅ Adicionado technology
             .in("id", clientIds)
             .eq("tenant_id", tid);
 
@@ -165,6 +174,7 @@ function AuditoriaPageContent() {
             created_at: r.created_at,
             client_id: r.client_id,
             client_name: cInfo.display_name || "Cliente Excluído",
+            technology: cInfo.technology || "IPTV", // ✅ Guardando para saber qual modal abrirclient_name: cInfo.display_name || "Cliente Excluído",
             server_username: cInfo.server_username || "—",
             server_name: serverName,
             screens: cInfo.screens || 1, // Puxa as telas ou assume 1
@@ -594,8 +604,15 @@ function AuditoriaPageContent() {
                         {/* Plano / Telas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5 items-center">
-                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">{r.plan_label || PERIOD_LABELS[r.period] || r.period}</span>
-                            <span className="text-[10px] text-slate-400">{r.screens} tela(s)</span>
+                            <span className="text-xs font-bold text-slate-600 dark:text-white/80">
+                              {r.plan_label || PERIOD_LABELS[r.period] || r.period}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {r.technology === "ACADEMIA" || r.technology === "PERSONAL" 
+                                ? ACADEMIA_PLAN_TYPES[r.screens] || `${r.screens} pessoas`
+                                : `${r.screens} tela(s)`
+                              }
+                            </span>
                           </div>
                         </td>
 
@@ -723,36 +740,47 @@ function AuditoriaPageContent() {
         </div>
       )}
 
-      {/* ✅ Renderiza o Modal de Recarga ao clicar no Concluir */}
+      {/* ✅ Renderiza o Modal de Recarga ao clicar no Concluir (Dinâmico para Cliente ou Aluno) */}
       {renewState && (
-        <RecargaCliente
-          clientId={renewState.clientId}
-          clientName={renewState.clientName}
-          paymentLogId={renewState.logId} // ✅ Passa a Referência pendente pro Modal
-          toastKey="auditoria_list_toasts" // ✅ Redireciona os Toasts para esta página
-          onClose={() => setRenewState(null)}
-          onSuccess={async (returnedLogId) => {
-            if (!returnedLogId) return;
-
-            try {
-              // ✅ Usa a RPC e manda o status novo: manual_done
-              const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
-                p_log_id: returnedLogId,
-                p_tenant_id: tenantId,
-                p_status: "manual_done"
-              });
-
-              if (error) throw error;
-              
-              // 2. Notifica e atualiza a lista em tempo real
-              addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
-              setRenewState(null);
-              loadData(); 
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        />
+        <>
+          {rows.find((r) => r.id === renewState.logId)?.technology === "ACADEMIA" || rows.find((r) => r.id === renewState.logId)?.technology === "PERSONAL" ? (
+            <RecargaAluno
+              clientId={renewState.clientId}
+              clientName={renewState.clientName}
+              paymentLogId={renewState.logId}
+              toastKey="auditoria_list_toasts"
+              onClose={() => setRenewState(null)}
+              onSuccess={async (returnedLogId) => {
+                if (!returnedLogId) return;
+                try {
+                  const { error } = await supabaseBrowser.rpc("update_fulfillment_status", { p_log_id: returnedLogId, p_tenant_id: tenantId, p_status: "manual_done" });
+                  if (error) throw error;
+                  addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
+                  setRenewState(null);
+                  loadData(); 
+                } catch (e) {}
+              }}
+            />
+          ) : (
+            <RecargaCliente
+              clientId={renewState.clientId}
+              clientName={renewState.clientName}
+              paymentLogId={renewState.logId}
+              toastKey="auditoria_list_toasts"
+              onClose={() => setRenewState(null)}
+              onSuccess={async (returnedLogId) => {
+                if (!returnedLogId) return;
+                try {
+                  const { error } = await supabaseBrowser.rpc("update_fulfillment_status", { p_log_id: returnedLogId, p_tenant_id: tenantId, p_status: "manual_done" });
+                  if (error) throw error;
+                  addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
+                  setRenewState(null);
+                  loadData(); 
+                } catch (e) {}
+              }}
+            />
+          )}
+        </>
       )}
 
       {ConfirmUI}
