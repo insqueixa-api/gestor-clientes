@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       integration_id: string;
       tenant_id: string;
       months: number;
-      credits_to_deduct?: number;
+      credits_to_deduct?: any; // ✅ Trocado para 'any' para podermos inspecionar o que vier
     };
 
     if (!integration_id || !tenant_id || !months) {
@@ -58,9 +58,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Verifica saldo
-    const creditsNeeded = Number(credits_to_deduct ?? months ?? 1);
-    const currentCredits = Number(server.credits_available || 0);
+    // 4. ✅ BLINDAGEM MÁXIMA CONTRA NaN NO SALDO
+    let safeDeduct = 0;
+    
+    // Se o front mandou um objeto por engano (ex: { used: 1 }), pegamos o valor certo
+    if (typeof credits_to_deduct === 'object' && credits_to_deduct !== null) {
+      safeDeduct = Number(credits_to_deduct.used) || 0;
+    } else {
+      safeDeduct = Number(credits_to_deduct);
+    }
+
+    // Se ainda assim der NaN ou for negativo, usa os meses como fallback
+    if (isNaN(safeDeduct) || safeDeduct < 0) {
+      safeDeduct = Number(months) || 1;
+    }
+
+    const creditsNeeded = safeDeduct;
+
+    // Garante que o saldo atual também é um número (se o banco já estiver corrompido, trata como 0 para não espalhar o NaN)
+    const currentCredits = isNaN(Number(server.credits_available)) ? 0 : Number(server.credits_available);
 
     if (currentCredits < creditsNeeded) {
       return NextResponse.json(
@@ -74,6 +90,15 @@ export async function POST(req: NextRequest) {
 
     // 5. Desconta créditos via RPC
     const newCredits = currentCredits - creditsNeeded;
+    
+    // Última trava de segurança antes do banco
+    if (isNaN(newCredits)) {
+      return NextResponse.json(
+        { ok: false, error: "Falha de cálculo interno. Recarga abortada para proteger o saldo." },
+        { status: 400 }
+      );
+    }
+
     const { error: updateErr } = await supabase.rpc("update_server_credits_manual", {
       p_server_id:   server.id,
       p_new_credits: newCredits,
@@ -94,7 +119,7 @@ export async function POST(req: NextRequest) {
     const yyyy = exp.getFullYear();
     const mm   = String(exp.getMonth() + 1).padStart(2, "0");
     const dd   = String(exp.getDate()).padStart(2, "0");
-    // -03:00 = horário de Brasília (sem ajuste de horário de verão por simplicidade)
+    // -03:00 = horário de Brasília
     const expIso = new Date(`${yyyy}-${mm}-${dd}T23:59:00-03:00`).toISOString();
 
     return NextResponse.json({
