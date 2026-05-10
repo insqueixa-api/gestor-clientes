@@ -426,15 +426,27 @@ function AuditoriaPageContent() {
     return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Processando</span>;
   }
 
-  function getWhatsappBadge(status: string | null, paymentStatus: string) {
-    // Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada. Mostra o traço.
+  function getWhatsappBadge(status: string | null, paymentStatus: string, fulfillmentStatus: string) {
+    // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
     if (paymentStatus !== "approved" && paymentStatus !== "PAGO") {
       return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
     }
 
+    // 2. ✅ NOVO: Se a renovação foi cancelada (manual ou sistema), não há mensagem.
+    if (fulfillmentStatus === "manual_cancelled" || fulfillmentStatus === "cancelled") {
+      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+    }
+
+    // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
+    if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
+      return <span className="text-slate-300 dark:text-white/20 font-bold">—</span>;
+    }
+
+    // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
     if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro</span>;
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">Aguardando</span>;
+    
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/10">Aguardando</span>;
   }
 
   if (hasAccess === false) {
@@ -549,9 +561,8 @@ function AuditoriaPageContent() {
                     // ✅ Separação clara dos estados
                     const isManualPending = r.fulfillment_status === "manual_pending";
                     const isWhatsappError = r.whatsapp_status === "error" && (r.fulfillment_status === "done" || r.fulfillment_status === "manual_done");
-                    const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
                     
-                    const canShowAction = isManualPending || isWhatsappError || isRejected;
+                    const canShowAction = isManualPending || isWhatsappError;
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
@@ -640,7 +651,7 @@ function AuditoriaPageContent() {
 
                         {/* Mensagem WA */}
                         <td className="px-4 py-3 text-center">
-                           {getWhatsappBadge(r.whatsapp_status, r.payment_status)}
+                           {getWhatsappBadge(r.whatsapp_status, r.payment_status, r.fulfillment_status)}
                         </td>
 
                         {/* Valor */}
@@ -684,17 +695,6 @@ function AuditoriaPageContent() {
                               >
                                 💬 Reenviar Zap
                               </button>
-                            )}
-                            
-                            {/* Caso de Renovação para Recusados */}
-                            {isRejected && (
-                               <button
-                               onClick={() => setRenewState({ logId: r.id, clientId: r.client_id, clientName: r.client_name })}
-                               className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 dark:text-rose-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/30 shadow-sm flex items-center justify-center gap-1 mx-auto"
-                               title="Tentar renovar manualmente"
-                             >
-                               <span className="text-sm leading-none">🔄</span> Renovar
-                             </button>
                             )}
 
                             {!canShowAction && (
