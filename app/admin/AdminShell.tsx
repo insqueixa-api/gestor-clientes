@@ -255,7 +255,7 @@ export default function AdminShell({
               list.push({
                 id: `manual_${p.id}`,
                 title: '🟣 Ação Necessária',
-                message: 'Um pagamento foi aprovado no portal e aguarda liberação manual no servidor.',
+                message: 'Um pagamento foi aprovado e aguarda liberação manual no servidor.',
                 link: '/admin/auditoria',
                 type: 'info', 
                 is_read: false,
@@ -283,9 +283,9 @@ export default function AdminShell({
               list.push({
                 id: `wa_err_${p.id}`,
                 title: '💬 Falha no WhatsApp',
-                message: 'Uma recarga foi efetuada, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela auditoria.',
+                message: 'Uma recarga foi efetuada, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.',
                 link: '/admin/auditoria',
-                type: 'error', // Usando vermelho para destacar a falha
+                type: 'error', // Destaca a falha em vermelho
                 is_read: false,
                 created_at: p.created_at || nowIso,
               });

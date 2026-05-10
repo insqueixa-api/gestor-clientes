@@ -1083,15 +1083,16 @@ async function ensureAcademiaServer(
   slug: string
 ) {
   try {
-    const serverName = slug.charAt(0).toUpperCase() + slug.slice(1).toLowerCase();
-    const serverSlug = slug.toLowerCase();
+    const serverName = slug ? slug.charAt(0).toUpperCase() + slug.slice(1).toLowerCase() : "Academia";
+    const serverSlug = slug ? slug.toLowerCase() : "academia";
 
-    // 1. Verifica se já existe
+    // 1. Verifica se já existe pelo SLUG ou NOME (evita recriar se o nome mudou minimamente)
     const { data: existing } = await supabase
       .from("servers")
       .select("id, credits_available, panel_integration")
       .eq("tenant_id", tenantId)
-      .eq("slug", serverSlug)
+      .or(`slug.eq.${serverSlug},name.ilike.${serverName}`)
+      .limit(1)
       .maybeSingle();
 
     let serverId: string | null = existing?.id ?? null;
@@ -1119,10 +1120,17 @@ async function ensureAcademiaServer(
 
       serverId = newServer.id;
 
-      // 3. Aplica 999 créditos
+      // 3. Aplica 9999 créditos (Garante número inteiro limpo)
       await supabase.rpc("update_server_credits_manual", {
         p_server_id:   serverId,
-        p_new_credits: 999,
+        p_new_credits: Number(9999),
+      });
+      
+    } else if (isNaN(Number(existing.credits_available))) {
+      // ✅ AUTO-REPARO: Se o banco corrompeu com "NaN" no passado, conserta agora!
+      await supabase.rpc("update_server_credits_manual", {
+        p_server_id:   serverId,
+        p_new_credits: Number(9999),
       });
     }
 
