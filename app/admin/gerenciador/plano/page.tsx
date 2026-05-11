@@ -620,7 +620,7 @@ setHasAccess(true);
                         <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                           <div className="flex items-center gap-3">
                             <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-                              {plan.name.split(" ")[0]}
+                              {plan.is_system_default && plan.name.startsWith("Padrão") ? "Padrão" : plan.name}
                             </h2>
 
                             <div className="flex items-center gap-2">
@@ -763,9 +763,11 @@ setHasAccess(true);
                                           <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
                                             {PERIOD_LABELS[period]}
                                           </span>
-                                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                                            {credits} cr
-                                          </span>
+                                          {!isAlunosOnly && (
+                                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                              {credits} cr
+                                            </span>
+                                          )}
                                         </div>
 
                                         <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
