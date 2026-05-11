@@ -8,7 +8,6 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "../../ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
 
-// Componentes
 import NovoAluno from "../NovoAluno";
 import RecargaAluno from "../RecargaAluno";
 
@@ -44,10 +43,10 @@ function tableLabelFromClient(c: { plan_table_name?: string | null } | null | un
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    ACTIVE: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    OVERDUE: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-    TRIAL: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-    ARCHIVED: "bg-slate-500/10 text-slate-500 dark:text-white/40 border-slate-500/20",
+    ACTIVE: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    OVERDUE: "bg-rose-50 text-rose-600 border-rose-200",
+    TRIAL: "bg-sky-50 text-sky-600 border-sky-200",
+    ARCHIVED: "bg-slate-50 text-slate-500 border-slate-200",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -56,9 +55,9 @@ function StatusBadge({ status }: { status: string }) {
     ARCHIVED: "Arquivado",
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold border shadow-sm ${map[status] || map.ACTIVE}`}>
+    <div className={`w-full py-2 text-center rounded-xl text-sm font-black uppercase tracking-widest border-2 shadow-sm ${map[status] || map.ACTIVE}`}>
       {labelMap[status] || status}
-    </span>
+    </div>
   );
 }
 
@@ -81,12 +80,6 @@ function fmtDateTime(d: string) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return "--";
   return `${dt.toLocaleDateString("pt-BR")} às ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-}
-
-function calcIMC(altura_cm: number, peso_kg: number): number {
-  if (!altura_cm || !peso_kg) return 0;
-  const h = altura_cm / 100;
-  return peso_kg / (h * h);
 }
 
 // --- TIPOS ---
@@ -121,7 +114,7 @@ type ClientDetail = {
   m3u_url: string | null;
   server_password?: string | null;
   created_at: string | null;
-  dados_extras?: any; // Adicionado para carregar os dados de saúde e foto
+  dados_extras?: any;
 };
 
 type TimelineItem = {
@@ -159,9 +152,7 @@ function EvolucaoChart({ avaliacoes }: { avaliacoes: any[] }) {
     <div className="w-full overflow-x-auto">
       <div className="min-w-[400px]">
         <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto drop-shadow-sm">
-          {/* Linha de Peso */}
           <polyline fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={getPoints(pesos, minPeso, maxPeso)} />
-          {/* Pontos de Peso */}
           {pesos.map((val, i) => {
             const x = padX + (i * (w - 2 * padX)) / (pesos.length - 1);
             const y = h - padY - ((val - minPeso) / (maxPeso - minPeso)) * (h - 2 * padY);
@@ -194,9 +185,18 @@ export default function ClientDetailsPage() {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [editClientPayload, setEditClientPayload] = useState<any>(null);
 
-  const [isEditingLoading, setIsEditingLoading] = useState(false);
-  const [isRenewLoading, setIsRenewLoading] = useState(false);
   const [showRenewWarning, setShowRenewWarning] = useState(false);
+
+  // Modal de Nova Avaliação
+  const [showNovaAvModal, setShowNovaAvModal] = useState(false);
+  const [savingAv, setSavingAv] = useState(false);
+  const emptyAv = () => ({
+    data: new Date().toISOString().slice(0, 10),
+    peso_kg: "", gordura_pct: "", massa_magra_kg: "",
+    cintura_cm: "", quadril_cm: "", braco_cm: "", coxa_cm: "",
+    panturrilha_cm: "", abdomen_cm: "", ombro_cm: "", observacoes: "",
+  });
+  const [novaAv, setNovaAv] = useState(emptyAv());
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -238,11 +238,6 @@ export default function ClientDetailsPage() {
   function removeToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
-
-  const isMessageBlocked = useMemo(() => {
-    if (!client?.dont_message_until) return false;
-    return new Date(client.dont_message_until).getTime() > Date.now();
-  }, [client?.dont_message_until]);
 
   async function loadData() {
     if (!clientIdSafe) return;
@@ -296,21 +291,6 @@ export default function ClientDetailsPage() {
         dados_extras: dbDadosExtras ?? {}
       };
 
-      const { data: appsData } = await supabaseBrowser.from("client_apps").select("id, app_id, field_values").eq("client_id", mapped.id);
-      if (appsData) {
-        (mapped as any).apps_details = appsData.map((item: any) => {
-           const catalogApp = localAppsById[String(item.app_id)];
-           const vals = item.field_values || {};
-           const config = Array.isArray(catalogApp?.fields_config) ? catalogApp.fields_config : [];
-           let expiration = vals["Vencimento"] || vals["vencimento"] || vals["VENCIMENTO"] || null;
-           if (!expiration) {
-              const dateField = config.find((f: any) => f.type === 'date' || /vencimento/i.test(f.label));
-              if (dateField) expiration = vals[dateField.id] || vals[dateField.label] || null;
-           }
-           return { id: item.id, name: catalogApp?.name || "App", expiration, integration_type: catalogApp?.integration_type };
-        });
-      }
-
       setClient(mapped);
 
       const ev = await supabaseBrowser.from("client_events").select("id, created_at, event_type, message, meta")
@@ -327,42 +307,40 @@ export default function ClientDetailsPage() {
 
   useEffect(() => { loadData(); }, [clientId]);
 
-  async function handleArchiveToggle() {
+  async function handleSaveAvaliacao() {
     if (!client) return;
-    const goingToArchive = !client.client_is_archived;
-    const ok = await confirm({
-      tone: goingToArchive ? "rose" : "emerald",
-      title: goingToArchive ? "Arquivar aluno?" : "Restaurar aluno?",
-      subtitle: goingToArchive ? "Ele irá para a Lixeira e não aparecerá na lista principal." : "Ele voltará para a lista principal.",
-      details: [ `Aluno: ${client.client_name}` ],
-      confirmText: goingToArchive ? "Arquivar" : "Restaurar", cancelText: "Voltar",
-    });
-    if (!ok) return;
-
+    setSavingAv(true);
     try {
       const tid = await getCurrentTenantId();
-      const { error } = await supabaseBrowser.rpc("update_client", { p_tenant_id: tid, p_client_id: client.id, p_is_archived: goingToArchive });
+      const currentSaude = dadosExtras.saude || {};
+      const currentAvals = Array.isArray(currentSaude.avaliacoes) ? currentSaude.avaliacoes : [];
+      const newAv = { ...novaAv, id: crypto.randomUUID() };
+      
+      const newDadosExtras = {
+        ...dadosExtras,
+        saude: {
+          ...currentSaude,
+          avaliacoes: [...currentAvals, newAv]
+        }
+      };
+
+      const { error } = await supabaseBrowser
+        .from('clients')
+        .update({ dados_extras: newDadosExtras })
+        .eq('id', client.id)
+        .eq('tenant_id', tid);
+        
       if (error) throw error;
-      addToast("success", goingToArchive ? "Aluno arquivado" : "Aluno restaurado");
+      addToast("success", "Avaliação salva com sucesso!");
+      setShowNovaAvModal(false);
+      setNovaAv(emptyAv());
       loadData();
-    } catch (e: any) { addToast("error", "Falha ao atualizar", e.message); }
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSavingAv(false);
+    }
   }
-
-  const handleDeleteForever = async () => {
-    if (!client || !client.client_is_archived) return;
-    const ok = await confirm({
-      title: "Excluir definitivamente?", subtitle: "Isso vai remover o aluno e TODOS os seus registros permanentemente.",
-      tone: "rose", confirmText: "Excluir definitivo", cancelText: "Voltar",
-    });
-    if (!ok) return;
-
-    try {
-      const tid = await getCurrentTenantId();
-      const { error } = await supabaseBrowser.rpc("delete_client_forever", { p_tenant_id: tid, p_client_id: client.id });
-      if (error) throw error;
-      window.location.href = "/admin/aluno"; 
-    } catch (e: any) { addToast("error", "Erro ao excluir", e.message); }
-  };
 
   const handleRenewClick = () => {
     if (client && client.alerts_open > 0) setShowRenewWarning(true);
@@ -381,7 +359,6 @@ export default function ClientDetailsPage() {
     const pesoIdeal = alturaM > 0 ? (22 * alturaM * alturaM) : 0;
     const difPeso = pesoKg > 0 && pesoIdeal > 0 ? (pesoKg - pesoIdeal) : 0;
 
-    // Barras de progresso visual (Escala InBody aproximada)
     const renderBar = (val: number, normalMin: number, normalMax: number) => {
       const pct = Math.min(Math.max((val / (normalMax * 1.5)) * 100, 5), 100);
       return `<div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex relative"><div class="h-full bg-emerald-500 absolute left-0 top-0" style="width: ${pct}%"></div><div class="absolute left-1/3 w-1/3 h-full border-x-2 border-slate-400/30 bg-black/5"></div></div>`;
@@ -401,7 +378,6 @@ export default function ClientDetailsPage() {
         </head>
         <body class="p-6 text-slate-800 font-sans bg-white text-sm">
           <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8">
-            
             <div class="flex justify-between items-end border-b-2 border-slate-800 pb-4 mb-4">
               <div>
                 <h1 class="text-3xl font-black text-slate-900 tracking-tighter">UniGestor<span class="text-emerald-500">Body</span></h1>
@@ -422,50 +398,18 @@ export default function ClientDetailsPage() {
 
             <div class="section-title">Análise da Composição Corporal</div>
             <table class="w-full inbody-table mb-2">
-              <tr>
-                <th class="w-1/2">Componente</th>
-                <th class="w-1/4">Valores Obtidos</th>
-                <th class="w-1/4">Faixa Normal</th>
-              </tr>
-              <tr>
-                <td><strong>Água Corporal Total</strong> <span class="text-xs text-slate-400">(L)</span></td>
-                <td class="font-bold text-lg">${pesoKg > 0 ? (pesoKg * 0.6).toFixed(1) : '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + '~' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td>
-              </tr>
-              <tr>
-                <td><strong>Massa Livre de Gordura (Massa Magra)</strong> <span class="text-xs text-slate-400">(kg)</span></td>
-                <td class="font-bold text-lg text-emerald-600">${av.massa_magra_kg || '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.75).toFixed(1) + '~' + (pesoIdeal * 0.85).toFixed(1) : '--'}</td>
-              </tr>
-              <tr>
-                <td><strong>Massa de Gordura</strong> <span class="text-xs text-slate-400">(kg)</span></td>
-                <td class="font-bold text-lg text-rose-500">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + '~' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td>
-              </tr>
-              <tr class="bg-slate-50">
-                <td><strong>Peso Total</strong> <span class="text-xs text-slate-400">(kg)</span></td>
-                <td class="font-black text-xl">${av.peso_kg || '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + '~' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td>
-              </tr>
+              <tr><th class="w-1/2">Componente</th><th class="w-1/4">Valores Obtidos</th><th class="w-1/4">Faixa Normal</th></tr>
+              <tr><td><strong>Água Corporal Total</strong> <span class="text-xs text-slate-400">(L)</span></td><td class="font-bold text-lg">${pesoKg > 0 ? (pesoKg * 0.6).toFixed(1) : '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + '~' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td></tr>
+              <tr><td><strong>Massa Livre de Gordura (Massa Magra)</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-bold text-lg text-emerald-600">${av.massa_magra_kg || '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.75).toFixed(1) + '~' + (pesoIdeal * 0.85).toFixed(1) : '--'}</td></tr>
+              <tr><td><strong>Massa de Gordura</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-bold text-lg text-rose-500">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + '~' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td></tr>
+              <tr class="bg-slate-50"><td><strong>Peso Total</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-black text-xl">${av.peso_kg || '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + '~' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td></tr>
             </table>
 
             <div class="section-title">Análise Músculo-Gordura</div>
             <div class="space-y-4 px-2">
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4">
-                <span class="font-bold text-xs">Peso (kg)</span>
-                ${renderBar(pesoKg, pesoIdeal * 0.9, pesoIdeal * 1.1)}
-                <span class="font-black text-right">${av.peso_kg || '--'}</span>
-              </div>
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4">
-                <span class="font-bold text-xs">Massa Magra (kg)</span>
-                ${renderBar(Number(av.massa_magra_kg || 0), pesoIdeal * 0.75, pesoIdeal * 0.85)}
-                <span class="font-black text-right">${av.massa_magra_kg || '--'}</span>
-              </div>
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4">
-                <span class="font-bold text-xs">Massa Gorda (kg)</span>
-                ${renderBar(av.gordura_pct && pesoKg ? (av.gordura_pct / 100) * pesoKg : 0, pesoIdeal * 0.10, pesoIdeal * 0.20)}
-                <span class="font-black text-right">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</span>
-              </div>
+              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Peso (kg)</span>${renderBar(pesoKg, pesoIdeal * 0.9, pesoIdeal * 1.1)}<span class="font-black text-right">${av.peso_kg || '--'}</span></div>
+              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Massa Magra (kg)</span>${renderBar(Number(av.massa_magra_kg || 0), pesoIdeal * 0.75, pesoIdeal * 0.85)}<span class="font-black text-right">${av.massa_magra_kg || '--'}</span></div>
+              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Massa Gorda (kg)</span>${renderBar(av.gordura_pct && pesoKg ? (av.gordura_pct / 100) * pesoKg : 0, pesoIdeal * 0.10, pesoIdeal * 0.20)}<span class="font-black text-right">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</span></div>
             </div>
 
             <div class="grid grid-cols-2 gap-8 mt-6">
@@ -524,7 +468,7 @@ export default function ClientDetailsPage() {
   return (
     <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
       
-      {/* HEADER ACTIONS (Apenas botões de ação e voltar no topo) */}
+      {/* HEADER ACTIONS */}
       <div className="flex items-center justify-between gap-3 pb-0 px-4 sm:px-0 pt-4 sm:pt-0">
         <Link href="/admin/aluno" className="h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/5 transition-all inline-flex items-center justify-center">
           ← Voltar aos Alunos
@@ -533,7 +477,7 @@ export default function ClientDetailsPage() {
           <button
             onClick={() => {
               setEditClientPayload({
-                id: client.id, client_name: client.client_name, name_prefix: client.name_prefix ?? undefined,
+                id: client.id, name: client.client_name, client_name: client.client_name, name_prefix: client.name_prefix ?? undefined,
                 username: client.username, server_password: client.server_password ?? undefined,
                 whatsapp_e164: client.whatsapp_e164 ?? undefined, whatsapp_username: client.whatsapp_username ?? undefined,
                 whatsapp_opt_in: client.whatsapp_opt_in ?? true, secondary_display_name: client.secondary_display_name ?? undefined,
@@ -543,7 +487,7 @@ export default function ClientDetailsPage() {
                 plan_name: client.plan_name ?? undefined, price_amount: client.price_amount ?? undefined, price_currency: client.price_currency ?? undefined,
                 plan_table_id: (client as any).plan_table_id ?? null, plan_table_name: (client as any).plan_table_name ?? null,
                 m3u_url: client.m3u_url ?? undefined, vencimento: client.vencimento ?? undefined, notes: client.notes ?? undefined, apps_names: client.apps_names ?? undefined,
-                dados: client.dados_extras // Passa os dados extras de volta pro modal editar
+                dados: client.dados_extras
               });
               setShowEditModal(true);
             }}
@@ -564,7 +508,7 @@ export default function ClientDetailsPage() {
       {/* TOP BANNER: FOTO E INFORMAÇÕES PESSOAIS */}
       <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-8 items-start">
         {/* Foto Ampliada */}
-        <div className="w-full md:w-64 shrink-0 flex flex-col gap-2">
+        <div className="w-full md:w-64 shrink-0 flex flex-col items-center gap-3">
           {dadosExtras.foto_url ? (
             <img src={dadosExtras.foto_url} alt="Foto do Aluno" className="w-full h-64 object-cover rounded-2xl shadow-inner border-4 border-slate-50 dark:border-black/20" />
           ) : (
@@ -581,7 +525,20 @@ export default function ClientDetailsPage() {
             <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-tight">
               {client.name_prefix ? `${client.name_prefix} ` : ""}{client.client_name}
             </h1>
-            <p className="text-sm font-mono text-slate-500 dark:text-white/50 mt-1">@{client.username}</p>
+            <div className="flex flex-col gap-1 mt-2">
+              {client.whatsapp_username && (
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>
+                  @{client.whatsapp_username}
+                </span>
+              )}
+              {client.secondary_display_name && (
+                <span className="text-sm font-medium text-rose-500 flex items-center gap-1.5 mt-1">
+                  <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-500/20 rounded text-[10px] font-black uppercase tracking-widest border border-rose-200 dark:border-rose-500/30">SOS</span>
+                  {client.secondary_display_name} {client.secondary_phone_e164 && `(${formatPhoneDisplay(client.secondary_phone_e164)})`}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -603,7 +560,7 @@ export default function ClientDetailsPage() {
             </div>
           </div>
 
-          {/* Campos Personalizados (Faixa, Nível, etc) */}
+          {/* Campos Personalizados */}
           {dadosExtras.campos_detalhamento && dadosExtras.campos_detalhamento.length > 0 && (
             <div>
               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 dark:border-white/10 pb-1">Detalhamento da Modalidade</span>
@@ -650,25 +607,13 @@ export default function ClientDetailsPage() {
           {/* CARD: CONTATOS */}
           <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
-              <span className="text-base">📱</span> Contatos
+              <span className="text-base">📱</span> Contatos Secundários
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-white/5">
-                <span className="text-slate-500 font-medium">WhatsApp</span>
-                {client.whatsapp_username ? (
-                  <a href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
-                    @{client.whatsapp_username}
-                  </a>
-                ) : <span className="font-mono font-bold">{formatPhoneDisplay(client.whatsapp_e164)}</span>}
+                <span className="text-slate-500 font-medium">Telefone Ligação</span>
+                <span className="font-mono font-bold">{formatPhoneDisplay(client.whatsapp_e164)}</span>
               </div>
-              
-              {client.secondary_display_name && (
-                <div className="bg-rose-50 dark:bg-rose-500/5 p-3 rounded-lg border border-rose-100 dark:border-rose-500/10 mt-2">
-                  <div className="text-[10px] font-bold text-rose-500 uppercase mb-1 tracking-widest flex items-center gap-1">🆘 Emergência</div>
-                  <div className="flex justify-between items-center"><span className="text-xs text-rose-700 dark:text-rose-400 font-bold">{client.secondary_display_name}</span></div>
-                  {client.secondary_phone_e164 && <div className="text-xs font-mono text-rose-600 dark:text-rose-400 mt-1">{formatPhoneDisplay(client.secondary_phone_e164)}</div>}
-                </div>
-              )}
 
               <div className="pt-2">
                 <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações da Secretaria</div>
@@ -685,14 +630,18 @@ export default function ClientDetailsPage() {
               <span className="text-base">🏥</span> Dados de Saúde (Anamnese)
             </h3>
             <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border border-slate-100 dark:border-white/5 flex items-center gap-2">
                   <span className="text-lg">{dadosExtras.saude?.fuma ? "🚬" : "✅"}</span>
-                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Tabagista</span><span className={`text-xs font-bold ${dadosExtras.saude?.fuma ? 'text-rose-500' : 'text-emerald-600'}`}>{dadosExtras.saude?.fuma ? "Sim" : "Não"}</span></div>
+                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Fuma?</span><span className={`text-xs font-bold ${dadosExtras.saude?.fuma ? 'text-rose-500' : 'text-emerald-600'}`}>{dadosExtras.saude?.fuma ? "Sim" : "Não"}</span></div>
                 </div>
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border border-slate-100 dark:border-white/5 flex items-center gap-2">
                   <span className="text-lg">{dadosExtras.saude?.bebe ? "🍺" : "✅"}</span>
-                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Etilista</span><span className={`text-xs font-bold ${dadosExtras.saude?.bebe ? 'text-amber-500' : 'text-emerald-600'}`}>{dadosExtras.saude?.bebe ? "Sim" : "Não"}</span></div>
+                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Bebe?</span><span className={`text-xs font-bold ${dadosExtras.saude?.bebe ? 'text-amber-500' : 'text-emerald-600'}`}>{dadosExtras.saude?.bebe ? "Sim" : "Não"}</span></div>
+                </div>
+                <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border border-slate-100 dark:border-white/5 flex items-center gap-2">
+                  <span className="text-lg">{dadosExtras.saude?.drogas ? "💊" : "✅"}</span>
+                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Drogas?</span><span className={`text-xs font-bold ${dadosExtras.saude?.drogas ? 'text-rose-500' : 'text-emerald-600'}`}>{dadosExtras.saude?.drogas ? "Sim" : "Não"}</span></div>
                 </div>
               </div>
               
@@ -748,7 +697,16 @@ export default function ClientDetailsPage() {
 
             {/* LISTA DE AVALIAÇÕES */}
             <div>
-              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Histórico de Relatórios</span>
+              <div className="flex justify-between items-center mb-3">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico de Relatórios</span>
+                <button
+                  onClick={() => setShowNovaAvModal(true)}
+                  className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                >
+                  + Nova Avaliação
+                </button>
+              </div>
+
               {avaliacoes.length === 0 ? (
                 <div className="py-6 text-center text-slate-400 dark:text-white/20 text-sm italic border-2 border-dashed border-slate-100 dark:border-white/5 rounded-xl">
                   Nenhuma avaliação corporal registrada.
@@ -831,6 +789,55 @@ export default function ClientDetailsPage() {
 
       {/* --- MODAIS E ALERTAS --- */}
       {ConfirmUI}
+
+      {/* MODAL DE NOVA AVALIAÇÃO FÍSICA */}
+      {showNovaAvModal && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
+              <h2 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <span>📏</span> Nova Avaliação Física
+              </h2>
+              <button onClick={() => setShowNovaAvModal(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label><input type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({...v, data: e.target.value}))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 dark:[color-scheme:dark]" /></div>
+                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Peso (kg)</label><input type="number" step="0.1" value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({...v, peso_kg: e.target.value}))} placeholder="70.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">% Gordura Corporal</label><input type="number" step="0.1" value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({...v, gordura_pct: e.target.value}))} placeholder="15.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Magra (kg)</label><input type="number" step="0.1" value={novaAv.massa_magra_kg} onChange={e => setNovaAv(v => ({...v, massa_magra_kg: e.target.value}))} placeholder="59.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200 dark:border-white/10 pb-1 mb-3">Perimetria (cm)</span>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {([["cintura_cm", "Cintura"], ["quadril_cm", "Quadril"], ["abdomen_cm", "Abdômen"], ["ombro_cm", "Ombro"], ["braco_cm", "Braço"], ["coxa_cm", "Coxa"], ["panturrilha_cm", "Panturrilha"]] as const).map(([k, l]) => (
+                    <div key={k}>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{l}</label>
+                      <input type="number" value={novaAv[k]} onChange={e => setNovaAv(v => ({...v, [k]: e.target.value}))} placeholder="—" className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Observações do Treinador</label>
+                <textarea value={novaAv.observacoes} onChange={e => setNovaAv(v => ({...v, observacoes: e.target.value}))} placeholder="Diagnóstico, evolução, pontos de atenção..." className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowNovaAvModal(false)} className="px-4 py-2 rounded-lg font-bold text-xs text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button onClick={handleSaveAvaliacao} disabled={savingAv} className="px-6 py-2 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                {savingAv ? "Salvando..." : "Salvar Avaliação"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showRenewWarning && client && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
