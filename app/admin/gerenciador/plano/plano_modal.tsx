@@ -423,39 +423,16 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
         <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
           
           <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <Label>Nome da tabela</Label>
                 <input 
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Tabela especial revenda"
+                  placeholder="Ex: Plano Padrão"
                   disabled={plan?.is_system_default && plan?.is_master_only}
                   className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                 />
-              </div>
-              <div>
-                <Label>Moeda</Label>
-                <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-                  {(['BRL', 'USD', 'EUR'] as const).filter(c => !isAlunosOnly || c === 'BRL').map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setCurrency(c)}
-                      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
-                        ${currency === c 
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
-                          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-                {isEditing && currency !== originalCurrency && (
-                  <p className="text-[10px] text-amber-500 mt-2 italic">
-                    * Atenção: valores resetados para tabela Padrão {currency}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -539,9 +516,11 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
                             <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
                               {PERIOD_LABELS[period]}
                             </span>
-                            <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                              {currentCredits} cr
-                            </span>
+                            {!isAlunosOnly && (
+                              <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                {currentCredits} cr
+                              </span>
+                            )}
                           </div>
                           
                           <div className="relative">
