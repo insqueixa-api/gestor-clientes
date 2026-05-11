@@ -91,17 +91,6 @@ const CAMPOS_POR_MODALIDADE: Record<string, CampoTemplate[]> = {
   ],
 };
 
-const OBJETIVOS = [
-  { value: "ganhar_massa",    label: "Ganhar Massa Muscular"            },
-  { value: "perder_peso",     label: "Perder Peso / Gordura"            },
-  { value: "manter",          label: "Manter Peso"                      },
-  { value: "condicionamento", label: "Condicionamento Físico"           },
-  { value: "reabilitacao",    label: "Reabilitação"                     },
-  { value: "competicao",      label: "Preparação para Competição"       },
-  { value: "saude",           label: "Saúde e Qualidade de Vida"        },
-  { value: "outro",           label: "Outro"                            },
-];
-
 const PLAN_LABELS: Record<string, string> = {
   MONTHLY:    "Mensal",
   BIMONTHLY:  "Bimestral",
@@ -120,7 +109,7 @@ type Currency = "BRL" | "USD" | "EUR";
 
 interface PlanTableItemPrice { screens_count: number; price_amount: number | null; }
 interface PlanTableItem      { id: string; period: string; credits_base: number; prices: PlanTableItemPrice[]; }
-interface PlanTable           { id: string; name: string; currency: Currency; is_system_default?: boolean; table_type?: string | null; items: PlanTableItem[]; }
+interface PlanTable          { id: string; name: string; currency: Currency; is_system_default?: boolean; table_type?: string | null; items: PlanTableItem[]; }
 
 type CampoPersonalizado = {
   id:     string;
@@ -128,22 +117,6 @@ type CampoPersonalizado = {
   value:  string;
   tipo:   CampoTipo;
   opcoes?: string[];
-};
-
-type AvaliacaoFisica = {
-  id:             string;
-  data:           string;
-  peso_kg:        number | "";
-  gordura_pct:    number | "";
-  massa_magra_kg: number | "";
-  cintura_cm:     number | "";
-  quadril_cm:     number | "";
-  braco_cm:       number | "";
-  coxa_cm:        number | "";
-  panturrilha_cm: number | "";
-  abdomen_cm:     number | "";
-  ombro_cm:       number | "";
-  observacoes:    string;
 };
 
 type MessageTemplate = {
@@ -209,21 +182,6 @@ function getDefaultDueDate() {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-function calcIMC(altura_cm: number, peso_kg: number): number {
-  if (!altura_cm || !peso_kg) return 0;
-  const h = altura_cm / 100;
-  return peso_kg / (h * h);
-}
-
-function getIMCInfo(imc: number): { label: string; color: string } {
-  if (imc < 18.5) return { label: "Abaixo do peso",      color: "text-blue-500"   };
-  if (imc < 25.0) return { label: "Peso normal",          color: "text-emerald-500"};
-  if (imc < 30.0) return { label: "Sobrepeso",            color: "text-amber-500"  };
-  if (imc < 35.0) return { label: "Obesidade I",          color: "text-orange-500" };
-  if (imc < 40.0) return { label: "Obesidade II",         color: "text-rose-500"   };
-  return              { label: "Obesidade III",         color: "text-rose-700"   };
-}
-
 function fmtMoney(currency: string, n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(n);
 }
@@ -251,7 +209,6 @@ const DDI_OPTIONS = [
   { code: "55", label: "Brasil", flag: "🇧🇷" },
   { code: "1", label: "EUA/Canadá", flag: "🇺🇸" },
   { code: "351", label: "Portugal", flag: "🇵🇹" },
-  // (Pode adicionar os outros países aqui se quiser a lista completa depois)
 ];
 
 function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
@@ -302,12 +259,12 @@ function extractDdiFromLabel(label: string): string {
 
 export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   const isEditing   = !!alunoToEdit?.id;
-  const [activeTab, setActiveTab] = useState<"dados" | "plano" | "saude">("dados");
+  const [activeTab, setActiveTab] = useState<"dados" | "plano">("dados");
   const [loading, setLoading]     = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
   const [fetchingAux, setFetchingAux] = useState(true);
   
-  // ✅ NOVO: Guarda se a empresa é Personal ou Academia (Padrão: Academia)
+  // ✅ Guarda se a empresa é Personal ou Academia (Padrão: Academia)
   const [tenantTech, setTenantTech] = useState("ACADEMIA");
 
   // Toast
@@ -460,7 +417,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
     if (photoUrl && alunoToEdit?.id) {
       try {
         const tid = await getCurrentTenantId();
-        // Extrai o caminho exato do bucket a partir da URL pública (ignorando parâmetros como ?t=...)
+        // Extrai o caminho exato do bucket a partir da URL pública
         const rawPathMatch = photoUrl.split('/chat_media/')[1];
         if (rawPathMatch) {
           const pathMatch = rawPathMatch.split('?')[0]; 
@@ -525,32 +482,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
   );
   const [msgContent, setMsgContent]       = useState("");
 
-  // ─── TAB 3: SAÚDE ─────────────────────────────────────────────────────────
-
-  const [altura, setAltura]           = useState<number | "">("");
-  const [peso, setPeso]               = useState<number | "">("");
-  const [objetivo, setObjetivo]       = useState("");
-  const [historico, setHistorico]     = useState("");
-  const [lesoes, setLesoes]           = useState("");
-  const [fuma, setFuma]               = useState(false);
-  const [bebe, setBebe]               = useState(false);
-  const [doencas, setDoencas]         = useState("");
-  const [atestadoFile, setAtestadoFile] = useState<File | null>(null);
-  const [atestadoUrl, setAtestadoUrl] = useState<string | null>(null);
-  const atestadoRef                   = useRef<HTMLInputElement>(null);
-  const [avaliacoes, setAvaliacoes]   = useState<AvaliacaoFisica[]>([]);
-  const [showNovaAv, setShowNovaAv]   = useState(false);
-  const emptyAv = (): Omit<AvaliacaoFisica, "id"> => ({
-    data: new Date().toISOString().slice(0, 10),
-    peso_kg: "", gordura_pct: "", massa_magra_kg: "",
-    cintura_cm: "", quadril_cm: "", braco_cm: "", coxa_cm: "",
-    panturrilha_cm: "", abdomen_cm: "", ombro_cm: "", observacoes: "",
-  });
-  const [novaAv, setNovaAv] = useState(emptyAv);
-
-  const imc     = useMemo(() => (altura && peso) ? calcIMC(Number(altura), Number(peso)) : 0, [altura, peso]);
-  const imcInfo = useMemo(() => imc > 0 ? getIMCInfo(imc) : null, [imc]);
-
   // ─── SCROLL LOCK ──────────────────────────────────────────────────────────
 
   const scrollYRef = useRef(0);
@@ -603,7 +534,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         const tid = await getCurrentTenantId();
         if (!alive) return;
 
-        // ✅ NOVO: Busca os módulos ativos para gravar a tecnologia correta
+        // Busca os módulos ativos para gravar a tecnologia correta
         try {
           const { data: tInfo } = await supabaseBrowser.from("tenants").select("active_modules").eq("id", tid).maybeSingle();
           const mods = tInfo?.active_modules || [];
@@ -629,7 +560,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           if (match) setServerId(match.id);
         }
 
-        // Plan tables (load all active)
+        // Plan tables (load all active, FILTER ONLY BRL)
         const { data: tRes } = await supabaseBrowser
           .from("plan_tables")
           .select(`id, name, currency, is_system_default, table_type,
@@ -637,11 +568,10 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
               prices:plan_table_item_prices(screens_count, price_amount))`)
           .eq("tenant_id", tid).eq("is_active", true);
         if (alive && tRes) {
-          const all = tRes as unknown as PlanTable[];
+          const all = (tRes as unknown as PlanTable[]).filter((t) => t.currency === "BRL");
           setTables(all);
-          const def = all.find(t => t.currency === "BRL" && t.is_system_default)
-            || all.find(t => t.currency === "BRL") || all[0];
-          if (def) { setTableId(def.id); setCurrency(def.currency || "BRL"); }
+          const def = all.find(t => t.is_system_default) || all[0];
+          if (def) { setTableId(def.id); setCurrency("BRL"); }
         }
 
         // Templates
@@ -716,18 +646,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           if (dados.data_nascimento) setDataNascimento(dados.data_nascimento);
           if (dados.cpf_rg)          setCpfRg(dados.cpf_rg);
           if (dados.contato_emergencia_parentesco) setEmergencyRelation(dados.contato_emergencia_parentesco);
-
-          const s = dados.saude || {};
-          if (s.altura_cm)       setAltura(s.altura_cm);
-          if (s.peso_kg)         setPeso(s.peso_kg);
-          if (s.objetivo)        setObjetivo(s.objetivo);
-          if (s.historico_medico) setHistorico(s.historico_medico);
-          if (s.lesoes)          setLesoes(s.lesoes);
-          if (s.fuma != null)    setFuma(s.fuma);
-          if (s.bebe != null)    setBebe(s.bebe);
-          if (s.doencas_cronicas) setDoencas(s.doencas_cronicas);
-          if (s.atestado_url)    setAtestadoUrl(s.atestado_url);
-          if (s.avaliacoes?.length) setAvaliacoes(s.avaliacoes);
         }
 
       } catch (e) {
@@ -756,20 +674,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
     } catch (e) { console.error("Upload foto:", e); return null; }
   }
 
-  async function uploadAtestado(clientId: string): Promise<string | null> {
-    if (!atestadoFile) return atestadoUrl;
-    try {
-      const tid  = await getCurrentTenantId();
-      const ext  = atestadoFile.name.split(".").pop() || "pdf";
-      const path = `${tid}/alunos/${clientId}/atestado.${ext}`;
-      const { error } = await supabaseBrowser.storage
-        .from("chat_media").upload(path, atestadoFile, { contentType: atestadoFile.type, upsert: true });
-      if (error) throw error;
-      const { data } = supabaseBrowser.storage.from("chat_media").getPublicUrl(path);
-      return `${data.publicUrl}?t=${Date.now()}`; // <-- Força a quebra de cache
-    } catch (e) { console.error("Upload atestado:", e); return null; }
-  }
-
   // ─── CAMPOS DETALHAMENTO ──────────────────────────────────────────────────
 
   function addCampo() {
@@ -780,100 +684,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
 
   function updateCampo(id: string, value: string) {
     setCampos(p => p.map(c => c.id === id ? { ...c, value } : c));
-  }
-
-  // ─── AVALIAÇÕES ───────────────────────────────────────────────────────────
-
-  function addAvaliacao() {
-    setAvaliacoes(p => [...p, { ...novaAv, id: crypto.randomUUID() }]);
-    setShowNovaAv(false);
-    setNovaAv(emptyAv());
-  }
-
-  // ─── PDF AVALIAÇÃO ────────────────────────────────────────────────────────
-  function gerarPDFAvaliacao(av: AvaliacaoFisica) {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    
-    // Calcula IMC para o Relatório, assim como faz no front
-    const pesoN = Number(av.peso_kg || 0);
-    const alturaM = Number(altura || 0) / 100;
-    const imcCard = (pesoN > 0 && alturaM > 0) ? (pesoN / (alturaM * alturaM)).toFixed(1) : '--';
-
-    const html = `
-      <html>
-        <head>
-          <title>Avaliação Física - ${name || 'Aluno'}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <style>@media print { @page { margin: 10mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style>
-        </head>
-        <body class="p-8 text-slate-800 font-sans bg-white">
-          <div class="max-w-4xl mx-auto border-2 border-slate-100 p-8 rounded-3xl shadow-sm">
-            
-            <div class="flex items-center justify-between border-b-[3px] border-emerald-500 pb-6 mb-8">
-              <div class="flex items-center gap-6">
-                ${photoPreview 
-                  ? `<img src="${photoPreview}" class="w-24 h-24 rounded-2xl object-cover border-4 border-emerald-50 shadow-md" />` 
-                  : `<div class="w-24 h-24 rounded-2xl bg-slate-100 flex items-center justify-center text-4xl shadow-inner">👤</div>`
-                }
-                <div>
-                  <h1 class="text-4xl font-black text-slate-800 uppercase tracking-tight">${name || 'Aluno'}</h1>
-                  <p class="text-lg text-slate-500 font-medium mt-1">Avaliação Bioimpedância • ${new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <h2 class="text-2xl font-black text-emerald-600 tracking-tighter">UniGestor</h2>
-                <p class="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Saúde & Performance</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-4 gap-6 mb-10">
-              <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Peso Total</p>
-                <p class="text-3xl font-black text-slate-700">${av.peso_kg || '--'}<span class="text-sm font-bold text-slate-400 ml-1">kg</span></p>
-              </div>
-              <div class="bg-rose-50 p-5 rounded-2xl border border-rose-100 flex flex-col items-center justify-center">
-                <p class="text-xs text-rose-400 font-bold uppercase tracking-wider mb-2">Gordura Corporal</p>
-                <p class="text-3xl font-black text-rose-600">${av.gordura_pct || '--'}<span class="text-sm font-bold text-rose-400 ml-1">%</span></p>
-              </div>
-              <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center">
-                <p class="text-xs text-emerald-500 font-bold uppercase tracking-wider mb-2">Massa Magra</p>
-                <p class="text-3xl font-black text-emerald-600">${av.massa_magra_kg || '--'}<span class="text-sm font-bold text-emerald-500 ml-1">kg</span></p>
-              </div>
-              <div class="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex flex-col items-center justify-center">
-                <p class="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2">IMC Físico</p>
-                <p class="text-3xl font-black text-indigo-600">${imcCard}</p>
-              </div>
-            </div>
-
-            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Perimetria (Medidas Corporais)</h3>
-            <div class="grid grid-cols-4 gap-4 mb-10">
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Cintura</span><span class="font-black text-xl text-slate-700">${av.cintura_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Quadril</span><span class="font-black text-xl text-slate-700">${av.quadril_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Braço</span><span class="font-black text-xl text-slate-700">${av.braco_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Coxa</span><span class="font-black text-xl text-slate-700">${av.coxa_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Panturrilha</span><span class="font-black text-xl text-slate-700">${av.panturrilha_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Abdômen</span><span class="font-black text-xl text-slate-700">${av.abdomen_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-              <div class="p-4 bg-white border-2 border-slate-100 rounded-xl text-center"><span class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ombro</span><span class="font-black text-xl text-slate-700">${av.ombro_cm || '--'} <span class="text-[10px] font-medium text-slate-400">cm</span></span></div>
-            </div>
-
-            ${av.observacoes ? `
-            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Diagnóstico / Observações</h3>
-            <p class="text-sm text-slate-600 bg-slate-50 p-6 rounded-2xl font-medium leading-relaxed border border-slate-100">${av.observacoes.replace(/\n/g, '<br/>')}</p>
-            ` : ''}
-            
-            <div class="mt-16 text-center text-slate-300 text-[10px] font-bold uppercase tracking-widest">
-              Documento gerado e autenticado por UniGestor
-            </div>
-          </div>
-          <script>
-            window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }
-          </script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
   }
 
   // ─── SAVE ─────────────────────────────────────────────────────────────────
@@ -921,7 +731,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         p_whatsapp_snooze_until:    null,
         p_clear_whatsapp_snooze_until: true,
         p_name_prefix:              salutation || null,
-        p_technology:               tenantTech, // ✅ Agora salva a tecnologia real (Academia ou Personal)
+        p_technology:               tenantTech, // Agora salva a tecnologia real (Academia ou Personal)
         p_secondary_display_name:   emergencyName.trim() || null,
         p_secondary_name_prefix:    emergencySalut || null,
         p_secondary_phone_e164:     finalEmergPhone,
@@ -960,13 +770,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         finalPhotoUrl = await uploadPhoto(clientId);
       }
 
-      // Upload atestado
-      let finalAtestadoUrl = atestadoUrl;
-      if (atestadoFile && clientId) {
-        setLoadingStep("Enviando atestado...");
-        finalAtestadoUrl = await uploadAtestado(clientId);
-      }
-
       // PATCH dados_extras + tipo_cadastro + created_at
       setLoadingStep("Salvando dados extras...");
       const dadosExtras = {
@@ -977,19 +780,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         data_nascimento:  dataNascimento || null,
         cpf_rg:           cpfRg || null,
         contato_emergencia_parentesco: emergencyRelation || null,
-        saude: {
-          altura_cm:       altura || null,
-          peso_kg:         peso   || null,
-          imc:             imc > 0 ? parseFloat(imc.toFixed(2)) : null,
-          objetivo:        objetivo || null,
-          historico_medico: historico || null,
-          lesoes:          lesoes || null,
-          fuma,
-          bebe,
-          doencas_cronicas: doencas || null,
-          atestado_url:    finalAtestadoUrl || null,
-          avaliacoes,
-        },
       };
 
       if (clientId) {
@@ -1110,7 +900,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
               {([
                 { key: "dados" as const,  label: "DADOS"  },
                 { key: "plano" as const,  label: "PLANO"  },
-                { key: "saude" as const,  label: "SAÚDE"  },
               ]).map(tab => (
                 <button
                   key={tab.key}
@@ -1476,15 +1265,13 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                   )}
                 </div>
 
-                {/* Servidor e Username foram removidos da interface conforme regra de negócio, mas continuam sendo registrados nos bastidores */}
-
                 {/* Plano / Valor / Vencimento */}
                 <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3 mt-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plano</span>
                     {tables.length > 1 && (
                       <FS value={tableId} onChange={e => { setTableId(e.target.value); setPriceTouched(false); }} className="w-auto h-8 px-2 text-xs">
-                        {tables.map(t => <option key={t.id} value={t.id}>{t.name} {t.currency}</option>)}
+                        {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                       </FS>
                     )}
                   </div>
@@ -1497,7 +1284,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                       </FS>
                     </div>
                     <div>
-                      <FL>Valor ({currency})</FL>
+                      <FL>Valor</FL>
                       <FI
                         value={planPrice}
                         onChange={e => { setPlanPrice(e.target.value); setPriceTouched(true); }}
@@ -1531,16 +1318,16 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                             Registrar Matrícula no Financeiro
                           </span>
                           <span className="text-[9px] text-slate-400">Gera log de pagamento local</span>
-                  </div>
-                </div>
-                <Switch checked={registerFin} onChange={v => { setRegisterFin(v); setSendMsg(v); }} label="" />
-              </div>
+                        </div>
+                      </div>
+                      <Switch checked={registerFin} onChange={v => { setRegisterFin(v); setSendMsg(v); }} label="" />
+                    </div>
 
-              <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
-                <div className="flex items-center justify-between gap-3 cursor-pointer" onClick={() => setSendMsg(v => !v)}>
-                  <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar mensagem de boas-vindas?</span>
-                  <Switch checked={sendMsg} onChange={setSendMsg} label="" />
-                </div>
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 space-y-2">
+                      <div className="flex items-center justify-between gap-3 cursor-pointer" onClick={() => setSendMsg(v => !v)}>
+                        <span className="text-xs font-bold text-slate-600 dark:text-white/70">Enviar mensagem de boas-vindas?</span>
+                        <Switch checked={sendMsg} onChange={setSendMsg} label="" />
+                      </div>
 
                       {sendMsg && (
                         <div className="animate-in fade-in duration-200 space-y-1">
@@ -1573,193 +1360,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
               </div>
             )}
 
-            {/* ══════════════════════════ TAB: SAÚDE ══════════════════════════ */}
-            {activeTab === "saude" && (
-              <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-
-                {/* Biometria + IMC */}
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">📏 Biometria</span>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <FL>Altura (cm)</FL>
-                      <FI type="number" min={0} max={250} value={altura} onChange={e => setAltura(e.target.value === "" ? "" : Number(e.target.value))} placeholder="175" />
-                    </div>
-                    <div>
-                      <FL>Peso (kg)</FL>
-                      <FI type="number" step={0.1} min={0} value={peso} onChange={e => setPeso(e.target.value === "" ? "" : Number(e.target.value))} placeholder="70.5" />
-                    </div>
-                    <div>
-                      <FL>IMC</FL>
-                      <div className="h-10 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 flex flex-col items-center justify-center">
-                        {imc > 0 ? (
-                          <>
-                            <span className="text-sm font-bold text-slate-800 dark:text-white leading-none">{imc.toFixed(1)}</span>
-                            <span className={`text-[9px] font-bold leading-none mt-0.5 ${imcInfo?.color}`}>{imcInfo?.label}</span>
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">—</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <FL>Objetivo</FL>
-                    <FS value={objetivo} onChange={e => setObjetivo(e.target.value)}>
-                      <option value="">Selecione...</option>
-                      {OBJETIVOS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </FS>
-                  </div>
-                </div>
-
-                {/* Dados médicos */}
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">🏥 Dados de Saúde</span>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <BoolRow label="Tabagista (fuma?)" icon="🚬" checked={fuma} onChange={setFuma} />
-                    <BoolRow label="Etilista (bebe álcool?)" icon="🍺" checked={bebe} onChange={setBebe} />
-                  </div>
-
-                  <div>
-                    <FL>Doenças Crônicas / Condições de Saúde</FL>
-                    <textarea value={doencas} onChange={e => setDoencas(e.target.value)}
-                      placeholder="Ex: Hipertensão, Diabetes, Asma..."
-                      className="w-full h-16 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                  </div>
-
-                  <div>
-                    <FL>Histórico Médico</FL>
-                    <textarea value={historico} onChange={e => setHistorico(e.target.value)}
-                      placeholder="Cirurgias, tratamentos, medicamentos em uso..."
-                      className="w-full h-16 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                  </div>
-
-                  <div>
-                    <FL>Lesões / Limitações Físicas</FL>
-                    <textarea value={lesoes} onChange={e => setLesoes(e.target.value)}
-                      placeholder="Ex: Lesão no joelho direito, hérnia de disco..."
-                      className="w-full h-16 px-3 py-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                  </div>
-
-                  {/* Atestado */}
-                  <div>
-                    <FL>Atestado Médico</FL>
-                    {atestadoUrl ? (
-                      <div className="flex items-center gap-3 p-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        <a href={atestadoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex-1">Ver Atestado</a>
-                        <button onClick={() => { setAtestadoUrl(null); setAtestadoFile(null); if (atestadoRef.current) atestadoRef.current.value = ""; }} className="text-xs text-rose-500 font-bold hover:underline">Remover</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => atestadoRef.current?.click()}
-                        className="w-full h-10 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-lg text-xs text-slate-400 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all font-medium"
-                      >
-                        📎 Carregar Atestado Médico (PDF ou imagem)
-                      </button>
-                    )}
-                    {atestadoFile && !atestadoUrl && (
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">📎 {atestadoFile.name} — será enviado ao salvar</p>
-                    )}
-                    <input ref={atestadoRef} type="file" accept=".pdf,image/*" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) setAtestadoFile(f); }} />
-                  </div>
-                </div>
-
-                {/* Avaliações físicas */}
-                <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">📊 Avaliações Físicas</span>
-                    <button
-                      onClick={() => setShowNovaAv(v => !v)}
-                      className="text-[10px] px-2 py-0.5 bg-emerald-500/10 rounded text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
-                    >
-                      + Nova Avaliação
-                    </button>
-                  </div>
-
-                  {showNovaAv && (
-                    <div className="p-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl space-y-3 animate-in slide-in-from-top-2 duration-200">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div><FL>Data</FL><FI type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({ ...v, data: e.target.value }))} className="dark:[color-scheme:dark]" /></div>
-                        <div><FL>Peso (kg)</FL><FI type="number" step={0.1} value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({ ...v, peso_kg: e.target.value === "" ? "" : Number(e.target.value) }))} placeholder="70.5" /></div>
-                        <div><FL>% Gordura</FL><FI type="number" step={0.1} value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({ ...v, gordura_pct: e.target.value === "" ? "" : Number(e.target.value) }))} placeholder="15.0" /></div>
-                        <div><FL>Massa Magra (kg)</FL><FI type="number" step={0.1} value={novaAv.massa_magra_kg} onChange={e => setNovaAv(v => ({ ...v, massa_magra_kg: e.target.value === "" ? "" : Number(e.target.value) }))} placeholder="59.5" /></div>
-                      </div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Medidas (cm)</p>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                        {([
-                          ["cintura_cm",     "Cintura"    ],
-                          ["quadril_cm",     "Quadril"    ],
-                          ["braco_cm",       "Braço"      ],
-                          ["coxa_cm",        "Coxa"       ],
-                          ["panturrilha_cm", "Panturrilha"],
-                          ["abdomen_cm",     "Abdômen"    ],
-                          ["ombro_cm",       "Ombro"      ],
-                        ] as [keyof typeof novaAv, string][]).map(([key, label]) => (
-                          <div key={key}>
-                            <FL>{label}</FL>
-                            <FI
-                              type="number"
-                              value={novaAv[key]}
-                              onChange={e => setNovaAv(v => ({ ...v, [key]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                              placeholder="—"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div><FL>Observações</FL><FI value={novaAv.observacoes} onChange={e => setNovaAv(v => ({ ...v, observacoes: e.target.value }))} placeholder="Observações..." /></div>
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => setShowNovaAv(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">Cancelar</button>
-                        <button onClick={addAvaliacao} className="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors">Salvar</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {avaliacoes.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic text-center py-2">Nenhuma avaliação registrada ainda.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {avaliacoes.map(av => (
-                        <div key={av.id} className="flex items-center justify-between p-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs gap-3">
-                          <div className="flex flex-wrap gap-2 min-w-0">
-                            <span className="font-bold text-slate-700 dark:text-white">{new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</span>
-                            {av.peso_kg     && <span className="text-slate-500">⚖️ {av.peso_kg}kg</span>}
-                            {av.gordura_pct && <span className="text-slate-500">🔥 {av.gordura_pct}%</span>}
-                            {av.cintura_cm  && <span className="text-slate-500">C:{av.cintura_cm}</span>}
-                            {av.quadril_cm  && <span className="text-slate-500">Q:{av.quadril_cm}</span>}
-                            {av.observacoes && <span className="text-slate-400 italic truncate max-w-[120px]">{av.observacoes}</span>}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <button
-                              onClick={() => gerarPDFAvaliacao(av)}
-                              className="px-2.5 py-1.5 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/20 rounded font-bold text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5"
-                              title="Gerar Relatório em PDF"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                              PDF
-                            </button>
-                            <button
-                              onClick={async () => {
-                                const ok = await confirmDialog({ title: "Remover avaliação?", subtitle: `Data: ${av.data}`, tone: "rose", confirmText: "Remover", cancelText: "Cancelar" });
-                                if (ok) setAvaliacoes(p => p.filter(a => a.id !== av.id));
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded transition-colors"
-                              title="Remover avaliação"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
           </div>
 
           {/* FOOTER */}
@@ -1784,7 +1384,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
             </button>
           </div>
         </div>
-     </div>
+      </div>
 
       {/* MODAL DA WEBCAM (TIRAR FOTO) */}
       {showCamera && (
@@ -1887,26 +1487,6 @@ function IconChat() {
     </svg>
   );
 }
-
-function BoolRow({ label, icon, checked, onChange }: { label: string; icon: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div
-      onClick={() => onChange(!checked)}
-      className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-        checked
-          ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20"
-          : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
-      }`}
-    >
-      <span className={`text-xs font-medium flex items-center gap-1.5 ${checked ? "text-rose-700 dark:text-rose-400" : "text-slate-500 dark:text-white/50"}`}>
-        {icon} {label}
-      </span>
-      <Switch checked={checked} onChange={onChange} label="" />
-    </div>
-  );
-}
-
-// ─── ÍCONES ───────────────────────────────────────────────────────────────────
 
 function IconX() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>;
