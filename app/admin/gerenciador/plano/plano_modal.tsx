@@ -73,10 +73,13 @@ function Label({ children }: { children: React.ReactNode }) {
 
 export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, onSuccess }: Props) {
   const isEditing = !!plan;
-  const effectiveType = plan?.table_type ?? newTableType ?? "iptv";
+  
+  // ✅ FORÇA o tipo IPTV se for o módulo de Academia/Personal. Caso contrário, segue a regra normal.
+  const effectiveType = isAlunosOnly ? "iptv" : (plan?.table_type ?? newTableType ?? "iptv");
+  
   const isSaasCredits = effectiveType === "saas_credits";
   const isSaas = effectiveType === "saas";
-  const isMasterOnly = plan?.is_master_only ?? isSaas;
+  const isMasterOnly = isAlunosOnly ? false : (plan?.is_master_only ?? isSaas);
   
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
@@ -185,9 +188,18 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
         .eq("tenant_id", tenantId)
         .eq("is_system_default", true);
 
-      const { data: defaultTable } = isSaas
-        ? await query.eq("is_master_only", true).single()
-        : await query.eq("currency", curr).eq("is_master_only", false).single();
+      // ✅ AJUSTE NO FILTRO: Se for alunos (Academia/Personal), pega a tabela padrão BRL (que é do tipo IPTV)
+      let queryBuilder = query;
+      
+      if (isAlunosOnly) {
+         queryBuilder = queryBuilder.eq("currency", curr).eq("is_master_only", false).eq("table_type", "iptv");
+      } else if (isSaas) {
+         queryBuilder = queryBuilder.eq("is_master_only", true);
+      } else {
+         queryBuilder = queryBuilder.eq("currency", curr).eq("is_master_only", false);
+      }
+
+      const { data: defaultTable } = await queryBuilder.single();
 
       if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
         const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
