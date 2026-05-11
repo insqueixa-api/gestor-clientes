@@ -22,22 +22,24 @@ interface AlunoData {
   vencimento: string | null;
   screens: number | null;
   notes?: string | null;
-  technology?: string | null; // ✅ Adicionado
+  technology?: string | null;
 }
+
+type Currency = "BRL" | "USD" | "EUR";
 
 interface PlanTableItemPrice { screens_count: number; price_amount: number | null; }
 interface PlanTableItem      { id: string; period: string; credits_base: number; prices: PlanTableItemPrice[]; }
-interface PlanTable           { id: string; name: string; currency: string; is_system_default?: boolean; items: PlanTableItem[]; }
-interface MessageTemplate     { id: string; name: string; content: string; image_url?: string | null; category?: string | null; }
+interface PlanTable          { id: string; name: string; currency: Currency; is_system_default?: boolean; items: PlanTableItem[]; }
+interface MessageTemplate    { id: string; name: string; content: string; image_url?: string | null; category?: string | null; }
 
 interface Props {
   clientId:  string;
   clientName: string;
-  paymentLogId?: string; // ✅
+  paymentLogId?: string;
   onClose:   () => void;
-  onSuccess: (logId?: string) => void | Promise<void>; // ✅
-  toastKey?: "clients_list_toasts" | "trials_list_toasts" | "alunos_list_toasts" | "auditoria_list_toasts"; // ✅
-  allowConvertWithoutPayment?: boolean; // ✅
+  onSuccess: (logId?: string) => void | Promise<void>;
+  toastKey?: "clients_list_toasts" | "trials_list_toasts" | "alunos_list_toasts" | "auditoria_list_toasts";
+  allowConvertWithoutPayment?: boolean;
 }
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
@@ -54,24 +56,18 @@ const PLAN_MONTHS: Record<string, number> = {
   MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12,
 };
 
-// Mapeia screens para tipo de plano academia
+// Mapeia screens -> tipo de plano de academia
 const PLAN_TYPES = [
-  { screens: 1, label: "Individual" },
-  { screens: 2, label: "Família"    },
-  { screens: 3, label: "Família Total" },
+  { screens: 1, label: "Individual"     },
+  { screens: 2, label: "Família"        },
+  { screens: 3, label: "Família Total"  },
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function pad2(n: number) { return String(n).padStart(2, "0"); }
-
 function nowSP(): { dateISO: string; timeHHmm: string } {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const tfmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
-  });
+  const fmt  = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
+  const tfmt = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false });
   const now = new Date();
   return { dateISO: fmt.format(now), timeHHmm: tfmt.format(now) };
 }
@@ -79,17 +75,13 @@ function nowSP(): { dateISO: string; timeHHmm: string } {
 function hhmmSP(ts: string): string {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "00:00";
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
-  }).format(d);
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 }
 
 function addMonthsSP(from: Date, months: number): string {
   const target = new Date(from);
   target.setMonth(target.getMonth() + months);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(target);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(target);
 }
 
 function saoPauloToIso(dateISO: string, timeHHmm: string): string {
@@ -124,7 +116,22 @@ function pickCredits(table: PlanTable | null, period: string, screens: number): 
   return (item.credits_base || 0) * Math.max(1, screens);
 }
 
+function formatTableLabel(t: PlanTable) {
+  const currency = t.currency || "BRL";
+  const raw = (t.name || "").trim();
+  const isDefaultByName =
+    raw.toLowerCase().startsWith("padr") ||
+    raw.toLowerCase().startsWith("default");
+  const isDefault = Boolean(t.is_system_default) || isDefaultByName;
+  if (isDefault) {
+    const firstWord = raw.split(/\s+/)[0] || "Padrão";
+    return `${firstWord} ${currency}`;
+  }
+  return `${raw} ${currency}`;
+}
+
 // ─── HELPERS WHATSAPP ─────────────────────────────────────────────────────────
+
 function extractWaNumberFromJid(jid?: unknown): string {
   if (typeof jid !== "string") return "";
   const raw = jid.split("@")[0]?.split(":")[0] ?? "";
@@ -156,11 +163,11 @@ function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
 export default function RecargaAluno({
   clientId,
   clientName,
-  paymentLogId, // ✅
+  paymentLogId,
   onClose,
   onSuccess,
   toastKey = "alunos_list_toasts",
-  allowConvertWithoutPayment = false, // ✅
+  allowConvertWithoutPayment = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const scrollYRef = useRef(0);
@@ -169,7 +176,7 @@ export default function RecargaAluno({
     type: "success" | "error" | "warning",
     title: string,
     message?: string,
-    key: string = toastKey // Usa a key passada por prop
+    key: string = toastKey
   ) {
     try {
       const arr = JSON.parse(window.sessionStorage.getItem(key) || "[]");
@@ -199,11 +206,11 @@ export default function RecargaAluno({
   const [loading, setLoading]             = useState(false);
   const [loadingText, setLoadingText]     = useState("Processando...");
   const isSavingRef                       = useRef(false);
-  const isCheckingRef                     = useRef(false); // ✅
+  const isCheckingRef                     = useRef(false);
   const isFirstLoad                       = useRef(true);
 
-  // ✅ NOVO: Guarda a tecnologia padrão baseada no módulo do cliente
-  const [defaultTech, setDefaultTech]     = useState("ACADEMIA");
+  // Tecnologia detectada do tenant (ACADEMIA ou PERSONAL)
+  const [tenantTech, setTenantTech]       = useState("ACADEMIA");
 
   const [toasts, setToasts]               = useState<ToastMessage[]>([]);
   const { confirm, ConfirmUI }            = useConfirm();
@@ -219,22 +226,16 @@ export default function RecargaAluno({
   const [screens, setScreens]             = useState(1);
   const [planPrice, setPlanPrice]         = useState("0,00");
   const [priceTouched, setPriceTouched]   = useState(false);
-  const [currency, setCurrency]           = useState("BRL");
+  const [currency, setCurrency]           = useState<Currency>("BRL");
+  const [fxRate, setFxRate]               = useState(1);
+  const [totalBrl, setTotalBrl]           = useState(0);
 
   // Vencimento
   const [dueDate, setDueDate]             = useState(() => nowSP().dateISO);
   const [dueTime, setDueTime]             = useState(() => nowSP().timeHHmm);
 
-  // Integração (servidor academia)
-  const [hasIntegration, setHasIntegration] = useState(false);
-  const [integrationId, setIntegrationId]   = useState<string | null>(null);
-  const [deductCredits, setDeductCredits]   = useState(false);
-  const [creditsAvailable, setCreditsAvailable] = useState(0);
-
   // Financeiro
   const [registerPayment, setRegisterPayment] = useState(true);
-  const [fxRate, setFxRate]               = useState(1);
-  const [totalBrl, setTotalBrl]           = useState(0);
   const [obs, setObs]                     = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [payDate, setPayDate]             = useState(() => {
@@ -253,8 +254,6 @@ export default function RecargaAluno({
     { id: "default", label: "Carregando..." },
   ]);
 
-  const [renewAutomatic, setRenewAutomatic] = useState(false);
-
   const selectedTable = useMemo(
     () => tables.find(t => t.id === selectedTableId) || null,
     [tables, selectedTableId]
@@ -265,7 +264,7 @@ export default function RecargaAluno({
     [selectedTable, period, screens]
   );
 
-  // ─── LOAD ───────────────────────────────────────────────────────────────────
+  const showFx = currency !== "BRL";
 
   const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
     const id = Date.now() + Math.random();
@@ -273,21 +272,21 @@ export default function RecargaAluno({
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
   };
 
+  // ─── LOAD ───────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     let alive = true;
     async function load() {
       try {
         const tid = await getCurrentTenantId();
 
-        // ✅ NOVO: Busca os módulos ativos para definir a tecnologia padrão correta
+        // Tecnologia do tenant (ACADEMIA ou PERSONAL)
         try {
-          const { data: tenantInfo } = await supabaseBrowser.from("tenants").select("active_modules").eq("id", tid).maybeSingle();
-          const mods = tenantInfo?.active_modules || [];
-          if (mods.includes("academia")) {
-            setDefaultTech("ACADEMIA");
-          } else if (mods.includes("personal")) {
-            setDefaultTech("PERSONAL");
-          }
+          const { data: tInfo } = await supabaseBrowser
+            .from("tenants").select("active_modules").eq("id", tid).maybeSingle();
+          const mods = tInfo?.active_modules || [];
+          if (mods.includes("academia")) setTenantTech("ACADEMIA");
+          else if (mods.includes("personal")) setTenantTech("PERSONAL");
         } catch (e) {}
 
         // Sessões WhatsApp
@@ -307,48 +306,31 @@ export default function RecargaAluno({
         // Dados do aluno
         const { data: raw, error: cErr } = await supabaseBrowser
           .from("clients")
-          .select("*, servers(name, credits_available, panel_integration)")
+          .select("*, servers(name)")
           .eq("id", clientId)
           .single();
 
         if (!alive || cErr || !raw) { onClose(); return; }
 
         const aluno: AlunoData = {
-          id:             raw.id,
-          display_name:   raw.display_name,
+          id:              raw.id,
+          display_name:    raw.display_name,
           server_username: raw.server_username,
-          server_id:      raw.server_id,
-          server_name:    (raw.servers as any)?.name || null,
-          plan_label:     raw.plan_label,
-          plan_table_id:  raw.plan_table_id,
-          price_amount:   raw.price_amount,
-          price_currency: raw.price_currency,
-          vencimento:     raw.vencimento,
-          screens:        raw.screens,
-          notes:          raw.notes,
-          technology:     raw.technology,
+          server_id:       raw.server_id,
+          server_name:     (raw.servers as any)?.name || null,
+          plan_label:      raw.plan_label,
+          plan_table_id:   raw.plan_table_id,
+          price_amount:    raw.price_amount,
+          price_currency:  raw.price_currency,
+          vencimento:      raw.vencimento,
+          screens:         raw.screens,
+          notes:           raw.notes,
+          technology:      raw.technology,
         };
         setAlunoData(aluno);
         setObs(aluno.notes || "");
 
-        // Integração academia
-        const srvData = raw.servers as any;
-        const panelIntegId = srvData?.panel_integration;
-        if (panelIntegId) {
-          const { data: integ } = await supabaseBrowser
-            .from("server_integrations")
-            .select("provider")
-            .eq("id", panelIntegId)
-            .single();
-          if (String(integ?.provider || "").toUpperCase() === "ALUNO") {
-            setHasIntegration(true);
-            setIntegrationId(panelIntegId);
-            setDeductCredits(true);
-            setCreditsAvailable(Number(srvData?.credits_available || 0));
-          }
-        }
-
-        // Plano inicial
+        // Plano inicial (detecta período pelo label)
         const pName = (aluno.plan_label || "").toUpperCase();
         let fp = "MONTHLY";
         if (pName.includes("ANUAL")) fp = "ANNUAL";
@@ -358,7 +340,7 @@ export default function RecargaAluno({
         setPeriod(fp);
         setScreens(aluno.screens || 1);
 
-        // Vencimento inicial
+        // Vencimento inicial (ATIVO mantém hora; VENCIDO usa agora)
         const vencDate = aluno.vencimento ? new Date(aluno.vencimento) : null;
         const isActive = vencDate != null && vencDate > new Date();
         const base = (isActive && aluno.vencimento) ? new Date(aluno.vencimento) : new Date();
@@ -366,7 +348,7 @@ export default function RecargaAluno({
         setDueDate(addMonthsSP(base, PLAN_MONTHS[fp] || 1));
         setDueTime(time);
 
-        // Tabelas
+        // Tabelas — academia/personal compartilham as plan_tables do IPTV
         const { data: tRes } = await supabaseBrowser
           .from("plan_tables")
           .select(`id, name, currency, is_system_default, table_type,
@@ -374,11 +356,12 @@ export default function RecargaAluno({
               prices:plan_table_item_prices(screens_count, price_amount))`)
           .eq("tenant_id", tid)
           .eq("is_active", true)
-          .eq("table_type", "iptv"); // Mudou para academia? Verifique se table_type é academia ou iptv no seu db.
+          .eq("table_type", "iptv");
 
         const allTables = (tRes || []) as unknown as PlanTable[];
         setTables(allTables);
 
+        // Seleção: tabela do aluno > padrão BRL > primeira disponível
         const fromClient = aluno.plan_table_id
           ? allTables.find(t => t.id === aluno.plan_table_id)
           : null;
@@ -400,6 +383,21 @@ export default function RecargaAluno({
           const p = pickPrice(initialTable, fp, aluno.screens || 1);
           setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
           setPriceTouched(false);
+        }
+
+        // FX (câmbio) inicial se moeda estrangeira
+        if (initialTable?.currency && initialTable.currency !== "BRL") {
+          const { data: fx } = await supabaseBrowser
+            .from("tenant_fx_rates")
+            .select("usd_to_brl, eur_to_brl")
+            .eq("tenant_id", tid)
+            .order("as_of_date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const rate = initialTable.currency === "USD"
+            ? Number(fx?.usd_to_brl || 5)
+            : Number(fx?.eur_to_brl || 5);
+          setFxRate(rate);
         }
 
         // Templates
@@ -440,26 +438,20 @@ export default function RecargaAluno({
     setDueTime(time);
   }, [alunoData, period]);
 
-  useEffect(() => {
-    const isFromTrial = Boolean(allowConvertWithoutPayment);
-    if (!isFromTrial) return;
-    if (!registerPayment) setSendWhats(false);
-  }, [allowConvertWithoutPayment, registerPayment]);
-
-  // Reset override ao mudar estrutura
+  // Reset override ao mudar estrutura (mas não na primeira carga)
   useEffect(() => {
     if (isFirstLoad.current) return;
     setPriceTouched(false);
   }, [screens, period, selectedTableId]);
 
-  // Calcular preço auto
+  // Calcular preço automaticamente (se não tocado pelo usuário)
   useEffect(() => {
     if (priceTouched || !selectedTable) return;
     const p = pickPrice(selectedTable, period, screens);
     setPlanPrice(Number(p || 0).toFixed(2).replace(".", ","));
   }, [selectedTable, period, screens, priceTouched]);
 
-  // Moeda ao trocar tabela
+  // Moeda + câmbio ao trocar tabela
   useEffect(() => {
     if (!selectedTable) return;
     setCurrency(selectedTable.currency || "BRL");
@@ -473,14 +465,15 @@ export default function RecargaAluno({
           setFxRate(1);
           return;
         }
-        const { data: fx } = await supabaseBrowser.from("tenant_fx_rates").select("*").eq("tenant_id", tid).order("as_of_date", { ascending: false }).limit(1).maybeSingle();
+        const { data: fx } = await supabaseBrowser
+          .from("tenant_fx_rates").select("*").eq("tenant_id", tid)
+          .order("as_of_date", { ascending: false }).limit(1).maybeSingle();
         if (fx) {
-            const rate = selectedTable.currency === "USD" ? Number(fx.usd_to_brl) : Number(fx.eur_to_brl);
-            setFxRate(rate || 5);
+          const rate = selectedTable.currency === "USD" ? Number(fx.usd_to_brl) : Number(fx.eur_to_brl);
+          setFxRate(rate || 5);
         } else { setFxRate(5); }
-      } catch (e) { console.error(e); setFxRate(5); }
+      } catch (e) { setFxRate(5); }
     })();
-
   }, [selectedTableId, selectedTable]);
 
   // Total BRL
@@ -489,23 +482,28 @@ export default function RecargaAluno({
     setTotalBrl(currency === "BRL" ? raw : raw * (fxRate || 1));
   }, [planPrice, fxRate, currency]);
 
+  // Conversão de trial sem pagamento: desliga WhatsApp automaticamente
+  useEffect(() => {
+    if (!Boolean(allowConvertWithoutPayment)) return;
+    if (!registerPayment) setSendWhats(false);
+  }, [allowConvertWithoutPayment, registerPayment]);
 
-  // ─── SAVE ───────────────────────────────────────────────────────────────────
+  // ─── PRE-CHECK ──────────────────────────────────────────────────────────────
 
   const handlePreCheck = async () => {
     if (loading || isSavingRef.current || isCheckingRef.current || !alunoData) return;
     isCheckingRef.current = true;
 
     const rawPrice = safeNum(planPrice);
-    const months = PLAN_MONTHS[period] || 1;
     const planType = PLAN_TYPES.find(p => p.screens === screens)?.label || `${screens} alunos`;
     const isFromTrial = Boolean(allowConvertWithoutPayment);
     const isPaymentFlow = Boolean(registerPayment);
 
-    const details = [
+    const details: string[] = [
       `Aluno: ${alunoData.display_name || clientName}`,
       `Username: ${alunoData.server_username || "—"}`,
-      "---",
+      `Servidor: ${alunoData.server_name || "—"}`,
+      `---`,
       `Plano: ${PLAN_LABELS[period]} · ${planType}`,
       `Novo vencimento: ${dueDate.split("-").reverse().join("/")} às ${dueTime}`,
     ];
@@ -513,10 +511,9 @@ export default function RecargaAluno({
     if (isFromTrial && !isPaymentFlow) {
       details.push(`Tipo: Conversão (Sem pagamento)`);
     } else {
-      details.push(`Valor: ${fmtMoney(currency, rawPrice)}`);
-      if (deductCredits && hasIntegration) {
-        details.push(`Créditos a descontar: ${creditsInfo} (saldo atual: ${creditsAvailable})`);
-      }
+      const formattedVal = rawPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      details.push(`Valor: ${currency} ${formattedVal}`);
+      if (creditsInfo > 0) details.push(`Créditos a descontar: ${creditsInfo}`);
     }
 
     const ok = await confirm({
@@ -534,103 +531,85 @@ export default function RecargaAluno({
     isCheckingRef.current = false;
   };
 
+  // ─── EXECUTE SAVE ───────────────────────────────────────────────────────────
+
   const executeSave = async () => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
 
     setLoading(true);
-    setLoadingText("Iniciando...");
+    setLoadingText("Salvando dados...");
 
     try {
-      const tid = await getCurrentTenantId();
       const rawPrice = safeNum(planPrice);
       const months = PLAN_MONTHS[period] || 1;
+      const tid = await getCurrentTenantId();
       const nameToSend = alunoData?.display_name || clientName;
-      let finalVencimento = saoPauloToIso(dueDate, dueTime);
+      const planType = PLAN_TYPES.find(p => p.screens === screens)?.label || `${screens}x`;
+      const finalVencimento = saoPauloToIso(dueDate, dueTime);
 
-      // PASSO 1: Descontar créditos (se toggle ligado)
-      if (deductCredits && hasIntegration && integrationId) {
-        setLoadingText("Descontando créditos...");
-        const { data: sess } = await supabaseBrowser.auth.getSession();
-        const token = sess?.session?.access_token;
-
-        const res = await fetch("/api/integrations/aluno/renew", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            integration_id:    integrationId,
-            tenant_id:         tid,
-            months,
-            credits_to_deduct: creditsInfo,
-          }),
-        });
-
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok || !json.ok) {
-          addToast("error", "Falha ao descontar créditos", json.error || "Verifique o saldo do servidor.");
-          setLoading(false);
-          isSavingRef.current = false;
-          return;
-        }
-
-        setCreditsAvailable(json.data?.credits_remaining ?? 0);
-      }
-
-      // PASSO 2: Atualizar cadastro do aluno
+      // PASSO 1: Atualizar cadastro
       setLoadingText("Atualizando cadastro...");
-      const { error: updateErr } = await supabaseBrowser.rpc("update_client", {
-        p_tenant_id:              tid,
-        p_client_id:              clientId,
-        p_display_name:           nameToSend,
-        p_name_prefix:            null,
-        p_notes:                  obs || null,
-        p_clear_notes:            !obs && !!alunoData?.notes,
-        p_server_id:              alunoData?.server_id,
-        p_server_username:        alunoData?.server_username,
-        p_server_password:        null,
-        p_screens:                screens,
-        p_plan_label:             PLAN_LABELS[period],
-        p_plan_table_id:          selectedTableId || null,
-        p_price_amount:           rawPrice,
-        p_price_currency:         currency as any,
-        p_vencimento:             alunoData?.vencimento || null, // mantém — renew_client_and_log atualiza
-        p_is_trial:               allowConvertWithoutPayment ? false : null,
-        p_whatsapp_opt_in:        true,
-        p_whatsapp_username:      null,
-        p_whatsapp_snooze_until:  null,
-        p_is_archived:            false,
-        p_technology:             alunoData ? alunoData.technology || defaultTech : defaultTech, // ✅ Usa a tecnologia correta
-        p_clear_whatsapp_snooze_until: false,
-        p_clear_secondary:        false,
-      });
-      if (updateErr) throw new Error(`Erro ao atualizar: ${updateErr.message}`);
 
-      // PASSO 3: Registrar financeiro
+      // Conversão sem pagamento → update_client carrega o novo vencimento
+      // (porque renew_client_and_log não será chamado). Renovação normal → mantém o atual.
+      const dateForUpdate = registerPayment
+        ? alunoData?.vencimento || null
+        : finalVencimento;
+
+      const { error: updateErr } = await supabaseBrowser.rpc("update_client", {
+        p_tenant_id:                  tid,
+        p_client_id:                  clientId,
+        p_display_name:               nameToSend,
+        p_name_prefix:                null,
+        p_notes:                      obs || null,
+        p_clear_notes:                !obs && !!alunoData?.notes,
+        p_server_id:                  alunoData?.server_id,
+        p_server_username:            alunoData?.server_username,
+        p_server_password:            null,
+        p_screens:                    screens,
+        p_plan_label:                 PLAN_LABELS[period],
+        p_plan_table_id:              selectedTableId || null,
+        p_price_amount:               rawPrice,
+        p_price_currency:             currency as any,
+        p_vencimento:                 dateForUpdate,
+        p_is_trial:                   Boolean(allowConvertWithoutPayment) ? false : null,
+        p_whatsapp_opt_in:            true,
+        p_whatsapp_username:          null,
+        p_whatsapp_snooze_until:      null,
+        p_is_archived:                false,
+        p_technology:                 tenantTech, // ACADEMIA ou PERSONAL
+        p_clear_whatsapp_snooze_until: false,
+        p_clear_secondary:            false,
+      });
+      if (updateErr) throw new Error(`Erro Update: ${updateErr.message}`);
+
+      // PASSO 2: Registrar pagamento + renovar (p_is_automatic=false → RPC debita créditos do servidor)
       if (registerPayment) {
         setLoadingText("Registrando pagamento...");
-        const planType = PLAN_TYPES.find(p => p.screens === screens)?.label || `${screens}x`;
-        const msg = `Renovação academia · ${PLAN_LABELS[period]} · ${planType} · ${fmtMoney(currency, rawPrice)}`;
+
+        // Mensagem para o CLIENTE (timeline, sem nome próprio)
+        const clientMessage = `Renovação manual via painel · ${months} mês(es) · ${planType} · ${fmtMoney(currency, rawPrice)}`;
+
+        // Notes para o SERVIDOR (com nome, login e detalhes)
+        const serverNotes = `Renovação manual via painel · ${nameToSend} (${alunoData?.server_username || "-"}) · ${months} mês(es) · ${planType} · ${fmtMoney(currency, rawPrice)}${obs ? ` · Obs: ${obs}` : ""}`;
 
         const { error: renewErr } = await supabaseBrowser.rpc("renew_client_and_log", {
           p_tenant_id:      tid,
           p_client_id:      clientId,
           p_months:         months,
           p_status:         "PAID",
-          p_notes:          obs || null,
+          p_notes:          serverNotes,
           p_new_vencimento: finalVencimento,
           p_is_automatic:   false,
-          p_message:        msg,
+          p_message:        clientMessage,
           p_unit_price:     Number((totalBrl / months).toFixed(2)),
           p_total_amount:   totalBrl,
         });
-        if (renewErr) throw new Error(`Erro ao registrar: ${renewErr.message}`);
+        if (renewErr) throw new Error(`Erro Renew: ${renewErr.message}`);
       }
 
-      // PASSO 4: WhatsApp
+      // PASSO 3: WhatsApp
       if (sendWhats && msgContent?.trim()) {
         setLoadingText("Enviando WhatsApp...");
         try {
@@ -650,7 +629,7 @@ export default function RecargaAluno({
               whatsapp_session:    selectedSession,
             }),
           });
-          
+
           if (!res.ok) throw new Error("API retornou erro");
 
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
@@ -664,7 +643,7 @@ export default function RecargaAluno({
           }
 
           queueToast("success", "Mensagem enviada", "Comprovante entregue no WhatsApp.", toastKey);
-        } catch { 
+        } catch {
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
           if (paymentLogId) {
             const { error: waUpErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
@@ -674,17 +653,17 @@ export default function RecargaAluno({
             });
             if (waUpErr) console.error("Falha ao gravar whatsapp_status=error:", waUpErr);
           }
-          queueToast("error", "Erro no envio", "Renovado, mas WhatsApp falhou.", toastKey); 
+          queueToast("error", "Erro no envio", "Renovado, mas WhatsApp falhou.", toastKey);
         }
       }
 
-      // --- FIM ---
+      // FIM
       setLoadingText("Concluído!");
-      queueToast("success", "Aluno renovado", "Renovação registrada com sucesso.", toastKey);
-      
-      setTimeout(async () => { 
-        await onSuccess(paymentLogId); 
-        onClose(); 
+      queueToast("success", "Aluno renovado manualmente", "Renovação manual registrada com sucesso.", toastKey);
+
+      setTimeout(async () => {
+        await onSuccess(paymentLogId);
+        onClose();
       }, 500);
 
     } catch (err: any) {
@@ -697,9 +676,8 @@ export default function RecargaAluno({
 
   if (fetching || !mounted) return null;
 
-  const planType = PLAN_TYPES.find(p => p.screens === screens);
   const isFromTrial = Boolean(allowConvertWithoutPayment);
-  const headerTitle = isFromTrial ? "Converter em Assinante" : "Renovação de Aluno";
+  const headerTitle = isFromTrial ? "Converter em Aluno" : "Renovação de Aluno";
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
 
@@ -717,11 +695,9 @@ export default function RecargaAluno({
           <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl shrink-0">
             <div className="flex items-center gap-3">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} dark:bg-white/5`}>
-                {isFromTrial ? 
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> 
-                    : 
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                }
+                {isFromTrial
+                  ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                  : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-800 dark:text-white leading-tight">{headerTitle}</h2>
@@ -777,7 +753,7 @@ export default function RecargaAluno({
                     onChange={e => { tableChangedRef.current = true; setSelectedTableId(e.target.value); }}
                     className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs text-slate-700 dark:text-white outline-none"
                   >
-                    {tables.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {tables.map(t => <option key={t.id} value={t.id}>{formatTableLabel(t)}</option>)}
                   </select>
                 )}
               </div>
@@ -790,7 +766,7 @@ export default function RecargaAluno({
                 </FS>
               </div>
 
-              {/* Tipo de plano */}
+              {/* Tipo de plano (botões Individual/Família/Família Total) */}
               <div>
                 <FL>Tipo de Plano</FL>
                 <div className="flex gap-2">
@@ -811,7 +787,7 @@ export default function RecargaAluno({
                 </div>
               </div>
 
-              {/* Créditos + Valor */}
+              {/* Créditos + Moeda + Valor */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <FL>Créditos</FL>
@@ -835,34 +811,31 @@ export default function RecargaAluno({
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Descontar Créditos */}
-            {hasIntegration && (
-              <div
-                onClick={() => setDeductCredits(v => !v)}
-                className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between gap-3 transition-colors ${
-                  deductCredits
-                    ? "bg-sky-50 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/20"
-                    : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🎟️</span>
+              {/* Câmbio (se moeda estrangeira) */}
+              {showFx && (
+                <div className="p-3 bg-sky-50 dark:bg-sky-500/10 rounded-lg border border-sky-100 dark:border-sky-500/20 grid grid-cols-2 gap-3">
                   <div>
-                    <span className={`text-xs font-bold block ${deductCredits ? "text-sky-700 dark:text-sky-400" : "text-slate-500"}`}>
-                      Descontar Créditos do Servidor
-                    </span>
-                    <span className="text-[9px] text-slate-400">
-                      Saldo atual: <strong>{creditsAvailable}</strong> créditos · Usar: <strong>{creditsInfo}</strong>
-                    </span>
+                    <FL>Câmbio</FL>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={Number(fxRate || 0).toFixed(4)}
+                      onChange={e => setFxRate(Number(e.target.value))}
+                      className="w-full h-9 px-3 bg-white dark:bg-black/30 border border-sky-200 dark:border-sky-500/20 rounded text-sm outline-none dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <FL>Total BRL</FL>
+                    <div className="w-full h-9 flex items-center justify-center bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/20 rounded text-emerald-800 dark:text-emerald-200 font-bold">
+                      {fmtMoney("BRL", totalBrl)}
+                    </div>
                   </div>
                 </div>
-                <SW checked={deductCredits} onChange={setDeductCredits} />
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Registrar Financeiro */}
+            {/* Registrar Pagamento (toggle só aparece na conversão de trial) */}
             {Boolean(allowConvertWithoutPayment) && (
               <div onClick={() => setRegisterPayment(!registerPayment)} className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-center justify-between ${registerPayment ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20" : "bg-slate-50 border-slate-200 dark:bg-white/5 dark:border-white/10"}`}>
                 <span className={`text-xs font-bold ${registerPayment ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500"}`}>Registrar Pagamento?</span>
@@ -916,6 +889,22 @@ export default function RecargaAluno({
                   </FS>
                 </div>
               )}
+              {/* Preview imagem do template */}
+              {(() => {
+                const tpl = templates.find(t => t.id === selectedTemplateId);
+                if (!sendWhats || !tpl?.image_url) return null;
+                return (
+                  <div className="mt-2 animate-in fade-in zoom-in-95 duration-200">
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">
+                      Imagem Anexada
+                    </span>
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm bg-slate-100 dark:bg-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={tpl.image_url} alt="Anexo do template" className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Observações */}
