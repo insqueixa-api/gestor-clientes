@@ -532,10 +532,27 @@ function AlunosPageContent() {
     sendNowAbortRef.current = controller;
     try {
       const token = await getToken();
+
+      // ✅ Busca a imagem caso tenha um template selecionado
+      let imageUrlToSend = null;
+      if (selectedTemplateNowId) {
+        const tpl = messageTemplates.find(t => t.id === selectedTemplateNowId);
+        if (tpl && tpl.image_url) {
+          imageUrlToSend = tpl.image_url;
+        }
+      }
+
       const res = await fetch("/api/whatsapp/envio_agora", {
         method: "POST", signal: controller.signal,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenant_id: tenantId, client_id: showSendNow.clientId, message: msg, whatsapp_session: selectedSessionNow, message_template_id: selectedTemplateNowId || null }),
+        body: JSON.stringify({ 
+          tenant_id: tenantId, 
+          client_id: showSendNow.clientId, 
+          message: msg, 
+          whatsapp_session: selectedSessionNow, 
+          message_template_id: selectedTemplateNowId || null,
+          image_url: imageUrlToSend // ✅ Envia a imagem
+        }),
       });
       if (!res.ok) throw new Error("Falha ao enviar");
       addToast("success", "Enviado", "Mensagem enviada via WhatsApp.");
@@ -554,10 +571,28 @@ function AlunosPageContent() {
     setScheduling(true);
     try {
       const token = await getToken();
+
+      // ✅ Busca a imagem caso tenha um template selecionado
+      let imageUrlToSend = null;
+      if (selectedTemplateScheduleId) {
+        const tpl = messageTemplates.find(t => t.id === selectedTemplateScheduleId);
+        if (tpl && tpl.image_url) {
+          imageUrlToSend = tpl.image_url;
+        }
+      }
+
       const res = await fetch("/api/whatsapp/envio_programado", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tenant_id: tenantId, client_id: showScheduleMsg.clientId, message: msg, send_at: saoPauloToIso(scheduleDate), whatsapp_session: selectedSessionSchedule, message_template_id: selectedTemplateScheduleId || null }),
+        body: JSON.stringify({ 
+          tenant_id: tenantId, 
+          client_id: showScheduleMsg.clientId, 
+          message: msg, 
+          send_at: saoPauloToIso(scheduleDate), 
+          whatsapp_session: selectedSessionSchedule, 
+          message_template_id: selectedTemplateScheduleId || null,
+          image_url: imageUrlToSend // ✅ Envia a imagem
+        }),
       });
       if (!res.ok) throw new Error("Falha ao agendar");
       addToast("success", "Agendado", "Mensagem programada com sucesso.");

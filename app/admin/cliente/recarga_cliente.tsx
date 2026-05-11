@@ -1321,9 +1321,14 @@ if (registerPayment && renewAutomatic) {
 
           if (!res.ok) throw new Error("API retornou erro");
 
-          // ✅ NOVO: Atualiza a coluna no banco confirmando o envio!
+          // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
           if (paymentLogId) {
-            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", paymentLogId);
+            const { error: waUpErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
+              p_log_id: paymentLogId,
+              p_tenant_id: tid,
+              p_status: "sent",
+            });
+            if (waUpErr) console.error("Falha ao gravar whatsapp_status=sent:", waUpErr);
           }
 
           // ✅ Usa queueToast para garantir que apareça na lista de clientes após o modal fechar
@@ -1331,9 +1336,14 @@ if (registerPayment && renewAutomatic) {
         } catch (e) {
           console.error("Falha envio Whats:", e);
 
-          // ✅ NOVO: Atualiza a coluna no banco registrando a falha!
+          // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
           if (paymentLogId) {
-            await supabaseBrowser.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", paymentLogId);
+            const { error: waUpErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
+              p_log_id: paymentLogId,
+              p_tenant_id: tid,
+              p_status: "error",
+            });
+            if (waUpErr) console.error("Falha ao gravar whatsapp_status=error:", waUpErr);
           }
 
           queueToast("error", "Erro no envio", "Renovado, mas o WhatsApp falhou.", toastKey);
