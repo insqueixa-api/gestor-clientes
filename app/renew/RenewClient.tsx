@@ -959,9 +959,11 @@ return (
               
               {paymentData?.is_manual ? (
                 <>
-                  {/* Ampulheta animada (areia caindo + virando) */}
-                  <div className="flex justify-center mb-4">
-                    <AnimatedHourglass />
+                  {/* Icone de Sucesso (Substituindo a ampulheta) */}
+                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
 
                   {/* Título */}
@@ -995,37 +997,28 @@ return (
                       <div className="flex-1">
                         <p className="text-sm font-bold text-blue-800 mb-0.5">Suporte já foi notificado</p>
                         <p className="text-xs text-blue-700 leading-relaxed">
-                          Nossa equipe está renovando sua assinatura no servidor agora mesmo. Em alguns minutos estará tudo pronto.
+                          Nossa equipe já está processando sua renovação no servidor.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Caixa Amarela - Não enviar comprovante */}
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 mb-4 text-left">
+                  {/* Caixa Amarela - Instruções finais */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 mb-5 text-left">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="text-base">⚠️</span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-900 mb-0.5">Não envie comprovante</p>
+                        <p className="text-sm font-bold text-amber-900 mb-0.5">Tudo certo! Pode fechar esta janela.</p>
                         <p className="text-xs text-amber-800 leading-relaxed">
-                          <strong>Não é necessário enviar comprovante pelo WhatsApp.</strong> Apenas aguarde — você receberá uma mensagem de confirmação assim que sua assinatura for renovada.
+                          <strong>Não é necessário enviar o comprovante.</strong> Apenas aguarde — você receberá a confirmação da renovação no seu WhatsApp em instantes.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status: barra com loader (decorativa, não clicável) */}
-                  <div className="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md mb-3">
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    Renovando manualmente...
-                  </div>
-
-                  {/* Link sutil de fechar */}
+                  {/* Botão de Fechar */}
                   <button
                     onClick={() => {
                       setPaymentModal(false);
@@ -1033,12 +1026,12 @@ return (
                       setPaymentStatus("pending");
                       setPaymentPhase("awaiting_payment");
                     }}
-                    className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                    className="w-full py-3 sm:py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
-                    Voltar à Minha Conta
+                    Clique aqui para fechar
                   </button>
                 </>
-              ) : (
+                ) : (
                 <>
                   {/* Renovação automática (fluxo original) */}
                   <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -2198,63 +2191,3 @@ function IconLogout() {
   );
 }
 
-// --- AMPULHETA ANIMADA (Tela de renovação manual confirmada) ---
-function AnimatedHourglass() {
-  return (
-    <div className="inline-block" aria-hidden>
-      <style>{`
-        @keyframes mch-flip {
-          0%, 42% { transform: rotate(0deg); }
-          50%, 92% { transform: rotate(180deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes mch-sand-fall {
-          0% { stroke-dashoffset: 0; }
-          100% { stroke-dashoffset: -12; }
-        }
-        .mch-svg {
-          animation: mch-flip 4s ease-in-out infinite;
-          transform-origin: 40px 50px;
-        }
-        .mch-fall {
-          animation: mch-sand-fall 0.6s linear infinite;
-        }
-      `}</style>
-      <svg width="80" height="100" viewBox="0 0 80 100" className="mch-svg">
-        {/* Frame */}
-        <path
-          d="M16 6 L64 6 L64 12 L48 36 L48 60 L64 84 L64 94 L16 94 L16 84 L32 60 L32 36 L16 12 Z"
-          fill="rgba(251, 191, 36, 0.05)"
-          stroke="#475569"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-        {/* Top cap */}
-        <rect x="13" y="4" width="54" height="4" fill="#334155" rx="1" />
-        {/* Bottom cap */}
-        <rect x="13" y="92" width="54" height="4" fill="#334155" rx="1" />
-        {/* Top sand */}
-        <path
-          d="M19 9 L61 9 L46 33 L34 33 Z"
-          fill="#f59e0b"
-        />
-        {/* Bottom sand */}
-        <path
-          d="M34 67 L46 67 L61 91 L19 91 Z"
-          fill="#f59e0b"
-        />
-        {/* Falling sand line (dashed, animated) */}
-        <line
-          x1="40"
-          y1="38"
-          x2="40"
-          y2="60"
-          stroke="#fbbf24"
-          strokeWidth="2"
-          strokeDasharray="3 3"
-          className="mch-fall"
-        />
-      </svg>
-    </div>
-  );
-}
