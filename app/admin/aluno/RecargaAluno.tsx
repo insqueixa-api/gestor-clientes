@@ -596,7 +596,7 @@ export default function RecargaAluno({
           p_status:         "PAID",
           p_notes:          serverNotes,
           p_new_vencimento: finalVencimento,
-          p_is_automatic:   true, // TRUE ignora a dedução de créditos no banco de dados
+          p_is_automatic:   false, // FALSE força a mágica acontecer e abater os créditos silenciosamente
           p_message:        clientMessage,
           p_unit_price:     Number((totalBrl / months).toFixed(2)),
           p_total_amount:   totalBrl,
