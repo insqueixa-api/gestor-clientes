@@ -1021,10 +1021,16 @@ return (
                   {/* Botão de Fechar */}
                   <button
                     onClick={() => {
-                      setPaymentModal(false);
-                      setPaymentData(null);
-                      setPaymentStatus("pending");
-                      setPaymentPhase("awaiting_payment");
+                      // Tenta fechar a aba
+                      window.close();
+                      
+                      // Fallback: se o navegador bloquear o fechamento da aba, fechamos o modal após um instante
+                      setTimeout(() => {
+                        setPaymentModal(false);
+                        setPaymentData(null);
+                        setPaymentStatus("pending");
+                        setPaymentPhase("awaiting_payment");
+                      }, 300);
                     }}
                     className="w-full py-3 sm:py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
