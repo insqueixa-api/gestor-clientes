@@ -232,7 +232,6 @@ export default function RecargaAluno({
 
   // Vencimento
   const [dueDate, setDueDate]             = useState(() => nowSP().dateISO);
-  const [dueTime, setDueTime]             = useState(() => nowSP().timeHHmm);
 
   // Financeiro
   const [registerPayment, setRegisterPayment] = useState(true);
@@ -344,9 +343,7 @@ export default function RecargaAluno({
         const vencDate = aluno.vencimento ? new Date(aluno.vencimento) : null;
         const isActive = vencDate != null && vencDate > new Date();
         const base = (isActive && aluno.vencimento) ? new Date(aluno.vencimento) : new Date();
-        const time = (isActive && aluno.vencimento) ? hhmmSP(aluno.vencimento) : nowSP().timeHHmm;
         setDueDate(addMonthsSP(base, PLAN_MONTHS[fp] || 1));
-        setDueTime(time);
 
         // Tabelas — academia/personal compartilham as plan_tables do IPTV
         const { data: tRes } = await supabaseBrowser
@@ -358,7 +355,8 @@ export default function RecargaAluno({
           .eq("is_active", true)
           .eq("table_type", "iptv");
 
-        const allTables = (tRes || []) as unknown as PlanTable[];
+        // Puxa apenas tabelas em BRL para o Brasil
+        const allTables = ((tRes || []) as unknown as PlanTable[]).filter(t => t.currency === "BRL");
         setTables(allTables);
 
         // Seleção: tabela do aluno > padrão BRL > primeira disponível
@@ -433,9 +431,7 @@ export default function RecargaAluno({
     const vencDate = alunoData.vencimento ? new Date(alunoData.vencimento) : null;
     const isActive = vencDate != null && vencDate > new Date();
     const base = (isActive && alunoData.vencimento) ? new Date(alunoData.vencimento) : new Date();
-    const time = (isActive && alunoData.vencimento) ? hhmmSP(alunoData.vencimento) : nowSP().timeHHmm;
     setDueDate(addMonthsSP(base, PLAN_MONTHS[period] || 1));
-    setDueTime(time);
   }, [alunoData, period]);
 
   // Reset override ao mudar estrutura (mas não na primeira carga)
@@ -505,7 +501,7 @@ export default function RecargaAluno({
       `Servidor: ${alunoData.server_name || "—"}`,
       `---`,
       `Plano: ${PLAN_LABELS[period]} · ${planType}`,
-      `Novo vencimento: ${dueDate.split("-").reverse().join("/")} às ${dueTime}`,
+      `Novo vencimento: ${dueDate.split("-").reverse().join("/")} às 23:59`,
     ];
 
     if (isFromTrial && !isPaymentFlow) {
@@ -513,7 +509,6 @@ export default function RecargaAluno({
     } else {
       const formattedVal = rawPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       details.push(`Valor: ${currency} ${formattedVal}`);
-      if (creditsInfo > 0) details.push(`Créditos a descontar: ${creditsInfo}`);
     }
 
     const ok = await confirm({
@@ -546,7 +541,7 @@ export default function RecargaAluno({
       const tid = await getCurrentTenantId();
       const nameToSend = alunoData?.display_name || clientName;
       const planType = PLAN_TYPES.find(p => p.screens === screens)?.label || `${screens}x`;
-      const finalVencimento = saoPauloToIso(dueDate, dueTime);
+      const finalVencimento = saoPauloToIso(dueDate, "23:59"); // Cumbina hora final padrão
 
       // PASSO 1: Atualizar cadastro
       setLoadingText("Atualizando cadastro...");
@@ -601,7 +596,7 @@ export default function RecargaAluno({
           p_status:         "PAID",
           p_notes:          serverNotes,
           p_new_vencimento: finalVencimento,
-          p_is_automatic:   false,
+          p_is_automatic:   true, // TRUE ignora a dedução de créditos no banco de dados
           p_message:        clientMessage,
           p_unit_price:     Number((totalBrl / months).toFixed(2)),
           p_total_amount:   totalBrl,
@@ -717,28 +712,10 @@ export default function RecargaAluno({
             {/* Vencimento */}
             <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 space-y-3">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">📅 Novo Vencimento</span>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <FL>Data</FL>
+                  <FL>Data (Vencimento às 23:59)</FL>
                   <DateInputBR value={dueDate} onChange={setDueDate} />
-                </div>
-                <div>
-                  <FL>Hora</FL>
-                  <div className="flex gap-2">
-                    <input
-                      type="time"
-                      value={dueTime}
-                      onChange={e => setDueTime(e.target.value)}
-                      className="flex-1 h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 dark:[color-scheme:dark]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setDueTime("23:59")}
-                      className="px-2 h-10 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 hover:border-emerald-500/50 hover:text-emerald-600 transition-all bg-white dark:bg-white/5"
-                    >
-                      23:59
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -787,14 +764,8 @@ export default function RecargaAluno({
                 </div>
               </div>
 
-              {/* Créditos + Moeda + Valor */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <FL>Créditos</FL>
-                  <div className="h-10 rounded-lg border border-blue-100 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-300">
-                    {creditsInfo}
-                  </div>
-                </div>
+              {/* Moeda + Valor */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FL>Moeda</FL>
                   <div className="h-10 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-black/30 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-white">
