@@ -198,6 +198,51 @@ export default function ClientDetailsPage() {
   });
   const [novaAv, setNovaAv] = useState(emptyAv());
 
+  // Modal de Anamnese
+  const [showAnamneseModal, setShowAnamneseModal] = useState(false);
+  const [savingAnamnese, setSavingAnamnese] = useState(false);
+  const [anamneseForm, setAnamneseForm] = useState({
+    fuma: false, bebe: false, drogas: false,
+    objetivo: "", doencas_cronicas: "", lesoes: "", historico_medico: ""
+  });
+
+  function openAnamneseModal() {
+    const s = dadosExtras.saude || {};
+    setAnamneseForm({
+      fuma: !!s.fuma, bebe: !!s.bebe, drogas: !!s.drogas,
+      objetivo: s.objetivo || "", doencas_cronicas: s.doencas_cronicas || "",
+      lesoes: s.lesoes || "", historico_medico: s.historico_medico || ""
+    });
+    setShowAnamneseModal(true);
+  }
+
+  async function handleSaveAnamnese() {
+    if (!client) return;
+    setSavingAnamnese(true);
+    try {
+      const tid = await getCurrentTenantId();
+      const newDadosExtras = {
+        ...dadosExtras,
+        saude: { ...(dadosExtras.saude || {}), ...anamneseForm }
+      };
+      
+      const { error } = await supabaseBrowser
+        .from('clients')
+        .update({ dados_extras: newDadosExtras })
+        .eq('id', client.id)
+        .eq('tenant_id', tid);
+        
+      if (error) throw error;
+      addToast("success", "Anamnese atualizada!");
+      setShowAnamneseModal(false);
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSavingAnamnese(false);
+    }
+  }
+
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
 
@@ -594,31 +639,18 @@ export default function ClientDetailsPage() {
               <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-white/5"><span className="text-slate-500 font-medium">Mensalidade</span><span className="font-mono font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">{fmtMoney(client.price_amount, client.price_currency)}</span></div>
               
               <div className="pt-2">
-                <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-1">
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-lg border border-slate-100 dark:border-white/5 mt-1 mb-3">
                   <span className="text-slate-500 dark:text-white/40 font-bold text-[11px] uppercase tracking-tight">Próximo Vencimento</span>
                   <div className={`text-right font-mono font-black text-base ${client.computed_status === "OVERDUE" ? "text-rose-500" : client.computed_status === "ACTIVE" ? "text-emerald-600" : "text-slate-500"}`}>
                     {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* CARD: CONTATOS */}
-          <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
-              <span className="text-base">📱</span> Contatos Secundários
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-50 dark:border-white/5">
-                <span className="text-slate-500 font-medium">Telefone Ligação</span>
-                <span className="font-mono font-bold">{formatPhoneDisplay(client.whatsapp_e164)}</span>
-              </div>
-
-              <div className="pt-2">
-                <div className="text-[11px] font-bold text-slate-500 dark:text-white/30 mb-1.5">Observações da Secretaria</div>
+              <div className="pt-1 border-t border-slate-100 dark:border-white/5">
+                <div className="text-[11px] font-bold text-slate-400 dark:text-white/30 mb-2 mt-2 uppercase tracking-widest">Observações da Secretaria</div>
                 <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/20 p-3 rounded-xl text-xs leading-relaxed border border-slate-200 dark:border-white/5 min-h-[60px] whitespace-pre-wrap">
-                  {client.notes ? client.notes : <span className="italic text-slate-400">Sem observações.</span>}
+                  {client.notes ? client.notes : <span className="italic text-slate-400">Sem observações registradas.</span>}
                 </div>
               </div>
             </div>
@@ -626,9 +658,17 @@ export default function ClientDetailsPage() {
 
           {/* CARD: DADOS DE SAÚDE (ANAMNESE) */}
           <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase mb-4 tracking-widest flex items-center gap-2">
-              <span className="text-base">🏥</span> Dados de Saúde (Anamnese)
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[11px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest flex items-center gap-2">
+                <span className="text-base">🏥</span> Dados de Saúde (Anamnese)
+              </h3>
+              <button 
+                onClick={openAnamneseModal}
+                className="text-[10px] px-2 py-1 bg-slate-100 dark:bg-white/5 rounded-lg text-slate-500 font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 transition-colors"
+              >
+                Editar Anamnese
+              </button>
+            </div>
             <div className="space-y-4 text-sm">
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border border-slate-100 dark:border-white/5 flex items-center gap-2">
@@ -789,6 +829,81 @@ export default function ClientDetailsPage() {
 
       {/* --- MODAIS E ALERTAS --- */}
       {ConfirmUI}
+
+      {/* MODAL DE ANAMNESE (DADOS DE SAÚDE) */}
+      {showAnamneseModal && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
+              <h2 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <span>🏥</span> Ficha de Anamnese
+              </h2>
+              <button onClick={() => setShowAnamneseModal(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Opções Booleanas */}
+              <div className="grid grid-cols-3 gap-3">
+                <div onClick={() => setAnamneseForm(prev => ({...prev, fuma: !prev.fuma}))} className={`p-3 rounded-xl border cursor-pointer flex flex-col items-center gap-1 transition-colors ${anamneseForm.fuma ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                  <span className="text-xl">🚬</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Fuma?</span>
+                  <span className="text-sm font-black">{anamneseForm.fuma ? "Sim" : "Não"}</span>
+                </div>
+                <div onClick={() => setAnamneseForm(prev => ({...prev, bebe: !prev.bebe}))} className={`p-3 rounded-xl border cursor-pointer flex flex-col items-center gap-1 transition-colors ${anamneseForm.bebe ? "bg-amber-50 border-amber-200 text-amber-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                  <span className="text-xl">🍺</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Bebe?</span>
+                  <span className="text-sm font-black">{anamneseForm.bebe ? "Sim" : "Não"}</span>
+                </div>
+                <div onClick={() => setAnamneseForm(prev => ({...prev, drogas: !prev.drogas}))} className={`p-3 rounded-xl border cursor-pointer flex flex-col items-center gap-1 transition-colors ${anamneseForm.drogas ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                  <span className="text-xl">💊</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Drogas?</span>
+                  <span className="text-sm font-black">{anamneseForm.drogas ? "Sim" : "Não"}</span>
+                </div>
+              </div>
+
+              {/* Objetivo */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Objetivo Principal</label>
+                <select value={anamneseForm.objetivo} onChange={e => setAnamneseForm(v => ({...v, objetivo: e.target.value}))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500">
+                  <option value="">Selecione o objetivo principal...</option>
+                  <option value="ganhar_massa">Ganhar Massa Muscular</option>
+                  <option value="perder_peso">Perder Peso / Gordura</option>
+                  <option value="manter">Manter o Peso</option>
+                  <option value="condicionamento">Condicionamento Físico</option>
+                  <option value="reabilitacao">Reabilitação</option>
+                  <option value="competicao">Competição</option>
+                  <option value="saude">Saúde e Qualidade de Vida</option>
+                </select>
+              </div>
+
+              {/* Textos Livres */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Doenças Crônicas / Condições</label>
+                <textarea value={anamneseForm.doencas_cronicas} onChange={e => setAnamneseForm(v => ({...v, doencas_cronicas: e.target.value}))} placeholder="Ex: Hipertensão, asma, diabetes..." className="w-full h-16 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Lesões / Limitações Físicas</label>
+                <textarea value={anamneseForm.lesoes} onChange={e => setAnamneseForm(v => ({...v, lesoes: e.target.value}))} placeholder="Ex: Hérnia de disco, lesão no joelho direito..." className="w-full h-16 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Histórico Médico Geral</label>
+                <textarea value={anamneseForm.historico_medico} onChange={e => setAnamneseForm(v => ({...v, historico_medico: e.target.value}))} placeholder="Cirurgias passadas, medicamentos de uso contínuo..." className="w-full h-16 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-3 shrink-0">
+              <button onClick={() => setShowAnamneseModal(false)} className="px-4 py-2 rounded-lg font-bold text-xs text-slate-500 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button onClick={handleSaveAnamnese} disabled={savingAnamnese} className="px-6 py-2 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                {savingAnamnese ? "Salvando..." : "Salvar Anamnese"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE NOVA AVALIAÇÃO FÍSICA */}
       {showNovaAvModal && (
