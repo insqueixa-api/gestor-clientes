@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -180,6 +180,7 @@ export default function ClientDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [tenantLogo, setTenantLogo] = useState<string | null>(null); // Estado para a logo
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
@@ -192,7 +193,6 @@ export default function ClientDetailsPage() {
   const [showNovaAvModal, setShowNovaAvModal] = useState(false);
   const [savingAv, setSavingAv] = useState(false);
   
-  // Atualizado com os campos do modelo InBody
   const emptyAv = () => ({
     data: new Date().toISOString().slice(0, 10),
     peso_kg: "", 
@@ -206,6 +206,8 @@ export default function ClientDetailsPage() {
     tmb_kcal: "",
     rcq: "",
     gordura_visceral: "",
+    massa_muscular_esq_kg: "",
+    grau_obesidade: "",
     // Perimetria
     cintura_cm: "", quadril_cm: "", braco_cm: "", coxa_cm: "",
     panturrilha_cm: "", abdomen_cm: "", ombro_cm: "", 
@@ -308,9 +310,16 @@ export default function ClientDetailsPage() {
       const tid = await getCurrentTenantId();
       if (!tid) throw new Error("Tenant não encontrado");
 
-      let localAppsById: Record<string, any> = {};
-      const { data: rawAppsData } = await supabaseBrowser.rpc("get_my_visible_apps");
-      if (rawAppsData) for (const a of rawAppsData) if (a?.id) localAppsById[String(a.id)] = a;
+      // Buscar a logo do Tenant para o PDF
+      const { data: tenantData } = await supabaseBrowser
+        .from("tenants")
+        .select("logo_url")
+        .eq("id", tid)
+        .maybeSingle();
+      
+      if (tenantData?.logo_url) {
+        setTenantLogo(tenantData.logo_url);
+      }
 
       const r1 = await supabaseBrowser.from("vw_clients_list_active").select("*").eq("tenant_id", tid).eq("id", clientIdSafe).maybeSingle();
       const r2 = r1.data ? { data: null as any } : await supabaseBrowser.from("vw_clients_list_archived").select("*").eq("tenant_id", tid).eq("id", clientIdSafe).maybeSingle();
@@ -418,7 +427,6 @@ export default function ClientDetailsPage() {
       try {
         if (!client?.whatsapp_username) throw new Error("Usuário não possui WhatsApp cadastrado.");
         addToast("success", "Enviando PDF...", "O arquivo está sendo processado e será enviado via WhatsApp.");
-        // Simulação de chamada de API: puxamos a rota envio agora da API
         await fetch('/api/envio-agora', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
@@ -433,15 +441,13 @@ export default function ClientDetailsPage() {
 
     if (action === 'email') {
       try {
-        // Supondo que o email está em client.username ou dadosExtras.email
         const emailAlvo = dadosExtras.email || client?.username;
         if (!emailAlvo || !emailAlvo.includes('@')) throw new Error("Aluno não possui e-mail válido.");
         addToast("success", "Enviando E-mail...", `Enviando relatório para ${emailAlvo}`);
-        // Simulação de chamada de API
         await fetch('/api/envio-email', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: emailAlvo, subject: 'Sua Avaliação Física - Slug', data: av }) 
+          body: JSON.stringify({ to: emailAlvo, subject: 'Sua Avaliação Física - Relatório', data: av }) 
         });
         addToast("success", "Sucesso!", "E-mail enviado com o PDF em anexo.");
       } catch(e:any) {
@@ -450,7 +456,7 @@ export default function ClientDetailsPage() {
       return;
     }
 
-    // Ações de 'print' ou 'save' abrem a janela para o navegador lidar com a conversão
+    // Ações de 'print' ou 'save'
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
@@ -462,29 +468,26 @@ export default function ClientDetailsPage() {
     const difPeso = pesoKg > 0 && pesoIdeal > 0 ? (pesoKg - pesoIdeal) : 0;
     const gorduraPct = Number(av.gordura_pct || 0);
     const massaGordura = gorduraPct > 0 && pesoKg > 0 ? (gorduraPct / 100) * pesoKg : Number(av.massa_gordura_kg || 0);
+    const massaMuscularEsq = Number(av.massa_muscular_esq_kg || 0);
 
-    // Gerador de barras estilo InBody
+    // Render de barras
     const renderBar = (val: number, refValue: number) => {
-      // refValue é o 100% da escala
       const pct = refValue > 0 ? (val / refValue) * 100 : 0;
-      const widthPct = Math.min(Math.max(pct, 55), 205); // Limites do gráfico InBody (55% a 205%)
-      const barColor = (pct > 115 || pct < 85) ? '#f43f5e' : '#10b981'; // Vermelho se fora, Verde se dentro
+      const widthPct = Math.min(Math.max(pct, 55), 205); 
+      const barColor = (pct > 115 || pct < 85) ? '#94a3b8' : '#10b981'; // Tons mais neutros/InBody
       
       return `
-      <div class="relative w-full h-3 bg-slate-100 rounded-sm">
-        <div class="absolute top-0 left-0 h-full border-r-2 border-black z-10" style="width: 30%;"></div>
-        <div class="absolute top-0 left-[30%] h-full border-r-2 border-black z-10" style="width: 30%;"></div>
+      <div class="relative w-full h-[10px] bg-slate-100 rounded-sm">
+        <div class="absolute top-0 left-0 h-full border-r border-slate-300 z-10" style="width: 30%;"></div>
+        <div class="absolute top-0 left-[30%] h-full border-r border-slate-300 z-10" style="width: 30%;"></div>
         <div class="absolute top-0 left-0 h-full z-0 opacity-80" style="width: ${(widthPct - 55) / 1.5}%; background-color: ${barColor};"></div>
       </div>
       `;
     };
 
-    const logoSvg = `
-      <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="0" y="30" font-family="Arial" font-size="28" font-weight="900" fill="#1e293b">Slug</text>
-        <circle cx="75" cy="18" r="6" fill="#10b981" />
-      </svg>
-    `;
+    const logoHtml = tenantLogo 
+      ? `<img src="${tenantLogo}" alt="Logo" style="max-height: 40px; object-fit: contain;" />` 
+      : `<img src="/brand/logo-gestor.png" alt="Logo" style="max-height: 40px; object-fit: contain;" />`;
 
     const bonequinhoSvg = `
       <svg viewBox="0 0 200 250" class="w-full h-full opacity-90">
@@ -496,11 +499,11 @@ export default function ClientDetailsPage() {
           <rect x="80" y="125" width="18" height="90" rx="9" />
           <rect x="102" y="125" width="18" height="90" rx="9" />
         </g>
-        <text x="40" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_esq_kg || '--'} kg</text>
-        <text x="160" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_dir_kg || '--'} kg</text>
+        <text x="35" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_esq_kg || '--'} kg</text>
+        <text x="165" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_dir_kg || '--'} kg</text>
         <text x="100" y="90" font-size="11" font-weight="bold" fill="#334155" text-anchor="middle">${av.tronco_kg || '--'} kg</text>
-        <text x="70" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_esq_kg || '--'} kg</text>
-        <text x="130" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_dir_kg || '--'} kg</text>
+        <text x="65" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_esq_kg || '--'} kg</text>
+        <text x="135" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_dir_kg || '--'} kg</text>
       </svg>
     `;
 
@@ -512,178 +515,182 @@ export default function ClientDetailsPage() {
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @media print { 
-              @page { margin: 8mm; size: A4; } 
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+              @page { margin: 10mm; size: A4; } 
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; } 
               .no-break { page-break-inside: avoid; }
             }
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; }
-            .inbody-border { border: 2px solid #0f172a; }
-            .section-header { background-color: #0f172a; color: white; padding: 4px 10px; font-weight: bold; font-size: 13px; text-transform: uppercase; margin-top: 16px; margin-bottom: 8px;}
-            table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            table.data-table th, table.data-table td { border-bottom: 1px solid #e2e8f0; padding: 6px 4px; text-align: left; }
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #1e293b; background: white; }
+            .section-header { background-color: #0f172a; color: white; padding: 3px 8px; font-weight: bold; font-size: 11px; text-transform: uppercase; margin-top: 10px; margin-bottom: 6px; }
+            table.data-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+            table.data-table th, table.data-table td { border-bottom: 1px solid #e2e8f0; padding: 4px; text-align: left; }
             table.data-table th { color: #64748b; font-weight: bold; }
-            .scale-header { display: flex; font-size: 9px; color: #64748b; font-weight: bold; }
+            .scale-header { display: flex; font-size: 8px; color: #64748b; font-weight: bold; margin-bottom: 2px;}
             .scale-header span { flex: 1; text-align: center; }
-            .val-cell { font-weight: 900; font-size: 14px; text-align: right; width: 60px; padding-right: 10px; }
+            .val-cell { font-weight: 900; font-size: 12px; text-align: right; width: 50px; padding-right: 4px; }
+            .small-desc { font-size: 8px; color: #64748b; display: block; line-height: 1; margin-bottom: 1px;}
           </style>
         </head>
-        <body class="bg-white text-slate-800 text-xs">
-          <div class="max-w-[800px] mx-auto inbody-border p-6 bg-white relative">
+        <body>
+          <div class="max-w-[750px] mx-auto bg-white" style="padding: 10px 20px;">
             
-            <div class="absolute top-6 right-6 text-center border-2 border-slate-200 p-2 rounded-lg">
-              <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pontuação</div>
-              <div class="text-3xl font-black text-emerald-600">${av.pontuacao || '67'}<span class="text-sm text-slate-400">/100</span></div>
-            </div>
-
-            <div class="flex justify-between items-end border-b-2 border-slate-800 pb-3 mb-4 pr-32">
+            <div class="flex justify-between items-start mb-2">
               <div>
-                ${logoSvg}
-                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Análise de Composição Corporal</p>
+                ${logoHtml}
+                <div class="text-[14px] font-black tracking-tight mt-1">ANÁLISE DE COMPOSIÇÃO CORPORAL</div>
               </div>
-              <div class="text-right text-[10px] space-y-1">
+              <div class="text-right text-[9px] border border-slate-200 p-2 bg-slate-50 rounded">
                 <p><strong>ID:</strong> ${client?.id.split('-')[0].toUpperCase()}</p>
-                <p><strong>Data / Hora:</strong> ${new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")} 12:00</p>
+                <p><strong>Data/Hora:</strong> ${new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")} 12:00</p>
               </div>
             </div>
 
-            <div class="grid grid-cols-4 gap-4 mb-4 text-[11px] border border-slate-200 p-2 bg-slate-50">
-              <div><span class="block text-slate-500 font-bold">Nome</span><span class="font-black text-sm uppercase">${client?.client_name}</span></div>
-              <div><span class="block text-slate-500 font-bold">Altura</span><span class="font-black text-sm">${alturaCm || '--'} cm</span></div>
-              <div><span class="block text-slate-500 font-bold">Idade</span><span class="font-black text-sm">${dadosExtras.data_nascimento ? new Date().getFullYear() - new Date(dadosExtras.data_nascimento).getFullYear() : '--'}</span></div>
-              <div><span class="block text-slate-500 font-bold">Gênero</span><span class="font-black text-sm">${client?.name_prefix === 'Sra.' || client?.name_prefix === 'Dra.' ? 'Feminino' : 'Masculino'}</span></div>
+            <div class="flex border-t-2 border-b-2 border-slate-800 py-1 mb-2 text-[10px]">
+              <div class="flex-1"><strong>NOME:</strong> ${client?.client_name.toUpperCase()}</div>
+              <div class="flex-1"><strong>ALTURA:</strong> ${alturaCm || '--'} cm</div>
+              <div class="flex-1"><strong>IDADE:</strong> ${dadosExtras.data_nascimento ? new Date().getFullYear() - new Date(dadosExtras.data_nascimento).getFullYear() : '--'}</div>
+              <div class="flex-1"><strong>SEXO:</strong> ${client?.name_prefix === 'Sra.' || client?.name_prefix === 'Dra.' ? 'Feminino' : 'Masculino'}</div>
             </div>
 
-            <div class="section-header">Análise da Composição Corporal</div>
+            <div class="section-header mt-0">Análise da Composição Corporal</div>
             <table class="data-table mb-2">
               <tr>
-                <th class="w-1/3">Componente</th>
-                <th class="w-1/4">Valores Obtidos</th>
-                <th class="w-1/4">Faixa Normal</th>
+                <th class="w-[45%]">Componente</th>
+                <th class="w-[25%] text-right">Valores Obtidos</th>
+                <th class="w-[30%] text-right">Faixa Normal</th>
               </tr>
               <tr>
-                <td><span class="text-[10px] block text-slate-400">Quantidade total de água no corpo</span><strong>Água Corporal Total</strong> (L)</td>
-                <td class="font-bold text-base">${av.agua_l || '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + '~' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td>
+                <td><span class="small-desc">Quantidade total de água no corpo</span><strong>Água Corporal Total</strong> (L)</td>
+                <td class="font-bold text-sm text-right">${av.agua_l || '--'}</td>
+                <td class="text-slate-500 text-right">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + ' ~ ' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td>
               </tr>
               <tr>
-                <td><span class="text-[10px] block text-slate-400">Para a construção de músculos</span><strong>Proteína</strong> (kg)</td>
-                <td class="font-bold text-base">${av.proteina_kg || '--'}</td>
-                <td class="text-slate-500">--</td>
+                <td><span class="small-desc">Para a construção de músculos</span><strong>Proteína</strong> (kg)</td>
+                <td class="font-bold text-sm text-right">${av.proteina_kg || '--'}</td>
+                <td class="text-slate-500 text-right">--</td>
               </tr>
               <tr>
-                <td><span class="text-[10px] block text-slate-400">Para fortalecer os ossos</span><strong>Minerais</strong> (kg)</td>
-                <td class="font-bold text-base">${av.minerais_kg || '--'}</td>
-                <td class="text-slate-500">--</td>
+                <td><span class="small-desc">Para fortalecer os ossos</span><strong>Minerais</strong> (kg)</td>
+                <td class="font-bold text-sm text-right">${av.minerais_kg || '--'}</td>
+                <td class="text-slate-500 text-right">--</td>
               </tr>
               <tr>
-                <td><span class="text-[10px] block text-slate-400">Para armazenar energia extra</span><strong>Massa de Gordura</strong> (kg)</td>
-                <td class="font-bold text-base text-rose-500">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + '~' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td>
+                <td><span class="small-desc">Para armazenar energia extra</span><strong>Massa de Gordura</strong> (kg)</td>
+                <td class="font-bold text-sm text-right">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</td>
+                <td class="text-slate-500 text-right">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + ' ~ ' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td>
               </tr>
               <tr class="bg-slate-50">
-                <td><span class="text-[10px] block text-slate-400">A soma acima</span><strong>Peso</strong> (kg)</td>
-                <td class="font-black text-lg">${av.peso_kg || '--'}</td>
-                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + '~' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td>
+                <td><span class="small-desc">A soma acima</span><strong>Peso</strong> (kg)</td>
+                <td class="font-black text-base text-right">${av.peso_kg || '--'}</td>
+                <td class="text-slate-500 text-right">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + ' ~ ' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td>
               </tr>
             </table>
 
             <div class="section-header">Análise Músculo-Gordura</div>
-            <div class="mb-2">
-              <div class="flex pl-[120px] pr-[60px] scale-header">
+            <div class="mb-4">
+              <div class="flex pl-[140px] pr-[50px] scale-header">
                 <span>Abaixo</span><span>Normal</span><span>Acima</span><span></span><span></span>
               </div>
-              <div class="flex items-center mb-2">
-                <div class="w-[120px] font-bold">Peso <span class="font-normal text-slate-400">(kg)</span></div>
+              <div class="flex items-center mb-1">
+                <div class="w-[140px] font-bold">Peso <span class="font-normal text-slate-400">(kg)</span></div>
                 <div class="flex-1">${renderBar(pesoKg, pesoIdeal)}</div>
                 <div class="val-cell">${av.peso_kg || '--'}</div>
               </div>
-              <div class="flex items-center mb-2">
-                <div class="w-[120px] font-bold leading-tight">Massa Muscular<br/>Esquelética <span class="font-normal text-slate-400">(kg)</span></div>
-                <div class="flex-1">${renderBar(Number(av.massa_magra_kg || 0), pesoIdeal * 0.45)}</div>
-                <div class="val-cell">${av.massa_magra_kg || '--'}</div>
+              <div class="flex items-center mb-1">
+                <div class="w-[140px] font-bold leading-tight">Massa Muscular<br/>Esquelética <span class="font-normal text-slate-400">(kg)</span></div>
+                <div class="flex-1">${renderBar(massaMuscularEsq, pesoIdeal * 0.45)}</div>
+                <div class="val-cell">${av.massa_muscular_esq_kg || '--'}</div>
               </div>
-              <div class="flex items-center mb-2">
-                <div class="w-[120px] font-bold">Massa de Gordura <span class="font-normal text-slate-400">(kg)</span></div>
+              <div class="flex items-center mb-1">
+                <div class="w-[140px] font-bold">Massa de Gordura <span class="font-normal text-slate-400">(kg)</span></div>
                 <div class="flex-1">${renderBar(massaGordura, pesoIdeal * 0.15)}</div>
                 <div class="val-cell">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</div>
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6 no-break">
-              <div>
+            <div class="flex gap-6 no-break">
+              
+              <div class="w-1/2">
                 <div class="section-header mt-0">Análise de Obesidade</div>
                 <table class="data-table">
                   <tr>
-                    <td><strong>IMC</strong> <span class="text-[10px] text-slate-400">(kg/m²)</span></td>
-                    <td class="font-black text-base text-indigo-600">${imc > 0 ? imc.toFixed(1) : '--'}</td>
+                    <td><strong>IMC</strong> <span class="text-[9px] text-slate-400">(kg/m²)</span></td>
+                    <td class="font-black text-sm text-right">${imc > 0 ? imc.toFixed(1) : '--'}</td>
                   </tr>
                   <tr>
-                    <td><strong>PGC</strong> <span class="text-[10px] text-slate-400">(% Gordura)</span></td>
-                    <td class="font-black text-base text-rose-500">${av.gordura_pct || '--'}</td>
+                    <td><strong>PGC</strong> <span class="text-[9px] text-slate-400">(% Gordura)</span></td>
+                    <td class="font-black text-sm text-right">${av.gordura_pct || '--'}</td>
                   </tr>
                 </table>
 
                 <div class="section-header">Controle de Peso</div>
                 <table class="data-table">
                   <tr><td><strong>Peso Ideal</strong></td><td class="font-bold text-right">${pesoIdeal > 0 ? pesoIdeal.toFixed(1) + ' kg' : '--'}</td></tr>
-                  <tr><td><strong>Controle de Peso</strong></td><td class="font-bold text-right ${difPeso > 0 ? 'text-rose-500' : 'text-emerald-500'}">${difPeso !== 0 ? (difPeso > 0 ? '-' : '+') + Math.abs(difPeso).toFixed(1) + ' kg' : '0.0 kg'}</td></tr>
-                  <tr><td><strong>Controle de Gordura</strong></td><td class="font-bold text-right text-rose-500">--</td></tr>
-                  <tr><td><strong>Controle Muscular</strong></td><td class="font-bold text-right text-emerald-500">--</td></tr>
+                  <tr><td><strong>Controle de Peso</strong></td><td class="font-bold text-right ${difPeso > 0 ? 'text-slate-600' : 'text-slate-600'}">${difPeso !== 0 ? (difPeso > 0 ? '-' : '+') + Math.abs(difPeso).toFixed(1) + ' kg' : '0.0 kg'}</td></tr>
+                  <tr><td><strong>Controle de Gordura</strong></td><td class="font-bold text-right">--</td></tr>
+                  <tr><td><strong>Controle Muscular</strong></td><td class="font-bold text-right">--</td></tr>
+                </table>
+
+                <div class="section-header">Dados Adicionais</div>
+                <table class="data-table">
+                  <tr><td><strong>Massa Livre de Gordura</strong></td><td class="font-bold text-right">${av.massa_magra_kg ? av.massa_magra_kg + ' kg' : '--'}</td></tr>
+                  <tr><td><strong>Taxa Metabólica Basal</strong></td><td class="font-bold text-right">${av.tmb_kcal ? av.tmb_kcal + ' kcal' : '--'}</td></tr>
+                  <tr><td><strong>Relação Cintura-Quadril</strong></td><td class="font-bold text-right">${av.rcq || '--'}</td></tr>
+                  <tr><td><strong>Nível de Gordura Visceral</strong></td><td class="font-bold text-right">${av.gordura_visceral || '--'}</td></tr>
+                  <tr><td><strong>Grau de Obesidade</strong></td><td class="font-bold text-right">${av.grau_obesidade ? av.grau_obesidade + '%' : '--'}</td></tr>
                 </table>
               </div>
 
-              <div>
+              <div class="w-1/2 flex flex-col">
+                <div class="bg-slate-50 border border-slate-200 p-3 text-center rounded mb-3">
+                  <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pontuação InBody</div>
+                  <div class="text-3xl font-black text-slate-800">${av.pontuacao || '--'}<span class="text-sm text-slate-400">/100</span></div>
+                  <div class="text-[7px] text-slate-400 mt-1 leading-tight">* Pontuação total, que reflete a avaliação da composição corporal.</div>
+                </div>
+
                 <div class="section-header mt-0">Análise da Massa Magra Segmentar</div>
-                <div class="w-full h-[220px] flex justify-center mt-2 relative">
+                <div class="flex-1 flex justify-center items-center relative min-h-[180px]">
                   ${bonequinhoSvg}
                 </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6 no-break">
-              <div>
-                <div class="section-header">Dados Adicionais</div>
+            <div class="flex gap-6 mt-4 no-break">
+              <div class="w-1/3">
+                <div class="section-header mt-0">Perimetria (cm)</div>
                 <table class="data-table">
-                  <tr><td><strong>Taxa Metabólica Basal</strong></td><td class="font-bold text-right">${av.tmb_kcal ? av.tmb_kcal + ' kcal' : '--'}</td></tr>
-                  <tr><td><strong>Relação Cintura-Quadril</strong></td><td class="font-bold text-right">${av.rcq || '--'}</td></tr>
-                  <tr><td><strong>Nível de Gordura Visceral</strong></td><td class="font-bold text-right">${av.gordura_visceral || '--'}</td></tr>
+                  <tr><td>Cintura</td><td class="font-bold text-right">${av.cintura_cm || '--'}</td></tr>
+                  <tr><td>Quadril</td><td class="font-bold text-right">${av.quadril_cm || '--'}</td></tr>
+                  <tr><td>Abdômen</td><td class="font-bold text-right">${av.abdomen_cm || '--'}</td></tr>
+                  <tr><td>Ombro</td><td class="font-bold text-right">${av.ombro_cm || '--'}</td></tr>
+                  <tr><td>Braço</td><td class="font-bold text-right">${av.braco_cm || '--'}</td></tr>
+                  <tr><td>Coxa</td><td class="font-bold text-right">${av.coxa_cm || '--'}</td></tr>
+                  <tr><td>Panturrilha</td><td class="font-bold text-right">${av.panturrilha_cm || '--'}</td></tr>
                 </table>
               </div>
               
-              <div>
-                <div class="section-header">Perimetria (cm)</div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Cintura</span><span class="font-bold">${av.cintura_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Quadril</span><span class="font-bold">${av.quadril_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Abdômen</span><span class="font-bold">${av.abdomen_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Ombro</span><span class="font-bold">${av.ombro_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Braço</span><span class="font-bold">${av.braco_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Coxa</span><span class="font-bold">${av.coxa_cm || '--'}</span></div>
-                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Panturrilha</span><span class="font-bold">${av.panturrilha_cm || '--'}</span></div>
-                </div>
+              <div class="w-2/3">
+                <div class="section-header mt-0">Histórico da Composição Corporal</div>
+                <table class="data-table text-center">
+                  <tr>
+                    <th class="text-left">Data</th>
+                    <th>Peso (kg)</th>
+                    <th>M. Muscular Esq. (kg)</th>
+                    <th>PGC (%)</th>
+                  </tr>
+                  ${avaliacoes.slice(0, 5).reverse().map(historicoAv => `
+                    <tr>
+                      <td class="text-left">${new Date(historicoAv.data + "T12:00:00").toLocaleDateString("pt-BR")}</td>
+                      <td class="font-bold">${historicoAv.peso_kg || '--'}</td>
+                      <td class="font-bold">${historicoAv.massa_muscular_esq_kg || '--'}</td>
+                      <td class="font-bold">${historicoAv.gordura_pct || '--'}</td>
+                    </tr>
+                  `).join('')}
+                </table>
               </div>
             </div>
 
-            <div class="section-header no-break">Histórico da Composição Corporal</div>
-            <table class="data-table text-center no-break">
-              <tr>
-                <th class="text-left">Data</th>
-                <th>Peso (kg)</th>
-                <th>Massa Magra (kg)</th>
-                <th>PGC (%)</th>
-              </tr>
-              ${avaliacoes.slice(0, 4).reverse().map(historicoAv => `
-                <tr>
-                  <td class="text-left">${new Date(historicoAv.data + "T12:00:00").toLocaleDateString("pt-BR")}</td>
-                  <td class="font-bold">${historicoAv.peso_kg || '--'}</td>
-                  <td class="font-bold">${historicoAv.massa_magra_kg || '--'}</td>
-                  <td class="font-bold">${historicoAv.gordura_pct || '--'}</td>
-                </tr>
-              `).join('')}
-            </table>
-
-            <div class="mt-6 pt-4 border-t-2 border-slate-800 text-[9px] text-slate-400 text-center uppercase tracking-widest">
-              Documento gerado digitalmente • Slug Health System • © ${new Date().getFullYear()}
+            <div class="mt-4 pt-2 border-t border-slate-300 text-[8px] text-slate-400 text-center uppercase tracking-widest no-break">
+              Documento gerado digitalmente • Análise de Composição Corporal • © ${new Date().getFullYear()}
             </div>
           </div>
           <script>
@@ -1155,11 +1162,13 @@ export default function ClientDetailsPage() {
 
               <div>
                 <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Dados Adicionais & Scores</span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pontuação InBody</label><input type="number" value={novaAv.pontuacao} onChange={e => setNovaAv(v => ({...v, pontuacao: e.target.value}))} placeholder="75" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxa Metabólica Basal</label><input type="number" value={novaAv.tmb_kcal} onChange={e => setNovaAv(v => ({...v, tmb_kcal: e.target.value}))} placeholder="1850" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">M. Muscular Esq.</label><input type="number" step="0.1" value={novaAv.massa_muscular_esq_kg} onChange={e => setNovaAv(v => ({...v, massa_muscular_esq_kg: e.target.value}))} placeholder="42.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxa Met. Basal</label><input type="number" value={novaAv.tmb_kcal} onChange={e => setNovaAv(v => ({...v, tmb_kcal: e.target.value}))} placeholder="1850" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rel. Cintura-Quadril</label><input type="number" step="0.01" value={novaAv.rcq} onChange={e => setNovaAv(v => ({...v, rcq: e.target.value}))} placeholder="0.85" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nível Gordura Visceral</label><input type="number" value={novaAv.gordura_visceral} onChange={e => setNovaAv(v => ({...v, gordura_visceral: e.target.value}))} placeholder="9" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Grau de Obesidade %</label><input type="number" value={novaAv.grau_obesidade} onChange={e => setNovaAv(v => ({...v, grau_obesidade: e.target.value}))} placeholder="134" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
                 </div>
               </div>
 
