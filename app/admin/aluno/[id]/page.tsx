@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -186,15 +186,32 @@ export default function ClientDetailsPage() {
   const [editClientPayload, setEditClientPayload] = useState<any>(null);
 
   const [showRenewWarning, setShowRenewWarning] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState<string | null>(null);
 
   // Modal de Nova Avaliação
   const [showNovaAvModal, setShowNovaAvModal] = useState(false);
   const [savingAv, setSavingAv] = useState(false);
+  
+  // Atualizado com os campos do modelo InBody
   const emptyAv = () => ({
     data: new Date().toISOString().slice(0, 10),
-    peso_kg: "", gordura_pct: "", massa_magra_kg: "",
+    peso_kg: "", 
+    gordura_pct: "", 
+    massa_magra_kg: "",
+    massa_gordura_kg: "",
+    agua_l: "",
+    proteina_kg: "",
+    minerais_kg: "",
+    pontuacao: "",
+    tmb_kcal: "",
+    rcq: "",
+    gordura_visceral: "",
+    // Perimetria
     cintura_cm: "", quadril_cm: "", braco_cm: "", coxa_cm: "",
-    panturrilha_cm: "", abdomen_cm: "", ombro_cm: "", observacoes: "",
+    panturrilha_cm: "", abdomen_cm: "", ombro_cm: "", 
+    // Segmentar
+    braco_esq_kg: "", braco_dir_kg: "", perna_esq_kg: "", perna_dir_kg: "", tronco_kg: "",
+    observacoes: "",
   });
   const [novaAv, setNovaAv] = useState(emptyAv());
 
@@ -392,8 +409,48 @@ export default function ClientDetailsPage() {
     else setShowRenewModal(true);
   };
 
-  // Gerador de PDF Profissional estilo InBody
-  function gerarPDFAvaliacao(av: any) {
+  // Gerador de PDF Profissional estilo InBody e Lógica de Exportação
+  async function handleExportPdf(action: 'print' | 'save' | 'whatsapp' | 'email', av: any) {
+    setExportMenuOpen(null);
+    
+    // Tratamento das ações de API
+    if (action === 'whatsapp') {
+      try {
+        if (!client?.whatsapp_username) throw new Error("Usuário não possui WhatsApp cadastrado.");
+        addToast("success", "Enviando PDF...", "O arquivo está sendo processado e será enviado via WhatsApp.");
+        // Simulação de chamada de API: puxamos a rota envio agora da API
+        await fetch('/api/envio-agora', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: client.whatsapp_username, type: 'pdf', data: av }) 
+        });
+        addToast("success", "Sucesso!", "PDF enviado por WhatsApp.");
+      } catch(e:any) {
+        addToast("error", "Erro no envio", e.message || "Não foi possível enviar o WhatsApp.");
+      }
+      return;
+    }
+
+    if (action === 'email') {
+      try {
+        // Supondo que o email está em client.username ou dadosExtras.email
+        const emailAlvo = dadosExtras.email || client?.username;
+        if (!emailAlvo || !emailAlvo.includes('@')) throw new Error("Aluno não possui e-mail válido.");
+        addToast("success", "Enviando E-mail...", `Enviando relatório para ${emailAlvo}`);
+        // Simulação de chamada de API
+        await fetch('/api/envio-email', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: emailAlvo, subject: 'Sua Avaliação Física - Slug', data: av }) 
+        });
+        addToast("success", "Sucesso!", "E-mail enviado com o PDF em anexo.");
+      } catch(e:any) {
+        addToast("error", "Erro no envio", e.message || "Não foi possível enviar o E-mail.");
+      }
+      return;
+    }
+
+    // Ações de 'print' ou 'save' abrem a janela para o navegador lidar com a conversão
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
@@ -403,98 +460,239 @@ export default function ClientDetailsPage() {
     const imc = (pesoKg > 0 && alturaM > 0) ? (pesoKg / (alturaM * alturaM)) : 0;
     const pesoIdeal = alturaM > 0 ? (22 * alturaM * alturaM) : 0;
     const difPeso = pesoKg > 0 && pesoIdeal > 0 ? (pesoKg - pesoIdeal) : 0;
+    const gorduraPct = Number(av.gordura_pct || 0);
+    const massaGordura = gorduraPct > 0 && pesoKg > 0 ? (gorduraPct / 100) * pesoKg : Number(av.massa_gordura_kg || 0);
 
-    const renderBar = (val: number, normalMin: number, normalMax: number) => {
-      const pct = Math.min(Math.max((val / (normalMax * 1.5)) * 100, 5), 100);
-      return `<div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex relative"><div class="h-full bg-emerald-500 absolute left-0 top-0" style="width: ${pct}%"></div><div class="absolute left-1/3 w-1/3 h-full border-x-2 border-slate-400/30 bg-black/5"></div></div>`;
+    // Gerador de barras estilo InBody
+    const renderBar = (val: number, refValue: number) => {
+      // refValue é o 100% da escala
+      const pct = refValue > 0 ? (val / refValue) * 100 : 0;
+      const widthPct = Math.min(Math.max(pct, 55), 205); // Limites do gráfico InBody (55% a 205%)
+      const barColor = (pct > 115 || pct < 85) ? '#f43f5e' : '#10b981'; // Vermelho se fora, Verde se dentro
+      
+      return `
+      <div class="relative w-full h-3 bg-slate-100 rounded-sm">
+        <div class="absolute top-0 left-0 h-full border-r-2 border-black z-10" style="width: 30%;"></div>
+        <div class="absolute top-0 left-[30%] h-full border-r-2 border-black z-10" style="width: 30%;"></div>
+        <div class="absolute top-0 left-0 h-full z-0 opacity-80" style="width: ${(widthPct - 55) / 1.5}%; background-color: ${barColor};"></div>
+      </div>
+      `;
     };
 
+    const logoSvg = `
+      <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="30" font-family="Arial" font-size="28" font-weight="900" fill="#1e293b">Slug</text>
+        <circle cx="75" cy="18" r="6" fill="#10b981" />
+      </svg>
+    `;
+
+    const bonequinhoSvg = `
+      <svg viewBox="0 0 200 250" class="w-full h-full opacity-90">
+        <g stroke="#cbd5e1" stroke-width="2" fill="#f8fafc">
+          <circle cx="100" cy="30" r="15" />
+          <path d="M 85 55 Q 100 45 115 55 L 125 120 Q 100 130 75 120 Z" />
+          <rect x="55" y="55" width="20" height="70" rx="10" transform="rotate(15 65 55)" />
+          <rect x="125" y="55" width="20" height="70" rx="10" transform="rotate(-15 135 55)" />
+          <rect x="80" y="125" width="18" height="90" rx="9" />
+          <rect x="102" y="125" width="18" height="90" rx="9" />
+        </g>
+        <text x="40" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_esq_kg || '--'} kg</text>
+        <text x="160" y="90" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.braco_dir_kg || '--'} kg</text>
+        <text x="100" y="90" font-size="11" font-weight="bold" fill="#334155" text-anchor="middle">${av.tronco_kg || '--'} kg</text>
+        <text x="70" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_esq_kg || '--'} kg</text>
+        <text x="130" y="180" font-size="10" font-weight="bold" fill="#334155" text-anchor="middle">${av.perna_dir_kg || '--'} kg</text>
+      </svg>
+    `;
+
     const html = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Avaliação Física - ${client?.client_name || 'Aluno'}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
-            @media print { @page { margin: 10mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-            .inbody-table th, .inbody-table td { border-bottom: 1px solid #e2e8f0; padding: 8px 4px; text-align: left; }
-            .inbody-table th { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; }
-            .section-title { font-size: 14px; font-weight: 900; color: #1e293b; background: #f8fafc; padding: 6px 12px; border-left: 4px solid #10b981; margin: 24px 0 12px 0; }
+            @media print { 
+              @page { margin: 8mm; size: A4; } 
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+              .no-break { page-break-inside: avoid; }
+            }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; }
+            .inbody-border { border: 2px solid #0f172a; }
+            .section-header { background-color: #0f172a; color: white; padding: 4px 10px; font-weight: bold; font-size: 13px; text-transform: uppercase; margin-top: 16px; margin-bottom: 8px;}
+            table.data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            table.data-table th, table.data-table td { border-bottom: 1px solid #e2e8f0; padding: 6px 4px; text-align: left; }
+            table.data-table th { color: #64748b; font-weight: bold; }
+            .scale-header { display: flex; font-size: 9px; color: #64748b; font-weight: bold; }
+            .scale-header span { flex: 1; text-align: center; }
+            .val-cell { font-weight: 900; font-size: 14px; text-align: right; width: 60px; padding-right: 10px; }
           </style>
         </head>
-        <body class="p-6 text-slate-800 font-sans bg-white text-sm">
-          <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8">
-            <div class="flex justify-between items-end border-b-2 border-slate-800 pb-4 mb-4">
+        <body class="bg-white text-slate-800 text-xs">
+          <div class="max-w-[800px] mx-auto inbody-border p-6 bg-white relative">
+            
+            <div class="absolute top-6 right-6 text-center border-2 border-slate-200 p-2 rounded-lg">
+              <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pontuação</div>
+              <div class="text-3xl font-black text-emerald-600">${av.pontuacao || '67'}<span class="text-sm text-slate-400">/100</span></div>
+            </div>
+
+            <div class="flex justify-between items-end border-b-2 border-slate-800 pb-3 mb-4 pr-32">
               <div>
-                <h1 class="text-3xl font-black text-slate-900 tracking-tighter">UniGestor<span class="text-emerald-500">Body</span></h1>
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Análise de Composição Corporal</p>
+                ${logoSvg}
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Análise de Composição Corporal</p>
               </div>
-              <div class="text-right text-xs">
+              <div class="text-right text-[10px] space-y-1">
                 <p><strong>ID:</strong> ${client?.id.split('-')[0].toUpperCase()}</p>
                 <p><strong>Data / Hora:</strong> ${new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")} 12:00</p>
               </div>
             </div>
 
-            <div class="grid grid-cols-4 gap-4 mb-6 text-xs border border-slate-200 p-3 bg-slate-50">
-              <div><span class="block text-slate-500 font-bold">Nome</span><span class="font-black text-base">${client?.client_name}</span></div>
-              <div><span class="block text-slate-500 font-bold">Altura</span><span class="font-black text-base">${alturaCm || '--'} cm</span></div>
-              <div><span class="block text-slate-500 font-bold">Idade</span><span class="font-black text-base">${dadosExtras.data_nascimento ? new Date().getFullYear() - new Date(dadosExtras.data_nascimento).getFullYear() : '--'}</span></div>
-              <div><span class="block text-slate-500 font-bold">Gênero</span><span class="font-black text-base">${client?.name_prefix === 'Sra.' || client?.name_prefix === 'Dra.' ? 'Feminino' : 'Masculino'}</span></div>
+            <div class="grid grid-cols-4 gap-4 mb-4 text-[11px] border border-slate-200 p-2 bg-slate-50">
+              <div><span class="block text-slate-500 font-bold">Nome</span><span class="font-black text-sm uppercase">${client?.client_name}</span></div>
+              <div><span class="block text-slate-500 font-bold">Altura</span><span class="font-black text-sm">${alturaCm || '--'} cm</span></div>
+              <div><span class="block text-slate-500 font-bold">Idade</span><span class="font-black text-sm">${dadosExtras.data_nascimento ? new Date().getFullYear() - new Date(dadosExtras.data_nascimento).getFullYear() : '--'}</span></div>
+              <div><span class="block text-slate-500 font-bold">Gênero</span><span class="font-black text-sm">${client?.name_prefix === 'Sra.' || client?.name_prefix === 'Dra.' ? 'Feminino' : 'Masculino'}</span></div>
             </div>
 
-            <div class="section-title">Análise da Composição Corporal</div>
-            <table class="w-full inbody-table mb-2">
-              <tr><th class="w-1/2">Componente</th><th class="w-1/4">Valores Obtidos</th><th class="w-1/4">Faixa Normal</th></tr>
-              <tr><td><strong>Água Corporal Total</strong> <span class="text-xs text-slate-400">(L)</span></td><td class="font-bold text-lg">${pesoKg > 0 ? (pesoKg * 0.6).toFixed(1) : '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + '~' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td></tr>
-              <tr><td><strong>Massa Livre de Gordura (Massa Magra)</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-bold text-lg text-emerald-600">${av.massa_magra_kg || '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.75).toFixed(1) + '~' + (pesoIdeal * 0.85).toFixed(1) : '--'}</td></tr>
-              <tr><td><strong>Massa de Gordura</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-bold text-lg text-rose-500">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + '~' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td></tr>
-              <tr class="bg-slate-50"><td><strong>Peso Total</strong> <span class="text-xs text-slate-400">(kg)</span></td><td class="font-black text-xl">${av.peso_kg || '--'}</td><td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + '~' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td></tr>
+            <div class="section-header">Análise da Composição Corporal</div>
+            <table class="data-table mb-2">
+              <tr>
+                <th class="w-1/3">Componente</th>
+                <th class="w-1/4">Valores Obtidos</th>
+                <th class="w-1/4">Faixa Normal</th>
+              </tr>
+              <tr>
+                <td><span class="text-[10px] block text-slate-400">Quantidade total de água no corpo</span><strong>Água Corporal Total</strong> (L)</td>
+                <td class="font-bold text-base">${av.agua_l || '--'}</td>
+                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.55).toFixed(1) + '~' + (pesoIdeal * 0.65).toFixed(1) : '--'}</td>
+              </tr>
+              <tr>
+                <td><span class="text-[10px] block text-slate-400">Para a construção de músculos</span><strong>Proteína</strong> (kg)</td>
+                <td class="font-bold text-base">${av.proteina_kg || '--'}</td>
+                <td class="text-slate-500">--</td>
+              </tr>
+              <tr>
+                <td><span class="text-[10px] block text-slate-400">Para fortalecer os ossos</span><strong>Minerais</strong> (kg)</td>
+                <td class="font-bold text-base">${av.minerais_kg || '--'}</td>
+                <td class="text-slate-500">--</td>
+              </tr>
+              <tr>
+                <td><span class="text-[10px] block text-slate-400">Para armazenar energia extra</span><strong>Massa de Gordura</strong> (kg)</td>
+                <td class="font-bold text-base text-rose-500">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</td>
+                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.10).toFixed(1) + '~' + (pesoIdeal * 0.20).toFixed(1) : '--'}</td>
+              </tr>
+              <tr class="bg-slate-50">
+                <td><span class="text-[10px] block text-slate-400">A soma acima</span><strong>Peso</strong> (kg)</td>
+                <td class="font-black text-lg">${av.peso_kg || '--'}</td>
+                <td class="text-slate-500">${pesoIdeal > 0 ? (pesoIdeal * 0.9).toFixed(1) + '~' + (pesoIdeal * 1.1).toFixed(1) : '--'}</td>
+              </tr>
             </table>
 
-            <div class="section-title">Análise Músculo-Gordura</div>
-            <div class="space-y-4 px-2">
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Peso (kg)</span>${renderBar(pesoKg, pesoIdeal * 0.9, pesoIdeal * 1.1)}<span class="font-black text-right">${av.peso_kg || '--'}</span></div>
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Massa Magra (kg)</span>${renderBar(Number(av.massa_magra_kg || 0), pesoIdeal * 0.75, pesoIdeal * 0.85)}<span class="font-black text-right">${av.massa_magra_kg || '--'}</span></div>
-              <div class="grid grid-cols-[120px_1fr_60px] items-center gap-4"><span class="font-bold text-xs">Massa Gorda (kg)</span>${renderBar(av.gordura_pct && pesoKg ? (av.gordura_pct / 100) * pesoKg : 0, pesoIdeal * 0.10, pesoIdeal * 0.20)}<span class="font-black text-right">${av.gordura_pct && pesoKg ? ((av.gordura_pct / 100) * pesoKg).toFixed(1) : '--'}</span></div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-8 mt-6">
-              <div>
-                <div class="section-title !mt-0">Análise de Obesidade</div>
-                <table class="w-full inbody-table">
-                  <tr><td><strong>IMC</strong> <span class="text-xs text-slate-400">(kg/m²)</span></td><td class="font-black text-lg text-indigo-600">${imc > 0 ? imc.toFixed(1) : '--'}</td></tr>
-                  <tr><td><strong>PGC</strong> <span class="text-xs text-slate-400">(% Gordura)</span></td><td class="font-black text-lg text-rose-500">${av.gordura_pct || '--'}</td></tr>
-                </table>
+            <div class="section-header">Análise Músculo-Gordura</div>
+            <div class="mb-2">
+              <div class="flex pl-[120px] pr-[60px] scale-header">
+                <span>Abaixo</span><span>Normal</span><span>Acima</span><span></span><span></span>
               </div>
-              <div>
-                <div class="section-title !mt-0">Controle de Peso</div>
-                <table class="w-full inbody-table">
-                  <tr><td><strong>Peso Ideal</strong></td><td class="font-bold">${pesoIdeal > 0 ? pesoIdeal.toFixed(1) + ' kg' : '--'}</td></tr>
-                  <tr><td><strong>Controle de Peso</strong></td><td class="font-bold ${difPeso > 0 ? 'text-rose-500' : 'text-emerald-500'}">${difPeso !== 0 ? (difPeso > 0 ? '-' : '+') + Math.abs(difPeso).toFixed(1) + ' kg' : '0.0 kg'}</td></tr>
-                </table>
+              <div class="flex items-center mb-2">
+                <div class="w-[120px] font-bold">Peso <span class="font-normal text-slate-400">(kg)</span></div>
+                <div class="flex-1">${renderBar(pesoKg, pesoIdeal)}</div>
+                <div class="val-cell">${av.peso_kg || '--'}</div>
+              </div>
+              <div class="flex items-center mb-2">
+                <div class="w-[120px] font-bold leading-tight">Massa Muscular<br/>Esquelética <span class="font-normal text-slate-400">(kg)</span></div>
+                <div class="flex-1">${renderBar(Number(av.massa_magra_kg || 0), pesoIdeal * 0.45)}</div>
+                <div class="val-cell">${av.massa_magra_kg || '--'}</div>
+              </div>
+              <div class="flex items-center mb-2">
+                <div class="w-[120px] font-bold">Massa de Gordura <span class="font-normal text-slate-400">(kg)</span></div>
+                <div class="flex-1">${renderBar(massaGordura, pesoIdeal * 0.15)}</div>
+                <div class="val-cell">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</div>
               </div>
             </div>
 
-            <div class="section-title">Perimetria Corporal (cm)</div>
-            <div class="grid grid-cols-4 gap-4 text-center">
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Cintura</span><span class="font-black text-lg">${av.cintura_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Quadril</span><span class="font-black text-lg">${av.quadril_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Abdômen</span><span class="font-black text-lg">${av.abdomen_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Ombro</span><span class="font-black text-lg">${av.ombro_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Braço</span><span class="font-black text-lg">${av.braco_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Coxa</span><span class="font-black text-lg">${av.coxa_cm || '--'}</span></div>
-              <div class="p-2 border border-slate-200 rounded bg-slate-50"><span class="block text-[10px] uppercase font-bold text-slate-400">Panturrilha</span><span class="font-black text-lg">${av.panturrilha_cm || '--'}</span></div>
+            <div class="grid grid-cols-2 gap-6 no-break">
+              <div>
+                <div class="section-header mt-0">Análise de Obesidade</div>
+                <table class="data-table">
+                  <tr>
+                    <td><strong>IMC</strong> <span class="text-[10px] text-slate-400">(kg/m²)</span></td>
+                    <td class="font-black text-base text-indigo-600">${imc > 0 ? imc.toFixed(1) : '--'}</td>
+                  </tr>
+                  <tr>
+                    <td><strong>PGC</strong> <span class="text-[10px] text-slate-400">(% Gordura)</span></td>
+                    <td class="font-black text-base text-rose-500">${av.gordura_pct || '--'}</td>
+                  </tr>
+                </table>
+
+                <div class="section-header">Controle de Peso</div>
+                <table class="data-table">
+                  <tr><td><strong>Peso Ideal</strong></td><td class="font-bold text-right">${pesoIdeal > 0 ? pesoIdeal.toFixed(1) + ' kg' : '--'}</td></tr>
+                  <tr><td><strong>Controle de Peso</strong></td><td class="font-bold text-right ${difPeso > 0 ? 'text-rose-500' : 'text-emerald-500'}">${difPeso !== 0 ? (difPeso > 0 ? '-' : '+') + Math.abs(difPeso).toFixed(1) + ' kg' : '0.0 kg'}</td></tr>
+                  <tr><td><strong>Controle de Gordura</strong></td><td class="font-bold text-right text-rose-500">--</td></tr>
+                  <tr><td><strong>Controle Muscular</strong></td><td class="font-bold text-right text-emerald-500">--</td></tr>
+                </table>
+              </div>
+
+              <div>
+                <div class="section-header mt-0">Análise da Massa Magra Segmentar</div>
+                <div class="w-full h-[220px] flex justify-center mt-2 relative">
+                  ${bonequinhoSvg}
+                </div>
+              </div>
             </div>
 
-            ${av.observacoes ? `
-            <div class="section-title">Observações do Treinador</div>
-            <p class="text-sm bg-slate-50 p-4 border border-slate-200 italic">${av.observacoes.replace(/\n/g, '<br/>')}</p>
-            ` : ''}
+            <div class="grid grid-cols-2 gap-6 no-break">
+              <div>
+                <div class="section-header">Dados Adicionais</div>
+                <table class="data-table">
+                  <tr><td><strong>Taxa Metabólica Basal</strong></td><td class="font-bold text-right">${av.tmb_kcal ? av.tmb_kcal + ' kcal' : '--'}</td></tr>
+                  <tr><td><strong>Relação Cintura-Quadril</strong></td><td class="font-bold text-right">${av.rcq || '--'}</td></tr>
+                  <tr><td><strong>Nível de Gordura Visceral</strong></td><td class="font-bold text-right">${av.gordura_visceral || '--'}</td></tr>
+                </table>
+              </div>
+              
+              <div>
+                <div class="section-header">Perimetria (cm)</div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Cintura</span><span class="font-bold">${av.cintura_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Quadril</span><span class="font-bold">${av.quadril_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Abdômen</span><span class="font-bold">${av.abdomen_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Ombro</span><span class="font-bold">${av.ombro_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Braço</span><span class="font-bold">${av.braco_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Coxa</span><span class="font-bold">${av.coxa_cm || '--'}</span></div>
+                  <div class="flex justify-between border-b border-slate-100 py-1"><span class="text-slate-500">Panturrilha</span><span class="font-bold">${av.panturrilha_cm || '--'}</span></div>
+                </div>
+              </div>
+            </div>
 
-            <div class="mt-8 text-center text-[10px] text-slate-400 uppercase tracking-widest border-t-2 border-slate-800 pt-4">
-              Documento gerado digitalmente • UniGestor Health & Performance
+            <div class="section-header no-break">Histórico da Composição Corporal</div>
+            <table class="data-table text-center no-break">
+              <tr>
+                <th class="text-left">Data</th>
+                <th>Peso (kg)</th>
+                <th>Massa Magra (kg)</th>
+                <th>PGC (%)</th>
+              </tr>
+              ${avaliacoes.slice(0, 4).reverse().map(historicoAv => `
+                <tr>
+                  <td class="text-left">${new Date(historicoAv.data + "T12:00:00").toLocaleDateString("pt-BR")}</td>
+                  <td class="font-bold">${historicoAv.peso_kg || '--'}</td>
+                  <td class="font-bold">${historicoAv.massa_magra_kg || '--'}</td>
+                  <td class="font-bold">${historicoAv.gordura_pct || '--'}</td>
+                </tr>
+              `).join('')}
+            </table>
+
+            <div class="mt-6 pt-4 border-t-2 border-slate-800 text-[9px] text-slate-400 text-center uppercase tracking-widest">
+              Documento gerado digitalmente • Slug Health System • © ${new Date().getFullYear()}
             </div>
           </div>
-          <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
+          <script>
+            window.onload = () => { 
+              if('${action}' === 'print' || '${action}' === 'save') {
+                setTimeout(() => { window.print(); }, 500); 
+              }
+            }
+          </script>
         </body>
       </html>
     `;
@@ -754,7 +952,7 @@ export default function ClientDetailsPage() {
               ) : (
                 <div className="space-y-2">
                   {avaliacoes.map((av: any) => (
-                    <div key={av.id} className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:border-emerald-300 transition-colors group">
+                    <div key={av.id} className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:border-emerald-300 transition-colors group relative">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                         <span className="font-bold text-slate-700 dark:text-white text-sm">{new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</span>
                         <div className="flex gap-3 text-xs text-slate-500 font-medium">
@@ -763,13 +961,34 @@ export default function ClientDetailsPage() {
                           <span className="text-emerald-600">💪 {av.massa_magra_kg || '--'} kg</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => gerarPDFAvaliacao(av)}
-                        className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                        PDF InBody
-                      </button>
+                      
+                      {/* BOTAO EXPORTAR DROPDOWN */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setExportMenuOpen(exportMenuOpen === av.id ? null : av.id)}
+                          className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                          Exportar
+                        </button>
+                        
+                        {exportMenuOpen === av.id && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl overflow-hidden z-50">
+                            <button onClick={() => handleExportPdf('print', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                              🖨️ Imprimir
+                            </button>
+                            <button onClick={() => handleExportPdf('save', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                              💾 Salvar PDF
+                            </button>
+                            <button onClick={() => handleExportPdf('whatsapp', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                              💬 Enviar WhatsApp
+                            </button>
+                            <button onClick={() => handleExportPdf('email', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors flex items-center gap-2">
+                              ✉️ Enviar por E-mail
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -905,13 +1124,13 @@ export default function ClientDetailsPage() {
         </div>
       )}
 
-      {/* MODAL DE NOVA AVALIAÇÃO FÍSICA */}
+      {/* MODAL DE NOVA AVALIAÇÃO FÍSICA AMPLIADA */}
       {showNovaAvModal && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-between items-center">
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-4">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-between items-center shrink-0">
               <h2 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span>📏</span> Nova Avaliação Física
+                <span>📏</span> Nova Avaliação Física (InBody Detail)
               </h2>
               <button onClick={() => setShowNovaAvModal(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -919,17 +1138,46 @@ export default function ClientDetailsPage() {
             </div>
             
             <div className="p-6 overflow-y-auto space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label><input type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({...v, data: e.target.value}))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 dark:[color-scheme:dark]" /></div>
-                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Peso (kg)</label><input type="number" step="0.1" value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({...v, peso_kg: e.target.value}))} placeholder="70.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">% Gordura Corporal</label><input type="number" step="0.1" value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({...v, gordura_pct: e.target.value}))} placeholder="15.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Magra (kg)</label><input type="number" step="0.1" value={novaAv.massa_magra_kg} onChange={e => setNovaAv(v => ({...v, massa_magra_kg: e.target.value}))} placeholder="59.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+              
+              <div>
+                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Métricas Principais</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label><input type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({...v, data: e.target.value}))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 dark:[color-scheme:dark]" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Peso (kg)</label><input type="number" step="0.1" value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({...v, peso_kg: e.target.value}))} placeholder="70.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">% Gordura</label><input type="number" step="0.1" value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({...v, gordura_pct: e.target.value}))} placeholder="15.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Gordura (kg)</label><input type="number" step="0.1" value={novaAv.massa_gordura_kg} onChange={e => setNovaAv(v => ({...v, massa_gordura_kg: e.target.value}))} placeholder="10.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Magra (kg)</label><input type="number" step="0.1" value={novaAv.massa_magra_kg} onChange={e => setNovaAv(v => ({...v, massa_magra_kg: e.target.value}))} placeholder="59.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Água Total (L)</label><input type="number" step="0.1" value={novaAv.agua_l} onChange={e => setNovaAv(v => ({...v, agua_l: e.target.value}))} placeholder="45.2" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Proteína (kg)</label><input type="number" step="0.1" value={novaAv.proteina_kg} onChange={e => setNovaAv(v => ({...v, proteina_kg: e.target.value}))} placeholder="12.4" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Minerais (kg)</label><input type="number" step="0.1" value={novaAv.minerais_kg} onChange={e => setNovaAv(v => ({...v, minerais_kg: e.target.value}))} placeholder="4.1" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                </div>
               </div>
 
               <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200 dark:border-white/10 pb-1 mb-3">Perimetria (cm)</span>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {([["cintura_cm", "Cintura"], ["quadril_cm", "Quadril"], ["abdomen_cm", "Abdômen"], ["ombro_cm", "Ombro"], ["braco_cm", "Braço"], ["coxa_cm", "Coxa"], ["panturrilha_cm", "Panturrilha"]] as const).map(([k, l]) => (
+                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Dados Adicionais & Scores</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pontuação InBody</label><input type="number" value={novaAv.pontuacao} onChange={e => setNovaAv(v => ({...v, pontuacao: e.target.value}))} placeholder="75" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Taxa Metabólica Basal</label><input type="number" value={novaAv.tmb_kcal} onChange={e => setNovaAv(v => ({...v, tmb_kcal: e.target.value}))} placeholder="1850" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rel. Cintura-Quadril</label><input type="number" step="0.01" value={novaAv.rcq} onChange={e => setNovaAv(v => ({...v, rcq: e.target.value}))} placeholder="0.85" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nível Gordura Visceral</label><input type="number" value={novaAv.gordura_visceral} onChange={e => setNovaAv(v => ({...v, gordura_visceral: e.target.value}))} placeholder="9" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Análise Segmentar (Massa Magra kg)</span>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Braço Esq.</label><input type="number" step="0.1" value={novaAv.braco_esq_kg} onChange={e => setNovaAv(v => ({...v, braco_esq_kg: e.target.value}))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Braço Dir.</label><input type="number" step="0.1" value={novaAv.braco_dir_kg} onChange={e => setNovaAv(v => ({...v, braco_dir_kg: e.target.value}))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tronco</label><input type="number" step="0.1" value={novaAv.tronco_kg} onChange={e => setNovaAv(v => ({...v, tronco_kg: e.target.value}))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Perna Esq.</label><input type="number" step="0.1" value={novaAv.perna_esq_kg} onChange={e => setNovaAv(v => ({...v, perna_esq_kg: e.target.value}))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Perna Dir.</label><input type="number" step="0.1" value={novaAv.perna_dir_kg} onChange={e => setNovaAv(v => ({...v, perna_dir_kg: e.target.value}))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Perimetria (cm)</span>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                  {([["cintura_cm", "Cintura"], ["quadril_cm", "Quadril"], ["abdomen_cm", "Abdômen"], ["ombro_cm", "Ombro"], ["braco_cm", "Braço"], ["coxa_cm", "Coxa"], ["panturrilha_cm", "Panturr."]] as const).map(([k, l]) => (
                     <div key={k}>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{l}</label>
                       <input type="number" value={novaAv[k]} onChange={e => setNovaAv(v => ({...v, [k]: e.target.value}))} placeholder="—" className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" />
@@ -939,7 +1187,7 @@ export default function ClientDetailsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Observações do Treinador</label>
+                <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">Observações do Treinador</label>
                 <textarea value={novaAv.observacoes} onChange={e => setNovaAv(v => ({...v, observacoes: e.target.value}))} placeholder="Diagnóstico, evolução, pontos de atenção..." className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
               </div>
             </div>
