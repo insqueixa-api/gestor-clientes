@@ -6,7 +6,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Valores padrão (Fallback)
-  let appName = "UniGestor SaaS";
+  let appName = "UniGestor";
   let shortName = "UniGestor";
   let themeColor = "#050505";
   
