@@ -1144,7 +1144,7 @@ async function ensureAcademiaServer(
           integration_name: `${serverName} — Academia`,
           api_token:        "internal",
           is_active:        true,
-          api_base_url:     "/api/integrations/aluno/renew",
+          api_base_url:     "/api/integrations/aluno",
         })
         .select("id")
         .single();

@@ -172,11 +172,16 @@ export async function runFulfillment(params: FulfillmentParams) {
 
 const provider = String(integ.provider || "").toUpperCase();
 
-  // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
-  if (provider === "ELITE") {
-    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending"}).eq("id", payment.id);
-    return { expDateISO: null };
-  }
+  // ✅ NOVO: ALUNO (academia/personal). Fluxo dedicado — a rota interna faz update_client + renew_client_and_log + reset 9999.
+  if (provider === "ALUNO") {
+    return runFulfillmentAluno({ supabaseAdmin, tenantId, origin, payment, client, srv, integ });
+  }
+
+  // ✅ AJUSTE FINO 3: Se for ELITE, joga para fila manual (não bate na API)
+  if (provider === "ELITE") {
+    await supabaseAdmin.from("client_portal_payments").update({ fulfillment_status: "manual_pending"}).eq("id", payment.id);
+    return { expDateISO: null };
+  }
   const months = toPeriodMonths(payment.period);
   prodLog("fulfillment.provider_resolved", {
     tenant: tenantId.slice(-6),
@@ -485,6 +490,180 @@ credits_used: months * qtyScreens,
     months,
     amount: payment.price_amount,
     currency: payment.price_currency,
+  });
+
+  return { expDateISO };
+}
+
+// ============================================================
+// runFulfillmentAluno — Academia/Personal (provider=ALUNO)
+// ============================================================
+async function runFulfillmentAluno(params: {
+  supabaseAdmin: any;
+  tenantId: string;
+  origin: string;
+  payment: any;
+  client: any;
+  srv: any;
+  integ: any;
+}) {
+  const { supabaseAdmin, tenantId, origin, payment, client, srv, integ } = params;
+
+  const months = toPeriodMonths(payment.period);
+  const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
+  const qtyScreens = Number(client.screens ?? 1);
+  const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
+  const login = String(client.server_username || "").trim();
+
+  prodLog("fulfillment.aluno.start", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    months,
+    screens: qtyScreens,
+    amount: totalPaid,
+    currency: safeCurrency,
+  });
+
+  const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
+  if (!internalSecret) throw new Error("INTERNAL_API_SECRET missing");
+
+  // 1) Chama rota interna /api/integrations/aluno
+  //    Ela faz: update_client + renew_client_and_log + reset_credits(9999)
+  const renewRes = await fetch(`${origin}/api/integrations/aluno`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": internalSecret,
+    },
+    cache: "no-store",
+    body: JSON.stringify({
+      tenant_id:      tenantId,
+      integration_id: integ.id,
+      client_id:      client.id,
+      username:       login,
+      months,
+      screens:        qtyScreens,
+      total_amount:   totalPaid,
+      currency:       safeCurrency,
+      plan_label:     payment.plan_label || client.plan_label,
+      price_amount:   payment.price_amount,
+      is_trial:       !!client.is_trial,
+      mp_payment_id:  String(payment.mp_payment_id),
+      source:         "portal",
+    }),
+  });
+
+  const renewJson = await renewRes.json().catch(() => null);
+
+  if (!renewRes.ok || !renewJson?.ok) {
+    const msg = renewJson?.error || `Falha ao renovar (ALUNO). HTTP ${renewRes.status}`;
+    prodLog("fulfillment.aluno.renew_failed", {
+      tenant: tenantId.slice(-6),
+      client_id: String(client.id).slice(-6),
+      http_status: renewRes.status,
+    });
+
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({
+        fulfillment_status: "manual_pending",
+        fulfillment_error: msg,
+      })
+      .eq("id", payment.id);
+
+    return { expDateISO: null };
+  }
+
+  const expDateISO = renewJson?.data?.exp_date_iso || null;
+
+  prodLog("fulfillment.aluno.renew_ok", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    exp_date: expDateISO,
+  });
+
+  // 2) WhatsApp (mesma lógica do IPTV — envio imediato + fallback agendado em 2 min)
+  let messageToSend = "";
+  let imageToSend: string | null = null;
+  let templateIdToSend: string | null = null;
+  const targetSession = srv.whatsapp_session || "default";
+
+  try {
+    const { data: tmpl } = await supabaseAdmin
+      .from("message_templates")
+      .select("id, content, image_url")
+      .eq("tenant_id", tenantId)
+      .or("name.ilike.%pagamento%,name.ilike.%pago%,name.ilike.%realizado%")
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    messageToSend = String(tmpl?.content || "").trim();
+    imageToSend = tmpl?.image_url || null;
+    templateIdToSend = tmpl?.id || null;
+    if (!messageToSend) throw new Error("Template de pagamento não encontrado.");
+
+    const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": internalSecret,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        tenant_id:           tenantId,
+        client_id:           client.id,
+        message:             messageToSend,
+        image_url:           imageToSend,
+        message_template_id: templateIdToSend,
+        whatsapp_session:    targetSession,
+      }),
+    });
+
+    const waJson = await waRes.json().catch(() => null);
+    if (!waRes.ok || waJson?.ok === false) {
+      throw new Error("API envio_agora recusou.");
+    }
+
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({ whatsapp_status: "sent" })
+      .eq("id", payment.id);
+
+  } catch (e) {
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({ whatsapp_status: "error" })
+      .eq("id", payment.id);
+
+    // Plano B: agenda envio +2min via cron
+    if (messageToSend) {
+      try {
+        const retryDate = new Date(Date.now() + 2 * 60 * 1000);
+        await supabaseAdmin.from("client_message_jobs").insert({
+          tenant_id:           tenantId,
+          client_id:           client.id,
+          message:             messageToSend,
+          image_url:           imageToSend,
+          message_template_id: templateIdToSend,
+          send_at:             retryDate.toISOString(),
+          status:              "SCHEDULED",
+          whatsapp_session:    targetSession,
+          created_by:          "system_fulfillment_aluno",
+        });
+        prodLog("fulfillment.aluno.whatsapp_retry_scheduled", {
+          tenant: tenantId.slice(-6),
+          client_id: String(client.id).slice(-6),
+        });
+      } catch {}
+    }
+  }
+
+  prodLog("fulfillment.aluno.done", {
+    tenant: tenantId.slice(-6),
+    client_id: String(client.id).slice(-6),
+    months,
   });
 
   return { expDateISO };

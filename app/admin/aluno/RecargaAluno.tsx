@@ -596,12 +596,24 @@ export default function RecargaAluno({
           p_status:         "PAID",
           p_notes:          serverNotes,
           p_new_vencimento: finalVencimento,
-          p_is_automatic:   false,
+          p_is_automatic:   false, // ✅ debita créditos do servidor virtual (academia/personal igual ao IPTV manual)
           p_message:        clientMessage,
           p_unit_price:     Number((totalBrl / months).toFixed(2)),
           p_total_amount:   totalBrl,
         });
         if (renewErr) throw new Error(`Erro Renew: ${renewErr.message}`);
+
+        // ✅ Reset saldo do servidor virtual pra 9999 (academia/personal nunca fica sem saldo)
+        if (alunoData?.server_id) {
+          try {
+            await supabaseBrowser.rpc("update_server_credits_manual", {
+              p_server_id:   alunoData.server_id,
+              p_new_credits: 9999,
+            });
+          } catch (resetErr) {
+            console.error("[RecargaAluno] Falha ao resetar saldo:", resetErr);
+          }
+        }
       }
 
       // PASSO 3: WhatsApp
