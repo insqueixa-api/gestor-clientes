@@ -69,14 +69,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
       },
       {
         src: icon512,
-        sizes: "any", // Salva-vidas: Pede pro Chrome aceitar a logo da nuvem mesmo se o tamanho não bater
+        sizes: "any", 
         purpose: "any",
-      },
-      {
-        src: "/favicon.ico",
-        sizes: "any",
-        type: "image/x-icon",
       }
+      // O bloco do favicon.ico foi totalmente removido daqui!
     ],
   }
 }
