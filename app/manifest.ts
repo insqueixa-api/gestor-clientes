@@ -65,6 +65,16 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         type: "image/png",
         purpose: "any",
       },
+      {
+        src: icon512,
+        sizes: "any", // Salva-vidas: Pede pro Chrome aceitar a logo da nuvem mesmo se o tamanho não bater
+        purpose: "any",
+      },
+      {
+        src: "/favicon.ico",
+        sizes: "any",
+        type: "image/x-icon",
+      }
     ],
   }
 }
