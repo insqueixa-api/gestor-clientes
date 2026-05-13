@@ -12,8 +12,9 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   
   // Apontando para o diretório correto que vimos no AdminShell
   // Voltando para os ícones quadrados perfeitos na raiz
-  let icon192 = "/icon-192x192.png";
-  let icon512 = "/icon-512x512.png";
+  // Apontando para dentro da pasta brand
+  let icon192 = "/brand/icon-192x192.png";
+  let icon512 = "/brand/icon-512x512.png";
 
   if (user) {
     const { data: member } = await supabase
