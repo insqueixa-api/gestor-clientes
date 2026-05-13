@@ -9,8 +9,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   let appName = "UniGestor SaaS";
   let shortName = "UniGestor";
   let themeColor = "#050505";
-  let icon192 = "/icon-192x192.png";
-  let icon512 = "/icon-512x512.png";
+  
+  // Apontando para o diretório correto que vimos no AdminShell
+  let icon192 = "/brand/logo-gestor-celular.png";
+  let icon512 = "/brand/logo-gestor-celular.png";
 
   if (user) {
     const { data: member } = await supabase
