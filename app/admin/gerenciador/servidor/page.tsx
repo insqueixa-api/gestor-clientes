@@ -935,7 +935,7 @@ function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fil
 
 
 // Ícone LIGADO (Verde, com raio)
-export function IconPlug() {
+function IconPlug() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -944,7 +944,7 @@ export function IconPlug() {
   );
 }
 
-export function IconPlugOff() {
+function IconPlugOff() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#94a3b8"/>
