@@ -93,113 +93,7 @@
     }, [plano, search, userRole]);
 
 
-    // --- Carregamento de Dados (Integral) ---
-    async function ensureTablesCloned(tenantId: string, role: string | null) {
-  const supabase = supabaseBrowser;
-
-  // Verifica se já tem tabelas próprias
-  const { data: own } = await supabase
-    .from("plan_tables")
-    .select("id")
-    .eq("tenant_id", tenantId); // ✅ REMOVIDO o filtro is_system_default para ele encontrar os clones corretamente
-
-  if (own && own.length > 0) return; // já tem, não clona
-
-  // Busca tabelas padrão do sistema — USER só clona iptv
-  let query = supabase
-    .from("plan_tables")
-    .select(`id, name, currency, is_master_only, table_type,
-      items:plan_table_items (
-        id, period, credits_base
-      )`)
-    .eq("is_system_default", true);
-
-  if (role === "USER") {
-    query = query.eq("table_type", "iptv");
-  }
-
-  const { data: defaults } = await query;
-
-    if (!defaults || defaults.length === 0) return;
-
-    let newSaasPlanTableId: string | null = null;
-    let newCreditsPlanTableId: string | null = null;
-
-    for (const tpl of defaults as any[]) {
-        const { data: newTable } = await supabase
-          .from("plan_tables")
-          .insert({
-          tenant_id: tenantId,
-          name: tpl.name,
-          currency: tpl.currency,
-          table_type: tpl.table_type,
-          is_system_default: false, // ✅ CORREÇÃO: O clone pertence à revenda, não é um padrão do sistema
-          is_master_only: tpl.is_master_only ?? false,
-          is_active: true,
-        })
-          .select("id")
-          .single();
-
-        if (!newTable) continue;
-
-        if (tpl.table_type === "saas") newSaasPlanTableId = newTable.id;
-        if (tpl.table_type === "saas_credits") newCreditsPlanTableId = newTable.id;
-
-        // 🔥 FALLBACK ANTI-RLS: Se o banco bloqueou a leitura dos itens da tabela padrão, nós criamos a matriz à força!
-        let itemsToClone = tpl.items || [];
-        if (itemsToClone.length === 0) {
-          if (tpl.table_type === "saas_credits") {
-            itemsToClone = [...CREDIT_TIERS_ROW1, ...CREDIT_TIERS_ROW2].map(tier => ({ period: tier, credits_base: 1 }));
-          } else {
-            itemsToClone = [
-              { period: "MONTHLY", credits_base: 1 },
-              { period: "BIMONTHLY", credits_base: 2 },
-              { period: "QUARTERLY", credits_base: 3 },
-              { period: "SEMIANNUAL", credits_base: 6 },
-              { period: "ANNUAL", credits_base: 12 },
-            ];
-          }
-        }
-
-        for (const item of itemsToClone as any[]) {
-        const { data: newItem } = await supabase
-          .from("plan_table_items")
-          .insert({
-            tenant_id: tenantId,
-            plan_table_id: newTable.id,
-            period: item.period,
-            credits_base: item.credits_base,
-          })
-          .select("id")
-          .single();
-
-        if (!newItem) continue;
-
-        const screens = tpl.table_type === "saas_credits"
-          ? [1]
-          : tpl.is_master_only
-          ? [1, 2]
-          : [1, 2, 3];
-
-        await supabase.from("plan_table_item_prices").insert(
-          screens.map(s => ({
-            tenant_id: tenantId,
-            plan_table_item_id: newItem.id,
-            screens_count: s,
-            price_amount: null,
-          }))
-        );
-      }
-    }
-
-    // Vincula as tabelas SaaS ao tenant
-    if (newSaasPlanTableId || newCreditsPlanTableId) {
-      const update: Record<string, string> = {};
-      if (newSaasPlanTableId) update.saas_plan_table_id = newSaasPlanTableId;
-      if (newCreditsPlanTableId) update.credits_plan_table_id = newCreditsPlanTableId;
-      await supabase.from("tenants").update(update).eq("id", tenantId);
-    }
-  }
+  
 
   async function fetchPlano() {
     try {
@@ -236,7 +130,6 @@ setHasAccess(true);
     const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
     const currentRole = (roleData ?? "USER").toUpperCase();
     setUserRole(currentRole as any);
-    await ensureTablesCloned(tenantId, currentRole);
         const supabase = supabaseBrowser;
 
         const { data, error } = await supabase
