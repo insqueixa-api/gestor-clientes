@@ -56,11 +56,6 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     theme_color: themeColor,
     icons: [
       {
-        src: "/favicon.ico",
-        sizes: "16x16 32x32 48x48", // <-- O SEGREDO: O navegador pega este para a aba, o Windows ignora.
-        type: "image/x-icon",
-      },
-      {
         src: icon192,
         sizes: "192x192",
         type: "image/png",

@@ -23,11 +23,12 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "UniGestor",
   description: "Sistema de Gestão",
-  manifest: "/manifest.webmanifest", // <--- ADICIONE ESTA LINHA (É ela que traz o ícone azul para o PC/Android)
+  manifest: "/manifest.webmanifest", 
   icons: {
-    icon: "/favicon.ico",      // Branco: Mantém a aba do navegador limpa
-    shortcut: "/favicon.ico",  // Branco: Evita que a aba fique azul em alguns navegadores
-    apple: "/brand/icon-192x192blue.png", // Azul: Para o ícone de instalação no iPhone
+    // Ao usar o PNG branco aqui, o Chrome fica satisfeito com a resolução e não rouba o azul do manifesto!
+    icon: "/brand/icon-192x192.png",      
+    shortcut: "/brand/icon-192x192.png",  
+    apple: "/brand/icon-192x192blue.png", 
   },
   appleWebApp: {
     capable: true,
