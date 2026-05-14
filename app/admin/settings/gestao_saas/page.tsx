@@ -550,19 +550,35 @@ if (tenantsRes.error) {
   const handleDelete = async (t: SaasTenant) => {
     const ok = await confirm({
       title: "Excluir permanentemente?",
-      subtitle: "Essa ação NÃO pode ser desfeita. Todos os dados serão perdidos.",
+      subtitle: "Essa ação NÃO pode ser desfeita. Todos os dados (incluindo arquivos da nuvem) serão perdidos.",
       tone: "rose",
       icon: "⚠️",
-      details: [`Revenda: ${t.name}`, "Ação: Deletar registro"],
+      details: [`Revenda: ${t.name}`, "Ação: Deletar registro + arquivos R2"],
       confirmText: "Excluir Definitivamente",
       cancelText: "Voltar",
     });
     if (!ok) return;
 
     try {
-      const { error } = await supabaseBrowser.rpc("saas_delete_tenant", { p_tenant_id: t.id });
-      if (error) throw error;
-      addToast("success", "Deletado", `${t.name} foi removido permanentemente.`);
+      const token = await getToken();
+      const res = await fetch("/api/admin/saas-delete-tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tenant_id: t.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || `Falha ao deletar (HTTP ${res.status})`);
+      }
+
+      const r2 = json?.data || {};
+      const r2msg = Number(r2.r2_total) > 0
+        ? ` · ${r2.r2_deleted}/${r2.r2_total} arquivos da nuvem removidos${Number(r2.r2_failed) > 0 ? ` (${r2.r2_failed} falharam)` : ""}`
+        : "";
+      addToast("success", "Deletado", `${t.name} foi removido permanentemente${r2msg}.`);
       loadData();
     } catch (e: any) {
       addToast("error", "Erro ao deletar", e.message);
