@@ -41,6 +41,61 @@ type CampoTemplate = { label: string; tipo: CampoTipo; opcoes?: string[] };
 
 // Campos pré-definidos por modalidade — adicione novas entradas aqui quando precisar
 const CAMPOS_POR_MODALIDADE: Record<string, CampoTemplate[]> = {
+  "Artes Marciais Mistas": [
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
+    { label: "Categoria de Peso", tipo: "select", opcoes: ["Atomweight","Strawweight","Flyweight","Bantamweight","Featherweight","Lightweight","Welterweight","Middleweight","Light Heavyweight","Heavyweight"] },
+    { label: "Professor Responsável", tipo: "text" },
+    { label: "Faixa BJJ (se houver)", tipo: "select", opcoes: ["—","Branca","Azul","Roxa","Marrom","Preta"] },
+    { label: "Faixa Muay Thai (Prajied)", tipo: "select", opcoes: ["—","Branca","Amarela","Verde","Azul","Vermelha","Marrom","Preta"] },
+  ],
+  "Boxe": [
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
+    { label: "Categoria de Peso", tipo: "select", opcoes: ["Mosca","Galo","Pena","Leve","Meio-Médio","Médio","Meio-Pesado","Pesado","Super-Pesado"] },
+    { label: "Guarda", tipo: "select", opcoes: ["Ortodoxa","Sul-paw"] },
+    { label: "Professor Responsável", tipo: "text" },
+    { label: "Nº Registro na Federação", tipo: "text" },
+  ],
+  "Capoeira": [
+    { label: "Corda Atual", tipo: "select", opcoes: ["Crua","Amarela","Laranja","Azul","Verde","Roxa","Marrom","Vermelha","Branca (Mestre)"] },
+    { label: "Apelido (Nome de Capoeira)", tipo: "text" },
+    { label: "Grupo / Academia", tipo: "text" },
+    { label: "Mestre Responsável", tipo: "text" },
+    { label: "Data do Último Batizado", tipo: "date" },
+  ],
+  "Crossfit": [
+    { label: "Nível (RX/Scaled)", tipo: "select", opcoes: ["Scaled","Intermediário","RX","RX+","Competidor"] },
+    { label: "Box / Afiliada", tipo: "text" },
+    { label: "Coach Responsável", tipo: "text" },
+    { label: "PR — Back Squat (kg)", tipo: "number" },
+    { label: "PR — Deadlift (kg)", tipo: "number" },
+    { label: "PR — Clean & Jerk (kg)", tipo: "number" },
+    { label: "PR — Snatch (kg)", tipo: "number" },
+  ],
+  "Dança": [
+    { label: "Estilo Principal", tipo: "select", opcoes: ["Ballet","Jazz","Contemporânea","Sapateado","Salsa","Forró","Zouk","Samba","Bolero","Tango","Sertanejo","K-Pop","Street","Outra"] },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Profissional"] },
+    { label: "Turma / Horário", tipo: "text" },
+    { label: "Professor Responsável", tipo: "text" },
+  ],
+  "Futebol": [
+    { label: "Posição", tipo: "select", opcoes: ["Goleiro","Zagueiro","Lateral Direito","Lateral Esquerdo","Volante","Meio-campo","Meia Atacante","Ponta Direita","Ponta Esquerda","Centroavante"] },
+    { label: "Categoria (Idade)", tipo: "select", opcoes: ["Sub-7","Sub-9","Sub-11","Sub-13","Sub-15","Sub-17","Sub-20","Adulto","Veterano"] },
+    { label: "Pé Dominante", tipo: "select", opcoes: ["Direito","Esquerdo","Ambidestro"] },
+    { label: "Time / Escolinha", tipo: "text" },
+    { label: "Técnico Responsável", tipo: "text" },
+  ],
+  "Funcional": [
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado"] },
+    { label: "Objetivo", tipo: "select", opcoes: ["Emagrecimento","Condicionamento","Ganho de Massa","Reabilitação","Performance Esportiva"] },
+    { label: "Frequência Semanal", tipo: "number" },
+    { label: "Professor Responsável", tipo: "text" },
+  ],
+  "Ioga": [
+    { label: "Estilo", tipo: "select", opcoes: ["Hatha","Vinyasa","Ashtanga","Iyengar","Yin","Kundalini","Power Yoga","Yoga Restaurativa"] },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Instrutor"] },
+    { label: "Turma / Horário", tipo: "text" },
+    { label: "Professor Responsável", tipo: "text" },
+  ],
   "Jiu-Jitsu": [
     { label: "Faixa Atual", tipo: "select", opcoes: ["Branca","Cinza","Azul","Roxa","Marrom","Preta"] },
     { label: "Grau", tipo: "select", opcoes: ["0","1","2","3","4"] },
@@ -57,37 +112,77 @@ const CAMPOS_POR_MODALIDADE: Record<string, CampoTemplate[]> = {
     { label: "Nº Registro na Federação", tipo: "text" },
   ],
   "Karatê": [
+    { label: "Estilo", tipo: "select", opcoes: ["Shotokan","Goju-Ryu","Wado-Ryu","Shito-Ryu","Kyokushin","Outro"] },
     { label: "Faixa Atual", tipo: "select", opcoes: ["Branca","Amarela","Laranja","Verde","Azul","Marrom","Preta"] },
     { label: "Kyu / Dan", tipo: "text" },
     { label: "Professor Responsável", tipo: "text" },
     { label: "Nº Registro na Federação", tipo: "text" },
   ],
+  "Kickboxing": [
+    { label: "Faixa Atual", tipo: "select", opcoes: ["Branca","Amarela","Laranja","Verde","Azul","Marrom","Preta"] },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
+    { label: "Categoria de Peso", tipo: "text" },
+    { label: "Professor Responsável", tipo: "text" },
+  ],
+  "Krav Magá": [
+    { label: "Nível / Patente", tipo: "select", opcoes: ["P1","P2","P3","P4","P5","G1","G2","G3","G4","G5","E1","E2","E3"] },
+    { label: "Instrutor Responsável", tipo: "text" },
+    { label: "Data do Último Teste", tipo: "date" },
+    { label: "Foco de Treino", tipo: "select", opcoes: ["Defesa Pessoal","Forças de Segurança","Militar"] },
+  ],
+  "Muay Thai": [
+    { label: "Faixa (Prajied)", tipo: "select", opcoes: ["Branca","Amarela","Verde","Azul","Vermelha","Marrom","Preta"] },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
+    { label: "Categoria de Peso", tipo: "text" },
+    { label: "Professor Responsável", tipo: "text" },
+    { label: "Nº Registro na Federação", tipo: "text" },
+  ],
   "Musculação": [
     { label: "Divisão de Treino", tipo: "select", opcoes: ["Full Body","A/B","ABC","ABCD","ABCDE","Push/Pull/Legs"] },
+    { label: "Objetivo", tipo: "select", opcoes: ["Hipertrofia","Emagrecimento","Força","Resistência","Saúde Geral"] },
+    { label: "Frequência Semanal", tipo: "number" },
     { label: "Personal Responsável", tipo: "text" },
     { label: "Ficha de Treino", tipo: "text" },
   ],
   "Natação": [
-    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
-    { label: "Estilo Principal", tipo: "select", opcoes: ["Livre","Costas","Peito","Borboleta","Medley"] },
+    { label: "Nível", tipo: "select", opcoes: ["Adaptação","Iniciante","Intermediário","Avançado","Competidor"] },
+    { label: "Estilo Principal", tipo: "select", opcoes: ["Livre (Crawl)","Costas","Peito","Borboleta","Medley"] },
     { label: "Turma", tipo: "text" },
+    { label: "Raia / Horário", tipo: "text" },
     { label: "Professor Responsável", tipo: "text" },
   ],
   "Personal Training": [
-    { label: "Local do Treino", tipo: "select", opcoes: ["Academia","Domicílio","Parque","Online"] },
+    { label: "Local do Treino", tipo: "select", opcoes: ["Academia","Domicílio","Parque","Online","Híbrido"] },
+    { label: "Objetivo", tipo: "select", opcoes: ["Emagrecimento","Hipertrofia","Condicionamento","Reabilitação","Performance Esportiva","Saúde Geral"] },
     { label: "Dias da Semana", tipo: "text" },
     { label: "Horário", tipo: "text" },
+    { label: "Frequência Semanal", tipo: "number" },
     { label: "Personal Responsável", tipo: "text" },
   ],
-  "Boxe": [
-    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
-    { label: "Professor Responsável", tipo: "text" },
-    { label: "Peso (categoria)", tipo: "text" },
+  "Pilates": [
+    { label: "Modalidade", tipo: "select", opcoes: ["Solo (Mat)","Aparelhos (Reformer/Cadillac)","Híbrido"] },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado"] },
+    { label: "Objetivo", tipo: "select", opcoes: ["Postura","Fortalecimento","Reabilitação","Flexibilidade","Condicionamento"] },
+    { label: "Turma / Horário", tipo: "text" },
+    { label: "Instrutor Responsável", tipo: "text" },
   ],
-  "Muay Thai": [
-    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado","Competidor"] },
-    { label: "Professor Responsável", tipo: "text" },
-    { label: "Nº Registro na Federação", tipo: "text" },
+  "Spinning": [
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado"] },
+    { label: "Turma / Horário", tipo: "text" },
+    { label: "Instrutor Responsável", tipo: "text" },
+    { label: "Frequência Semanal", tipo: "number" },
+  ],
+  "Zumba": [
+    { label: "Nível", tipo: "select", opcoes: ["Básico","Intermediário","Avançado"] },
+    { label: "Modalidade", tipo: "select", opcoes: ["Zumba Fitness","Zumba Gold","Aqua Zumba","Strong Nation","Zumba Kids"] },
+    { label: "Turma / Horário", tipo: "text" },
+    { label: "Instrutor Responsável", tipo: "text" },
+  ],
+  "Outras": [
+    { label: "Descrição da Modalidade", tipo: "text" },
+    { label: "Nível", tipo: "select", opcoes: ["Iniciante","Intermediário","Avançado"] },
+    { label: "Professor / Instrutor", tipo: "text" },
+    { label: "Frequência Semanal", tipo: "number" },
   ],
 };
 
@@ -279,8 +374,8 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
 
   // ─── TAB 1: DADOS ─────────────────────────────────────────────────────────
 
-  const [salutation, setSalutation]       = useState("");
   const [name, setName]                   = useState("");
+  const [email, setEmail]                 = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [cpfRg, setCpfRg]                 = useState("");
   const [primaryPhoneRaw, setPrimaryPhoneRaw] = useState("");
@@ -587,18 +682,38 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           if (def) { setTemplateId(def.id); setMsgContent((def as any).content || ""); }
         }
 
-        // WhatsApp sessions
+        // WhatsApp sessions — só mostra a 2ª se o tenant tem 2 sessões habilitadas
         try {
-          const [r1, r2] = await Promise.all([
-            fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-            fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-          ]);
+          // 1) Quantas sessões o tenant tem direito
+          const { data: tWa } = await supabaseBrowser
+            .from("tenants")
+            .select("whatsapp_sessions")
+            .eq("id", tid)
+            .maybeSingle();
+          const sessionsAvailable = Number((tWa as any)?.whatsapp_sessions ?? 1);
+
+          // 2) Sempre carrega a principal; só carrega a 2ª se direito >= 2
+          const r1Promise = fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({}));
+          const r2Promise = sessionsAvailable >= 2
+            ? fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({}))
+            : Promise.resolve(null);
+          const [r1, r2] = await Promise.all([r1Promise, r2Promise]);
+
           const n1 = (typeof window !== "undefined" && localStorage.getItem("wa_label_1")) || "Principal";
           const n2 = (typeof window !== "undefined" && localStorage.getItem("wa_label_2")) || "Secundária";
-          if (alive) setSessionOptions([
-            { id: "default",  label: r1?.connected ? `${n1} (conectado)` : `${n1} (desconectado)` },
-            { id: "session2", label: r2?.connected ? `${n2} (conectado)` : `${n2} (desconectado)` },
-          ]);
+
+          const opts: { id: string; label: string }[] = [
+            { id: "default", label: r1?.connected ? `${n1} (conectado)` : `${n1} (desconectado)` },
+          ];
+          if (sessionsAvailable >= 2 && r2) {
+            opts.push({ id: "session2", label: r2?.connected ? `${n2} (conectado)` : `${n2} (desconectado)` });
+          }
+
+          if (alive) {
+            setSessionOptions(opts);
+            // Se só tem 1 sessão habilitada, força seleção pra principal
+            if (sessionsAvailable < 2) setSelectedSession("default");
+          }
         } catch {}
 
         // ── PREFILL EDIÇÃO ────────────────────────────────────────────────
@@ -614,6 +729,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
           setWaUsername(alunoToEdit.whatsapp_username || "");
           setWaOptIn(alunoToEdit.whatsapp_opt_in ?? true);
           setNotes(alunoToEdit.notes || "");
+          setEmail(alunoToEdit.dados?.email || "");
 
           if (alunoToEdit.secondary_display_name) {
             setShowEmergency(true);
@@ -730,8 +846,8 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         p_whatsapp_opt_in:          waOptIn,
         p_whatsapp_snooze_until:    null,
         p_clear_whatsapp_snooze_until: true,
-        p_name_prefix:              salutation || null,
-        p_technology:               tenantTech, // Agora salva a tecnologia real (Academia ou Personal)
+        p_name_prefix:              null,
+        p_technology:               tenantTech,
         p_secondary_display_name:   emergencyName.trim() || null,
         p_secondary_name_prefix:    emergencySalut || null,
         p_secondary_phone_e164:     finalEmergPhone,
@@ -774,6 +890,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
       setLoadingStep("Salvando dados extras...");
       const dadosExtras = {
         tipo:             "aluno",
+        email:            email?.trim() || null,
         modalidade,
         campos_detalhamento: campos,
         foto_url:         finalPhotoUrl || null,
@@ -983,19 +1100,15 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
 
                   {/* Lado Direito: Linha 1 (Nome) e Linha 2 (Nascimento/Doc) */}
                   <div className="flex flex-col gap-3">
-                    {/* Saudação + Nome */}
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="col-span-1">
-                        <FL>Saudação</FL>
-                        <FS value={salutation} onChange={e => setSalutation(e.target.value)}>
-                          <option value=""> </option>
-                          <option>Sr.</option><option>Sra.</option>
-                          <option>Dr.</option><option>Dra.</option>
-                        </FS>
-                      </div>
-                      <div className="col-span-3">
+                    {/* Nome + Email */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
                         <FL>Nome do Aluno *</FL>
                         <FI value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Nome completo" />
+                      </div>
+                      <div>
+                        <FL>Email</FL>
+                        <FI type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@exemplo.com" />
                       </div>
                     </div>
                     {/* Nascimento + CPF/RG (Agora imediatamente abaixo do nome) */}

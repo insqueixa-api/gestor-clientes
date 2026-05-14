@@ -661,6 +661,7 @@ return (
           <DashboardFilter
             availableModules={availableModules}
             currentViews={activeViews}
+            tenantModules={tenantModules}
           />
         )}
       </div>

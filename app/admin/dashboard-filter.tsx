@@ -2,18 +2,32 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 
-const MODULE_META: Record<string, { label: string; icon: string }> = {
-  iptv:       { label: "IPTV",       icon: "📺" },
-  saas:       { label: "SaaS",       icon: "⚡" },
-  financeiro: { label: "Financeiro", icon: "📊" },
-};
+// Rótulo do filtro varia com os módulos ativos no tenant.
+// O slug interno "iptv" é mantido (compat com ?view=iptv), só muda o que aparece pro usuário:
+//   - iptv + (academia/personal) → 📺 Clientes
+//   - só academia/personal       → 🏋️ Alunos
+//   - só iptv                    → 📺 IPTV
+function getModuleMeta(key: string, tenantModules: string[]): { label: string; icon: string } {
+  if (key === "iptv") {
+    const hasIptv  = tenantModules.includes("iptv");
+    const hasAluno = tenantModules.includes("academia") || tenantModules.includes("personal");
+    if (hasIptv && hasAluno) return { label: "Clientes", icon: "📺" };
+    if (hasAluno && !hasIptv) return { label: "Alunos",   icon: "🏋️" };
+    return { label: "IPTV", icon: "📺" };
+  }
+  if (key === "saas")       return { label: "SaaS",       icon: "⚡" };
+  if (key === "financeiro") return { label: "Financeiro", icon: "📊" };
+  return { label: key, icon: "❓" };
+}
 
 export function DashboardFilter({
   availableModules,
   currentViews,
+  tenantModules,
 }: {
   availableModules: string[];
   currentViews: string[];
+  tenantModules: string[];
 }) {
   const router   = useRouter();
   const pathname = usePathname();
@@ -37,7 +51,7 @@ export function DashboardFilter({
   const allSelected = selected.length === availableModules.length;
   const label = allSelected ? "Mostrar Tudo"
     : selected.length === 0 ? "Nenhum"
-    : selected.map(v => MODULE_META[v]?.label ?? v).join(", ");
+    : selected.map(v => getModuleMeta(v, tenantModules).label).join(", ");
 
   return (
     <div className="relative">
@@ -74,7 +88,7 @@ export function DashboardFilter({
 
             {availableModules.map(key => {
               const active = selected.includes(key);
-              const meta = MODULE_META[key];
+              const meta = getModuleMeta(key, tenantModules);
               return (
                 <button key={key} onClick={() => toggle(key)}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-white"
