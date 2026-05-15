@@ -298,9 +298,13 @@ export default function AdminShell({
         }
       }
 
-      // ✅ Busca na memória do navegador os IDs que você já ocultou e filtra a lista
+      // ✅ Busca os ocultados (X) e lidos (Bolinha apagada)
       const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
-      const filteredList = list.filter(n => !dismissed.includes(n.id));
+      const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
+      
+      const filteredList = list
+        .filter(n => !dismissed.includes(n.id))
+        .map(n => readNotifs.includes(n.id) ? { ...n, is_read: true } : n);
 
       setNotifications(filteredList);
     };
@@ -384,10 +388,16 @@ const managerActive = useMemo(() => {
   };
 
   // Função de clique na notificação
-  const handleNotificationClick = (n: Notification) => {
-    setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
-    
-    setShowNotificationsModal(false); // Fecha o painel de notificações
+  const handleNotificationClick = (n: Notification) => {
+    // ✅ Salva no navegador que você já leu essa notificação
+    const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
+    if (!readNotifs.includes(n.id)) {
+      readNotifs.push(n.id);
+      localStorage.setItem("read_notifs", JSON.stringify(readNotifs));
+    }
+
+    setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
+    setShowNotificationsModal(false); // Fecha o painel de notificações
     
     if (n.id === 'expires_at') {
       setShowWarningModal(true);
@@ -640,36 +650,36 @@ const managerActive = useMemo(() => {
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1.5">
                   {notifications.map(n => (
                     <div
-                      key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      className={[
-                        "p-4 rounded-lg border cursor-pointer transition-colors flex gap-3 items-start",
-                        n.is_read
-                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
-                          : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
-                      ].join(" ")}
-                    >
-                      <div className="text-2xl mt-0.5">
-                        {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-slate-800 dark:text-white text-sm font-medium">
-                          {n.title}
-                        </p>
-                        <p className="text-slate-600 dark:text-white/70 text-xs mt-1 line-clamp-2">
-                          {n.message}
-                        </p>
-                        <p className="text-slate-400 dark:text-white/40 text-[10px] mt-2">
-                          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.created_at))}
-                        </p>
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={[
+                        "p-3 rounded-lg border cursor-pointer transition-colors flex items-center gap-3", // ✅ items-center padroniza a altura
+                        n.is_read
+                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                          : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
+                      ].join(" ")}
+                    >
+                      <div className="text-2xl flex-shrink-0">
+                        {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
                       </div>
                       
-                      {/* ✅ Container da bolinha e do X alinhados horizontalmente */}
-                      <div className="flex items-center gap-3 mt-1">
-                        {!n.is_read && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm flex-shrink-0" />}
+                      {/* ✅ min-w-0 e flex-1 forçam o conteúdo no meio a empurrar os botões pra direita */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-800 dark:text-white text-sm font-bold truncate">
+                          {n.title}
+                        </p>
+                        <p className="text-slate-600 dark:text-white/70 text-xs mt-0.5 line-clamp-2">
+                          {n.message}
+                        </p>
+                        {/* ❌ Data e Hora removidas */}
+                      </div>
+                      
+                      {/* ✅ Divisão na extrema direita, com linha sutil */}
+                      <div className="flex items-center gap-3 flex-shrink-0 pl-2 border-l border-slate-200 dark:border-white/10">
+                        {!n.is_read && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm" />}
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
-                          className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
                           title="Ocultar notificação"
                         >
                           <IconX />
