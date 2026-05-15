@@ -298,10 +298,14 @@ export default function AdminShell({
         }
       }
 
-      setNotifications(list);
-    };
+      // ✅ Busca na memória do navegador os IDs que você já ocultou e filtra a lista
+      const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
+      const filteredList = list.filter(n => !dismissed.includes(n.id));
 
-    loadNotifications();
+      setNotifications(filteredList);
+    };
+
+    loadNotifications();
   }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId, hasIPTVorSaaS, hasAlunos]); // ✅ Dependências atualizadas
 
   const managerRef = useRef<HTMLDivElement>(null);
@@ -359,13 +363,27 @@ const managerActive = useMemo(() => {
     setOpenMenu("mobile");
   }
 
-  // Função para limpar todas
-  const clearAllNotifications = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    // INSTRUÇÃO: Faça a chamada para o Supabase para marcar todas as notificações deste tenant como lidas.
+  // ✅ Limpa todas visualmente e grava na memória para não voltarem ao recarregar
+  const clearAllNotifications = () => {
+    const currentIds = notifications.map(n => n.id);
+    const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
+    const newDismissed = Array.from(new Set([...dismissed, ...currentIds]));
+    localStorage.setItem("dismissed_notifs", JSON.stringify(newDismissed));
+    setNotifications([]);
+  };
+
+  // ✅ Nova função para ocultar UMA notificação (Botão X)
+  const handleDismiss = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Impede de abrir a notificação ao clicar no X
+    const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
+    if (!dismissed.includes(id)) {
+      dismissed.push(id);
+      localStorage.setItem("dismissed_notifs", JSON.stringify(dismissed));
+    }
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // Função de clique na notificação
+  // Função de clique na notificação
   const handleNotificationClick = (n: Notification) => {
     setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
     
@@ -642,11 +660,22 @@ const managerActive = useMemo(() => {
                           {n.message}
                         </p>
                         <p className="text-slate-400 dark:text-white/40 text-[10px] mt-2">
-                          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.created_at))}
-                        </p>
+                          {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.created_at))}
+                        </p>
+                      </div>
+                      
+                      {/* ✅ Container da bolinha e do X */}
+                      <div className="flex flex-col items-end gap-3">
+                        {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />}
+                        <button
+                          onClick={(e) => handleDismiss(e, n.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
+                          title="Ocultar notificação"
+                        >
+                          <IconX />
+                        </button>
                       </div>
-                      {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />}
-                    </div>
+                    </div>
                   ))}
                 </div>
               </>
