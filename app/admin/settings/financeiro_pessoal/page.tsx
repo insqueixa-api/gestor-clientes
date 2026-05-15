@@ -1016,7 +1016,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
                         return (
                           <div className={`flex items-center justify-center gap-1 text-[11px] font-bold whitespace-nowrap ${corTexto}`}>
                             <span>{recText}</span>
-                            <span>{isQuitado ? "- Quitado" : `-${pendentes} Pendente`}</span>
+                            <span>{isQuitado ? " (Quitado)" : `(${pendentes} Pendente)`}</span>
                           </div>
                         );
                       }
