@@ -428,16 +428,13 @@ const managerActive = useMemo(() => {
             <div className="relative">
               <button
                 onClick={() => setShowNotificationsModal(true)}
-                className={[
-                  "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
-                  unreadCount > 0 ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-white/5 hover:bg-white/10 text-white/60",
-                ].join(" ")}
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors bg-white/5 hover:bg-white/10 text-white/90"
                 title="Notificações"
               >
                 <IconSininho className="w-5 h-5" />
               </button>
               {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow">
+                <div className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 border-2 border-[#050505] text-[9px] font-bold text-white shadow-sm">
                   {unreadCount}
                 </div>
               )}
@@ -650,42 +647,41 @@ const managerActive = useMemo(() => {
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1.5">
                   {notifications.map(n => (
                     <div
-                      key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      className={[
-                        "p-3 rounded-lg border cursor-pointer transition-colors flex items-center gap-3", // ✅ items-center padroniza a altura
-                        n.is_read
-                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
-                          : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
-                      ].join(" ")}
-                    >
-                      <div className="text-2xl flex-shrink-0">
-                        {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
-                      </div>
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={[
+                        "p-3 rounded-lg border cursor-pointer transition-colors flex items-start gap-3",
+                        n.is_read
+                          ? "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                          : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-500/30",
+                      ].join(" ")}
+                    >
+                      <div className="text-xl flex-shrink-0 mt-0.5">
+                        {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
+                      </div>
                       
-                      {/* ✅ min-w-0 e flex-1 forçam o conteúdo no meio a empurrar os botões pra direita */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-800 dark:text-white text-sm font-bold truncate">
-                          {n.title}
-                        </p>
-                        <p className="text-slate-600 dark:text-white/70 text-xs mt-0.5 line-clamp-2">
-                          {n.message}
-                        </p>
-                        {/* ❌ Data e Hora removidas */}
-                      </div>
+                      <div className="flex-1 min-w-0 pr-1">
+                        <div className="flex items-center gap-2">
+                          {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0 shadow-sm" />}
+                          <p className="text-slate-800 dark:text-white text-sm font-bold truncate">
+                            {n.title}
+                          </p>
+                        </div>
+                        <p className="text-slate-600 dark:text-white/70 text-xs mt-1 leading-relaxed line-clamp-2">
+                          {n.message}
+                        </p>
+                      </div>
                       
-                      {/* ✅ Divisão na extrema direita, com linha sutil */}
-                      <div className="flex items-center gap-3 flex-shrink-0 pl-2 border-l border-slate-200 dark:border-white/10">
-                        {!n.is_read && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm" />}
+                      <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-white/10 min-h-[32px]">
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
                           title="Ocultar notificação"
                         >
                           <IconX />
                         </button>
                       </div>
-                    </div>
+                    </div>
                   ))}
                 </div>
               </>
