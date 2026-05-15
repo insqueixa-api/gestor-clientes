@@ -653,22 +653,26 @@ const managerActive = useMemo(() => {
       {showNotificationsModal && (
         <Modal title="Notificações" onClose={() => setShowNotificationsModal(false)}>
           <div className="space-y-4">
+            
+            {/* Botões de Ação Sempre Visíveis */}
+            <div className="flex justify-end gap-2">
+              <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
+                <IconSync className="w-3.5 h-3.5" /> Sincronizar
+              </button>
+              {notifications.length > 0 && (
+                <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
+                  Limpar todas
+                </button>
+              )}
+            </div>
+
             {notifications.length === 0 ? (
               <div className="text-center text-slate-500 dark:text-white/60 py-8">
                 Você não tem notificações.
               </div>
             ) : (
-              <>
-                <div className="flex justify-end gap-2">
-                  <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
-                    <IconSync className="w-3.5 h-3.5" /> Sincronizar
-                  </button>
-                  <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
-                    Limpar todas
-                  </button>
-                </div>
-                <div className="space-y-2 max-h-96 overflow-y-auto pr-1.5">
-                  {notifications.map(n => (
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1.5">
+                {notifications.map(n => (
                     <div
                       key={n.id}
                       onClick={() => handleNotificationClick(n)}
@@ -716,7 +720,6 @@ const managerActive = useMemo(() => {
                     </div>
                   ))}
                 </div>
-              </>
             )}
           </div>
         </Modal>
