@@ -664,12 +664,12 @@ const managerActive = useMemo(() => {
                         </p>
                       </div>
                       
-                      {/* ✅ Container da bolinha e do X */}
-                      <div className="flex flex-col items-end gap-3">
-                        {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />}
+                      {/* ✅ Container da bolinha e do X alinhados horizontalmente */}
+                      <div className="flex items-center gap-3 mt-1">
+                        {!n.is_read && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm flex-shrink-0" />}
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
+                          className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
                           title="Ocultar notificação"
                         >
                           <IconX />
