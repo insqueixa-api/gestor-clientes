@@ -252,10 +252,17 @@ export default function GestaoSaasPage() {
       const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
       const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
 
-      setSessionOptions([
-        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
-        { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
-      ]);
+      // ✅ Criamos a lista começando pela Sessão 1
+      const options = [
+        { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }
+      ];
+
+      // ✅ TRAVA: Só adiciona a Sessão 2 se ela estiver realmente conectada
+      if (prof2 && prof2.connected) {
+        options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });
+      }
+
+      setSessionOptions(options);
     } catch (e) {}
   }
 
