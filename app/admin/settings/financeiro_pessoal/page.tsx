@@ -999,14 +999,35 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
                   </td>
 
                   <td className="px-4 py-3 text-center">
-                    <div className="flex flex-col items-center justify-center leading-tight">
-                      <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
-                      {t.parcela_total && t.recorrencia_id && pendentesMap[t.recorrencia_id] !== undefined && (
-                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-500/80 mt-0.5" title={`${pendentesMap[t.recorrencia_id]} parcelas restantes no total`}>
-                          ({pendentesMap[t.recorrencia_id]} pen)
+                    {(() => {
+                      // Se for parcelado, aplicamos a lógica nova de cor e linha única
+                      if (t.parcela_total && t.recorrencia_id && pendentesMap[t.recorrencia_id] !== undefined) {
+                        const pendentes = pendentesMap[t.recorrencia_id];
+                        const isQuitado = pendentes === 0;
+                        
+                        let corTexto = "";
+                        // Quitado OU Receita ficam verdes. Despesa pendente fica vermelha.
+                        if (isQuitado || t.tipo === "RECEITA") {
+                          corTexto = "text-emerald-600 dark:text-emerald-400";
+                        } else {
+                          corTexto = "text-rose-600 dark:text-rose-400";
+                        }
+
+                        return (
+                          <div className={`flex items-center justify-center gap-1 text-[11px] font-bold whitespace-nowrap ${corTexto}`}>
+                            <span>{recText}</span>
+                            <span>{isQuitado ? "Quitado" : `(${pendentes} pen)`}</span>
+                          </div>
+                        );
+                      }
+
+                      // Se NÃO for parcelado (Única, Mensal, etc), fica com o padrão cinza limpo
+                      return (
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 whitespace-nowrap">
+                          {recText}
                         </span>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </td>
 
                   <td className="px-4 py-3 text-right whitespace-nowrap">
