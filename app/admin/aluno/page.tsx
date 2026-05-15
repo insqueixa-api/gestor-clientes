@@ -241,18 +241,43 @@ function AlunosPageContent() {
     return session.access_token;
   }
 
-  async function loadWhatsAppSessions() {
+  async function loadWhatsAppSessions(tid: string) {
     try {
-      const [r1, r2] = await Promise.all([
-        fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-      ]);
+      // 1. Verifica quantidade de sessões permitidas para o Tenant
+      const { data: tWa } = await supabaseBrowser
+        .from("tenants")
+        .select("whatsapp_sessions")
+        .eq("id", tid)
+        .maybeSingle();
+      const sessionsAvailable = Number((tWa as any)?.whatsapp_sessions ?? 1);
+
+      // 2. Só faz a requisição da sessão 2 se o limite for >= 2
+      const r1Promise = fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({}));
+      const r2Promise = sessionsAvailable >= 2
+        ? fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({}))
+        : Promise.resolve(null);
+      
+      const [r1, r2] = await Promise.all([r1Promise, r2Promise]);
+      
       const n1 = localStorage.getItem("wa_label_1") || "Principal";
       const n2 = localStorage.getItem("wa_label_2") || "Secundária";
-      setSessionOptions([
-        { id: "default",  label: buildWaLabel(r1, n1) },
-        { id: "session2", label: buildWaLabel(r2, n2) },
-      ]);
+      
+      // 3. Monta as opções dinamicamente
+      const opts: { id: string; label: string }[] = [
+        { id: "default", label: buildWaLabel(r1, n1) },
+      ];
+      
+      if (sessionsAvailable >= 2 && r2) {
+        opts.push({ id: "session2", label: buildWaLabel(r2, n2) });
+      }
+      
+      setSessionOptions(opts);
+
+      // 4. Se tiver apenas 1, força a trava nos selects para evitar envio na secundária
+      if (sessionsAvailable < 2) {
+        setSelectedSessionNow("default");
+        setSelectedSessionSchedule("default");
+      }
     } catch {}
   }
 
@@ -309,7 +334,7 @@ function AlunosPageContent() {
       }
       setHasAccess(true);
 
-      await Promise.all([loadWhatsAppSessions(), loadMessageTemplates(tid)]);
+      await Promise.all([loadWhatsAppSessions(tid), loadMessageTemplates(tid)]);
 
       const viewName = archivedFilter === "Sim" ? "vw_clients_list_archived" : "vw_clients_list_active";
       const { data, error } = await supabaseBrowser

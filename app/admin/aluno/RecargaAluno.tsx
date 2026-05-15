@@ -289,18 +289,27 @@ export default function RecargaAluno({
         } catch (e) {}
 
         // Sessões WhatsApp
-        try {
-          const [r1, r2] = await Promise.all([
-            fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-            fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
-          ]);
-          const n1 = localStorage.getItem("wa_label_1") || "Contato Principal";
-          const n2 = localStorage.getItem("wa_label_2") || "Contato Secundário";
-          if (alive) setSessionOptions([
-            { id: "default",  label: buildWhatsAppSessionLabel(r1, n1) },
-            { id: "session2", label: buildWhatsAppSessionLabel(r2, n2) },
-          ]);
-        } catch {}
+        try {
+          const [r1, r2] = await Promise.all([
+            fetch("/api/whatsapp/profile",  { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
+            fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(r => r.json()).catch(() => ({})),
+          ]);
+          const n1 = localStorage.getItem("wa_label_1") || "Contato Principal";
+          const n2 = localStorage.getItem("wa_label_2") || "Contato Secundário";
+          
+          if (alive) {
+            const options = [
+              { id: "default", label: buildWhatsAppSessionLabel(r1, n1) }
+            ];
+            
+            // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
+            if (r2 && r2.connected) {
+              options.push({ id: "session2", label: buildWhatsAppSessionLabel(r2, n2) });
+            }
+            
+            setSessionOptions(options);
+          }
+        } catch {}
 
         // Dados do aluno
         const { data: raw, error: cErr } = await supabaseBrowser

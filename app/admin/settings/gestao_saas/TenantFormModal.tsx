@@ -101,10 +101,20 @@ function applyPhoneNormalization(rawInput: string) {
   if (!rawDigits) {
     return { countryLabel: "—", e164: "", nationalDigits: "", formattedNational: "" };
   }
-  const ddi = inferDDIFromDigits(rawDigits, rawInput);
-  const nationalDigits = rawDigits.startsWith(ddi) ? rawDigits.slice(ddi.length) : rawDigits;
+
+  // ✅ Se o user digitou apenas os 10 ou 11 do Brasil sem +, garante o 55
+  let finalInputToInfer = rawInput;
+  if (!rawInput.trim().startsWith("+") && (rawDigits.length === 10 || rawDigits.length === 11)) {
+     finalInputToInfer = `+55${rawDigits}`;
+  }
+
+  const finalDigits = onlyDigits(finalInputToInfer);
+  const ddi = inferDDIFromDigits(finalDigits, finalInputToInfer);
+  
+  const nationalDigits = finalDigits.startsWith(ddi) ? finalDigits.slice(ddi.length) : finalDigits;
   const formattedNational = formatNational(ddi, nationalDigits);
   const e164 = `+${ddi}${nationalDigits}`;
+  
   return { countryLabel: ddiLabel(ddi), e164, nationalDigits, formattedNational };
 }
 

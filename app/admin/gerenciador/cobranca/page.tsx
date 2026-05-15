@@ -644,10 +644,10 @@ setHasAccess(true);
         // Sessão 1: sempre exibe (é a principal)
         result.push({ id: "default", label: buildWhatsAppSessionLabel(waProfRes?.ok ? waProfRes.json : null, name1) });
 
-        // Sessão 2: só exibe se estiver efetivamente conectada
-        if (waProfRes2?.ok && waProfRes2.json?.connected) {
-          result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, name2) });
-        }
+        // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
+        if (waProfRes2?.ok && waProfRes2.json?.connected) {
+          result.push({ id: "session2", label: buildWhatsAppSessionLabel(waProfRes2.json, name2) });
+        }
 
         return result;
       })();

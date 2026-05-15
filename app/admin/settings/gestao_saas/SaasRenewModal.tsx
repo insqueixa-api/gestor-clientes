@@ -244,10 +244,17 @@ export default function SaasRenewModal({
       const p2 = r2?.ok ? await r2.json().catch(() => ({})) : {};
       const n1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
       const n2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
-      setSessionOptions([
-        { id: "default", label: buildWhatsAppSessionLabel(p1, n1) },
-        { id: "session2", label: buildWhatsAppSessionLabel(p2, n2) },
-      ]);
+      
+      const opts = [
+        { id: "default", label: buildWhatsAppSessionLabel(p1, n1) }
+      ];
+      
+      // ✅ TRAVA: Só adiciona a Sessão 2 como opção de disparo se ela realmente estiver conectada!
+      if (p2?.connected) {
+        opts.push({ id: "session2", label: buildWhatsAppSessionLabel(p2, n2) });
+      }
+      
+      setSessionOptions(opts);
     } catch {}
   }
 

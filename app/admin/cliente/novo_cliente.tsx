@@ -825,23 +825,29 @@ const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}
 ]);
 
 async function loadWhatsAppSessions() {
-  try {
-    const [res1, res2] = await Promise.all([
-      fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-      fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
-    ]);
+  try {
+    const [res1, res2] = await Promise.all([
+      fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
+      fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
+    ]);
 
-    const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
-    const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
+    const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
+    const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
 
-    const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
-    const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
+    const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
+    const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
 
-    setSessionOptions([
-      { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
-      { id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) }
-    ]);
-  } catch (e) {}
+    const options = [
+      { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }
+    ];
+
+    // ✅ TRAVA: Só adiciona a sessão 2 no select se ela estiver conectada e disponível
+    if (prof2 && prof2.connected) {
+      options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });
+    }
+
+    setSessionOptions(options);
+  } catch (e) {}
 }
 
   useEffect(() => {
@@ -3125,8 +3131,8 @@ if (clientId) {
         }
 
 // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
-
-if (isTrialMode && sendTrialWhats && messageContent && messageContent.trim() && clientId) {
+// 🔒 TRAVA: Só dispara se whatsappOptIn for true
+if (isTrialMode && sendTrialWhats && whatsappOptIn && messageContent && messageContent.trim() && clientId) {
 
   try {
 
@@ -3282,8 +3288,8 @@ const { error: renewError } = await supabaseBrowser.rpc("renew_client_and_log", 
     
 
     // ✅ NOVO: Enviar WhatsApp se marcado (igual ao teste)
-
-    if (sendPaymentMsg && messageContent && messageContent.trim()) {
+// 🔒 TRAVA: Só dispara se whatsappOptIn for true
+if (sendPaymentMsg && whatsappOptIn && messageContent && messageContent.trim()) {
 
       try {
 

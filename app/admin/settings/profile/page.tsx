@@ -3077,8 +3077,8 @@ async function fetchWaStatus() {
     } catch {}
   }
 
-async function refreshPanel(forceQr = false) { 
-    setWaLoading(true);
+async function refreshPanel(forceQr = false, showVisualLoading = true) { 
+    if (showVisualLoading) setWaLoading(true);
     try {
       // ✅ VALIDAÇÃO ANTI-MALANDRO: Se clicou no botão de QR, confere no banco antes!
       if (forceQr && tenantId) {
@@ -3125,7 +3125,7 @@ async function refreshPanel(forceQr = false) {
         setWaQrDataUrl(null);
       }
     } finally {
-      setWaLoading(false);
+      if (showVisualLoading) setWaLoading(false);
     }
   }
 
@@ -3216,7 +3216,8 @@ async function handleReconnect() {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") {
         scheduleNext(INTERVAL_HIDDEN); return;
       }
-      await refreshPanel();
+      // Passa false para forceQr e false para showVisualLoading (polling silencioso)
+      await refreshPanel(false, false); 
       scheduleNext(waConnected ? INTERVAL_CONNECTED : INTERVAL_DISCONNECTED);
     };
     void tick();
