@@ -429,7 +429,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
 
   // Contato de emergência
   const [showEmergency, setShowEmergency]           = useState(false);
-  const [emergencySalut, setEmergencySalut]         = useState("");
   const [emergencyName, setEmergencyName]           = useState("");
   const [emergencyRelation, setEmergencyRelation]   = useState("");
   
@@ -849,7 +848,7 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
         p_name_prefix:              null,
         p_technology:               tenantTech,
         p_secondary_display_name:   emergencyName.trim() || null,
-        p_secondary_name_prefix:    emergencySalut || null,
+        p_secondary_name_prefix:    null,
         p_secondary_phone_e164:     finalEmergPhone,
         p_secondary_whatsapp_username: emergencyWa || null,
       };
@@ -1196,26 +1195,21 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                         REMOVER
                       </button>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="col-span-1">
-                        <FL>Saudação</FL>
-                        <FS value={emergencySalut} onChange={e => setEmergencySalut(e.target.value)}>
-                          <option value=""> </option>
-                          <option>Sr.</option><option>Sra.</option>
-                        </FS>
-                      </div>
-                      <div className="col-span-3">
+
+                    {/* Linha 1: Nome + Parentesco */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
                         <FL>Nome</FL>
                         <FI value={emergencyName} onChange={e => setEmergencyName(e.target.value)} placeholder="Nome completo" />
                       </div>
-                    </div>
-                    {/* Linha tripla no Desktop (Parentesco / Tel / Whats) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_1.5fr] gap-3 items-start">
                       <div>
                         <FL>Parentesco</FL>
-                        <FI value={emergencyRelation} onChange={e => setEmergencyRelation(e.target.value)} placeholder="Ex: Pai" />
+                        <FI value={emergencyRelation} onChange={e => setEmergencyRelation(e.target.value)} placeholder="Ex: Pai, Mãe, Esposo(a)..." />
                       </div>
-                      
+                    </div>
+
+                    {/* Linha 2: Telefone + WhatsApp Username (mesma estrutura do principal) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <PhoneRow
                         label="Telefone Secundário"
                         countryLabel={emergencyCountryLabel}
@@ -1223,7 +1217,6 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                         onRawChange={setEmergencyPhoneRaw}
                         onDone={handleDoneEmergency}
                       />
-                      
                       <div>
                         <FL>WhatsApp Username</FL>
                         <div className="relative">
@@ -1243,6 +1236,11 @@ export default function NovoAluno({ alunoToEdit, onClose, onSuccess }: Props) {
                             }} 
                             placeholder="username" 
                           />
+                          {emergencyWa && (
+                            <a href={`https://wa.me/${emergencyWa}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600" title="Abrir conversa">
+                              <IconChat />
+                            </a>
+                          )}
                         </div>
                         {emergencyWaValidation && (
                           <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${emergencyWaValidation.loading ? "text-slate-400" : emergencyWaValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
