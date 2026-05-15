@@ -259,6 +259,7 @@ function FinanceiroPageContent() {
 
   // Modais
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
+  const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({}); // ✅ NOVO: Conta parcelas pendentes
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -434,6 +435,26 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       }));
 
       setTransacoes(formatadas);
+
+      // ✅ BUSCA RÁPIDA: Quantas parcelas reais estão pendentes na nuvem?
+      const recIds = [...new Set(formatadas.filter(t => t.parcela_total && t.recorrencia_id).map(t => t.recorrencia_id as string))];
+      if (recIds.length > 0) {
+        const { data: pendentesData } = await supabaseBrowser
+          .from("fin_transacoes")
+          .select("recorrencia_id")
+          .in("recorrencia_id", recIds)
+          .eq("status", "PENDENTE");
+
+        const counts: Record<string, number> = {};
+        recIds.forEach(id => counts[id] = 0); // Zera tudo por garantia
+        (pendentesData || []).forEach(row => {
+          if (row.recorrencia_id) counts[row.recorrencia_id] += 1;
+        });
+        setPendentesMap(counts);
+      } else {
+        setPendentesMap({});
+      }
+
     } catch (e: any) {
       addToast("error", "Erro ao carregar dados", e.message);
     } finally {
@@ -978,7 +999,14 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
                   </td>
 
                   <td className="px-4 py-3 text-center">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
+                    <div className="flex flex-col items-center justify-center leading-tight">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">{recText}</span>
+                      {t.parcela_total && t.recorrencia_id && pendentesMap[t.recorrencia_id] !== undefined && (
+                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-500/80 mt-0.5" title={`${pendentesMap[t.recorrencia_id]} parcelas restantes no total`}>
+                          ({pendentesMap[t.recorrencia_id]} pen)
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -2061,10 +2089,10 @@ const [salvando, setSalvando] = useState(false);
               <div>
                 {rTipoInicial !== "UNICA" ? (
                   <>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Alterar</label>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
                     <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
-                      <button onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Este mês</button>
-                      <button onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Futuras</button>
+                      <button type="button" onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Apenas nesta</button>
+                      <button type="button" onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Nesta e nas futuras</button>
                     </div>
                   </>
                 ) : <div />}
