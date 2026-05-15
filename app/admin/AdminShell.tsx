@@ -10,28 +10,28 @@ import React from "react";
 import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal";
 import { useModules } from "@/lib/modules/ModulesContext";
 
+// Pega a data de hoje no Brasil formatada de forma zerada e segura
+function getHojeSP(): Date {
+  const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); // Retorna "YYYY-MM-DD"
+  const [y, m, d] = spStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Extrai o ano, mês e dia da string ignorando letras T e fusos horários
+function getTargetDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.split('T')[0].split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function isOverdue(vencimentoIso?: string | null): boolean {
   if (!vencimentoIso) return false;
-  const target = new Date(vencimentoIso + 'T12:00:00');
-  const now = new Date();
-  const fmt = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' });
-  const [d1, m1, y1] = fmt.format(target).split('/');
-  const [d2, m2, y2] = fmt.format(now).split('/');
-  const tDate = new Date(Number(y1), Number(m1) - 1, Number(d1));
-  const nDate = new Date(Number(y2), Number(m2) - 1, Number(d2));
-  return tDate < nDate;
+  return getTargetDate(vencimentoIso) < getHojeSP();
 }
 
 function daysUntil(s?: string | null): number | null {
   if (!s) return null;
-  const target = new Date(s);
-  const now = new Date();
-  const fmt = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' });
-  const [d1, m1, y1] = fmt.format(target).split('/');
-  const [d2, m2, y2] = fmt.format(now).split('/');
-  const tDate = new Date(Number(y1), Number(m1) - 1, Number(d1));
-  const nDate = new Date(Number(y2), Number(m2) - 1, Number(d2));
-  return Math.round((tDate.getTime() - nDate.getTime()) / 86400000);
+  const diffTime = getTargetDate(s).getTime() - getHojeSP().getTime();
+  return Math.round(diffTime / 86400000);
 }
 
 function BrandUser({ userLabel, tenantName, logoUrl }: { userLabel: string; tenantName: string; logoUrl?: string | null }) {
@@ -163,8 +163,10 @@ export default function AdminShell({
   // useEffect para carregar notificações reais e financeiras
   useEffect(() => {
     const loadNotifications = async () => {
-      const list: Notification[] = [];
-      const nowIso = new Date().toISOString();
+      const list: Notification[] = [];
+      const nowIso = new Date().toISOString();
+      // ✅ Data exata de HOJE no Brasil (formato YYYY-MM-DD) para usar na busca
+      const dataAtualSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
       // 1. Notificação de vencimento do painel
       const dias = daysUntil(localExpiresAt);
@@ -197,10 +199,10 @@ export default function AdminShell({
       if (financialControlEnabled && tenantId) {
         try {
           const { data: transacoes, error } = await supabaseBrowser
-            .from("fin_transacoes")
-            .select("id, descricao, valor, data_vencimento, tipo")
-            .eq("status", "PENDENTE")
-            .lte("data_vencimento", nowIso.split('T')[0]);
+            .from("fin_transacoes")
+            .select("id, descricao, valor, data_vencimento, tipo")
+            .eq("status", "PENDENTE")
+            .lte("data_vencimento", dataAtualSP); // ✅ Puxa corretamente baseado no dia do Brasil
 
           if (!error && transacoes) {
             transacoes.forEach(t => {
