@@ -428,7 +428,10 @@ const managerActive = useMemo(() => {
             <div className="relative">
               <button
                 onClick={() => setShowNotificationsModal(true)}
-                className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors bg-white/5 hover:bg-white/10 text-white/90"
+                className={[
+                  "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
+                  unreadCount > 0 ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-white/5 hover:bg-white/10 text-white/90",
+                ].join(" ")}
                 title="Notificações"
               >
                 <IconSininho className="w-5 h-5" />
