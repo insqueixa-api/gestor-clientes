@@ -134,6 +134,7 @@ export default function AdminShell({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null); // Para o modal de detalhes
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Trigger para re-sincronizar do banco
 
   // unreadCount
   const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
@@ -307,10 +308,10 @@ export default function AdminShell({
         .map(n => readNotifs.includes(n.id) ? { ...n, is_read: true } : n);
 
       setNotifications(filteredList);
-    };
+    };
 
-    loadNotifications();
-  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId, hasIPTVorSaaS, hasAlunos]); // ✅ Dependências atualizadas
+    loadNotifications();
+  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId, hasIPTVorSaaS, hasAlunos, refreshTrigger]); // ✅ Dependências atualizadas
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -375,6 +376,22 @@ const managerActive = useMemo(() => {
     localStorage.setItem("dismissed_notifs", JSON.stringify(newDismissed));
     setNotifications([]);
   };
+
+  // ✅ Nova função para sincronizar banco de dados e limpar cache local
+  const handleSync = () => {
+    localStorage.removeItem("dismissed_notifs");
+    localStorage.removeItem("read_notifs");
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // ✅ Nova função para voltar a notificação para "Não Lido"
+  const handleMarkAsUnread = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
+    const newReadNotifs = readNotifs.filter((notifId: string) => notifId !== id);
+    localStorage.setItem("read_notifs", JSON.stringify(newReadNotifs));
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
+  };
 
   // ✅ Nova função para ocultar UMA notificação (Botão X)
   const handleDismiss = (e: React.MouseEvent, id: string) => {
@@ -642,8 +659,11 @@ const managerActive = useMemo(() => {
               </div>
             ) : (
               <>
-                <div className="flex justify-end">
-                  <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
+                <div className="flex justify-end gap-2">
+                  <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
+                    <IconSync className="w-3.5 h-3.5" /> Sincronizar
+                  </button>
+                  <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
                     Limpar todas
                   </button>
                 </div>
@@ -675,7 +695,7 @@ const managerActive = useMemo(() => {
                         </p>
                       </div>
                       
-                      <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-white/10 min-h-[32px]">
+                      <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-white/10 min-h-[32px] gap-1">
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
                           className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
@@ -683,6 +703,15 @@ const managerActive = useMemo(() => {
                         >
                           <IconX />
                         </button>
+                        {n.is_read && (
+                          <button
+                            onClick={(e) => handleMarkAsUnread(e, n.id)}
+                            className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-white/10 rounded-md transition-colors"
+                            title="Marcar como não lido"
+                          >
+                            <IconUndo />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -963,6 +992,24 @@ function IconLog() {
       <line x1="16" y1="13" x2="8" y2="13"/>
       <line x1="16" y1="17" x2="8" y2="17"/>
       <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  );
+}
+function IconSync({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+      <path d="M16 21v-5h5"/>
+    </svg>
+  );
+}
+function IconUndo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
     </svg>
   );
 }
