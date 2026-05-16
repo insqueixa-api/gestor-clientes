@@ -2072,22 +2072,17 @@ const [salvando, setSalvando] = useState(false);
           </div>
 
           {isEdit && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-1">
                 {status === "PAGO" ? (
                   <>
                     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Pagamento</label>
                     <button
                       type="button"
                       onClick={() => setShowPagamentoPicker(true)}
-                      className="w-full h-10 px-3 flex items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
+                      className="w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
                     >
                       {pagamentoDisplay}
-                      {transacaoEdit?.data_pagamento && (
-                        <span className="ml-2 text-emerald-600 dark:text-emerald-400">
-                          {new Date(transacaoEdit.data_pagamento).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      )}
                     </button>
                     {showPagamentoPicker && (
                       <ModalDayPicker
@@ -2107,7 +2102,7 @@ const [salvando, setSalvando] = useState(false);
                 ) : <div />}
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 {rTipoInicial !== "UNICA" ? (
                   <>
                     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
