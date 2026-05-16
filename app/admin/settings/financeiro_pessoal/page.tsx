@@ -2071,51 +2071,45 @@ const [salvando, setSalvando] = useState(false);
             </div>
           </div>
 
-          {/* Exibe a linha de baixo se for PAGO (para mostrar a data) OU se for edição de recorrência */}
-          {(status === "PAGO" || (isEdit && rTipoInicial !== "UNICA")) && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-1">
-                {status === "PAGO" ? (
-                  <>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Pagamento</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPagamentoPicker(true)}
-                      className="w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border border-emerald-200 dark:border-emerald-500/30 rounded-lg hover:border-emerald-500 transition-colors text-sm font-mono font-bold text-emerald-800 dark:text-emerald-300"
-                    >
-                      {pagamentoDisplay}
-                    </button>
-                    {showPagamentoPicker && (
-                      <ModalDayPicker
-                        currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
-                        onSelect={(date) => {
-                          const d = String(date.getDate()).padStart(2, '0');
-                          const m = String(date.getMonth() + 1).padStart(2, '0');
-                          const y = date.getFullYear();
-                          setDataPagamento(`${y}-${m}-${d}`);
-                          setRawDigitsPagamento(`${d}${m}${y}`);
-                          setShowPagamentoPicker(false);
-                        }}
-                        onClose={() => setShowPagamentoPicker(false)}
-                      />
-                    )}
-                  </>
-                ) : <div />}
-              </div>
-
-              <div className="sm:col-span-2">
-                {isEdit && rTipoInicial !== "UNICA" ? (
-                  <>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
-                    <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
-                      <button type="button" onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Apenas nesta</button>
-                      <button type="button" onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Nesta e nas futuras</button>
-                    </div>
-                  </>
-                ) : <div />}
-              </div>
+          {/* A linha de Data de Pagamento agora é SEMPRE renderizada */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-1">
+              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Data de Pagamento</label>
+              <button
+                type="button"
+                onClick={() => setShowPagamentoPicker(true)}
+                className={`w-full h-10 px-3 flex justify-center items-center bg-white dark:bg-black/20 border rounded-lg transition-colors text-sm font-mono font-bold ${status === "PAGO" ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500" : "border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/50 hover:border-slate-400"}`}
+              >
+                {pagamentoDisplay}
+              </button>
+              {showPagamentoPicker && (
+                <ModalDayPicker
+                  currentDate={dataPagamento ? new Date(`${dataPagamento}T12:00:00`) : new Date()}
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, '0');
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const y = date.getFullYear();
+                    setDataPagamento(`${y}-${m}-${d}`);
+                    setRawDigitsPagamento(`${d}${m}${y}`);
+                    setShowPagamentoPicker(false);
+                  }}
+                  onClose={() => setShowPagamentoPicker(false)}
+                />
+              )}
             </div>
-          )}
+
+            <div className="sm:col-span-2">
+              {isEdit && rTipoInicial !== "UNICA" ? (
+                <>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
+                  <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
+                    <button type="button" onClick={() => setEscopoEdicao("UNICA")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "UNICA" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>📅 Apenas nesta</button>
+                    <button type="button" onClick={() => setEscopoEdicao("TODAS")} className={`flex-1 rounded-md text-xs font-bold transition-colors ${escopoEdicao === "TODAS" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400 shadow-sm" : "text-slate-400 hover:text-slate-600 dark:hover:text-white/80"}`}>🔁 Nesta e nas futuras</button>
+                  </div>
+                </>
+              ) : <div />}
+            </div>
+          </div>
 
           {!isEdit && (
             <div className="p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-3">
