@@ -2071,7 +2071,8 @@ const [salvando, setSalvando] = useState(false);
             </div>
           </div>
 
-          {isEdit && (
+          {/* Exibe a linha de baixo se for PAGO (para mostrar a data) OU se for edição de recorrência */}
+          {(status === "PAGO" || (isEdit && rTipoInicial !== "UNICA")) && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-1">
                 {status === "PAGO" ? (
@@ -2103,7 +2104,7 @@ const [salvando, setSalvando] = useState(false);
               </div>
 
               <div className="sm:col-span-2">
-                {rTipoInicial !== "UNICA" ? (
+                {isEdit && rTipoInicial !== "UNICA" ? (
                   <>
                     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">Aplicar alterações em:</label>
                     <div className="flex bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 p-1 h-10">
