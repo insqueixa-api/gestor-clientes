@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest", 
   icons: {
     // Ao usar o PNG branco aqui, o Chrome fica satisfeito com a resolução e não rouba o azul do manifesto!
-    icon: "/brand/icon-192x192.png",      
+    icon: "/brand/icon-192x192blue.png",      
     shortcut: "/brand/icon-192x192.png",  
     apple: "/brand/icon-192x192blue.png", 
   },
