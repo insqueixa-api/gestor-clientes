@@ -156,64 +156,81 @@ function getBodyReference({ sexo, alturaCm, idade }: { sexo: "M" | "F"; alturaCm
   };
 }
 
-// Calcula score de saúde de 0 a 100 baseado em métricas-chave
-function calcularScoreInBody({ imc, gorduraPct, pesoKg, massaMuscularEsq, ref }: any) {
-  let score = 0;
+// Calcula score de saúde de 0 a 100, normalizado conforme dados disponíveis.
+// Funciona mesmo com poucos dados (só peso): score pondera pelo que foi medido.
+function calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref }: any) {
+  let pontos = 0;
+  let total = 0;
 
-  // IMC (peso x altura) - 25 pontos
-  if (imc >= ref.imcMin && imc <= ref.imcMax) score += 25;
-  else if (imc >= 17 && imc <= 27) score += 18;
-  else if (imc >= 16 && imc <= 30) score += 10;
-  else score += 5;
-
-  // % Gordura - 25 pontos
-  if (gorduraPct > 0) {
-    if (gorduraPct >= ref.gorduraPctMin && gorduraPct <= ref.gorduraPctMax) score += 25;
-    else if (gorduraPct >= ref.gorduraPctMin - 3 && gorduraPct <= ref.gorduraPctMax + 5) score += 18;
-    else if (gorduraPct <= ref.gorduraPctMax + 10) score += 10;
-    else score += 5;
-  } else {
-    score += 15; // sem dado: pontuação neutra
+  // IMC (sempre presente se peso+altura) — peso 35
+  if (imc > 0) {
+    total += 35;
+    if (imc >= ref.imcMin && imc <= ref.imcMax) pontos += 35;
+    else if (imc >= 17 && imc <= 27) pontos += 26;
+    else if (imc >= 16 && imc <= 30) pontos += 15;
+    else pontos += 5;
   }
 
-  // Massa Muscular - 30 pontos
-  if (massaMuscularEsq > 0 && ref.massaMuscularIdeal > 0) {
-    const pct = (massaMuscularEsq / ref.massaMuscularIdeal) * 100;
-    if (pct >= 95 && pct <= 110) score += 30;
-    else if (pct >= 85 && pct <= 120) score += 22;
-    else if (pct >= 75) score += 14;
-    else score += 6;
-  } else {
-    score += 18;
-  }
-
-  // Peso vs Peso Ideal - 20 pontos
+  // Peso vs Ideal — peso 25
   if (pesoKg > 0 && ref.pesoIdeal > 0) {
+    total += 25;
     const desvio = Math.abs(pesoKg - ref.pesoIdeal) / ref.pesoIdeal;
-    if (desvio <= 0.05) score += 20;
-    else if (desvio <= 0.10) score += 15;
-    else if (desvio <= 0.20) score += 8;
-    else score += 3;
-  } else {
-    score += 12;
+    if (desvio <= 0.05) pontos += 25;
+    else if (desvio <= 0.10) pontos += 19;
+    else if (desvio <= 0.20) pontos += 10;
+    else pontos += 3;
   }
 
-  return Math.min(100, Math.max(0, Math.round(score)));
+  // % Gordura (opcional) — peso 25
+  if (gorduraPct > 0) {
+    total += 25;
+    if (gorduraPct >= ref.gorduraPctMin && gorduraPct <= ref.gorduraPctMax) pontos += 25;
+    else if (gorduraPct >= ref.gorduraPctMin - 3 && gorduraPct <= ref.gorduraPctMax + 5) pontos += 18;
+    else if (gorduraPct <= ref.gorduraPctMax + 10) pontos += 10;
+    else pontos += 4;
+  }
+
+  // RCQ (opcional, calculado de cintura/quadril) — peso 15
+  if (rcq > 0) {
+    total += 15;
+    if (rcq <= ref.rcqMax) pontos += 15;
+    else if (rcq <= ref.rcqMax + 0.05) pontos += 10;
+    else if (rcq <= ref.rcqMax + 0.10) pontos += 6;
+    else pontos += 2;
+  }
+
+  if (total === 0) return 0;
+  return Math.round((pontos / total) * 100);
 }
 
-// Estima idade metabólica a partir de TMB esperada vs efetiva
-function calcularIdadeMetabolica({ tmbInformada, sexo, pesoKg, alturaCm, idade }: any) {
-  if (!pesoKg || !alturaCm || !idade) return null;
-  // Mifflin-St Jeor (TMB esperada na idade real)
-  const tmbEsperada = sexo === "M"
-    ? 10 * pesoKg + 6.25 * alturaCm - 5 * idade + 5
-    : 10 * pesoKg + 6.25 * alturaCm - 5 * idade - 161;
+// TMB via Mifflin-St Jeor (mais aceita na literatura atual)
+function calcularTMB({ sexo, pesoKg, alturaCm, idade }: any) {
+  if (!pesoKg || !alturaCm || !idade) return 0;
+  return sexo === "M"
+    ? Math.round(10 * pesoKg + 6.25 * alturaCm - 5 * idade + 5)
+    : Math.round(10 * pesoKg + 6.25 * alturaCm - 5 * idade - 161);
+}
 
-  const tmbReal = Number(tmbInformada) > 0 ? Number(tmbInformada) : tmbEsperada;
-  // Idade metabólica: se TMB real > esperada, idade metabólica menor (jovem); inverso é mais velho
-  const fator = tmbEsperada / tmbReal;
-  const idadeMet = Math.round(idade * fator);
-  return Math.max(15, Math.min(80, idadeMet));
+// Idade metabólica: TMB esperada vs TMB do indivíduo (estimada pelo peso magro real)
+function calcularIdadeMetabolica({ sexo, pesoKg, alturaCm, idade, gorduraPct }: any) {
+  if (!pesoKg || !alturaCm || !idade) return null;
+  const tmbEsperada = calcularTMB({ sexo, pesoKg, alturaCm, idade });
+
+  // Se temos %gordura, calculamos uma TMB "real" baseada em massa magra (Katch-McArdle)
+  // Caso contrário, retornamos a idade real
+  if (gorduraPct > 0) {
+    const massaMagra = pesoKg * (1 - gorduraPct / 100);
+    const tmbKatch = Math.round(370 + 21.6 * massaMagra);
+    if (tmbKatch > 0 && tmbEsperada > 0) {
+      const fator = tmbEsperada / tmbKatch;
+      return Math.max(15, Math.min(80, Math.round(idade * fator)));
+    }
+  }
+
+  // Sem %gordura: usa o IMC como proxy (IMC alto = idade metabólica acima)
+  const imc = pesoKg / Math.pow(alturaCm / 100, 2);
+  const fatorImc = imc > 24.9 ? 1 + (imc - 24.9) * 0.04 : imc < 18.5 ? 1 + (18.5 - imc) * 0.03 : 1;
+  return Math.max(15, Math.min(80, Math.round(idade * fatorImc)));
 }
 
 // Classifica um valor em uma escala (Abaixo/Normal/Acima)
@@ -224,7 +241,7 @@ function classify(value: number, min: number, max: number): Faixa {
   return "normal";
 }
 
-function generateInsights({ imc, gorduraPct, massaMuscularEsq, pesoKg, ref, sexo, idade }: any) {
+function generateInsights({ imc, gorduraPct, pesoKg, rcq, ref, sexo, idade }: any) {
   const insights: string[] = [];
 
   // IMC
@@ -242,18 +259,17 @@ function generateInsights({ imc, gorduraPct, massaMuscularEsq, pesoKg, ref, sexo
     else insights.push("Percentual de gordura corporal em faixa adequada.");
   }
 
-  // Massa Muscular
-  if (massaMuscularEsq > 0 && ref.massaMuscularIdeal > 0) {
-    const pct = (massaMuscularEsq / ref.massaMuscularIdeal) * 100;
-    if (pct < 85) insights.push("Massa muscular abaixo do ideal — priorize treinamento de força e aporte proteico.");
-    else if (pct > 115) insights.push("Excelente desenvolvimento muscular para o perfil corporal.");
-    else insights.push("Massa muscular dentro do esperado para o seu perfil.");
+  // RCQ — indicador de risco cardiovascular
+  if (rcq > 0) {
+    if (rcq > ref.rcqMax + 0.05) insights.push("Relação cintura/quadril elevada — atenção ao acúmulo de gordura abdominal e risco cardiovascular.");
+    else if (rcq > ref.rcqMax) insights.push("Relação cintura/quadril levemente acima — vale trabalhar a região abdominal.");
+    else insights.push("Distribuição corporal saudável (cintura/quadril).");
   }
 
   // Idade
   if (idade > 40) insights.push("Após os 40, recomenda-se manter o trabalho de força para preservar massa magra e densidade óssea.");
 
-  if (insights.length === 0) insights.push("Composição corporal apresentando equilíbrio geral satisfatório.");
+  if (insights.length === 0) insights.push("Dados ainda insuficientes para análise — registre mais avaliações para acompanhar a evolução.");
   return insights;
 }
 
@@ -423,23 +439,11 @@ export default function ClientDetailsPage() {
   const emptyAv = () => ({
     data: new Date().toISOString().slice(0, 10),
     peso_kg: "",
-    gordura_pct: "",
-    massa_magra_kg: "",
-    massa_gordura_kg: "",
-    agua_l: "",
-    proteina_kg: "",
-    minerais_kg: "",
-    pontuacao: "",
-    tmb_kcal: "",
-    rcq: "",
-    gordura_visceral: "",
-    massa_muscular_esq_kg: "",
-    grau_obesidade: "",
+    gordura_pct: "",      // opcional (adipômetro/bioimpedância)
+    pontuacao: "",        // calculado automaticamente
     // Perimetria
-    cintura_cm: "", quadril_cm: "", braco_cm: "", coxa_cm: "",
-    panturrilha_cm: "", abdomen_cm: "", ombro_cm: "",
-    // Segmentar
-    braco_esq_kg: "", braco_dir_kg: "", perna_esq_kg: "", perna_dir_kg: "", tronco_kg: "",
+    cintura_cm: "", quadril_cm: "", abdomen_cm: "",
+    braco_cm: "", coxa_cm: "", panturrilha_cm: "", ombro_cm: "",
     observacoes: "",
   });
   const [novaAv, setNovaAv] = useState(emptyAv());
@@ -513,31 +517,29 @@ export default function ClientDetailsPage() {
     return { idade, sexoStr, alturaCm, ref };
   }, [dadosExtras, client]);
 
-  // Cálculos com a última avaliação
+  // Cálculos com a última avaliação — TODOS os derivados são automáticos
   const inbodyStats = useMemo(() => {
     if (!ultimaAv) return null;
     const { idade, sexoStr, alturaCm, ref } = dadosCalc;
     const alturaM = alturaCm / 100;
     const pesoKg = Number(ultimaAv.peso_kg || 0);
-    const imc = (pesoKg > 0 && alturaM > 0) ? (pesoKg / (alturaM * alturaM)) : 0;
     const gorduraPct = Number(ultimaAv.gordura_pct || 0);
-    const massaGordura = gorduraPct > 0 && pesoKg > 0 ? (gorduraPct / 100) * pesoKg : Number(ultimaAv.massa_gordura_kg || 0);
-    const massaMagra = Number(ultimaAv.massa_magra_kg || 0);
-    const massaMuscularEsq = Number(ultimaAv.massa_muscular_esq_kg || 0);
-    const aguaL = Number(ultimaAv.agua_l || 0);
+    const cintura = Number(ultimaAv.cintura_cm || 0);
+    const quadril = Number(ultimaAv.quadril_cm || 0);
 
-    const score = calcularScoreInBody({ imc, gorduraPct, pesoKg, massaMuscularEsq, ref });
-    const idadeMet = calcularIdadeMetabolica({
-      tmbInformada: ultimaAv.tmb_kcal,
-      sexo: sexoStr,
-      pesoKg,
-      alturaCm,
-      idade,
-    });
-    const insights = generateInsights({ imc, gorduraPct, massaMuscularEsq, pesoKg, ref, sexo: sexoStr, idade });
+    // DERIVADOS automaticamente
+    const imc = (pesoKg > 0 && alturaM > 0) ? (pesoKg / (alturaM * alturaM)) : 0;
+    const massaGordura = (gorduraPct > 0 && pesoKg > 0) ? (gorduraPct / 100) * pesoKg : 0;
+    const massaMagra = pesoKg > 0 && massaGordura > 0 ? pesoKg - massaGordura : 0;
+    const rcq = (cintura > 0 && quadril > 0) ? cintura / quadril : 0;
+    const tmb = calcularTMB({ sexo: sexoStr, pesoKg, alturaCm, idade });
+    const idadeMet = calcularIdadeMetabolica({ sexo: sexoStr, pesoKg, alturaCm, idade, gorduraPct });
+
+    const score = calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref });
+    const insights = generateInsights({ imc, gorduraPct, pesoKg, rcq, ref, sexo: sexoStr, idade });
     const difPeso = pesoKg > 0 && ref.pesoIdeal > 0 ? (pesoKg - ref.pesoIdeal) : 0;
 
-    return { idade, sexoStr, alturaCm, pesoKg, imc, gorduraPct, massaGordura, massaMagra, massaMuscularEsq, aguaL, ref, score, idadeMet, insights, difPeso };
+    return { idade, sexoStr, alturaCm, pesoKg, imc, gorduraPct, massaGordura, massaMagra, rcq, tmb, ref, score, idadeMet, insights, difPeso };
   }, [ultimaAv, dadosCalc]);
 
   // Timeline filtrada
@@ -665,25 +667,28 @@ export default function ClientDetailsPage() {
 
   async function handleSaveAvaliacao() {
     if (!client) return;
+    if (!novaAv.peso_kg || Number(novaAv.peso_kg) <= 0) {
+      addToast("error", "Peso obrigatório", "Informe ao menos o peso para registrar a avaliação.");
+      return;
+    }
     setSavingAv(true);
     try {
       const tid = await getCurrentTenantId();
       const currentSaude = dadosExtras.saude || {};
       const currentAvals = Array.isArray(currentSaude.avaliacoes) ? currentSaude.avaliacoes : [];
 
-      // Calcula score automaticamente se não foi informado
-      let scoreAuto = novaAv.pontuacao;
-      if (!scoreAuto) {
-        const { idade, sexoStr, alturaCm, ref } = dadosCalc;
-        const alturaM = alturaCm / 100;
-        const pesoKgN = Number(novaAv.peso_kg || 0);
-        const imcN = (pesoKgN > 0 && alturaM > 0) ? (pesoKgN / (alturaM * alturaM)) : 0;
-        const gPctN = Number(novaAv.gordura_pct || 0);
-        const mmN = Number(novaAv.massa_muscular_esq_kg || 0);
-        scoreAuto = String(calcularScoreInBody({ imc: imcN, gorduraPct: gPctN, pesoKg: pesoKgN, massaMuscularEsq: mmN, ref }));
-      }
+      // Calcula score automaticamente
+      const { idade, sexoStr, alturaCm, ref } = dadosCalc;
+      const alturaM = alturaCm / 100;
+      const pesoKgN = Number(novaAv.peso_kg || 0);
+      const imcN = (pesoKgN > 0 && alturaM > 0) ? (pesoKgN / (alturaM * alturaM)) : 0;
+      const gPctN = Number(novaAv.gordura_pct || 0);
+      const cN = Number(novaAv.cintura_cm || 0);
+      const qN = Number(novaAv.quadril_cm || 0);
+      const rcqN = (cN > 0 && qN > 0) ? cN / qN : 0;
+      const scoreAuto = calcularScoreInBody({ imc: imcN, gorduraPct: gPctN, pesoKg: pesoKgN, rcq: rcqN, ref });
 
-      const newAv = { ...novaAv, pontuacao: scoreAuto, id: crypto.randomUUID() };
+      const newAv = { ...novaAv, pontuacao: String(scoreAuto), id: crypto.randomUUID() };
 
       const newDadosExtras = {
         ...dadosExtras,
@@ -773,16 +778,21 @@ export default function ClientDetailsPage() {
     const { idade, sexoStr, alturaCm, ref } = dadosCalc;
     const alturaM = alturaCm / 100;
     const pesoKg = Number(av.peso_kg || 0);
-    const imc = (pesoKg > 0 && alturaM > 0) ? (pesoKg / (alturaM * alturaM)) : 0;
     const gorduraPct = Number(av.gordura_pct || 0);
-    const massaGordura = gorduraPct > 0 && pesoKg > 0 ? (gorduraPct / 100) * pesoKg : Number(av.massa_gordura_kg || 0);
-    const massaMuscularEsq = Number(av.massa_muscular_esq_kg || 0);
-    const massaMagraKg = Number(av.massa_magra_kg || 0);
+    const cintura = Number(av.cintura_cm || 0);
+    const quadril = Number(av.quadril_cm || 0);
+
+    // Derivados automaticamente
+    const imc = (pesoKg > 0 && alturaM > 0) ? (pesoKg / (alturaM * alturaM)) : 0;
+    const massaGordura = (gorduraPct > 0 && pesoKg > 0) ? (gorduraPct / 100) * pesoKg : 0;
+    const massaMagraKg = pesoKg > 0 && massaGordura > 0 ? pesoKg - massaGordura : 0;
+    const rcq = (cintura > 0 && quadril > 0) ? cintura / quadril : 0;
+    const tmb = calcularTMB({ sexo: sexoStr, pesoKg, alturaCm, idade });
 
     const difPeso = pesoKg > 0 && ref.pesoIdeal > 0 ? (pesoKg - ref.pesoIdeal) : 0;
-    const insights = generateInsights({ imc, gorduraPct, massaMuscularEsq, pesoKg, ref, sexo: sexoStr, idade });
-    const scoreCalc = av.pontuacao ? Number(av.pontuacao) : calcularScoreInBody({ imc, gorduraPct, pesoKg, massaMuscularEsq, ref });
-    const idadeMet = calcularIdadeMetabolica({ tmbInformada: av.tmb_kcal, sexo: sexoStr, pesoKg, alturaCm, idade });
+    const insights = generateInsights({ imc, gorduraPct, pesoKg, rcq, ref, sexo: sexoStr, idade });
+    const scoreCalc = av.pontuacao ? Number(av.pontuacao) : calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref });
+    const idadeMet = calcularIdadeMetabolica({ sexo: sexoStr, pesoKg, alturaCm, idade, gorduraPct });
 
     // Helper para renderizar barra Abaixo/Normal/Acima no PDF
     function renderPdfBar(value: number, min: number, max: number, absMin: number, absMax: number) {
@@ -934,21 +944,25 @@ export default function ClientDetailsPage() {
                   ${renderPdfBar(gorduraPct, ref.gorduraPctMin, ref.gorduraPctMax, 3, 50)}
                 </div>
 
+                ${rcq > 0 ? `
                 <div class="bar-row">
                   <div class="bar-header">
-                    <span class="bar-label">Massa Muscular Esq. (kg)</span>
-                    <span class="bar-value">${massaMuscularEsq > 0 ? massaMuscularEsq.toFixed(1) : '--'}</span>
+                    <span class="bar-label">Relação Cintura/Quadril</span>
+                    <span class="bar-value">${rcq.toFixed(2)}</span>
                   </div>
-                  ${renderPdfBar(massaMuscularEsq, ref.massaMuscularIdeal * 0.9, ref.massaMuscularIdeal * 1.1, ref.massaMuscularIdeal * 0.5, ref.massaMuscularIdeal * 1.5)}
+                  ${renderPdfBar(rcq, 0.7, ref.rcqMax, 0.6, 1.2)}
                 </div>
+                ` : ''}
 
+                ${massaGordura > 0 ? `
                 <div class="bar-row">
                   <div class="bar-header">
                     <span class="bar-label">Massa de Gordura (kg)</span>
-                    <span class="bar-value">${massaGordura > 0 ? massaGordura.toFixed(1) : '--'}</span>
+                    <span class="bar-value">${massaGordura.toFixed(1)}</span>
                   </div>
                   ${renderPdfBar(massaGordura, ref.gorduraMin, ref.gorduraMax, 0, ref.gorduraMax * 2.5)}
                 </div>
+                ` : ''}
               </div>
 
               <!-- COLUNA DIREITA: Score InBody + Resumo -->
@@ -977,17 +991,21 @@ export default function ClientDetailsPage() {
                       </td>
                     </tr>
                     <tr>
-                      <td><strong>TMB</strong></td>
-                      <td style="text-align: right; font-weight: 700;">${av.tmb_kcal || '--'} kcal</td>
+                      <td><strong>TMB</strong> <span style="font-size: 7px; color: #94a3b8;">(estimada)</span></td>
+                      <td style="text-align: right; font-weight: 700;">${tmb || '--'} kcal</td>
                     </tr>
+                    ${massaMagraKg > 0 ? `
                     <tr>
-                      <td><strong>Água Total</strong></td>
-                      <td style="text-align: right; font-weight: 700;">${av.agua_l || '--'} L</td>
+                      <td><strong>Massa Magra</strong></td>
+                      <td style="text-align: right; font-weight: 700; color: #059669;">${massaMagraKg.toFixed(1)} kg</td>
                     </tr>
+                    ` : ''}
+                    ${rcq > 0 ? `
                     <tr>
                       <td><strong>RCQ</strong></td>
-                      <td style="text-align: right; font-weight: 700;">${av.rcq || '--'}</td>
+                      <td style="text-align: right; font-weight: 700;">${rcq.toFixed(2)}</td>
                     </tr>
+                    ` : ''}
                   </table>
                 </div>
               </div>
@@ -1003,7 +1021,7 @@ export default function ClientDetailsPage() {
                       <th>Data</th>
                       <th style="text-align: right;">Peso</th>
                       <th style="text-align: right;">% Gord.</th>
-                      <th style="text-align: right;">M. Musc.</th>
+                      <th style="text-align: right;">M. Magra</th>
                       <th style="text-align: right;">IMC</th>
                       <th style="text-align: right;">Score</th>
                     </tr>
@@ -1012,12 +1030,14 @@ export default function ClientDetailsPage() {
                     ${avaliacoes.slice(0, 5).reverse().map((h: any) => {
                       const hPeso = Number(h.peso_kg || 0);
                       const hImc = (hPeso > 0 && alturaM > 0) ? (hPeso / (alturaM * alturaM)) : 0;
+                      const hGord = Number(h.gordura_pct || 0);
+                      const hMagra = (hGord > 0 && hPeso > 0) ? hPeso - (hGord / 100) * hPeso : 0;
                       return `
                       <tr>
                         <td><strong>${new Date(h.data + "T12:00:00").toLocaleDateString("pt-BR")}</strong></td>
                         <td style="text-align: right;">${h.peso_kg || '--'}</td>
                         <td style="text-align: right;">${h.gordura_pct || '--'}</td>
-                        <td style="text-align: right;">${h.massa_muscular_esq_kg || '--'}</td>
+                        <td style="text-align: right;">${hMagra > 0 ? hMagra.toFixed(1) : '--'}</td>
                         <td style="text-align: right;">${hImc > 0 ? hImc.toFixed(1) : '--'}</td>
                         <td style="text-align: right; font-weight: 800;">${h.pontuacao || '--'}</td>
                       </tr>`
@@ -1475,25 +1495,64 @@ export default function ClientDetailsPage() {
                     absoluteMax={40}
                   />
 
-                  <InBodyMetricBar
-                    label="% Gordura Corporal"
-                    unit="%"
-                    value={inbodyStats.gorduraPct}
-                    min={inbodyStats.ref.gorduraPctMin}
-                    max={inbodyStats.ref.gorduraPctMax}
-                    absoluteMin={3}
-                    absoluteMax={50}
-                  />
+                  {/* % Gordura - só se medido */}
+                  {inbodyStats.gorduraPct > 0 && (
+                    <InBodyMetricBar
+                      label="% Gordura Corporal"
+                      unit="%"
+                      value={inbodyStats.gorduraPct}
+                      min={inbodyStats.ref.gorduraPctMin}
+                      max={inbodyStats.ref.gorduraPctMax}
+                      absoluteMin={3}
+                      absoluteMax={50}
+                    />
+                  )}
 
-                  <InBodyMetricBar
-                    label="Massa Muscular Esquelética"
-                    unit="kg"
-                    value={inbodyStats.massaMuscularEsq}
-                    min={inbodyStats.ref.massaMuscularIdeal * 0.9}
-                    max={inbodyStats.ref.massaMuscularIdeal * 1.1}
-                    absoluteMin={inbodyStats.ref.massaMuscularIdeal * 0.5}
-                    absoluteMax={inbodyStats.ref.massaMuscularIdeal * 1.5}
-                  />
+                  {/* RCQ - só se mediu cintura e quadril */}
+                  {inbodyStats.rcq > 0 && (
+                    <InBodyMetricBar
+                      label="Relação Cintura/Quadril"
+                      unit="RCQ"
+                      value={inbodyStats.rcq}
+                      min={0.7}
+                      max={inbodyStats.ref.rcqMax}
+                      absoluteMin={0.6}
+                      absoluteMax={1.2}
+                    />
+                  )}
+
+                  {/* Aviso para coletar mais dados */}
+                  {inbodyStats.gorduraPct === 0 && inbodyStats.rcq === 0 && (
+                    <div className="text-[11px] text-slate-400 dark:text-white/30 italic text-center py-2 border-t border-slate-100 dark:border-white/5">
+                      💡 Adicione <strong>% gordura</strong> ou <strong>perimetria (cintura + quadril)</strong> para uma análise mais completa
+                    </div>
+                  )}
+                </div>
+
+                {/* DERIVADOS - cards informativos */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">TMB (kcal/dia)</span>
+                    <span className="font-mono font-black text-base text-slate-800 dark:text-white">{inbodyStats.tmb || "--"}</span>
+                  </div>
+                  {inbodyStats.massaGordura > 0 && (
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Gordura</span>
+                      <span className="font-mono font-black text-base text-rose-500">{inbodyStats.massaGordura.toFixed(1)} kg</span>
+                    </div>
+                  )}
+                  {inbodyStats.massaMagra > 0 && (
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Magra</span>
+                      <span className="font-mono font-black text-base text-emerald-600">{inbodyStats.massaMagra.toFixed(1)} kg</span>
+                    </div>
+                  )}
+                  {inbodyStats.rcq > 0 && (
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10">
+                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">RCQ</span>
+                      <span className="font-mono font-black text-base text-slate-800 dark:text-white">{inbodyStats.rcq.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* INSIGHTS / RECOMENDAÇÕES */}
@@ -1528,14 +1587,18 @@ export default function ClientDetailsPage() {
               <div>
                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Histórico de Relatórios</span>
                 <div className="space-y-2">
-                  {avaliacoes.map((av: any) => (
+                  {avaliacoes.map((av: any) => {
+                    const alturaM = dadosCalc.alturaCm / 100;
+                    const pesoN = Number(av.peso_kg || 0);
+                    const imcN = (pesoN > 0 && alturaM > 0) ? (pesoN / (alturaM * alturaM)) : 0;
+                    return (
                     <div key={av.id} className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:border-emerald-300 transition-colors group relative">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                         <span className="font-bold text-slate-700 dark:text-white text-sm">{new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</span>
-                        <div className="flex gap-3 text-xs text-slate-500 font-medium">
+                        <div className="flex gap-3 text-xs text-slate-500 font-medium flex-wrap">
                           <span>⚖️ {av.peso_kg || '--'} kg</span>
-                          <span>🔥 {av.gordura_pct || '--'} %</span>
-                          <span className="text-emerald-600">💪 {av.massa_magra_kg || '--'} kg</span>
+                          {imcN > 0 && <span>📐 IMC {imcN.toFixed(1)}</span>}
+                          {av.gordura_pct && <span className="text-rose-500">🔥 {av.gordura_pct}%</span>}
                           {av.pontuacao && (
                             <span className={`font-bold ${
                               Number(av.pontuacao) >= 80 ? "text-emerald-600"
@@ -1573,7 +1636,8 @@ export default function ClientDetailsPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1784,48 +1848,35 @@ export default function ClientDetailsPage() {
 
             <div className="p-6 overflow-y-auto space-y-6">
 
+              {/* MÉTRICAS PRINCIPAIS - bem reduzido */}
               <div>
                 <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Métricas Principais</span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label><input type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({ ...v, data: e.target.value }))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 dark:[color-scheme:dark]" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Peso (kg)</label><input type="number" step="0.1" value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({ ...v, peso_kg: e.target.value }))} placeholder="70.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">% Gordura</label><input type="number" step="0.1" value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({ ...v, gordura_pct: e.target.value }))} placeholder="15.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Gordura (kg)</label><input type="number" step="0.1" value={novaAv.massa_gordura_kg} onChange={e => setNovaAv(v => ({ ...v, massa_gordura_kg: e.target.value }))} placeholder="10.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Massa Magra (kg)</label><input type="number" step="0.1" value={novaAv.massa_magra_kg} onChange={e => setNovaAv(v => ({ ...v, massa_magra_kg: e.target.value }))} placeholder="59.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Água Total (L)</label><input type="number" step="0.1" value={novaAv.agua_l} onChange={e => setNovaAv(v => ({ ...v, agua_l: e.target.value }))} placeholder="45.2" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Proteína (kg)</label><input type="number" step="0.1" value={novaAv.proteina_kg} onChange={e => setNovaAv(v => ({ ...v, proteina_kg: e.target.value }))} placeholder="12.4" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Minerais (kg)</label><input type="number" step="0.1" value={novaAv.minerais_kg} onChange={e => setNovaAv(v => ({ ...v, minerais_kg: e.target.value }))} placeholder="4.1" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                </div>
-              </div>
-
-              <div>
-                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Dados Adicionais & Scores</span>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pontuação <span className="text-emerald-500 normal-case">(auto)</span></label>
-                    <input type="number" value={novaAv.pontuacao} onChange={e => setNovaAv(v => ({ ...v, pontuacao: e.target.value }))} placeholder="Calc. automático" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" />
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data</label>
+                    <input type="date" value={novaAv.data} onChange={e => setNovaAv(v => ({ ...v, data: e.target.value }))} className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 dark:[color-scheme:dark]" />
                   </div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">M. Muscular Esq.</label><input type="number" step="0.1" value={novaAv.massa_muscular_esq_kg} onChange={e => setNovaAv(v => ({ ...v, massa_muscular_esq_kg: e.target.value }))} placeholder="42.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">TMB (kcal)</label><input type="number" value={novaAv.tmb_kcal} onChange={e => setNovaAv(v => ({ ...v, tmb_kcal: e.target.value }))} placeholder="1850" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">RCQ</label><input type="number" step="0.01" value={novaAv.rcq} onChange={e => setNovaAv(v => ({ ...v, rcq: e.target.value }))} placeholder="0.85" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gord. Visceral</label><input type="number" value={novaAv.gordura_visceral} onChange={e => setNovaAv(v => ({ ...v, gordura_visceral: e.target.value }))} placeholder="9" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Grau Obesid. %</label><input type="number" value={novaAv.grau_obesidade} onChange={e => setNovaAv(v => ({ ...v, grau_obesidade: e.target.value }))} placeholder="134" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Peso (kg) <span className="text-rose-500 normal-case">*</span></label>
+                    <input type="number" step="0.1" value={novaAv.peso_kg} onChange={e => setNovaAv(v => ({ ...v, peso_kg: e.target.value }))} placeholder="70.5" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      % Gordura <span className="text-slate-400 normal-case font-normal">(opcional)</span>
+                    </label>
+                    <input type="number" step="0.1" value={novaAv.gordura_pct} onChange={e => setNovaAv(v => ({ ...v, gordura_pct: e.target.value }))} placeholder="15.0" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" />
+                  </div>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-2 italic">
+                  💡 IMC, Massa Magra, Massa Gordura, TMB e Pontuação são calculados automaticamente.
+                </p>
               </div>
 
+              {/* PERIMETRIA */}
               <div>
-                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Análise Segmentar (Massa Magra kg)</span>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Braço Esq.</label><input type="number" step="0.1" value={novaAv.braco_esq_kg} onChange={e => setNovaAv(v => ({ ...v, braco_esq_kg: e.target.value }))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Braço Dir.</label><input type="number" step="0.1" value={novaAv.braco_dir_kg} onChange={e => setNovaAv(v => ({ ...v, braco_dir_kg: e.target.value }))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tronco</label><input type="number" step="0.1" value={novaAv.tronco_kg} onChange={e => setNovaAv(v => ({ ...v, tronco_kg: e.target.value }))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Perna Esq.</label><input type="number" step="0.1" value={novaAv.perna_esq_kg} onChange={e => setNovaAv(v => ({ ...v, perna_esq_kg: e.target.value }))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                  <div><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Perna Dir.</label><input type="number" step="0.1" value={novaAv.perna_dir_kg} onChange={e => setNovaAv(v => ({ ...v, perna_dir_kg: e.target.value }))} placeholder="--" className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500" /></div>
-                </div>
-              </div>
-
-              <div>
-                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">Perimetria (cm)</span>
+                <span className="block text-sm font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/10 pb-1 mb-4">
+                  Perimetria <span className="text-[10px] text-slate-400 font-normal normal-case">(em cm — preencha só o que mediu)</span>
+                </span>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
                   {([["cintura_cm", "Cintura"], ["quadril_cm", "Quadril"], ["abdomen_cm", "Abdômen"], ["ombro_cm", "Ombro"], ["braco_cm", "Braço"], ["coxa_cm", "Coxa"], ["panturrilha_cm", "Panturr."]] as const).map(([k, l]) => (
                     <div key={k}>
@@ -1834,8 +1885,64 @@ export default function ClientDetailsPage() {
                     </div>
                   ))}
                 </div>
+                {novaAv.cintura_cm && novaAv.quadril_cm && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 font-bold">
+                    ✓ RCQ que será calculado: {(Number(novaAv.cintura_cm) / Number(novaAv.quadril_cm)).toFixed(2)}
+                  </p>
+                )}
               </div>
 
+              {/* PREVIEW DOS CÁLCULOS - mostra em tempo real conforme preenche */}
+              {Number(novaAv.peso_kg) > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-4">
+                  <span className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-3">Pré-visualização dos Cálculos</span>
+                  {(() => {
+                    const { idade, sexoStr, alturaCm, ref } = dadosCalc;
+                    const alturaM = alturaCm / 100;
+                    const pesoN = Number(novaAv.peso_kg || 0);
+                    const gN = Number(novaAv.gordura_pct || 0);
+                    const cN = Number(novaAv.cintura_cm || 0);
+                    const qN = Number(novaAv.quadril_cm || 0);
+                    const imcN = pesoN > 0 && alturaM > 0 ? pesoN / (alturaM * alturaM) : 0;
+                    const rcqN = cN > 0 && qN > 0 ? cN / qN : 0;
+                    const mGordN = gN > 0 ? (gN / 100) * pesoN : 0;
+                    const mMagraN = mGordN > 0 ? pesoN - mGordN : 0;
+                    const tmbN = calcularTMB({ sexo: sexoStr, pesoKg: pesoN, alturaCm, idade });
+                    const scoreN = calcularScoreInBody({ imc: imcN, gorduraPct: gN, pesoKg: pesoN, rcq: rcqN, ref });
+
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                        <div className="bg-white dark:bg-black/20 rounded-lg p-2.5">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase">IMC</div>
+                          <div className="font-mono font-black text-slate-800 dark:text-white">{imcN > 0 ? imcN.toFixed(1) : "—"}</div>
+                        </div>
+                        <div className="bg-white dark:bg-black/20 rounded-lg p-2.5">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase">TMB</div>
+                          <div className="font-mono font-black text-slate-800 dark:text-white">{tmbN || "—"}</div>
+                        </div>
+                        {mGordN > 0 && (
+                          <div className="bg-white dark:bg-black/20 rounded-lg p-2.5">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase">M. Gordura</div>
+                            <div className="font-mono font-black text-rose-500">{mGordN.toFixed(1)} kg</div>
+                          </div>
+                        )}
+                        {mMagraN > 0 && (
+                          <div className="bg-white dark:bg-black/20 rounded-lg p-2.5">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase">M. Magra</div>
+                            <div className="font-mono font-black text-emerald-600">{mMagraN.toFixed(1)} kg</div>
+                          </div>
+                        )}
+                        <div className="bg-white dark:bg-black/20 rounded-lg p-2.5 col-span-2 md:col-span-1">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase">Pontuação</div>
+                          <div className={`font-mono font-black ${scoreN >= 80 ? "text-emerald-600" : scoreN >= 60 ? "text-amber-600" : "text-rose-500"}`}>{scoreN || "—"}/100</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* OBSERVAÇÕES */}
               <div>
                 <label className="block text-sm font-bold text-slate-800 dark:text-white mb-2">Observações do Treinador</label>
                 <textarea value={novaAv.observacoes} onChange={e => setNovaAv(v => ({ ...v, observacoes: e.target.value }))} placeholder="Diagnóstico, evolução, pontos de atenção..." className="w-full h-20 px-3 py-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 resize-none" />
