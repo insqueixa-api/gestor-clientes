@@ -397,9 +397,9 @@ if (connection === "open") {
         sessData.status = "disconnected";
         // Se foi logout, apaga credenciais
         if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.forbidden) {
-          console.log(`[WA][${sessionKey.slice(0, 8)}] Logout detectado — limpando credenciais`);
-          deleteSessionFiles(sessionKey);
-        }
+  console.log(`[WA][${sessionKey.slice(0, 8)}] Logout detectado — removendo sessão`);
+  deleteSessionFiles(sessionKey, true);
+}
       }
     }
   });
@@ -484,18 +484,26 @@ async function reconnectSession(sessionKey) {
   return await createSession(sessionKey);
 }
 
-function deleteSessionFiles(sessionKey) {
+function deleteSessionFiles(sessionKey, fullDelete = false) {
   const dir = getSessionDir(sessionKey);
   if (!fs.existsSync(dir)) return;
 
-  // ✅ Preserva config e lid-map — apaga só os arquivos de autenticação do Baileys
-  const PRESERVE = new Set(["wa-config.json", "lid-map.json"]);
+  if (fullDelete) {
+    // Logout real: apaga a pasta inteira para não reaparecer no restore
+    fs.rmSync(dir, { recursive: true, force: true });
+    sessions.delete(sessionKey);
+    sessionConfigs.delete(sessionKey);
+    lidPhoneMap.delete(sessionKey);
+    console.log(`[WA][${sessionKey.slice(0, 8)}] Pasta de sessão removida completamente`);
+    return;
+  }
 
+  // Disconnect simples: preserva config e lid-map
+  const PRESERVE = new Set(["wa-config.json", "lid-map.json"]);
   for (const entry of fs.readdirSync(dir)) {
     if (PRESERVE.has(entry)) continue;
     fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
-
   console.log(`[WA][${sessionKey.slice(0, 8)}] Arquivos de auth removidos (config preservada)`);
 }
 
