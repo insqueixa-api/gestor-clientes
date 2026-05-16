@@ -16,6 +16,7 @@ export default function TenantHead() {
     "/admin/aluno":                        "Alunos",
     "/admin/revendedor":                   "Revendas",
     "/admin/teste":                        "Testes",
+    "/admin/auditoria":                    "Auditoria",
     "/admin/gerenciador/servidor":         "Servidores",
     "/admin/gerenciador/plano":            "Planos",
     "/admin/gerenciador/mensagem":         "Mensagens",
