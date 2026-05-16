@@ -157,50 +157,63 @@ function getBodyReference({ sexo, alturaCm, idade }: { sexo: "M" | "F"; alturaCm
 }
 
 // Calcula score de saúde de 0 a 100, normalizado conforme dados disponíveis.
-// Funciona mesmo com poucos dados (só peso): score pondera pelo que foi medido.
+// Retorna também o breakdown (quanto cada métrica contribuiu).
 function calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref }: any) {
+  const breakdown: { label: string; pontos: number; max: number; status: string }[] = [];
   let pontos = 0;
   let total = 0;
 
-  // IMC (sempre presente se peso+altura) — peso 35
+  // IMC — peso 35
   if (imc > 0) {
     total += 35;
-    if (imc >= ref.imcMin && imc <= ref.imcMax) pontos += 35;
-    else if (imc >= 17 && imc <= 27) pontos += 26;
-    else if (imc >= 16 && imc <= 30) pontos += 15;
-    else pontos += 5;
+    let p = 0; let status = "ruim";
+    if (imc >= ref.imcMin && imc <= ref.imcMax) { p = 35; status = "ótimo"; }
+    else if (imc >= 17 && imc <= 27) { p = 26; status = "bom"; }
+    else if (imc >= 16 && imc <= 30) { p = 15; status = "regular"; }
+    else { p = 5; status = "atenção"; }
+    pontos += p;
+    breakdown.push({ label: "IMC", pontos: p, max: 35, status });
   }
 
   // Peso vs Ideal — peso 25
   if (pesoKg > 0 && ref.pesoIdeal > 0) {
     total += 25;
     const desvio = Math.abs(pesoKg - ref.pesoIdeal) / ref.pesoIdeal;
-    if (desvio <= 0.05) pontos += 25;
-    else if (desvio <= 0.10) pontos += 19;
-    else if (desvio <= 0.20) pontos += 10;
-    else pontos += 3;
+    let p = 0; let status = "ruim";
+    if (desvio <= 0.05) { p = 25; status = "ótimo"; }
+    else if (desvio <= 0.10) { p = 19; status = "bom"; }
+    else if (desvio <= 0.20) { p = 10; status = "regular"; }
+    else { p = 3; status = "atenção"; }
+    pontos += p;
+    breakdown.push({ label: "Peso vs Ideal", pontos: p, max: 25, status });
   }
 
   // % Gordura (opcional) — peso 25
   if (gorduraPct > 0) {
     total += 25;
-    if (gorduraPct >= ref.gorduraPctMin && gorduraPct <= ref.gorduraPctMax) pontos += 25;
-    else if (gorduraPct >= ref.gorduraPctMin - 3 && gorduraPct <= ref.gorduraPctMax + 5) pontos += 18;
-    else if (gorduraPct <= ref.gorduraPctMax + 10) pontos += 10;
-    else pontos += 4;
+    let p = 0; let status = "ruim";
+    if (gorduraPct >= ref.gorduraPctMin && gorduraPct <= ref.gorduraPctMax) { p = 25; status = "ótimo"; }
+    else if (gorduraPct >= ref.gorduraPctMin - 3 && gorduraPct <= ref.gorduraPctMax + 5) { p = 18; status = "bom"; }
+    else if (gorduraPct <= ref.gorduraPctMax + 10) { p = 10; status = "regular"; }
+    else { p = 4; status = "atenção"; }
+    pontos += p;
+    breakdown.push({ label: "% Gordura", pontos: p, max: 25, status });
   }
 
-  // RCQ (opcional, calculado de cintura/quadril) — peso 15
+  // RCQ (opcional) — peso 15
   if (rcq > 0) {
     total += 15;
-    if (rcq <= ref.rcqMax) pontos += 15;
-    else if (rcq <= ref.rcqMax + 0.05) pontos += 10;
-    else if (rcq <= ref.rcqMax + 0.10) pontos += 6;
-    else pontos += 2;
+    let p = 0; let status = "ruim";
+    if (rcq <= ref.rcqMax) { p = 15; status = "ótimo"; }
+    else if (rcq <= ref.rcqMax + 0.05) { p = 10; status = "bom"; }
+    else if (rcq <= ref.rcqMax + 0.10) { p = 6; status = "regular"; }
+    else { p = 2; status = "atenção"; }
+    pontos += p;
+    breakdown.push({ label: "Cintura/Quadril", pontos: p, max: 15, status });
   }
 
-  if (total === 0) return 0;
-  return Math.round((pontos / total) * 100);
+  if (total === 0) return { score: 0, breakdown: [], pontos: 0, total: 0 };
+  return { score: Math.round((pontos / total) * 100), breakdown, pontos, total };
 }
 
 // TMB via Mifflin-St Jeor (mais aceita na literatura atual)
@@ -363,44 +376,122 @@ function InBodyMetricBar({
   );
 }
 
-// --- COMPONENTE GRÁFICO DE EVOLUÇÃO ---
-function EvolucaoChart({ avaliacoes }: { avaliacoes: any[] }) {
+// --- COMPONENTE GRÁFICO DE EVOLUÇÃO (curva suave + Peso + IMC) ---
+function EvolucaoChart({ avaliacoes, alturaCm }: { avaliacoes: any[]; alturaCm: number }) {
   if (!avaliacoes || avaliacoes.length < 2) {
     return <div className="text-xs text-slate-400 italic py-6 text-center">Gráfico disponível a partir da segunda avaliação.</div>;
   }
 
-  const sorted = [...avaliacoes].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()).slice(-6);
+  const alturaM = alturaCm > 0 ? alturaCm / 100 : 1.70;
+  const sorted = [...avaliacoes]
+    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    .slice(-6)
+    .map(a => {
+      const peso = Number(a.peso_kg || 0);
+      const imc = peso > 0 ? peso / (alturaM * alturaM) : 0;
+      return { ...a, peso, imc };
+    });
 
-  const pesos = sorted.map(a => Number(a.peso_kg || 0));
-  const minPeso = Math.min(...pesos) - 2;
-  const maxPeso = Math.max(...pesos) + 2;
+  const pesos = sorted.map(a => a.peso);
+  const imcs = sorted.map(a => a.imc);
 
-  const w = 400; const h = 120;
-  const padX = 20; const padY = 20;
+  // Escalas independentes para cada linha
+  const padPeso = (Math.max(...pesos) - Math.min(...pesos)) * 0.15 || 2;
+  const minPeso = Math.min(...pesos) - padPeso;
+  const maxPeso = Math.max(...pesos) + padPeso;
 
-  const getPoints = (values: number[], min: number, max: number) => {
-    return values.map((val, i) => {
-      const x = padX + (i * (w - 2 * padX)) / (values.length - 1);
-      const y = h - padY - ((val - min) / (max - min)) * (h - 2 * padY);
-      return `${x},${y}`;
-    }).join(" ");
-  };
+  const padImc = (Math.max(...imcs) - Math.min(...imcs)) * 0.15 || 1;
+  const minImc = Math.min(...imcs) - padImc;
+  const maxImc = Math.max(...imcs) + padImc;
+
+  const w = 500;
+  const h = 180;
+  const padX = 40;
+  const padY = 30;
+
+  const xFor = (i: number) => padX + (i * (w - 2 * padX)) / (sorted.length - 1);
+  const yPeso = (v: number) => h - padY - ((v - minPeso) / (maxPeso - minPeso)) * (h - 2 * padY);
+  const yImc = (v: number) => h - padY - ((v - minImc) / (maxImc - minImc)) * (h - 2 * padY);
+
+  // Catmull-Rom -> Cubic Bezier para curvas suaves
+  function smoothPath(points: { x: number; y: number }[]) {
+    if (points.length < 2) return "";
+    if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  }
+
+  const pesoPoints = pesos.map((v, i) => ({ x: xFor(i), y: yPeso(v) }));
+  const imcPoints = imcs.map((v, i) => ({ x: xFor(i), y: yImc(v) }));
 
   return (
     <div className="w-full overflow-x-auto">
-      <div className="min-w-[400px]">
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto drop-shadow-sm">
-          <polyline fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={getPoints(pesos, minPeso, maxPeso)} />
-          {pesos.map((val, i) => {
-            const x = padX + (i * (w - 2 * padX)) / (pesos.length - 1);
-            const y = h - padY - ((val - minPeso) / (maxPeso - minPeso)) * (h - 2 * padY);
+      <div className="min-w-[500px]">
+        {/* Legenda */}
+        <div className="flex items-center justify-end gap-4 mb-2 text-[10px] font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span className="text-slate-600 dark:text-white/60">Peso (kg)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-indigo-500"></span>
+            <span className="text-slate-600 dark:text-white/60">IMC</span>
+          </div>
+        </div>
+
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto">
+          {/* Grid sutil */}
+          {[0.25, 0.5, 0.75].map((t, idx) => (
+            <line key={idx} x1={padX} x2={w - padX} y1={padY + t * (h - 2 * padY)} y2={padY + t * (h - 2 * padY)} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3,3" opacity="0.6" />
+          ))}
+
+          {/* Linha IMC (atrás) */}
+          <path d={smoothPath(imcPoints)} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+
+          {/* Linha Peso (frente, mais grossa) */}
+          <path d={smoothPath(pesoPoints)} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Pontos IMC */}
+          {imcs.map((v, i) => {
+            const x = xFor(i);
+            const y = yImc(v);
             return (
-              <g key={`w-${i}`}>
-                <circle cx={x} cy={y} r="4" fill="#fff" stroke="#10b981" strokeWidth="2" />
-                <text x={x} y={y - 10} fontSize="10" fill="#64748b" textAnchor="middle" fontWeight="bold">{val}kg</text>
+              <g key={`imc-${i}`}>
+                <circle cx={x} cy={y} r="3.5" fill="#fff" stroke="#6366f1" strokeWidth="2" />
+                <text x={x + 8} y={y + 4} fontSize="9" fill="#6366f1" fontWeight="bold">{v.toFixed(1)}</text>
               </g>
             );
           })}
+
+          {/* Pontos Peso */}
+          {pesos.map((v, i) => {
+            const x = xFor(i);
+            const y = yPeso(v);
+            return (
+              <g key={`p-${i}`}>
+                <circle cx={x} cy={y} r="4.5" fill="#fff" stroke="#10b981" strokeWidth="2.5" />
+                <text x={x} y={y - 10} fontSize="10" fill="#475569" textAnchor="middle" fontWeight="bold">{v}kg</text>
+              </g>
+            );
+          })}
+
+          {/* Datas no eixo X */}
+          {sorted.map((a, i) => (
+            <text key={`d-${i}`} x={xFor(i)} y={h - 8} fontSize="8" fill="#94a3b8" textAnchor="middle" fontWeight="600">
+              {new Date(a.data + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+            </text>
+          ))}
         </svg>
       </div>
     </div>
@@ -451,7 +542,11 @@ export default function ClientDetailsPage() {
   // Modal de Anamnese
   const [showAnamneseModal, setShowAnamneseModal] = useState(false);
   const [savingAnamnese, setSavingAnamnese] = useState(false);
+
+  // Popover de info (qual card de stat está aberto): "score" | "tmb" | "idade_met" | null
+  const [infoPopover, setInfoPopover] = useState<string | null>(null);
   const [anamneseForm, setAnamneseForm] = useState({
+    altura_cm: "",
     fuma: false, bebe: false, drogas: false,
     objetivo: "", doencas_cronicas: "", lesoes: "", historico_medico: ""
   });
@@ -459,6 +554,7 @@ export default function ClientDetailsPage() {
   function openAnamneseModal() {
     const s = dadosExtras.saude || {};
     setAnamneseForm({
+      altura_cm: s.altura_cm ? String(s.altura_cm) : "",
       fuma: !!s.fuma, bebe: !!s.bebe, drogas: !!s.drogas,
       objetivo: s.objetivo || "", doencas_cronicas: s.doencas_cronicas || "",
       lesoes: s.lesoes || "", historico_medico: s.historico_medico || ""
@@ -473,7 +569,11 @@ export default function ClientDetailsPage() {
       const tid = await getCurrentTenantId();
       const newDadosExtras = {
         ...dadosExtras,
-        saude: { ...(dadosExtras.saude || {}), ...anamneseForm }
+        saude: {
+          ...(dadosExtras.saude || {}),
+          ...anamneseForm,
+          altura_cm: anamneseForm.altura_cm ? Number(anamneseForm.altura_cm) : null,
+        }
       };
 
       const { error } = await supabaseBrowser
@@ -512,9 +612,10 @@ export default function ClientDetailsPage() {
       ? new Date().getFullYear() - new Date(dadosExtras.data_nascimento).getFullYear()
       : 30;
     const sexoStr: "M" | "F" = (client?.name_prefix === 'Sra.' || client?.name_prefix === 'Dra.' || client?.name_prefix === 'Srta.') ? 'F' : 'M';
-    const alturaCm = Number(dadosExtras.saude?.altura_cm || 170);
-    const ref = getBodyReference({ sexo: sexoStr, alturaCm, idade });
-    return { idade, sexoStr, alturaCm, ref };
+    const alturaCm = Number(dadosExtras.saude?.altura_cm || 0);
+    const temAltura = alturaCm > 0;
+    const ref = getBodyReference({ sexo: sexoStr, alturaCm: temAltura ? alturaCm : 170, idade });
+    return { idade, sexoStr, alturaCm, temAltura, ref };
   }, [dadosExtras, client]);
 
   // Cálculos com a última avaliação — TODOS os derivados são automáticos
@@ -535,11 +636,11 @@ export default function ClientDetailsPage() {
     const tmb = calcularTMB({ sexo: sexoStr, pesoKg, alturaCm, idade });
     const idadeMet = calcularIdadeMetabolica({ sexo: sexoStr, pesoKg, alturaCm, idade, gorduraPct });
 
-    const score = calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref });
+    const scoreResult = calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref });
     const insights = generateInsights({ imc, gorduraPct, pesoKg, rcq, ref, sexo: sexoStr, idade });
     const difPeso = pesoKg > 0 && ref.pesoIdeal > 0 ? (pesoKg - ref.pesoIdeal) : 0;
 
-    return { idade, sexoStr, alturaCm, pesoKg, imc, gorduraPct, massaGordura, massaMagra, rcq, tmb, ref, score, idadeMet, insights, difPeso };
+    return { idade, sexoStr, alturaCm, pesoKg, imc, gorduraPct, massaGordura, massaMagra, rcq, tmb, ref, score: scoreResult.score, scoreBreakdown: scoreResult.breakdown, idadeMet, insights, difPeso };
   }, [ultimaAv, dadosCalc]);
 
   // Timeline filtrada
@@ -686,7 +787,7 @@ export default function ClientDetailsPage() {
       const cN = Number(novaAv.cintura_cm || 0);
       const qN = Number(novaAv.quadril_cm || 0);
       const rcqN = (cN > 0 && qN > 0) ? cN / qN : 0;
-      const scoreAuto = calcularScoreInBody({ imc: imcN, gorduraPct: gPctN, pesoKg: pesoKgN, rcq: rcqN, ref });
+      const scoreAuto = calcularScoreInBody({ imc: imcN, gorduraPct: gPctN, pesoKg: pesoKgN, rcq: rcqN, ref }).score;
 
       const newAv = { ...novaAv, pontuacao: String(scoreAuto), id: crypto.randomUUID() };
 
@@ -791,7 +892,7 @@ export default function ClientDetailsPage() {
 
     const difPeso = pesoKg > 0 && ref.pesoIdeal > 0 ? (pesoKg - ref.pesoIdeal) : 0;
     const insights = generateInsights({ imc, gorduraPct, pesoKg, rcq, ref, sexo: sexoStr, idade });
-    const scoreCalc = av.pontuacao ? Number(av.pontuacao) : calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref });
+    const scoreCalc = av.pontuacao ? Number(av.pontuacao) : calcularScoreInBody({ imc, gorduraPct, pesoKg, rcq, ref }).score;
     const idadeMet = calcularIdadeMetabolica({ sexo: sexoStr, pesoKg, alturaCm, idade, gorduraPct });
 
     // Helper para renderizar barra Abaixo/Normal/Acima no PDF
@@ -1014,36 +1115,66 @@ export default function ClientDetailsPage() {
             <!-- HISTÓRICO + PERIMETRIA -->
             <div class="grid-2" style="grid-template-columns: 1.4fr 1fr; margin-bottom: 14px;">
               <div>
-                <div class="section-title">Histórico de Evolução</div>
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th style="text-align: right;">Peso</th>
-                      <th style="text-align: right;">% Gord.</th>
-                      <th style="text-align: right;">M. Magra</th>
-                      <th style="text-align: right;">IMC</th>
-                      <th style="text-align: right;">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${avaliacoes.slice(0, 5).reverse().map((h: any) => {
+                <div class="section-title">Histórico da Composição Corporal</div>
+                ${(() => {
+                  // Ordena cronologicamente, pega até 6 últimas
+                  const histAvs = [...avaliacoes]
+                    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+                    .slice(-6)
+                    .map((h: any) => {
                       const hPeso = Number(h.peso_kg || 0);
-                      const hImc = (hPeso > 0 && alturaM > 0) ? (hPeso / (alturaM * alturaM)) : 0;
+                      const hImc = (hPeso > 0 && alturaM > 0) ? hPeso / (alturaM * alturaM) : 0;
                       const hGord = Number(h.gordura_pct || 0);
                       const hMagra = (hGord > 0 && hPeso > 0) ? hPeso - (hGord / 100) * hPeso : 0;
-                      return `
-                      <tr>
-                        <td><strong>${new Date(h.data + "T12:00:00").toLocaleDateString("pt-BR")}</strong></td>
-                        <td style="text-align: right;">${h.peso_kg || '--'}</td>
-                        <td style="text-align: right;">${h.gordura_pct || '--'}</td>
-                        <td style="text-align: right;">${hMagra > 0 ? hMagra.toFixed(1) : '--'}</td>
-                        <td style="text-align: right;">${hImc > 0 ? hImc.toFixed(1) : '--'}</td>
-                        <td style="text-align: right; font-weight: 800;">${h.pontuacao || '--'}</td>
-                      </tr>`
-                    }).join('')}
-                  </tbody>
-                </table>
+                      return { ...h, hPeso, hImc, hGord, hMagra };
+                    });
+
+                  const metricasPdf: Array<{ label: string; unit: string; key: string; format: (v: number) => string }> = [
+                    { label: "Peso", unit: "kg", key: "hPeso", format: (v) => v > 0 ? v.toFixed(1) : "--" },
+                    { label: "IMC", unit: "kg/m²", key: "hImc", format: (v) => v > 0 ? v.toFixed(1) : "--" },
+                  ];
+                  if (histAvs.some(h => h.hGord > 0)) metricasPdf.push({ label: "% Gordura", unit: "%", key: "hGord", format: (v) => v > 0 ? v.toFixed(1) : "--" });
+                  if (histAvs.some(h => h.hMagra > 0)) metricasPdf.push({ label: "M. Magra", unit: "kg", key: "hMagra", format: (v) => v > 0 ? v.toFixed(1) : "--" });
+                  metricasPdf.push({ label: "Pontuação", unit: "/100", key: "pontuacao", format: (v) => v > 0 ? String(Math.round(v)) : "--" });
+
+                  return `
+                    <table class="data-table" style="border: 1px solid #cbd5e1; border-collapse: collapse;">
+                      <thead>
+                        <tr style="background: #0f172a;">
+                          <th style="text-align: left; color: white; padding: 4px 6px; font-size: 7px;">Métrica</th>
+                          ${histAvs.map((h: any) => `<th style="text-align: center; color: white; padding: 4px 6px; font-size: 7px;">${new Date(h.data + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</th>`).join('')}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${metricasPdf.map((m, mIdx) => `
+                          <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 4px 6px; border-right: 1px solid #e2e8f0;">
+                              <strong style="font-size: 9px; color: #0f172a;">${m.label}</strong>
+                              <span style="font-size: 7px; color: #94a3b8;"> (${m.unit})</span>
+                            </td>
+                            ${histAvs.map((h: any, idx: number) => {
+                              const val = Number(h[m.key] || 0);
+                              const prev = idx > 0 ? Number(histAvs[idx - 1][m.key] || 0) : 0;
+                              const diff = prev > 0 && val > 0 ? val - prev : 0;
+                              const positivoSobe = m.key === "hMagra" || m.key === "pontuacao";
+                              const arrow = diff > 0.05 ? (positivoSobe ? "▲" : "▼") : diff < -0.05 ? (positivoSobe ? "▼" : "▲") : "";
+                              const arrowColor = (diff > 0.05 && positivoSobe) || (diff < -0.05 && !positivoSobe)
+                                ? "#059669"
+                                : (diff < -0.05 && positivoSobe) || (diff > 0.05 && !positivoSobe) ? "#dc2626" : "#cbd5e1";
+                              return `<td style="text-align: center; padding: 4px 6px; font-family: monospace; font-weight: 700; font-size: 10px; color: #0f172a;">
+                                ${m.format(val)}
+                                ${arrow ? `<span style="color: ${arrowColor}; font-size: 7px; margin-left: 2px;">${arrow}</span>` : ''}
+                              </td>`;
+                            }).join('')}
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                    <div style="font-size: 7px; color: #94a3b8; margin-top: 4px; font-style: italic;">
+                      ▲▼ indicam evolução em relação à avaliação anterior. Verde = positivo, vermelho = atenção.
+                    </div>
+                  `;
+                })()}
               </div>
 
               <div>
@@ -1335,6 +1466,20 @@ export default function ClientDetailsPage() {
               </button>
             </div>
             <div className="space-y-4 text-sm">
+              {/* ALTURA - sempre visível */}
+              <div className={`p-3 rounded-lg border ${dadosExtras.saude?.altura_cm ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-white/40">📏 Altura</span>
+                  {dadosExtras.saude?.altura_cm ? (
+                    <span className="font-black text-lg text-emerald-700 dark:text-emerald-400 font-mono">{dadosExtras.saude.altura_cm} cm</span>
+                  ) : (
+                    <button onClick={openAnamneseModal} className="text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:underline">
+                      ⚠️ Não cadastrada — clique para informar
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-lg border border-slate-100 dark:border-white/5 flex items-center gap-2">
                   <span className="text-lg">{dadosExtras.saude?.fuma ? "🚬" : "✅"}</span>
@@ -1404,15 +1549,41 @@ export default function ClientDetailsPage() {
               </div>
             )}
 
+            {/* ALERTA: Altura não cadastrada */}
+            {!dadosCalc.temAltura && (
+              <div className="mb-6 bg-amber-50 dark:bg-amber-500/10 border-l-4 border-amber-500 dark:border-amber-400 rounded-lg p-4 flex items-start gap-3">
+                <span className="text-2xl shrink-0">⚠️</span>
+                <div className="flex-1">
+                  <h4 className="font-bold text-amber-800 dark:text-amber-300 text-sm">Altura não cadastrada</h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-200/80 mt-1 leading-relaxed">
+                    Os cálculos de IMC, TMB, Pontuação e Idade Metabólica precisam da altura do aluno. Sem ela, os números mostrados são estimativas baseadas em altura padrão de 170cm.
+                  </p>
+                  <button
+                    onClick={openAnamneseModal}
+                    className="mt-2 text-xs font-bold text-amber-800 dark:text-amber-300 underline hover:no-underline"
+                  >
+                    Cadastrar altura agora →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* COM AVALIAÇÕES - PAINEL INBODY */}
             {ultimaAv && inbodyStats && (
               <>
                 {/* SCORE + RESUMO TOP */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {/* Score Card */}
+                  {/* Score Card - com botão (i) */}
                   <div className="md:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 dark:from-emerald-900 dark:to-slate-900 text-white rounded-xl p-5 shadow-lg relative overflow-hidden">
                     <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full"></div>
                     <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/5 rounded-full"></div>
+                    <button
+                      onClick={() => setInfoPopover(infoPopover === "score" ? null : "score")}
+                      className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all text-xs font-black"
+                      title="Como funciona a pontuação?"
+                    >
+                      i
+                    </button>
                     <div className="relative">
                       <span className="block text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Pontuação Geral</span>
                       <div className="flex items-baseline gap-1">
@@ -1429,8 +1600,15 @@ export default function ClientDetailsPage() {
                     </div>
                   </div>
 
-                  {/* Idade Metabólica */}
-                  <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-5 border border-slate-200 dark:border-white/10 flex flex-col justify-center">
+                  {/* Idade Metabólica - com botão (i) */}
+                  <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-5 border border-slate-200 dark:border-white/10 flex flex-col justify-center relative">
+                    <button
+                      onClick={() => setInfoPopover(infoPopover === "idade_met" ? null : "idade_met")}
+                      className="absolute top-3 right-3 w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 flex items-center justify-center text-slate-500 dark:text-white/60 transition-all text-xs font-black"
+                      title="Como funciona a idade metabólica?"
+                    >
+                      i
+                    </button>
                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Idade Metabólica</span>
                     <div className="flex items-baseline gap-2">
                       <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{inbodyStats.idadeMet || "--"}</span>
@@ -1467,6 +1645,85 @@ export default function ClientDetailsPage() {
                     </span>
                   </div>
                 </div>
+
+                {/* POPOVER: Explicação do Score */}
+                {infoPopover === "score" && (
+                  <div className="mb-6 bg-white dark:bg-[#1e293b] border-2 border-emerald-500 dark:border-emerald-400 rounded-xl p-5 shadow-2xl relative animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button onClick={() => setInfoPopover(null)} className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-white mb-1 flex items-center gap-2">
+                      <span className="text-lg">🎯</span> Como a Pontuação é Calculada
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-white/60 mb-4">
+                      Pontuação de 0 a 100 baseada nas métricas disponíveis. <strong>Quanto mais dados</strong> (% gordura, perimetria), <strong>mais precisa</strong>.
+                    </p>
+
+                    {/* Breakdown atual */}
+                    <div className="space-y-2 mb-4">
+                      {inbodyStats.scoreBreakdown.map((b, idx) => {
+                        const pct = (b.pontos / b.max) * 100;
+                        const color = b.status === "ótimo" ? "emerald" : b.status === "bom" ? "sky" : b.status === "regular" ? "amber" : "rose";
+                        return (
+                          <div key={idx}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-bold text-slate-700 dark:text-white/80">{b.label}</span>
+                              <span className={`font-mono font-bold text-${color}-600 dark:text-${color}-400`}>
+                                {b.pontos}/{b.max} pts <span className="opacity-60 capitalize">({b.status})</span>
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all bg-${color}-500`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Como melhorar */}
+                    <div className="bg-slate-50 dark:bg-black/30 rounded-lg p-3 mt-4">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">💡 Como melhorar a pontuação</span>
+                      <ul className="space-y-1 text-xs text-slate-600 dark:text-white/70">
+                        <li>• <strong>IMC saudável</strong> (18,5 – 24,9) é o maior peso (até 35 pts)</li>
+                        <li>• <strong>Peso próximo ao ideal</strong> garante até 25 pts</li>
+                        <li>• Medir <strong>% gordura</strong> com adipômetro adiciona +25 pts ao cálculo</li>
+                        <li>• Medir <strong>cintura + quadril</strong> (RCQ) adiciona +15 pts</li>
+                      </ul>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 italic mt-3 pt-3 border-t border-slate-100 dark:border-white/10">
+                      O score é normalizado: se faltar % gordura ou perimetria, ele é proporcional ao que foi medido — não pune por dados faltantes.
+                    </p>
+                  </div>
+                )}
+
+                {/* POPOVER: Explicação Idade Metabólica */}
+                {infoPopover === "idade_met" && (
+                  <div className="mb-6 bg-white dark:bg-[#1e293b] border-2 border-indigo-500 dark:border-indigo-400 rounded-xl p-5 shadow-2xl relative animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button onClick={() => setInfoPopover(null)} className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-white mb-1 flex items-center gap-2">
+                      <span className="text-lg">⏳</span> Idade Metabólica
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-white/70 leading-relaxed mb-3">
+                      Estimativa de quantos anos o corpo aparenta ter <strong>do ponto de vista metabólico</strong>. Compara o gasto calórico em repouso (TMB) com o esperado para a idade real.
+                    </p>
+                    <div className="bg-slate-50 dark:bg-black/30 rounded-lg p-3 space-y-2 text-xs">
+                      <div className="flex justify-between"><span className="text-slate-500">Idade real:</span><span className="font-bold font-mono text-slate-800 dark:text-white">{inbodyStats.idade} anos</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Idade metabólica:</span><span className="font-bold font-mono text-indigo-600 dark:text-indigo-400">{inbodyStats.idadeMet || '--'} anos</span></div>
+                      <div className="flex justify-between border-t border-slate-200 dark:border-white/10 pt-2">
+                        <span className="text-slate-500">Fórmula base:</span>
+                        <span className="font-bold text-slate-700 dark:text-white text-right">
+                          {inbodyStats.gorduraPct > 0 ? "Katch-McArdle (massa magra)" : "IMC ajustado"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic mt-3">
+                      💡 Para mais precisão, registre <strong>% de gordura corporal</strong> nas avaliações.
+                    </p>
+                  </div>
+                )}
 
                 {/* BARRAS INBODY */}
                 <div className="bg-slate-50/50 dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5 p-5 mb-6 space-y-5">
@@ -1530,8 +1787,15 @@ export default function ClientDetailsPage() {
                 </div>
 
                 {/* DERIVADOS - cards informativos */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-white/10 relative">
+                    <button
+                      onClick={() => setInfoPopover(infoPopover === "tmb" ? null : "tmb")}
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 flex items-center justify-center text-slate-500 dark:text-white/60 transition-all text-[9px] font-black"
+                      title="O que é TMB?"
+                    >
+                      i
+                    </button>
                     <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">TMB (kcal/dia)</span>
                     <span className="font-mono font-black text-base text-slate-800 dark:text-white">{inbodyStats.tmb || "--"}</span>
                   </div>
@@ -1555,6 +1819,39 @@ export default function ClientDetailsPage() {
                   )}
                 </div>
 
+                {/* POPOVER: Explicação TMB */}
+                {infoPopover === "tmb" && (
+                  <div className="mb-6 bg-white dark:bg-[#1e293b] border-2 border-sky-500 dark:border-sky-400 rounded-xl p-5 shadow-2xl relative animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button onClick={() => setInfoPopover(null)} className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-white mb-1 flex items-center gap-2">
+                      <span className="text-lg">🔥</span> Taxa Metabólica Basal (TMB)
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-white/70 leading-relaxed mb-3">
+                      Quantidade de calorias que o corpo gasta <strong>em repouso absoluto</strong> só para manter funções vitais (respiração, batimentos, temperatura, etc). É a base para qualquer planejamento nutricional.
+                    </p>
+                    <div className="bg-slate-50 dark:bg-black/30 rounded-lg p-3 mb-3">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Fórmula: Mifflin-St Jeor</span>
+                      <code className="block text-[10px] text-slate-700 dark:text-white/80 font-mono leading-relaxed">
+                        {inbodyStats.sexoStr === 'M'
+                          ? <>TMB = (10 × peso) + (6,25 × altura) − (5 × idade) <strong className="text-emerald-600">+ 5</strong></>
+                          : <>TMB = (10 × peso) + (6,25 × altura) − (5 × idade) <strong className="text-rose-500">− 161</strong></>
+                        }
+                      </code>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-lg p-3 text-xs">
+                      <div className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">Cálculo deste aluno:</div>
+                      <div className="text-slate-600 dark:text-white/70 font-mono">
+                        (10 × {inbodyStats.pesoKg}) + (6,25 × {inbodyStats.alturaCm}) − (5 × {inbodyStats.idade}) {inbodyStats.sexoStr === 'M' ? '+ 5' : '− 161'} = <strong className="text-emerald-700 dark:text-emerald-400 text-sm">{inbodyStats.tmb} kcal/dia</strong>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic mt-3">
+                      💡 Para dieta de manutenção, multiplique a TMB por 1,4–1,9 conforme nível de atividade.
+                    </p>
+                  </div>
+                )}
+
                 {/* INSIGHTS / RECOMENDAÇÕES */}
                 <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/50 dark:border-amber-500/20 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-2 mb-3">
@@ -1577,70 +1874,149 @@ export default function ClientDetailsPage() {
                 {/* GRÁFICO DE EVOLUÇÃO */}
                 <div className="bg-white dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5 p-4 mb-6">
                   <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-3">Curva de Peso (Evolução)</span>
-                  <EvolucaoChart avaliacoes={avaliacoes} />
+                  <EvolucaoChart avaliacoes={avaliacoes} alturaCm={dadosCalc.alturaCm} />
                 </div>
               </>
             )}
 
-            {/* LISTA DE AVALIAÇÕES */}
-            {avaliacoes.length > 0 && (
-              <div>
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Histórico de Relatórios</span>
-                <div className="space-y-2">
-                  {avaliacoes.map((av: any) => {
-                    const alturaM = dadosCalc.alturaCm / 100;
-                    const pesoN = Number(av.peso_kg || 0);
-                    const imcN = (pesoN > 0 && alturaM > 0) ? (pesoN / (alturaM * alturaM)) : 0;
-                    return (
-                    <div key={av.id} className="flex items-center justify-between p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:border-emerald-300 transition-colors group relative">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                        <span className="font-bold text-slate-700 dark:text-white text-sm">{new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR")}</span>
-                        <div className="flex gap-3 text-xs text-slate-500 font-medium flex-wrap">
-                          <span>⚖️ {av.peso_kg || '--'} kg</span>
-                          {imcN > 0 && <span>📐 IMC {imcN.toFixed(1)}</span>}
-                          {av.gordura_pct && <span className="text-rose-500">🔥 {av.gordura_pct}%</span>}
-                          {av.pontuacao && (
-                            <span className={`font-bold ${
-                              Number(av.pontuacao) >= 80 ? "text-emerald-600"
-                                : Number(av.pontuacao) >= 60 ? "text-amber-600"
-                                  : "text-rose-500"
-                            }`}>★ {av.pontuacao}</span>
-                          )}
-                        </div>
-                      </div>
+            {/* LISTA DE AVALIAÇÕES - TABELA ESTILO INBODY */}
+            {avaliacoes.length > 0 && (() => {
+              const alturaM = dadosCalc.alturaCm > 0 ? dadosCalc.alturaCm / 100 : 1.70;
+              // Ordena cronologicamente (mais antiga → mais recente), pega até 8 últimas
+              const cronologicas = [...avaliacoes]
+                .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+                .slice(-8)
+                .map((av: any) => {
+                  const peso = Number(av.peso_kg || 0);
+                  const gord = Number(av.gordura_pct || 0);
+                  const imc = (peso > 0 && alturaM > 0) ? peso / (alturaM * alturaM) : 0;
+                  const mGord = (gord > 0 && peso > 0) ? (gord / 100) * peso : 0;
+                  const mMagra = mGord > 0 ? peso - mGord : 0;
+                  return { ...av, peso, gord, imc, mMagra };
+                });
 
-                      <div className="relative">
-                        <button
-                          onClick={() => setExportMenuOpen(exportMenuOpen === av.id ? null : av.id)}
-                          className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                          Exportar
-                        </button>
+              // Linhas da "tabela" InBody — métricas a serem mostradas
+              const metricas: Array<{
+                key: string; label: string; unit: string; color: string;
+                getValue: (av: any) => number;
+                format: (v: number) => string;
+              }> = [
+                { key: "peso", label: "Peso", unit: "kg", color: "emerald", getValue: (av) => av.peso, format: (v) => v > 0 ? v.toFixed(1) : "--" },
+                { key: "imc", label: "IMC", unit: "kg/m²", color: "indigo", getValue: (av) => av.imc, format: (v) => v > 0 ? v.toFixed(1) : "--" },
+              ];
+              // Só mostra linhas opcionais se ao menos uma avaliação tem o dado
+              if (cronologicas.some(av => av.gord > 0)) {
+                metricas.push({ key: "gord", label: "% Gordura", unit: "%", color: "rose", getValue: (av) => av.gord, format: (v) => v > 0 ? v.toFixed(1) : "--" });
+              }
+              if (cronologicas.some(av => av.mMagra > 0)) {
+                metricas.push({ key: "magra", label: "Massa Magra", unit: "kg", color: "sky", getValue: (av) => av.mMagra, format: (v) => v > 0 ? v.toFixed(1) : "--" });
+              }
+              metricas.push({ key: "score", label: "Pontuação", unit: "/100", color: "amber", getValue: (av) => Number(av.pontuacao || 0), format: (v) => v > 0 ? String(v) : "--" });
 
-                        {exportMenuOpen === av.id && (
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl overflow-hidden z-50">
-                            <button onClick={() => handleExportPdf('save', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
-                              💾 Salvar PDF
-                            </button>
-                            <button onClick={() => handleExportPdf('print', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
-                              🖨️ Imprimir
-                            </button>
-                            <button onClick={() => handleExportPdf('whatsapp', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
-                              💬 Enviar WhatsApp
-                            </button>
-                            <button onClick={() => handleExportPdf('email', av)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors flex items-center gap-2">
-                              ✉️ Enviar por E-mail
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    );
-                  })}
+              return (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Histórico da Composição Corporal</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{cronologicas.length} de {avaliacoes.length} avaliações</span>
+                  </div>
+
+                  {/* Tabela InBody horizontal */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
+                    <table className="w-full min-w-[560px] text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                          <th className="text-left px-3 py-2.5 font-bold text-slate-500 dark:text-white/40 uppercase tracking-wider text-[9px]">Métrica</th>
+                          {cronologicas.map((av: any, i: number) => (
+                            <th key={i} className="text-center px-2 py-2.5 font-bold text-slate-500 dark:text-white/40 text-[9px] tracking-tight">
+                              {new Date(av.data + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                            </th>
+                          ))}
+                          <th className="text-center px-2 py-2.5 font-bold text-slate-500 dark:text-white/40 uppercase tracking-wider text-[9px] w-16">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {metricas.map((metrica) => (
+                          <tr key={metrica.key} className="border-b border-slate-100 dark:border-white/5 last:border-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                            <td className="px-3 py-2.5 align-middle">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-1 h-6 rounded-full bg-${metrica.color}-500`}></span>
+                                <div>
+                                  <div className="font-bold text-slate-700 dark:text-white text-[11px] leading-tight">{metrica.label}</div>
+                                  <div className="text-[9px] text-slate-400 font-medium">{metrica.unit}</div>
+                                </div>
+                              </div>
+                            </td>
+                            {cronologicas.map((av: any, idx: number) => {
+                              const val = metrica.getValue(av);
+                              const prevVal = idx > 0 ? metrica.getValue(cronologicas[idx - 1]) : 0;
+                              const diff = prevVal > 0 && val > 0 ? val - prevVal : 0;
+                              // Para peso/gordura/imc: diminuir é bom (verde). Para massa magra/score: aumentar é bom.
+                              const positivoSobe = metrica.key === "magra" || metrica.key === "score";
+                              const seta = diff > 0.05 ? (positivoSobe ? "↑" : "↓") : diff < -0.05 ? (positivoSobe ? "↓" : "↑") : "";
+                              const corSeta = (diff > 0.05 && positivoSobe) || (diff < -0.05 && !positivoSobe)
+                                ? "text-emerald-500"
+                                : (diff < -0.05 && positivoSobe) || (diff > 0.05 && !positivoSobe)
+                                  ? "text-rose-500"
+                                  : "text-slate-300";
+                              return (
+                                <td key={idx} className="text-center px-2 py-2.5">
+                                  <div className="font-mono font-bold text-slate-800 dark:text-white text-[12px] tabular-nums">
+                                    {metrica.format(val)}
+                                  </div>
+                                  {seta && <div className={`text-[10px] font-black ${corSeta} leading-none`}>{seta}</div>}
+                                </td>
+                              );
+                            })}
+                            <td className="text-center px-2 py-2.5">
+                              {/* Botão exportar apenas na primeira linha, span vertical */}
+                              {metrica.key === "peso" && (
+                                <span className="text-[9px] text-slate-300">↓</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Linha de ação - exportar PDF por coluna */}
+                        <tr className="bg-slate-50 dark:bg-white/5">
+                          <td className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relatório</td>
+                          {cronologicas.map((av: any, idx: number) => (
+                            <td key={idx} className="text-center px-1 py-2 relative">
+                              <button
+                                onClick={() => setExportMenuOpen(exportMenuOpen === av.id ? null : av.id)}
+                                className="w-7 h-7 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors inline-flex items-center justify-center"
+                                title="Exportar PDF"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                              </button>
+
+                              {exportMenuOpen === av.id && (
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl overflow-hidden z-50 text-left">
+                                  <button onClick={() => handleExportPdf('save', av)} className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                                    💾 Salvar PDF
+                                  </button>
+                                  <button onClick={() => handleExportPdf('print', av)} className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                                    🖨️ Imprimir
+                                  </button>
+                                  <button onClick={() => handleExportPdf('whatsapp', av)} className="w-full text-left px-3 py-2 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/50">
+                                    💬 WhatsApp
+                                  </button>
+                                  <button onClick={() => handleExportPdf('email', av)} className="w-full text-left px-3 py-2 text-[11px] font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors flex items-center gap-2">
+                                    ✉️ E-mail
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                          <td className="px-2 py-2"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic mt-2">
+                    💡 As setas indicam a evolução em relação à medição anterior. Verde = positivo, vermelho = atenção.
+                  </p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* CARD: TIMELINE COM FILTROS */}
@@ -1775,6 +2151,23 @@ export default function ClientDetailsPage() {
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6">
+
+              {/* ALTURA - importante pra todos os cálculos */}
+              <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-3">
+                <label className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-2">
+                  Altura (cm) <span className="text-rose-500">*</span>
+                  <span className="text-slate-500 normal-case font-normal ml-1">— base para IMC, TMB e Pontuação</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={anamneseForm.altura_cm}
+                  onChange={e => setAnamneseForm(v => ({ ...v, altura_cm: e.target.value }))}
+                  placeholder="170"
+                  className="w-full h-10 px-3 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 font-mono font-bold"
+                />
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div onClick={() => setAnamneseForm(prev => ({ ...prev, fuma: !prev.fuma }))} className={`p-3 rounded-xl border cursor-pointer flex flex-col items-center gap-1 transition-colors ${anamneseForm.fuma ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
                   <span className="text-xl">🚬</span>
@@ -1908,7 +2301,7 @@ export default function ClientDetailsPage() {
                     const mGordN = gN > 0 ? (gN / 100) * pesoN : 0;
                     const mMagraN = mGordN > 0 ? pesoN - mGordN : 0;
                     const tmbN = calcularTMB({ sexo: sexoStr, pesoKg: pesoN, alturaCm, idade });
-                    const scoreN = calcularScoreInBody({ imc: imcN, gorduraPct: gN, pesoKg: pesoN, rcq: rcqN, ref });
+                    const scoreN = calcularScoreInBody({ imc: imcN, gorduraPct: gN, pesoKg: pesoN, rcq: rcqN, ref }).score;
 
                     return (
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
