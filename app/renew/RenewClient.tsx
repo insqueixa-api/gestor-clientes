@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
 
+
 // ========= TYPES =========
 interface ClientAccount {
   id: string;
@@ -19,7 +20,8 @@ interface ClientAccount {
   plan_table_id: string;
   is_trial: boolean;
   is_archived: boolean;
-  has_integration?: boolean; // ✅ Flag para saber se tem integração
+  has_integration?: boolean;
+  technology?: string;
 }
 
 interface PlanPrice {
@@ -184,6 +186,20 @@ function formatDateTime(dateStr: string) {
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
 
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")}`;
+}
+
+function isAluno(tech?: string) {
+  return tech === "ACADEMIA" || tech === "PERSONAL";
+}
+
 function calculateDiscount(monthlyPrice: number, totalPrice: number, months: number) {
   const monthlyEquivalent = totalPrice / months;
   const discount = ((monthlyPrice - monthlyEquivalent) / monthlyPrice) * 100;
@@ -292,6 +308,7 @@ function copyField(key: string, value: string) {
   >("awaiting_payment");
 
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [tenantBrand, setTenantBrand] = useState<{ logo_url?: string | null } | null>(null);
   
 
 
@@ -327,11 +344,18 @@ function copyField(key: string, value: string) {
 
         const sess = result.data;
 
-        setSessionData({
+setSessionData({
           tenant_id: sess.tenant_id,
           whatsapp_username: sess.whatsapp_username,
-          admin_whatsapp: sess.admin_whatsapp, // ✅ Pegando direto da resposta mágica da API
+          admin_whatsapp: sess.admin_whatsapp,
         });
+
+        const { data: brand } = await supabaseBrowser
+          .from("vw_tenant_branding")
+          .select("logo_url")
+          .eq("id", sess.tenant_id)
+          .maybeSingle();
+        if (brand) setTenantBrand(brand);
 
         // 2. Buscar contas via API
         const accRes = await fetch("/api/client-portal/get-accounts", {
@@ -1648,6 +1672,9 @@ return (
   // ========= RENDER: LOADING =========
 
   
+  const hasAlunoTech = accounts.some(a => isAluno(a.technology));
+  const showTenantLogo = hasAlunoTech && !!tenantBrand?.logo_url;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
@@ -1693,24 +1720,14 @@ return (
             
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
-              <Image
-                src="/brand/logo-gestor-celular.png"
-                alt="Gestor"
-                width={44}
-                height={44}
-                className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
-                draggable={false}
-                priority
-              />
-              <Image
-                src="/brand/logo-gestor.png"
-                alt="Gestor"
-                width={160}
-                height={40}
-                className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
-                draggable={false}
-                priority
-              />
+              {showTenantLogo ? (
+                <img src={tenantBrand!.logo_url!} alt="Logo" className="h-10 w-auto max-w-[140px] object-contain select-none" />
+              ) : (
+                <>
+                  <Image src="/brand/logo-gestor-celular.png" alt="Gestor" width={44} height={44} className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105" draggable={false} priority />
+                  <Image src="/brand/logo-gestor.png" alt="Gestor" width={160} height={40} className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105" draggable={false} priority />
+                </>
+              )}
               {/* Usuário Logado */}
               <div className="min-w-0 flex flex-col justify-center">
                 <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5 transition-colors">
@@ -1813,8 +1830,10 @@ return (
 
                     {/* Linha 2: Servidor + Telas (Esq) | Plano (Dir) */}
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
-                        {account.server_name} <span className="mx-1 opacity-50">•</span> {account.screens} tela{account.screens > 1 ? "s" : ""}
+<p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
+                        {isAluno(account.technology)
+                          ? `${account.technology === "ACADEMIA" ? "Academia" : "Personal"} • ${account.plan_label}`
+                          : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
                       </p>
                       <div className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
                         {account.plan_label}
@@ -1870,24 +1889,14 @@ return (
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
             
-            <Image
-              src="/brand/logo-gestor-celular.png"
-              alt="Gestor"
-              width={44}
-              height={44}
-              className="h-10 w-10 select-none object-contain sm:hidden"
-              draggable={false}
-              priority
-            />
-            <Image
-              src="/brand/logo-gestor.png"
-              alt="Gestor"
-              width={160}
-              height={40}
-              className="hidden sm:block h-10 w-auto select-none object-contain"
-              draggable={false}
-              priority
-            />
+            {showTenantLogo ? (
+              <img src={tenantBrand!.logo_url!} alt="Logo" className="h-10 w-auto max-w-[140px] object-contain select-none" />
+            ) : (
+              <>
+                <Image src="/brand/logo-gestor-celular.png" alt="Gestor" width={44} height={44} className="h-10 w-10 select-none object-contain sm:hidden" draggable={false} priority />
+                <Image src="/brand/logo-gestor.png" alt="Gestor" width={160} height={40} className="hidden sm:block h-10 w-auto select-none object-contain" draggable={false} priority />
+              </>
+            )}
             <div className="min-w-0 flex flex-col justify-center">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">
                 Logado como
@@ -1964,13 +1973,19 @@ return (
           <div className="p-3 sm:p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Usuário</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  {isAluno(selectedAccount.technology) ? "Nome" : "Usuário"}
+                </label>
                 <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
-                  {selectedAccount.server_username}
+                  {isAluno(selectedAccount.technology) ? selectedAccount.display_name : selectedAccount.server_username}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Servidor</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  {isAluno(selectedAccount.technology)
+                    ? (selectedAccount.technology === "ACADEMIA" ? "Academia" : "Personal")
+                    : "Servidor"}
+                </label>
                 <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
                   {selectedAccount.server_name}
                 </div>
@@ -1980,13 +1995,19 @@ return (
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento em</label>
                 <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
-                  {formatDateTime(selectedAccount.vencimento)}
+                  {isAluno(selectedAccount.technology)
+                    ? formatDate(selectedAccount.vencimento)
+                    : formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Telas</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  {isAluno(selectedAccount.technology) ? "Plano" : "Telas"}
+                </label>
                 <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
-                  {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
+                  {isAluno(selectedAccount.technology)
+                    ? selectedAccount.plan_label
+                    : `${selectedAccount.screens} ${selectedAccount.screens > 1 ? "telas" : "tela"}`}
                 </div>
               </div>
             </div>

@@ -101,6 +101,7 @@ if (!session_token) {
         plan_table_id,
         is_trial,
         is_archived,
+        technology,
         servers (name)
       `)
       .eq("tenant_id", sess.tenant_id)
@@ -134,6 +135,7 @@ if (!session_token) {
         plan_table_id: acc.plan_table_id,
         is_trial: acc.is_trial || false,
         is_archived: acc.is_archived || false,
+        technology: acc.technology || "IPTV",
       };
     });
 
