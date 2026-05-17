@@ -13,8 +13,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   // Apontando para o diretório correto que vimos no AdminShell
   // Voltando para os ícones quadrados perfeitos na raiz
 // Apontando para dentro da pasta brand (VERSÃO AZUL)
-  let icon192 = "/brand/icon-192x192.png";
-  let icon512 = "/brand/icon-512x512.png";
+  let iconAny192 = "/brand/icon-192x192blue.png";
+  let iconAny512 = "/brand/icon-512x512blue.png";
+  let iconMask192 = "/brand/icon-192x192.png";
+  let iconMask512 = "/brand/icon-512x512.png";
 
   if (user) {
     const { data: member } = await supabase
@@ -38,8 +40,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         themeColor = tenant.primary_color || themeColor;
 
         if (tenant.logo_url) {
-          icon192 = tenant.logo_url;
-          icon512 = tenant.logo_url;
+          iconAny192 = iconAny512 = iconMask192 = iconMask512 = tenant.logo_url;
         }
       }
     }
@@ -56,22 +57,29 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     theme_color: themeColor,
     icons: [
       {
-        src: icon192,
+        src: iconAny192,
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: icon512,
+        src: iconAny512,
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: icon512,
-        sizes: "any", 
-        purpose: "any",
-      }
+        src: iconMask192,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: iconMask512,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
   }
 }
