@@ -22,6 +22,7 @@ interface ClientAccount {
   is_archived: boolean;
   has_integration?: boolean;
   technology?: string;
+  modalidade?: string | null;
 }
 
 interface PlanPrice {
@@ -1822,9 +1823,8 @@ return (
                           </span>
                         )}
                       </h3>
-                      {/* Usuário sem uppercase, usando fonte mono para clareza */}
-                      <span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70 shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
-                        {account.server_username}
+<span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70 shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
+                        {isAluno(account.technology) ? account.server_name : account.server_username}
                       </span>
                     </div>
 
@@ -1832,8 +1832,8 @@ return (
                     <div className="flex items-center justify-between mb-4">
 <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
                         {isAluno(account.technology)
-  ? `${account.technology === "ACADEMIA" ? "Academia" : "Personal"} • ${account.screens === 1 ? "Individual" : account.screens === 2 ? "Família" : "Família Total"}`
-  : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
+                          ? `${account.modalidade || (account.technology === "ACADEMIA" ? "Academia" : "Personal")} • ${account.screens === 1 ? "Individual" : account.screens === 2 ? "Família" : "Família Total"}`
+                          : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
                       </p>
                       <div className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
                         {account.plan_label}

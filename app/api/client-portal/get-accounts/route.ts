@@ -93,8 +93,9 @@ if (!session_token) {
         whatsapp_username,
         secondary_whatsapp_username,
         server_username,
-        screens,
-        plan_label,
+      screens,
+      plan_label,
+      dados_extras,
         vencimento,
         price_amount,
         price_currency,
@@ -136,6 +137,7 @@ if (!session_token) {
         is_trial: acc.is_trial || false,
         is_archived: acc.is_archived || false,
         technology: acc.technology || "IPTV",
+        modalidade: acc.dados_extras?.modalidade || null,
       };
     });
 
