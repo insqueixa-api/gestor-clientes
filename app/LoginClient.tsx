@@ -244,7 +244,7 @@ const canSubmit = useMemo(() => {
       // ✅ remove o login token do storage depois do sucesso
       clearStored(KEY_LOGIN_TOKEN);
 
-      router.push(`/renew`);
+      window.location.href = '/renew';
     } catch {
       setMsg({ type: "error", text: "Erro ao acessar. Tente novamente." });
     } finally {
