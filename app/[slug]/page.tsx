@@ -116,6 +116,7 @@ const params = useParams();
   }
 
   // --- ESTADO E LÓGICA DE TRANSIÇÃO (🚨 MOVIDO PARA CIMA DOS RETURNS!) ---
+  const [mobileStep, setMobileStep] = useState<"hero" | "login">("hero");
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -179,7 +180,10 @@ const params = useParams();
       {/* ==========================================
           LADO ESQUERDO: Mídia Customizada
       ========================================== */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-[#0b1015] overflow-hidden items-end">
+      <div className={[
+        "lg:flex lg:w-1/2 relative bg-[#0b1015] overflow-hidden items-end",
+        mobileStep === "hero" ? "flex w-full min-h-[100dvh]" : "hidden",
+      ].join(" ")}>
         
         {/* Mídia de Fundo com Transição Suave */}
         <div className="absolute inset-0 bg-[#0b1015]">
@@ -252,7 +256,7 @@ const params = useParams();
         {/* ✅ A MÁGICA DA LEITURA: Gradiente que escurece apenas a parte de baixo + Blur suave */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b1015] via-[#0b1015]/60 to-transparent" />
         
-        <div className="relative z-10 p-16 max-w-2xl text-white">
+        <div className="relative z-10 p-8 lg:p-16 max-w-2xl text-white w-full">
           <div className="backdrop-blur-sm bg-black/10 p-6 rounded-2xl border border-white/5">
             <h2 className="text-4xl lg:text-5xl font-black mb-4 leading-tight">
               {customTitle}
@@ -260,6 +264,17 @@ const params = useParams();
             <p className="text-lg text-white/80 font-medium">
               {customSubtitle}
             </p>
+            {/* Botão CTA — só aparece no mobile */}
+            <button
+              onClick={() => setMobileStep("login")}
+              className="mt-6 w-full lg:hidden py-4 rounded-2xl font-bold text-lg text-white transition-all active:scale-95 shadow-2xl"
+              style={{
+                backgroundColor: brandColor,
+                boxShadow: `0 8px 24px -6px ${brandColor}80`,
+              }}
+            >
+              Entrar no Portal →
+            </button>
           </div>
         </div>
       </div>
@@ -267,23 +282,18 @@ const params = useParams();
       {/* ==========================================
           LADO DIREITO: O Formulário Seguro (Com Visual Premium)
       ========================================== */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-slate-100 dark:bg-[#0f141a] overflow-hidden">
-        
-        {/* Fundo com textura suave e brilho discreto */}
+      <div className={[
+        "lg:flex w-full lg:w-1/2 flex-col items-center justify-center p-6 sm:p-12 relative z-10 overflow-hidden",
+        mobileStep === "login" ? "flex min-h-[100dvh]" : "hidden",
+      ].join(" ")}>
+
+        {/* Fundo idêntico ao LoginClient e LoginPortal */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Luz superior bem mais suave */}
-          <div 
-            className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
-            style={{ backgroundColor: brandColor }}
-          />
-          {/* Luz inferior bem mais suave */}
-          <div 
-            className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full blur-[100px] opacity-[0.06] dark:opacity-[0.05]" 
-            style={{ backgroundColor: brandColor }}
-          />
-          {/* Grain leve (padrão do login principal) */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90" />
+          <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-blue-500/20 blur-3xl" />
           <div
-            className="absolute inset-0 opacity-[0.04] mix-blend-overlay"
+            className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
             style={{
               backgroundImage:
                 "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E\")",
@@ -291,8 +301,17 @@ const params = useParams();
           />
         </div>
 
+        {/* Botão voltar — só mobile */}
+        <button
+          onClick={() => setMobileStep("hero")}
+          className="lg:hidden self-start mb-4 flex items-center gap-2 text-white/70 hover:text-white text-sm font-bold transition-colors relative z-10"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          Voltar
+        </button>
+
         {/* ✅ Wrapper do Formulário (Efeito Glassmorphism) */}
-        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-black/[0.05] dark:bg-[#161b22]/90 dark:border-white/10 p-6 sm:p-8">  
+        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 ...">
           {/* Cabeçalho do Form */}
           <div className="flex flex-col items-center mb-6 text-center">
             {tenantData.logo_url ? (

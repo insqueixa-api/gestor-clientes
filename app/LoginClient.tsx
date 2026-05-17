@@ -426,10 +426,11 @@ const canSubmit = useMemo(() => {
             </form>
 
 {/* Otimizado o espaço no rodapé */}
-            <div className="mt-4 sm:mt-6 text-center">
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-white/30 bg-black/10 dark:bg-white/5 px-4 py-1 sm:py-1.5 rounded-full border border-white/5">
-                Conexão Criptografada
+            <div className="mt-6 pt-5 border-t border-slate-200/60 dark:border-white/10 text-center flex flex-col items-center gap-1.5">
+              <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">
+                Tecnologia por
               </span>
+              <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-5 drop-shadow-sm transition-all hover:scale-105" />
             </div>
           </div>
         </div>
