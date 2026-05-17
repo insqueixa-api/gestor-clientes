@@ -115,6 +115,20 @@ export default function LoginClient() {
     logo_url?: string | null;
     primary_color?: string | null;
   } | null>(null);
+
+  useEffect(() => {
+    if (!tenantBrand) return;
+    if (tenantBrand.name) {
+      document.title = `Área do Cliente | ${tenantBrand.name}`;
+    }
+    if (tenantBrand.logo_url) {
+      document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = tenantBrand.logo_url;
+      document.head.appendChild(link);
+    }
+  }, [tenantBrand]);
   const [msg, setMsg] = useState<Msg | null>(null);
 
   const [loadingResolve, setLoadingResolve] = useState(false);
