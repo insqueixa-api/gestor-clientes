@@ -283,7 +283,7 @@ const params = useParams();
           LADO DIREITO: O Formulário Seguro (Com Visual Premium)
       ========================================== */}
       <div className={[
-        "lg:flex w-full lg:w-1/2 flex-col items-center justify-center p-6 sm:p-12 relative z-10 overflow-hidden",
+        "lg:flex w-full lg:w-1/2 flex-col items-center justify-center p-3 sm:p-12 relative z-10 overflow-hidden",
         mobileStep === "login" ? "flex min-h-[100dvh]" : "hidden",
       ].join(" ")}>
 
@@ -311,7 +311,7 @@ const params = useParams();
         </button>
 
         {/* ✅ Wrapper do Formulário (Efeito Glassmorphism) */}
-        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 ...">
+        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-white/60 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-black/[0.05] dark:bg-[#161b22]/90 dark:border-white/10 p-4 sm:p-8 overflow-hidden">
           {/* Cabeçalho do Form */}
           <div className="flex flex-col items-center mb-6 text-center">
             {tenantData.logo_url ? (
