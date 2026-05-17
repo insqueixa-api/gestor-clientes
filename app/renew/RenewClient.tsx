@@ -1832,8 +1832,8 @@ return (
                     <div className="flex items-center justify-between mb-4">
 <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
                         {isAluno(account.technology)
-                          ? `${account.technology === "ACADEMIA" ? "Academia" : "Personal"} • ${account.plan_label}`
-                          : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
+  ? `${account.technology === "ACADEMIA" ? "Academia" : "Personal"} • ${account.screens === 1 ? "Individual" : account.screens === 2 ? "Família" : "Família Total"}`
+  : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
                       </p>
                       <div className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
                         {account.plan_label}
@@ -2006,8 +2006,10 @@ return (
                 </label>
                 <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
                   {isAluno(selectedAccount.technology)
-                    ? selectedAccount.plan_label
-                    : `${selectedAccount.screens} ${selectedAccount.screens > 1 ? "telas" : "tela"}`}
+  ? selectedAccount.screens === 1 ? "Individual"
+    : selectedAccount.screens === 2 ? "Família"
+    : "Família Total"
+  : `${selectedAccount.screens} ${selectedAccount.screens > 1 ? "telas" : "tela"}`}
                 </div>
               </div>
             </div>
