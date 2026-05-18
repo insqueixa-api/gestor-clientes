@@ -14,7 +14,7 @@ export const LazerPlayIntegration = {
         appName?: string;
     }) => ({
         mac:           params.macValue,
-        playlist_name: params.serverName || params.finalServerName,
+        playlist_name: params.finalServerName || params.serverName,
         playlist_url:  params.m3uUrl,
         pin:           params.password || "",
         // deviceKey é injetado pelo modal via getDeviceKeyFromApp
@@ -29,7 +29,7 @@ export const LazerPlayIntegration = {
         password?: string;
     }) => ({
         mac:           params.macValue,
-        playlist_name: params.serverName || params.finalServerName || "",
+        playlist_name: params.finalServerName || params.serverName || "",
         pin:           params.password || "",
         // deviceKey é injetado pelo modal via getDeviceKeyFromApp
     }),
