@@ -60,7 +60,7 @@ export default function AppIntegracaoModal({
   const isIboPro      = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
   const isDuplexPlay  = appName === "DUPLEXPLAY";
-  const isLazerPlay   = appName === "LAZERPLAY"; // ✅ Adicionado Lazer Play
+  const isLazerPlay   = appName === "LAZERPLAY" || appName === "FUNPLAY" || appName === "FOCOXPLAY";
   const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay;
   const noCredentials = isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay; // Apps que não usam email/senha
 
@@ -223,7 +223,9 @@ export default function AppIntegracaoModal({
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">Quick Player</option>
                 <option value="DUPLEXPLAY">DuplexPlay</option>
-                <option value="LAZERPLAY">Lazer Play</option> {/* ✅ Nova Opção */}
+                <option value="LAZERPLAY">Lazer Play</option>
+                <option value="FUNPLAY">Fun Play</option>
+                <option value="FOCOXPLAY">FocoX Play</option>
               </select>
             </div>
 

@@ -1884,14 +1884,17 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
           else if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") intType = "GERENCIAAPP";
           else if (appNameStr === "UNI REVENDA") intType = "GERENCIAAPP";
           else if (appNameStr === "GPC ANDROID") intType = "GERENCIAAPP";
-          else if (appNameStr === "GPC ROKU") intType = "GERENCIAAPP";
+          else if (appNameStr === "GPC LG") intType = "GERENCIAAPP";
+          else if (appNameStr === "GPC ROKU") intType = "GERENCIAAPP";
           else if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") intType = "GERENCIAAPP";
           else if (appNameStr === "DUPLECAST") intType = "DUPLECAST";
           else if (appNameStr === "IBO SOL" || appNameStr === "IBOSOL") intType = "IBOSOL"; 
           else if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") intType = "IBOPRO";
           else if (appNameStr === "QUICK PLAYER" || appNameStr === "QUICKPLAYER") intType = "QUICKPLAYER";
           else if (appNameStr === "DUPLEXPLAY" || appNameStr === "DUPLEX PLAY") intType = "DUPLEXPLAY";
-          else if (appNameStr === "LAZERPLAY" || appNameStr === "LAZER PLAY") intType = "LAZERPLAY"; // ✅ Adicionado Lazer Play
+          else if (appNameStr === "LAZERPLAY" || appNameStr === "LAZER PLAY") intType = "LAZERPLAY";
+          else if (appNameStr === "FUNPLAY" || appNameStr === "FUN PLAY") intType = "FUNPLAY";
+          else if (appNameStr === "FOCOXPLAY" || appNameStr === "FOCOX PLAY") intType = "FOCOXPLAY";
           else intType = ""; // Se não for nenhum desses, NÃO tem integração.
 
           if (intType) {

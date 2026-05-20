@@ -471,7 +471,9 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
                  app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
                  app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
                  app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
-                 app.integration_type === "LAZERPLAY" ? "Lazer Play" : app.integration_type;
+                 app.integration_type === "LAZERPLAY" ? "Lazer Play" :
+                 app.integration_type === "FUNPLAY" ? "Fun Play" :
+                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;app.integration_type === "LAZERPLAY" ? "Lazer Play" : app.integration_type;
 
   return (
     <div
@@ -773,7 +775,9 @@ return (
                     <option value="IBOPRO">IBO Pro Player</option>
                     <option value="QUICKPLAYER">Quick Player</option>
                     <option value="DUPLEXPLAY">DuplexPlay</option>
-                    <option value="LAZERPLAY">Lazer Play</option> {/* ✅ Nova Opção Adicionada */}
+                    <option value="LAZERPLAY">Lazer Play</option>
+                    <option value="FUNPLAY">Fun Play</option>
+                    <option value="FOCOXPLAY">FocoX Play</option>
                   </select>
                   <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
                     Quando configurado, habilita automação ao criar clientes.

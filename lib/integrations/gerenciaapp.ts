@@ -11,8 +11,9 @@ function getRankingAppId(appName?: string): number {
     if (name === "FACILITA" || name === "FACILITA APP") return 13;
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
-    if (name === "GPC ANDROID") return 20;
-if (name === "IBO REVENDA") return 10;
+    if (name === "GPC ANDROID") return 18; // ✅ Confirmado pelo cURL
+    if (name === "GPC LG") return 99;      // ⚠️ TODO: Atualizar em 30/mai com o rank correto
+    if (name === "IBO REVENDA") return 10;
 
     return 10;
 }

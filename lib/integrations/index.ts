@@ -15,10 +15,13 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "UNIREVENDA":       GerenciaAppIntegration,
     "GPC_ROKU":         GerenciaAppIntegration,
     "GPC_ANDROID":      GerenciaAppIntegration,
+    "GPC_LG":           GerenciaAppIntegration,
 
     "DUPLECAST":        DupleCastIntegration, 
     "DUPLEXPLAY":       DuplexPlayIntegration,
-    "LAZERPLAY":        LazerPlayIntegration, // ✅ Adicionando ao Registro
+    "LAZERPLAY":        LazerPlayIntegration,
+    "FUNPLAY":          LazerPlayIntegration,
+    "FOCOXPLAY":        LazerPlayIntegration,
     "IBOSOL":           IboSolIntegration,
     "IBOPRO":           IboProIntegration,
     "QUICKPLAYER":      QuickPlayerIntegration,
