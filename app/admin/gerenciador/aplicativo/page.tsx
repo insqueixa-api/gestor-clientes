@@ -41,10 +41,11 @@ const ALL_FIELD_TYPES: AppFieldType[] = ["date", "mac", "device_key", "email", "
 
 type AppData = {
   id: string;
-  tenant_id: string;      // ✅ Precisamos saber a origem do App
-  base_app_id?: string;   // ✅ ID do App Global caso seja um override
+  tenant_id: string;
+  base_app_id?: string;
   name: string;
   info_url: string | null;
+  icon_url?: string | null;
   is_active: boolean;
   fields_config: AppField[];
   integration_type?: string | null;
@@ -142,6 +143,31 @@ const [editingId, setEditingId] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<AppField[]>([]);
   const [formIntegration, setFormIntegration] = useState<string>("");
   const dragIndexRef = useRef<number | null>(null);
+  const [formIconUrl, setFormIconUrl] = useState<string>("");
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+
+  async function handleIconUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingIcon(true);
+      const res = await fetch("/api/upload/presigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, folder: "apps" }),
+      });
+      const { presignedUrl, publicUrl } = await res.json();
+      await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setFormIconUrl(publicUrl);
+      addToast("success", "Imagem carregada!", "Logo salva com sucesso.");
+    } catch (e: any) {
+      addToast("error", "Erro no upload", e?.message ?? "Falha.");
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
   
   // ✅ Verifica se a integração selecionada possui URL configurada
   const selectedIntegrationConfig = configuredIntegrations.find(i => i.name === formIntegration);
@@ -312,6 +338,7 @@ function openNew() {
     setFormUrl("");
     setFormFields([]);
     setFormIntegration("");
+    setFormIconUrl("");
     setIsModalOpen(true);
   }
 
@@ -321,6 +348,7 @@ function openEdit(app: AppData) {
     setFormUrl(app.info_url || "");
     setFormFields(JSON.parse(JSON.stringify(app.fields_config)));
     setFormIntegration(app.integration_type || "");
+    setFormIconUrl(app.icon_url || "");
     setIsModalOpen(true);
   }
 
@@ -358,10 +386,11 @@ try {
 // Payload base (insert)
   const safeUrl = normalizeApiUrl(formUrl); // ✅ Limpa a URL e impede XSS
 
-  const insertPayload = {
+const insertPayload = {
     tenant_id: tid,
     name: formName.trim(),
     info_url: safeUrl || null,
+    icon_url: formIconUrl || null,
     fields_config: formFields,
     integration_type: formIntegration || null,
   };
@@ -380,9 +409,10 @@ try {
       addToast("success", "Personalizado", "Cópia local criada com sucesso!");
     } else {
       // 🔵 ATUALIZAÇÃO NORMAL (App dele mesmo)
-      const updatePayload = {
+const updatePayload = {
         name: formName.trim(),
         info_url: formUrl?.trim() ? formUrl.trim() : null,
+        icon_url: formIconUrl || null,
         fields_config: formFields,
         integration_type: formIntegration || null,
       };
@@ -482,7 +512,14 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
     >
       <div className="flex justify-between items-start mb-3">
         <div className="space-y-1">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+          <div className="flex items-center gap-2">
+        {app.icon_url ? (
+          <img src={app.icon_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-base shrink-0">📱</div>
+        )}
+        <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+      </div>
           <div className="flex flex-wrap gap-1 pt-0.5">
             {app.tenant_id !== myTenantId && (
               <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
@@ -755,6 +792,50 @@ return (
                     <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
                       URL gerenciada automaticamente pela integração.
                     </p>
+                  )}
+                </div>
+              </div>
+
+              {/* LOGO DO APP */}
+              <div>
+                <Label>Logo do Aplicativo</Label>
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleIconUpload(file);
+                  }}
+                  onPaste={(e) => {
+                    const file = Array.from(e.clipboardData.files).find(f => f.type.startsWith("image/"));
+                    if (file) handleIconUpload(file);
+                  }}
+                  className="flex items-center gap-4 p-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl hover:border-emerald-500/50 transition-colors"
+                  tabIndex={0}
+                >
+                  {formIconUrl ? (
+                    <img src={formIconUrl} alt="Logo" className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-2xl">📱</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-600 dark:text-white/70">
+                      {uploadingIcon ? "Enviando..." : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WebP — funciona com figurinhas do WhatsApp</p>
+                  </div>
+                  <label className="cursor-pointer shrink-0">
+                    <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center hover:bg-emerald-500/20 transition-colors">
+                      {uploadingIcon ? "..." : "Selecionar"}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" disabled={uploadingIcon}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIconUpload(f); e.target.value = ""; }} />
+                  </label>
+                  {formIconUrl && (
+                    <button type="button" onClick={() => setFormIconUrl("")}
+                      className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors" title="Remover logo">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
                   )}
                 </div>
               </div>
