@@ -1119,8 +1119,10 @@ useEffect(() => {
 
         // 2. Apps (Catálogo Completo com Configuração)
         // ✅ Usa a RPC segura para carregar os Locais + Globais visíveis!
-        const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
+const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
           .rpc("get_my_visible_apps");
+        // icon_url já vem se a RPC fizer SELECT *
+        // Se não vier, verifica a definição da RPC no Supabase
           
         if (appsErr) {
           console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
@@ -4979,7 +4981,13 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                             onClick={() => setSelectedApps(prev => prev.map(a => a.instanceId === app.instanceId ? { ...a, is_minimized: !a.is_minimized } : a))}
                           >
                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                               📱 {app.name}
+                               {(() => {
+                                 const catAppIcon = catalog.find(c => c.id === app.app_id) as any;
+                                 return catAppIcon?.icon_url
+                                   ? <img src={catAppIcon.icon_url} alt="" className="w-5 h-5 rounded object-cover shrink-0" />
+                                   : <span>📱</span>;
+                               })()}
+                               {app.name}
                                {hasInteg && (
                                  <span title={`Integração: ${integrationType}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400">
                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
