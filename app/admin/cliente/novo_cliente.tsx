@@ -1065,7 +1065,8 @@ useEffect(() => {
 
   setDueDate(dISO);
   setDueTime(tISO);
-}, [testHours, isTrialMode, serverId]); // ✅ inclui serverId pra recalcular ao trocar servidor
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [testHours, isTrialMode]); // serverId removido — testHours já é atualizado pelo provider detection
 
 // ✅ NOVO: Buscar DNSs do servidor selecionado (coluna dns = JSON array)
 
