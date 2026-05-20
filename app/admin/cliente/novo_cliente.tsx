@@ -5021,7 +5021,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                 <div className="bg-transparent border-0 mb-3 mt-2">
                                   {isEditing ? (
                                     // EDIÇÃO: botões de ação direta
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-3 gap-2">
                                       <button
                                           type="button"
                                           onClick={() => handleConfigApp(app.instanceId)}
@@ -5034,6 +5034,24 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                           </svg>
                                           <span className="hidden sm:inline">Configurar m3u</span>
                                           <span className="sm:hidden">Configurar</span>
+                                      </button>
+                                      <button
+                                          type="button"
+                                          onClick={() => {
+                                              const catAppLink = catalog.find(c => c.id === app.app_id) as any;
+                                              const intKeyLink = String(catAppLink?.integration_type || "").trim().toUpperCase();
+                                              const intDataLink = appIntegrations.find(a => a.app_name.toUpperCase() === intKeyLink);
+                                              const url = intDataLink?.api_url || "";
+                                              if (url) window.open(url, "_blank");
+                                              else addToast("warning", "Sem URL", "Nenhum link configurado para esta integração.");
+                                          }}
+                                          className="h-10 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-200 dark:hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
+                                          title="Abrir painel no navegador"
+                                      >
+                                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                          <span className="hidden sm:inline text-xs font-bold">Painel</span>
                                       </button>
                                       <button
                                           type="button"
