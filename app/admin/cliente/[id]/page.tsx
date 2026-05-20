@@ -476,9 +476,10 @@ plan_table_name: finalTableName ?? null,
            
            return {
              id: item.id, 
-             name: catalogApp?.name || "App (Não encontrado)", // ✅ Usa o nome do catálogo
+             name: catalogApp?.name || "App (Não encontrado)",
              expiration: expiration,
-             integration_type: catalogApp?.integration_type || null // ✅ Puxando a integração do dicionário
+             integration_type: catalogApp?.integration_type || null,
+             icon_url: catalogApp?.icon_url || null
            };
         });
       }
@@ -805,7 +806,13 @@ const EVENT_LABELS: Record<string, any> = {
 
    return (
       <div key={app.id || app.name + Math.random()} className="flex justify-between items-center">
-         <span className="text-slate-500 dark:text-white/40 font-medium" title={label}>{label}</span>
+         <span className="text-slate-500 dark:text-white/40 font-medium flex items-center gap-1.5" title={label}>
+           {app.icon_url
+             ? <img src={app.icon_url} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
+             : <span className="text-[11px]">📱</span>
+           }
+           {label}
+         </span>
          <span className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-bold" : "text-slate-600 dark:text-white/70 font-medium") : "text-slate-400 dark:text-white/30 italic"}`}>
             {app.expiration 
                ? `Vence: ${new Date(`${app.expiration}T12:00:00`).toLocaleDateString("pt-BR")}` 
