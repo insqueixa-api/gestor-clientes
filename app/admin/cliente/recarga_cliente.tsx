@@ -485,6 +485,35 @@ const [renewAutomatic, setRenewAutomatic] = useState(false);
   // ✅ Prefill Observações (agora certo)
   setObs(cFixed.notes || "");
 
+  // ✅ NOVO: Se aberto via Auditoria com paymentLogId, busca o log do
+  // pagamento para pré-preencher EXATAMENTE o que o cliente pagou
+  // (período, valor, moeda). Evita divergência ao concluir manualmente.
+  let paymentLog: {
+    period: string | null;
+    plan_label: string | null;
+    price_amount: number | null;
+    price_currency: string | null;
+  } | null = null;
+
+  if (paymentLogId) {
+    try {
+      const { data: logData, error: logErr } = await supabaseBrowser
+        .from("client_portal_payments")
+        .select("period, plan_label, price_amount, price_currency")
+        .eq("id", paymentLogId)
+        .eq("tenant_id", tid)
+        .maybeSingle();
+
+      if (!logErr && logData) {
+        paymentLog = logData as any;
+      } else if (logErr) {
+        console.error("Falha ao buscar log do pagamento (auditoria):", logErr);
+      }
+    } catch (e) {
+      console.error("Erro inesperado ao buscar log do pagamento:", e);
+    }
+  }
+
   // ✅ NOVO: Detectar se servidor tem integração e QUAL O SERVIDOR
 if (c.server_id) {
   try {
@@ -522,13 +551,21 @@ if (c.server_id) {
 }
 
 
-          // 2) Plano (detectar período pelo label)
-          const pName = (c.plan_name || "").toUpperCase();
+          // 2) Plano (detectar período)
           let foundPeriod = "MONTHLY";
-          if (pName.includes("ANUAL")) foundPeriod = "ANNUAL";
-          else if (pName.includes("SEMESTRAL")) foundPeriod = "SEMIANNUAL";
-          else if (pName.includes("TRIMESTRAL")) foundPeriod = "QUARTERLY";
-          else if (pName.includes("BIMESTRAL")) foundPeriod = "BIMONTHLY";
+
+          // ✅ Se aberto via Auditoria, usa o período EXATO que o cliente
+          // pagou (vindo do client_portal_payments). Senão, detecta pelo
+          // label do plano atual do cliente (fluxo antigo).
+          if (paymentLog?.period && PLAN_LABELS[paymentLog.period]) {
+            foundPeriod = paymentLog.period;
+          } else {
+            const pName = (c.plan_name || "").toUpperCase();
+            if (pName.includes("ANUAL")) foundPeriod = "ANNUAL";
+            else if (pName.includes("SEMESTRAL")) foundPeriod = "SEMIANNUAL";
+            else if (pName.includes("TRIMESTRAL")) foundPeriod = "QUARTERLY";
+            else if (pName.includes("BIMESTRAL")) foundPeriod = "BIMONTHLY";
+          }
           setSelectedPlanPeriod(foundPeriod);
 
           // 3) LÓGICA DE VENCIMENTO (ATIVO vs VENCIDO)
@@ -586,8 +623,9 @@ let baseDate: Date;
           const allTables = (tData || []) as unknown as PlanTable[];
           setTables(allTables);
 
-          // 5) Seleção inicial de tabela (✅ respeita a tabela real do cliente)
-            const desiredCurrency = ((cFixed.price_currency as Currency) || "BRL");
+          // 5) Seleção inicial de tabela (✅ respeita a tabela real do cliente,
+          // ou a moeda paga no portal se vier via Auditoria)
+            const desiredCurrency = ((paymentLog?.price_currency as Currency) || (cFixed.price_currency as Currency) || "BRL");
 
   // 5.1) tenta usar a tabela REAL salva no cliente
   const fromClient =
@@ -612,9 +650,11 @@ let baseDate: Date;
             }
 
 
-          // 6) Valor inicial (✅ usa cFixed)
-  if (cFixed.price_amount != null) {
-    setPlanPrice(Number(cFixed.price_amount).toFixed(2).replace(".", ","));
+          // 6) Valor inicial (✅ pagamento do portal tem prioridade sobre o atual do cliente)
+  const initialAmount = paymentLog?.price_amount ?? cFixed.price_amount ?? null;
+
+  if (initialAmount != null) {
+    setPlanPrice(Number(initialAmount).toFixed(2).replace(".", ","));
     setPriceTouched(true);
   } else {
     const initialPrice = pickPriceFromTable(
