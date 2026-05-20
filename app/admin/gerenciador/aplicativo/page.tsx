@@ -473,7 +473,7 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
                  app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
                  app.integration_type === "LAZERPLAY" ? "Lazer Play" :
                  app.integration_type === "FUNPLAY" ? "Fun Play" :
-                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;app.integration_type === "LAZERPLAY" ? "Lazer Play" : app.integration_type;
+                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;
 
   return (
     <div

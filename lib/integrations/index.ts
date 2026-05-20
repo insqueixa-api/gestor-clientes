@@ -14,8 +14,8 @@ const INTEGRATION_REGISTRY: Record<string, any> = {
     "FACILITA":         GerenciaAppIntegration,
     "UNIREVENDA":       GerenciaAppIntegration,
     "GPC_ROKU":         GerenciaAppIntegration,
-    "GPC_ANDROID":      GerenciaAppIntegration,
-    "GPC_LG":           GerenciaAppIntegration,
+    "GPCANDROID":       GerenciaAppIntegration,
+    "GPCLG":            GerenciaAppIntegration,
 
     "DUPLECAST":        DupleCastIntegration, 
     "DUPLEXPLAY":       DuplexPlayIntegration,

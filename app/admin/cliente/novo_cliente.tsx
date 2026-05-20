@@ -1954,7 +1954,9 @@ function updateAppFieldValue(instanceId: string, fieldKey: string, value: string
     setLoadingStep("Configurando aplicativo...");
 
     // ✅ NOVO: Procura a URL exata deste aplicativo na lista que carregámos do banco
-    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+    const catAppForInteg = catalog.find(c => c.id === currentApp.app_id) as any;
+    const appIntegKey = String(catAppForInteg?.integration_type || "").trim().toUpperCase() || handler.actionPrefix.toUpperCase();
+    const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === appIntegKey);
     const appBaseUrl = appIntegData?.api_url || "";
 
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
@@ -2130,7 +2132,9 @@ window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
         setLoadingStep("A remover do Painel...");
 
         // ✅ RECUPERADO: Busca a URL correta do aplicativo (as linhas que tinham sumido!)
-        const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler.actionPrefix.toUpperCase());
+        const catAppForIntegDel = catalog.find(c => c.id === currentApp.app_id) as any;
+        const appIntegKeyDel = String(catAppForIntegDel?.integration_type || "").trim().toUpperCase() || handler.actionPrefix.toUpperCase();
+        const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === appIntegKeyDel);
         const appBaseUrl = appIntegData?.api_url || "";
 
         // ✅ CORREÇÃO: Monta o nome exato (Username_Servidor) para a exclusão ser cirúrgica!
@@ -3028,7 +3032,9 @@ if (clientId) {
                 const handler = resolveIntegration(app);
 
                 // ✅ NOVO: Procura a URL exata deste aplicativo
-                const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === handler?.actionPrefix?.toUpperCase());
+                const catAppForAuto = catalog.find(c => c.id === app.app_id) as any;
+                const appIntegKeyAuto = String(catAppForAuto?.integration_type || "").trim().toUpperCase() || handler?.actionPrefix?.toUpperCase() || "";
+                const appIntegData = appIntegrations.find(a => a.app_name.toUpperCase() === appIntegKeyAuto);
                 const appBaseUrl = appIntegData?.api_url || "";
                 
                 if (handler && app.auto_configure !== false && appBaseUrl) {

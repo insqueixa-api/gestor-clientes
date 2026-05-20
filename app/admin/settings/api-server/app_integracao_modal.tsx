@@ -241,7 +241,9 @@ export default function AppIntegracaoModal({
                   appName === "IBOPRO" ? 'Ex: "IBO Pro Player"' : 
                   appName === "QUICKPLAYER" ? 'Ex: "Quick Player"' : 
                   appName === "DUPLEXPLAY" ? 'Ex: "DuplexPlay"' :
-                  appName === "LAZERPLAY" ? 'Ex: "Lazer Play"' : 
+                  appName === "LAZERPLAY" ? 'Ex: "Lazer Play"' :
+                  appName === "FUNPLAY" ? 'Ex: "Fun Play"' :
+                  appName === "FOCOXPLAY" ? 'Ex: "FocoX Play"' :
                   'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
