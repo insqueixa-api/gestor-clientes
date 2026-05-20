@@ -153,7 +153,7 @@ const [editingId, setEditingId] = useState<string | null>(null);
     }
     try {
       setUploadingIcon(true);
-      const res = await fetch("/api/upload/presigned", {
+      const res = await fetch("/api/upload/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, contentType: file.type, folder: "apps" }),
