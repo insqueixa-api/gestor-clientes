@@ -34,6 +34,7 @@ type AppIntegration = {
   login_email: string | null;
   login_password: string | null;
   api_url: string | null;
+  pin?: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -567,14 +568,38 @@ return u || "--";
                     </div>
                   </div>
                   <div className="p-4 sm:p-5 text-sm space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">📧 Login</span>
-                      <span className="font-bold text-slate-700 dark:text-white">{row.login_email ?? "--"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-white/50">🔑 Senha</span>
-                      <span className="font-bold text-slate-700 dark:text-white">••••••••</span>
-                    </div>
+                    {row.api_url && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-slate-500 dark:text-white/50 shrink-0">🔗 URL</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          
+                          <a  href={row.api_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs text-sky-600 dark:text-sky-400 hover:underline truncate max-w-[180px]"
+                            title={row.api_url}
+                          >
+                            {row.api_url.replace(/^https?:\/\//, "")}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(row.api_url!)}
+                            className="shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-sky-500 transition-colors"
+                            title="Copiar URL"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {row.login_email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 dark:text-white/50">📧 Login</span>
+                        <span className="font-bold text-slate-700 dark:text-white">{row.login_email}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

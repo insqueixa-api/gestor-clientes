@@ -338,13 +338,48 @@ export default function RecargaAluno({
         setAlunoData(aluno);
         setObs(aluno.notes || "");
 
-        // Plano inicial (detecta período pelo label)
-        const pName = (aluno.plan_label || "").toUpperCase();
+        // ✅ Se aberto via Auditoria com paymentLogId, busca o log do
+        // pagamento para pré-preencher EXATAMENTE o que o aluno pagou
+        // (período, valor, moeda). Evita divergência ao concluir manualmente.
+        let paymentLog: {
+          period: string | null;
+          plan_label: string | null;
+          price_amount: number | null;
+          price_currency: string | null;
+        } | null = null;
+
+        if (paymentLogId) {
+          try {
+            const { data: logData, error: logErr } = await supabaseBrowser
+              .from("client_portal_payments")
+              .select("period, plan_label, price_amount, price_currency")
+              .eq("id", paymentLogId)
+              .eq("tenant_id", tid)
+              .maybeSingle();
+
+            if (!logErr && logData) {
+              paymentLog = logData as any;
+            } else if (logErr) {
+              console.error("[RecargaAluno] Falha ao buscar log do pagamento:", logErr);
+            }
+          } catch (e) {
+            console.error("[RecargaAluno] Erro inesperado ao buscar log:", e);
+          }
+        }
+
+        // Plano inicial: se aberto via Auditoria, usa o período EXATO que o
+        // aluno pagou (vindo do client_portal_payments). Senão, detecta pelo
+        // label do plano atual do aluno (fluxo antigo).
         let fp = "MONTHLY";
-        if (pName.includes("ANUAL")) fp = "ANNUAL";
-        else if (pName.includes("SEMESTRAL")) fp = "SEMIANNUAL";
-        else if (pName.includes("TRIMESTRAL")) fp = "QUARTERLY";
-        else if (pName.includes("BIMESTRAL")) fp = "BIMONTHLY";
+        if (paymentLog?.period && PLAN_LABELS[paymentLog.period]) {
+          fp = paymentLog.period;
+        } else {
+          const pName = (aluno.plan_label || "").toUpperCase();
+          if (pName.includes("ANUAL")) fp = "ANNUAL";
+          else if (pName.includes("SEMESTRAL")) fp = "SEMIANNUAL";
+          else if (pName.includes("TRIMESTRAL")) fp = "QUARTERLY";
+          else if (pName.includes("BIMESTRAL")) fp = "BIMONTHLY";
+        }
         setPeriod(fp);
         setScreens(aluno.screens || 1);
 
@@ -382,9 +417,11 @@ export default function RecargaAluno({
           setCurrency(initialTable.currency || "BRL");
         }
 
-        // Preço inicial
-        if (aluno.price_amount != null) {
-          setPlanPrice(Number(aluno.price_amount).toFixed(2).replace(".", ","));
+        // Preço inicial: pagamento do portal tem prioridade sobre o atual do aluno
+        const initialAmount = paymentLog?.price_amount ?? aluno.price_amount ?? null;
+
+        if (initialAmount != null) {
+          setPlanPrice(Number(initialAmount).toFixed(2).replace(".", ","));
           setPriceTouched(true);
         } else {
           const p = pickPrice(initialTable, fp, aluno.screens || 1);
