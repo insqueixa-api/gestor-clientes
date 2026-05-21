@@ -5,94 +5,86 @@ import { createClient } from "@/lib/supabase/server";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
+import { ModulesProvider } from "@/lib/modules/ModulesContext";
 import TenantHead from "@/components/TenantHead";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { description: "Painel Administrativo" };
-
-    const { data: member } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!member?.tenant_id) return { description: "Painel Administrativo" };
-
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("logo_url")
-      .eq("id", member.tenant_id)
-      .maybeSingle();
-
-    return {
-      description: "Painel Administrativo",
-      icons: tenant?.logo_url ? { icon: tenant.logo_url } : { icon: "/favicon.ico" },
-    };
-  } catch {
-    return { description: "Painel Administrativo" };
-  }
+  return {
+    description: "Painel Administrativo",
+    icons: { icon: "/favicon.ico" },
+  };
 }
 
-function pickUserLabel(user: any): string {
-  const md = user.user_metadata ?? {};
-  return (md.full_name || md.name || user.email || "Administrador").toString();
-}
-
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const supabase = await createClient();
 
+  // 1) Sessão obrigatória
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
   if (!user) redirect("/login");
 
+  // 2) Tenant do usuário (single-user — apenas pra obter tenant_id)
   const { data: member } = await supabase
     .from("tenant_members")
-    .select("tenant_id, role")
+    .select("tenant_id")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .maybeSingle<{ tenant_id: string }>();
 
   if (!member?.tenant_id) redirect("/login");
 
+  // 3) Dados básicos do tenant (sem SaaS, sem cor, sem licença)
   const { data: tenantRow } = await supabase
     .from("tenants")
-    .select("name, primary_color, logo_url")
+    .select("name, financial_control_enabled, active_modules, logo_url")
     .eq("id", member.tenant_id)
-    .maybeSingle();
+    .maybeSingle<{
+      name: string | null;
+      financial_control_enabled: boolean | null;
+      active_modules: string[] | null;
+      logo_url: string | null;
+    }>();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const tenantName = tenantRow?.name ?? "Painel";
+  const tenantLogo = tenantRow?.logo_url ?? null;
+  const isFinancialEnabled = tenantRow?.financial_control_enabled !== false;
+  const activeModules = tenantRow?.active_modules ?? ["iptv", "financeiro"];
 
-  const tenantName = tenantRow?.name ?? "Meu Sistema";
-  const userLabel = profile?.display_name || tenantName || pickUserLabel(user);
-  const brandColor = tenantRow?.primary_color || "#10b981";
-  const tenantLogo = tenantRow?.logo_url || null;
+  // Single-user: sempre admin máximo
+  const userLabel = user.email ?? "Usuário";
+  const userRole = "SUPERADMIN" as const;
 
   return (
     <ThemeProvider defaultTheme="light">
       <ConfirmProvider>
-        <TenantHead />
-        <div style={{ "--theme-color": brandColor } as React.CSSProperties} className="contents">
-          <AdminShell 
-            userLabel={userLabel} 
-            tenantName={tenantName} 
-            tenantId={member.tenant_id} 
+        <ModulesProvider
+          activeModules={activeModules}
+          slug={null}
+          logoUrl={tenantLogo}
+          tenantName={tenantName}
+        >
+          <TenantHead />
+          <AdminShell
+            userLabel={userLabel}
+            tenantName={tenantName}
+            role={userRole}
+            financialControlEnabled={isFinancialEnabled}
+            tenantId={member.tenant_id}
+            expiresAt={null}
+            creditBalance={0}
+            saasPlanTableId={null}
+            whatsappSessions={1}
             logoUrl={tenantLogo}
           >
             {children}
           </AdminShell>
-        </div>
+        </ModulesProvider>
       </ConfirmProvider>
     </ThemeProvider>
   );

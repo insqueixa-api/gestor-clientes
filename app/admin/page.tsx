@@ -56,14 +56,14 @@ type VwFinanceCards = {
 
 type VwNewRegsDaily = {
   tenant_id: string;
-  day: string; // date
+  day: string;
   clients_created: number | string | null;
   trials_created: number | string | null;
 };
 
 type VwPaymentsDaily = {
   tenant_id: string;
-  day: string; // date
+  day: string;
   clients_paid_brl_estimated: number | string | null;
   reseller_paid_brl: number | string | null;
 };
@@ -125,7 +125,6 @@ const fmtBRL = (v: number) =>
 const fmtBRLNoSymbol = (v: number) =>
   fmtBRL(v).replace(/\s?R\$\s?/g, "").trim();
 
-
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
@@ -138,14 +137,12 @@ function monthLabelPtBr(d = new Date()): string {
   });
 }
 
-
 const TZ_SP = "America/Sao_Paulo";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-// pega "hoje" no timezone de SP (sem depender do timezone do server)
 function todayInSaoPaulo(): Date {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TZ_SP,
@@ -158,17 +155,15 @@ function todayInSaoPaulo(): Date {
   const m = Number(parts.find((p) => p.type === "month")?.value ?? "01");
   const d = Number(parts.find((p) => p.type === "day")?.value ?? "01");
 
-  // cria um Date “local” só pra manipular dia/mês/ano (nós controlamos o y/m/d)
   return new Date(y, m - 1, d);
 }
 
 function isoDateFromYMD(y: number, m: number, d: number) {
-  return `${y}-${pad2(m)}-${pad2(d)}`; // YYYY-MM-DD
+  return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
 function spTitleFromISO(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
-  // Meio-dia UTC => nunca “vira” o dia quando formata em SP
   const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: TZ_SP,
@@ -176,7 +171,6 @@ function spTitleFromISO(iso: string) {
     month: "long",
   }).format(dt);
 }
-
 
 function daysFromMonthStartToTodaySP(): { iso: string; dayNum: number }[] {
   const today = todayInSaoPaulo();
@@ -191,15 +185,8 @@ function daysFromMonthStartToTodaySP(): { iso: string; dayNum: number }[] {
   return out;
 }
 
-// normaliza r.day vindo da view (geralmente já é YYYY-MM-DD)
 function normalizeDayKey(day: string): string {
   return (day ?? "").slice(0, 10);
-}
-
-
-// type guard para remover nulls sem "as any[]"
-function isChartDatum(v: SimpleBarChartDatum | null): v is SimpleBarChartDatum {
-  return v !== null;
 }
 
 /* =====================
@@ -214,47 +201,25 @@ export default async function AdminDashboardPage({
   const supabase = await createClient();
   const resolvedParams = await searchParams;
 
-  // Views only
-  const [authRes, { data: roleData }] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.rpc("saas_my_role"),
-  ]);
-  const user = authRes.data.user;
-  const myRole = (roleData ?? "USER").toUpperCase();
-  const showSaas = myRole === "SUPERADMIN" || myRole === "MASTER";
+  // Sessão (single-user)
+  const { data: { user } } = await supabase.auth.getUser();
 
+  // Tenant id pra filtrar consultas diretas (server_credit_purchases, fin_*)
   const memberResult = user
     ? await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle()
     : null;
   const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
 
-  // Módulos ativos do tenant
-  const saasRow = myTenantId
-    ? await supabase.from("vw_saas_tenants").select("active_modules, slug").eq("id", myTenantId).maybeSingle()
-    : null;
-  const tenantModules: string[] = (saasRow?.data as any)?.active_modules ?? ["iptv"];
-  const tenantSlug: string       = (saasRow?.data as any)?.slug ?? "";
-  const hasIPTV          = tenantModules.includes("iptv");
-  const hasSaaS          = tenantModules.includes("saas") && showSaas;
-  const hasFinanceiro    = tenantModules.includes("financeiro");
-  const hasAcademia      = tenantModules.includes("academia");
-  const hasPersonal      = tenantModules.includes("personal");
-  // Academia e Personal compartilham os mesmos cards/gráficos do IPTV
-  const hasClientesView  = hasIPTV || hasAcademia || hasPersonal;
-  const availableModules = (["iptv", "saas", "financeiro"] as const).filter(m =>
-    m === "iptv" ? hasClientesView : m === "saas" ? hasSaaS : hasFinanceiro
-  );
-
-  // Filtro via URL
+  // Filtro: apenas IPTV e Financeiro
+  const availableModules = ["iptv", "financeiro"] as const;
   const paramViews = resolvedParams?.view
-    ? resolvedParams.view.split(",").filter(v => availableModules.includes(v as any))
+    ? resolvedParams.view.split(",").filter(v => (availableModules as readonly string[]).includes(v))
     : [];
   const activeViews = paramViews.length > 0 ? paramViews : [...availableModules];
-  const showClientesView = hasClientesView && activeViews.includes("iptv");
-  const showTestes       = hasIPTV         && activeViews.includes("iptv");
-  const showRankings     = hasIPTV         && activeViews.includes("iptv");
-  const showSaasView     = hasSaaS         && activeViews.includes("saas");
-  const showFinView      = hasFinanceiro   && activeViews.includes("financeiro");
+  const showClientesView = activeViews.includes("iptv");
+  const showTestes       = activeViews.includes("iptv");
+  const showRankings     = activeViews.includes("iptv");
+  const showFinView      = activeViews.includes("financeiro");
 
   // Datas do mês atual para o painel de finanças pessoais
   const _finToday = todayInSaoPaulo();
@@ -262,12 +227,6 @@ export default async function AdminDashboardPage({
   const _finMonth = _finToday.getMonth() + 1;
   const _finMonthStart = isoDateFromYMD(_finYear, _finMonth, 1);
   const _finMonthEnd = isoDateFromYMD(_finYear, _finMonth, new Date(_finYear, _finMonth, 0).getDate());
-
-  // Auto-cria servidor virtual para academia/personal (roda a cada acesso, idempotente)
-  const isAlunosOnlyDash = (hasAcademia || hasPersonal) && !hasIPTV && !hasSaaS;
-  if (isAlunosOnlyDash && myTenantId && tenantSlug) {
-    await ensureAcademiaServer(supabase, myTenantId, tenantSlug);
-  }
 
   const [
     kpisRes,
@@ -277,11 +236,8 @@ export default async function AdminDashboardPage({
     paymentsRes,
     topServersRes,
     topAppsRes,
-    saasFinanceRes,
-    saasDailyRes,
     purchasesRes,
-    saasCostRes,
-    ] = await Promise.all([
+  ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
     supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
@@ -289,89 +245,41 @@ export default async function AdminDashboardPage({
     supabase.from("vw_dashboard_payments_daily_current_month").select("*").order("day", { ascending: true }),
     supabase.from("vw_dashboard_top_servers_current_month").select("*").order("clients_created", { ascending: false }).limit(5),
     supabase.from("vw_dashboard_top_apps_current_month").select("*").order("clients_count", { ascending: false }).limit(5),
-    (showSaas && myTenantId
-      ? supabase.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", myTenantId).maybeSingle()
-      : Promise.resolve({ data: null })) as Promise<any>,
-    (showSaas && myTenantId
-      ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").eq("tenant_id", myTenantId).order("day", { ascending: true })
-      : Promise.resolve({ data: null })) as Promise<any>,
-    // 👇 NOVO: Puxa o histórico de compras com filtro de tenant_id!
-    (myTenantId 
-      ? supabase.from("server_credit_purchases").select("created_at, total_amount_brl").eq("tenant_id", myTenantId).gte("created_at", isoDateFromYMD(new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(), new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1, 1))
-      : Promise.resolve({ data: null })) as Promise<any>,
-    (showSaas && myTenantId
+    (myTenantId
       ? supabase
-          .from("saas_credit_transactions")
-          .select("created_at, price_amount")
+          .from("server_credit_purchases")
+          .select("created_at, total_amount_brl")
           .eq("tenant_id", myTenantId)
-          .in("type", ["purchase", "grant"])
+          .gte(
+            "created_at",
+            isoDateFromYMD(
+              new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(),
+              new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1,
+              1
+            )
+          )
       : Promise.resolve({ data: null })) as Promise<any>,
-    ]);
+  ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
 
-  type VwSaasFinance = {
-    renewal_today_qty: number | null; renewal_today_brl: number | null;
-    credits_today_qty: number | null; credits_today_brl: number | null;
-    renewal_month_qty: number | null; renewal_month_brl: number | null;
-    credits_month_qty: number | null; credits_month_brl: number | null;
-    renewal_prev_qty:  number | null; renewal_prev_brl:  number | null;
-    credits_prev_qty:  number | null; credits_prev_brl:  number | null;
-  };
-  type VwSaasDaily = { day: string; renewal_brl: number | null; credits_brl: number | null; new_resellers: number | null; };
-
-  const saasFinance = ((saasFinanceRes as any)?.data ?? null) as VwSaasFinance | null;
-  const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
-
-  // 👇 NOVO: Cálculos exatos das despesas
+  // Despesas (server_credit_purchases) para cálculo de Lucro
   const purchasesRows = (purchasesRes?.data ?? []) as { created_at: string, total_amount_brl: number }[];
   let expensesMonthVal = 0;
   let expensesPrevMonthVal = 0;
-  
+
   const today = todayInSaoPaulo();
   for (const row of purchasesRows) {
     const d = new Date(row.created_at);
     if (d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
-        expensesMonthVal += toNumber(row.total_amount_brl);
+      expensesMonthVal += toNumber(row.total_amount_brl);
     } else {
-        expensesPrevMonthVal += toNumber(row.total_amount_brl);
+      expensesPrevMonthVal += toNumber(row.total_amount_brl);
     }
   }
-  // 👆 FIM DO CÁLCULO 👇
 
-  // ✅ NOVO — custo SaaS (créditos comprados do pai)
-  const saasCostRows = (saasCostRes?.data ?? []) as { created_at: string; price_amount: number }[];
-  let saasCostTodayVal = 0;
-  let saasCostMonthVal = 0;
-  let saasCostPrevMonthVal = 0;
-
-  for (const row of saasCostRows) {
-  const amt = toNumber(row.price_amount);
-
-  // Normaliza para SP (mesmo padrão do resto do dashboard)
-  const spDate = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ_SP, year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date(row.created_at));
-  const [sy, sm, sd] = spDate.split("-").map(Number);
-
-  const todayY = today.getFullYear();
-  const todayM = today.getMonth() + 1; // getMonth() é 0-indexed
-  const todayD = today.getDate();
-
-  const prevM = todayM === 1 ? 12 : todayM - 1;
-  const prevY = todayM === 1 ? todayY - 1 : todayY;
-
-  const isToday     = sy === todayY && sm === todayM && sd === todayD;
-  const isThisMonth = sy === todayY && sm === todayM;
-  const isPrevMonth = sy === prevY  && sm === prevM;
-
-  if (isToday)     saasCostTodayVal     += amt;
-  if (isThisMonth) saasCostMonthVal     += amt;
-  if (isPrevMonth) saasCostPrevMonthVal += amt;
-}
-
-  // ── Finanças Pessoais (isolado para não derrubar a página) ───────
+  // ── Finanças Pessoais ───────
   type FinTrx = {
     id: string;
     tipo: "RECEITA" | "DESPESA";
@@ -409,7 +317,6 @@ export default async function AdminDashboardPage({
     ]);
 
     if (trxRes.status === "fulfilled" && !trxRes.value.error) {
-      // Deduplica por id (o OR pode trazer a mesma row por ambas as condições)
       const seen = new Set<string>();
       for (const t of trxRes.value.data ?? []) {
         if (!seen.has(t.id)) { seen.add(t.id); finTrxRows.push(t as FinTrx); }
@@ -444,9 +351,6 @@ export default async function AdminDashboardPage({
     }
   }
 
-  
-
-  // Igual à página: CAIXA = status PAGO com data_pagamento dentro do mês
   const isFinPagoNoMes = (t: FinTrx) => {
     if (t.status !== "PAGO" || !t.data_pagamento) return false;
     const iso = t.data_pagamento.split("T")[0];
@@ -461,7 +365,6 @@ export default async function AdminDashboardPage({
     .filter(t => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // Total/Previsão: apenas o que tem VENCIMENTO no mês (igual à página)
   const finReceitasTotal = finTrxRows
     .filter(t => t.tipo === "RECEITA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
@@ -470,7 +373,6 @@ export default async function AdminDashboardPage({
     .filter(t => t.tipo === "DESPESA" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // Pendentes reais: vencimento no mês E status != PAGO
   const finReceitasPendentes = finTrxRows
     .filter(t => t.tipo === "RECEITA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
@@ -479,12 +381,11 @@ export default async function AdminDashboardPage({
     .filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // Rankings por categoria (apenas pagos)
+  // Rankings por categoria
   const catRevMap = new Map<string, { label: string; value: number }>();
   const catExpMap = new Map<string, { label: string; value: number }>();
   for (const t of finTrxRows) {
     if (t.status !== "PAGO") continue;
-    // Ranking por vencimento no mês (igual à previsão)
     if (t.data_vencimento < _finMonthStart || t.data_vencimento > _finMonthEnd) continue;
     const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
     const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
@@ -497,7 +398,6 @@ export default async function AdminDashboardPage({
     .sort((a, b) => b.value - a.value).slice(0, 5);
   const finCatExpenseItems: BarItem[] = Array.from(catExpMap.values())
     .sort((a, b) => b.value - a.value).slice(0, 5);
-  // ── Fim das Finanças Pessoais ────────────────────────────────────
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -505,7 +405,7 @@ export default async function AdminDashboardPage({
   const topServers = (topServersRes.data ?? []) as VwTopServers[];
   const topApps = (topAppsRes.data ?? []) as VwTopApps[];
 
-  // KPIs (view pode vir vazia => zeros)
+  // KPIs
   const activeClients = toNumber(kpis?.active_clients);
   const activeMrr = toNumber(kpis?.active_mrr_brl_estimated);
 
@@ -517,19 +417,18 @@ export default async function AdminDashboardPage({
   const trialsConverted = toNumber(kpis?.trials_converted_month);
   const trialsConvPct = toNumber(kpis?.trials_conversion_percent);
 
-  // Due buckets por offset (-2..+2) (só organiza output da view)
+  // Due buckets por offset
   const dueByOffset = new Map<number, DueBucket>();
   for (const row of dueRows) {
     const off = Number(row.day_offset);
     if (!Number.isFinite(off)) continue;
-
     dueByOffset.set(off, {
       qty: toNumber(row.qty),
       amount: toNumber(row.amount_brl_estimated),
     });
   }
 
-  // Finance cards (já vem pronto)
+  // Finance cards
   const clientsTodayQty = toNumber(finance?.clients_paid_today_qty);
   const clientsTodayVal = toNumber(finance?.clients_paid_today_brl_estimated);
   const resellerTodayQty = toNumber(finance?.reseller_paid_today_qty);
@@ -548,86 +447,51 @@ export default async function AdminDashboardPage({
   const toReceiveQty = toNumber(finance?.to_receive_clients_qty);
   const toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
 
-  // Gráfico: novos cadastros (view já vem por dia)
+  // Gráfico: novos cadastros
   const regsMap = new Map<string, { clients: number; trials: number }>();
-for (const r of regsRows) {
-  const key = normalizeDayKey(r.day);
-  regsMap.set(key, {
-    clients: toNumber(r.clients_created),
-    trials: toNumber(r.trials_created),
-  });
-}
-
-const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-  const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
-  const total = found.clients + found.trials;
-
-  return {
-    label: String(dayNum), // eixo X limpo: 1,2,3...
-    value: total,
-    displayValue: total,
-    tooltipTitle: spTitleFromISO(iso),
-    tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
-  };
-});
-
-
-  // Gráfico: pagamentos (BRL por dia)
-const payMap = new Map<string, { clients: number; reseller: number }>();
-for (const r of paymentsRows) {
-  const key = normalizeDayKey(r.day);
-  payMap.set(key, {
-    clients: toNumber(r.clients_paid_brl_estimated),
-    reseller: toNumber(r.reseller_paid_brl),
-  });
-}
-
-const saasDailyMap = new Map<string, { renewal: number; credits: number; resellers: number }>();
-  for (const r of saasDailyRows) {
+  for (const r of regsRows) {
     const key = normalizeDayKey(r.day);
-    saasDailyMap.set(key, {
-      renewal: toNumber(r.renewal_brl),
-      credits: toNumber(r.credits_brl),
-      resellers: toNumber(r.new_resellers),
+    regsMap.set(key, {
+      clients: toNumber(r.clients_created),
+      trials: toNumber(r.trials_created),
     });
   }
 
-  const chartSaasRevenueData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
-    const total = found.renewal + found.credits;
+  const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
+    const total = found.clients + found.trials;
+
     return {
       label: String(dayNum),
       value: total,
       displayValue: total,
       tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `Renovações: ${fmtBRL(found.renewal)} • Créditos: ${fmtBRL(found.credits)} • Total: ${fmtBRL(total)}`,
+      tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
     };
   });
 
-  const chartSaasResellersData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
+  // Gráfico: pagamentos
+  const payMap = new Map<string, { clients: number; reseller: number }>();
+  for (const r of paymentsRows) {
+    const key = normalizeDayKey(r.day);
+    payMap.set(key, {
+      clients: toNumber(r.clients_paid_brl_estimated),
+      reseller: toNumber(r.reseller_paid_brl),
+    });
+  }
+
+  const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
+    const totalVal = found.clients + found.reseller;
+
     return {
       label: String(dayNum),
-      value: found.resellers,
-      displayValue: found.resellers,
+      value: totalVal,
+      displayValue: totalVal,
       tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `${fmtInt(found.resellers)} novo(s) revendedor(es)`,
+      tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
     };
   });
-
-const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-  const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
-  const totalVal = found.clients + found.reseller;
-
-  return {
-    label: String(dayNum),
-    value: totalVal,
-    displayValue: totalVal,
-    tooltipTitle: spTitleFromISO(iso),
-    tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
-  };
-});
-
 
   const topServersItems: BarItem[] = topServers.map((s) => ({
     label: s.server_name,
@@ -639,11 +503,10 @@ const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().m
     value: toNumber(a.clients_count),
   }));
 
-return (
-  <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
+  return (
+    <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
 
       {/* Header */}
-      
       <div className="flex flex-wrap items-start justify-between gap-3 px-3 sm:px-0">
         <div>
           <div className="flex items-center gap-3">
@@ -657,250 +520,188 @@ return (
           </div>
         </div>
 
-        {availableModules.length > 1 && (
-          <DashboardFilter
-            availableModules={availableModules}
-            currentViews={activeViews}
-            tenantModules={tenantModules}
-          />
-        )}
+        <DashboardFilter
+          availableModules={[...availableModules]}
+          currentViews={activeViews}
+        />
       </div>
 
       {/* CARDS TOPO */}
-                  {showClientesView && <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showTestes ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+      {showClientesView && (
+        <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showTestes ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+          <MetricCardView
+            title="Ativos"
+            accent="green"
+            leftLabel="Clientes"
+            leftValue={fmtInt(activeClients)}
+            rightLabel="MRR Estimado"
+            rightValue={fmtBRL(activeMrr)}
+            footer="Mês atual"
+            href="/admin/cliente?filter=ativos"
+          />
 
+          <MetricCardView
+            title="Vencidos"
+            accent="red"
+            leftLabel="Clientes"
+            leftValue={fmtInt(overdueClients)}
+            rightLabel="Pendente"
+            rightValue={fmtBRL(overdueAmount)}
+            footer="Mês atual"
+            href="/admin/cliente?filter=vencidos"
+          />
 
-<MetricCardView title="Ativos"
-          accent="green"
-          leftLabel="Clientes"
-          leftValue={fmtInt(activeClients)}
-          rightLabel="MRR Estimado"
-          rightValue={fmtBRL(activeMrr)}
-          footer="Mês atual"
-          href="/admin/cliente?filter=ativos" // ✅ Abre lista filtrada por Status: Ativo
-        />
-
-<MetricCardView title="Vencidos"
-          accent="red"
-          leftLabel="Clientes"
-          leftValue={fmtInt(overdueClients)}
-          rightLabel="Pendente"
-          rightValue={fmtBRL(overdueAmount)}
-          footer="Mês atual"
-          href="/admin/cliente?filter=vencidos" // ✅ Abre lista filtrada por Status: Vencido
-        />
-
-{showTestes && <MetricCardView title="Testes"
-          accent="blue"
-          leftLabel="Criados"
-          leftValue={fmtInt(trialsCreated)}
-          rightLabel="Conversão"
-          rightValue={fmtPct(trialsConvPct)}
-          footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
-          href="/admin/teste" // <--- Link direto para página de testes
-       />}
-      </div>}
+          {showTestes && (
+            <MetricCardView
+              title="Testes"
+              accent="blue"
+              leftLabel="Criados"
+              leftValue={fmtInt(trialsCreated)}
+              rightLabel="Conversão"
+              rightValue={fmtPct(trialsConvPct)}
+              footer={`Ativos: ${fmtInt(trialsActive)} • Convertidos: ${fmtInt(trialsConverted)}`}
+              href="/admin/teste"
+            />
+          )}
+        </div>
+      )}
 
       {/* VENCIMENTOS */}
-      {showClientesView && <><SectionTitle title="VENCIMENTOS (5 DIAS)" />
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
-
-        <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
-        <VencimentoCard diff={-1} map={dueByOffset} title="Venceu Ontem" color="gray" />
-        <VencimentoCard diff={0} map={dueByOffset} title="Vence Hoje" color="yellow" />
-        <VencimentoCard diff={1} map={dueByOffset} title="Vence Amanhã" color="amber" />
-        <VencimentoCard diff={2} map={dueByOffset} title="Vence em 2 dias" color="blue" />
-      </div></>}
-
-      {showClientesView && <><div className="sm:hidden">
-  <SectionTitle title="FINANCEIRO R$" />
-</div>
-<div className="hidden sm:block">
-  <SectionTitle title="FINANCEIRO" />
-</div>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
-
-        <MetricCardView
-  title="Recebidos Hoje"
-  accent="green"
-  leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
-  leftValue={
-    <>
-      <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
-      <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
-    </>
-  }
-  rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
-  rightValue={
-    <>
-      <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
-      <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
-    </>
-  }
-  footer={
-    <>
-      <span className="sm:hidden">
-        Total: {fmtBRLNoSymbol(clientsTodayVal + resellerTodayVal)}
-      </span>
-      <span className="hidden sm:inline">
-        Total: {fmtBRL(clientsTodayVal + resellerTodayVal)}
-      </span>
-    </>
-  } 
-/>
-
-
-        <MetricCardView
-          title="Faturamento (Mês)"
-          accent="green"
-          leftLabel={`Clientes (${fmtInt(clientsMonthQty)})`}
-          leftValue={
-  <>
-    
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
-
-    <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
-  </>
-}
-          rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
-          rightValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
-    <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
-  </>
-}
-    footer={
-        <div className="flex justify-between items-center w-full">
-          <div>
-            <span className="sm:hidden">
-              Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
-            </span>
-            <span className="hidden sm:inline">
-              Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
-            </span>
-          </div>
-          <div className={`${(clientsMonthVal + resellerMonthVal) - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
-            <span className="sm:hidden">
-              Lucro: {fmtBRLNoSymbol((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
-            </span>
-            <span className="hidden sm:inline">
-              Lucro: {fmtBRL((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
-            </span>
-          </div>
-        </div>
-      }
-
-        />
-
-        <MetricCardView
-          title="A Receber (Ativos)"
-          accent="amber"
-          leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
-          leftValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
-    <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
-  </>
-}
-
-          footer="Até o fim do mês"
-        />
-
-        <MetricCardView
-          title="Mês Anterior"
-          accent="gray"
-          leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
-          leftValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
-    <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
-  </>
-}
-          rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
-          rightValue={
-  <>
-    <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
-    <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
-  </>
-}
-          footer={
-        <div className="flex justify-between items-center w-full">
-          <div>
-            <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
-            <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
-          </div>
-          
-          <div className={`${(clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
-            <span className="sm:hidden">Lucro: {fmtBRLNoSymbol((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
-            <span className="hidden sm:inline">Lucro: {fmtBRL((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
-          </div>
-        </div>
-      }
-        />
-      </div></>}
-
-{/* REVENDA SAAS — só SUPERADMIN e MASTER */}
-      {showSaas && showSaasView && (
+      {showClientesView && (
         <>
-          <SectionTitle title="REVENDA SAAS" />
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+          <SectionTitle title="VENCIMENTOS (5 DIAS)" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <VencimentoCard diff={-2} map={dueByOffset} title="Venceu há 2 dias" color="gray" />
+            <VencimentoCard diff={-1} map={dueByOffset} title="Venceu Ontem" color="gray" />
+            <VencimentoCard diff={0} map={dueByOffset} title="Vence Hoje" color="yellow" />
+            <VencimentoCard diff={1} map={dueByOffset} title="Vence Amanhã" color="amber" />
+            <VencimentoCard diff={2} map={dueByOffset} title="Vence em 2 dias" color="blue" />
+          </div>
+        </>
+      )}
 
-            {/* Hoje */}
+      {showClientesView && (
+        <>
+          <div className="sm:hidden">
+            <SectionTitle title="FINANCEIRO R$" />
+          </div>
+          <div className="hidden sm:block">
+            <SectionTitle title="FINANCEIRO" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+
             <MetricCardView
-              title="SaaS Recebido Hoje"
+              title="Recebidos Hoje"
               accent="green"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_today_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_today_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_today_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_today_brl))}
+              leftLabel={`Clientes (${fmtInt(clientsTodayQty)})`}
+              leftValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsTodayVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(clientsTodayVal)}</span>
+                </>
+              }
+              rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
+              rightValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerTodayVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(resellerTodayVal)}</span>
+                </>
+              }
               footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal)}
-    </span>
-  </div>
-}
+                <>
+                  <span className="sm:hidden">
+                    Total: {fmtBRLNoSymbol(clientsTodayVal + resellerTodayVal)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    Total: {fmtBRL(clientsTodayVal + resellerTodayVal)}
+                  </span>
+                </>
+              }
             />
 
-            {/* Mês Atual */}
             <MetricCardView
-              title="SaaS Faturamento (Mês)"
+              title="Faturamento (Mês)"
               accent="green"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_month_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_month_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_month_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_month_brl))}
+              leftLabel={`Clientes (${fmtInt(clientsMonthQty)})`}
+              leftValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsMonthVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(clientsMonthVal)}</span>
+                </>
+              }
+              rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
+              rightValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerMonthVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(resellerMonthVal)}</span>
+                </>
+              }
               footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal)}
-    </span>
-  </div>
-}
+                <div className="flex justify-between items-center w-full">
+                  <div>
+                    <span className="sm:hidden">
+                      Total: {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
+                    </span>
+                  </div>
+                  <div className={`${(clientsMonthVal + resellerMonthVal) - expensesMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                    <span className="sm:hidden">
+                      Lucro: {fmtBRLNoSymbol((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Lucro: {fmtBRL((clientsMonthVal + resellerMonthVal) - expensesMonthVal)}
+                    </span>
+                  </div>
+                </div>
+              }
             />
 
-            {/* Mês Anterior */}
             <MetricCardView
-              title="SaaS Mês Anterior"
+              title="A Receber (Ativos)"
+              accent="amber"
+              leftLabel={`Clientes (${fmtInt(toReceiveQty)})`}
+              leftValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(toReceiveVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(toReceiveVal)}</span>
+                </>
+              }
+              footer="Até o fim do mês"
+            />
+
+            <MetricCardView
+              title="Mês Anterior"
               accent="gray"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_prev_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_prev_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_prev_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_prev_brl))}
+              leftLabel={`Clientes (${fmtInt(clientsPrevMonthQty)})`}
+              leftValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(clientsPrevMonthVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(clientsPrevMonthVal)}</span>
+                </>
+              }
+              rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
+              rightValue={
+                <>
+                  <span className="sm:hidden">{fmtBRLNoSymbol(resellerPrevMonthVal)}</span>
+                  <span className="hidden sm:inline">{fmtBRL(resellerPrevMonthVal)}</span>
+                </>
+              }
               footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal)}
-    </span>
-  </div>
-}
+                <div className="flex justify-between items-center w-full">
+                  <div>
+                    <span className="sm:hidden">Total: {fmtBRLNoSymbol(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+                    <span className="hidden sm:inline">Total: {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}</span>
+                  </div>
+                  <div className={`${(clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                    <span className="sm:hidden">Lucro: {fmtBRLNoSymbol((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
+                    <span className="hidden sm:inline">Lucro: {fmtBRL((clientsPrevMonthVal + resellerPrevMonthVal) - expensesPrevMonthVal)}</span>
+                  </div>
+                </div>
+              }
             />
-
-
           </div>
         </>
       )}
@@ -966,100 +767,60 @@ return (
         </>
       )}
 
-      {/* GRÁFICOS */}
-      {showClientesView && <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}>
-
-
-
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-2 sm:mb-4">
-
-
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-  {(hasAcademia || hasPersonal) ? "Novos alunos" : "Novos clientes"}
-</h3>
-
-            </div>
-          </div>
-          <div className="sv w-full">
-<SimpleBarChart
-  data={chartRegsData}
-  colorClass="from-emerald-400 to-emerald-600 ring-emerald-500"
-  label="Cadastros"
-  heightClass="h-40 sm:h-56"
-/>
-
-            {chartRegsData.length === 0 && (
-              <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-2 sm:mb-4">
-
-
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-  Pagamentos Recebidos
-</h3>
-
-            </div>
-          </div>
-          <div className="sv w-full">
-            <SimpleBarChart
-              data={chartPaymentsData}
-              colorClass="from-sky-400 to-blue-600 ring-blue-500"
-              label="BRL"
-              heightClass="h-40 sm:h-56"
-            />
-            {chartPaymentsData.length === 0 && (
-              <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
-            )}
-          </div>
-        </div>
-      </div>}
-
-{/* GRÁFICOS SAAS */}{/* GRÁFICOS SAAS */}
-      {showSaas && showSaasView && (
-        <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+      {/* GRÁFICOS IPTV */}
+      {showClientesView && (
+        <div className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}>
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-              Receita SaaS (Mês)
-            </h3>
+            <div className="flex justify-between items-center mb-2 sm:mb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  Novos clientes
+                </h3>
+              </div>
+            </div>
             <div className="sv w-full">
               <SimpleBarChart
-                data={chartSaasRevenueData}
-                colorClass="from-violet-400 to-violet-600"
+                data={chartRegsData}
+                colorClass="from-emerald-400 to-emerald-600 ring-emerald-500"
+                label="Cadastros"
+                heightClass="h-40 sm:h-56"
+              />
+              {chartRegsData.length === 0 && (
+                <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-2 sm:mb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  Pagamentos Recebidos
+                </h3>
+              </div>
+            </div>
+            <div className="sv w-full">
+              <SimpleBarChart
+                data={chartPaymentsData}
+                colorClass="from-sky-400 to-blue-600 ring-blue-500"
                 label="BRL"
                 heightClass="h-40 sm:h-56"
               />
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-              Novos Revendedores SaaS
-            </h3>
-            <div className="sv w-full">
-              <SimpleBarChart
-                data={chartSaasResellersData}
-                colorClass="from-amber-400 to-amber-600"
-                label="Revendas"
-                heightClass="h-40 sm:h-56"
-              />
+              {chartPaymentsData.length === 0 && (
+                <div className="text-zinc-400 text-sm mt-3">Sem dados no mês atual.</div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-
       {/* RANKINGS */}
-{showRankings && <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-  <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
-  <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
-</div>}
+      {showRankings && (
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
+          <div className="sv"><RankingCard title="Top Servidores (Mês Atual)" items={topServersItems} accentColor="sky" /></div>
+          <div className="sv"><RankingCard title="Top Aplicativos (Mês Atual)" items={topAppsItems} accentColor="emerald" /></div>
+        </div>
+      )}
 
       {/* EVOLUÇÃO 12 MESES (Apenas na visão exclusiva do Financeiro) */}
       {activeViews.length === 1 && activeViews.includes("financeiro") && (
@@ -1067,103 +828,9 @@ return (
           <EvolucaoFinanceira myTenantId={myTenantId} />
         </div>
       )}
-      
+
     </div>
   );
-}
-
-
-
-/* =====================
-   ACADEMIA/PERSONAL — SERVIDOR VIRTUAL AUTOMÁTICO
-===================== */
-
-async function ensureAcademiaServer(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  tenantId: string,
-  slug: string
-) {
-  try {
-    const serverName = slug ? slug.charAt(0).toUpperCase() + slug.slice(1).toLowerCase() : "Academia";
-    const serverSlug = slug ? slug.toLowerCase() : "academia";
-
-    // 1. Verifica se já existe pelo SLUG ou NOME (evita recriar se o nome mudou minimamente)
-    const { data: existing } = await supabase
-      .from("servers")
-      .select("id, credits_available, panel_integration")
-      .eq("tenant_id", tenantId)
-      .or(`slug.eq.${serverSlug},name.ilike.${serverName}`)
-      .limit(1)
-      .maybeSingle();
-
-    let serverId: string | null = existing?.id ?? null;
-
-    if (!existing) {
-      // 2. Cria o servidor virtual
-      const { data: newServer, error: insertErr } = await supabase
-        .from("servers")
-        .insert({
-          tenant_id:           tenantId,
-          name:                serverName,
-          slug:                serverSlug,
-          default_currency:    "BRL" as any,
-          avg_credit_cost_brl: 0,
-          whatsapp_session:    "default",
-          is_archived:         false,
-        })
-        .select("id")
-        .single();
-
-      if (insertErr || !newServer) {
-        console.error("[ensureAcademiaServer] Falha ao criar servidor:", insertErr?.message);
-        return;
-      }
-
-      serverId = newServer.id;
-
-      // 3. Aplica 9999 créditos (Garante número inteiro limpo)
-      await supabase.rpc("update_server_credits_manual", {
-        p_server_id:   serverId,
-        p_new_credits: Number(9999),
-      });
-      
-    } else if (isNaN(Number(existing.credits_available))) {
-      // ✅ AUTO-REPARO: Se o banco corrompeu com "NaN" no passado, conserta agora!
-      await supabase.rpc("update_server_credits_manual", {
-        p_server_id:   serverId,
-        p_new_credits: Number(9999),
-      });
-    }
-
-    // 4. Cria integração ALUNO se ainda não existir
-    if (serverId && !existing?.panel_integration) {
-      const { data: integ, error: integErr } = await supabase
-        .from("server_integrations")
-        .insert({
-          tenant_id:        tenantId,
-          provider:         "ALUNO",
-          integration_name: `${serverName} — Academia`,
-          api_token:        "internal",
-          is_active:        true,
-          api_base_url:     "/api/integrations/aluno",
-        })
-        .select("id")
-        .single();
-
-      if (integErr || !integ) {
-        console.error("[ensureAcademiaServer] Falha ao criar integração:", integErr?.message);
-        return;
-      }
-
-      await supabase
-        .from("servers")
-        .update({ panel_integration: integ.id })
-        .eq("id", serverId)
-        .eq("tenant_id", tenantId);
-    }
-  } catch (e) {
-    console.error("[ensureAcademiaServer] Erro inesperado:", e);
-  }
 }
 
 /* =====================
@@ -1193,7 +860,6 @@ function VencimentoCard({
 }) {
   const d = map.get(diff) ?? { qty: 0, amount: 0 };
 
-  // Mapeia o diff para o slug do filtro na página de clientes
   let filterSlug = "";
   if (diff === -2) filterSlug = "venceu_2_dias";
   if (diff === -1) filterSlug = "venceu_ontem";
@@ -1209,7 +875,6 @@ function VencimentoCard({
       leftValue={fmtInt(d.qty)}
       rightLabel="Valor"
       rightValue={fmtBRL(d.amount)}
-      // Passa o link se houver slug
       href={filterSlug ? `/admin/cliente?filter=${filterSlug}` : undefined}
     />
   );
@@ -1223,7 +888,7 @@ function MetricCardView({
   rightLabel,
   rightValue,
   footer,
-  href, // <--- NOVO PROP
+  href,
 }: {
   title: string;
   accent: Accent;
@@ -1232,9 +897,8 @@ function MetricCardView({
   rightLabel?: string;
   rightValue?: ReactNode;
   footer?: ReactNode;
-  href?: string; // <--- TIPO NOVO
+  href?: string;
 }) {
-
   const colors: Record<Accent, string> = {
     green:
       "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
@@ -1250,12 +914,10 @@ function MetricCardView({
       "border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100",
   };
 
-  // Extraimos o conteúdo para não duplicar código
   const content = (
     <>
       <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-white/5 font-bold text-[13px] sm:text-sm flex justify-between items-center">
         {title}
-        {/* Ícone discreto indicando link */}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
       <div className="p-3 sm:p-4 flex gap-2 sm:gap-4 flex-1">
@@ -1280,7 +942,7 @@ function MetricCardView({
         )}
       </div>
 
-{footer && (
+      {footer && (
         <div className="sv px-3 sm:px-4 py-2 text-[11px] sm:text-xs bg-black/5 dark:bg-white/5 opacity-80">
           {footer}
         </div>
@@ -1290,12 +952,11 @@ function MetricCardView({
 
   const baseClass = `rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[accent]}`;
 
-  // Se tiver link, retorna Link. Senão, retorna div.
   if (href) {
     return (
-      <Link 
-        href={href} 
-        target="_blank" // Nova aba
+      <Link
+        href={href}
+        target="_blank"
         className={`${baseClass} hover:scale-[1.02] transition-transform cursor-pointer hover:shadow-md`}
       >
         {content}
@@ -1305,5 +966,3 @@ function MetricCardView({
 
   return <div className={baseClass}>{content}</div>;
 }
-
-

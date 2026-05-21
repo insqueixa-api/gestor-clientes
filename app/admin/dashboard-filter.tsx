@@ -1,116 +1,66 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
 
-// Rótulo do filtro varia com os módulos ativos no tenant.
-// O slug interno "iptv" é mantido (compat com ?view=iptv), só muda o que aparece pro usuário:
-//   - iptv + (academia/personal) → 📺 Clientes
-//   - só academia/personal       → 🏋️ Alunos
-//   - só iptv                    → 📺 IPTV
-function getModuleMeta(key: string, tenantModules: string[]): { label: string; icon: string } {
-  if (key === "iptv") {
-    const hasIptv  = tenantModules.includes("iptv");
-    const hasAluno = tenantModules.includes("academia") || tenantModules.includes("personal");
-    if (hasIptv && hasAluno) return { label: "Clientes", icon: "📺" };
-    if (hasAluno && !hasIptv) return { label: "Alunos",   icon: "🏋️" };
-    return { label: "IPTV", icon: "📺" };
-  }
-  if (key === "saas")       return { label: "SaaS",       icon: "⚡" };
-  if (key === "financeiro") return { label: "Financeiro", icon: "📊" };
-  return { label: key, icon: "❓" };
-}
+const MODULES_META: Record<string, { label: string; icon: string }> = {
+  iptv:       { label: "IPTV",       icon: "📺" },
+  financeiro: { label: "Financeiro", icon: "📊" },
+};
 
 export function DashboardFilter({
   availableModules,
   currentViews,
-  tenantModules,
 }: {
   availableModules: string[];
   currentViews: string[];
-  tenantModules: string[];
 }) {
   const router   = useRouter();
   const pathname = usePathname();
-  const [open, setOpen]       = useState(false);
-  const [selected, setSelected] = useState<string[]>(currentViews);
-
-  function apply(newSelected: string[]) {
-    setOpen(false);
-    const effective = newSelected.length === 0 || newSelected.length === availableModules.length
-      ? availableModules : newSelected;
-    if (effective.length === availableModules.length) router.push(pathname);
-    else router.push(`${pathname}?view=${effective.join(",")}`);
-  }
 
   function toggle(key: string) {
-    setSelected(prev =>
-      prev.includes(key) ? prev.filter(v => v !== key) : [...prev, key]
-    );
+    const isActive = currentViews.includes(key);
+    let next: string[];
+    if (isActive) {
+      next = currentViews.filter(v => v !== key);
+    } else {
+      next = [...currentViews, key];
+    }
+
+    // Não permite desabilitar tudo (pelo menos 1 ativo)
+    if (next.length === 0) return;
+
+    if (next.length === availableModules.length) {
+      router.push(pathname);
+    } else {
+      router.push(`${pathname}?view=${next.join(",")}`);
+    }
   }
 
-  const allSelected = selected.length === availableModules.length;
-  const label = allSelected ? "Mostrar Tudo"
-    : selected.length === 0 ? "Nenhum"
-    : selected.map(v => getModuleMeta(v, tenantModules).label).join(", ");
-
   return (
-    <div className="relative">
-      <button
-        onClick={() => open ? apply(selected) : setOpen(true)}
-        className="flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm font-bold text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
-        </svg>
-        <span className="max-w-[180px] truncate">{label}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`transition-transform ${open ? "rotate-180" : ""}`}>
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => apply(selected)} />
-          <div className="absolute right-0 top-11 z-50 w-52 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-1.5 space-y-0.5">
-
-            {/* Mostrar Tudo */}
-            <button
-              onClick={() => setSelected(allSelected ? [] : availableModules)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-white"
-            >
-              <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${allSelected ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 dark:border-white/20"}`}>
-                {allSelected && "✓"}
-              </span>
-              Mostrar Tudo
-            </button>
-
-            <div className="h-px bg-slate-100 dark:bg-white/5 mx-2 my-1" />
-
-            {availableModules.map(key => {
-              const active = selected.includes(key);
-              const meta = getModuleMeta(key, tenantModules);
-              return (
-                <button key={key} onClick={() => toggle(key)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-white"
-                >
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 transition-colors ${active ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 dark:border-white/20"}`}>
-                    {active && "✓"}
-                  </span>
-                  <span>{meta?.icon}</span>
-                  <span>{meta?.label}</span>
-                </button>
-              );
-            })}
-
-            <div className="h-px bg-slate-100 dark:bg-white/5 mx-2 my-1" />
-            <button onClick={() => apply(selected)}
-              className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
-            >
-              Aplicar
-            </button>
-          </div>
-        </>
-      )}
+    <div className="flex items-center gap-2">
+      {availableModules.map(key => {
+        const active = currentViews.includes(key);
+        const meta = MODULES_META[key] ?? { label: key, icon: "❓" };
+        return (
+          <button
+            key={key}
+            onClick={() => toggle(key)}
+            className={`flex items-center gap-2 h-9 px-3 rounded-lg border text-sm font-bold transition-all shadow-sm ${
+              active
+                ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/10"
+            }`}
+            title={active ? `Ocultar ${meta.label}` : `Mostrar ${meta.label}`}
+          >
+            <span>{meta.icon}</span>
+            <span>{meta.label}</span>
+            {active && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
