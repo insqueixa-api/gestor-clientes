@@ -214,47 +214,30 @@ export default async function AdminDashboardPage({
   const supabase = await createClient();
   const resolvedParams = await searchParams;
 
-  // Views only
-  const [authRes, { data: roleData }] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.rpc("saas_my_role"),
-  ]);
+  // Pega apenas o usuário autenticado
+  const authRes = await supabase.auth.getUser();
   const user = authRes.data.user;
-  const myRole = (roleData ?? "USER").toUpperCase();
-  const showSaas = myRole === "SUPERADMIN" || myRole === "MASTER";
 
   const memberResult = user
     ? await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle()
     : null;
   const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
 
-  // Módulos ativos do tenant
-  const saasRow = myTenantId
-    ? await supabase.from("vw_saas_tenants").select("active_modules, slug").eq("id", myTenantId).maybeSingle()
-    : null;
-  const tenantModules: string[] = (saasRow?.data as any)?.active_modules ?? ["iptv"];
-  const tenantSlug: string       = (saasRow?.data as any)?.slug ?? "";
-  const hasIPTV          = tenantModules.includes("iptv");
-  const hasSaaS          = tenantModules.includes("saas") && showSaas;
-  const hasFinanceiro    = tenantModules.includes("financeiro");
-  const hasAcademia      = tenantModules.includes("academia");
-  const hasPersonal      = tenantModules.includes("personal");
-  // Academia e Personal compartilham os mesmos cards/gráficos do IPTV
-  const hasClientesView  = hasIPTV || hasAcademia || hasPersonal;
-  const availableModules = (["iptv", "saas", "financeiro"] as const).filter(m =>
-    m === "iptv" ? hasClientesView : m === "saas" ? hasSaaS : hasFinanceiro
-  );
+  // Como agora é uso exclusivo, definimos os módulos disponíveis e ativos
+  // "iptv" aqui mantém a compatibilidade com seu componente de clientes
+  const availableModules = ["iptv", "financeiro"]; 
+  const tenantModules = ["iptv", "financeiro"]; // Passado para o DashboardFilter não quebrar
 
-  // Filtro via URL
+  // Filtro via URL (Mantém seu DashboardFilter funcionando!)
   const paramViews = resolvedParams?.view
     ? resolvedParams.view.split(",").filter(v => availableModules.includes(v as any))
     : [];
   const activeViews = paramViews.length > 0 ? paramViews : [...availableModules];
-  const showClientesView = hasClientesView && activeViews.includes("iptv");
-  const showTestes       = hasIPTV         && activeViews.includes("iptv");
-  const showRankings     = hasIPTV         && activeViews.includes("iptv");
-  const showSaasView     = hasSaaS         && activeViews.includes("saas");
-  const showFinView      = hasFinanceiro   && activeViews.includes("financeiro");
+  
+  const showClientesView = activeViews.includes("iptv");
+  const showTestes       = activeViews.includes("iptv");
+  const showRankings     = activeViews.includes("iptv");
+  const showFinView      = activeViews.includes("financeiro");
 
   // Datas do mês atual para o painel de finanças pessoais
   const _finToday = todayInSaoPaulo();
@@ -263,11 +246,7 @@ export default async function AdminDashboardPage({
   const _finMonthStart = isoDateFromYMD(_finYear, _finMonth, 1);
   const _finMonthEnd = isoDateFromYMD(_finYear, _finMonth, new Date(_finYear, _finMonth, 0).getDate());
 
-  // Auto-cria servidor virtual para academia/personal (roda a cada acesso, idempotente)
-  const isAlunosOnlyDash = (hasAcademia || hasPersonal) && !hasIPTV && !hasSaaS;
-  if (isAlunosOnlyDash && myTenantId && tenantSlug) {
-    await ensureAcademiaServer(supabase, myTenantId, tenantSlug);
-  }
+  
 
   const [
     kpisRes,
@@ -277,11 +256,8 @@ export default async function AdminDashboardPage({
     paymentsRes,
     topServersRes,
     topAppsRes,
-    saasFinanceRes,
-    saasDailyRes,
     purchasesRes,
-    saasCostRes,
-    ] = await Promise.all([
+  ] = await Promise.all([
     supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
     supabase.from("vw_dashboard_due_5_days").select("*"),
     supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
@@ -289,40 +265,15 @@ export default async function AdminDashboardPage({
     supabase.from("vw_dashboard_payments_daily_current_month").select("*").order("day", { ascending: true }),
     supabase.from("vw_dashboard_top_servers_current_month").select("*").order("clients_created", { ascending: false }).limit(5),
     supabase.from("vw_dashboard_top_apps_current_month").select("*").order("clients_count", { ascending: false }).limit(5),
-    (showSaas && myTenantId
-      ? supabase.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", myTenantId).maybeSingle()
-      : Promise.resolve({ data: null })) as Promise<any>,
-    (showSaas && myTenantId
-      ? supabase.from("vw_saas_dashboard_daily_current_month").select("*").eq("tenant_id", myTenantId).order("day", { ascending: true })
-      : Promise.resolve({ data: null })) as Promise<any>,
-    // 👇 NOVO: Puxa o histórico de compras com filtro de tenant_id!
     (myTenantId 
       ? supabase.from("server_credit_purchases").select("created_at, total_amount_brl").eq("tenant_id", myTenantId).gte("created_at", isoDateFromYMD(new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getFullYear(), new Date(todayInSaoPaulo().getFullYear(), todayInSaoPaulo().getMonth() - 1, 1).getMonth() + 1, 1))
       : Promise.resolve({ data: null })) as Promise<any>,
-    (showSaas && myTenantId
-      ? supabase
-          .from("saas_credit_transactions")
-          .select("created_at, price_amount")
-          .eq("tenant_id", myTenantId)
-          .in("type", ["purchase", "grant"])
-      : Promise.resolve({ data: null })) as Promise<any>,
-    ]);
+  ]);
 
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
 
-  type VwSaasFinance = {
-    renewal_today_qty: number | null; renewal_today_brl: number | null;
-    credits_today_qty: number | null; credits_today_brl: number | null;
-    renewal_month_qty: number | null; renewal_month_brl: number | null;
-    credits_month_qty: number | null; credits_month_brl: number | null;
-    renewal_prev_qty:  number | null; renewal_prev_brl:  number | null;
-    credits_prev_qty:  number | null; credits_prev_brl:  number | null;
-  };
-  type VwSaasDaily = { day: string; renewal_brl: number | null; credits_brl: number | null; new_resellers: number | null; };
-
-  const saasFinance = ((saasFinanceRes as any)?.data ?? null) as VwSaasFinance | null;
-  const saasDailyRows = (((saasDailyRes as any)?.data ?? []) as VwSaasDaily[]);
+  
 
   // 👇 NOVO: Cálculos exatos das despesas
   const purchasesRows = (purchasesRes?.data ?? []) as { created_at: string, total_amount_brl: number }[];
@@ -338,38 +289,7 @@ export default async function AdminDashboardPage({
         expensesPrevMonthVal += toNumber(row.total_amount_brl);
     }
   }
-  // 👆 FIM DO CÁLCULO 👇
 
-  // ✅ NOVO — custo SaaS (créditos comprados do pai)
-  const saasCostRows = (saasCostRes?.data ?? []) as { created_at: string; price_amount: number }[];
-  let saasCostTodayVal = 0;
-  let saasCostMonthVal = 0;
-  let saasCostPrevMonthVal = 0;
-
-  for (const row of saasCostRows) {
-  const amt = toNumber(row.price_amount);
-
-  // Normaliza para SP (mesmo padrão do resto do dashboard)
-  const spDate = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ_SP, year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date(row.created_at));
-  const [sy, sm, sd] = spDate.split("-").map(Number);
-
-  const todayY = today.getFullYear();
-  const todayM = today.getMonth() + 1; // getMonth() é 0-indexed
-  const todayD = today.getDate();
-
-  const prevM = todayM === 1 ? 12 : todayM - 1;
-  const prevY = todayM === 1 ? todayY - 1 : todayY;
-
-  const isToday     = sy === todayY && sm === todayM && sd === todayD;
-  const isThisMonth = sy === todayY && sm === todayM;
-  const isPrevMonth = sy === prevY  && sm === prevM;
-
-  if (isToday)     saasCostTodayVal     += amt;
-  if (isThisMonth) saasCostMonthVal     += amt;
-  if (isPrevMonth) saasCostPrevMonthVal += amt;
-}
 
   // ── Finanças Pessoais (isolado para não derrubar a página) ───────
   type FinTrx = {
@@ -548,85 +468,51 @@ export default async function AdminDashboardPage({
   const toReceiveQty = toNumber(finance?.to_receive_clients_qty);
   const toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
 
-  // Gráfico: novos cadastros (view já vem por dia)
+  // ── DADOS DOS GRÁFICOS (Clientes e Pagamentos) ──
+
+  // 1. Gráfico de Novos Cadastros
   const regsMap = new Map<string, { clients: number; trials: number }>();
-for (const r of regsRows) {
-  const key = normalizeDayKey(r.day);
-  regsMap.set(key, {
-    clients: toNumber(r.clients_created),
-    trials: toNumber(r.trials_created),
-  });
-}
-
-const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-  const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
-  const total = found.clients + found.trials;
-
-  return {
-    label: String(dayNum), // eixo X limpo: 1,2,3...
-    value: total,
-    displayValue: total,
-    tooltipTitle: spTitleFromISO(iso),
-    tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
-  };
-});
-
-
-  // Gráfico: pagamentos (BRL por dia)
-const payMap = new Map<string, { clients: number; reseller: number }>();
-for (const r of paymentsRows) {
-  const key = normalizeDayKey(r.day);
-  payMap.set(key, {
-    clients: toNumber(r.clients_paid_brl_estimated),
-    reseller: toNumber(r.reseller_paid_brl),
-  });
-}
-
-const saasDailyMap = new Map<string, { renewal: number; credits: number; resellers: number }>();
-  for (const r of saasDailyRows) {
+  for (const r of regsRows) {
     const key = normalizeDayKey(r.day);
-    saasDailyMap.set(key, {
-      renewal: toNumber(r.renewal_brl),
-      credits: toNumber(r.credits_brl),
-      resellers: toNumber(r.new_resellers),
+    regsMap.set(key, {
+      clients: toNumber(r.clients_created),
+      trials: toNumber(r.trials_created),
     });
   }
 
-  const chartSaasRevenueData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
-    const total = found.renewal + found.credits;
+  const chartRegsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = regsMap.get(iso) ?? { clients: 0, trials: 0 };
+    const total = found.clients + found.trials;
     return {
       label: String(dayNum),
       value: total,
       displayValue: total,
       tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `Renovações: ${fmtBRL(found.renewal)} • Créditos: ${fmtBRL(found.credits)} • Total: ${fmtBRL(total)}`,
+      tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
     };
   });
 
-  const chartSaasResellersData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-    const found = saasDailyMap.get(iso) ?? { renewal: 0, credits: 0, resellers: 0 };
+  // 2. Gráfico de Pagamentos Recebidos
+  const payMap = new Map<string, { clients: number; reseller: number }>();
+  for (const r of paymentsRows) {
+    const key = normalizeDayKey(r.day);
+    payMap.set(key, {
+      clients: toNumber(r.clients_paid_brl_estimated),
+      reseller: toNumber(r.reseller_paid_brl),
+    });
+  }
+
+  const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
+    const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
+    const totalVal = found.clients + found.reseller;
     return {
       label: String(dayNum),
-      value: found.resellers,
-      displayValue: found.resellers,
+      value: totalVal,
+      displayValue: totalVal,
       tooltipTitle: spTitleFromISO(iso),
-      tooltipContent: `${fmtInt(found.resellers)} novo(s) revendedor(es)`,
+      tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
     };
   });
-
-const chartPaymentsData: SimpleBarChartDatum[] = daysFromMonthStartToTodaySP().map(({ iso, dayNum }) => {
-  const found = payMap.get(iso) ?? { clients: 0, reseller: 0 };
-  const totalVal = found.clients + found.reseller;
-
-  return {
-    label: String(dayNum),
-    value: totalVal,
-    displayValue: totalVal,
-    tooltipTitle: spTitleFromISO(iso),
-    tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
-  };
-});
 
 
   const topServersItems: BarItem[] = topServers.map((s) => ({
@@ -840,70 +726,7 @@ return (
         />
       </div></>}
 
-{/* REVENDA SAAS — só SUPERADMIN e MASTER */}
-      {showSaas && showSaasView && (
-        <>
-          <SectionTitle title="REVENDA SAAS" />
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
 
-            {/* Hoje */}
-            <MetricCardView
-              title="SaaS Recebido Hoje"
-              accent="green"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_today_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_today_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_today_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_today_brl))}
-              footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_today_brl) + toNumber(saasFinance?.credits_today_brl)) - saasCostTodayVal)}
-    </span>
-  </div>
-}
-            />
-
-            {/* Mês Atual */}
-            <MetricCardView
-              title="SaaS Faturamento (Mês)"
-              accent="green"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_month_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_month_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_month_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_month_brl))}
-              footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_month_brl) + toNumber(saasFinance?.credits_month_brl)) - saasCostMonthVal)}
-    </span>
-  </div>
-}
-            />
-
-            {/* Mês Anterior */}
-            <MetricCardView
-              title="SaaS Mês Anterior"
-              accent="gray"
-              leftLabel={`Renovações (${toNumber(saasFinance?.renewal_prev_qty)})`}
-              leftValue={fmtBRL(toNumber(saasFinance?.renewal_prev_brl))}
-              rightLabel={`Créditos (${toNumber(saasFinance?.credits_prev_qty)})`}
-              rightValue={fmtBRL(toNumber(saasFinance?.credits_prev_brl))}
-              footer={
-  <div className="flex justify-between w-full">
-    <span>Total: {fmtBRL(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl))}</span>
-    <span className={(toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-      Lucro: {fmtBRL((toNumber(saasFinance?.renewal_prev_brl) + toNumber(saasFinance?.credits_prev_brl)) - saasCostPrevMonthVal)}
-    </span>
-  </div>
-}
-            />
-
-
-          </div>
-        </>
-      )}
 
       {/* CONTROLE FINANCEIRO */}
       {showFinView && (
@@ -977,9 +800,8 @@ return (
 
             <div>
               <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-  {(hasAcademia || hasPersonal) ? "Novos alunos" : "Novos clientes"}
-</h3>
-
+                Novos clientes
+              </h3>
             </div>
           </div>
           <div className="sv w-full">
@@ -1021,38 +843,7 @@ return (
         </div>
       </div>}
 
-{/* GRÁFICOS SAAS */}{/* GRÁFICOS SAAS */}
-      {showSaas && showSaasView && (
-        <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-              Receita SaaS (Mês)
-            </h3>
-            <div className="sv w-full">
-              <SimpleBarChart
-                data={chartSaasRevenueData}
-                colorClass="from-violet-400 to-violet-600"
-                label="BRL"
-                heightClass="h-40 sm:h-56"
-              />
-            </div>
-          </div>
 
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
-            <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 sm:mb-4">
-              Novos Revendedores SaaS
-            </h3>
-            <div className="sv w-full">
-              <SimpleBarChart
-                data={chartSaasResellersData}
-                colorClass="from-amber-400 to-amber-600"
-                label="Revendas"
-                heightClass="h-40 sm:h-56"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
 
       {/* RANKINGS */}
@@ -1074,97 +865,7 @@ return (
 
 
 
-/* =====================
-   ACADEMIA/PERSONAL — SERVIDOR VIRTUAL AUTOMÁTICO
-===================== */
 
-async function ensureAcademiaServer(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  tenantId: string,
-  slug: string
-) {
-  try {
-    const serverName = slug ? slug.charAt(0).toUpperCase() + slug.slice(1).toLowerCase() : "Academia";
-    const serverSlug = slug ? slug.toLowerCase() : "academia";
-
-    // 1. Verifica se já existe pelo SLUG ou NOME (evita recriar se o nome mudou minimamente)
-    const { data: existing } = await supabase
-      .from("servers")
-      .select("id, credits_available, panel_integration")
-      .eq("tenant_id", tenantId)
-      .or(`slug.eq.${serverSlug},name.ilike.${serverName}`)
-      .limit(1)
-      .maybeSingle();
-
-    let serverId: string | null = existing?.id ?? null;
-
-    if (!existing) {
-      // 2. Cria o servidor virtual
-      const { data: newServer, error: insertErr } = await supabase
-        .from("servers")
-        .insert({
-          tenant_id:           tenantId,
-          name:                serverName,
-          slug:                serverSlug,
-          default_currency:    "BRL" as any,
-          avg_credit_cost_brl: 0,
-          whatsapp_session:    "default",
-          is_archived:         false,
-        })
-        .select("id")
-        .single();
-
-      if (insertErr || !newServer) {
-        console.error("[ensureAcademiaServer] Falha ao criar servidor:", insertErr?.message);
-        return;
-      }
-
-      serverId = newServer.id;
-
-      // 3. Aplica 9999 créditos (Garante número inteiro limpo)
-      await supabase.rpc("update_server_credits_manual", {
-        p_server_id:   serverId,
-        p_new_credits: Number(9999),
-      });
-      
-    } else if (isNaN(Number(existing.credits_available))) {
-      // ✅ AUTO-REPARO: Se o banco corrompeu com "NaN" no passado, conserta agora!
-      await supabase.rpc("update_server_credits_manual", {
-        p_server_id:   serverId,
-        p_new_credits: Number(9999),
-      });
-    }
-
-    // 4. Cria integração ALUNO se ainda não existir
-    if (serverId && !existing?.panel_integration) {
-      const { data: integ, error: integErr } = await supabase
-        .from("server_integrations")
-        .insert({
-          tenant_id:        tenantId,
-          provider:         "ALUNO",
-          integration_name: `${serverName} — Academia`,
-          api_token:        "internal",
-          is_active:        true,
-          api_base_url:     "/api/integrations/aluno",
-        })
-        .select("id")
-        .single();
-
-      if (integErr || !integ) {
-        console.error("[ensureAcademiaServer] Falha ao criar integração:", integErr?.message);
-        return;
-      }
-
-      await supabase
-        .from("servers")
-        .update({ panel_integration: integ.id })
-        .eq("id", serverId)
-        .eq("tenant_id", tenantId);
-    }
-  } catch (e) {
-    console.error("[ensureAcademiaServer] Erro inesperado:", e);
-  }
-}
 
 /* =====================
    COMPONENTES VISUAIS
