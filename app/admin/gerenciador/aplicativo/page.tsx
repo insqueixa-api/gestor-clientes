@@ -89,7 +89,6 @@ function normalizeApiUrl(url: string) {
 export default function AppManagerPage() {
 const [apps, setApps] = useState<AppData[]>([]);
 const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
-const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
 // ✅ Agora guardamos a URL além do nome da integração
 const [configuredIntegrations, setConfiguredIntegrations] = useState<{name: string, url: string}[]>([]);
 const [search, setSearch] = useState("");
@@ -205,31 +204,13 @@ const [editingId, setEditingId] = useState<string | null>(null);
     setLoading(true);
     try {
       const tid = await getCurrentTenantId();
-      if (!tid) return;
-      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
+      if (!tid) return;
+      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
 
-      // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
-      const { data: tenantRow } = await supabaseBrowser
-        .from("tenants")
-        .select("active_modules")
-        .eq("id", tid)
-        .maybeSingle();
-
-      const mods = tenantRow?.active_modules || [];
-      const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas");
-
-      if (!hasAuthorizedModule) {
-        setHasAccess(false);
-        setLoading(false); // Libera o loading para mostrar a tela de erro
-        return; // 🛑 Interrompe o carregamento do restante
-      }
-      
-      setHasAccess(true);
-
-      // 1. Carrega Apps e Integrações em paralelo
-      const [appsRes, integrationsRes] = await Promise.all([
-        supabaseBrowser.rpc("get_my_visible_apps").order("name", { ascending: true }),
-        supabaseBrowser
+      // 1. Carrega Apps (apenas do tenant) e Integrações em paralelo
+      const [appsRes, integrationsRes] = await Promise.all([
+        supabaseBrowser.from("apps").select("*").eq("tenant_id", tid).order("name", { ascending: true }),
+        supabaseBrowser
           .from("app_integrations")
           .select("app_name, api_url") // ✅ Busca a URL também
           .eq("tenant_id", tid)
@@ -327,10 +308,6 @@ const fieldsText = fields
     return { groups, sortedFamilies };
   }, [filteredApps]);
 
-  // PARA:
-  // Pai = tenant que não tem apps herdados de ninguém
-  const isRootTenant = !apps.some(a => a.tenant_id !== myTenantId);
-
   // --- MANIPULAÇÃO DO MODAL ---
 function openNew() {
     setEditingId(null);
@@ -395,36 +372,23 @@ const insertPayload = {
     integration_type: formIntegration || null,
   };
 
-  const editingApp = apps.find(a => a.id === editingId);
-  const isEditingGlobal = editingApp && editingApp.tenant_id !== tid;
-
   if (editingId) {
-    if (isEditingGlobal) {
-      // 🟢 É UM OVERRIDE! Ele tá editando um Global, cria um local apontando pro pai
-      const { error } = await supabaseBrowser.from("apps").insert({
-        ...insertPayload,
-        base_app_id: editingId
-      });
-      if (error) throw error;
-      addToast("success", "Personalizado", "Cópia local criada com sucesso!");
-    } else {
-      // 🔵 ATUALIZAÇÃO NORMAL (App dele mesmo)
-const updatePayload = {
-        name: formName.trim(),
-        info_url: formUrl?.trim() ? formUrl.trim() : null,
-        icon_url: formIconUrl || null,
-        fields_config: formFields,
-        integration_type: formIntegration || null,
-      };
-      const { error } = await supabaseBrowser
-        .from("apps")
-        .update(updatePayload)
-        .eq("id", editingId)
-        .eq("tenant_id", tid);
-      if (error) throw error;
-      addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
-    }
-  } else {
+    // 🔵 ATUALIZAÇÃO NORMAL
+    const updatePayload = {
+      name: formName.trim(),
+      info_url: formUrl?.trim() ? formUrl.trim() : null,
+      icon_url: formIconUrl || null,
+      fields_config: formFields,
+      integration_type: formIntegration || null,
+    };
+    const { error } = await supabaseBrowser
+      .from("apps")
+      .update(updatePayload)
+      .eq("id", editingId)
+      .eq("tenant_id", tid);
+    if (error) throw error;
+    addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
+  } else {
     const { error } = await supabaseBrowser.from("apps").insert(insertPayload);
     if (error) throw error;
     addToast("success", "Criado", "Aplicativo criado com sucesso.");
@@ -459,32 +423,11 @@ async function handleDelete(id: string) {
       return;
     }
 
-    const appToDelete = apps.find(a => a.id === id);
-    const isGlobal = appToDelete && appToDelete.tenant_id !== tid;
+    // 🔴 Deletar App Definitivamente
+    const { error } = await supabaseBrowser.from("apps").delete().eq("id", id).eq("tenant_id", tid);
+    if (error) throw error;
 
-    if (isGlobal) {
-      // 🟢 Ocultar Global (Cria Tombstone)
-      const { error } = await supabaseBrowser.from("apps").insert({
-        tenant_id: tid,
-        base_app_id: id,
-        name: appToDelete.name,
-        is_hidden: true,
-        fields_config: []
-      });
-      if (error) throw error;
-    } else {
-      if (appToDelete?.base_app_id) {
-        // 🔵 Deletar Override (Só oculta o override, mantendo a proteção contra o Global)
-        const { error } = await supabaseBrowser.from("apps").update({ is_hidden: true }).eq("id", id).eq("tenant_id", tid);
-        if (error) throw error;
-      } else {
-        // 🔴 Deletar App Próprio Definitivamente
-        const { error } = await supabaseBrowser.from("apps").delete().eq("id", id).eq("tenant_id", tid);
-        if (error) throw error;
-      }
-    }
-
-    addToast("success", "Removido", "Aplicativo removido da sua lista.");
+    addToast("success", "Removido", "Aplicativo removido da sua lista.");
     loadData();
   } catch (e: any) {
     addToast("error", "Erro", e?.message ?? "Erro inesperado.");
@@ -521,13 +464,7 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
         <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
       </div>
           <div className="flex flex-wrap gap-1 pt-0.5">
-            {app.tenant_id !== myTenantId && (
-              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
-                🔒 
-              </span>
-            )}
-            
-            {app.integration_type && (
+            {app.integration_type && (
               <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}>
                 ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : `${appLabel} - Integrado`}
               </span>
@@ -537,28 +474,24 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
         </div>
 
         <div className="flex gap-2">
-          {app.tenant_id === myTenantId && (
-            <>
-              {/* Botão Editar (Âmbar) */}
-              <button
-                onClick={() => openEdit(app)}
-                className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
-                title="Editar"
-              >
-                <IconEdit />
-              </button>
+          {/* Botão Editar (Âmbar) */}
+          <button
+            onClick={() => openEdit(app)}
+            className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+            title="Editar"
+          >
+            <IconEdit />
+          </button>
 
-              {/* Botão Excluir (Rose/Red) */}
-              <button
-                onClick={() => handleDelete(app.id)}
-                className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
-                title="Excluir"
-              >
-                <IconTrash />
-              </button>
-            </>
-          )}
-        </div>
+          {/* Botão Excluir (Rose/Red) */}
+          <button
+            onClick={() => handleDelete(app.id)}
+            className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+            title="Excluir"
+          >
+            <IconTrash />
+          </button>
+        </div>
       </div>
 
       {app.info_url && (
@@ -594,34 +527,7 @@ const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" :
   );
 }
 
-  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
-  if (hasAccess === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
-        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
-      </div>
-    );
-  }
-
-  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
+  
 
 return (
   <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
@@ -840,10 +746,9 @@ return (
                 </div>
               </div>
 
-              {/* INTEGRAÇÃO — só visível para o pai, em apps próprios */}
-              {isRootTenant && (!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
-                <div>
-                  <Label>Integração automática</Label>
+              {/* INTEGRAÇÃO */}
+              <div>
+                <Label>Integração automática</Label>
                   <select
                     value={formIntegration}
                     onChange={(e) => setFormIntegration(e.target.value)}
@@ -864,9 +769,7 @@ return (
                     Quando configurado, habilita automação ao criar clientes.
                   </p>
                 </div>
-              )}
-
-              
+                           
 
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3">

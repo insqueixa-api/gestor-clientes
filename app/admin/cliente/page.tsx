@@ -331,9 +331,8 @@ function ClientePageContent() {
   const { hasAlunos, hasIPTVorSaaS } = useModules();
   const entidadeLabel = hasAlunos ? "Aluno" : "Cliente";
   const [rows, setRows] = useState<ClientRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ NOVO: Controle de Acesso
-  const loadingRef = useRef(false);
+  const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
@@ -660,35 +659,9 @@ async function loadData() {
     setTenantId(tid);
 
     if (tid) {
-      // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
-      const { data: tenantRow } = await supabaseBrowser
-        .from("tenants")
-        .select("active_modules")
-        .eq("id", tid)
-        .maybeSingle();
-
-      const mods = tenantRow?.active_modules || [];
-      const hasClientesAccess = 
-        mods.includes("iptv") || 
-        mods.includes("saas") || 
-        mods.includes("academia") || 
-        mods.includes("personal");
-
-      if (!hasClientesAccess) {
-        setHasAccess(false);
-        return;
-      }
-      
-      // Academia e Personal puro → redireciona para página de alunos
-    if ((mods.includes("academia") || mods.includes("personal")) && !mods.includes("iptv") && !mods.includes("saas")) {
-      router.replace("/admin/aluno");
-      return;
-    }
-    setHasAccess(true);
-
-      await loadMessageTemplates(tid);
-      await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista
-    }
+      await loadMessageTemplates(tid);
+      await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista
+    }
 
     // ✅ Usa a RPC segura para carregar os Locais (Overrides) + Globais visíveis!
     const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
@@ -1573,29 +1546,6 @@ body: JSON.stringify({
   }, 3000);
 
 };
-
-  
-
-
-// ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div
