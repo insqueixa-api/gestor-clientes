@@ -26,21 +26,21 @@ function HomeRouter() {
     } catch {}
 
     // Roteamento
-    if (fromQuery || fromHash || stored) {
-      setHasToken(true);
-    } else {
-      setHasToken(false);
-      router.push("/login"); // Redireciona o lojista/admin para a tela de login
-    }
-  }, [router]);
+    // Roteamento
+    if (fromQuery || fromHash || stored) {
+      setHasToken(true);
+    } else {
+      setHasToken(false);
+    }
+  }, []); // Removemos o router daqui
 
-  // Tela preta rápida enquanto decide ou redireciona
-  if (hasToken === null || hasToken === false) {
-    return <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]" />;
-  }
+  // Tela preta rápida apenas enquanto carrega
+  if (hasToken === null) {
+    return <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a]" />;
+  }
 
-  // Se o cliente (aluno/assinante) abriu o link do WhatsApp
-  return <LoginClient />;
+  // Agora a raiz ("/") exibe o Login do Cliente, com ou sem token inicial
+  return <LoginClient />;
 }
 
 export default function HomePage() {

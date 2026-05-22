@@ -187,19 +187,7 @@ function formatDateTime(dateStr: string) {
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
 
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const parts = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit", month: "2-digit", year: "numeric",
-  }).formatToParts(date);
-  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
-  return `${get("day")}/${get("month")}/${get("year")}`;
-}
 
-function isAluno(tech?: string) {
-  return tech === "ACADEMIA" || tech === "PERSONAL";
-}
 
 function calculateDiscount(monthlyPrice: number, totalPrice: number, months: number) {
   const monthlyEquivalent = totalPrice / months;
@@ -1672,9 +1660,7 @@ return (
 
   // ========= RENDER: LOADING =========
 
-  
-  const hasAlunoTech = accounts.some(a => isAluno(a.technology));
-  const showTenantLogo = hasAlunoTech && !!tenantBrand?.logo_url;
+  const showTenantLogo = !!tenantBrand?.logo_url;
 
   if (loading) {
     return (
@@ -1700,7 +1686,7 @@ return (
           <h1 className="text-2xl font-bold text-red-500 mb-2">Sessão Expirada</h1>
           <p className="text-slate-500 dark:text-white/60 mb-6">{error}</p>
           <button 
-            onClick={() => { clearStoredSession(); router.push("/login"); }} 
+            onClick={() => { clearStoredSession(); router.push("/"); }}
             className="px-6 py-3 w-full bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors"
           >
             Fazer Login Novamente
@@ -1764,7 +1750,7 @@ return (
             )}
               
               <button 
-              onClick={() => { clearStoredSession(); router.push("/login"); }} 
+              onClick={() => { clearStoredSession(); router.push("/"); }}
               className="text-white/50 hover:text-rose-500 transition-colors"
               title="Sair"
             >
@@ -1824,16 +1810,14 @@ return (
                         )}
                       </h3>
 <span className="text-xs font-mono font-medium text-slate-600 dark:text-white/70 shrink-0 bg-slate-50 dark:bg-black/20 px-2 py-1 rounded border border-slate-200 dark:border-white/5">
-                        {isAluno(account.technology) ? account.server_name : account.server_username}
+                        {account.server_username}
                       </span>
                     </div>
 
                     {/* Linha 2: Servidor + Telas (Esq) | Plano (Dir) */}
                     <div className="flex items-center justify-between mb-4">
-<p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
-                        {isAluno(account.technology)
-                          ? `${account.modalidade || (account.technology === "ACADEMIA" ? "Academia" : "Personal")} • ${account.screens === 1 ? "Individual" : account.screens === 2 ? "Família" : "Família Total"}`
-                          : `${account.server_name} • ${account.screens} tela${account.screens > 1 ? "s" : ""}`}
+                      <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
+                        {account.server_name} • {account.screens} tela{account.screens > 1 ? "s" : ""}
                       </p>
                       <div className="inline-block px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-100 dark:border-blue-500/20 shrink-0">
                         {account.plan_label}
@@ -1931,7 +1915,7 @@ return (
             )}
             
             <button 
-              onClick={() => { clearStoredSession(); router.push("/login"); }} 
+              onClick={() => { clearStoredSession(); router.push("/"); }}
               className="text-white/50 hover:text-rose-500 transition-colors"
               title="Sair"
             >
@@ -1974,17 +1958,15 @@ return (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  {isAluno(selectedAccount.technology) ? "Nome" : "Usuário"}
+                  Usuário
                 </label>
                 <div className="text-sm font-mono text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
-                  {isAluno(selectedAccount.technology) ? selectedAccount.display_name : selectedAccount.server_username}
+                  {selectedAccount.server_username}
                 </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  {isAluno(selectedAccount.technology)
-                    ? (selectedAccount.technology === "ACADEMIA" ? "Academia" : "Personal")
-                    : "Servidor"}
+                  Servidor
                 </label>
                 <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 truncate">
                   {selectedAccount.server_name}
@@ -1995,21 +1977,15 @@ return (
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vencimento em</label>
                 <div className="text-sm font-medium text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
-                  {isAluno(selectedAccount.technology)
-                    ? formatDate(selectedAccount.vencimento)
-                    : formatDateTime(selectedAccount.vencimento)}
+                  {formatDateTime(selectedAccount.vencimento)}
                 </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  {isAluno(selectedAccount.technology) ? "Plano" : "Telas"}
+                  Telas
                 </label>
                 <div className="text-sm font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-black/20 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5">
-                  {isAluno(selectedAccount.technology)
-  ? selectedAccount.screens === 1 ? "Individual"
-    : selectedAccount.screens === 2 ? "Família"
-    : "Família Total"
-  : `${selectedAccount.screens} ${selectedAccount.screens > 1 ? "telas" : "tela"}`}
+                  {selectedAccount.screens} {selectedAccount.screens > 1 ? "telas" : "tela"}
                 </div>
               </div>
             </div>
