@@ -40,32 +40,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0f141a] p-4 transition-colors">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <img
-            src="/brand/logo-gestor.png"
-            alt="Logo"
-            className="h-12 mx-auto object-contain"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#0a1118] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 via-[#0a1118] to-black p-4 relative overflow-hidden">
+      
+      {/* Luzes de fundo para o efeito premium */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-        {/* Card */}
-        <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl p-8">
+      <div className="w-full max-w-md relative z-10">
+        
+        {/* Card Cinza Claro (Alinhado com o Client) */}
+        <div className="bg-[#eef2f6] dark:bg-[#161b22] border border-white/50 dark:border-white/10 rounded-2xl shadow-2xl p-8">
+
+          {/* Logo Interna */}
+          <div className="text-center mb-6">
+            <img
+              src="/brand/logo-gestor.png"
+              alt="Logo"
+              className="h-10 mx-auto object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
 
           {/* === LOGIN === */}
           {mode === "login" && (
-            <form action={formAction} className="space-y-5">
-              <div>
-                <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Bem-vindo</h1>
-                <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Entre com sua conta para continuar</p>
+            <form action={formAction} className="space-y-4">
+              <div className="text-center mb-6">
+                <h1 className="text-lg font-black text-slate-800 dark:text-white tracking-tight uppercase">Área do Administrador</h1>
+                <p className="text-[11px] text-slate-500 dark:text-white/50 mt-1 font-medium">Acesso restrito ao painel de gestão</p>
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">E-mail</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">E-mail</label>
                 <input
                   name="email"
                   type="email"
@@ -74,13 +80,13 @@ export default function LoginPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full h-11 px-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400"
+                  className="w-full h-12 px-4 bg-white dark:bg-black/40 border border-transparent dark:border-white/10 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
               {/* Password */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Senha</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Senha</label>
                 <div className="relative">
                   <input
                     name="password"
@@ -90,7 +96,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-11 px-4 pr-11 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400"
+                    className="w-full h-12 px-4 pr-11 bg-white dark:bg-black/40 border border-transparent dark:border-white/10 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400 shadow-sm"
                   />
                   <button
                     type="button"
@@ -141,7 +147,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={pending || !turnstileToken}
-                className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2 mt-2"
               >
                 {pending ? (
                   <>
@@ -158,7 +164,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setMode("reset"); setErrorReset(""); setSuccess(""); setPassword(""); }}
-                className="block w-full text-center text-xs font-medium text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                className="block w-full text-center text-[11px] font-bold text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors pt-2"
               >
                 Esqueci minha senha
               </button>
@@ -167,21 +173,21 @@ export default function LoginPage() {
 
           {/* === RESET PASSWORD === */}
           {mode === "reset" && (
-            <form onSubmit={handleReset} className="space-y-5">
-              <div>
-                <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Recuperar senha</h1>
-                <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Enviaremos um link de redefinição para seu e-mail</p>
+            <form onSubmit={handleReset} className="space-y-4">
+              <div className="text-center mb-6">
+                <h1 className="text-lg font-black text-slate-800 dark:text-white tracking-tight uppercase">Recuperar senha</h1>
+                <p className="text-[11px] text-slate-500 dark:text-white/50 mt-1 font-medium">Enviaremos um link de redefinição</p>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">E-mail</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">E-mail</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full h-11 px-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400"
+                  className="w-full h-12 px-4 bg-white dark:bg-black/40 border border-transparent dark:border-white/10 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
@@ -208,26 +214,34 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loadingReset}
-                className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2 mt-2"
               >
-                {loadingReset ? "Enviando..." : "Enviar link de recuperação"}
+                {loadingReset ? "Enviando..." : "Enviar link"}
               </button>
 
               <button
                 type="button"
                 onClick={() => { setMode("login"); setErrorReset(""); setSuccess(""); }}
-                className="block w-full text-center text-xs font-medium text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                className="block w-full text-center text-[11px] font-bold text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors pt-2"
               >
                 ← Voltar para login
               </button>
             </form>
           )}
+
+          {/* Footer Interno (Tecnologia) */}
+          <div className="mt-8 pt-5 border-t border-slate-200 dark:border-white/10 text-center">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Tecnologia por</p>
+            <img src="/brand/logo-gestor.png" alt="UniGestor" className="h-4 mx-auto object-contain opacity-50 grayscale" />
+          </div>
+
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-[10px] text-slate-400 dark:text-white/30 mt-6 uppercase tracking-widest font-medium">
+        {/* Footer Externo */}
+        <p className="text-center text-[10px] text-white/30 mt-6 uppercase tracking-widest font-bold">
           © {new Date().getFullYear()} • Todos os direitos reservados
         </p>
+
       </div>
     </div>
   );
