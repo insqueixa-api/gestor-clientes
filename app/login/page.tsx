@@ -1,14 +1,9 @@
 "use client";
 
 import { useMemo, useState, useActionState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseBrowser } from "@/lib/supabase/browser"; // ✅ Usando o cliente singleton do projeto
 import { loginAction, type LoginState } from "./actions";
 import { Turnstile } from '@marsidev/react-turnstile';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 function isLikelyEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -58,9 +53,9 @@ export default function LoginPage() {
         return;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, {
-        redirectTo: `${location.origin}/reset-password`,
-      });
+      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(safeEmail, {
+        redirectTo: `${location.origin}/reset-password`,
+      });
 
 if (error) throw error;
 
