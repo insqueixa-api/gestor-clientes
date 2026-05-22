@@ -499,10 +499,8 @@ export default function BillingPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [clients, setClients] = useState<ClientLight[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
-  const [search, setSearch] = useState("");
-  const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
-  const [isAlunosOnly, setIsAlunosOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [isMasterOrAdmin, setIsMasterOrAdmin] = useState(false);
   
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
   const [wizardState, setWizardState] = useState<{show: boolean, editingRule: Automation | null}>({ show: false, editingRule: null });
@@ -537,33 +535,10 @@ const addToast = (
   const removeToast = (id: number) => setToasts(p => p.filter(t => t.id !== id));
 
   async function loadData() {
-    setLoading(true);
-    const tid = await getCurrentTenantId();
+    setLoading(true);
+    const tid = await getCurrentTenantId();
 
-    if (tid) {
-      // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
-      const { data: tenantRow } = await supabaseBrowser
-        .from("tenants")
-        .select("active_modules")
-        .eq("id", tid)
-        .maybeSingle();
-
-      const mods = tenantRow?.active_modules || [];
-      const hasAuthorizedModule = mods.includes("iptv") || mods.includes("saas") || mods.includes("academia") || mods.includes("personal");
-
-      if (!hasAuthorizedModule) {
-        setHasAccess(false);
-        setLoading(false); // Libera o loading para mostrar a tela de bloqueio
-        return; // 🛑 Interrompe totalmente o carregamento
-      }
-      
-setHasAccess(true);
-      const isAlunos = (mods.includes("academia") || mods.includes("personal"))
-        && !mods.includes("iptv") && !mods.includes("saas");
-      setIsAlunosOnly(isAlunos);
-    }
-
-    if (!tid) { setLoading(false); return; }
+    if (!tid) { setLoading(false); return; }
 
 
     try {
@@ -967,37 +942,8 @@ return {
 
   const filtered = automations.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
-  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
-  if (hasAccess === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
-        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
-      </div>
-    );
-  }
-
-  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
-
 return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
     {/* Monitor da fila (com padding padrão e SEM z alto) */}
     <div className="px-3 sm:px-0 md:px-4">
@@ -1096,17 +1042,16 @@ return (
       )}
 
       {/* WIZARD COM EDIÇÃO */}
-      {wizardState.show && (
-        <AutomationWizard 
-            auxData={auxData}
-            editingRule={wizardState.editingRule}
-            isMasterOrAdmin={isMasterOrAdmin}
-            isAlunosOnly={isAlunosOnly}
-            onClose={() => setWizardState({ show: false, editingRule: null })}
-            onSuccess={() => { setWizardState({ show: false, editingRule: null }); loadData(); addToast("success", "Salvo", "Regra atualizada."); }}
-            onError={(msg) => addToast("error", "Erro", msg)}
-        />
-      )}
+      {wizardState.show && (
+        <AutomationWizard 
+            auxData={auxData}
+            editingRule={wizardState.editingRule}
+            isMasterOrAdmin={isMasterOrAdmin}
+            onClose={() => setWizardState({ show: false, editingRule: null })}
+            onSuccess={() => { setWizardState({ show: false, editingRule: null }); loadData(); addToast("success", "Salvo", "Regra atualizada."); }}
+            onError={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
 
       {/* MODAL DE IMPACTO (LISTA DE CLIENTES) */}
       {impactModalData && (
@@ -1508,7 +1453,7 @@ function ImpactListModal({ data, onClose }: { data: {ruleName: string, clients: 
 // ============================================================================
 // WIZARD DE CRIAÇÃO (MANTIDO E OTIMIZADO)
 // ============================================================================
-function AutomationWizard({ auxData, editingRule, isMasterOrAdmin, isAlunosOnly, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, isMasterOrAdmin?: boolean, isAlunosOnly?: boolean, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
+function AutomationWizard({ auxData, editingRule, isMasterOrAdmin, onClose, onSuccess, onError }: { auxData: any, editingRule?: any, isMasterOrAdmin?: boolean, onClose: () => void, onSuccess: () => void, onError: (m:string) => void }) {
     // ✅ PROTEÇÃO SSR
     if (typeof document === "undefined") return null;
 
@@ -1698,17 +1643,11 @@ if (error) throw error;
                         )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 md:col-span-1">
-                                <Label>Nome da Cobrança</Label>
-                                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ex: Aviso Vencimento" autoFocus />
-                                </div>
-                                <div className="col-span-2 md:col-span-1">
-                                    <Label>Tipo</Label>
+                                    <Label>Tipo</Label>
 <Select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
-                                        {TYPES
-                                          .filter(t => !(isAlunosOnly && t === "Manutenção"))
-                                          .map(t => <option key={t} value={t}>{t}</option>)}
-                                    </Select>
-                                </div>
+                                        {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </Select>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -1783,25 +1722,19 @@ if (error) throw error;
                     )}
 
                     {step === 2 && (
-                        <div className="space-y-6">
-                            <p className="text-sm text-slate-500 dark:text-white/60 mb-4">Selecione quem receberá esta mensagem. Deixe vazio para "Todos".</p>
-                            <MultiSelectDropdown
-                              label={isAlunosOnly ? "Status do Aluno" : "Status do Cliente"}
-                              options={isAlunosOnly
-                                ? CLIENT_STATUS.filter(s => s.id !== "TRIAL")
-                                : CLIENT_STATUS}
-                              selected={form.status}
-                              onChange={(v: any) => setForm({...form, status: v})}
-                            />
-                            {!isAlunosOnly && (
-                              <MultiSelectDropdown label="Servidores" options={auxData.servers} selected={form.servers} onChange={(v:any) => setForm({...form, servers: v})} />
-                            )}
-                            <MultiSelectDropdown label="Planos" options={auxData.plans} selected={form.plans} onChange={(v:any) => setForm({...form, plans: v})} />
-                            {!isAlunosOnly && (
-                              <MultiSelectDropdown label="Aplicativos" options={auxData.apps} selected={form.apps} onChange={(v:any) => setForm({...form, apps: v})} />
-                            )}
-                        </div>
-                    )}
+                        <div className="space-y-6">
+                            <p className="text-sm text-slate-500 dark:text-white/60 mb-4">Selecione quem receberá esta mensagem. Deixe vazio para "Todos".</p>
+                            <MultiSelectDropdown
+                              label="Status do Cliente"
+                              options={CLIENT_STATUS}
+                              selected={form.status}
+                              onChange={(v: any) => setForm({...form, status: v})}
+                            />
+                            <MultiSelectDropdown label="Servidores" options={auxData.servers} selected={form.servers} onChange={(v:any) => setForm({...form, servers: v})} />
+                            <MultiSelectDropdown label="Planos" options={auxData.plans} selected={form.plans} onChange={(v:any) => setForm({...form, plans: v})} />
+                            <MultiSelectDropdown label="Aplicativos" options={auxData.apps} selected={form.apps} onChange={(v:any) => setForm({...form, apps: v})} />
+                        </div>
+                    )}
 
                     {step === 3 && (
                         <div className="space-y-8 py-4">

@@ -7,7 +7,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { useModules } from "@/lib/modules/ModulesContext";
 
 function getHojeSP(): Date {
   const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -90,8 +89,6 @@ export default function AdminShell({
   children,
   userLabel,
   tenantName,
-  role,
-  financialControlEnabled,
   tenantId,
   whatsappSessions,
   logoUrl,
@@ -99,14 +96,10 @@ export default function AdminShell({
   children: React.ReactNode;
   userLabel: string;
   tenantName: string;
-  role: string;
-  financialControlEnabled?: boolean;
   tenantId?: string;
   whatsappSessions?: number;
   logoUrl?: string | null;
 }) {
-  const { can, isOnlyFinanceiro, hasIPTVorSaaS } = useModules();
-
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
   const [waDisconnected, setWaDisconnected] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
@@ -158,7 +151,7 @@ export default function AdminShell({
         });
       }
 
-      if (financialControlEnabled && tenantId) {
+      if (tenantId) {
         try {
           const { data: transacoes, error } = await supabaseBrowser
             .from("fin_transacoes")
@@ -201,7 +194,7 @@ export default function AdminShell({
         }
       }
 
-      if (hasIPTVorSaaS && tenantId) {
+      if (tenantId) {
         try {
           const { data: pendingManual, error: manualErr } = await supabaseBrowser
             .from("client_portal_payments")
@@ -227,7 +220,7 @@ export default function AdminShell({
         }
       }
 
-      if (hasIPTVorSaaS && tenantId) {
+      if (tenantId) {
         try {
           const { data: failedWa, error: waErr } = await supabaseBrowser
             .from("client_portal_payments")
@@ -265,7 +258,7 @@ export default function AdminShell({
     };
 
     loadNotifications();
-  }, [waDisconnected, financialControlEnabled, tenantId, hasIPTVorSaaS, refreshTrigger]);
+  }, [waDisconnected, tenantId, refreshTrigger]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -407,11 +400,7 @@ export default function AdminShell({
 
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             <div className="flex items-center gap-1 sm:hidden">
-              {isOnlyFinanceiro ? (
-                <NavLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-1.5"><IconMenuFinanceiro /> Financeiro</span>} />
-              ) : (
-                <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
-              )}
+              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -428,57 +417,39 @@ export default function AdminShell({
             </div>
 
             <div className="hidden sm:flex items-center gap-1">
-              {isOnlyFinanceiro ? (
-                <>
-                  <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
-                  <NavLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-1.5"><IconMenuFinanceiro /> Controle Financeiro</span>} />
-                  <NavLink href="/admin/settings/profile" label={<span className="flex items-center gap-1.5"><IconMenuPerfil /> Perfil</span>} />
-                  <div className="w-px h-6 bg-white/10 mx-2" />
-                  <button onClick={() => window.location.href = "/logout"} className="rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-bold tracking-tight text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 gap-1.5">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair
-                  </button>
-                </>
-              ) : (
-                <>
-                  {can("dashboard")  && <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />}
-                  {hasIPTVorSaaS    && <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />}
+              <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
+              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
+              <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><IconLog /> Log Portal</span>} />
+              <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} />
+              <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />
 
-                  {hasIPTVorSaaS && (
-                    <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><IconLog /> Log Portal</span>} />
-                  )}
+              <div className="w-px h-6 bg-white/10 mx-2" />
 
-                  {can("revendas")  && <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} />}
-                  {can("testes")    && <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />}
+              <div ref={managerRef} className="relative">
+                <button
+                  onClick={openManager}
+                  className={[
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    managerActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
+                  <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "manager" ? "rotate-180" : ""].join(" ")}>▼</span>
+                </button>
+              </div>
 
-                  <div className="w-px h-6 bg-white/10 mx-2" />
-
-                  <div ref={managerRef} className="relative">
-                    <button
-                      onClick={openManager}
-                      className={[
-                        "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                        managerActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
-                      ].join(" ")}
-                    >
-                      <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
-                      <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "manager" ? "rotate-180" : ""].join(" ")}>▼</span>
-                    </button>
-                  </div>
-
-                  <div ref={settingsRef} className="relative">
-                    <button
-                      onClick={openSettings}
-                      className={[
-                        "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
-                        settingsActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
-                      ].join(" ")}
-                    >
-                      <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
-                      <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "settings" ? "rotate-180" : ""].join(" ")}>▼</span>
-                    </button>
-                  </div>
-                </>
-              )}
+              <div ref={settingsRef} className="relative">
+                <button
+                  onClick={openSettings}
+                  className={[
+                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-bold flex items-center gap-2 tracking-tight",
+                    settingsActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
+                  <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "settings" ? "rotate-180" : ""].join(" ")}>▼</span>
+                </button>
+              </div>
             </div>
           </nav>
         </div>
@@ -488,13 +459,13 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={managerPos.right} top={managerPos.top} onClose={() => setOpenMenu(null)}>
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gestão</div>
-            {can("servidores")  && <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />}
-            {can("planos")      && <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />}
-            {can("mensagens")   && <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />}
+            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
-            {can("cobranca")    && <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />}
-            {can("pagamento")   && <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />}
-            {can("aplicativos") && <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />}
+            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
           </DropdownPortal>,
           document.body
         )
@@ -503,45 +474,30 @@ export default function AdminShell({
       {canUseDom && openMenu === "mobile" && mobilePos &&
         createPortal(
           <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
-            {isOnlyFinanceiro ? (
-              <>
-                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
-                <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
-                <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-                <Divider />
-                <LogoutLink onLogout={() => setOpenMenu(null)} />
-              </>
-            ) : (
-              <>
-                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
 
-                {hasIPTVorSaaS && (
-                  <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><IconLog /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
-                )}
+            <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><IconLog /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />
+            <Divider />
 
-                {can("dashboard")   && <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />}
-                {hasIPTVorSaaS      && <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />}
-                {can("revendas")    && <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />}
-                {can("testes")      && <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />}
-                <Divider />
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gerenciador</div>
+            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
+            <Divider />
 
-                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gerenciador</div>
-                {can("servidores")  && <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />}
-                {can("planos")      && <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />}
-                {can("mensagens")   && <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />}
-                {can("cobranca")    && <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />}
-                {can("pagamento")   && <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />}
-                {can("aplicativos") && <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />}
-                <Divider />
-
-                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
-                {can("perfil")         && <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />}
-                {financialControlEnabled && <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />}
-                {can("apiIntegracoes") && <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />}
-                <Divider />
-                <LogoutLink onLogout={() => setOpenMenu(null)} />
-              </>
-            )}
+            <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
+            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
+            <Divider />
+            <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
           document.body
         )
@@ -550,15 +506,11 @@ export default function AdminShell({
       {canUseDom && openMenu === "settings" && settingsPos &&
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
-            {can("perfil") && <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />}
+            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
 
-            {financialControlEnabled && (
-              <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
-            )}
+            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
 
-            {can("apiIntegracoes") && (
-              <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
-            )}
+            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
