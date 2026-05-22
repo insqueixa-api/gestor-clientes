@@ -7,17 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { usePathname } from "next/navigation";
 import React from "react";
-import SaasProfileRenewModal from "./settings/profile/SaasProfileRenewModal";
 import { useModules } from "@/lib/modules/ModulesContext";
 
-// Pega a data de hoje no Brasil formatada de forma zerada e segura
 function getHojeSP(): Date {
-  const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); // Retorna "YYYY-MM-DD"
+  const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   const [y, m, d] = spStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
-// Extrai o ano, mês e dia da string ignorando letras T e fusos horários
 function getTargetDate(isoDate: string): Date {
   const [y, m, d] = isoDate.split('T')[0].split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -78,14 +75,13 @@ function BrandUser({ userLabel, tenantName, logoUrl }: { userLabel: string; tena
   );
 }
 
-// Estrutura das notificações
 type Notification = {
   id: string;
   title: string;
   message: string;
-  link: string; // Para onde ir ao clicar
-  type: 'warning' | 'error' | 'info' | 'whatsapp'; // Para estilizar ou filtrar
-  data?: any; // Dados extras
+  link: string;
+  type: 'warning' | 'error' | 'info' | 'whatsapp';
+  data?: any;
   is_read: boolean;
   created_at: string;
 };
@@ -97,9 +93,6 @@ export default function AdminShell({
   role,
   financialControlEnabled,
   tenantId,
-  expiresAt,
-  creditBalance,
-  saasPlanTableId,
   whatsappSessions,
   logoUrl,
 }: {
@@ -109,38 +102,24 @@ export default function AdminShell({
   role: string;
   financialControlEnabled?: boolean;
   tenantId?: string;
-  expiresAt?: string | null;
-  creditBalance?: number;
-  saasPlanTableId?: string | null;
   whatsappSessions?: number;
   logoUrl?: string | null;
 }) {
-  const {
-    can,
-    isOnlyFinanceiro,
-    hasIPTVorSaaS,
-    hasAlunos,
-    hasSaaS,
-  } = useModules();
+  const { can, isOnlyFinanceiro, hasIPTVorSaaS } = useModules();
 
   const [openMenu, setOpenMenu] = useState<null | "manager" | "settings" | "mobile">(null);
-  const [showRenewModal, setShowRenewModal] = useState(false);
-  const [showWarningModal, setShowWarningModal] = useState(false);
-  const [localExpiresAt, setLocalExpiresAt] = useState<string | null>(expiresAt ?? null);
   const [waDisconnected, setWaDisconnected] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
 
-  // Estados para notificações
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null); // Para o modal de detalhes
-  const [refreshTrigger, setRefreshTrigger] = useState(0); // Trigger para re-sincronizar do banco
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // unreadCount
   const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
 
   useEffect(() => {
-    if (!whatsappSessions || whatsappSessions < 1 || role === "SUPERADMIN") return;
+    if (!whatsappSessions || whatsappSessions < 1) return;
 
     async function checkWaSessions() {
       try {
@@ -159,32 +138,15 @@ export default function AdminShell({
     void checkWaSessions();
     const interval = setInterval(checkWaSessions, 10 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [whatsappSessions, role]);
+  }, [whatsappSessions]);
 
-  // useEffect para carregar notificações reais e financeiras
   useEffect(() => {
     const loadNotifications = async () => {
-      const list: Notification[] = [];
-      const nowIso = new Date().toISOString();
-      // ✅ Data exata de HOJE no Brasil (formato YYYY-MM-DD) para usar na busca
-      const dataAtualSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+      const list: Notification[] = [];
+      const nowIso = new Date().toISOString();
+      const dataAtualSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
-      // 1. Notificação de vencimento do painel
-      const dias = daysUntil(localExpiresAt);
-      if (dias !== null && dias <= 7) {
-        list.push({
-          id: 'expires_at',
-          title: dias <= 0 ? '⚠️ PAINEL VENCIDO' : '📢 Aviso de Vencimento',
-          message: dias <= 0 ? `Seu painel venceu há ${Math.abs(dias)} dia(s).` : `Seu painel vence em ${dias} dia(s). Renove agora.`,
-          link: '/admin/settings/profile',
-          type: 'warning',
-          is_read: false,
-          created_at: nowIso,
-        });
-      }
-
-      // 2. Notificação de WhatsApp
-      if (waDisconnected && role !== "SUPERADMIN") {
+      if (waDisconnected) {
         list.push({
           id: 'whatsapp_disconnected',
           title: '📵 WhatsApp Desconectado',
@@ -196,14 +158,13 @@ export default function AdminShell({
         });
       }
 
-      // 3. Monitoramento Financeiro (Vence hoje ou Vencido)
       if (financialControlEnabled && tenantId) {
         try {
           const { data: transacoes, error } = await supabaseBrowser
-            .from("fin_transacoes")
-            .select("id, descricao, valor, data_vencimento, tipo")
-            .eq("status", "PENDENTE")
-            .lte("data_vencimento", dataAtualSP); // ✅ Puxa corretamente baseado no dia do Brasil
+            .from("fin_transacoes")
+            .select("id, descricao, valor, data_vencimento, tipo")
+            .eq("status", "PENDENTE")
+            .lte("data_vencimento", dataAtualSP);
 
           if (!error && transacoes) {
             transacoes.forEach(t => {
@@ -215,17 +176,13 @@ export default function AdminShell({
               const icone = t.tipo === "RECEITA" ? "📈" : "📉";
               const tituloTipo = t.tipo === "RECEITA" ? "Recebimento" : "Pagamento";
               const valorFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(t.valor);
-              
-              let titleNotif = "";
-              let messageNotif = "";
-              
-              if (vencido) {
-                titleNotif = `🟥 ${tituloTipo} Vencido`;
-                messageNotif = `${icone} ${t.descricao} - ${valorFmt}. Vencido há ${diasAtraso} dia(s) (${dataFormatada}).`;
-              } else {
-                titleNotif = `🟧 ${tituloTipo} Vence Hoje`;
-                messageNotif = `${icone} ${t.descricao} - ${valorFmt}. Pendente para hoje (${dataFormatada}).`;
-              }
+
+              const titleNotif = vencido
+                ? `🟥 ${tituloTipo} Vencido`
+                : `🟧 ${tituloTipo} Vence Hoje`;
+              const messageNotif = vencido
+                ? `${icone} ${t.descricao} - ${valorFmt}. Vencido há ${diasAtraso} dia(s) (${dataFormatada}).`
+                : `${icone} ${t.descricao} - ${valorFmt}. Pendente para hoje (${dataFormatada}).`;
 
               list.push({
                 id: `fin_${t.id}`,
@@ -244,8 +201,7 @@ export default function AdminShell({
         }
       }
 
-      // 4. Monitoramento de Renovações Manuais (Sem integração ou Elite)
-      if ((hasIPTVorSaaS || hasAlunos) && tenantId) {
+      if (hasIPTVorSaaS && tenantId) {
         try {
           const { data: pendingManual, error: manualErr } = await supabaseBrowser
             .from("client_portal_payments")
@@ -260,7 +216,7 @@ export default function AdminShell({
                 title: '🟣 Ação Necessária',
                 message: 'Um pagamento foi aprovado e aguarda liberação manual no servidor.',
                 link: '/admin/auditoria',
-                type: 'info', 
+                type: 'info',
                 is_read: false,
                 created_at: p.created_at || nowIso,
               });
@@ -271,8 +227,7 @@ export default function AdminShell({
         }
       }
 
-      // 5. Monitoramento de Falha no WhatsApp
-      if ((hasIPTVorSaaS || hasAlunos) && tenantId) {
+      if (hasIPTVorSaaS && tenantId) {
         try {
           const { data: failedWa, error: waErr } = await supabaseBrowser
             .from("client_portal_payments")
@@ -288,7 +243,7 @@ export default function AdminShell({
                 title: '💬 Falha no WhatsApp',
                 message: 'Uma recarga foi efetuada, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.',
                 link: '/admin/auditoria',
-                type: 'error', // Destaca a falha em vermelho
+                type: 'error',
                 is_read: false,
                 created_at: p.created_at || nowIso,
               });
@@ -299,19 +254,18 @@ export default function AdminShell({
         }
       }
 
-      // ✅ Busca os ocultados (X) e lidos (Bolinha apagada)
       const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
       const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
-      
+
       const filteredList = list
         .filter(n => !dismissed.includes(n.id))
         .map(n => readNotifs.includes(n.id) ? { ...n, is_read: true } : n);
 
-      setNotifications(filteredList);
+      setNotifications(filteredList);
     };
 
     loadNotifications();
-  }, [localExpiresAt, waDisconnected, role, financialControlEnabled, tenantId, hasIPTVorSaaS, hasAlunos, refreshTrigger]); // ✅ Dependências atualizadas
+  }, [waDisconnected, financialControlEnabled, tenantId, hasIPTVorSaaS, refreshTrigger]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -323,7 +277,7 @@ export default function AdminShell({
 
   const pathname = usePathname();
 
-const managerActive = useMemo(() => {
+  const managerActive = useMemo(() => {
     return (
       pathname.startsWith("/admin/servers") ||
       pathname.startsWith("/admin/plano") ||
@@ -333,8 +287,6 @@ const managerActive = useMemo(() => {
       pathname.startsWith("/admin/aplicativo")
     );
   }, [pathname]);
-
-  const alunoActive = pathname.startsWith("/admin/aluno");
 
   const settingsActive = useMemo(() => pathname.startsWith("/admin/settings"), [pathname]);
 
@@ -368,23 +320,20 @@ const managerActive = useMemo(() => {
     setOpenMenu("mobile");
   }
 
-  // ✅ Limpa todas visualmente e grava na memória para não voltarem ao recarregar
-  const clearAllNotifications = () => {
+  const clearAllNotifications = () => {
     const currentIds = notifications.map(n => n.id);
     const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
     const newDismissed = Array.from(new Set([...dismissed, ...currentIds]));
     localStorage.setItem("dismissed_notifs", JSON.stringify(newDismissed));
-    setNotifications([]);
-  };
+    setNotifications([]);
+  };
 
-  // ✅ Nova função para sincronizar banco de dados e limpar cache local
   const handleSync = () => {
     localStorage.removeItem("dismissed_notifs");
     localStorage.removeItem("read_notifs");
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // ✅ Nova função para voltar a notificação para "Não Lido"
   const handleMarkAsUnread = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
@@ -393,9 +342,8 @@ const managerActive = useMemo(() => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: false } : n));
   };
 
-  // ✅ Nova função para ocultar UMA notificação (Botão X)
   const handleDismiss = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Impede de abrir a notificação ao clicar no X
+    e.stopPropagation();
     const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
     if (!dismissed.includes(id)) {
       dismissed.push(id);
@@ -404,24 +352,20 @@ const managerActive = useMemo(() => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // Função de clique na notificação
-  const handleNotificationClick = (n: Notification) => {
-    // ✅ Salva no navegador que você já leu essa notificação
+  const handleNotificationClick = (n: Notification) => {
     const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
     if (!readNotifs.includes(n.id)) {
       readNotifs.push(n.id);
       localStorage.setItem("read_notifs", JSON.stringify(readNotifs));
     }
 
-    setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
-    setShowNotificationsModal(false); // Fecha o painel de notificações
-    
-    if (n.id === 'expires_at') {
-      setShowWarningModal(true);
-    } else if (n.id === 'whatsapp_disconnected') {
+    setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
+    setShowNotificationsModal(false);
+
+    if (n.id === 'whatsapp_disconnected') {
       setShowWaModal(true);
     } else {
-      window.location.href = n.link; // Leva para o financeiro ou outro local
+      window.location.href = n.link;
     }
   };
 
@@ -429,7 +373,6 @@ const managerActive = useMemo(() => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f141a] text-slate-800 dark:text-white transition-colors duration-200">
-      {/* TOP NAV */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
 
@@ -441,7 +384,6 @@ const managerActive = useMemo(() => {
               <BrandUser userLabel={userLabel} tenantName={tenantName} logoUrl={logoUrl} />
             </Link>
 
-            {/* Novo Sininho Unificado */}
             <div className="relative">
               <button
                 onClick={() => setShowNotificationsModal(true)}
@@ -459,23 +401,16 @@ const managerActive = useMemo(() => {
                 </div>
               )}
             </div>
-
           </div>
 
           <div className="flex-1" />
 
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
-
-            {/* ── MOBILE ── */}
             <div className="flex items-center gap-1 sm:hidden">
               {isOnlyFinanceiro ? (
                 <NavLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-1.5"><IconMenuFinanceiro /> Financeiro</span>} />
-              ) : hasIPTVorSaaS ? (
-                <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
-              ) : hasAlunos ? (
-                <NavLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />
               ) : (
-                <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
+                <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
               )}
 
               <div ref={mobileRef} className="relative">
@@ -492,7 +427,6 @@ const managerActive = useMemo(() => {
               </div>
             </div>
 
-            {/* ── DESKTOP ── */}
             <div className="hidden sm:flex items-center gap-1">
               {isOnlyFinanceiro ? (
                 <>
@@ -508,10 +442,8 @@ const managerActive = useMemo(() => {
                 <>
                   {can("dashboard")  && <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />}
                   {hasIPTVorSaaS    && <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />}
-                  {hasAlunos        && <NavLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} />}
-                  
-                  {/* Novo Menu de Auditoria - Visível apenas para quem tem Clientes/Alunos */}
-                  {(hasIPTVorSaaS || hasAlunos) && (
+
+                  {hasIPTVorSaaS && (
                     <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><IconLog /> Log Portal</span>} />
                   )}
 
@@ -548,12 +480,10 @@ const managerActive = useMemo(() => {
                 </>
               )}
             </div>
-
           </nav>
         </div>
       </div>
 
-      {/* ── DROPDOWN GERENCIADOR ── */}
       {canUseDom && openMenu === "manager" && managerPos &&
         createPortal(
           <DropdownPortal right={managerPos.right} top={managerPos.top} onClose={() => setOpenMenu(null)}>
@@ -570,7 +500,6 @@ const managerActive = useMemo(() => {
         )
       }
 
-      {/* ── DROPDOWN MOBILE ── */}
       {canUseDom && openMenu === "mobile" && mobilePos &&
         createPortal(
           <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
@@ -585,15 +514,13 @@ const managerActive = useMemo(() => {
             ) : (
               <>
                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
-                
-                {/* Primeira opção no Mobile se tiver acesso */}
-                {(hasIPTVorSaaS || hasAlunos) && (
+
+                {hasIPTVorSaaS && (
                   <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><IconLog /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
                 )}
 
                 {can("dashboard")   && <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />}
                 {hasIPTVorSaaS      && <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />}
-                {hasAlunos          && <MenuLink href="/admin/aluno" label={<span className="flex items-center gap-1.5"><IconClientes /> Alunos</span>} onClick={() => setOpenMenu(null)} />}
                 {can("revendas")    && <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />}
                 {can("testes")      && <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />}
                 <Divider />
@@ -610,7 +537,6 @@ const managerActive = useMemo(() => {
                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
                 {can("perfil")         && <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />}
                 {financialControlEnabled && <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />}
-                {hasSaaS && role !== "USER" && <MenuLink href="/admin/settings/gestao_saas" label={<span className="flex items-center gap-2"><IconMenuSaas /> Gestão SaaS</span>} onClick={() => setOpenMenu(null)} />}
                 {can("apiIntegracoes") && <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />}
                 <Divider />
                 <LogoutLink onLogout={() => setOpenMenu(null)} />
@@ -621,7 +547,6 @@ const managerActive = useMemo(() => {
         )
       }
 
-      {/* ── DROPDOWN CONTA ── */}
       {canUseDom && openMenu === "settings" && settingsPos &&
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
@@ -629,10 +554,6 @@ const managerActive = useMemo(() => {
 
             {financialControlEnabled && (
               <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
-            )}
-
-            {hasSaaS && role !== "USER" && (
-              <MenuLink href="/admin/settings/gestao_saas" label={<span className="flex items-center gap-2"><IconMenuSaas /> Gestão SaaS</span>} onClick={() => setOpenMenu(null)} />
             )}
 
             {can("apiIntegracoes") && (
@@ -649,12 +570,9 @@ const managerActive = useMemo(() => {
         {children}
       </main>
 
-      {/* Modal Principal de Notificações */}
       {showNotificationsModal && (
         <Modal title="Notificações" onClose={() => setShowNotificationsModal(false)}>
           <div className="space-y-4">
-            
-            {/* Botões de Ação Sempre Visíveis */}
             <div className="flex justify-end gap-2">
               <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
                 <IconSync className="w-3.5 h-3.5" /> Sincronizar
@@ -686,7 +604,7 @@ const managerActive = useMemo(() => {
                       <div className="text-xl flex-shrink-0 mt-0.5">
                         {n.type === 'error' ? '🟥' : n.type === 'warning' ? '⚠️' : n.type === 'whatsapp' ? '📵' : '📢'}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0 pr-1">
                         <div className="flex items-center gap-2">
                           {!n.is_read && <div className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0 shadow-sm" />}
@@ -698,7 +616,7 @@ const managerActive = useMemo(() => {
                           {n.message}
                         </p>
                       </div>
-                      
+
                       <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-slate-200 dark:border-white/10 min-h-[32px] gap-1">
                         <button
                           onClick={(e) => handleDismiss(e, n.id)}
@@ -725,7 +643,6 @@ const managerActive = useMemo(() => {
         </Modal>
       )}
 
-      {/* Modal de Detalhes da Notificação (genérico) */}
       {selectedNotification && selectedNotification.type === 'info' && (
         <Modal title={`📢 ${selectedNotification.title}`} onClose={() => setSelectedNotification(null)}>
           <div className="space-y-6">
@@ -752,47 +669,6 @@ const managerActive = useMemo(() => {
         </Modal>
       )}
 
-      {/* Modal aviso de vencimento */}
-      {showWarningModal && (
-        <Modal title="⚠️ Aviso de Vencimento" onClose={() => setShowWarningModal(false)}>
-          <div className="space-y-6">
-            <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-4 rounded-lg flex gap-3">
-              <span className="text-2xl mt-0.5">📢</span>
-              <div>
-                <p className="text-slate-700 dark:text-white/90 text-sm font-medium">
-                  {(() => {
-                    const dias = daysUntil(localExpiresAt) ?? 0;
-                    if (!localExpiresAt) return "Seu painel está próximo do vencimento.";
-                    const [y, m, d] = localExpiresAt.split("T")[0].split("-").map(Number);
-                    const dateObj = new Date(y, m - 1, d);
-                    const dateStr = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(dateObj);
-                    const weekDayStr = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(dateObj).replace("-feira", " feira");
-                    if (dias < 0) return <>Seu painel venceu na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, e já está vencido há <strong>{Math.abs(dias)}</strong> dia(s)!</>;
-                    if (dias === 0) return <>Seu painel vence <strong>HOJE</strong>, dia <strong>{dateStr}</strong>!</>;
-                    return <>Seu painel vence na <strong>{weekDayStr}</strong> dia <strong>{dateStr}</strong>, você tem <strong>{dias}</strong> para antecipar a renovação.</>;
-                  })()}
-                </p>
-                <p className="text-slate-500 dark:text-white/60 text-xs mt-1">
-                  Renove agora mesmo para evitar o bloqueio automático e manter seus serviços funcionando sem interrupções.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowWarningModal(false)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase">
-                Fechar
-              </button>
-              <button
-                onClick={() => { setShowWarningModal(false); setShowRenewModal(true); }}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 transition-colors text-xs uppercase shadow-lg shadow-emerald-900/20"
-              >
-                Renovar Agora
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal WhatsApp desconectado */}
       {showWaModal && (
         <Modal title="📵 WhatsApp Desconectado" onClose={() => setShowWaModal(false)}>
           <div className="space-y-6">
@@ -818,25 +694,9 @@ const managerActive = useMemo(() => {
           </div>
         </Modal>
       )}
-
-      {/* Modal renovação */}
-      {showRenewModal && tenantId && (
-        <SaasProfileRenewModal
-          tenantId={tenantId}
-          role={role as "MASTER" | "USER"}
-          saasPlanTableId={saasPlanTableId ?? null}
-          creditBalance={creditBalance ?? 0}
-          currentExpiry={expiresAt ?? null}
-          whatsappSessions={whatsappSessions ?? 1}
-          onClose={() => setShowRenewModal(false)}
-          onSuccess={() => { setShowRenewModal(false); window.location.reload(); }}
-        />
-      )}
     </div>
   );
 }
-
-/* ── Componentes auxiliares ── */
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   if (typeof document === "undefined") return null;
@@ -972,13 +832,9 @@ function IconMenuPerfil() {
 function IconMenuFinanceiro() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
 }
-function IconMenuSaas() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>;
-}
 function IconMenuApi() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
 }
-// Novo ícone de Sininho
 function IconSininho({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>

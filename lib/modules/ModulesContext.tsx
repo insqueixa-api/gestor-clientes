@@ -8,7 +8,7 @@ interface ModulesContextValue {
   can: (key: PermissionKey) => boolean;
   hasModule: (mod: Module) => boolean;
   hasIPTV: boolean;
-  hasSaaS: boolean;
+  
   hasIPTVorSaaS: boolean;
   hasFinanceiro: boolean;
   hasAcademia: boolean;
