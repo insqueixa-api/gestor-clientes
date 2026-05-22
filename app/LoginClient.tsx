@@ -122,6 +122,7 @@ export default function LoginClient() {
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
+  
 
 const canSubmit = useMemo(() => {
     // ✅ Agora ele só libera o botão se tiver o token do Cloudflare também
@@ -274,11 +275,11 @@ const canSubmit = useMemo(() => {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="h-dvh w-full relative overflow-hidden flex flex-col items-center justify-center px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a]">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
-        <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
+<div className="absolute -bottom-[10%] -left-[10%] h-[40%] w-[40%] rounded-full bg-blue-500/20 blur-3xl" />
         <div
           className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
           style={{
@@ -416,9 +417,9 @@ const canSubmit = useMemo(() => {
         </div>
 
         {/* Hint embaixo do card */}
-        <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
-          Acesso protegido • Renovação automática
-        </div>
+<div className="mt-4 text-center text-[10px] text-white/50 shrink-0 mb-4">
+  Acesso protegido • Renovação automática
+</div>
       </div>
     </div>
   );
