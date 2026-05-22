@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-import { useModules } from "@/lib/modules/ModulesContext";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 
 // ✅ Importa os modais de recarga
@@ -56,13 +55,12 @@ function IconCheckCircle() { return <svg width="16" height="16" viewBox="0 0 24 
 function IconRefresh() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>; }
 
 function AuditoriaPageContent() {
-  
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [rows, setRows] = useState<LogRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-  
-  // Filtros
+  
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [rows, setRows] = useState<LogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Filtros
   const [search, setSearch] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState("Todos");
   
@@ -83,31 +81,14 @@ function AuditoriaPageContent() {
   }
 
   async function loadData(searchTerm = "") {
-    setLoading(true);
-    try {
-      const tid = await getCurrentTenantId();
-      setTenantId(tid);
+    setLoading(true);
+    try {
+      const tid = await getCurrentTenantId();
+      setTenantId(tid);
 
-      if (tid) {
-        // Verifica acesso
-        const { data: tenantRow } = await supabaseBrowser
-          .from("tenants")
-          .select("active_modules")
-          .eq("id", tid)
-          .maybeSingle();
-
-        const mods = tenantRow?.active_modules || [];
-        const hasAcessoPermitido = mods.includes("iptv") || mods.includes("saas") || mods.includes("academia") || mods.includes("personal");
-
-        if (!hasAcessoPermitido) {
-          setHasAccess(false);
-          setLoading(false);
-          return;
-        }
-        setHasAccess(true);
-
-        // 1. Busca os logs exatos de pagamento
-        let query = supabaseBrowser
+      if (tid) {
+        // 1. Busca os logs exatos de pagamento
+        let query = supabaseBrowser
           .from("client_portal_payments")
           .select("id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status") // ✅ Adicionado whatsapp_status
           .eq("tenant_id", tid)
@@ -455,21 +436,12 @@ function AuditoriaPageContent() {
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
     if (status === "sent") return <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">Enviado</span>;
     if (status === "error") return <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">Erro</span>;
-    
-    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/10">Aguardando</span>;
-  }
+    
+    return <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/10">Aguardando</span>;
+  }
 
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">Acesso Restrito</h1>
-        <p className="text-slate-500 dark:text-white/60">Você não tem autorização para acessar a Auditoria do Portal.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  return (
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
       
       {/* TOPO */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">

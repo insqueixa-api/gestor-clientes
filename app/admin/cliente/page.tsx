@@ -8,7 +8,6 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import NovoCliente, { ClientData } from "./novo_cliente";
 import RecargaCliente from "./recarga_cliente";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-import { useModules } from "@/lib/modules/ModulesContext";
 
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
 import Link from "next/link";
@@ -326,11 +325,10 @@ function formatMoney(amount: number | null, currency: string | null) {
 
 
 function ClientePageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { hasAlunos, hasIPTVorSaaS } = useModules();
-  const entidadeLabel = hasAlunos ? "Aluno" : "Cliente";
-  const [rows, setRows] = useState<ClientRow[]>([]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const entidadeLabel = "Cliente";
+  const [rows, setRows] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
   const [tenantId, setTenantId] = useState<string | null>(null);

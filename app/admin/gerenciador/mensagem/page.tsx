@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
-import { useModules } from "@/lib/modules/ModulesContext";
 
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
@@ -159,12 +158,10 @@ function getTemplateCategory(msg: MessageTemplate) {
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function MessagesPage() {
-  const { hasAlunos, hasIPTVorSaaS } = useModules();
-  const [messages, setMessages] = useState<MessageTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-  const [search, setSearch] = useState("");
-  const [isMaster, setIsMaster] = useState(false);
+  const [messages, setMessages] = useState<MessageTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [isMaster, setIsMaster] = useState(false);
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -181,37 +178,13 @@ export default function MessagesPage() {
   const removeToast = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
 
  async function loadMessages() {
-  setLoading(true);
-  const tid = await getCurrentTenantId();
+  setLoading(true);
+  const tid = await getCurrentTenantId();
 
-  if (tid) {
-    // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
-    const { data: tenantRow } = await supabaseBrowser
-      .from("tenants")
-      .select("active_modules")
-      .eq("id", tid)
-      .maybeSingle();
-
-    const mods = tenantRow?.active_modules || [];
-    const hasAuthorizedModule = 
-      mods.includes("iptv") || 
-      mods.includes("saas") || 
-      mods.includes("academia") || 
-      mods.includes("personal");
-
-    if (!hasAuthorizedModule) {
-      setHasAccess(false);
-      setLoading(false); // Libera o loading para mostrar a tela de bloqueio
-      return; // 🛑 Interrompe totalmente o carregamento
-    }
-    
-    setHasAccess(true);
-  }
-
-  if (!tid) {
-    setLoading(false);
-    return;
-  }
+  if (!tid) {
+    setLoading(false);
+    return;
+  }
 
   // Detecta role para filtrar templates exclusivos de Master/Admin
   const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
@@ -296,37 +269,8 @@ const filteredMessages = useMemo(() => {
   );
 }, [messages, search]);
 
-  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
-  if (hasAccess === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
-        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
-      </div>
-    );
-  }
-
-  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
-
-return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  return (
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
     {/* Topo (padrão admin) */}
     <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
       <div className="min-w-0 text-left">
@@ -469,35 +413,20 @@ return (
             return (
               <>
                 {MESSAGE_CATEGORIES.map(cat => {
-                  // Oculta SaaS se não for Master
-                  if (cat === "Revenda SaaS" && !isMaster) return null;
+                  // Oculta SaaS se não for Master
+                  if (cat === "Revenda SaaS" && !isMaster) return null;
 
-                  // Para Academia e Personal: oculta categorias irrelevantes
-                  // e mantém apenas "Cliente IPTV" (que mostra só Pagamento Realizado)
-                  if (hasAlunos && !hasIPTVorSaaS) {
-                    if (cat !== "Cliente IPTV" && cat !== "Geral") return null;
-                  }
+                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+                  if (items.length === 0) return null;
 
-                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+                  // Título dinâmico
+                  let displayTitle = cat;
+                  if (cat === "Cliente IPTV") displayTitle = "Clientes";
+                  else if (cat === "Revenda IPTV") displayTitle = "Revendas";
 
-                  // Para Academia e Personal: filtra só "Pagamento Realizado" na categoria principal
-                  if (hasAlunos && !hasIPTVorSaaS && cat === "Cliente IPTV") {
-                    items = items.filter(m => m.name === "Pagamento Realizado");
-                  }
-
-                  if (items.length === 0) return null;
-
-                  // Título dinâmico: remove "IPTV" para Academia e Personal
-                  let displayTitle = cat;
-                  if (cat === "Cliente IPTV") {
-                    displayTitle = hasAlunos && !hasIPTVorSaaS ? "Alunos" : "Clientes";
-                  } else if (cat === "Revenda IPTV") {
-                    displayTitle = "Revendas";
-                  }
-
-                  // Ícones
-                  let icon = "💬";
-                  if (cat === "Cliente IPTV") icon = hasAlunos && !hasIPTVorSaaS ? "🎓" : "📺";
+                  // Ícones
+                  let icon = "💬";
+                  if (cat === "Cliente IPTV") icon = "📺";
                   else if (cat === "Revenda IPTV") icon = "🤝";
                   else if (cat === "Revenda SaaS") icon = "☁️";
                   else if (cat === "Vencimentos") icon = "📅";
@@ -520,11 +449,9 @@ return (
       {/* MODAL EDITOR (CRIAR/EDITAR) */}
       {showEditor && (
         <EditorModal
-          templateToEdit={selectedTemplate}
-          isMaster={isMaster}
-          hasAlunos={hasAlunos}
-          hasIPTVorSaaS={hasIPTVorSaaS}
-          onClose={() => setShowEditor(false)}
+          templateToEdit={selectedTemplate}
+          isMaster={isMaster}
+          onClose={() => setShowEditor(false)}
           onSuccess={() => {
             setShowEditor(false);
             loadMessages();
@@ -653,23 +580,18 @@ function PreviewModal({
 // MODAL EDITOR
 // ============================================================================
 function EditorModal({
-  templateToEdit,
-  isMaster,
-  hasAlunos,
-  hasIPTVorSaaS,
-  onClose,
-  onSuccess,
-  onError,
+  templateToEdit,
+  isMaster,
+  onClose,
+  onSuccess,
+  onError,
 }: {
-  templateToEdit?: MessageTemplate | null;
-  isMaster: boolean;
-  hasAlunos?: boolean;
-  hasIPTVorSaaS?: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  onError: (msg: string) => void;
+  templateToEdit?: MessageTemplate | null;
+  isMaster: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
 }) {
-  const isAlunosOnly = !!hasAlunos && !hasIPTVorSaaS;
 const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
   const [category, setCategory] = useState(templateToEdit ? getTemplateCategory(templateToEdit) : "Geral"); // ✅ Inicia com a categoria certa
@@ -822,29 +744,10 @@ const [name, setName] = useState(templateToEdit?.name || "");
   };
 
   // ✅ Filtra dinamicamente as tags (Tira a tag do SaaS para quem for User comum)
-  const allowedTagGroups = TAG_GROUPS
-    .filter(g => {
-      if (!isMaster && g.title === "☁️ SaaS Revenda (Sistema)") return false;
-      if (isAlunosOnly && g.title === "🖥️ Acesso e Servidor") return false;
-      if (isAlunosOnly && g.title === "🏢 Dados da Revenda") return false;
-      return true;
-    })
-    .map(g => {
-      // Renomeia "Dados do Cliente" para "Dados do Aluno"
-      if (isAlunosOnly && g.title === "👤 Dados do Cliente") {
-        return { ...g, title: "👤 Dados do Aluno" };
-      }
-      // Remove tags irrelevantes do Financeiro
-      if (isAlunosOnly && g.title === "💰 Financeiro") {
-        return {
-          ...g,
-          tags: g.tags.filter(t =>
-            !["venda_creditos", "transfer_iban", "transfer_swift"].some(k => t.label.includes(k))
-          ),
-        };
-      }
-      return g;
-    });
+  const allowedTagGroups = TAG_GROUPS.filter(g => {
+    if (!isMaster && g.title === "☁️ SaaS Revenda (Sistema)") return false;
+    return true;
+  });
 
   const filteredMobileTags = useMemo(() => {
     const all = allowedTagGroups.flatMap((group) => // ✅ USANDO A VARIÁVEL FILTRADA AQUI
@@ -989,18 +892,15 @@ return createPortal(
                 Categoria da Mensagem 
               </label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
-              >
-                {MESSAGE_CATEGORIES.map(cat => {
-                  if (cat === "Revenda SaaS" && !isMaster) return null;
-                  if (isAlunosOnly && cat === "Revenda IPTV") return null;
-                  if (isAlunosOnly && cat === "Manutenção") return null;
-                  const label = isAlunosOnly && cat === "Cliente IPTV" ? "Alunos" : cat;
-                  return <option key={cat} value={cat}>{label}</option>;
-                })}
-              </select>
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
+              >
+                {MESSAGE_CATEGORIES.map(cat => {
+                  if (cat === "Revenda SaaS" && !isMaster) return null;
+                  return <option key={cat} value={cat}>{cat}</option>;
+                })}
+              </select>
             </div>
 
             <div className="flex-1 flex flex-col">

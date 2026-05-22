@@ -1,61 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useActionState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { loginAction, type LoginState } from "./actions";
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<"login" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loadingReset, setLoadingReset] = useState(false);
+  const [errorReset, setErrorReset] = useState("");
   const [success, setSuccess] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    const { error: authError } = await supabaseBrowser.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (authError) {
-      setLoading(false);
-      setError(
-        authError.message === "Invalid login credentials"
-          ? "E-mail ou senha incorretos."
-          : authError.message === "Email not confirmed"
-            ? "E-mail ainda não confirmado. Verifique sua caixa de entrada."
-            : authError.message
-      );
-      return;
-    }
-
-    // Sucesso: vai pro admin. router.refresh() força o middleware a reler a sessão.
-    router.push("/admin");
-    router.refresh();
-  }
+  const initialState: LoginState = {};
+  const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setErrorReset("");
     setSuccess("");
-    setLoading(true);
+    setLoadingReset(true);
 
     const { error: resetError } = await supabaseBrowser.auth.resetPasswordForEmail(
       email.trim(),
       { redirectTo: `${window.location.origin}/reset-password` }
     );
 
-    setLoading(false);
+    setLoadingReset(false);
 
     if (resetError) {
-      setError(resetError.message);
+      setErrorReset(resetError.message);
       return;
     }
 
@@ -80,7 +57,7 @@ export default function LoginPage() {
 
           {/* === LOGIN === */}
           {mode === "login" && (
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form action={formAction} className="space-y-5">
               <div>
                 <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Bem-vindo</h1>
                 <p className="text-sm text-slate-500 dark:text-white/50 mt-1">Entre com sua conta para continuar</p>
@@ -90,6 +67,7 @@ export default function LoginPage() {
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">E-mail</label>
                 <input
+                  name="email"
                   type="email"
                   autoComplete="email"
                   required
@@ -105,6 +83,7 @@ export default function LoginPage() {
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Senha</label>
                 <div className="relative">
                   <input
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
@@ -135,25 +114,36 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Error */}
-              {error && (
+              {/* Turnstile Oculto ou Visível */}
+              <div className="flex justify-center pt-2">
+                <Turnstile 
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+                <input type="hidden" name="cf-turnstile-response" value={turnstileToken || ""} />
+              </div>
+
+              {/* Error da Action */}
+              {state?.error && (
                 <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-medium p-3 rounded-lg flex items-start gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 mt-0.5">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span>{error}</span>
+                  <span>{state.error}</span>
                 </div>
               )}
 
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={pending || !turnstileToken}
                 className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2"
               >
-                {loading ? (
+                {pending ? (
                   <>
                     <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
@@ -167,7 +157,7 @@ export default function LoginPage() {
               {/* Esqueci senha */}
               <button
                 type="button"
-                onClick={() => { setMode("reset"); setError(""); setSuccess(""); setPassword(""); }}
+                onClick={() => { setMode("reset"); setErrorReset(""); setSuccess(""); setPassword(""); }}
                 className="block w-full text-center text-xs font-medium text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
               >
                 Esqueci minha senha
@@ -195,14 +185,14 @@ export default function LoginPage() {
                 />
               </div>
 
-              {error && (
+              {errorReset && (
                 <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-medium p-3 rounded-lg flex items-start gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 mt-0.5">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span>{error}</span>
+                  <span>{errorReset}</span>
                 </div>
               )}
 
@@ -217,15 +207,15 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loadingReset}
                 className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-lg shadow-emerald-900/20 transition-all inline-flex items-center justify-center gap-2"
               >
-                {loading ? "Enviando..." : "Enviar link de recuperação"}
+                {loadingReset ? "Enviando..." : "Enviar link de recuperação"}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
+                onClick={() => { setMode("login"); setErrorReset(""); setSuccess(""); }}
                 className="block w-full text-center text-xs font-medium text-slate-500 dark:text-white/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
               >
                 ← Voltar para login

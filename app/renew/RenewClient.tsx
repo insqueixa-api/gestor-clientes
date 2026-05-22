@@ -1700,10 +1700,10 @@ return (
           <h1 className="text-2xl font-bold text-red-500 mb-2">Sessão Expirada</h1>
           <p className="text-slate-500 dark:text-white/60 mb-6">{error}</p>
           <button 
-            onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Botão para fugir do erro e ir pra home
+            onClick={() => { clearStoredSession(); router.push("/login"); }} 
             className="px-6 py-3 w-full bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors"
           >
-            Voltar para a Página Inicial
+            Fazer Login Novamente
           </button>
         </div>
       </div>
@@ -1764,12 +1764,12 @@ return (
             )}
               
               <button 
-                onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Redireciona para Landing Page
-                className="text-white/50 hover:text-rose-500 transition-colors"
-                title="Sair"
-              >
-                <IconLogout />
-              </button>
+              onClick={() => { clearStoredSession(); router.push("/login"); }} 
+              className="text-white/50 hover:text-rose-500 transition-colors"
+              title="Sair"
+            >
+              <IconLogout />
+            </button>
             </div>
 
           </div>
@@ -1931,7 +1931,7 @@ return (
             )}
             
             <button 
-              onClick={() => { clearStoredSession(); router.push("/"); }} // ✅ Redireciona para Landing Page
+              onClick={() => { clearStoredSession(); router.push("/login"); }} 
               className="text-white/50 hover:text-rose-500 transition-colors"
               title="Sair"
             >

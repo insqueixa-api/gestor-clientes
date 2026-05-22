@@ -14,7 +14,6 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-import { useModules } from "@/lib/modules/ModulesContext";
 
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -501,17 +500,15 @@ function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextA
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 
 function GatewayModal({
-  gateway,
-  onClose,
-  onSave,
-  addToast,
-  isAlunosOnly = false,
+  gateway,
+  onClose,
+  onSave,
+  addToast,
 }: {
-  gateway: PaymentGateway | null;
-  onClose: () => void;
-  onSave: () => void;
-  addToast: (type: "success" | "error", title: string, message?: string) => void;
-  isAlunosOnly?: boolean;
+  gateway: PaymentGateway | null;
+  onClose: () => void;
+  onSave: () => void;
+  addToast: (type: "success" | "error", title: string, message?: string) => void;
 }) {
   const isEdit = !!gateway;
 
@@ -632,12 +629,8 @@ function GatewayModal({
               )}
 
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GATEWAY_META.filter(m =>
-                  isAlunosOnly
-                    ? m.type === "pix_manual" || m.type === "mercadopago"
-                    : true
-                ).map((m) => {
-                  const selected = selectedType === m.type;
+                {GATEWAY_META.map((m) => {
+                  const selected = selectedType === m.type;
                   const hasHelp = !!GATEWAY_HELP[m.type];
                   return (
                     <div key={m.type} className="relative">
@@ -1015,12 +1008,9 @@ function GatewayCard({
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function PagamentosPage() {
-  const { hasAlunos, hasIPTVorSaaS } = useModules();
-  const isAlunosOnly = hasAlunos && !hasIPTVorSaaS;
-  const [gateways, setGateways] = useState<PaymentGateway[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
-  const [modalOpen, setModalOpen] = useState(false);
+  const [gateways, setGateways] = useState<PaymentGateway[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -1040,37 +1030,13 @@ export default function PagamentosPage() {
   const { confirm: confirmDialog, ConfirmUI } = useConfirm();
 
   const fetchGateways = useCallback(async () => {
-    try {
-      const tenantId = await getCurrentTenantId();
-      
-      if (tenantId) {
-        // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
-        const { data: tenantRow } = await supabaseBrowser
-          .from("tenants")
-          .select("active_modules")
-          .eq("id", tenantId)
-          .maybeSingle();
-
-        const mods = tenantRow?.active_modules || [];
-        const hasAuthorizedModule = 
-      mods.includes("iptv") || 
-      mods.includes("saas") || 
-      mods.includes("academia") || 
-      mods.includes("personal");
-
-        if (!hasAuthorizedModule) {
-          setHasAccess(false);
-          setLoading(false); // Libera a tela para mostrar o bloqueio
-          return; // 🛑 Interrompe totalmente o carregamento
-        }
-        
-        setHasAccess(true);
-      }
-
-      if (!tenantId) {
-        setLoading(false);
-        return;
-      }
+    try {
+      const tenantId = await getCurrentTenantId();
+      
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabaseBrowser
         .from("payment_gateways")
@@ -1155,44 +1121,13 @@ export default function PagamentosPage() {
   }
 
   // Agrupar por moeda
-  const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
-  const intlGateways = isAlunosOnly
-    ? [] // Academia e Personal não veem internacionais
-    : gateways.filter(
-        (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
-      );
+  const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
+  const intlGateways = gateways.filter(
+    (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
+  );
 
-  // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
-  if (hasAccess === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
-        <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
-      </div>
-    );
-  }
-
-  // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
-  if (hasAccess === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
-
-    return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+  return (
+  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
     
     {/* HEADER (padrão Clientes/Trials) */}
     <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -1321,18 +1256,17 @@ export default function PagamentosPage() {
       </div>
 
       {/* Modal */}
-      {modalOpen && (
-        <GatewayModal
-          gateway={editingGateway}
-          isAlunosOnly={isAlunosOnly}
-          onClose={() => {
-            setModalOpen(false);
-            setEditingGateway(null);
-          }}
-          onSave={fetchGateways}
-          addToast={addToast}
-        />
-      )}
+      {modalOpen && (
+        <GatewayModal
+          gateway={editingGateway}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingGateway(null);
+          }}
+          onSave={fetchGateways}
+          addToast={addToast}
+        />
+      )}
 
       {/* Confirmação e Toasts */}
       {ConfirmUI}

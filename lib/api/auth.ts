@@ -42,29 +42,20 @@ export async function requireAdminTenant(req: Request) {
 
   // 1. Tenta via Metadata
   let tenant_id = authUser.user.app_metadata?.tenant_id;
-  let role = authUser.user.app_metadata?.role;
 
   // 2. Se não tiver, busca na tabela tenant_members
   if (!tenant_id) {
     const { data: member, error: memberErr } = await supabase
-      .from("tenant_members") // <--- Tabela nova
-      .select("tenant_id, role")
-      .eq("user_id", user_id) // <--- Coluna nova
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user_id)
       .maybeSingle();
 
     if (memberErr || !member?.tenant_id) {
       return { ok: false as const, res: unauthorized("vínculo com tenant não encontrado") };
     }
     tenant_id = member.tenant_id;
-    role = member.role; // Pega a role do banco se necessário
   }
-
-  // Validação de Role (opcional - descomente se seu sistema exigir ADMIN)
-  /*
-  if (String(role || "").toUpperCase() !== "ADMIN") {
-    return { ok: false as const, res: unauthorized("apenas ADMIN") };
-  }
-  */
 
   return { ok: true as const, supabase, tenant_id: String(tenant_id), user_id };
 }
