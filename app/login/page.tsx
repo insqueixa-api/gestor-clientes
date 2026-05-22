@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useActionState, useEffect } from "react";
-import { supabaseBrowser } from "@/lib/supabase/browser"; // ✅ Usando o cliente singleton do projeto
+import { useMemo, useState, useActionState, useEffect, useRef } from "react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { loginAction, type LoginState } from "./actions";
-import { Turnstile } from '@marsidev/react-turnstile';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 
 function isLikelyEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -15,29 +15,30 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   const [msg, setMsg] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
-  
-  // ✅ Aqui estão as variáveis que estavam causando erro
-  const [failedAttempts, setFailedAttempts] = useState(0); 
-  const [showPassword, setShowPassword] = useState(false);
+const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+const [isResetting, setIsResetting] = useState(false);
+const [showPassword, setShowPassword] = useState(false);
+
+// Ref pra resetar o widget Turnstile após erro (token é usado uma única vez)
+const turnstileRef = useRef<TurnstileInstance>(null);
 
   const initialState: LoginState = {};
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
-  // ✅ Monitora erros de login de forma precisa, usando o 'pending' para saber que a tentativa acabou
-  useEffect(() => {
-    if (!pending && state?.error) {
-      setFailedAttempts((prev) => prev + 1);
-    }
-  }, [pending, state?.error]);
+  // Reseta o Turnstile sempre que houver erro no login
+// (o token só vale 1x, então sem reset a próxima tentativa trava)
+useEffect(() => {
+  if (!pending && state?.error) {
+    turnstileRef.current?.reset();
+    setTurnstileToken(null);
+  }
+}, [pending, state?.error]);
 
   const canSubmit = useMemo(() => {
-    if (!isLikelyEmail(email)) return false;
-    if (mode === "reset") return true;
-    if (failedAttempts >= 3) return false;
-    return password.length >= 6 && turnstileToken !== null;
-  }, [email, password, mode, turnstileToken, failedAttempts]);
+  if (!isLikelyEmail(email)) return false;
+  if (mode === "reset") return turnstileToken !== null;
+  return password.length >= 6 && turnstileToken !== null;
+}, [email, password, mode, turnstileToken]);
 
   async function onReset(e: React.FormEvent) {
 
@@ -215,49 +216,34 @@ if (error) throw error;
                 {/* === VALIDADOR HUMANO CLOUDFLARE === */}
                 <div className="flex justify-center pt-2">
                   <Turnstile 
-                    siteKey="0x4AAAAAACgrYURZlknhmi-J" 
-                    onSuccess={(token) => setTurnstileToken(token)}
-                    onError={() => setTurnstileToken(null)}
-                    onExpire={() => setTurnstileToken(null)}
-                  />
+                  ref={turnstileRef}
+                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
                   {/* O input oculto envia o token para a Server Action capturar com formData.get('cf-turnstile-response') */}
                   <input type="hidden" name="cf-turnstile-response" value={turnstileToken || ""} />
                 </div>
 
                 <button
-                  type="submit"
-                  disabled={!canSubmit || pending || failedAttempts >= 3}
-                  className={[
-                    "w-full rounded-xl py-3 font-semibold transition",
-                    !canSubmit || pending || failedAttempts >= 3
-                      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
-                      : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
-                  ].join(" ")}
-                >
-                  {pending ? "Aguarde..." : failedAttempts >= 3 ? "Acesso Bloqueado" : "Entrar"}
-                </button>
+  type="submit"
+  disabled={!canSubmit || pending}
+  className={[
+    "w-full rounded-xl py-3 font-semibold transition",
+    !canSubmit || pending
+      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
+      : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
+  ].join(" ")}
+>
+  {pending ? "Aguarde..." : "Entrar"}
+</button>
 
-                {/* Mensagem de Erro ou Bloqueio */}
-                {failedAttempts >= 3 ? (
-                  <div className="mt-2 flex flex-col items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 text-center">
-                    <span>Acesso bloqueado por segurança após 3 tentativas inválidas.</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("reset");
-                        setFailedAttempts(0); // Zera as tentativas para dar uma nova chance se ele voltar
-                        setMsg(null);
-                      }}
-                      className="font-semibold underline hover:text-red-900 dark:hover:text-red-300 transition-colors"
-                    >
-                      Redefinir minha senha
-                    </button>
-                  </div>
-                ) : state?.error ? (
-                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-white/10 dark:bg-black/20 dark:text-white/80">
-                    {state.error}
-                  </div>
-                ) : null}
+                {state?.error && (
+  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-white/10 dark:bg-black/20 dark:text-white/80">
+    {state.error}
+  </div>
+)}
               </form>
             ) : (
               <form onSubmit={onReset} className="space-y-3">
@@ -278,6 +264,7 @@ if (error) throw error;
                 {/* === VALIDADOR HUMANO CLOUDFLARE === */}
                 <div className="flex justify-center pt-2">
                   <Turnstile 
+                    ref={turnstileRef}
                     siteKey="0x4AAAAAACgrYURZlknhmi-J" 
                     onSuccess={(token) => setTurnstileToken(token)}
                     onError={() => setTurnstileToken(null)}
