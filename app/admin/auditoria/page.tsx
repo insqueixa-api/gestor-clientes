@@ -9,7 +9,7 @@ import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications
 
 // ✅ Importa os modais de recarga
 import RecargaCliente from "../cliente/recarga_cliente";
-import RecargaAluno from "../aluno/RecargaAluno"; // Ajuste o caminho conforme sua estrutura
+
 
 // --- TIPOS ---
 type LogRow = {
@@ -56,7 +56,7 @@ function IconCheckCircle() { return <svg width="16" height="16" viewBox="0 0 24 
 function IconRefresh() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>; }
 
 function AuditoriaPageContent() {
-  const { hasAlunos, hasIPTVorSaaS } = useModules();
+  
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -743,25 +743,7 @@ function AuditoriaPageContent() {
       {/* ✅ Renderiza o Modal de Recarga ao clicar no Concluir (Dinâmico para Cliente ou Aluno) */}
       {renewState && (
         <>
-          {rows.find((r) => r.id === renewState.logId)?.technology === "ACADEMIA" || rows.find((r) => r.id === renewState.logId)?.technology === "PERSONAL" ? (
-            <RecargaAluno
-              clientId={renewState.clientId}
-              clientName={renewState.clientName}
-              paymentLogId={renewState.logId}
-              toastKey="auditoria_list_toasts"
-              onClose={() => setRenewState(null)}
-              onSuccess={async (returnedLogId) => {
-                if (!returnedLogId) return;
-                try {
-                  const { error } = await supabaseBrowser.rpc("update_fulfillment_status", { p_log_id: returnedLogId, p_tenant_id: tenantId, p_status: "manual_done" });
-                  if (error) throw error;
-                  addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
-                  setRenewState(null);
-                  loadData(); 
-                } catch (e) {}
-              }}
-            />
-          ) : (
+          
             <RecargaCliente
               clientId={renewState.clientId}
               clientName={renewState.clientName}
@@ -779,7 +761,7 @@ function AuditoriaPageContent() {
                 } catch (e) {}
               }}
             />
-          )}
+   
         </>
       )}
 
