@@ -308,6 +308,7 @@ const fieldsText = fields
     return { groups, sortedFamilies };
   }, [filteredApps]);
 
+  const isRootTenant = true;
   // --- MANIPULAÇÃO DO MODAL ---
 function openNew() {
     setEditingId(null);
@@ -436,95 +437,105 @@ async function handleDelete(id: string) {
 
 // ✅ Render único do Card (pra reutilizar nos 3 grupos)
 function renderAppCard(app: AppData) {
-  // ✅ Atualizado para o novo formato do array de integrações
-  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
+  // ✅ Atualizado para o novo formato do array de integrações
+  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
 const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : 
-                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
-                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
-                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
-                 app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
-                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
-                 app.integration_type === "LAZERPLAY" ? "Lazer Play" :
-                 app.integration_type === "FUNPLAY" ? "Fun Play" :
-                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;
+                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
+                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
+                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
+                 app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
+                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
+                 app.integration_type === "LAZERPLAY" ? "Lazer Play" :
+                 app.integration_type === "FUNPLAY" ? "Fun Play" :
+                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;
 
   return (
-    <div
-      key={app.id}
-      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-        {app.icon_url ? (
-          <img src={app.icon_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
-        ) : (
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-base shrink-0">📱</div>
-        )}
-        <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-      </div>
-          <div className="flex flex-wrap gap-1 pt-0.5">
+    <div
+      key={app.id}
+      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+        {app.icon_url ? (
+          <img src={app.icon_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-base shrink-0">📱</div>
+        )}
+        <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+      </div>
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {app.tenant_id !== myTenantId && (
+              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
+                🔒 
+              </span>
+            )}
+            
             {app.integration_type && (
               <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}>
                 ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : `${appLabel} - Integrado`}
               </span>
             )}
-            
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          {/* Botão Editar (Âmbar) */}
-          <button
-            onClick={() => openEdit(app)}
-            className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
-            title="Editar"
-          >
-            <IconEdit />
-          </button>
-
-          {/* Botão Excluir (Rose/Red) */}
-          <button
-            onClick={() => handleDelete(app.id)}
-            className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
-            title="Excluir"
-          >
-            <IconTrash />
-          </button>
+            
+          </div>
         </div>
-      </div>
 
-      {app.info_url && (
-        <a
-          href={app.info_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
-        >
-          🌐 {app.info_url}
-        </a>
-      )}
+        <div className="flex gap-2">
+          {app.tenant_id === myTenantId && (
+            <>
+              {/* Botão Editar (Âmbar) */}
+              <button
+                onClick={() => openEdit(app)}
+                className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+                title="Editar"
+              >
+                <IconEdit />
+              </button>
 
-      <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
+              {/* Botão Excluir (Rose/Red) */}
+              <button
+                onClick={() => handleDelete(app.id)}
+                className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+                title="Excluir"
+              >
+                <IconTrash />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
-        <div className="flex flex-wrap gap-1">
-          {app.fields_config.length > 0 ? (
-            app.fields_config.map((field, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
-              >
-                {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
-              </span>
-            ))
-          ) : (
-            <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+      {app.info_url && (
+        <a
+          href={app.info_url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
+        >
+          🌐 {app.info_url}
+        </a>
+      )}
+
+      <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
+
+        <div className="flex flex-wrap gap-1">
+          {app.fields_config.length > 0 ? (
+            app.fields_config.map((field, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
+              >
+                {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
+              </span>
+            ))
+          ) : (
+            <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
   
