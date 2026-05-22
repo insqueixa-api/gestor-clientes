@@ -75,28 +75,25 @@ function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSel
 }
 
 // --- PÁGINA ---
-
 function normalizeApiUrl(url: string) {
   if (!url) return "";
   let s = url.trim().replace(/\/+$/, ""); 
-  // Não deixa passar scripts maliciosos
   if (s.toLowerCase().startsWith("javascript:")) return ""; 
   if (s && !s.startsWith("http")) {
     s = "https://" + s; 
   }
   return s;
 }
-export default function AppManagerPage() {
-const [apps, setApps] = useState<AppData[]>([]);
-const [myTenantId, setMyTenantId] = useState<string | null>(null); // ✅ Guarda seu próprio ID
-// ✅ Agora guardamos a URL além do nome da integração
-const [configuredIntegrations, setConfiguredIntegrations] = useState<{name: string, url: string}[]>([]);
-const [search, setSearch] = useState("");
-const [loading, setLoading] = useState(true);
-const [isModalOpen, setIsModalOpen] = useState(false);
-const [saving, setSaving] = useState(false);
 
-    // ✅ trava scroll da página por trás quando modal abre (mantém posição e evita “vazar” no mobile)
+export default function AppManagerPage() {
+  const [apps, setApps] = useState<AppData[]>([]);
+  const [myTenantId, setMyTenantId] = useState<string | null>(null);
+  const [configuredIntegrations, setConfiguredIntegrations] = useState<{name: string, url: string}[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
   const modalScrollYRef = useRef(0);
 
   useEffect(() => {
@@ -109,21 +106,18 @@ const [saving, setSaving] = useState(false);
     const scrollY = window.scrollY || window.pageYOffset || 0;
     modalScrollYRef.current = scrollY;
 
-    // guarda estilos anteriores (pra restaurar certinho)
     const prevBodyOverflow = body.style.overflow;
     const prevBodyPosition = body.style.position;
     const prevBodyTop = body.style.top;
     const prevBodyWidth = body.style.width;
     const prevHtmlOverflow = html.style.overflow;
 
-    // trava
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
     body.style.width = "100%";
 
-    // cleanup ao fechar
     return () => {
       html.style.overflow = prevHtmlOverflow;
       body.style.overflow = prevBodyOverflow;
@@ -135,8 +129,7 @@ const [saving, setSaving] = useState(false);
     };
   }, [isModalOpen]);
 
-  // Estado do APP em Edição
-const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
@@ -168,7 +161,6 @@ const [editingId, setEditingId] = useState<string | null>(null);
     }
   }
   
-  // ✅ Verifica se a integração selecionada possui URL configurada
   const selectedIntegrationConfig = configuredIntegrations.find(i => i.name === formIntegration);
   const isUrlLocked = !!selectedIntegrationConfig && !!selectedIntegrationConfig.url;
 
@@ -178,7 +170,6 @@ const [editingId, setEditingId] = useState<string | null>(null);
     }
   }, [formIntegration, isUrlLocked, selectedIntegrationConfig]);
 
-  // --- TOAST (COM AUTO-CLOSE CORRIGIDO) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastSeq = useRef(1);
 
@@ -188,61 +179,55 @@ const [editingId, setEditingId] = useState<string | null>(null);
 
   const addToast = (type: "success" | "error", title: string, message?: string) => {
     const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
-    const durationMs = 5000; // 5 segundos padrão
+    const durationMs = 5000;
     
-    // Adiciona o toast na tela
     setToasts((prev) => [...prev, { id, type, title, message, durationMs }]);
 
-    // ✅ CORREÇÃO: Agenda a remoção automática
     setTimeout(() => {
         removeToast(id);
     }, durationMs);
   };
 
-  // --- CARREGAR DADOS ---
   async function loadData() {
     setLoading(true);
     try {
       const tid = await getCurrentTenantId();
-      if (!tid) return;
-      setMyTenantId(tid); // ✅ Armazena para usar no botão salvar/deletar
+      if (!tid) return;
+      setMyTenantId(tid);
 
-      // 1. Carrega Apps (apenas do tenant) e Integrações em paralelo
-      const [appsRes, integrationsRes] = await Promise.all([
-        supabaseBrowser.from("apps").select("*").eq("tenant_id", tid).order("name", { ascending: true }),
-        supabaseBrowser
+      const [appsRes, integrationsRes] = await Promise.all([
+        supabaseBrowser.from("apps").select("*").eq("tenant_id", tid).order("name", { ascending: true }),
+        supabaseBrowser
           .from("app_integrations")
-          .select("app_name, api_url") // ✅ Busca a URL também
+          .select("app_name, api_url")
           .eq("tenant_id", tid)
-          .eq("is_active", true) // Só conta se estiver ativa
+          .eq("is_active", true)
       ]);
 
       if (appsRes.error) throw appsRes.error;
       if (integrationsRes.error) throw integrationsRes.error;
 
-const formattedApps = (appsRes.data || [])
-  .map((app) => ({
-    ...app,
-    fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+      const formattedApps = (appsRes.data || [])
+        .map((app) => ({
+          ...app,
+          fields_config: Array.isArray(app.fields_config) ? app.fields_config : [],
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 
-setApps(formattedApps);
-// ✅ Salva o nome e a URL no estado
-setConfiguredIntegrations(integrationsRes.data?.map(i => ({ name: i.app_name, url: i.api_url || "" })) || []);
+      setApps(formattedApps);
+      setConfiguredIntegrations(integrationsRes.data?.map(i => ({ name: i.app_name, url: i.api_url || "" })) || []);
 
-    } catch (error: any) {
-      addToast("error", "Erro ao carregar dados", error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    } catch (error: any) {
+      addToast("error", "Erro ao carregar dados", error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // ✅ Busca aplicada (nome / url / campos / servidor parceria)
   const filteredApps = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return apps;
@@ -252,7 +237,7 @@ setConfiguredIntegrations(integrationsRes.data?.map(i => ({ name: i.app_name, ur
       const url = String(a.info_url ?? "").toLowerCase();
 
       const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
-const fieldsText = fields
+      const fieldsText = fields
         .map((f) => `${FIELD_LABELS[f.type] ?? ""} ${f.type ?? ""}`)
         .join(" ")
         .toLowerCase();
@@ -265,22 +250,18 @@ const fieldsText = fields
     });
   }, [search, apps]);
   
-  // ✅ NOVO: Estado para controlar quais grupos estão minimizados/fechados
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (groupName: string) => {
     setCollapsedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }));
   };
 
-  // ✅ NOVO: Lógica que agrupa os apps filtrados por Família de Integração
   const groupedApps = React.useMemo(() => {
     const groups: Record<string, AppData[]> = {};
     
     filteredApps.forEach(app => {
       let family = app.integration_type || "SEM_INTEGRACAO";
 
-      // AGRUPAMENTO VISUAL: Se tem integração, mas não é uma das famílias principais, agrupa.
-      // Isso NÃO altera o app.integration_type no banco ou nos cards, apenas a "pasta" onde ele cai aqui na tela.
       if (family !== "SEM_INTEGRACAO" && family !== "GERENCIAAPP" && family !== "IBOSOL") {
         family = "OUTRAS_INTEGRACOES";
       }
@@ -289,7 +270,6 @@ const fieldsText = fields
       groups[family].push(app);
     });
 
-    // Ordena os grupos em uma ordem fixa para ficar elegante
     const sortedFamilies = Object.keys(groups).sort((a, b) => {
       const orderWeight: Record<string, number> = {
         "GERENCIAAPP": 1,
@@ -309,8 +289,8 @@ const fieldsText = fields
   }, [filteredApps]);
 
   const isRootTenant = true;
-  // --- MANIPULAÇÃO DO MODAL ---
-function openNew() {
+
+  function openNew() {
     setEditingId(null);
     setFormName("");
     setFormUrl("");
@@ -320,7 +300,7 @@ function openNew() {
     setIsModalOpen(true);
   }
 
-function openEdit(app: AppData) {
+  function openEdit(app: AppData) {
     setEditingId(app.id);
     setFormName(app.name);
     setFormUrl(app.info_url || "");
@@ -330,11 +310,9 @@ function openEdit(app: AppData) {
     setIsModalOpen(true);
   }
 
-  // --- MANIPULAÇÃO DOS CAMPOS DINÂMICOS ---
-  // ✅ Helper para criar IDs curtos (ex: f_abc12)
   const generateShortId = () => "f_" + Math.random().toString(36).substring(2, 7);
 
- function addField(type: AppFieldType) {
+  function addField(type: AppFieldType) {
     setFormFields((prev) => [...prev, { id: generateShortId(), type }]);
   }
 
@@ -342,11 +320,6 @@ function openEdit(app: AppData) {
     setFormFields((prev) => prev.filter((f) => f.id !== id));
   }
 
-  // updateField removido — label não é mais editável
-
-
-
-  // --- SALVAR ---
   async function handleSave() {
     if (!formName.trim()) {
       addToast("error", "Nome obrigatório", "O aplicativo precisa de um nome.");
@@ -354,242 +327,230 @@ function openEdit(app: AppData) {
     }
 
     setSaving(true);
-try {
-  const tid = await getCurrentTenantId();
-  if (!tid) {
-    addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
-    return;
-  }
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) {
+        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        return;
+      }
 
-// Payload base (insert)
-  const safeUrl = normalizeApiUrl(formUrl); // ✅ Limpa a URL e impede XSS
+      const safeUrl = normalizeApiUrl(formUrl);
 
-const insertPayload = {
-    tenant_id: tid,
-    name: formName.trim(),
-    info_url: safeUrl || null,
-    icon_url: formIconUrl || null,
-    fields_config: formFields,
-    integration_type: formIntegration || null,
-  };
+      const insertPayload = {
+        tenant_id: tid,
+        name: formName.trim(),
+        info_url: safeUrl || null,
+        icon_url: formIconUrl || null,
+        fields_config: formFields,
+        integration_type: formIntegration || null,
+      };
 
-  if (editingId) {
-    // 🔵 ATUALIZAÇÃO NORMAL
-    const updatePayload = {
-      name: formName.trim(),
-      info_url: formUrl?.trim() ? formUrl.trim() : null,
-      icon_url: formIconUrl || null,
-      fields_config: formFields,
-      integration_type: formIntegration || null,
-    };
-    const { error } = await supabaseBrowser
-      .from("apps")
-      .update(updatePayload)
-      .eq("id", editingId)
-      .eq("tenant_id", tid);
-    if (error) throw error;
-    addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
-  } else {
-    const { error } = await supabaseBrowser.from("apps").insert(insertPayload);
-    if (error) throw error;
-    addToast("success", "Criado", "Aplicativo criado com sucesso.");
-  }
+      if (editingId) {
+        const updatePayload = {
+          name: formName.trim(),
+          info_url: formUrl?.trim() ? formUrl.trim() : null,
+          icon_url: formIconUrl || null,
+          fields_config: formFields,
+          integration_type: formIntegration || null,
+        };
+        const { error } = await supabaseBrowser
+          .from("apps")
+          .update(updatePayload)
+          .eq("id", editingId)
+          .eq("tenant_id", tid);
+        if (error) throw error;
+        addToast("success", "Atualizado", "Aplicativo atualizado com sucesso.");
+      } else {
+        const { error } = await supabaseBrowser.from("apps").insert(insertPayload);
+        if (error) throw error;
+        addToast("success", "Criado", "Aplicativo criado com sucesso.");
+      }
 
-  setIsModalOpen(false);
-  loadData();
-} catch (e: any) {
-  addToast("error", "Erro ao salvar", e?.message ?? "Erro inesperado.");
-} finally {
-  setSaving(false);
-}
-
-  }
-
-async function handleDelete(id: string) {
-  const ok = await confirmDialog({
-    tone: "rose",
-    title: "Excluir aplicativo?",
-    subtitle: "Isso pode afetar clientes que usam este app.",
-    details: ["Essa ação não pode ser desfeita."],
-    confirmText: "Excluir",
-    cancelText: "Voltar",
-  });
-
-  if (!ok) return;
-
-  try {
-    const tid = await getCurrentTenantId();
-    if (!tid) {
-      addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
-      return;
+      setIsModalOpen(false);
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e?.message ?? "Erro inesperado.");
+    } finally {
+      setSaving(false);
     }
-
-    // 🔴 Deletar App Definitivamente
-    const { error } = await supabaseBrowser.from("apps").delete().eq("id", id).eq("tenant_id", tid);
-    if (error) throw error;
-
-    addToast("success", "Removido", "Aplicativo removido da sua lista.");
-    loadData();
-  } catch (e: any) {
-    addToast("error", "Erro", e?.message ?? "Erro inesperado.");
   }
-}
 
-// ✅ Render único do Card (pra reutilizar nos 3 grupos)
-function renderAppCard(app: AppData) {
-  // ✅ Atualizado para o novo formato do array de integrações
-  const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
-const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : 
-                 app.integration_type === "DUPLECAST" ? "DupleCast" : 
-                 app.integration_type === "IBOSOL" ? "IBO Sol" : 
-                 app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
-                 app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
-                 app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
-                 app.integration_type === "LAZERPLAY" ? "Lazer Play" :
-                 app.integration_type === "FUNPLAY" ? "Fun Play" :
-                 app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;
+  async function handleDelete(id: string) {
+    const ok = await confirmDialog({
+      tone: "rose",
+      title: "Excluir aplicativo?",
+      subtitle: "Isso pode afetar clientes que usam este app.",
+      details: ["Essa ação não pode ser desfeita."],
+      confirmText: "Excluir",
+      cancelText: "Voltar",
+    });
 
-  return (
-    <div
-      key={app.id}
-      className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-        {app.icon_url ? (
-          <img src={app.icon_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
-        ) : (
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-base shrink-0">📱</div>
-        )}
-        <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
-      </div>
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {app.tenant_id !== myTenantId && (
-              <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
-                🔒 
-              </span>
-            )}
-            
-            {app.integration_type && (
-              <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}>
-                ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : `${appLabel} - Integrado`}
-              </span>
-            )}
-            
-          </div>
-        </div>
+    if (!ok) return;
 
-        <div className="flex gap-2">
-          {app.tenant_id === myTenantId && (
-            <>
-              {/* Botão Editar (Âmbar) */}
-              <button
-                onClick={() => openEdit(app)}
-                className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
-                title="Editar"
-              >
-                <IconEdit />
-              </button>
+    try {
+      const tid = await getCurrentTenantId();
+      if (!tid) {
+        addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
+        return;
+      }
 
-              {/* Botão Excluir (Rose/Red) */}
-              <button
-                onClick={() => handleDelete(app.id)}
-                className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
-                title="Excluir"
-              >
-                <IconTrash />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      const { error } = await supabaseBrowser.from("apps").delete().eq("id", id).eq("tenant_id", tid);
+      if (error) throw error;
 
-      {app.info_url && (
-        <a
-          href={app.info_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
-        >
-          🌐 {app.info_url}
-        </a>
-      )}
+      addToast("success", "Removido", "Aplicativo removido da sua lista.");
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message ?? "Erro inesperado.");
+    }
+  }
 
-      <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
+  function renderAppCard(app: AppData) {
+    const needsConfiguration = app.integration_type && !configuredIntegrations.some(i => i.name === app.integration_type);
+    const appLabel = app.integration_type === "GERENCIAAPP" ? "GerenciaApp" : 
+                     app.integration_type === "DUPLECAST" ? "DupleCast" : 
+                     app.integration_type === "IBOSOL" ? "IBO Sol" : 
+                     app.integration_type === "IBOPRO" ? "IBO Pro Player" : 
+                     app.integration_type === "QUICKPLAYER" ? "Quick Player" : 
+                     app.integration_type === "DUPLEXPLAY" ? "DuplexPlay" : 
+                     app.integration_type === "LAZERPLAY" ? "Lazer Play" :
+                     app.integration_type === "FUNPLAY" ? "Fun Play" :
+                     app.integration_type === "FOCOXPLAY" ? "FocoX Play" : app.integration_type;
 
-        <div className="flex flex-wrap gap-1">
-          {app.fields_config.length > 0 ? (
-            app.fields_config.map((field, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
-              >
-                {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
-              </span>
-            ))
-          ) : (
-            <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+    return (
+      <div
+        key={app.id}
+        className="group bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+      >
+        <div className="flex justify-between items-start mb-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              {app.icon_url ? (
+                <img src={app.icon_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-base shrink-0">📱</div>
+              )}
+              <h3 className="font-bold text-lg text-slate-800 dark:text-white leading-none">{app.name}</h3>
+            </div>
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {app.tenant_id !== myTenantId && (
+                <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-white/40 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-full">
+                  🔒 
+                </span>
+              )}
+              
+              {app.integration_type && (
+                <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}>
+                  ⚡ {needsConfiguration ? `${appLabel} - Configurar API` : `${appLabel} - Integrado`}
+                </span>
+              )}
+            </div>
+          </div>
 
-  
+          <div className="flex gap-2">
+            {app.tenant_id === myTenantId && (
+              <>
+                <button
+                  onClick={() => openEdit(app)}
+                  className="p-1.5 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-lg transition-all"
+                  title="Editar"
+                >
+                  <IconEdit />
+                </button>
 
-return (
-  <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
+                <button
+                  onClick={() => handleDelete(app.id)}
+                  className="p-1.5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-all"
+                  title="Excluir"
+                >
+                  <IconTrash />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
-{/* ✅ Toasts em overlay (não ocupam espaço no topo) */}
-<div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
-  <div className="pointer-events-auto">
-    <ToastNotifications toasts={toasts} removeToast={removeToast} />
-  </div>
-</div>
+        {app.info_url && (
+          <a
+            href={app.info_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block mb-3"
+          >
+            🌐 {app.info_url}
+          </a>
+        )}
 
-{/* ✅ ConfirmUI separado (modal/backdrop clicável) */}
-{ConfirmUI}
+        <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-1">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campos exigidos:</p>
 
+          <div className="flex flex-wrap gap-1">
+            {app.fields_config.length > 0 ? (
+              app.fields_config.map((field, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded text-[10px] text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1"
+                >
+                  {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">Apenas nome (padrão)</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      {/* HEADER DA PÁGINA (padrão Clientes) */}
-<div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
-  <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
-    Aplicativos
-  </h1>
+  return (
+    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
 
-  <button
-    onClick={openNew}
-    className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-  >
-    <span className="text-base leading-none">+</span>
-    Novo Aplicativo
-  </button>
-</div>
-{/* ✅ BARRA DE BUSCA (padrão Clientes) */}
-<div className="px-3 sm:px-0">
-  <div className="md:p-4 md:bg-white dark:md:bg-[#161b22] md:border md:border-slate-200 dark:md:border-white/10 md:rounded-xl md:sticky md:top-4 z-20">
-    <div className="flex items-center gap-2">
-      <Input
-        placeholder="Buscar aplicativo (nome, url, campos, servidor...)"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      {/* ✅ Toasts em overlay */}
+      <div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
+        <div className="pointer-events-auto">
+          <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        </div>
+      </div>
 
-      {search.trim() ? (
+      {ConfirmUI}
+
+      {/* HEADER DA PÁGINA */}
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+          Aplicativos
+        </h1>
+
         <button
-          onClick={() => setSearch("")}
-          className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-          title="Limpar busca"
+          onClick={openNew}
+          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
         >
-          Limpar
+          <span className="text-base leading-none">+</span>
+          Novo Aplicativo
         </button>
-      ) : null}
-    </div>
-  </div>
-</div>
+      </div>
+
+      {/* BARRA DE BUSCA */}
+      <div className="px-3 sm:px-0">
+        <div className="md:p-4 md:bg-white dark:md:bg-[#161b22] md:border md:border-slate-200 dark:md:border-white/10 md:rounded-xl md:sticky md:top-4 z-20">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Buscar aplicativo (nome, url, campos, servidor...)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            {search.trim() ? (
+              <button
+                onClick={() => setSearch("")}
+                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                title="Limpar busca"
+              >
+                Limpar
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
 
       {/* LISTAGEM */}
       {loading ? (
@@ -611,7 +572,6 @@ return (
             let familyName = "";
             let familyIcon = "⚡";
 
-            // Define os nomes visuais para as pastas
             if (family === "GERENCIAAPP") {
               familyName = "GerenciaApp (IBO Revenda, etc)";
             } else if (family === "IBOSOL") {
@@ -628,7 +588,6 @@ return (
             return (
               <div key={family} className="space-y-3">
                 
-                {/* Header da "Sanfona" (Família) */}
                 <div 
                   className="flex items-center justify-between cursor-pointer border-b border-slate-200 dark:border-white/10 pb-2 group select-none transition-colors hover:border-emerald-500/50"
                   onClick={() => toggleGroup(family)}
@@ -650,7 +609,6 @@ return (
                   </button>
                 </div>
 
-                {/* Grid de Cards da Família */}
                 {!isCollapsed && (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
                     {appsInFamily.map((app) => renderAppCard(app))}
@@ -666,12 +624,11 @@ return (
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div
-  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
-  onClick={() => setIsModalOpen(false)}
->
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+          onClick={() => setIsModalOpen(false)}
+        >
           <div className="w-full max-w-lg sm:max-w-2xl bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             
-            {/* HEADER MODAL */}
             <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5 rounded-t-xl">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">
                 {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
@@ -679,11 +636,7 @@ return (
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">✕</button>
             </div>
 
-            {/* BODY MODAL */}
-            <div
-  className="p-6 overflow-y-auto space-y-6 overscroll-contain"
-  style={{ WebkitOverflowScrolling: "touch" }}
->
+            <div className="p-6 overflow-y-auto space-y-6 overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
               
               {/* DADOS BÁSICOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -702,7 +655,7 @@ return (
                     placeholder="https://..." 
                     value={formUrl} 
                     onChange={(e) => setFormUrl(e.target.value)} 
-                    disabled={isUrlLocked} // ✅ Bloqueia edição se a integração tiver a URL
+                    disabled={isUrlLocked} 
                     className={isUrlLocked ? "opacity-60 cursor-not-allowed" : ""}
                   />
                   {isUrlLocked && (
@@ -758,8 +711,9 @@ return (
               </div>
 
               {/* INTEGRAÇÃO */}
-              <div>
-                <Label>Integração automática</Label>
+              {isRootTenant && (!editingId || apps.find(a => a.id === editingId)?.tenant_id === myTenantId) && (
+                <div>
+                  <Label>Integração automática</Label>
                   <select
                     value={formIntegration}
                     onChange={(e) => setFormIntegration(e.target.value)}
@@ -780,36 +734,34 @@ return (
                     Quando configurado, habilita automação ao criar clientes.
                   </p>
                 </div>
-                           
+              )}
 
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-  <h3 className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
-    Campos Personalizados
-  </h3>
-
-  {/* Botões — um por tipo, some quando já adicionado */}
-  <div className="flex flex-wrap gap-2 sm:justify-end">
-    {ALL_FIELD_TYPES.map((type) => {
-      const alreadyAdded = formFields.some((f) => f.type === type);
-      return (
-        <button
-          key={type}
-          onClick={() => addField(type)}
-          disabled={alreadyAdded}
-          className={`text-xs px-2 py-1 border rounded font-bold transition-colors flex items-center gap-1
-            ${alreadyAdded
-              ? "opacity-30 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400"
-              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-            }`}
-        >
-          {FIELD_ICONS[type]} + {FIELD_LABELS[type]}
-        </button>
-      );
-    })}
-  </div>
-</div>
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
+                    Campos Personalizados
+                  </h3>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    {ALL_FIELD_TYPES.map((type) => {
+                      const alreadyAdded = formFields.some((f) => f.type === type);
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => addField(type)}
+                          disabled={alreadyAdded}
+                          className={`text-xs px-2 py-1 border rounded font-bold transition-colors flex items-center gap-1
+                            ${alreadyAdded
+                              ? "opacity-30 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                            }`}
+                        >
+                          {FIELD_ICONS[type]} + {FIELD_LABELS[type]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   {formFields.length === 0 && (
@@ -865,7 +817,6 @@ return (
 
             </div>
 
-            {/* FOOTER MODAL */}
             <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
               <button 
                 onClick={() => setIsModalOpen(false)}
