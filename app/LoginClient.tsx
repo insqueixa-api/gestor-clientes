@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,7 +110,25 @@ export default function LoginClient() {
 
   const [whatsapp, setWhatsapp] = useState("");
   const [pin, setPin] = useState("");
+  const [tenantBrand, setTenantBrand] = useState<{
+    name?: string;
+    logo_url?: string | null;
+    primary_color?: string | null;
+  } | null>(null);
 
+  useEffect(() => {
+    if (!tenantBrand) return;
+    if (tenantBrand.name) {
+      document.title = `Área do Cliente | ${tenantBrand.name}`;
+    }
+    if (tenantBrand.logo_url) {
+      document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = tenantBrand.logo_url;
+      document.head.appendChild(link);
+    }
+  }, [tenantBrand]);
   const [msg, setMsg] = useState<Msg | null>(null);
 
   const [loadingResolve, setLoadingResolve] = useState(false);
@@ -118,11 +136,7 @@ export default function LoginClient() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [loadingReset, setLoadingReset] = useState(false);
 
-  // Ref pra resetar o widget Turnstile após erro (token é usado uma única vez)
-  const turnstileRef = useRef<TurnstileInstance>(null);
-
   const cleanPhone = useMemo(() => whatsapp.replace(/\D/g, ""), [whatsapp]);
-  
 
 const canSubmit = useMemo(() => {
     // ✅ Agora ele só libera o botão se tiver o token do Cloudflare também
@@ -167,6 +181,16 @@ const canSubmit = useMemo(() => {
         }
 
         setWhatsapp(String(row.whatsapp_username));
+
+        // Busca branding do tenant sem tocar na lógica do token
+        if (row.tenant_id) {
+          const { data: brand } = await supabase
+            .from("vw_tenant_branding")
+            .select("name, logo_url, primary_color")
+            .eq("id", row.tenant_id)
+            .maybeSingle();
+          if (brand) setTenantBrand(brand);
+        }
       } catch {
         if (!cancelled) {
           setMsg({ type: "error", text: "Falha ao validar o link. Tente novamente." });
@@ -203,9 +227,6 @@ const canSubmit = useMemo(() => {
       const data = await res.json();
 
       if (!res.ok) {
-        // Reseta o Turnstile (token só vale 1x — sem isso a próxima tentativa trava)
-        turnstileRef.current?.reset();
-        setTurnstileToken(null);
         setMsg({ type: "error", text: "PIN incorreto. Tente novamente." });
         return;
       }
@@ -213,8 +234,6 @@ const canSubmit = useMemo(() => {
       const sessionToken = data?.session_token;
 
       if (!sessionToken) {
-        turnstileRef.current?.reset();
-        setTurnstileToken(null);
         setMsg({ type: "error", text: "Não foi possível iniciar a sessão. Tente novamente." });
         return;
       }
@@ -227,8 +246,6 @@ const canSubmit = useMemo(() => {
 
       window.location.href = '/renew';
     } catch {
-      turnstileRef.current?.reset();
-      setTurnstileToken(null);
       setMsg({ type: "error", text: "Erro ao acessar. Tente novamente." });
     } finally {
       setLoadingLogin(false);
@@ -275,11 +292,11 @@ const canSubmit = useMemo(() => {
   }, [cleanPhone]);
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
-        <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
-<div className="absolute -bottom-[10%] -left-[10%] h-[40%] w-[40%] rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-blue-500/20 blur-3xl" />
         <div
           className="absolute inset-0 opacity-[0.06] mix-blend-overlay"
           style={{
@@ -294,18 +311,17 @@ const canSubmit = useMemo(() => {
           {/* Reduzido de pt-4 para pt-5 para a logo ficar mais colada em cima */}
           <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4 text-center">
             <div className="flex items-center justify-center">
-              <img
-                src="/brand/logo-full-light.png"
-                alt="UniGestor"
-                className="h-9 sm:h-10 w-auto select-none"
-                draggable={false}
-              />
+              {tenantBrand?.logo_url ? (
+                <img src={tenantBrand.logo_url} alt={tenantBrand.name || "Logo"} className="h-12 w-auto max-w-[180px] object-contain select-none" />
+              ) : (
+                <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-9 w-auto select-none" />
+              )}
             </div>
-            <h1 className="mt-4 text-xl sm:text-2xl font-semibold text-slate-800 dark:text-white">
+            <h1 className="mt-4 text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">
               Área do Cliente
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/60">
-              Renovação automática da sua assinatura.
+            <p className="mt-1 text-xs text-slate-500 dark:text-white/60">
+              Renovação automática da sua assinatura!
             </p>
           </div>
 
@@ -374,7 +390,6 @@ const canSubmit = useMemo(() => {
 {/* === VALIDADOR HUMANO CLOUDFLARE === */}
               <div className="flex justify-center pt-2">
                 <Turnstile 
-                  ref={turnstileRef}
                   siteKey="0x4AAAAAACgrYURZlknhmi-J" 
                   onSuccess={(token) => setTurnstileToken(token)}
                   onError={() => setTurnstileToken(null)}
@@ -388,12 +403,15 @@ const canSubmit = useMemo(() => {
 <button
                   type="submit"
                   disabled={!canSubmit || loadingResolve || loadingLogin}
-                  className={[
-                    "w-full rounded-xl py-3 font-semibold transition",
+                  className={`w-full rounded-xl py-3 font-bold text-base transition shadow-lg ${
                     !canSubmit || loadingResolve || loadingLogin
-                      ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/15"
-                      : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
-                  ].join(" ")}
+  ? "bg-slate-300 text-white cursor-not-allowed dark:bg-white/10"
+                      : "text-white active:scale-95"
+                  }`}
+                style={(!canSubmit || loadingResolve || loadingLogin) ? undefined : {
+                  backgroundColor: tenantBrand?.primary_color || "#059669",
+                  boxShadow: `0 8px 20px -6px ${tenantBrand?.primary_color || "#059669"}80`,
+                }}
                 >
                   {loadingLogin ? "Acessando..." : "Acessar Área do Cliente"}
                 </button>
@@ -407,18 +425,14 @@ const canSubmit = useMemo(() => {
               )}
             </form>
 
-{/* Rodapé mínimo */}
-            <div className="mt-4 sm:mt-6 text-center text-[10px] sm:text-xs text-white/70">
-              <span className="inline-block rounded-full bg-black/20 px-3 py-1">
-                UniGestor © {new Date().getFullYear()}
+{/* Otimizado o espaço no rodapé */}
+            <div className="mt-6 pt-5 border-t border-slate-200/60 dark:border-white/10 text-center flex flex-col items-center gap-1.5">
+              <span className="uppercase tracking-widest font-bold text-[9px] text-slate-400 dark:text-white/30">
+                Tecnologia por
               </span>
+              <img src="/brand/logo-full-light.png" alt="UniGestor" className="h-5 drop-shadow-sm transition-all hover:scale-105" />
             </div>
           </div>
-        </div>
-
-        {/* Hint embaixo do card */}
-        <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
-          Acesso protegido • Renovação automática
         </div>
       </div>
     </div>
