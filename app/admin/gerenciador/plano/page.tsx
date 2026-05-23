@@ -50,6 +50,7 @@
 
   export default function PlanosPage() {
     const [loading, setLoading] = useState(true);
+    const [hasAccess, setHasAccess] = useState<boolean | null>(null); // ✅ Controle de Acesso
     const [plano, setPlano] = useState<PlanRow[]>([]);
 
     const [isNewOpen, setIsNewOpen] = useState(false);
@@ -59,6 +60,7 @@
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [search, setSearch] = useState("");
     const [userRole, setUserRole] = useState<"SUPERADMIN" | "MASTER" | "USER" | null>(null);
+  const [isAlunosOnly, setIsAlunosOnly] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [newTableType, setNewTableType] = useState<"iptv" | "saas" | "saas_credits" | null>(null);
 
@@ -67,6 +69,11 @@
       let plans = userRole === "USER"
         ? plano.filter((p) => p.table_type === "iptv")
         : plano;
+
+      // Academia/Personal: só tabela BRL
+      if (isAlunosOnly) {
+        plans = plans.filter((p) => p.currency === "BRL");
+      }
 
       const q = search.trim().toLowerCase();
       if (!q) return plans;
@@ -93,7 +100,32 @@
       setLoading(true);
       const tenantId = await getCurrentTenantId();
 
-      // O tenantId já está validado
+      if (tenantId) {
+        // ✅ VERIFICAÇÃO DE ACESSO (MÓDULOS)
+        const { data: tenantRow } = await supabaseBrowser
+          .from("tenants")
+          .select("active_modules")
+          .eq("id", tenantId)
+          .maybeSingle();
+
+        const mods = tenantRow?.active_modules || [];
+        const hasAuthorizedModule = 
+      mods.includes("iptv") || 
+      mods.includes("saas") || 
+      mods.includes("academia") || 
+      mods.includes("personal");
+
+        if (!hasAuthorizedModule) {
+          setHasAccess(false);
+          setLoading(false); // Libera a tela para mostrar o bloqueio
+          return; // 🛑 Interrompe totalmente o carregamento
+        }
+        
+setHasAccess(true);
+        const isAlunos = (mods.includes("academia") || mods.includes("personal"))
+          && !mods.includes("iptv") && !mods.includes("saas");
+        setIsAlunosOnly(isAlunos);
+      }
 
     const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
     const currentRole = (roleData ?? "USER").toUpperCase();
@@ -240,7 +272,36 @@
       };
     };
 
-    return (
+    // ✅ PROTEÇÃO CONTRA VAZAMENTO (TELA PISCANDO)
+    if (hasAccess === null) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-[#0f141a]">
+          <div className="text-slate-400 dark:text-white/40 animate-pulse font-bold tracking-tight">Verificando permissões...</div>
+        </div>
+      );
+    }
+
+    // ✅ TELA DE BLOQUEIO PARA QUEM NÃO TEM ACESSO
+    if (hasAccess === false) {
+      return (
+        <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
+          <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
+            Acesso Restrito
+          </h1>
+          <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
+            Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
+          </p>
+        </div>
+      );
+    }
+
+      return (
       <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
         {/* Topo (padrão admin) */}
         <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0 md:px-4">
@@ -532,10 +593,52 @@
                         {isExpanded && plan.table_type === "saas_credits" ? (
                           /* ── Créditos SaaS ── */
                           <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
+                            {[
+                              { label: "Pacotes Pequenos", tiers: CREDIT_TIERS_ROW1 },
+                              { label: "Pacotes Grandes",  tiers: CREDIT_TIERS_ROW2  },
+                            ].map(({ label, tiers }) => (
+                              <div key={label} className="animate-in slide-in-from-left-2 duration-300">
+                                <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                                  {label}
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                  {tiers.map((tier) => {
+                                    const item  = plan.items.find((i) => i.period === tier);
+                                    const price = item?.prices?.find((p) => p.screens_count === 1)?.price_amount ?? null;
+                                    return (
+                                      <div
+                                        key={tier}
+                                        className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2.5 flex flex-col justify-center h-16 relative hover:border-emerald-500/30 transition-all group"
+                                      >
+                                        <div className="flex justify-between items-center w-full mb-1">
+                                          <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
+                                            Pacote
+                                          </span>
+                                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                            {CREDIT_TIER_LABELS[tier]}
+                                          </span>
+                                        </div>
+                                        <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                          {formatMoney(price, plan.currency)}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : isExpanded ? (
+                          /* ── IPTV / SaaS (comportamento original) ── */
+                          <div className="p-4 sm:p-5 space-y-6 bg-white dark:bg-[#161b22]">
                             {(plan.is_master_only ? [1, 2] : [1, 2, 3]).map((screenCount) => (
                               <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                                 <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                                  {plan.is_master_only
+                                  {isAlunosOnly
+                                    ? screenCount === 1 ? "Plano Individual"
+                                    : screenCount === 2 ? "Plano Família"
+                                    : "Família Total"
+                                  : plan.is_master_only
                                     ? screenCount === 1 ? "Preços para 1 Sessão WhatsApp" : `Preços para ${screenCount} Sessões WhatsApp`
                                     : `Preços para ${screenCount} ${screenCount === 1 ? "Tela" : "Telas"}`}
                                 </h3>
@@ -553,9 +656,11 @@
                                           <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">
                                             {PERIOD_LABELS[period]}
                                           </span>
-                                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                                            {credits} cr
-                                          </span>
+                                          {!isAlunosOnly && (
+                                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                              {credits} cr
+                                            </span>
+                                          )}
                                         </div>
 
                                         <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
@@ -585,7 +690,8 @@
   {(isNewOpen || editingPlan) && (
     <PlanoModal
       plan={editingPlan}
-      
+      newTableType={newTableType}
+      isAlunosOnly={isAlunosOnly}
       onClose={() => {
         setIsNewOpen(false);
         setEditingPlan(null);
