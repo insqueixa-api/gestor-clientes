@@ -234,7 +234,6 @@ function ModalDayPicker({ currentDate, onSelect, onClose }: {
 function FinanceiroPageContent() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null); // ✅ NOVO ESTADO
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const { confirm, ConfirmUI } = useConfirm();
@@ -296,9 +295,6 @@ function FinanceiroPageContent() {
     if (!isMesAtual && !isMesAnterior) return;
 
     const catIPTV = categorias.find(c => c.nome.toLowerCase().includes("iptv"))?.id;
-const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
-
-    
 
     try {
       const y = dateObj.getFullYear();
@@ -312,28 +308,21 @@ const catSaaS = categorias.find(c => c.nome.toLowerCase().includes("saas"))?.id;
       const mesStartStr = `${y}-${String(m + 1).padStart(2, '0')}-01T00:00:00.000Z`;
       const mesEndStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}T23:59:59.999Z`;
 
-      const [resF, resS, resPurchases, resSaasCost] = await Promise.all([
-  supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
-  supabaseBrowser.from("vw_saas_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
-  supabaseBrowser.from("server_credit_purchases").select("total_amount_brl").eq("tenant_id", tid).gte("created_at", mesStartStr).lte("created_at", mesEndStr),
-  supabaseBrowser.from("saas_credit_transactions").select("price_amount").eq("tenant_id", tid).in("type", ["purchase", "grant"]).gte("created_at", mesStartStr).lte("created_at", mesEndStr)
-]);
+      const [resF, resPurchases] = await Promise.all([
+        supabaseBrowser.from("vw_dashboard_finance_cards").select("*").eq("tenant_id", tid).maybeSingle(),
+        supabaseBrowser.from("server_credit_purchases").select("total_amount_brl").eq("tenant_id", tid).gte("created_at", mesStartStr).lte("created_at", mesEndStr)
+      ]);
 
 let valorIptv = 0;
-let valorSaas = 0;
-let valorDespesas = 0;
-let valorSaasCusto = 0;
+      let valorDespesas = 0;
 
       if (isMesAtual) {
-  valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
-  valorSaas = Number(resS.data?.renewal_month_brl || 0) + Number(resS.data?.credits_month_brl || 0);
-} else if (isMesAnterior) {
-  valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
-  valorSaas = Number(resS.data?.renewal_prev_brl || 0) + Number(resS.data?.credits_prev_brl || 0);
-}
+        valorIptv = Number(resF.data?.clients_paid_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_month_brl || 0);
+      } else if (isMesAnterior) {
+        valorIptv = Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) + Number(resF.data?.reseller_paid_prev_month_brl || 0);
+      }
 
-valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
-valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.price_amount || 0), 0);
+      valorDespesas = (resPurchases.data || []).reduce((acc, row) => acc + Number(row.total_amount_brl), 0);
 
       // Data de pagamento = último dia do mês sincronizado (nunca "hoje")
       const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
@@ -367,9 +356,7 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
 
       await Promise.all([
         upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico("SaaS - Venda de Créditos", valorSaas, catSaaS || catSaaS, "RECEITA"),
         upsertDinamico("IPTV - Recarga de Servidores", valorDespesas, catIPTV, "DESPESA"),
-        upsertDinamico("SaaS - Custo de Créditos", valorSaasCusto, catSaaS || catSaaS, "DESPESA"),
       ]);
     } catch (e) {
       console.error("Erro na sincronização:", e);
@@ -469,20 +456,6 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
       setTenantId(tid);
       
       if (tid) {
-        // ✅ VERIFICA A PERMISSÃO ANTES DE CARREGAR OS DADOS
-        const { data } = await supabaseBrowser
-          .from("tenants")
-          .select("financial_control_enabled")
-          .eq("id", tid)
-          .single();
-
-        if (!data?.financial_control_enabled) {
-          setIsAuthorized(false);
-          setLoading(false);
-          return; // Para a execução aqui
-        }
-        
-        setIsAuthorized(true);
         await carregarDados(tid, currentDate);
       } else {
         setLoading(false);
@@ -678,28 +651,8 @@ valorSaasCusto = (resSaasCost.data || []).reduce((acc, row) => acc + Number(row.
   
   const saldoPrevisao = saldoAtualReal + (receitasTotal - receitasPagas) - (despesasTotal - despesasPagas);
 
-  // ✅ TELA DE BLOQUEIO SE NÃO AUTORIZADO
-  if (isAuthorized === false) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2">
-          Acesso Restrito
-        </h1>
-        <p className="text-slate-500 dark:text-white/60 max-w-md mx-auto">
-          Você não tem autorização para acessar esta página. Entre em contato com o administrador da sua conta para mais informações.
-        </p>
-      </div>
-    );
-  }
-
   // ✅ LOADING INICIAL PARA NÃO PISCAR A TELA
-  if (loading && isAuthorized === null) {
+  if (loading && contasDB.length === 0) {
     return <div className="p-12 text-center text-slate-400 animate-pulse">Carregando Finanças...</div>;
   }
 

@@ -275,7 +275,7 @@ const canSubmit = useMemo(() => {
   }, [cleanPhone]);
 
   return (
-    <div className="h-dvh w-full relative overflow-hidden flex flex-col items-center justify-center px-3 sm:px-6 bg-slate-50 dark:bg-[#0f141a]">
+    <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-slate-50 dark:bg-[#0f141a]">
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -417,9 +417,9 @@ const canSubmit = useMemo(() => {
         </div>
 
         {/* Hint embaixo do card */}
-<div className="mt-4 text-center text-[10px] text-white/50 shrink-0 mb-4">
-  Acesso protegido • Renovação automática
-</div>
+        <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
+          Acesso protegido • Renovação automática
+        </div>
       </div>
     </div>
   );
