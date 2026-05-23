@@ -585,7 +585,7 @@
   {(isNewOpen || editingPlan) && (
     <PlanoModal
       plan={editingPlan}
-      tableType={newTableType}
+      
       onClose={() => {
         setIsNewOpen(false);
         setEditingPlan(null);
