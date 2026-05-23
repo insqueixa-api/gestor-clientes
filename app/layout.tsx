@@ -46,7 +46,7 @@ export default function RootLayout({
     // 2. IMPORTANTE: suppressHydrationWarning evita erros no console quando o tema carrega
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 dark:bg-[#0f141a]`}
+        
       >
         {/* 3. AQUI ESTÁ A MÁGICA: O Provider precisa "abraçar" todo o site */}
         <ThemeProvider>
