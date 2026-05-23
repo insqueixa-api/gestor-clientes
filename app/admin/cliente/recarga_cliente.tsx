@@ -1258,7 +1258,10 @@ console.log("✅ Renovação automática concluída:", {
         p_price_amount: rawPlanPrice,
         p_price_currency: currency as any,
         p_vencimento: dateForUpdate,
-        p_is_trial: allowConvertWithoutPayment ? false : null,
+        // ✅ Se vier via Auditoria (paymentLogId presente), o cliente está
+        // concluindo uma renovação paga pelo portal. Trial deve virar cliente.
+        // Em outros fluxos (clientes/trials), mantém a lógica antiga.
+        p_is_trial: paymentLogId ? false : (allowConvertWithoutPayment ? false : null),
         p_whatsapp_opt_in: true,
         p_whatsapp_username: null,
         p_whatsapp_snooze_until: null,
