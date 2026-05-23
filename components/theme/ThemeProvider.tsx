@@ -68,11 +68,6 @@ export function ThemeProvider({
     };
   }, [theme]);
 
-  // Evita o efeito de "flash" de tema incorreto e erros de hidratação
-  if (!mounted) {
-    return <div style={{ visibility: "hidden" }}>{children}</div>;
-  }
-
   return <ThemeContext.Provider value={api}>{children}</ThemeContext.Provider>;
 }
 

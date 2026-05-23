@@ -2,7 +2,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/app/admin/HookuseConfirm";
 
@@ -55,7 +54,7 @@ export default async function AdminLayout({
   const userLabel = profile?.display_name || tenantName || user.email || "Usuário";
 
   return (
-    <ThemeProvider defaultTheme="light">
+    
       <ConfirmProvider>
         <AdminShell
           userLabel={userLabel}
@@ -67,6 +66,6 @@ export default async function AdminLayout({
           {children}
         </AdminShell>
       </ConfirmProvider>
-    </ThemeProvider>
+    
   );
 }
