@@ -661,16 +661,15 @@ async function loadData() {
       await loadWhatsAppSessions(); // ✅ NOVO: Puxa a foto e telefone da VM para a lista
     }
 
-    // ✅ Usa a RPC segura para carregar os Locais (Overrides) + Globais visíveis!
-    const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
-      .rpc("get_my_visible_apps");
+    // ✅ Acesso direto à tabela, sem burocracia de permissões
+    const { data: appsData, error: appsErr } = await supabaseBrowser
+      .from("apps")
+      .select("*")
+      .eq("is_active", true);
 
     if (appsErr) {
       console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
     }
-
-    /// Filtra apenas os ativos para o índice principal
-    const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
 
     // ✅ NOVO: Carrega as URLs das integrações do App
     const { data: appInts } = await supabaseBrowser
@@ -2598,9 +2597,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
   <option value="">Selecionar...</option>
   {Object.entries(
     messageTemplates
-      // 1. Oculta tudo de Revenda IPTV e SaaS
-      .filter((t) => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
-      // 2. Agrupa por categoria
+      // ✅ Filtros removidos: Você vê todas as categorias agora.
       .reduce((acc, t) => {
         const cat = t.category || "Geral";
         if (!acc[cat]) acc[cat] = [];

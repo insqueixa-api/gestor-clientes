@@ -1119,18 +1119,15 @@ useEffect(() => {
           .eq("is_archived", false);
 
         // 2. Apps (Catálogo Completo com Configuração)
-        // ✅ Usa a RPC segura para carregar os Locais + Globais visíveis!
-const { data: appsDataRaw, error: appsErr } = await supabaseBrowser
-          .rpc("get_my_visible_apps");
-        // icon_url já vem se a RPC fizer SELECT *
-        // Se não vier, verifica a definição da RPC no Supabase
+        // ✅ Acesso direto e sem restrições à tabela de aplicativos
+        const { data: appsData, error: appsErr } = await supabaseBrowser
+          .from("apps")
+          .select("*")
+          .eq("is_active", true);
           
         if (appsErr) {
           console.warn("Erro ao carregar catálogo de apps:", appsErr.message);
         }
-        
-        // Filtra apenas os ativos para exibir no dropdown
-        const appsData = (appsDataRaw || []).filter((a: any) => a.is_active === true);
 
         // ✅ NOVO: Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
         const { data: appInts } = await supabaseBrowser
@@ -4699,12 +4696,10 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                   >
                                     <option value="">-- Personalizado --</option>
                                     {Object.entries(
-                                      templates
-                                        // 1. Esconde mensagens de Revendas
-                                        .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
-                                        // 2. Agrupa por categoria
-                                        .reduce((acc, t) => {
-                                          const cat = t.category || "Geral";
+                                        templates
+                                          // ✅ Filtros de Revenda: Você vê tudo!
+                                          .reduce((acc, t) => {
+                                            const cat = t.category || "Geral";
                                           if (!acc[cat]) acc[cat] = [];
                                           acc[cat].push(t);
                                           return acc;
