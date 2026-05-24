@@ -5,7 +5,6 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import Link from "next/link";
-import SaasProfileRenewModal from "./SaasProfileRenewModal";
 import MediaUploader from "./MediaUploader";
 import { useConfirm } from "@/app/admin/HookuseConfirm"; // ✅ Import adicionado
 
@@ -2834,22 +2833,7 @@ Content-Type: application/json`}</code>
       </div>
     )}
 
-    {showRenewModal && tenantId && (
-        <SaasProfileRenewModal
-          tenantId={tenantId}
-          role={role as "MASTER" | "USER"}
-          saasPlanTableId={saasPlanTableId}
-          creditBalance={creditBalance}
-          currentExpiry={expiresAt}
-          whatsappSessions={whatsappSessions}
-          onClose={() => setShowRenewModal(false)}
-          onSuccess={() => {
-            setShowRenewModal(false);
-            addToast("success", "Renovado!", "Sua licença foi renovada com sucesso.");
-            setTimeout(() => window.location.reload(), 1500);
-          }}
-        />
-      )}
+    
     </div>
   );
 }
