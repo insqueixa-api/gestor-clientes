@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
+// --- Tipagens Enxutas ---
 type Price = {
   screens_count: number;
   price_amount: number | null;
@@ -17,7 +18,7 @@ type Item = {
   prices: Price[];
 };
 
-type PlanRow = {
+export type PlanRow = {
   id: string;
   tenant_id: string;
   name: string;
@@ -25,15 +26,13 @@ type PlanRow = {
   is_active: boolean;
   is_system_default: boolean;
   is_master_only: boolean;
-  table_type: "iptv" | "saas" | "saas_credits";
+  table_type: "iptv";
   created_at: string;
   items: Item[];
 };
 
 type Props = {
   plan?: PlanRow | null;
-  newTableType?: "iptv" | "saas" | "saas_credits" | null;
-  isAlunosOnly?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 };
@@ -57,12 +56,6 @@ const PERIOD_LABELS: Record<string, string> = {
   ANNUAL: "Anual",
 };
 
-const CREDIT_TIERS = ["C_10","C_20","C_30","C_50","C_100","C_150","C_200","C_300","C_400","C_500"] as const;
-const CREDIT_TIER_LABELS: Record<string, string> = {
-  C_10:"10 cr", C_20:"20 cr", C_30:"30 cr", C_50:"50 cr", C_100:"100 cr",
-  C_150:"150 cr", C_200:"200 cr", C_300:"300 cr", C_400:"400 cr", C_500:"500 cr",
-};
-
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <label className="block text-xs font-bold text-slate-500 dark:text-white/40 mb-1.5 tracking-tight">
@@ -71,16 +64,9 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, onSuccess }: Props) {
+export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const isEditing = !!plan;
-  
-  // ✅ FORÇA o tipo IPTV se for o módulo de Academia/Personal. Caso contrário, segue a regra normal.
-  const effectiveType = isAlunosOnly ? "iptv" : (plan?.table_type ?? newTableType ?? "iptv");
-  
-  const isSaasCredits = effectiveType === "saas_credits";
-  const isSaas = effectiveType === "saas";
-  const isMasterOnly = isAlunosOnly ? false : (plan?.is_master_only ?? isSaas);
-  
+
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
   const [originalCurrency, setOriginalCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
@@ -95,31 +81,20 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
         setName(plan.name);
         setCurrency(plan.currency);
         setOriginalCurrency(plan.currency);
-        await loadItemsFromPlan(plan.id, plan.currency);
-      } else if (isSaasCredits) {
-        setItems(CREDIT_TIERS.map((tier) => ({
-          itemId: `temp-${tier}`,
-          period: tier,
-          credits: 0,
-          price1: "",
-          price2: "",
-          price3: "",
-        })));
+        await loadItemsFromPlan(plan.id);
       }
       setLoading(false);
     }
     loadData();
   }, [plan, isEditing]);
 
-  // ✅ Busca os itens da memória, e se estiver corrompido (vazio), gera na tela!
-  async function loadItemsFromPlan(planId: string, curr: "BRL" | "USD" | "EUR") {
+  // Busca os itens da memória, e se estiver corrompido (vazio), gera na tela
+  async function loadItemsFromPlan(planId: string) {
     if (!plan) return;
 
     const existingItems = plan.items || [];
-    const isCreditTable = plan.table_type === "saas_credits";
-    const targetPeriods = isCreditTable ? CREDIT_TIERS : PERIOD_ORDER;
 
-    const ordered: EditableItem[] = targetPeriods.map(period => {
+    const ordered: EditableItem[] = PERIOD_ORDER.map(period => {
       const item = existingItems.find(i => i.period === period);
       if (item) {
         const pricesArr = Array.isArray(item.prices) ? item.prices : [];
@@ -136,12 +111,12 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
           price3: p3?.price_amount?.toString() ?? "",
         };
       } else {
-        // 🔥 ITEM FANTASMA: Resolve o bug visual da tabela vazia
+        // ITEM FANTASMA: Resolve o bug visual da tabela vazia
         const creditsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
         return {
           itemId: `temp-${period}`,
           period: period,
-          credits: isCreditTable ? 1 : (creditsMap[period] || 1),
+          credits: creditsMap[period] || 1,
           price1: "", price2: "", price3: ""
         };
       }
@@ -156,21 +131,8 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
     const tenantId = await getCurrentTenantId();
     const supabase = supabaseBrowser;
 
-    if (isSaasCredits) {
-      setItems(CREDIT_TIERS.map((tier) => ({
-        itemId: `temp-${tier}`,
-        period: tier,
-        credits: 0,
-        price1: "",
-        price2: "",
-        price3: "",
-      })));
-      setLoading(false);
-      return;
-    }
-
     try {
-      const query = supabase
+      const { data: defaultTable } = await supabase
         .from("plan_tables")
         .select(`
           id,
@@ -186,20 +148,10 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
           )
         `)
         .eq("tenant_id", tenantId)
-        .eq("is_system_default", true);
-
-      // ✅ AJUSTE NO FILTRO: Se for alunos (Academia/Personal), pega a tabela padrão BRL (que é do tipo IPTV)
-      let queryBuilder = query;
-      
-      if (isAlunosOnly) {
-         queryBuilder = queryBuilder.eq("currency", curr).eq("is_master_only", false).eq("table_type", "iptv");
-      } else if (isSaas) {
-         queryBuilder = queryBuilder.eq("is_master_only", true);
-      } else {
-         queryBuilder = queryBuilder.eq("currency", curr).eq("is_master_only", false);
-      }
-
-      const { data: defaultTable } = await queryBuilder.single();
+        .eq("is_system_default", true)
+        .eq("currency", curr)
+        .eq("table_type", "iptv")
+        .single();
 
       if (defaultTable && defaultTable.items && defaultTable.items.length > 0) {
         const clonedItems = (defaultTable.items as any[]).map((srcItem: any) => {
@@ -244,7 +196,6 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
   }
 
   useEffect(() => {
-    if (isSaasCredits) return;
     if (isEditing) {
       if (currency !== originalCurrency) cloneFromDefault(currency);
     } else {
@@ -275,6 +226,9 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
     }
 
     try {
+      const maxScreens = 3; // Fixo para IPTV
+      const monthsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
+
       if (isEditing && plan) {
         // Atualiza a Tabela
         const { error: updErr } = await supabase
@@ -285,10 +239,7 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
           
         if (updErr) throw new Error("Falha ao atualizar a tabela.");
 
-        // ✅ ATUALIZAÇÃO SEGURA DOS PREÇOS (Com auto-reparo de tabelas vazias)
-        const maxScreens = isSaasCredits ? 1 : 3;
-        const monthsMap: Record<string, number> = { MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
-
+        // ATUALIZAÇÃO SEGURA DOS PREÇOS (Com auto-reparo de tabelas vazias)
         for (const row of items) {
           let currentItemId = row.itemId;
           
@@ -301,7 +252,7 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
                 plan_table_id: plan.id,
                 period: row.period,
                 months: monthsMap[row.period] ?? 1,
-                credits_base: isSaasCredits ? 1 : (row.credits || 1),
+                credits_base: row.credits || 1,
               })
               .select()
               .single();
@@ -309,9 +260,7 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
               if (newItem) {
                 currentItemId = newItem.id;
                 // Insere os espaços de preços
-                const pricesToInsert = isSaasCredits
-                  ? [{ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: 1, price_amount: null }]
-                  : [1, 2, 3].map(s => ({ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: s, price_amount: null }));
+                const pricesToInsert = [1, 2, 3].map(s => ({ tenant_id: tenantId, plan_table_item_id: currentItemId, screens_count: s, price_amount: null }));
                 await supabase.from("plan_table_item_prices").insert(pricesToInsert);
               }
           }
@@ -339,18 +288,14 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
             currency: currency,
             is_system_default: false,
             is_active: true,
-            is_master_only: isSaas,
-            table_type: effectiveType,
+            is_master_only: false, // Não existe mais SaaS
+            table_type: "iptv",
           })
           .select()
           .single();
 
         if (tableError) throw new Error("Falha ao criar tabela principal.");
         const newTableId = tableData.id;
-
-        const monthsMap: Record<string, number> = {
-          MONTHLY: 1, BIMONTHLY: 2, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12
-        };
 
         const getSafeNum = (val: string) => {
           if (!val) return null;
@@ -366,7 +311,7 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
               plan_table_id: newTableId,
               period: item.period,
               months: monthsMap[item.period] ?? 1,
-              credits_base: isSaasCredits ? 1 : (item.credits || 1),
+              credits_base: item.credits || 1,
             })
             .select()
             .single();
@@ -375,13 +320,11 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
             throw new Error(`Erro ao salvar item "${item.period}": ${itemError?.message || "resposta vazia"}`);
           }
           
-          const pricesToInsert = isSaasCredits
-            ? [{ tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) }]
-            : [
-                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) },
-                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 2, price_amount: getSafeNum(item.price2) },
-                { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 3, price_amount: getSafeNum(item.price3) },
-              ];
+          const pricesToInsert = [
+            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 1, price_amount: getSafeNum(item.price1) },
+            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 2, price_amount: getSafeNum(item.price2) },
+            { tenant_id: tenantId, plan_table_item_id: newItem.id, screens_count: 3, price_amount: getSafeNum(item.price3) },
+          ];
 
           await supabase.from("plan_table_item_prices").insert(pricesToInsert);
         }
@@ -401,18 +344,12 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z- flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         
         <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
           <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-            {isEditing
-              ? "Editar Tabela"
-              : isSaasCredits
-              ? "Nova Tabela — Venda Créditos SaaS"
-              : isSaas
-              ? "Nova Tabela SaaS"
-              : "Nova Tabela de Preço"}
+            {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
           </h2>
 
           <div className="flex gap-2 sm:gap-3">
@@ -442,14 +379,14 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Ex: Tabela especial revenda"
-                  disabled={plan?.is_system_default && plan?.is_master_only}
+                  disabled={plan?.is_system_default}
                   className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                 />
               </div>
               <div>
                 <Label>Moeda</Label>
                 <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-                  {(['BRL', 'USD', 'EUR'] as const).filter(c => !isAlunosOnly || c === 'BRL').map(c => (
+                  {(['BRL', 'USD', 'EUR'] as const).map(c => (
                     <button
                       key={c}
                       type="button"
@@ -473,64 +410,15 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
           </div>
 
           <div className="p-4 sm:p-6 space-y-8">
-           {loading ? (
+            {loading ? (
               <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
                 {isEditing ? "Carregando dados..." : "Preparando tabela..."}
               </div>
-            ) : isSaasCredits ? (
-              [
-                { label: "Pacotes Pequenos", tiers: CREDIT_TIERS.slice(0, 5) },
-                { label: "Pacotes Grandes",  tiers: CREDIT_TIERS.slice(5) },
-              ].map(({ label, tiers }) => (
-                <div key={label} className="animate-in slide-in-from-left-2 duration-300">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                    {label}
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                    {tiers.map((tier) => {
-                      const item = items.find(i => i.period === tier);
-                      if (!item) return null;
-                      return (
-                        <div
-                          key={tier}
-                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
-                        >
-                          <div className="flex justify-between items-center w-full mb-1">
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">Pacote</span>
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                              {CREDIT_TIER_LABELS[tier]}
-                            </span>
-                          </div>
-                          <div className="relative">
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
-                              {formatCurrency(currency)}
-                            </span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.price1}
-                              onChange={(e) => handlePriceChange(tier, "price1", e.target.value)}
-                              className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5"
-                              placeholder="0,00"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
             ) : (
-              (isMasterOnly ? [1, 2] : [1, 2, 3]).map((screenCount) => (
+             [1, 2, 3].map((screenCount) => (
                 <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                    {isAlunosOnly
-                      ? screenCount === 1 ? "Plano Individual"
-                      : screenCount === 2 ? "Plano Família"
-                      : "Família Total"
-                    : isMasterOnly
-                      ? screenCount === 1 ? "Preços para 1 Sessão WhatsApp" : `Preços para ${screenCount} Sessões WhatsApp`
-                      : `Preços para ${screenCount} ${screenCount === 1 ? "tela" : "telas"}`}
+                    Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
                   </h3>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -551,11 +439,9 @@ export default function PlanoModal({ plan, newTableType, isAlunosOnly, onClose, 
                             <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
                               {PERIOD_LABELS[period]}
                             </span>
-                            {!isAlunosOnly && (
-                              <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                                {currentCredits} cr
-                              </span>
-                            )}
+                            <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                              {currentCredits} cr
+                            </span>
                           </div>
                           
                           <div className="relative">
