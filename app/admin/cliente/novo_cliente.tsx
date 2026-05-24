@@ -1160,16 +1160,11 @@ if (!alive) return;
 if (tmplErr) {
   console.warn("Erro ao carregar templates:", tmplErr.message);
 } else {
-  // Fallback automático caso a categoria ainda não tenha sido salva no banco
-  const list = ((tmplData as any[]) || []).map((r) => {
-    let cat = r.category || "Geral";
-    if (!r.category || r.category === "Geral") {
-      if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
-      else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
-      else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
-    }
-    return { ...r, category: cat };
-  }) as MessageTemplate[];
+  // Apenas mantém a categoria original, sem forçar regras de Revenda
+      const list = ((tmplData as any[]) || []).map((r) => ({
+        ...r,
+        category: r.category || "Geral"
+      })) as MessageTemplate[];
   
   setTemplates(list);
 
@@ -4896,8 +4891,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                       <option value="">-- Selecione um modelo --</option>
                                       {Object.entries(
                                         templates
-                                          // 1. Esconde mensagens de Revendas
-                                          .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
+                                          
                                           // 2. Agrupa por categoria
                                           .reduce((acc, t) => {
                                             const cat = t.category || "Geral";
