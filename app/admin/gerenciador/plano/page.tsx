@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import PlanoModal from "./plano_modal";
+import ToastNotifications from "../../ToastNotifications"; // ✅ Novo import
 
 // --- Tipagens (Enxutas para IPTV) ---
 type Price = {
@@ -44,6 +45,31 @@ const PERIOD_LABELS: Record<string, string> = {
 export default function PlanosPage() {
   const [loading, setLoading] = useState(true);
   const [plano, setPlano] = useState<PlanRow[]>([]);
+
+  // ✅ Controle de Toasts na Página Principal
+  const [toasts, setToasts] = useState<any[]>([]);
+  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+
+  const checkQueuedToasts = () => {
+    try {
+      const key = "planos_list_toasts";
+      const raw = window.sessionStorage.getItem(key);
+      if (raw) {
+        const arr = JSON.parse(raw) as any[];
+        if (arr.length > 0) {
+          const newToasts = arr.map((t, idx) => ({
+            id: Date.now() + idx,
+            type: t.type,
+            title: t.title,
+            message: t.message,
+            durationMs: 5000
+          }));
+          setToasts(prev => [...prev, ...newToasts]);
+          window.sessionStorage.removeItem(key);
+        }
+      }
+    } catch {}
+  };
 
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PlanRow | null>(null);
@@ -123,6 +149,7 @@ export default function PlanosPage() {
       console.error("Erro ao carregar planos:", error);
     } finally {
       setLoading(false);
+      checkQueuedToasts(); // ✅ Puxa os alertas da fila e exibe
     }
   }
 
@@ -212,6 +239,8 @@ export default function PlanosPage() {
   };
 
   return (
+
+    
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors">
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 pb-0 mb-2 px-3 sm:px-0 md:px-4">

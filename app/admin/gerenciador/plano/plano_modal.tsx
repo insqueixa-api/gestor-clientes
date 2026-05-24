@@ -64,6 +64,26 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
+function queueListToast(
+  toast: { type: "success" | "error" | "warning"; title: string; message?: string }
+) {
+  try {
+    if (typeof window === "undefined") return;
+    const key = "planos_list_toasts";
+    const raw = window.sessionStorage.getItem(key);
+    const arr = raw ? (JSON.parse(raw) as any[]) : [];
+    arr.push({
+      type: toast.type,
+      title: toast.title,
+      message: toast.message,
+      ts: Date.now(),
+    });
+    window.sessionStorage.setItem(key, JSON.stringify(arr));
+  } catch {
+    // silencioso
+  }
+}
+
 export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const isEditing = !!plan;
 
@@ -343,8 +363,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         }
       }
 
-      addToast("success", isEditing ? "Tabela Atualizada" : "Tabela Criada", "Ação concluída com sucesso!");
-      setTimeout(() => onSuccess(), 1000); // Aguarda o toast aparecer antes de fechar a janela
+      queueListToast({
+        type: "success",
+        title: isEditing ? "Tabela Atualizada" : "Tabela Criada",
+        message: "Ação concluída com sucesso!"
+      });
+      onSuccess();
+      onClose();
     } catch (err: any) {
       if (process.env.NODE_ENV !== "production") console.error("Erro ao salvar:", err?.message || err);
       addToast("error", "Erro ao salvar", err?.message || "Ocorreu um erro inesperado.");
