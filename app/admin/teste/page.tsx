@@ -569,18 +569,12 @@ export default function TrialsPage() {
     }
 
     const mapped = ((data as any[]) || []).map((r) => {
-      let cat = r.category || "Geral";
-      if (!r.category || r.category === "Geral") {
-        if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
-        else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
-        else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
-      }
       return {
         id: String(r.id),
         name: String(r.name ?? "Sem nome"),
         content: String(r.content ?? ""),
         image_url: r.image_url || null,
-        category: cat,
+        category: r.category || "Geral",
       };
     }) as MessageTemplate[];
 
@@ -1703,7 +1697,6 @@ onClick={(e) => {
           <option value="">Selecionar...</option>
           {Object.entries(
             messageTemplates
-              .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
               .reduce((acc, t) => {
                 const cat = t.category || "Geral";
                 if (!acc[cat]) acc[cat] = [];
@@ -1822,7 +1815,6 @@ onClick={(e) => {
           <option value="">Selecionar...</option>
           {Object.entries(
             messageTemplates
-              .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
               .reduce((acc, t) => {
                 const cat = t.category || "Geral";
                 if (!acc[cat]) acc[cat] = [];

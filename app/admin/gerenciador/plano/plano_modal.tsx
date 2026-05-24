@@ -64,23 +64,19 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ✅ Função para enfileirar toasts que a página pai vai ler ao recarregar
 function queueListToast(
   toast: { type: "success" | "error" | "warning"; title: string; message?: string }
 ) {
   try {
     if (typeof window === "undefined") return;
-    const key = "planos_list_toasts";
+    const key = "planos_list_toasts"; // Chave específica para a página de planos
     const raw = window.sessionStorage.getItem(key);
     const arr = raw ? (JSON.parse(raw) as any[]) : [];
-    arr.push({
-      type: toast.type,
-      title: toast.title,
-      message: toast.message,
-      ts: Date.now(),
-    });
+    arr.push({ ...toast, ts: Date.now() });
     window.sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch {
-    // silencioso
+  } catch (e) {
+    console.error("Erro ao enfileirar toast", e);
   }
 }
 
@@ -363,11 +359,13 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         }
       }
 
+      // ✅ Enfileira o aviso para a página pai exibir após o reload
       queueListToast({
         type: "success",
         title: isEditing ? "Tabela Atualizada" : "Tabela Criada",
         message: "Ação concluída com sucesso!"
       });
+      
       onSuccess();
       onClose();
     } catch (err: any) {

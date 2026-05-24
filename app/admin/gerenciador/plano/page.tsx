@@ -218,6 +218,7 @@ export default function PlanosPage() {
 
   useEffect(() => {
     fetchPlano();
+    checkQueuedToasts(); // ✅ Garante que lê ao carregar a página
   }, []);
 
   const formatMoney = (amount: number | null, currency: string) => {
