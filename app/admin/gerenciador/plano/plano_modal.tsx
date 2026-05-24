@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import ToastNotifications, { ToastMessage } from "../../ToastNotifications";
 
 // --- Tipagens Enxutas ---
 type Price = {
@@ -25,7 +26,6 @@ export type PlanRow = {
   currency: "BRL" | "USD" | "EUR";
   is_active: boolean;
   is_system_default: boolean;
-  is_master_only: boolean;
   table_type: "iptv";
   created_at: string;
   items: Item[];
@@ -73,6 +73,20 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   const [items, setItems] = useState<EditableItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // --- TOAST STATE ---
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const TOAST_DURATION = 5000;
+  const toastSeq = useRef(1);
+
+  const addToast = (type: "success" | "error" | "warning", title: string, message?: string) => {
+    const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
+    setToasts((prev) => [
+      ...prev,
+      { id, type, title, message, durationMs: TOAST_DURATION },
+    ]);
+  };
+  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -211,7 +225,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
   async function handleSave() {
     if (!name.trim()) {
-      alert("Informe o nome da tabela.");
+      addToast("warning", "Atenção", "Informe o nome da tabela.");
       return;
     }
 
@@ -220,7 +234,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     const tenantId = await getCurrentTenantId();
 
     if (!tenantId) {
-      alert("Erro de sessão. Recarregue a página.");
+      addToast("error", "Erro de sessão", "Recarregue a página e tente novamente.");
       setSaving(false);
       return;
     }
@@ -288,7 +302,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             currency: currency,
             is_system_default: false,
             is_active: true,
-            is_master_only: false, // Não existe mais SaaS
             table_type: "iptv",
           })
           .select()
@@ -330,10 +343,11 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         }
       }
 
-      onSuccess();
+      addToast("success", isEditing ? "Tabela Atualizada" : "Tabela Criada", "Ação concluída com sucesso!");
+      setTimeout(() => onSuccess(), 1000); // Aguarda o toast aparecer antes de fechar a janela
     } catch (err: any) {
       if (process.env.NODE_ENV !== "production") console.error("Erro ao salvar:", err?.message || err);
-      alert(err?.message || "Ocorreu um erro inesperado ao salvar a tabela.");
+      addToast("error", "Erro ao salvar", err?.message || "Ocorreu um erro inesperado.");
     } finally {
       setSaving(false);
     }
@@ -344,142 +358,159 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z- flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        
-        <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
-          <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-            {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
-          </h2>
-
-          <div className="flex gap-2 sm:gap-3">
-            <button 
-              onClick={onClose} 
-              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors"
-            >
-              Cancelar
-            </button>
-            <button 
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
-            >
-              {saving ? "Salvando..." : "Salvar"}
-            </button>
-          </div>
+    <>
+      {/* Sistema de Notificação do Modal */}
+      <div className="fixed inset-x-0 top-2 z- px-3 sm:px-6 pointer-events-none">
+        <div className="pointer-events-auto">
+          <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
+      </div>
 
-        <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
+      <div 
+        className="fixed inset-0 z- flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div 
+          className="w-full max-w-[1200px] max-h-[90vh] bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           
-          <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Nome da tabela</Label>
-                <input 
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Tabela especial revenda"
-                  disabled={plan?.is_system_default}
-                  className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-                />
-              </div>
-              <div>
-                <Label>Moeda</Label>
-                <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
-                  {(['BRL', 'USD', 'EUR'] as const).map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setCurrency(c)}
-                      className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
-                        ${currency === c 
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
-                          : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-                {isEditing && currency !== originalCurrency && (
-                  <p className="text-[10px] text-amber-500 mt-2 italic">
-                    * Atenção: valores resetados para tabela Padrão {currency}
-                  </p>
-                )}
-              </div>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 sticky top-0 z-10">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+              {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
+            </h2>
+
+            <div className="flex gap-2 sm:gap-3">
+              <button 
+                onClick={onClose} 
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
             </div>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-8">
-            {loading ? (
-              <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
-                {isEditing ? "Carregando dados..." : "Preparando tabela..."}
-              </div>
-            ) : (
-             [1, 2, 3].map((screenCount) => (
-                <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
-                    Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                    {PERIOD_ORDER.map((period) => {
-                      const item = items.find(i => i.period === period);
-                      if (!item) return null;
-
-                      const currentCredits = item.credits * screenCount;
-                      const field = `price${screenCount}` as 'price1' | 'price2' | 'price3';
-                      const value = item[field];
-
-                      return (
-                        <div 
-                          key={period} 
-                          className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
-                        >
-                          <div className="flex justify-between items-center w-full mb-1">
-                            <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
-                              {PERIOD_LABELS[period]}
-                            </span>
-                            <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
-                              {currentCredits} cr
-                            </span>
-                          </div>
-                          
-                          <div className="relative">
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
-                              {formatCurrency(currency)}
-                            </span>
-                            <input 
-                              type="number" 
-                              step="0.01"
-                              value={value}
-                              disabled={false}
-                              onChange={(e) => handlePriceChange(period, field, e.target.value)}
-                              className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
-                              placeholder="0,00"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-[#161b22]">
+            
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome da tabela</Label>
+                  <input 
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Ex: Tabela especial revenda"
+                    disabled={plan?.is_system_default}
+                    className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                  />
                 </div>
-              ))
-            )}
+                <div>
+                  <Label>Moeda</Label>
+                  <div className="flex bg-slate-100 dark:bg-white/5 rounded-lg p-1 border border-slate-200 dark:border-white/10">
+                    {(['BRL', 'USD', 'EUR'] as const).map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCurrency(c)}
+                        className={`flex-1 py-2 rounded-md text-xs font-bold transition-all uppercase tracking-wider
+                          ${currency === c 
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm' 
+                            : 'text-slate-500 dark:text-white/40 hover:text-slate-800 dark:hover:text-white'}`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  {isEditing && currency !== originalCurrency && (
+                    <p className="text-[10px] text-amber-500 mt-2 italic">
+                      * Atenção: valores resetados para tabela Padrão {currency}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-8">
+              {loading ? (
+                <div className="text-center py-20 text-slate-400 animate-pulse font-medium">
+                  {isEditing ? "Carregando dados..." : "Preparando tabela..."}
+                </div>
+              ) : (
+               [1, 2, 3].map((screenCount) => (
+                  <div key={screenCount} className="animate-in slide-in-from-left-2 duration-300">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-white/40 mb-3 ml-1 tracking-tight">
+                      Preços para {screenCount} {screenCount === 1 ? "Tela" : "Telas"}
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                      {PERIOD_ORDER.map((period) => {
+                        const item = items.find(i => i.period === period);
+                        if (!item) return null;
+
+                        const currentCredits = item.credits * screenCount;
+                        const field = `price${screenCount}` as 'price1' | 'price2' | 'price3';
+                        const value = item[field];
+
+                        return (
+                          <div 
+                            key={period} 
+                            className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 relative focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all group"
+                          >
+                            <div className="flex justify-between items-center w-full mb-1">
+                              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-white/20">
+                                {PERIOD_LABELS[period]}
+                              </span>
+                              <span className="text-[8px] sm:text-[9px] font-bold text-emerald-600 dark:text-emerald-400/80 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
+                                {currentCredits} cr
+                              </span>
+                            </div>
+                            
+                            <div className="relative">
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-xs font-bold">
+                                {formatCurrency(currency)}
+                              </span>
+                              <input 
+                                type="number" 
+                                step="0.01"
+                                value={value}
+                                disabled={false}
+                                onChange={(e) => handlePriceChange(period, field, e.target.value)}
+                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                                placeholder="0,00"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center transition-colors">
+            <span className="text-[10px] text-slate-400 italic">
+              * {isEditing 
+                ? "Altere o nome, moeda e valores conforme necessário" 
+                : "Ajuste os valores clonados da tabela padrão"}
+            </span>
+            <span className="text-[10px] text-slate-400 dark:text-white/30">
+              A tabela será criada como <strong>ativa</strong> por padrão
+            </span>
           </div>
         </div>
-
-        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-white/10 flex justify-between items-center transition-colors">
-          <span className="text-[10px] text-slate-400 italic">
-            * {isEditing 
-              ? "Altere o nome, moeda e valores conforme necessário" 
-              : "Ajuste os valores clonados da tabela padrão"}
-          </span>
-          <span className="text-[10px] text-slate-400 dark:text-white/30">
-            A tabela será criada como <strong>ativa</strong> por padrão
-          </span>
-        </div>
       </div>
-    </div>,
+    </>,
     document.body
   );
 }
