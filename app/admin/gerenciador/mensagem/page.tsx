@@ -95,29 +95,13 @@ const TAG_GROUPS = [
       { label: "{transfer_iban}", desc: "Código IBAN (Conta Int.)" },
       { label: "{transfer_swift}", desc: "Código SWIFT/BIC (Conta Int.)" },
     ],
-  },
-  {
-    title: "☁️ SaaS Revenda (Sistema)",
-    color: "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400",
-    tags: [
-      { label: "{saas_nome_revenda}", desc: "Nome do Revendedor SaaS" },
-{ label: "{saas_plano}", desc: "Período (Mensal, Bimestral...)" },
-{ label: "{saas_vencimento}", desc: "Data de Vencimento" },
-{ label: "{saas_creditos_comprados}", desc: "Qtd. de Créditos Painel SaaS" },
-{ label: "{saas_valor}", desc: "Valor da fatura do sistema" },
-{ label: "{saas_perfil}", desc: "Perfil (Master ou User)" },
-{ label: "{saas_whatsapp_sessoes}", desc: "Quantidade de Sessões WA (Ex: 2)" },
-    ],
-  },
+  }
 ];
 
 // --- Nomes Protegidos pelo Sistema ---
 const PROTECTED_TEMPLATES = [
   "Pagamento Realizado",
-  "Recarga Revenda",
-  "Teste - Boas-vindas",
-  "SaaS Pagamento Realizado",
-  "SaaS Recarga Realizada"
+  "Teste - Boas-vindas"
 ];
 
 // --- TIPOS ---
@@ -128,14 +112,12 @@ type MessageTemplate = {
   updated_at: string;
   is_system_default: boolean; 
   image_url: string | null; 
-  category?: string | null; // ✅ NOVO: Categoria
+  category?: string | null;
 };
 
 // ✅ Categorias do Sistema
 const MESSAGE_CATEGORIES = [
   "Cliente IPTV",
-  "Revenda IPTV",
-  "Revenda SaaS",
   "Vencimentos",
   "Promoções",
   "Manutenção",
@@ -143,25 +125,20 @@ const MESSAGE_CATEGORIES = [
   "Geral"
 ];
 
-// ✅ Reconhecedor Automático (Não quebra o que já existe e mapeia as protegidas automaticamente)
+// ✅ Reconhecedor Automático Simplificado
 function getTemplateCategory(msg: MessageTemplate) {
   if (msg.category && msg.category !== 'Geral') return msg.category;
-  
   if (msg.name === "Pagamento Realizado" || msg.name === "Teste - Boas-vindas") return "Cliente IPTV";
-  if (msg.name === "Recarga Revenda") return "Revenda IPTV";
-  if (msg.name === "SaaS Pagamento Realizado" || msg.name === "SaaS Recarga Realizada") return "Revenda SaaS";
-  
-  return msg.category || "Geral";
+  return "Geral";
 }
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function MessagesPage() {
-  const [messages, setMessages] = useState<MessageTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [isMaster, setIsMaster] = useState(false);
+  const [messages, setMessages] = useState<MessageTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   // Modais
   const [showEditor, setShowEditor] = useState(false);
@@ -178,31 +155,20 @@ export default function MessagesPage() {
   const removeToast = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
 
  async function loadMessages() {
-  setLoading(true);
-  const tid = await getCurrentTenantId();
+  setLoading(true);
+  const tid = await getCurrentTenantId();
 
-  if (!tid) {
-    setLoading(false);
-    return;
-  }
-
-  // Detecta role para filtrar templates exclusivos de Master/Admin
-  const { data: roleData } = await supabaseBrowser.rpc("saas_my_role");
-  const isMasterOrAdmin = roleData === "superadmin" || roleData === "master";
-  setIsMaster(isMasterOrAdmin); // ✅ SALVA NO ESTADO AQUI
-
-  let query = supabaseBrowser
-    .from("message_templates")
-    .select("id, name, content, updated_at, is_system_default, image_url, category") // ✅ Busca a Categoria
-    .eq("tenant_id", tid)
-    .order("is_system_default", { ascending: false })
-
-  // Usuários comuns não veem templates master_only
-  if (!isMasterOrAdmin) {
-    query = query.eq("master_only", false);
+  if (!tid) {
+    setLoading(false);
+    return;
   }
 
-  const { data, error } = await query;
+  // ✅ Acesso total, sem travas
+  const { data, error } = await supabaseBrowser
+    .from("message_templates")
+    .select("id, name, content, updated_at, is_system_default, image_url, category")
+    .eq("tenant_id", tid)
+    .order("is_system_default", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -413,22 +379,15 @@ const filteredMessages = useMemo(() => {
             return (
               <>
                 {MESSAGE_CATEGORIES.map(cat => {
-                  // Oculta SaaS se não for Master
-                  if (cat === "Revenda SaaS" && !isMaster) return null;
+                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
+                  if (items.length === 0) return null;
 
-                  let items = filteredMessages.filter(m => getTemplateCategory(m) === cat);
-                  if (items.length === 0) return null;
+                  // Título dinâmico
+                  let displayTitle = cat === "Cliente IPTV" ? "Clientes" : cat;
 
-                  // Título dinâmico
-                  let displayTitle = cat;
-                  if (cat === "Cliente IPTV") displayTitle = "Clientes";
-                  else if (cat === "Revenda IPTV") displayTitle = "Revendas";
-
-                  // Ícones
-                  let icon = "💬";
-                  if (cat === "Cliente IPTV") icon = "📺";
-                  else if (cat === "Revenda IPTV") icon = "🤝";
-                  else if (cat === "Revenda SaaS") icon = "☁️";
+                  // Ícones
+                  let icon = "💬";
+                  if (cat === "Cliente IPTV") icon = "📺";
                   else if (cat === "Vencimentos") icon = "📅";
                   else if (cat === "Promoções") icon = "🎉";
                   else if (cat === "Manutenção") icon = "⚙️";
@@ -450,7 +409,6 @@ const filteredMessages = useMemo(() => {
       {showEditor && (
         <EditorModal
           templateToEdit={selectedTemplate}
-          isMaster={isMaster}
           onClose={() => setShowEditor(false)}
           onSuccess={() => {
             setShowEditor(false);
@@ -580,19 +538,17 @@ function PreviewModal({
 // MODAL EDITOR
 // ============================================================================
 function EditorModal({
-  templateToEdit,
-  isMaster,
-  onClose,
-  onSuccess,
-  onError,
+  templateToEdit,
+  onClose,
+  onSuccess,
+  onError,
 }: {
-  templateToEdit?: MessageTemplate | null;
-  isMaster: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  onError: (msg: string) => void;
+  templateToEdit?: MessageTemplate | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
 }) {
-const [name, setName] = useState(templateToEdit?.name || "");
+  const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
   const [category, setCategory] = useState(templateToEdit ? getTemplateCategory(templateToEdit) : "Geral"); // ✅ Inicia com a categoria certa
   
@@ -704,7 +660,7 @@ const [name, setName] = useState(templateToEdit?.name || "");
         const { data: pubData } = supabaseBrowser.storage.from("chat_media").getPublicUrl(filePath);
         finalImageUrl = pubData.publicUrl;
 
-        // Limpa a foto anterior do banco para não pesar no seu SaaS
+        // Limpa a foto anterior do banco se existia
         if (templateToEdit?.image_url) {
            const oldPath = templateToEdit.image_url.split('/chat_media/')[1];
            if (oldPath) await supabaseBrowser.storage.from("chat_media").remove([oldPath]);
@@ -743,14 +699,9 @@ const [name, setName] = useState(templateToEdit?.name || "");
     }
   };
 
-  // ✅ Filtra dinamicamente as tags (Tira a tag do SaaS para quem for User comum)
-  const allowedTagGroups = TAG_GROUPS.filter(g => {
-    if (!isMaster && g.title === "☁️ SaaS Revenda (Sistema)") return false;
-    return true;
-  });
-
+  // ✅ Uso direto do TAG_GROUPS sem burocracia
   const filteredMobileTags = useMemo(() => {
-    const all = allowedTagGroups.flatMap((group) => // ✅ USANDO A VARIÁVEL FILTRADA AQUI
+    const all = TAG_GROUPS.flatMap((group) =>
       group.tags.map((tag) => ({
         ...tag,
         groupTitle: group.title,
@@ -892,15 +843,14 @@ return createPortal(
                 Categoria da Mensagem 
               </label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
-              >
-                {MESSAGE_CATEGORIES.map(cat => {
-                  if (cat === "Revenda SaaS" && !isMaster) return null;
-                  return <option key={cat} value={cat}>{cat}</option>;
-                })}
-              </select>
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full h-12 px-4 border rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors font-medium bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10"
+              >
+                {MESSAGE_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
             <div className="flex-1 flex flex-col">
@@ -980,7 +930,7 @@ return createPortal(
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30 dark:bg-black/10">
-              {allowedTagGroups.map((group, idx) => {
+              {TAG_GROUPS.map((group, idx) => {
                 const isOpen = openDesktopGroups.includes(idx);
                 return (
                   <div key={idx} className="bg-white dark:bg-[#1c2128] rounded-xl border border-slate-200 dark:border-white/5 overflow-hidden transition-all shadow-sm">

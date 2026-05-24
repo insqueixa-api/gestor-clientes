@@ -718,16 +718,11 @@ let baseDate: Date;
             .order("name", { ascending: true });
 
   if (tmplData) {
-            // Fallback automático caso a categoria ainda não tenha sido salva no banco
-            const mappedTpls = tmplData.map((r: any) => {
-              let cat = r.category || "Geral";
-              if (!r.category || r.category === "Geral") {
-                if (r.name === "Pagamento Realizado" || r.name === "Teste - Boas-vindas") cat = "Cliente IPTV";
-                else if (r.name === "Recarga Revenda") cat = "Revenda IPTV";
-                else if (String(r.name).toUpperCase().includes("SAAS")) cat = "Revenda SaaS";
-              }
-              return { ...r, category: cat };
-            });
+            // ✅ Mantém apenas a categoria real, sem forçar nomes antigos Revenda
+            const mappedTpls = tmplData.map((r: any) => ({
+              ...r,
+              category: r.category || "Geral"
+            }));
 
             setTemplates(mappedTpls);
             const defaultTpl = mappedTpls.find(t => t.name.toLowerCase().includes("pagamento realizado"));
@@ -1682,9 +1677,7 @@ setTimeout(async () => {
                                       <option value="">-- Manual --</option>
                                       {Object.entries(
                                         templates
-                                          // 1. Esconde mensagens de Revendas
-                                          .filter(t => t.category !== "Revenda IPTV" && t.category !== "Revenda SaaS")
-                                          // 2. Agrupa
+                                          // ✅ Trava de Revenda Removida! Mostra tudo.
                                           .reduce((acc, t) => {
                                             const cat = t.category || "Geral";
                                             if (!acc[cat]) acc[cat] = [];

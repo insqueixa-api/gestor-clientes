@@ -288,9 +288,13 @@ const tid = await getCurrentTenantId();
         return;
       }
 
-      // ✅ 0) Prepara dicionário de Apps seguro (Globais + Locais) para cruzar depois
+      // ✅ 0) Prepara dicionário de Apps direto da tabela (Acesso Total e Direto)
       let localAppsById: Record<string, any> = {};
-      const { data: rawAppsData } = await supabaseBrowser.rpc("get_my_visible_apps");
+      const { data: rawAppsData } = await supabaseBrowser
+        .from("apps")
+        .select("*")
+        .eq("is_active", true);
+
       if (rawAppsData) {
         for (const a of rawAppsData) {
           if (a?.id) localAppsById[String(a.id)] = a;

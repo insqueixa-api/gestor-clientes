@@ -129,7 +129,7 @@ function renderTemplate(text: string, vars: Record<string, string>) {
   });
 }
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller" | "saas"; recipientRow: any; isSecondary?: boolean }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller"; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date();
   const row = params.recipientRow || {};
 
@@ -241,18 +241,9 @@ chave_pix_manual: "",
 
 valor_fatura: valorFaturaStr,
 
-// ☁️ SaaS Revenda
-saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
-saas_plano: String(row.saas_plan_label || ""),
-saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
-saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
-saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
-saas_perfil: String(row.role || "USER"),
-saas_whatsapp_sessoes: String(row.whatsapp_sessions || "1"),
-
-    nome: displayName,
-    tipo_destino: params.recipientType,
-  };
+nome: displayName,
+      tipo_destino: params.recipientType,
+    };
 }
 
 function getBearerToken(req: Request): string | null {
@@ -265,9 +256,8 @@ type ScheduleBody = {
   tenant_id: string;
   client_id?: string;
   reseller_id?: string;
-  saas_id?: string; // ✅ NOVO
   recipient_id?: string;
-  recipient_type?: "client" | "reseller" | "saas"; // ✅ NOVO
+  recipient_type?: "client" | "reseller";
   message_template_id?: string;
   message: string;
   send_at: string; 
@@ -275,58 +265,7 @@ type ScheduleBody = {
   image_url?: string | null; 
 };
 
-// ✅ NOVA FUNÇÃO: Busca exclusiva para SaaS
-async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, userToken?: string) {
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const anonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
-  const sbUser = userToken
-    ? createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
-    : sb;
 
-  const { data, error } = await sbUser
-    .from("vw_saas_tenants")
-    .select("*")
-    .eq("id", saasId)
-    .maybeSingle();
-
-  if (error || !data) throw new Error("Revenda SaaS não encontrada no banco");
-
-  // Busca última transação financeira para preencher saas_valor, saas_plano e saas_creditos
-  try {
-    const { data: lastTx } = await sbUser
-      .from("saas_credit_transactions")
-      .select("type, amount, price_amount, price_currency, description")
-      .eq("ref_tenant_id", saasId)
-      .in("type", ["sale_renewal", "sale_credits"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (lastTx) {
-      data.last_invoice_amount = lastTx.price_amount;
-      data.price_currency = lastTx.price_currency;
-
-      if (lastTx.type === "sale_renewal") {
-        // "Renovação Bimestral · 2 crédito(s)" → "Bimestral"
-        const match = String(lastTx.description || "").match(/Renova[çc]ão\s+(\w+)/i);
-        data.saas_plan_label = match ? match[1] : "";
-      } else if (lastTx.type === "sale_credits") {
-        data.venda_creditos = String(lastTx.amount ?? "");
-      }
-    }
-  } catch {}
-
-  const phoneMain = normalizeToPhone(data.whatsapp_username);
-  const phones = [];
-  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
-
-  return {
-    phones,
-    whatsapp_opt_in: true, // Avisos de sistema
-    dont_message_until: null,
-    row: data,
-  };
-}
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
   let rowData: any = null;
@@ -731,7 +670,7 @@ if ((job as any).automation_id && automationConfig) {
       const rawClientId = String((job as any).client_id || "").trim();
       const rawResellerId = String((job as any).reseller_id || "").trim();
 
-      let recipientType: "client" | "reseller" | "saas" | null = null; // ✅ Adicionado o "saas"
+      let recipientType: "client" | "reseller" | null = null;
       let recipientId = "";
 
       if (rawResellerId) {
@@ -750,16 +689,10 @@ if ((job as any).automation_id && automationConfig) {
         continue;
       }
 
-      // ✅ pega WhatsApp e linha pra tags (Com suporte híbrido para SaaS usando reseller_id)
+      // ✅ pega WhatsApp e linha pra tags
       let wa;
       if (recipientType === "reseller") {
-        try {
-          wa = await fetchResellerWhatsApp(sb, job.tenant_id, recipientId);
-        } catch (e: any) {
-          // Se não encontrou na view de revendas IPTV, é porque esse ID pertence a um Tenant SaaS!
-          wa = await fetchSaasWhatsApp(sb, job.tenant_id, recipientId); // sem token — cron usa service role direto na tabela (ok pois saas no cron usa reseller_id como fallback)
-          recipientType = "saas"; // Atualiza o tipo em memória para o buildTemplateVars saber preencher as tags certas
-        }
+        wa = await fetchResellerWhatsApp(sb, job.tenant_id, recipientId);
       } else {
         wa = await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
       }
@@ -813,10 +746,10 @@ if (wa.dont_message_until) {
       // ✅ Loop de envios para os contatos vinculados à conta
       for (const contact of wa.phones) {
         const vars = buildTemplateVars({
-          recipientType: recipientType as "client" | "reseller" | "saas", // ✅ Informando o TypeScript com certeza
-          recipientRow: wa.row,
-          isSecondary: contact.is_secondary,
-        });
+        recipientType: recipientType as "client" | "reseller", 
+        recipientRow: wa.row,
+        isSecondary: contact.is_secondary,
+    });
         Object.assign(vars, manualPaymentVars);
 
         // Gera token exclusivo do contato atual no loop
@@ -972,20 +905,16 @@ if (wa.dont_message_until) {
 
   const rawClientId = String((body as any).client_id || "").trim();
   const rawResellerId = String((body as any).reseller_id || "").trim();
-  const rawSaasId = String((body as any).saas_id || "").trim(); // ✅ NOVO: SaaS
   const rawTestId = String((body as any).test_id || "").trim(); 
   const rawRecipientId = String((body as any).recipient_id || "").trim();
   const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-  let recipientType: "client" | "reseller" | "saas" | null = null;
+  let recipientType: "client" | "reseller" | null = null;
   let recipientId = "";
 
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test" || rawRecipientType === "saas")) {
-    recipientType = rawRecipientType === "reseller" ? "reseller" : rawRecipientType === "saas" ? "saas" : "client";
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
     recipientId = rawRecipientId;
-  } else if (rawSaasId) {
-    recipientType = "saas";
-    recipientId = rawSaasId;
   } else if (rawResellerId) {
     recipientType = "reseller";
     recipientId = rawResellerId;
@@ -1014,9 +943,7 @@ if (wa.dont_message_until) {
 
   // ✅ validações iguais ao dispatch
   let wa: any;
-  const rawUserToken = getBearerToken(req) || undefined;
-if (recipientType === "saas") wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawUserToken);
-  else if (recipientType === "reseller") wa = await fetchResellerWhatsApp(sb, tenantId, recipientId);
+  if (recipientType === "reseller") wa = await fetchResellerWhatsApp(sb, tenantId, recipientId);
   else wa = await fetchClientWhatsApp(sb, tenantId, recipientId);
 
   if (!wa.phones || wa.phones.length === 0) {
@@ -1049,8 +976,9 @@ if (recipientType === "saas") wa = await fetchSaasWhatsApp(sb, tenantId, recipie
 const mtid = String((body as any).message_template_id || "").trim();
 if (mtid) insertPayload.message_template_id = mtid;
 
-  // ✅ SALVANDO SaaS NO CAMPO DE RESELLER (Bypass para não precisar alterar estrutura de banco)
-  if (recipientType === "reseller" || recipientType === "saas") insertPayload.reseller_id = recipientId;
+  // (no fim da rota, onde insere no banco:)
+  
+  if (recipientType === "reseller") insertPayload.reseller_id = recipientId;
   else insertPayload.client_id = recipientId;
 
   const { error: insErr } = await sb.from("client_message_jobs").insert(insertPayload);

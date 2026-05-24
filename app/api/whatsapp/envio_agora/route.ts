@@ -236,7 +236,7 @@ async function fetchManualPaymentVars(sb: any, tenantId: string): Promise<Record
 }
 
 
-function buildTemplateVars(params: { recipientType: "client" | "reseller" | "saas"; recipientRow: any; isSecondary?: boolean }) {
+function buildTemplateVars(params: { recipientType: "client" | "reseller" | null; recipientRow: any; isSecondary?: boolean }) {
   const now = new Date(); // Travado em SP
   const row = params.recipientRow || {};
 
@@ -333,7 +333,7 @@ const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}`
     revenda_dns: row.reseller_dns || "",
 
     // 💰 Financeiro
-      venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "", // ✅ NOVO
+      venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "", 
       link_pagamento: linkPagamento,
       pin_cliente: cleanPhone && cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "", 
       valor_fatura: valorFaturaStr,
@@ -345,15 +345,6 @@ const valorFaturaStr = priceVal > 0 ? `${priceVal.toFixed(2).replace(".", ",")}`
       pix_manual_aleatoria: "",
       transfer_iban: "",
       transfer_swift: "",
-
-      // ☁️ SaaS Revenda
-      saas_nome_revenda: String(row.name || row.responsible_name || "").trim(),
-      saas_plano: String(row.saas_plan_label || ""),
-      saas_vencimento: row.expires_at ? toBRDate(new Date(row.expires_at)) : "",
-      saas_creditos_comprados: row.venda_creditos != null ? String(row.venda_creditos) : (row.last_recharge_credits != null ? String(row.last_recharge_credits) : "0"),
-      saas_valor: row.last_invoice_amount ? Number(row.last_invoice_amount).toFixed(2).replace(".", ",") : "0,00",
-      saas_perfil: String(row.role || "USER"),
-      saas_whatsapp_sessoes: String(row.whatsapp_sessions || "1"),
 
       // Legado
       nome: displayName,
@@ -371,104 +362,17 @@ type SendNowBody = {
   tenant_id: string;
   client_id?: string;
   reseller_id?: string;
-  saas_id?: string; // ✅ NOVO: Destino SaaS
   recipient_id?: string;
-  recipient_type?: "client" | "reseller" | "saas"; // ✅ NOVO: SaaS
+  recipient_type?: "client" | "reseller"; 
   message: string;
   whatsapp_session?: string | null;
   message_template_id?: string | null;
   image_url?: string | null;
-  new_expires_at?: string | null; // ✅ NOVO: Data após renovação
+  new_expires_at?: string | null; 
   credits_recharged?: number | string | null;
 };
 
-// ✅ NOVA FUNÇÃO: Busca de dados exclusiva para SaaS
-async function fetchSaasWhatsApp(sb: any, tenantId: string, saasId: string, extraCredits?: any, extraNewExpiry?: any, userToken?: string, extraInvoiceAmount?: any, extraPlanLabel?: any) {
- 
-  // Usa o token do usuário para que auth.uid() funcione na view
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const anonKey = String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
-  const sbUser = userToken
-    ? createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${userToken}` } } })
-    : sb;
 
-  const { data: rawData, error } = await sbUser
-  .from("vw_saas_tenants")
-  .select("*")
-  .eq("id", saasId)
-  .maybeSingle();
-
-let data: any = rawData;
-
-  if (error || !data) {
-  // Fallback para chamadas internas sem contexto de auth — busca direto nas tabelas base
-  const { data: memberData } = await sb
-    .from("tenant_members")
-    .select("user_id")
-    .eq("tenant_id", saasId)
-    .eq("role", "owner")
-    .maybeSingle();
-
-  if (!memberData?.user_id) throw new Error("Revenda SaaS não encontrada no banco");
-
-  const { data: profileData } = await sb
-    .from("profiles")
-    .select("whatsapp_username, display_name")
-    .eq("id", memberData.user_id)
-    .maybeSingle();
-
-  data = {
-    id: saasId,
-    whatsapp_username: profileData?.whatsapp_username || "",
-    name: profileData?.display_name || "",
-  };
-}
-
-  // Busca última transação financeira para preencher saas_valor, saas_plano e saas_creditos
-  try {
-    const { data: lastTx } = await sbUser
-      .from("saas_credit_transactions")
-      .select("type, amount, price_amount, price_currency, description")
-      .eq("ref_tenant_id", saasId)
-      .in("type", ["sale_renewal", "sale_credits"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (lastTx) {
-      data.last_invoice_amount = lastTx.price_amount;
-      data.price_currency = lastTx.price_currency;
-
-      if (lastTx.type === "sale_renewal") {
-        // "Renovação Bimestral · 2 crédito(s)" → "Bimestral"
-        const match = String(lastTx.description || "").match(/Renova[çc]ão\s+(\w+)/i);
-        data.saas_plan_label = match ? match[1] : "";
-      } else if (lastTx.type === "sale_credits") {
-        data.venda_creditos = String(lastTx.amount ?? "");
-      }
-    }
-  } catch {}
-
-  // Injeta valores do body (sobrescreve o histórico quando vierem preenchidos)
-  if (extraCredits != null) data.venda_creditos = extraCredits;
-if (extraNewExpiry != null) {
-  data.saas_nova_validade = extraNewExpiry;
-  data.expires_at = extraNewExpiry; // ← buildTemplateVars lê expires_at para {saas_vencimento}
-}
-  if (extraInvoiceAmount != null) data.last_invoice_amount = extraInvoiceAmount;
-  if (extraPlanLabel != null) data.saas_plan_label = extraPlanLabel;
-
-  const phoneMain = normalizeToPhone(data.whatsapp_username);
-  const phones = [];
-  if (phoneMain) phones.push({ number: phoneMain, is_secondary: false });
-
-  return {
-    phones,
-    whatsapp_opt_in: true, // Avisos de sistema não dependem de opt-in comum
-    dont_message_until: null,
-    row: data,
-  };
-}
 
 async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: string) {
   let rowData: any = null;
@@ -702,22 +606,18 @@ if (!internal) {
 // 4) Identificação do destino
 // =========================
 
-const rawClientId = String((body as any).client_id || "").trim();
+  const rawClientId = String((body as any).client_id || "").trim();
   const rawResellerId = String((body as any).reseller_id || "").trim();
   const rawTestId = String((body as any).test_id || "").trim(); 
-  const rawSaasId = String((body as any).saas_id || "").trim(); // ✅ NOVO: Identificador do SaaS
   const rawRecipientId = String((body as any).recipient_id || "").trim();
   const rawRecipientType = String((body as any).recipient_type || "").trim();
 
-  let recipientType: "client" | "reseller" | "saas" | null = null;
+  let recipientType: "client" | "reseller" | null = null;
   let recipientId = "";
 
-  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test" || rawRecipientType === "saas")) {
-    recipientType = rawRecipientType === "reseller" ? "reseller" : rawRecipientType === "saas" ? "saas" : "client";
+  if (rawRecipientId && (rawRecipientType === "client" || rawRecipientType === "reseller" || rawRecipientType === "test")) {
+    recipientType = rawRecipientType === "reseller" ? "reseller" : "client";
     recipientId = rawRecipientId;
-  } else if (rawSaasId) {
-    recipientType = "saas";
-    recipientId = rawSaasId;
   } else if (rawResellerId) {
     recipientType = "reseller";
     recipientId = rawResellerId;
@@ -729,25 +629,19 @@ const rawClientId = String((body as any).client_id || "").trim();
     recipientId = rawTestId;
   }
 
-if (!tenantId || !message || !recipientType || !recipientId) {
-  return NextResponse.json(
-    { error: "tenant_id, message e destino válido (client_id, reseller_id ou saas_id) são obrigatórios" },
-    { status: 400 }
-  );
-}
+  if (!tenantId || !message || !recipientType || !recipientId) {
+    return NextResponse.json(
+      { error: "tenant_id, message e destino válido (client_id ou reseller_id) são obrigatórios" },
+      { status: 400 }
+    );
+  }
 
   const rawResellerServerId = String((body as any).reseller_server_id || "").trim();
   const rawCredits = (body as any).credits_recharged != null ? String((body as any).credits_recharged) : undefined;
-const rawNewExpiry = (body as any).new_expires_at != null ? String((body as any).new_expires_at) : undefined;
-const rawInvoiceAmount = (body as any).last_invoice_amount != null ? String((body as any).last_invoice_amount) : undefined;
-const rawPlanLabel = (body as any).saas_plan_label != null ? String((body as any).saas_plan_label) : undefined;
 
   // ✅ pega SEMPRE do destino certo
   let wa: any;
-  if (recipientType === "saas") {
-    const rawUserToken = getBearerToken(req) || undefined;
-wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry, rawUserToken, rawInvoiceAmount, rawPlanLabel);
-  } else if (recipientType === "reseller") {
+  if (recipientType === "reseller") {
     wa = await fetchResellerWhatsApp(sb, tenantId, recipientId, rawResellerServerId, rawCredits);
   } else {
     wa = await fetchClientWhatsApp(sb, tenantId, recipientId);
@@ -948,7 +842,7 @@ wa = await fetchSaasWhatsApp(sb, tenantId, recipientId, rawCredits, rawNewExpiry
       created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
     };
 
-    if (recipientType === "reseller" || recipientType === "saas") {
+    if (recipientType === "reseller") {
       insertPayload.reseller_id = recipientId;
     } else {
       insertPayload.client_id = recipientId;
