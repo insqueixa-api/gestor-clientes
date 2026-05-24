@@ -243,25 +243,14 @@ export default function ProfileSettingsPage() {
   const [role, setRole] = useState("Carregando...");
   const [roleRaw, setRoleRaw] = useState<string | null>(null);
 
-  // ✅ NOVO: Estados da Assinatura
-const [licenseStatus, setLicenseStatus] = useState("ACTIVE");
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [creditBalance, setCreditBalance] = useState(0);
-  const [saasPlanTableId, setSaasPlanTableId] = useState<string | null>(null);
-  const [whatsappSessions, setWhatsappSessions] = useState(1);
-  const [isOnlyFinanceiro, setIsOnlyFinanceiro] = useState(false);
-  const [hasFinanceiro, setHasFinanceiro] = useState(false);
-  const [activeModules, setActiveModules] = useState<string[]>([]); // ✅ Guardar módulos na tela
-  const [showSession2, setShowSession2] = useState(() => {
+  const [whatsappSessions, setWhatsappSessions] = useState(2); // ✅ Fixo 2 sessões
+  const [showSession2, setShowSession2] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("wa_show_session2") === "true";
     return false;
   });
 
-  // ✅ NOVO: Controle do modal de renovação
-  const [showRenewModal, setShowRenewModal] = useState(false);
-
-  // ✅ SaaS: qualquer membro autenticado do tenant pode parear o seu WhatsApp
-const canPairWhatsApp = !!userId && !!tenantId;
+  // Segurança: qualquer membro autenticado do tenant pode parear o WhatsApp
+  const canPairWhatsApp = !!userId && !!tenantId;
 
 
   // WhatsApp (UI)
@@ -334,27 +323,9 @@ async function saveWaConfig() {
   const [name, setName] = useState("");
   const [createdAt, setCreatedAt] = useState<string>(""); 
 
-  // --- NOVOS ESTADOS: IDENTIDADE VISUAL E SLUG ---
-  const [slug, setSlug] = useState<string>("");
-  const [primaryColor, setPrimaryColor] = useState<string>("#10b981"); // Cor padrão: Emerald 500
-  const [loginTitle, setLoginTitle] = useState<string>(""); // ✅ NOVO Título
-  const [loginSubtitle, setLoginSubtitle] = useState<string>(""); // ✅ NOVO Subtítulo
-  const [bannerInterval, setBannerInterval] = useState<number>(5); // ✅ NOVO Tempo de transição
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [bannerFiles, setBannerFiles] = useState<File[]>([]);
-  const [bannerUploadedUrls, setBannerUploadedUrls] = useState<(string | undefined)[]>([]);
-  // Strings para mostrar o que já tem no banco
-  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
-  const [currentBannersUrl, setCurrentBannersUrl] = useState<string[]>([]);
-
-  // ✅ NOVO: Estado para guardar os ficheiros que devem ser apagados do Cloudflare
-  const [urlsToDelete, setUrlsToDelete] = useState<string[]>([]);
-
- 
+  // Refs e Estados para Importações
   const importFileRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
-
-  // controle do popup de import
   const [showImportModal, setShowImportModal] = useState(false);
 
 
@@ -423,33 +394,28 @@ async function saveWaConfig() {
             setCreatedAt(d.toLocaleDateString("pt-BR", { day: '2-digit', month: 'long', year: 'numeric' }));
         }
 
-        // Busca tenant_members + saas_my_role em paralelo
-        const [memberRes, roleRes] = await Promise.all([
-          supabaseBrowser
-            .from("tenant_members")
-            .select(
-              `
-                role,
-                tenants (
-                  id,
-                  name
-                )
-              `
-            )
-            .eq("user_id", user.id)
-            .maybeSingle(),
-          supabaseBrowser.rpc("saas_my_role"),
-        ]);
+        const memberRes = await supabaseBrowser
+          .from("tenant_members")
+          .select(
+            `
+              role,
+              tenants (
+                id,
+                name
+              )
+            `
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
 
         const member = memberRes.data;
-        const saasRole = (roleRes.data ?? "USER").toUpperCase();
 
         let companyName = "";
         let currentTenantId: string | null = null;
 
         if (member) {
           setRoleRaw(member.role || null);
-          setRole(saasRole);
+          setRole("SUPERADMIN"); // ✅ Você é sempre o Superadmin agora.
 
           const t: any = member.tenants;
           const currentT = Array.isArray(t) ? t[0] : t;
@@ -467,63 +433,15 @@ async function saveWaConfig() {
           setTenantId(null);
         }
 
-        // ✅ 2. BUSCA SEGURA DOS DETALHES NA VIEW E NA TABELA RAIZ
-        if (currentTenantId) {
-          // Busca dados financeiros/assinatura na view (pode vir nulo para USER comum)
-          const { data: saasData } = await supabaseBrowser
-            .from("vw_saas_tenants")
-            .select("license_status, expires_at, credit_balance, whatsapp_sessions, saas_plan_table_id")
-            .eq("id", currentTenantId)
-            .maybeSingle();
-
-          // ✅ BUSCA OS MÓDULOS E BRANDING DIRETO DA TABELA RAIZ (Acessível a qualquer membro logado)
-          const { data: rawTenant } = await supabaseBrowser
-            .from("tenants")
-            // ✅ INCLUÍDO AS COLUNAS AQUI
-            .select("active_modules, slug, primary_color, logo_url, banner_urls, login_title, login_subtitle, banner_interval")
-            .eq("id", currentTenantId)
-            .maybeSingle();
-            
-          if (saasData) {
-            setLicenseStatus(saasData.license_status || "ACTIVE");
-            setExpiresAt(saasData.expires_at || null);
-            setCreditBalance(saasData.credit_balance || 0);
-            setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
-            const sessions = saasData.whatsapp_sessions ?? 1;
-            setWhatsappSessions(sessions);
-            
-            if (sessions < 2) {
-              setShowSession2(false);
-              localStorage.removeItem("wa_show_session2");
-              fetch("/api/whatsapp/disconnect2", { method: "POST" }).catch(() => {});
-            }
-          }
-
-          // ✅ LÊ AS INFORMAÇÕES VISUAIS DA TABELA REAL PARA NÃO DEPENDER DA VIEW
-          if (rawTenant) {
-            const mods: string[] = rawTenant.active_modules || [];
-            setActiveModules(mods);
-            
-            // 🛡️ BLINDAGEM: converte para minúsculo antes de checar
-            setIsOnlyFinanceiro(mods.length > 0 && mods.every(m => (m || "").toLowerCase() === "financeiro"));
-            setHasFinanceiro(mods.some(m => (m || "").toLowerCase() === "financeiro"));
-            setSlug(rawTenant.slug || "");
-            setPrimaryColor(rawTenant.primary_color || "#10b981");
-            setCurrentLogoUrl(rawTenant.logo_url || null);
-            setCurrentBannersUrl(rawTenant.banner_urls || []);
-            setLoginTitle(rawTenant.login_title || ""); // ✅ INCLUÍDO
-            setLoginSubtitle(rawTenant.login_subtitle || ""); // ✅ INCLUÍDO
-            setBannerInterval(rawTenant.banner_interval || 5); // ✅ INCLUÍDO
-          }
-        }
-
-
+        // Você é dono do sistema, tem acesso total às sessões do WhatsApp
+        setWhatsappSessions(2); 
 
         const { data: profile } = await supabaseBrowser
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .maybeSingle();
+               
 
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
         const emailName = user.email ? user.email.split("@")[0] : "";
@@ -546,15 +464,7 @@ async function saveWaConfig() {
           setName(finalName);
         }
 
-      // ✅ Carrega API Keys inline (dentro do try, onde currentTenantId existe)
-      if (currentTenantId) {
-        const { data: keysData } = await supabaseBrowser
-          .from("tenant_api_keys")
-          .select("id, label, is_active, created_at, last_used_at")
-          .eq("tenant_id", currentTenantId)
-          .order("created_at", { ascending: false });
-        setApiKeys((keysData as ApiKey[]) || []);
-      }
+      
 
       } catch (e: any) {
         console.error(e);
@@ -669,57 +579,6 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!userId) return;
     setSaving(true);
     try {
-      // --- LOGICA NOVA: UPLOAD PARA CLOUDFLARE R2 ---
-      let finalLogoUrl = currentLogoUrl;
-      let finalBannersUrls = currentBannersUrl;
-
-      // Upload da Logo
-      if (logoFile) {
-        const logoData = new FormData();
-        logoData.append("file", logoFile);
-        logoData.append("folder", `tenants/${tenantId}/branding`);
-        const res = await fetch("/api/upload", { method: "POST", body: logoData });
-        
-        if (!res.ok) {
-          if (res.status === 413) throw new Error("A imagem da logo é muito grande para o servidor. Tente um arquivo menor.");
-          throw new Error(`Falha ao enviar logo (Status: ${res.status})`);
-        }
-        
-        const result = await res.json();
-        if (result.success) finalLogoUrl = result.url;
-      }
-
-      // Upload dos Banners
-      if (bannerFiles.length > 0) {
-        const resolvedUrls: string[] = [];
-        for (let i = 0; i < bannerFiles.length; i++) {
-          const file = bannerFiles[i];
-          const alreadyUploaded = bannerUploadedUrls?.[i];
-
-          // ✅ Vídeo já enviado via presigned URL — usa a URL diretamente
-          if (alreadyUploaded) {
-            resolvedUrls.push(alreadyUploaded);
-            continue;
-          }
-
-          // Imagem/documento — envia pelo fluxo normal
-          const bData = new FormData();
-          bData.append("file", file);
-          bData.append("folder", `tenants/${tenantId}/branding/banners`);
-
-          const res = await fetch("/api/upload", { method: "POST", body: bData });
-
-          if (!res.ok) {
-            if (res.status === 413) throw new Error(`O arquivo ${file.name} é muito grande para o servidor.`);
-            throw new Error(`Falha ao enviar arquivo ${file.name} (Status: ${res.status})`);
-          }
-
-          const result = await res.json();
-          if (result.success) resolvedUrls.push(result.url);
-        }
-        finalBannersUrls = [...currentBannersUrl, ...resolvedUrls];
-      }
-
       // --- LOGICA ORIGINAL: PERFIL ---
       const norm = applyPhoneNormalization(phoneRaw);
       const { error: profileError } = await supabaseBrowser
@@ -735,44 +594,7 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (profileError) throw profileError;
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
-      // --- LOGICA NOVA: SALVAR NO TENANT ---
-      if (canEditBranding && tenantId) {
-        const { data: tenantData, error: tenantError } = await supabaseBrowser
-          .from("tenants")
-          .update({
-            primary_color: primaryColor,
-            logo_url: finalLogoUrl,
-            banner_urls: finalBannersUrls,
-            login_title: loginTitle, // ✅ SALVA O TÍTULO NOVO
-            login_subtitle: loginSubtitle, // ✅ SALVA O SUBTÍTULO NOVO
-            banner_interval: bannerInterval // ✅ SALVA O TEMPO DE TRANSIÇÃO
-          })
-          .eq("id", tenantId)
-          .select(); // ✅ Obriga o Supabase a devolver a linha que foi alterada
-
-        if (tenantError) throw tenantError;
-        
-        // ✅ Se voltar vazio, o RLS (Segurança) bloqueou silenciosamente
-        if (!tenantData || tenantData.length === 0) {
-          throw new Error("Permissão negada no Banco de Dados. Verifique as políticas RLS (Update) da tabela 'tenants'.");
-        }
-      }
-
-      // ✅ DISPARA A EXCLUSÃO REAL NO CLOUDFLARE R2
-      if (urlsToDelete.length > 0) {
-        await Promise.all(
-          urlsToDelete.map(url => 
-            fetch("/api/upload", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url })
-            })
-          )
-        ).catch(err => console.error("Erro ao limpar R2:", err));
-        setUrlsToDelete([]); // Limpa a lista
-      }
-
-      addToast("success", "Perfil e Marca atualizados", "A página será recarregada...");
+      addToast("success", "Perfil atualizado", "A página será recarregada...");
       setIsEditing(false);
 
       setTimeout(() => {
@@ -781,6 +603,7 @@ const handleWhatsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
+    } finally {
       setSaving(false);
     }
   }
@@ -922,13 +745,6 @@ const [exporting, setExporting] = useState(false);
   const importAppsFileRef = useRef<HTMLInputElement | null>(null);
   const [actionModal, setActionModal] = useState<"export" | "template" | "import" | null>(null);
 
-// ✅ API Keys
-type ApiKey = { id: string; label: string; is_active: boolean; created_at: string; last_used_at: string | null; };
-const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-const [apiKeyLabel, setApiKeyLabel] = useState("");
-const [generatingKey, setGeneratingKey] = useState(false);
-const [revealedKey, setRevealedKey] = useState<string | null>(null);
-const [apiKeyCopied, setApiKeyCopied] = useState(false);
 
   // ✅ NOVO: Estados e Refs para Revendas
   const [importingReseller, setImportingReseller] = useState(false);
@@ -1298,84 +1114,7 @@ addToast("success", "Sucesso", summary);
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setImportingMessage(false); }
   }
 
-  // ✅ API KEYS
-  async function loadApiKeys(tid?: string) {
-  const resolvedId = tid || tenantId;
-  if (!resolvedId) return;
-  const { data } = await supabaseBrowser
-    .from("tenant_api_keys")
-    .select("id, label, is_active, created_at, last_used_at")
-    .eq("tenant_id", resolvedId)
-    .order("created_at", { ascending: false });
-  setApiKeys((data as ApiKey[]) || []);
-}
-
-  async function handleGenerateApiKey() {
-    if (!tenantId || !apiKeyLabel.trim()) return addToast("error", "Label obrigatório", "Dê um nome para identificar esta key.");
-    setGeneratingKey(true);
-    try {
-      const arr = new Uint8Array(32);
-      crypto.getRandomValues(arr);
-      const rawKey = "ugs_" + Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawKey));
-      const keyHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-
-      const { error } = await supabaseBrowser.from("tenant_api_keys").insert({
-        tenant_id: tenantId,
-        key_hash: keyHash,
-        label: apiKeyLabel.trim(),
-      });
-
-      if (error) throw error;
-      setRevealedKey(rawKey);
-      setApiKeyLabel("");
-      await loadApiKeys();
-    } catch (e: any) {
-      addToast("error", "Erro ao gerar key", e.message);
-    } finally {
-      setGeneratingKey(false);
-    }
-  }
-
-  async function handleRevokeApiKey(id: string) {
-  const ok = await confirm({
-    title: "Revogar API Key?",
-    subtitle: "Sistemas que a usam perderão acesso imediatamente.",
-    tone: "amber",
-    confirmText: "Revogar acesso",
-    cancelText: "Voltar"
-  });
-  if (!ok) return;
-  const { error } = await supabaseBrowser
-    .from("tenant_api_keys")
-    .update({ is_active: false })
-    .eq("id", id)
-    .eq("tenant_id", tenantId!);
-  if (error) return addToast("error", "Erro ao revogar", error.message);
-  addToast("success", "Key revogada", "Acesso bloqueado com sucesso.");
-  await loadApiKeys();
-}
-
-async function handleDeleteApiKey(id: string) {
-  const ok = await confirm({
-    title: "Excluir API Key?",
-    subtitle: "Excluir permanentemente esta key? Esta ação não pode ser desfeita.",
-    tone: "rose",
-    confirmText: "Sim, excluir",
-    cancelText: "Voltar"
-  });
-  if (!ok) return;
-  const { error } = await supabaseBrowser
-    .from("tenant_api_keys")
-    .delete()
-    .eq("id", id)
-    .eq("tenant_id", tenantId!);
-  if (error) return addToast("error", "Erro ao excluir", error.message);
-  addToast("success", "Key excluída", "Removida permanentemente.");
-  await loadApiKeys();
-}
-
-  // ------------------------------------
+    // ------------------------------------
 
   async function handleExportClients() {
     if (!tenantId) {
@@ -1622,17 +1361,7 @@ if (warnCount > 0) {
   }
 
 
-  // ✅ REGRA DE NEGÓCIO DA MARCA:
-  // Tem algum módulo diferente de iptv, saas ou financeiro?
-  const hasVisualModule = activeModules.some(m => !["iptv", "saas", "financeiro"].includes((m || "").toLowerCase()));
-  // Superadmin não vê. O restante vê se tiver o módulo customizado.
-  const canEditBranding = role !== "SUPERADMIN" && hasVisualModule;
-
-  // ✅ REGRA DE NEGÓCIO DAS API KEYS:
-  // Visível APENAS para quem tem módulo IPTV ou SAAS
-  const canViewApiKeys = activeModules.some(m => ["iptv", "saas"].includes((m || "").toLowerCase()));
-
-  if (loading) {
+if (loading) {
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 text-zinc-900 dark:text-zinc-100">
       <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] rounded-xl border border-slate-200 dark:border-white/10">
@@ -1729,11 +1458,10 @@ return (
   </div>
 </div>
 
-<div className={`grid gap-8 ${isOnlyFinanceiro ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-3"}`}>
+<div className="grid gap-8 grid-cols-1 xl:grid-cols-3">
 
-       
         {/* === COLUNA ESQUERDA (DADOS PESSOAIS) === */}
-        <div className={`space-y-6 ${isOnlyFinanceiro ? "" : "xl:col-span-2"}`}>
+        <div className="space-y-6 xl:col-span-2">
           <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
     <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
   <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest flex items-center gap-2">
@@ -1851,180 +1579,6 @@ return (
             </div>
             
           </div>
-{/* === NOVA SESSÃO: IDENTIDADE VISUAL E MARCA === */}
-          {canEditBranding && (
-            <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/30' : ''}`}>
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Identidade Visual e Marca
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* SLUG DA EMPRESA (LEITURA) */}
-                <div>
-                  <Label>Endereço de Acesso (Slug)</Label>
-                  <div className="flex bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg overflow-hidden h-10">
-                    <span className="flex items-center justify-center px-3 bg-slate-100 dark:bg-white/5 border-r border-slate-200 dark:border-white/10 text-[11px] text-slate-500 font-mono shrink-0">
-                      unigestor.net.br/
-                    </span>
-                    <Input 
-                      value={slug} 
-                      readOnly 
-                      className="border-none bg-transparent rounded-none flex-1 font-bold pl-2 min-w-0"
-                      style={{ color: primaryColor }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
-                    <svg width="12" height="12" shrink-0 viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    Para alterar, contate o suporte.
-                  </p>
-                </div>
-
-                {/* COR PRIMÁRIA (TEMA) */}
-                <div>
-                  <Label>Cor Primária</Label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="color" 
-                      value={primaryColor}
-                      onChange={(e) => {
-                         setPrimaryColor(e.target.value);
-                         if (!isEditing) setIsEditing(true);
-                      }}
-                      disabled={!isEditing}
-                      className="w-10 h-10 shrink-0 rounded cursor-pointer border-0 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    <div className="relative flex-1">
-                      <Input 
-                        value={primaryColor.toUpperCase()} 
-                        onChange={(e) => setPrimaryColor(e.target.value)}
-                        placeholder="#10B981"
-                        readOnly={!isEditing}
-                        className="w-full font-mono text-center uppercase pr-8"
-                        maxLength={7}
-                      />
-                      {/* BOTÃO RESETAR COR (DENTRO DO INPUT) */}
-                      {primaryColor.toLowerCase() !== "#10b981" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPrimaryColor("#10b981");
-                            setIsEditing(true);
-                          }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 transition-colors p-1"
-                          title="Restaurar cor padrão"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5">Cor dos botões do login.</p>
-                </div>
-
-                {/* TEMPO DE TRANSIÇÃO */}
-                <div>
-                  <Label>Tempo de transição</Label>
-                  <div className="relative">
-                    <Input 
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={bannerInterval} 
-                      onChange={(e) => { setBannerInterval(Number(e.target.value)); if (!isEditing) setIsEditing(true); }}
-                      readOnly={!isEditing}
-                      className="w-full text-left pl-3 pr-16"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-slate-400 pointer-events-none">
-                      segundos
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5">
-                    Duração de cada mídia no painel.
-                  </p>
-                </div>
-
-              </div>
-
-              {/* UPLOADS DE MÍDIA */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                
-                {/* LOGO */}
-                <div className="space-y-2">
-                  <MediaUploader 
-                    label="Logotipo da Empresa (Favicon/Login)" 
-                    maxFiles={1} 
-                    accept="image/png, image/jpeg, image/webp"
-                    initialUrls={currentLogoUrl ? [currentLogoUrl] : []}
-                    onRemoveInitialUrl={() => {
-                      if (currentLogoUrl) {
-                        setUrlsToDelete(prev => [...prev, currentLogoUrl]); // ✅ Marca para apagar do Cloudflare
-                      }
-                      setCurrentLogoUrl(null);
-                      if (!isEditing) setIsEditing(true);
-                    }}
-                    onFilesReady={(files) => {
-                      setLogoFile(files.length > 0 ? files[0] : null);
-                      if (!isEditing) setIsEditing(true);
-                    }} 
-                  />
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Fundo transparente recomendado. Se vazio, usará a logo padrão da UniGestor.
-                  </p>
-                </div>
-
-                {/* BANNERS / VÍDEOS */}
-                <div className="space-y-2">
-                  <MediaUploader 
-                    label="Mídia da Tela de Login (Até 5 Fotos/Vídeos)" 
-                    maxFiles={5} 
-                    accept="image/*, video/mp4, video/webm"
-                    initialUrls={currentBannersUrl}
-                    onRemoveInitialUrl={(urlToRemove) => {
-                      setUrlsToDelete(prev => [...prev, urlToRemove]); // ✅ Marca para apagar do Cloudflare
-                      setCurrentBannersUrl(prev => prev.filter(url => url !== urlToRemove));
-                      if (!isEditing) setIsEditing(true);
-                    }}
-                    onFilesReady={(files, uploadedUrls) => {
-                      setBannerFiles(files);
-                      setBannerUploadedUrls(uploadedUrls || []);
-                      if (!isEditing) setIsEditing(true);
-                    }}
-                  />
-                  {/* ✅ NOVA DICA VISUAL AQUI */}
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Para melhor encaixe, recomendamos o envio de <strong>Vídeos ou Fotos na vertical</strong> (formato celular). Imagens horizontais serão cortadas nas laterais para preencher a tela.
-                  </p>
-                </div>
-              </div>
-
-              {/* ✅ TEXTOS DA TELA DE LOGIN */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                <div>
-                  <Label>Título do Portal (Aparece sobre a Mídia)</Label>
-                  <Input 
-                    value={loginTitle} 
-                    onChange={(e) => { setLoginTitle(e.target.value); if (!isEditing) setIsEditing(true); }}
-                    placeholder="Ex: Supere seus limites."
-                    readOnly={!isEditing}
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">Pode ficar vazio para exibir apenas o vídeo/imagem.</p>
-                </div>
-                <div>
-                  <Label>Mensagem de Boas-vindas</Label>
-                  <Input 
-                    value={loginSubtitle} 
-                    onChange={(e) => { setLoginSubtitle(e.target.value); if (!isEditing) setIsEditing(true); }}
-                    placeholder="Ex: Acesse sua área exclusiva para acompanhar resultados."
-                    readOnly={!isEditing}
-                  />
-                </div>
-              </div>
-
-            </div>
-          )}
 
          {/* DADOS DO SISTEMA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative">
@@ -2057,26 +1611,6 @@ return (
                   </p>
 
                   <div className="flex flex-col gap-3 pt-1">
-                    {/* Financeiro — aparece para quem tem o módulo */}
-                    {isOnlyFinanceiro ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const action = actionModal;
-                          setActionModal(null);
-                          if (action === "export") setShowFinanceiroExportModal(true);
-                          else if (action === "template") handleDownloadTemplateFinanceiro();
-                          else if (action === "import") importFinanceiroFileRef.current?.click();
-                        }}
-                        className="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3"
-                      >
-                        <span className="text-2xl">💰</span>
-                        <div className="text-left">
-                          <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
-                          <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
-                        </div>
-                      </button>
-                    ) : (<>
                     {/* 1. Servidores */}
                     <button
                       type="button"
@@ -2193,8 +1727,8 @@ return (
                       </div>
                     </button>
 
-                    {/* 7. Financeiro — só aparece se tem o módulo */}
-                    {hasFinanceiro && <button
+                    {/* 7. Financeiro */}
+                    <button
                       type="button"
                       onClick={() => {
                         const action = actionModal;
@@ -2210,8 +1744,7 @@ return (
                           <div className="text-sm font-bold text-slate-800 dark:text-white">Controle Financeiro</div>
                           <div className="text-[11px] font-medium text-slate-400">Transações e categorias</div>
                         </div>
-                    </button>}
-                  </>)}
+                    </button>
                   </div>
 
                   <button type="button" onClick={() => setActionModal(null)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white/80 pt-2">
@@ -2261,465 +1794,270 @@ return (
             </div>
           </div>
 
-        {/* ✅ CARD API KEYS — visível apenas para IPTV ou SAAS */}
-          {canViewApiKeys && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-              API Keys — Integração Bot
-            </h3>
-            <span className="text-[10px] px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold">
-              BETA
-            </span>
-          </div>
-
-          {/* Gerar nova key */}
-          <div className="flex gap-2">
-            <input
-              value={apiKeyLabel}
-              onChange={e => setApiKeyLabel(e.target.value)}
-              placeholder='Ex: "Bot WhatsApp" ou "Sistema XYZ"'
-              className="flex-1 h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors"
-            />
-            <button
-              type="button"
-              onClick={handleGenerateApiKey}
-              disabled={generatingKey || !apiKeyLabel.trim()}
-              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              {generatingKey ? "Gerando..." : "+ Gerar Key"}
-            </button>
-          </div>
-
-          {/* Lista de keys */}
-          {apiKeys.length > 0 ? (
-            <div className="space-y-2">
-              {apiKeys.map(k => (
-                <div key={k.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg border text-sm ${k.is_active ? "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/2 opacity-50"}`}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700 dark:text-white text-xs truncate">{k.label}</span>
-                      {!k.is_active && <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-500/20">REVOGADA</span>}
-                    </div>
-                    <div className="text-[10px] text-slate-400 dark:text-white/30 mt-0.5">
-                      Criada: {new Date(k.created_at).toLocaleDateString("pt-BR")}
-                      {k.last_used_at && ` · Último uso: ${new Date(k.last_used_at).toLocaleDateString("pt-BR")}`}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-  {k.is_active && (
-    <button
-      type="button"
-      onClick={() => handleRevokeApiKey(k.id)}
-      className="text-[10px] font-bold text-amber-500 hover:bg-amber-500/10 px-2 py-1 rounded transition-colors"
-    >
-      Revogar
-    </button>
-  )}
-  <button
-    type="button"
-    onClick={() => handleDeleteApiKey(k.id)}
-    className="text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded transition-colors"
-  >
-    Excluir
-  </button>
-</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 dark:text-white/30 italic">Nenhuma key gerada ainda.</p>
-          )}
-
-          {/* Documentação */}
-          <details className="group">
-  <summary className="cursor-pointer text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline list-none flex items-center justify-between gap-1">
-    <span className="flex items-center gap-1">
-      <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-      Ver documentação da API
-    </span>
-    <span className="flex items-center gap-1 not-sr-only" onClick={e => e.preventDefault()}>
-      <button
-        type="button"
-        onClick={() => {
-          const md = `# API de Consulta de Clientes — UniGestor\n\n## Endpoint\n\`\`\`\nPOST https://unigestor.net.br/api/public/client-info\n\`\`\`\n\n## Headers\n\`\`\`\nAuthorization: Bearer SUA_KEY_AQUI\nContent-Type: application/json\n\`\`\`\n\n## Body\n\`\`\`json\n{\n  "whatsapp_username": "5521999999999"\n}\n\`\`\`\n\n## Campos retornados por cliente\n\n| Campo | Descrição |\n|---|---|\n| client_name | Nome completo |\n| status | ACTIVE / OVERDUE / TRIAL / ARCHIVED |\n| vencimento | Data formatada (pt-BR) |\n| vencimento_iso | ISO 8601 para calcular no bot |\n| dias_restantes | Número inteiro de dias |\n| plan | Plano e quantidade de telas |\n| credentials | { username, password } |\n| m3u_url | Link da playlist M3U |\n| portal_link | Link de pagamento com token |\n| portal_pin | PIN de acesso (4 dígitos) |\n| server_name | Nome do servidor |\n| technology | IPTV / P2P / OTT |\n| phone_primary | Telefone principal (E.164) |\n| phone_secondary | Telefone secundário |\n\n## Exemplo completo\n\`\`\`javascript\nfetch("https://unigestor.net.br/api/public/client-info", {\n  method: "POST",\n  headers: {\n    "Authorization": "Bearer SUA_KEY_AQUI",\n    "Content-Type": "application/json"\n  },\n  body: JSON.stringify({\n    whatsapp_username: "5521999999999"\n  })\n})\n.then(r => r.json())\n.then(console.log);\n\`\`\`\n`;
-          const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "unigestor-api-docs.md";
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
-        className="text-[10px] font-bold px-2 py-0.5 rounded border border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-colors"
-      >
-        .md
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          const collection = {
-            info: { name: "UniGestor API", schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
-            item: [{
-              name: "Consultar clientes por WhatsApp",
-              request: {
-                method: "POST",
-                header: [
-                  { key: "Authorization", value: "Bearer SUA_KEY_AQUI" },
-                  { key: "Content-Type", value: "application/json" }
-                ],
-                body: { mode: "raw", raw: JSON.stringify({ whatsapp_username: "5521999999999" }, null, 2), options: { raw: { language: "json" } } },
-                url: { raw: "https://unigestor.net.br/api/public/client-info", protocol: "https", host: ["unigestor", "net", "br"], path: ["api", "public", "client-info"] }
-              }
-            }]
-          };
-          const blob = new Blob([JSON.stringify(collection, null, 2)], { type: "application/json;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "unigestor-postman.json";
-          a.click();
-          URL.revokeObjectURL(url);
-        }}
-        className="text-[10px] font-bold px-2 py-0.5 rounded border border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
-      >
-        Postman
-      </button>
-    </span>
-  </summary>
-            <div className="mt-3 space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-                <p className="font-bold text-slate-600 dark:text-white/70">Endpoint</p>
-                <code className="block font-mono text-[11px] text-sky-700 dark:text-sky-300">POST https://unigestor.net.br/api/public/client-info</code>
-              </div>
-              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-                <p className="font-bold text-slate-600 dark:text-white/70">Headers</p>
-                <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`Authorization: Bearer ugs_...
-Content-Type: application/json`}</code>
-              </div>
-              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-  <p className="font-bold text-slate-600 dark:text-white/70">Body</p>
-  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre">{`{
-  "whatsapp_username": "5521999999999"
-}`}</code>
-</div>
-
-<div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-  <p className="font-bold text-slate-600 dark:text-white/70">Exemplo para testar no console do navegador</p>
-  <code className="block font-mono text-[11px] text-slate-700 dark:text-white/70 whitespace-pre overflow-x-auto">{`fetch("https://unigestor.net.br/api/public/client-info", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer SUA_KEY_AQUI",
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    whatsapp_username: "5521999999999"
-  })
-})
-.then(r => r.json())
-.then(data => {
-  const w = window.open("about:blank");
-  w.document.write(
-    "<pre>" + JSON.stringify(data, null, 2) + "</pre>"
-  );
-})`}</code>
-</div>
-              <div className="p-3 bg-slate-50 dark:bg-black/20 rounded-lg border border-slate-200 dark:border-white/10 space-y-2">
-                <p className="font-bold text-slate-600 dark:text-white/70">Campos retornados por cliente</p>
-                <div className="space-y-1 text-slate-500 dark:text-white/50">
-                  {[
-                    ["client_name", "Nome completo"],
-                    ["status", "ACTIVE / OVERDUE / TRIAL / ARCHIVED"],
-                    ["vencimento", "Data formatada (pt-BR)"],
-                    ["vencimento_iso", "ISO 8601 para calcular no bot"],
-                    ["dias_restantes", "Número inteiro de dias"],
-                    ["plan", "Plano e quantidade de telas"],
-                    ["credentials", "{ username, password }"],
-                    ["m3u_url", "Link da playlist M3U"],
-                    ["portal_link", "Link do Portal do cliente"],
-                    ["portal_pin", "PIN de acesso (4 dígitos)"],
-                    ["server_name", "Nome do servidor"],
-                    ["technology", "IPTV / P2P"],
-                    ["phone_primary", "Telefone principal (E.164)"],
-                    ["phone_secondary", "Telefone secundário"],
-                  ].map(([campo, desc]) => (
-                    <div key={campo} className="flex gap-2">
-                      <code className="font-mono text-sky-600 dark:text-sky-400 shrink-0">{campo}</code>
-                      <span>{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </details>
-        </div>}
+        
 
       </div>
-
-        {/* === COLUNA DIREITA (SIDEBAR) === */}
+{/* === COLUNA DIREITA (SIDEBAR) === */}
         <div className="space-y-6">
-          {!isOnlyFinanceiro && <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-              WhatsApp Web — Sessão 1
-            </h3>
-            {whatsappSessions >= 2 && !showSession2 && (
-              <button
-                type="button"
-                onClick={() => { setShowSession2(true); localStorage.setItem("wa_show_session2", "true"); }}
-                className="h-6 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors"
-              >
-                + Nova Sessão
-              </button>
-            )}
-          </div>
 
-          <div className="flex flex-col gap-3">
-
-            {/* Segurança SaaS: só o responsável (owner) pode parear */}
-            {!canPairWhatsApp ? (
-            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs">
-              Você precisa estar logado para conectar o WhatsApp.
+          {/* PAINEL SESSÃO 1 */}
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5 relative overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                WhatsApp Web — Sessão 1
+              </h3>
+              {whatsappSessions >= 2 && !showSession2 && (
+                <button
+                  type="button"
+                  onClick={() => { setShowSession2(true); localStorage.setItem("wa_show_session2", "true"); }}
+                  className="h-6 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 transition-colors"
+                >
+                  + Nova Sessão
+                </button>
+              )}
             </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className={`text-[11px] font-bold px-2 py-1 rounded border ${
-                      waConnected
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                    : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
-                    }`}
-                  >
-                    {waConnected ? "✅ Conectado" : "⚠️ Não conectado"}
-                  </span>
 
-                  <button
-                    type="button"
-                    onClick={() => void refreshWhatsAppPanel()} // Aqui NÃO TEM o true
-                    disabled={waLoading}
-                    className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
-                  >
-                    {waLoading ? "Atualizando..." : "Atualizar"}
-                  </button>
+            <div className="flex flex-col gap-3">
+              {/* ERRO CORRIGIDO AQUI: Faltava abrir a condicional com {!canPairWhatsApp ? ... */}
+              {!canPairWhatsApp ? (
+                <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs">
+                  Você precisa estar logado para conectar o WhatsApp.
                 </div>
-
-                {!!waLastError && (
-                  <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs">
-                    {waLastError}
-                  </div>
-                )}
-
-                {/* ✅ Tela de dormência da Sessão 1 */}
-                {waIsDormant && !waConnected ? (
-                  <div className="text-center py-2">
-                    <button
-                      type="button" 
-                      onClick={() => {
-                        setWaIsDormant(false);
-                        void refreshWhatsAppPanel(true);
-                      }} 
-                      disabled={waLoading} 
-                      className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`text-[11px] font-bold px-2 py-1 rounded border ${
+                        waConnected
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+                      }`}
                     >
-                      {waLoading ? "Gerando..." : "📲 Iniciar e Gerar QR"}
+                      {waConnected ? "✅ Conectado" : "⚠️ Não conectado"}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => void refreshWhatsAppPanel()} 
+                      disabled={waLoading}
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+                    >
+                      {waLoading ? "Atualizando..." : "Atualizar"}
                     </button>
-                    <p className="text-[10px] text-slate-400 mt-2">
-                      O painel ficará pausado até você iniciar o pareamento.
-                    </p>
                   </div>
-                ) : (
-                  <>
-                    <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
-                      {waConnected && (
-                      <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
-    <div className="flex items-center justify-between">
-      <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setWaConfigExpanded(v => !v)}
-          className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors"
-          title={waConfigExpanded ? "Minimizar" : "Expandir"}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            {waConfigExpanded
-              ? <path d="M18 15l-6-6-6 6"/>
-              : <path d="M6 9l6 6 6-6"/>
-            }
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => setWaRejectCalls(v => !v)}
-          className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
-        >
-          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
-        </button>
-      </div>
-    </div>
-{waRejectCalls && waConfigExpanded && (
-  <div className="space-y-2">
-    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
-    <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
-    <div className="flex flex-wrap gap-1">
-      {["{saudacao}", "{hora}", "{data}"].map(tag => (
-        <button
-          key={tag}
-          type="button"
-          onClick={() => setWaRejectMessage(v => v + tag)}
-          className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono"
-        >
-          {tag}
-        </button>
-      ))}
-    </div>
-    <textarea
-      value={waRejectMessage}
-      onChange={e => setWaRejectMessage(e.target.value)}
-      rows={3}
-      placeholder="Ex: {saudacao}! No momento não atendemos ligações. Você ligou às {hora} do dia {data}."
-      className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
-    />
-    <div className="pt-1">
-      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-        Números que não serão rejeitados:
-      </label>
-      <textarea
-                value={waAllowedNumbers}
-                onChange={e => setWaAllowedNumbers(e.target.value)}
-                rows={3}
-                placeholder={"5521999998888 Nome\n5511999999999 Nome"}
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
-              />
-              <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar (ex: 55219... José).</p>
-    </div>
-  </div>
-)}
-{waConfigExpanded && (
-      <button
-        type="button"
-        onClick={() => void saveWaConfig()}
-        disabled={waSavingConfig}
-        className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
-      >
-        {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
-      </button>
-    )}
-  </div>
-)}
 
-{waConnected ? (
-    <div className="flex items-center gap-4 py-1">
-      {/* Avatar */}
-      <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
-        {waProfilePicUrl ? (
-          <img src={waProfilePicUrl} alt="Foto do WhatsApp" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-xs text-slate-400">WA</span>
-        )}
-      </div>
-
-      {/* Infos */}
-      <div className="flex-1 min-w-0">
-        {waSessionLabelEditing ? (
-        <input
-          autoFocus
-          value={waSessionLabel}
-          onChange={e => setWaSessionLabel(e.target.value)}
-          onBlur={() => { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); }}
-          onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); } }}
-          className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
-        />
-      ) : (
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
-            {waSessionLabel || "Contato principal"}
-          </span>
-          <button type="button" onClick={() => setWaSessionLabelEditing(true)}           className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0"
- title="Renomear sessão">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-        </div>
-      )}
-        <div className="text-xs text-slate-500 dark:text-white/60 truncate">
-                      {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
+                  {!!waLastError && (
+                    <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs">
+                      {waLastError}
                     </div>
-        {!!waStatusText && (
-          <div className="text-[11px] text-slate-400 dark:text-white/40">
-            Status: {waStatusText}
-          </div>
-        )}
-      </div>
-    </div>
-  ) : waQrDataUrl ? (
-    <div className="flex flex-col items-center gap-2">
-      <img
-        src={waQrDataUrl}
-        alt="QR Code do WhatsApp"
-        className="w-full max-w-[220px] rounded bg-white p-2"
-      />
-      <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
-        Abra o WhatsApp no celular → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie o QR.
-      </div>
-    </div>
-  ) : (
-    <div className="text-xs text-slate-500 dark:text-white/60 text-center">
-      QR ainda não disponível. Clique em <b>Atualizar</b>.
-    </div>
-  )}
-</div>
-
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleReconnectWhatsApp()}
-                    disabled={waLoading || waReconnecting}
-                    className="flex-1 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm transition-colors disabled:opacity-50"
-                    title="Força encerramento e reconexão sem apagar credenciais"
-                  >
-                    {waReconnecting ? "Reconectando..." : "🔄 Forçar Reconexão"}
-                  </button>
-                  {waConnected ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleDisconnectWhatsApp()}
-                      disabled={waLoading || waReconnecting}
-                      className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
-                    >
-                      {waLoading ? "Processando..." : "🔌 Desconectar"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void refreshWhatsAppPanel(true)}
-                      disabled={waLoading || waReconnecting}
-                      className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
-                    >
-                      {waLoading ? "Gerando..." : "📲 Gerar QR"}
-                    </button>
                   )}
-                </div>
 
-          </>
-        )}
+                  {/* ✅ Tela de dormência da Sessão 1 */}
+                  {waIsDormant && !waConnected ? (
+                    <div className="text-center py-2">
+                      <button
+                        type="button" 
+                        onClick={() => {
+                          setWaIsDormant(false);
+                          void refreshWhatsAppPanel(true);
+                        }} 
+                        disabled={waLoading} 
+                        className="w-full px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+                      >
+                        {waLoading ? "Gerando..." : "📲 Iniciar e Gerar QR"}
+                      </button>
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        O painel ficará pausado até você iniciar o pareamento.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3">
+                        {waConnected && (
+                          <div className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-700 dark:text-white">📵 Rejeitar chamadas</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setWaConfigExpanded(v => !v)}
+                                  className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors"
+                                  title={waConfigExpanded ? "Minimizar" : "Expandir"}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    {waConfigExpanded
+                                      ? <path d="M18 15l-6-6-6 6"/>
+                                      : <path d="M6 9l6 6 6-6"/>
+                                    }
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setWaRejectCalls(v => !v)}
+                                  className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
+                                </button>
+                              </div>
+                            </div>
+                            {waRejectCalls && waConfigExpanded && (
+                              <div className="space-y-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mensagem de resposta</label>
+                                <p className="text-[10px] text-slate-400 dark:text-white/40">Use as variáveis para inserir na mensagem:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {["{saudacao}", "{hora}", "{data}"].map(tag => (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onClick={() => setWaRejectMessage(v => v + tag)}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono"
+                                    >
+                                      {tag}
+                                    </button>
+                                  ))}
+                                </div>
+                                <textarea
+                                  value={waRejectMessage}
+                                  onChange={e => setWaRejectMessage(e.target.value)}
+                                  rows={3}
+                                  placeholder="Ex: {saudacao}! No momento não atendemos ligações. Você ligou às {hora} do dia {data}."
+                                  className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none"
+                                />
+                                <div className="pt-1">
+                                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    Números que não serão rejeitados:
+                                  </label>
+                                  <textarea
+                                    value={waAllowedNumbers}
+                                    onChange={e => setWaAllowedNumbers(e.target.value)}
+                                    rows={3}
+                                    placeholder={"5521999998888 Nome\n5511999999999 Nome"}
+                                    className="w-full px-3 py-2 text-xs bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono"
+                                  />
+                                  <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar (ex: 55219... José).</p>
+                                </div>
+                              </div>
+                            )}
+                            {waConfigExpanded && (
+                              <button
+                                type="button"
+                                onClick={() => void saveWaConfig()}
+                                disabled={waSavingConfig}
+                                className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50"
+                              >
+                                {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+                              </button>
+                            )}
+                          </div>
+                        )}
 
+                        {waConnected ? (
+                          <div className="flex items-center gap-4 py-1">
+                            {/* Avatar */}
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                              {waProfilePicUrl ? (
+                                <img src={waProfilePicUrl} alt="Foto do WhatsApp" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs text-slate-400">WA</span>
+                              )}
+                            </div>
 
-            
-          </>
-        )}
-      </div>
-    </div>}
+                            {/* Infos */}
+                            <div className="flex-1 min-w-0">
+                              {waSessionLabelEditing ? (
+                                <input
+                                  autoFocus
+                                  value={waSessionLabel}
+                                  onChange={e => setWaSessionLabel(e.target.value)}
+                                  onBlur={() => { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); }}
+                                  onKeyDown={e => { if (e.key === "Enter") { localStorage.setItem("wa_label_1", waSessionLabel); setWaSessionLabelEditing(false); } }}
+                                  className="text-sm font-bold bg-transparent border-b border-emerald-500 outline-none text-slate-800 dark:text-white w-full"
+                                />
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                                    {waSessionLabel || "Contato principal"}
+                                  </span>
+                                  <button type="button" onClick={() => setWaSessionLabelEditing(true)} className="text-amber-400 hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300 transition-colors shrink-0" title="Renomear sessão">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  </button>
+                                </div>
+                              )}
+                              <div className="text-xs text-slate-500 dark:text-white/60 truncate">
+                                {waPushName ? `Conectado como: ${waPushName}` : waStatusText === "connected" ? "Aguardando nome..." : "WhatsApp conectado ✅"}
+                              </div>
+                              {!!waStatusText && (
+                                <div className="text-[11px] text-slate-400 dark:text-white/40">
+                                  Status: {waStatusText}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : waQrDataUrl ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <img
+                              src={waQrDataUrl}
+                              alt="QR Code do WhatsApp"
+                              className="w-full max-w-[220px] rounded bg-white p-2"
+                            />
+                            <div className="text-[11px] text-slate-500 dark:text-white/50 text-center">
+                              Abra o WhatsApp no celular → <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e escaneie o QR.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500 dark:text-white/60 text-center">
+                            QR ainda não disponível. Clique em <b>Atualizar</b>.
+                          </div>
+                        )}
+                      </div>
 
-          {/* ✅ SESSÃO 2 — só renderiza se o tenant tem 2 sessões E o usuário clicou em "+ Nova Sessão" */}
-          {!isOnlyFinanceiro && whatsappSessions >= 2 && showSession2 && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleReconnectWhatsApp()}
+                          disabled={waLoading || waReconnecting}
+                          className="flex-1 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                          title="Força encerramento e reconexão sem apagar credenciais"
+                        >
+                          {waReconnecting ? "Reconectando..." : "🔄 Forçar Reconexão"}
+                        </button>
+                        {waConnected ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleDisconnectWhatsApp()}
+                            disabled={waLoading || waReconnecting}
+                            className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                          >
+                            {waLoading ? "Processando..." : "🔌 Desconectar"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void refreshWhatsAppPanel(true)}
+                            disabled={waLoading || waReconnecting}
+                            className="flex-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors disabled:opacity-50"
+                          >
+                            {waLoading ? "Gerando..." : "📲 Gerar QR"}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ✅ SESSÃO 2 — renderiza se o usuário clicou em "+ Nova Sessão" */}
+          {showSession2 && (
             <WhatsAppSession2Panel
               canPair={canPairWhatsApp}
-              tenantId={tenantId} // ✅ Passando a credencial
+              tenantId={tenantId}
               addToast={addToast}
             />
           )}
 
+          {/* SEGURANÇA */}
           <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl p-6 shadow-sm space-y-5">
             <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">Segurança</h3>
             <div>
@@ -2729,6 +2067,7 @@ Content-Type: application/json`}</code>
               </button>
             </div>
           </div>
+
         </div>
       </div>
     {/* MODAL: Filtros para exportar financeiro */}
@@ -2797,43 +2136,7 @@ Content-Type: application/json`}</code>
       );
     })()}
 
-    {/* ✅ MODAL: Exibir key gerada (única vez) */}
-    {revealedKey && (
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="w-full max-w-lg bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-6 flex flex-col gap-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-2xl">🔑</div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">API Key gerada!</h3>
-            <p className="text-sm text-slate-500 dark:text-white/60">Copie agora. Por segurança, ela <strong>não será exibida novamente.</strong></p>
-          </div>
-
-          <div className="flex gap-2 items-center p-3 bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg">
-            <code className="flex-1 font-mono text-xs text-sky-700 dark:text-sky-300 break-all select-all">{revealedKey}</code>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(revealedKey);
-                setApiKeyCopied(true);
-                setTimeout(() => setApiKeyCopied(false), 3000);
-              }}
-              className="shrink-0 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all"
-            >
-              {apiKeyCopied ? "✅ Copiado!" : "Copiar"}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setRevealedKey(null)}
-            className="w-full h-10 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
-    )}
-
-    
+       
     </div>
   );
 }
@@ -2969,21 +2272,6 @@ async function fetchWaStatus() {
 async function refreshPanel(forceQr = false, showVisualLoading = true) { 
     if (showVisualLoading) setWaLoading(true);
     try {
-      // ✅ VALIDAÇÃO ANTI-MALANDRO: Se clicou no botão de QR, confere no banco antes!
-      if (forceQr && tenantId) {
-        const { data } = await supabaseBrowser
-          .from("vw_saas_tenants")
-          .select("whatsapp_sessions")
-          .eq("id", tenantId)
-          .maybeSingle();
-
-        if (!data || data.whatsapp_sessions < 2) {
-          addToast("error", "Acesso Revogado", "Sua 2ª sessão não está mais habilitada. Procure seu Gestor.");
-          setTimeout(() => window.location.reload(), 2500); // 🛑 Recarrega a página para sumir com o painel!
-          return; 
-        }
-      }
-
       const { connected, status } = await fetchWaStatus();
       
       
