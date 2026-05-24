@@ -489,7 +489,7 @@ async function saveWaConfig() {
             setExpiresAt(saasData.expires_at || null);
             setCreditBalance(saasData.credit_balance || 0);
             setSaasPlanTableId((saasData as any).saas_plan_table_id ?? null);
-            const sessions = saasData.whatsapp_sessions ?? 2;
+            const sessions = saasData.whatsapp_sessions ?? 1;
             setWhatsappSessions(sessions);
             
             if (sessions < 2) {
