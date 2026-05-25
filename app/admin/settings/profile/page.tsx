@@ -48,8 +48,8 @@ function inferDDIFromDigits(allDigits: string, originalInput?: string): string {
 
 function ddiMeta(ddi: string) {
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
-  if (!opt) return { label: `DDI Desconhecido (+${ddi})`, code: ddi, pretty: `🌍 DDI (+${ddi})` };
-  return { label: `${opt.label} (+${opt.code})`, code: opt.code, pretty: `${opt.label} (+${opt.code})` };
+  if (!opt) return { label: `Desconhecido (+${ddi})`, code: ddi, pretty: `🌍 +${ddi}` };
+  return { label: `${opt.label} (+${opt.code})`, code: opt.code, pretty: `${opt.flag} ${opt.label} (+${opt.code})` };
 }
 
 function formatNational(ddi: string, nationalDigits: string) {
@@ -66,14 +66,7 @@ function formatNational(ddi: string, nationalDigits: string) {
     }
     return `${area} ${rest}`.trim();
   }
-  const groups: string[] = [];
-  let i = 0;
-  while (i < d.length) {
-    const step = d.length - i > 7 ? 3 : 4;
-    groups.push(d.slice(i, i + step));
-    i += step;
-  }
-  return groups.join(" ").trim();
+  return d;
 }
 
 function splitE164(raw: string) {
@@ -98,51 +91,19 @@ function applyPhoneNormalization(rawInput: string) {
 }
 
 // ============================================================================
-// COMPONENTES UI AUXILIARES (TAILWIND PURO)
+// COMPONENTES UI
 // ============================================================================
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">{children}</label>;
+  return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1.5 uppercase tracking-wider">{children}</label>;
 }
 
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
+      className={`w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
     />
-  );
-}
-
-function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...inputProps }: any) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <div className="flex gap-2">
-        <div className="h-10 w-[130px] shrink-0 px-2 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] font-bold text-slate-700 dark:text-white truncate justify-center">
-          {prettyPrefix || "—"}
-        </div>
-        <div className="relative flex-1">
-          <Input 
-            value={rawValue} 
-            onChange={(e) => onRawChange(e.target.value)} 
-            placeholder="Telefone Celular" 
-            className="pr-12" 
-            {...inputProps} 
-            onBlur={onDone}
-            onKeyDown={(e) => e.key === 'Enter' && onDone()}
-          />
-          <button 
-            type="button" 
-            onClick={onDone} 
-            disabled={inputProps.readOnly}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-sm disabled:opacity-30"
-          >
-            ✓
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -159,18 +120,16 @@ export default function ProfileSettingsPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
-  const [role] = useState("SUPERADMIN");
-
+  
   // Configurações do perfil e saúde
   const [name, setName] = useState("");
   const [phoneRaw, setPhoneRaw] = useState("");
-  const [phonePrettyPrefix, setPhonePrettyPrefix] = useState("Brasil (+55)");
+  const [phonePrettyPrefix, setPhonePrettyPrefix] = useState("🇧🇷 Brasil (+55)");
   const [whatsappUsername, setWhatsappUsername] = useState("");
   const [waUserTouched, setWaUserTouched] = useState(false);
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
 
-  // Quantidade de Sessões Ativas salvas no Banco
   const [whatsappSessions, setWhatsappSessions] = useState(1);
 
   // Estados do WhatsApp VM (Sessão 1)
@@ -180,20 +139,17 @@ export default function ProfileSettingsPage() {
   const [waQrDataUrl, setWaQrDataUrl] = useState<string | null>(null);
   const [waLastError, setWaLastError] = useState<string | null>(null);
   const [waIsDormant, setWaIsDormant] = useState(true);
-  const [waConfigExpanded, setWaConfigExpanded] = useState(false);
-  const [waSessionLabel, setWaSessionLabel] = useState<string>(() => {
-    if (typeof window !== "undefined") return localStorage.getItem("wa_label_1") || "Contato principal";
-    return "Contato principal";
-  });
-  const [waSessionLabelEditing, setWaSessionLabelEditing] = useState(false);
+  
+  const [showWa1Settings, setShowWa1Settings] = useState(false);
+  const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
+  const [waRejectMessage, setWaRejectMessage] = useState<string>("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem.");
+  const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
+  const [waSavingConfig, setWaSavingConfig] = useState(false);
+
   const [waPushName, setWaPushName] = useState<string | null>(null);
   const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
   const waLastProfileFetchRef = useRef<number>(0);
   const [waStatusText, setWaStatusText] = useState<string | null>(null);
-  const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
-  const [waRejectMessage, setWaRejectMessage] = useState<string>("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem.");
-  const [waSavingConfig, setWaSavingConfig] = useState(false);
-  const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
 
   // Estados e Refs para Importações/Exportações
   const importFileRef = useRef<HTMLInputElement | null>(null);
@@ -230,11 +186,11 @@ export default function ProfileSettingsPage() {
 
   const canPairWhatsApp = !!userId && !!tenantId;
 
-  // --- IMC Dinâmico com Tailwind nativo ---
+  // --- IMC Dinâmico ---
   const metricsIMC = useMemo(() => {
     const w = parseFloat(weight);
     const h = parseFloat(height);
-    if (!w || !h || h <= 0) return { val: null, label: "Aguardando dados", color: "text-slate-400 border-slate-200 bg-slate-50 dark:bg-white/5 dark:border-white/10" };
+    if (!w || !h || h <= 0) return { val: null, label: "Aguardando", color: "text-slate-400 border-slate-200 bg-slate-50 dark:bg-white/5 dark:border-white/10" };
     
     const imc = w / (h * h);
     const formatted = imc.toFixed(1);
@@ -258,28 +214,17 @@ export default function ProfileSettingsPage() {
       try {
         const { data: { user } } = await supabaseBrowser.auth.getUser();
         if (!user) return;
-
         setUserId(user.id);
         setEmail(user.email || "");
 
-        const memberRes = await supabaseBrowser
-          .from("tenant_members")
-          .select("role, tenants(id, name)")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
+        const memberRes = await supabaseBrowser.from("tenant_members").select("tenants(id, name)").eq("user_id", user.id).maybeSingle();
         const member = memberRes.data;
         if (member && member.tenants) {
           const currentT = Array.isArray(member.tenants) ? member.tenants[0] : member.tenants;
           if (currentT) setTenantId(currentT.id || null);
         }
 
-        const { data: profile } = await supabaseBrowser
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
-
+        const { data: profile } = await supabaseBrowser.from("profiles").select("*").eq("id", user.id).maybeSingle();
         if (profile) {
           setName(profile.display_name || "");
           setWhatsappUsername(profile.whatsapp_username || "");
@@ -334,11 +279,7 @@ export default function ProfileSettingsPage() {
     if (digits.length < 8) { setWaValidation(null); return; }
     setWaValidation({ loading: true, exists: false });
     try {
-      const res = await fetch("/api/whatsapp/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: digits }),
-      });
+      const res = await fetch("/api/whatsapp/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: digits }) });
       const json = await res.json().catch(() => ({}));
       setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
       if (json.exists && json.jid) {
@@ -397,32 +338,12 @@ export default function ProfileSettingsPage() {
       if (profileError) throw profileError;
       await supabaseBrowser.auth.updateUser({ data: { full_name: name } });
       
-      addToast("success", "Perfil atualizado", "As configurações foram sincronizadas.");
+      addToast("success", "Perfil atualizado", "Suas informações foram sincronizadas.");
       setIsEditing(false);
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleResetPassword() {
-    const ok = await confirm({
-      title: "Redefinir Senha",
-      subtitle: `Deseja enviar o link de recuperação para ${email}?`,
-      tone: "sky",
-      confirmText: "Sim, enviar",
-      cancelText: "Voltar"
-    });
-    if (!ok) return;
-    try {
-      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + "/auth/update-password",
-      });
-      if (error) throw error;
-      addToast("success", "E-mail enviado", "Verifique sua caixa de entrada.");
-    } catch (e: any) {
-      addToast("error", "Erro", e.message);
     }
   }
 
@@ -467,7 +388,10 @@ export default function ProfileSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
       });
-      if (res.ok) addToast("success", "Salvo", "Configurações de bloqueio atualizadas.");
+      if (res.ok) {
+        addToast("success", "Configuração salva", "Regras de bloqueio atualizadas.");
+        setShowWa1Settings(false);
+      }
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
     } finally {
@@ -691,25 +615,39 @@ export default function ProfileSettingsPage() {
     } catch {} finally { setImporting(false); }
   }
 
+  const handleResetPassword = async () => {
+    const ok = await confirm({
+      title: "Redefinir Senha",
+      subtitle: `Enviar link de recuperação para ${email}?`,
+      tone: "sky",
+      confirmText: "Sim, enviar"
+    });
+    if (!ok) return;
+    try {
+      await supabaseBrowser.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/auth/update-password" });
+      addToast("success", "Enviado", "Verifique sua caixa de entrada.");
+    } catch (e: any) { addToast("error", "Erro", e.message); }
+  };
+
   if (loading) {
     return (
       <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 rounded-xl border m-6">
-        Carregando painel do proprietário...
+        Carregando painel...
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pt-4 pb-6 px-4 sm:px-6">
+    <div className="space-y-6 pt-4 pb-6 px-4 sm:px-6 text-slate-800 dark:text-white">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
         <div className="text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Configurações da Conta
           </h1>
-          <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">Gerencie seu perfil exclusivo, saúde e conexões automatizadas.</p>
+          <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">Gerencie seu perfil exclusivo, conexões do WhatsApp e planilhas.</p>
         </div>
         
         {/* SISTEMA DE ABAS E BOTÃO TEMA */}
@@ -743,72 +681,63 @@ export default function ProfileSettingsPage() {
         </div>
       </div>
 
-      {/* ABA 1: CONFIGURAÇÃO DO PERFIL + COMPONENTES DO WHATSAPP */}
-      {activeTab === "profile" && (
-        <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+      {/* GRID PRINCIPAL */}
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+        
+        {/* COLUNA ESQUERDA: DADOS PESSOAIS + (ABA SAÚDE OU PLANILHAS) */}
+        <div className="space-y-6 xl:col-span-2">
           
-          {/* COLUNA ESQUERDA: DADOS PESSOAIS E SAÚDE */}
-          <div className="space-y-6 xl:col-span-2">
-            
-            {/* CARD 1: DADOS PESSOAIS */}
-            <div className={`bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-5 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Informações de Cadastro
-                </h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleResetPassword}
-                    className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm"
-                  >
-                    🔒 Redefinir Senha
+          {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
+          <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                Informações de Cadastro
+              </h3>
+              <div className="flex items-center gap-2">
+                <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
+                  🔒 Senha
+                </button>
+                {!isEditing ? (
+                  <button onClick={() => setIsEditing(true)} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
+                    ✏️ Editar Dados
                   </button>
-                  {!isEditing ? (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-emerald flex items-center gap-1.5"
-                    >
-                      ✏️ Editar Dados
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-emerald flex items-center gap-1.5"
-                    >
-                      {saving ? "Salvando..." : "💾 Salvar Tudo"}
-                    </button>
-                  )}
+                ) : (
+                  <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
+                    {saving ? "Salvando..." : "💾 Salvar Tudo"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Nome Completo</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" readOnly={!isEditing} onFocus={() => setIsEditing(true)} />
+              </div>
+              <div>
+                <Label>E-mail</Label>
+                <Input value={email} disabled className="opacity-70 cursor-not-allowed font-mono text-xs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <Label>País</Label>
+                <div className="h-11 px-3 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl flex items-center text-xs font-bold text-slate-700 dark:text-white truncate">
+                  {phonePrettyPrefix || "—"}
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2">
-                  <Label>Nome Completo</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" readOnly={!isEditing} onFocus={() => setIsEditing(true)} />
-                </div>
-                <div>
-                  <Label>Nível de Acesso</Label>
-                  <div className="h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20">
-                    👑 {role}
-                  </div>
+              <div>
+                <Label>Telefone Celular</Label>
+                <div className="relative">
+                  <Input value={phoneRaw} onChange={(e) => setPhoneRaw(e.target.value)} onBlur={handlePhoneDone} onKeyDown={(e) => e.key === 'Enter' && handlePhoneDone()} placeholder="Ex: 21999999999" readOnly={!isEditing} onFocus={() => setIsEditing(true)} className="pr-10" />
+                  <button type="button" onClick={handlePhoneDone} disabled={!isEditing} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-emerald-500 transition-colors flex items-center justify-center font-bold">✓</button>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>E-mail</Label>
-                  <Input value={email} disabled className="opacity-70 cursor-not-allowed font-mono text-xs" />
-                </div>
-                <div>
-                  <PhoneRow prettyPrefix={phonePrettyPrefix} rawValue={phoneRaw} onRawChange={setPhoneRaw} onDone={handlePhoneDone} readOnly={!isEditing} onFocus={() => setIsEditing(true)} label="Telefone Celular" />
-                </div>
-              </div>
-
               <div>
                 <Label>WhatsApp Username</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 text-sm font-bold">@</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">@</span>
                   <Input className="pl-8 pr-10" value={whatsappUsername} onChange={handleWhatsChange} placeholder="Ex: 5521999999999" readOnly={!isEditing} onFocus={() => setIsEditing(true)} />
                   {whatsappUsername && (
                     <a href={`https://wa.me/${whatsappUsername}`} target="_blank" rel="noopener noreferrer" className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600" title="Abrir conversa">
@@ -816,16 +745,13 @@ export default function ProfileSettingsPage() {
                     </a>
                   )}
                 </div>
-                {waValidation && (
-                  <div className={`mt-1.5 flex items-center gap-1 text-xs font-bold ${waValidation.loading ? "text-slate-400 dark:text-white/40" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
-                    {waValidation.loading ? "Validando número..." : waValidation.exists ? "✓ Conta ativa no WhatsApp" : "✗ Número sem WhatsApp ativo"}
-                  </div>
-                )}
               </div>
             </div>
+          </div>
 
-            {/* CARD 2: PAINEL DE MÉTRICAS CORPORAIS PRIVADAS */}
-            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
+          {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
+          {activeTab === "profile" ? (
+            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in duration-300">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
                 Minhas Métricas (Privado)
               </h3>
@@ -840,192 +766,135 @@ export default function ProfileSettingsPage() {
                 </div>
                 <div>
                   <Label>Índice de Massa Corporal (IMC)</Label>
-                  <div className={`h-10 px-3 rounded-lg flex items-center justify-between text-xs font-bold transition-all border ${metricsIMC.color}`}>
+                  <div className={`h-11 px-3 rounded-xl flex items-center justify-between text-xs font-bold transition-all border ${metricsIMC.color}`}>
                     <span>{metricsIMC.val ? `IMC: ${metricsIMC.val}` : "—"}</span>
                     <span className="text-[10px] uppercase tracking-wider">{metricsIMC.label}</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* COLUNA DIREITA: GERENCIADOR DINÂMICO DE SESSÕES DO WHATSAPP */}
-          <div className="space-y-6">
-            
-            {/* SELETOR DE QUANTIDADE DE SESSÕES */}
-            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-5 shadow-sm space-y-3">
+          ) : (
+            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 dark:text-white">Estrutura de Instâncias</h4>
-                <p className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Defina quantas sessões paralelas o painel principal operará.</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Ferramentas Estruturais de Dados</h3>
+                <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Realize a ingestão ou backup completo das planilhas integradas do ecossistema.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => { setOriginalSessionsCount(1); if(!isEditing) setIsEditing(true); }}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 1 ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-white/50"}`}
-                >
-                  1 Instância
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                  ⬇️ Exportar Registros
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setOriginalSessionsCount(2); if(!isEditing) setIsEditing(true); }}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 2 ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-white/50"}`}
-                >
-                  2 Instâncias (Duplo)
+                <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                  📄 Baixar Templates
+                </button>
+                <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                  ⬆️ Importar Cargas Novas
                 </button>
               </div>
+
+              {/* INPUTS OCULTOS */}
+              <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />
+              <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAppsFile(f); }} />
+              <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAutoFile(f); }} />
+              <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportResellerFile(f); }} />
+              <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportMessageFile(f); }} />
+              <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportServerFile(f); }} />
+              <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFinanceiroFile(f); }} />
             </div>
+          )}
+        </div>
 
-            {/* PAINEL SESSÃO 1 */}
-            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  WhatsApp — Instância 1
-                </h3>
-              </div>
-
-              {!canPairWhatsApp ? (
-                <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-bold">Aguardando login estrutural.</div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
-                      {waConnected ? "Online" : "Desconectado"}
-                    </span>
-                    <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-white">
-                      {waLoading ? "..." : "Sincronizar"}
-                    </button>
-                  </div>
-
-                  {waIsDormant && !waConnected ? (
-                    <button type="button" onClick={() => { setWaIsDormant(false); void refreshWhatsAppPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all">
-                      📲 Inicializar QR Code
-                    </button>
-                  ) : (
-                    <>
-                      {waConnected ? (
-                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-3 rounded-xl">
-                          <div className="w-10 h-10 rounded-full bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
-                            {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400 dark:text-white/40">WA</span>}
-                          </div>
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate">{waSessionLabel}</div>
-                            <div className="text-[10px] text-slate-500 dark:text-white/50 truncate">{waPushName ? `Dono: ${waPushName}` : 'Conexão Estabelecida ✅'}</div>
-                          </div>
-                        </div>
-                      ) : waQrDataUrl ? (
-                        <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
-                          <img src={waQrDataUrl} alt="QR Code" className="w-full max-w-[180px]" />
-                        </div>
-                      ) : null}
-
-                      {/* BLOQUEIO DE CHAMADAS SESSÃO 1 */}
-                      {waConnected && (
-                        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 mt-3 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800 dark:text-white">📵 Rejeitar chamadas</span>
-                            <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
-                                className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
-                                </svg>
-                              </button>
-                              <button type="button" onClick={() => setWaRejectCalls(v => !v)}
-                                className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
-                              </button>
-                            </div>
-                          </div>
-                          {waRejectCalls && waConfigExpanded && (
-                            <div className="space-y-2">
-                              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Mensagem automática</label>
-                              <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
-                                className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                              <div className="pt-1">
-                                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">Números permitidos:</label>
-                                <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
-                                  placeholder={"5521999998888 Nome\n5511999999999 Nome"}
-                                  className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
-                              </div>
-                              <p className="text-[10px] text-slate-500 dark:text-white/50 mt-1">Um número por linha com DDI.</p>
-                            </div>
-                          )}
-                          {waConfigExpanded && (
-                            <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig}
-                              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50">
-                              {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2 mt-3">
-                        <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-xs hover:bg-amber-400 transition-colors">🔄 Reiniciar</button>
-                        {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors">🔌 Desligar</button>}
-                      </div>
-                    </>
-                  )}
-                </div>
+        {/* COLUNA DIREITA: PAINÉIS DO WHATSAPP (SEMPRE VISÍVEL) */}
+        <div className="space-y-6">
+          
+          {/* PAINEL SESSÃO 1 */}
+          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                WhatsApp — Instância 1
+              </h3>
+              {whatsappSessions === 1 && (
+                <button type="button" onClick={() => { setWhatsappSessions(2); if(!isEditing) setIsEditing(true); }} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                  + Habilitar 2ª Sessão
+                </button>
               )}
             </div>
 
-            {/* INSTÂNCIA 2 DINÂMICA: APARECE APENAS SE ESTIVER INTEGRADA NO SELETOR */}
-            {whatsappSessions >= 2 && (
-              <WhatsAppSession2Panel canPair={canPairWhatsApp} tenantId={tenantId} addToast={addToast} />
+            {!canPairWhatsApp ? (
+              <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-bold">Aguardando login estrutural.</div>
+            ) : (
+              <div className="space-y-4">
+                {waIsDormant && !waConnected ? (
+                  <button type="button" onClick={() => { setWaIsDormant(false); void refreshWhatsAppPanel(true); }} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-sm transition-all mt-2">
+                    📲 Inicializar QR Code
+                  </button>
+                ) : (
+                  <>
+                    <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+                      {/* Botoões Topo Direito no Card */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                        <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm" title="Sincronizar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l-4.54 4.54"/></svg>
+                        </button>
+                        {waConnected && (
+                          <button type="button" onClick={() => setShowWa1Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações de Chamada">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Foto Gigante */}
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
+                        {waProfilePicUrl ? (
+                           <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : waQrDataUrl ? (
+                           <img src={waQrDataUrl} alt="QR Code" className="w-full h-full object-cover p-1" />
+                        ) : (
+                           <span className="text-xl font-bold text-slate-300 dark:text-white/20">WA</span>
+                        )}
+                      </div>
+
+                      {/* Info Detalhada */}
+                      <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
+                        <div className="text-[11px] text-slate-500 dark:text-white/50">
+                          <span className="font-bold text-slate-800 dark:text-white">Nome:</span> {waPushName || "Aguardando"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-white/50">
+                          <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? "Rejeitadas 🚫" : "Permitidas ✅"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
+                          <span className="font-bold text-slate-800 dark:text-white">Status:</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
+                            {waConnected ? "On-line" : "Off-line"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
+                      {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desligar</button>}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
+
+          {/* INSTÂNCIA 2 */}
+          {whatsappSessions >= 2 && (
+            <WhatsAppSession2Panel 
+              canPair={canPairWhatsApp} 
+              tenantId={tenantId} 
+              addToast={addToast} 
+              onDisable={() => { setWhatsappSessions(1); if(!isEditing) setIsEditing(true); }}
+            />
+          )}
         </div>
-      )}
-
-      {/* ABA 2: GERENCIADOR DE PLANILHAS E BANCO */}
-      {activeTab === "data" && (
-        <div className="max-w-4xl mx-auto bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white">Ferramentas Estruturais de Dados</h3>
-            <p className="text-xs text-slate-500 dark:text-white/60 mt-1">Realize a ingestão ou backup completo das planilhas integradas do ecossistema.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              type="button"
-              onClick={() => setActionModal("export")}
-              disabled={!tenantId || exporting}
-              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-            >
-              ⬇️ Exportar Registros
-            </button>
-            <button
-              type="button"
-              onClick={() => setActionModal("template")}
-              disabled={!tenantId}
-              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-            >
-              📄 Baixar Planilhas Modelos
-            </button>
-            <button
-              type="button"
-              onClick={() => setActionModal("import")}
-              disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer}
-              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-            >
-              ⬆️ Importar Cargas Novas
-            </button>
-          </div>
-
-          {/* INPUTS OCULTOS DE ARQUIVO */}
-          <input ref={importFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFile(f); }} />
-          <input ref={importAppsFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAppsFile(f); }} />
-          <input ref={importAutoFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportAutoFile(f); }} />
-          <input ref={importResellerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportResellerFile(f); }} />
-          <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportMessageFile(f); }} />
-          <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportServerFile(f); }} />
-          <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFinanceiroFile(f); }} />
-        </div>
-      )}
+      </div>
 
       {/* ============================================================================
-          MODALS DE SUB-AÇÕES DAS PLANILHAS
+          MODALS DE IMPORT/EXPORT (MANTIDOS INTACTOS, SEM MUDANÇAS)
          ============================================================================ */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
@@ -1076,18 +945,58 @@ export default function ProfileSettingsPage() {
           </div>
         );
       })()}
+
+      {/* ============================================================================
+          MODAL EXCLUSIVO DE CONFIGURAÇÕES DE CHAMADA (SESSÃO 1)
+         ============================================================================ */}
+      {showWa1Settings && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Configurações (Instância 1)</h3>
+            <p className="text-xs text-slate-500 dark:text-white/50 mb-5">Configure o bloqueio automático de ligações para este número.</p>
+
+            <div className="space-y-5">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
+                <button type="button" onClick={() => setWaRejectCalls(v => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              {waRejectCalls && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3} placeholder="Escreva a mensagem..." className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Números Liberados</label>
+                    <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3} placeholder="5521999998888" className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                    <p className="text-[10px] text-slate-400 mt-1">Coloque um número por linha (com DDI).</p>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowWa1Settings(false)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-transform active:scale-95 disabled:opacity-60">
+                  {waSavingConfig ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-
-  function setOriginalSessionsCount(count: number) {
-    setWhatsappSessions(count);
-  }
 }
 
 // ============================================================================
-// SESSÃO WHATSAPP 2 — MANTIDA COM ISOLAMENTO TOTAL
+// SESSÃO WHATSAPP 2
 // ============================================================================
-function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boolean; tenantId: string | null; addToast: any }) {
+function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { canPair: boolean; tenantId: string | null; addToast: any, onDisable: () => void }) {
   const { confirm } = useConfirm();
   const [waLoading, setWaLoading] = useState(false);
   const [waConnected, setWaConnected] = useState(false);
@@ -1095,10 +1004,10 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
   const [isDormant, setIsDormant] = useState(true);
   const [waPushName, setWaPushName] = useState<string | null>(null);
   const [waProfilePicUrl, setWaProfilePicUrl] = useState<string | null>(null);
-  const [waStatusText, setWaStatusText] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  const [waConfigExpanded, setWaConfigExpanded] = useState(false);
+  // Settings state
+  const [showWa2Settings, setShowWa2Settings] = useState(false);
   const [waRejectCalls, setWaRejectCalls] = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem.");
   const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
@@ -1121,23 +1030,21 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
     try {
       const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.trim()).filter(Boolean);
       const res = await fetch("/api/whatsapp/config2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
       });
-      if (res.ok) addToast("success", "Salvo", "Configurações de bloqueio da Sessão 2 atualizadas.");
-    } catch (e: any) {
-      addToast("error", "Erro", e.message);
-    } finally {
-      setWaSavingConfig(false);
-    }
+      if (res.ok) {
+        addToast("success", "Salvo", "Regras da Sessão 2 atualizadas.");
+        setShowWa2Settings(false);
+      }
+    } catch (e: any) { addToast("error", "Erro", e.message); } finally { setWaSavingConfig(false); }
   }
 
   async function fetchWaStatus() {
     try {
       const res = await fetch("/api/whatsapp/status2", { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
-      setWaConnected(!!json.connected); setWaStatusText(json.status ?? null);
+      setWaConnected(!!json.connected); 
       return { connected: !!json.connected, status: json.status };
     } catch { return { connected: false, status: "error" }; }
   }
@@ -1166,7 +1073,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
     try {
       await fetch("/api/whatsapp/disconnect2", { method: "POST" });
       setWaConnected(false); setWaQrDataUrl(null); setIsDormant(true);
-      addToast("success", "Sessão 2 Desconectada");
+      addToast("success", "Desconectado");
     } catch {} finally { setWaLoading(false); }
   }
 
@@ -1181,81 +1088,110 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
   }
 
   return (
-    <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
-      <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
-        WhatsApp — Instância 2
-      </h3>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
-            {waConnected ? "Online" : "Desconectado"}
-          </span>
-          <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors">
-            Sincronizar
-          </button>
-        </div>
+    <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+        <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+          WhatsApp — Instância 2
+        </h3>
+        <button type="button" onClick={onDisable} className="text-[10px] font-bold text-rose-500 hover:underline">
+          - Desabilitar Sessão
+        </button>
+      </div>
 
+      <div className="space-y-4">
         {isDormant && !waConnected ? (
-          <button type="button" onClick={() => { setIsDormant(false); void refreshPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all">
+          <button type="button" onClick={() => { setIsDormant(false); void refreshPanel(true); }} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-sm transition-all mt-2">
             📲 Inicializar QR Code 2
           </button>
         ) : (
           <>
-            {waConnected ? (
-              <div className="text-xs p-3 text-center rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 font-bold">Sessão secundária ativa e operando em paralelo.</div>
-            ) : waQrDataUrl ? (
-              <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
-                <img src={waQrDataUrl} alt="QR Code 2" className="w-full max-w-[180px]" />
-              </div>
-            ) : null}
-
-            {/* BLOQUEIO DE CHAMADAS SESSÃO 2 */}
-            {waConnected && (
-              <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 mt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 dark:text-white">📵 Rejeitar chamadas</span>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
-                      className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
-                      </svg>
-                    </button>
-                    <button type="button" onClick={() => setWaRejectCalls(v => !v)}
-                      className={`relative w-10 h-5 rounded-full transition-colors overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0.5"}`} />
-                    </button>
-                  </div>
-                </div>
-                {waRejectCalls && waConfigExpanded && (
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Mensagem automática</label>
-                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
-                    <div className="pt-1">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">Números permitidos:</label>
-                      <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
-                        placeholder={"5521999998888 Nome\n5511999999999 Nome"}
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
-                    </div>
-                  </div>
-                )}
-                {waConfigExpanded && (
-                  <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig}
-                    className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors disabled:opacity-50">
-                    {waSavingConfig ? "Salvando..." : "💾 Salvar configuração"}
+            <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
+              {/* Botões Topo Direito */}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm" title="Sincronizar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l-4.54 4.54"/></svg>
+                </button>
+                {waConnected && (
+                  <button type="button" onClick={() => setShowWa2Settings(true)} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors shadow-sm" title="Configurações">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                   </button>
                 )}
               </div>
-            )}
+
+              <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
+                {waProfilePicUrl ? (
+                   <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : waQrDataUrl ? (
+                   <img src={waQrDataUrl} alt="QR Code" className="w-full h-full object-cover p-1" />
+                ) : (
+                   <span className="text-xl font-bold text-slate-300 dark:text-white/20">WA</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
+                <div className="text-[11px] text-slate-500 dark:text-white/50">
+                  <span className="font-bold text-slate-800 dark:text-white">Nome:</span> {waPushName || "Aguardando"}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-white/50">
+                  <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? "Rejeitadas 🚫" : "Permitidas ✅"}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
+                  <span className="font-bold text-slate-800 dark:text-white">Status:</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
+                    {waConnected ? "On-line" : "Off-line"}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-2 mt-3">
-              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-xs hover:bg-amber-400 transition-colors">🔄 Reiniciar</button>
-              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors">🔌 Desligar</button>}
+              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
+              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desligar</button>}
             </div>
           </>
         )}
       </div>
+
+      {/* Modal Settings Wa 2 */}
+      {showWa2Settings && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Configurações (Instância 2)</h3>
+            <p className="text-xs text-slate-500 dark:text-white/50 mb-5">Configure o bloqueio de ligações para a 2ª sessão.</p>
+
+            <div className="space-y-5">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
+                <button type="button" onClick={() => setWaRejectCalls(v => !v)} className={`relative w-10 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              {waRejectCalls && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3} placeholder="Escreva a mensagem..." className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Números Liberados</label>
+                    <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3} placeholder="5521999998888" className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowWa2Settings(false)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-transform active:scale-95 disabled:opacity-60">
+                  {waSavingConfig ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
