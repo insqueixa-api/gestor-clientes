@@ -366,8 +366,12 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         message: "Ação concluída com sucesso!"
       });
       
-      onSuccess();
-      onClose();
+      // ✅ NOVO: Pequeno delay visual antes de fechar e recarregar a tabela de fundo
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 500);
+
     } catch (err: any) {
       if (process.env.NODE_ENV !== "production") console.error("Erro ao salvar:", err?.message || err);
       addToast("error", "Erro ao salvar", err?.message || "Ocorreu um erro inesperado.");
@@ -376,21 +380,31 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
     }
   }
 
+  // Adicione o estado 'mounted' logo após os outros states:
+  
+  const [mounted, setMounted] = useState(false); // ✅ NOVO
+
+// Adicione este useEffect para alterar o 'mounted' após o client carregar
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const formatCurrency = (c: string) => c === 'BRL' ? 'R$' : c === 'USD' ? '$' : '€';
 
-  if (typeof document === "undefined") return null;
+  // ✅ NOVO: Substitui o typeof document por !mounted
+  if (!mounted) return null; 
 
   return createPortal(
     <>
       {/* Sistema de Notificação do Modal */}
-      <div className="fixed inset-x-0 top-2 z- px-3 sm:px-6 pointer-events-none">
+      <div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
         <div className="pointer-events-auto">
           <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
 
       <div 
-        className="fixed inset-0 z- flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}

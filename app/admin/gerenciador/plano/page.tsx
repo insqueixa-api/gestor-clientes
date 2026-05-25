@@ -480,10 +480,10 @@ export default function PlanosPage() {
       })()}
 
       {/* Modal Unificado */}
-  {(isNewOpen || editingPlan) && (
-    <PlanoModal
-      plan={editingPlan}
-      onClose={() => {
+      {(isNewOpen || editingPlan) && (
+        <PlanoModal
+          plan={editingPlan}
+          onClose={() => {
             setIsNewOpen(false);
             setEditingPlan(null);
             setNewTableType(null);
@@ -496,6 +496,13 @@ export default function PlanosPage() {
           }}
         />
       )}
+
+      {/* ✅ NOVO: Componente que estava faltando para exibir os toasts na tela */}
+      <div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
+        <div className="pointer-events-auto">
+          <ToastNotifications toasts={toasts} removeToast={removeToast} />
+        </div>
+      </div>
     </div>
   );
 }

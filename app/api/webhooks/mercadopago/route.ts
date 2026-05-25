@@ -11,14 +11,6 @@ import {
   prodLog 
 } from "@/lib/client-portal/fulfillment";
 
-// ── IMPORTS SAAS ──────────────────────────────────────────────
-import { 
-  runSaasFulfillment, 
-  markSaasDone, 
-  markSaasError, 
-  tryAcquireSaasLock 
-} from "@/lib/saas-portal/fulfillment";
-
 function parseMpSignature(sig: string) {
   const parts = sig.split(",").map(s => s.trim());
   const out: Record<string, string> = {};
@@ -154,129 +146,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // =========================================================================
-    // 2) ROTA SAAS (REVENDEDORES)
-    // =========================================================================
-    const { data: saasPayment } = await supabaseAdmin
-      .from("saas_portal_payments")
-      .select("*")
-      .eq("mp_payment_id", paymentId)
-      .maybeSingle();
-
-    if (saasPayment) {
-      if (saasPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
-
-      prodLog("webhook.saas_payment_found", { payment_row: String(saasPayment.id).slice(-6) });
-
-      // No SaaS, a grana vai pro PAI (parent_tenant_id), então buscamos o gateway DELE
-      const { data: gateways } = await supabaseAdmin
-        .from("payment_gateways")
-        .select("config")
-        .eq("tenant_id", saasPayment.parent_tenant_id)
-        .eq("type", "mercadopago")
-        .eq("is_active", true)
-        .eq("is_online", true)
-        .limit(1);
-
-      const accessToken = gateways?.[0]?.config?.access_token;
-      if (!accessToken) return NextResponse.json({ ok: true });
-
-      const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      const mpPayment = await mpRes.json().catch(() => ({} as any));
-      const mpStatus = String(mpPayment?.status ?? "").toLowerCase();
-
-      if (!mpRes.ok || !mpStatus) return NextResponse.json({ ok: true });
-
-      if (mpStatus !== "approved") {
-        const finalBad = ["rejected", "cancelled", "refunded", "charged_back"];
-        if (finalBad.includes(mpStatus)) {
-          await supabaseAdmin.from("saas_portal_payments").update({ status: mpStatus }).eq("id", saasPayment.id);
-        }
-        return NextResponse.json({ ok: true });
-      }
-
-      // Preparar Fulfillment SaaS
-      const updatePayload: any = { status: "approved" };
-      if (!saasPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
-      await supabaseAdmin.from("saas_portal_payments").update(updatePayload).eq("id", saasPayment.id);
-
-      const lock = await tryAcquireSaasLock(supabaseAdmin, saasPayment.tenant_id, saasPayment.id);
-      if (lock.acquired) {
-        try {
-          const { newExpiresAt } = await runSaasFulfillment({ supabaseAdmin, payment: saasPayment });
-          await markSaasDone(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, newExpiresAt);
-
-          // ── Disparo WhatsApp do pai para o filho (fire-and-forget) ──
-          try {
-            const PERIOD_LABELS: Record<string, string> = {
-              MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
-              SEMIANNUAL: "Semestral", ANNUAL: "Anual",
-            };
-
-            // Busca sessão configurada no tenant filho e template do pai
-            const [tenantRes, tmplRes] = await Promise.all([
-              supabaseAdmin
-                .from("tenants")
-                .select("auto_whatsapp_session")
-                .eq("id", saasPayment.tenant_id)
-                .maybeSingle(),
-              supabaseAdmin
-                .from("message_templates")
-                .select("id, content")
-                .eq("tenant_id", saasPayment.parent_tenant_id)
-                .ilike("name", saasPayment.payment_type === "renewal" ? "%saas pagamento realizado%" : "%saas recarga%")
-                .maybeSingle(),
-            ]);
-
-            const waSession = tenantRes.data?.auto_whatsapp_session || "default";
-            const template = tmplRes.data;
-
-            if (template?.content) {
-              const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
-              const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
-
-              const waBody: Record<string, any> = {
-                tenant_id: saasPayment.parent_tenant_id,
-                saas_id: saasPayment.tenant_id,
-                message: template.content,
-                message_template_id: template.id,
-                whatsapp_session: waSession,
-                last_invoice_amount: saasPayment.price_amount,
-              };
-
-              if (saasPayment.payment_type === "renewal") {
-                waBody.saas_plan_label = PERIOD_LABELS[saasPayment.period] || saasPayment.period || "";
-                if (newExpiresAt) waBody.new_expires_at = newExpiresAt;
-              } else if (saasPayment.payment_type === "credits") {
-                waBody.credits_recharged = saasPayment.credits_amount;
-                waBody.saas_plan_label = "Créditos Avulsos";
-              }
-
-              await fetch(`${appUrl}/api/whatsapp/envio_agora`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-internal-secret": internalSecret,
-                },
-                body: JSON.stringify(waBody),
-              });
-            }
-          } catch (waErr: any) {
-            prodLog("webhook.saas_wa_dispatch_failed", { error: String(waErr?.message || waErr).slice(0, 200) });
-          }
-          // ── Fim disparo WhatsApp ──
-
-        } catch (e: any) {
-          await markSaasError(supabaseAdmin, saasPayment.tenant_id, saasPayment.id, e?.message || "Falha no fulfillment");
-        }
-      }
-      return NextResponse.json({ ok: true });
-    }
-
-    // Se o pagamento não existir em nenhuma das duas tabelas, devolve OK pro MP parar de tentar
+    // Se o pagamento não existir, devolve OK pro MP parar de tentar
     return NextResponse.json({ ok: true });
 
   } catch (err) {
@@ -287,7 +157,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    message: "Webhook Mercado Pago Unificado (IPTV + SaaS) Ativo",
+    message: "Webhook Mercado Pago Portal do Cliente Ativo",
     timestamp: isoNow(),
   });
 }

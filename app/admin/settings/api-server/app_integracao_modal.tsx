@@ -50,12 +50,12 @@ export default function AppIntegracaoModal({
   const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
   
   const [saving, setSaving]           = useState(false);
-  const [userRole, setUserRole]       = useState(""); // ✅ Trocado userEmail por userRole
   const [isUploading, setIsUploading] = useState(false);
   
   const { confirm, ConfirmUI } = useConfirm(); 
-  // ✅ Controle conjunto para Apps que exigem PIN
-  const isDuplecast   = appName === "DUPLECAST";
+
+  // ✅ Controle conjunto para Apps que exigem PIN
+  const isDuplecast   = appName === "DUPLECAST";
   const isIboSol      = appName === "IBOSOL";
   const isIboPro      = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
@@ -74,11 +74,6 @@ export default function AppIntegracaoModal({
       setPin(integration.pin ?? "");
       setIsActive(integration.is_active ?? true);
     }
-    
-    // ✅ Busca o nível de acesso real do usuário no banco
-    supabaseBrowser.rpc("saas_my_role").then(({ data }) => {
-        if (data) setUserRole(String(data).toUpperCase());
-    });
   }, [integration]);
 
   // ✅ Validação dinâmica ocultando e-mail e senha para IBO Sol
@@ -87,9 +82,6 @@ export default function AppIntegracaoModal({
     : needsPin 
       ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
       : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
-  
-  // ✅ Libera o upload apenas se a role dele for SUPERADMIN (A mesma regra do seu painel)
-  const isMasterUser = userRole === "SUPERADMIN";
 
   async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -190,19 +182,17 @@ export default function AppIntegracaoModal({
         {/* Body com Grid */}
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
           
-          {/* Upload Master Simplificado */}
-          {isMasterUser && (
-            <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
-              <div>
-                <h3 className="text-xs font-bold text-sky-800 dark:text-sky-300">Atualizar Robô (Extensão)</h3>
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">Substitua o arquivo .zip na nuvem.</p>
-              </div>
-              <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap">
-                {isUploading ? "A enviar..." : "Selecionar .zip"}
-                <input type="file" accept=".zip" className="hidden" onChange={handleUploadExtension} disabled={isUploading} />
-              </label>
+          {/* Upload Master Simplificado - Agora sempre visível */}
+          <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
+            <div>
+              <h3 className="text-xs font-bold text-sky-800 dark:text-sky-300">Atualizar Robô (Extensão)</h3>
+              <p className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">Substitua o arquivo .zip na nuvem.</p>
             </div>
-          )}
+            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap">
+              {isUploading ? "A enviar..." : "Selecionar .zip"}
+              <input type="file" accept=".zip" className="hidden" onChange={handleUploadExtension} disabled={isUploading} />
+            </label>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
