@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  // Impede que isso rode em produção acidentalmente
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Bloqueado em produção" }, { status: 403 });
-  }
+  
 
   try {
     const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
