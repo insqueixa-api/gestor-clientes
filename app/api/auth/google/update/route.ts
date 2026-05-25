@@ -20,7 +20,7 @@ function getGoogleLabel(label: string, defaultType: string) {
   if (["trabalho", "work", "empresa"].includes(low)) return { type: "work" };
   if (["celular", "mobile"].includes(low)) return { type: "mobile" };
   if (["pessoal", "other", "outro"].includes(low)) return { type: "other" };
-  // Se for "Vivo", "Claro", ou qualquer nome livre, forçamos como Customizado:
+  // Rótulos livres (ex: "Vivo", "Claro", "Pai") são aceitos como customizados
   return { type: "custom", customType: label };
 }
 
@@ -51,26 +51,57 @@ export async function POST(req: Request) {
       }),
     });
     const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais.");
+    if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais do Google.");
     const accessToken = tokenData.access_token;
 
-    // 1. Pega o ETag (Obrigatório para atualizar)
-    const getPersonRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=metadata`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    // 1. Pega o ETag e os Grupos Atuais
+    const getPersonRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=metadata,memberships`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const personCurrentData = await getPersonRes.json();
-    if (!getPersonRes.ok) throw new Error("Contato não localizado.");
+    if (!getPersonRes.ok) throw new Error("Contato não localizado na agenda do Google.");
     const etag = personCurrentData.etag;
 
-    // 2. Busca e mapeia os IDs dos Grupos (Labels)
-    let memberships: any[] = [];
-    if (labels && labels.length > 0) {
+    // 2. Lógica Inteligente de Grupos (Labels)
+    let finalMemberships: any[] = [];
+    
+    if (labels !== undefined) {
       const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups", { headers: { Authorization: `Bearer ${accessToken}` } });
       const groupsData = await groupsRes.json();
-      if (groupsData.contactGroups) {
-        labels.forEach((lbl: string) => {
-          // Procura o grupo pelo nome exato e pega o ID interno
-          const found = groupsData.contactGroups.find((g: any) => g.name === lbl || g.formattedName === lbl);
-          if (found) memberships.push({ contactGroupMembership: { contactGroupResourceName: found.resourceName } });
-        });
+      let existingGroups = groupsData.contactGroups || [];
+
+      for (const lbl of labels) {
+        const cleanLbl = lbl.trim();
+        if (cleanLbl.toLowerCase() === "mycontacts") continue;
+
+        let found = existingGroups.find((g: any) => g.name === cleanLbl || g.formattedName === cleanLbl);
+        
+        // 🚀 SE O GRUPO NÃO EXISTIR, CRIA ELE AUTOMATICAMENTE NO GOOGLE!
+        if (!found) {
+          const createGrpRes = await fetch("https://people.googleapis.com/v1/contactGroups", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ contactGroup: { name: cleanLbl } })
+          });
+          if (createGrpRes.ok) {
+            const newGroup = await createGrpRes.json();
+            found = newGroup;
+            existingGroups.push(newGroup);
+          }
+        }
+
+        if (found) {
+          finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: found.resourceName } });
+        }
+      }
+    }
+
+    // 🛡️ PROTEÇÃO: Preserva sempre o "myContacts" para o contato não sumir do celular
+    if (personCurrentData.memberships) {
+      const hasMyContacts = personCurrentData.memberships.some((m: any) => m.contactGroupMembership?.contactGroupResourceName === "contactGroups/myContacts");
+      if (hasMyContacts) {
+        const alreadyIn = finalMemberships.some(m => m.contactGroupMembership?.contactGroupResourceName === "contactGroups/myContacts");
+        if (!alreadyIn) {
+          finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" } });
+        }
       }
     }
 
@@ -80,7 +111,7 @@ export async function POST(req: Request) {
       names: [{ givenName: display_name || "Sem Nome" }],
       emailAddresses: (emails || []).map((e: any) => ({ value: e.value, ...getGoogleLabel(e.label, "other") })),
       phoneNumbers: (phones || []).map((p: any) => ({ value: normalizePhone(p.value), ...getGoogleLabel(p.label, "mobile") })),
-      memberships: memberships
+      memberships: finalMemberships
     };
 
     // 4. Salva os textos no Google
@@ -89,16 +120,23 @@ export async function POST(req: Request) {
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(googlePayload),
     });
-    if (!updateRes.ok) throw new Error("Erro na API do Google");
+    
+    if (!updateRes.ok) {
+      const errData = await updateRes.json();
+      throw new Error(`Google API: ${errData.error?.message || "Erro Desconhecido ao atualizar dados"}`);
+    }
 
     // 5. Salva a foto no Google (Endpoint separado)
     if (photo_base64 && photo_base64.includes("base64,")) {
       const base64Data = photo_base64.split(",");
-      await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
+      const photoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ photoBytes: base64Data })
       });
+      if (!photoRes.ok) {
+        console.error("Aviso: Falha ao enviar a foto para o Google, mas os dados foram salvos.");
+      }
     }
 
     // 6. Salva no banco local
