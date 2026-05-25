@@ -57,13 +57,13 @@ export async function POST(req: Request) {
               <tr>
                 <td align="center" width="50%" style="padding: 0 5px;">
                   <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/256px-Google_Chrome_icon_%28February_2022%29.svg.png" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0;">
+                    <img src="${baseUrl}/icon-chrome.png" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0;">
                     <span style="vertical-align: middle;">Abrir Chrome</span>
                   </a>
                 </td>
                 <td align="center" width="50%" style="padding: 0 5px;">
                   <a href="${kiwiRedirectUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2);">
-                    <img src="https://play-lh.googleusercontent.com/hI2H1Bf02y9nJz0vV48V20hK_X0Ym6XvP3Yv_Yh2qZ3U_r_c9L6Z_V8B4J_X_T_I" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0; border-radius: 4px;">
+                    <img src="${baseUrl}/icon-kiwi.png" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0; border-radius: 4px;">
                     <span style="vertical-align: middle;">Abrir Kiwi</span>
                   </a>
                 </td>
