@@ -18,16 +18,12 @@ export async function POST(req: Request) {
       currency: currency || "BRL" 
     }).format(amount);
     
-    // 3. URLs Importantes e Engenharia de Roteamento para o Kiwi Browser
-    // Puxa dinamicamente a URL base de produção para servir as mídias e links locais
+    // 3. URLs Importantes
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.UNIGESTOR_APP_URL || "https://unigestor.net.br";
     const auditUrl = `${baseUrl}/admin/auditoria`;
     
-        // ✅ Engenharia de Redirecionamento Mobile: Passa por um esquema HTTP aceito pelos apps de e-mail
-    // mas força o seletor do Android a jogar o tráfego exclusivamente para o pacote do Kiwi Browser.
-    const cleanAuditUrl = auditUrl.replace(/^https?:\/\//, ""); // Remove o https:// para não duplicar na string
-    const kiwiIntentUrl = `intent://${cleanAuditUrl}#Intent;scheme=https;package=com.kiwibrowser.browser;action=android.intent.action.VIEW;end;`;
-
+    // ✅ Engenharia de Redirecionamento: Aponta para uma página sua, passando a URL como parâmetro
+    const kiwiRedirectUrl = `${baseUrl}/redirect-kiwi?url=${encodeURIComponent(auditUrl)}`;
 
     // 4. Montar Estrutura Dinâmica do E-mail (HTML)
     const emailHtml = `
@@ -54,23 +50,27 @@ export async function POST(req: Request) {
             <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">🧾</span> <strong>Ref. Pagamento:</strong> <span style="font-family: monospace; color: #64748b;">${mpPaymentId || "Não identificada"}</span></li>
           </ul>
 
-          <div style="text-align: center; margin-top: 35px; margin-bottom: 15px; border-top: 1px solid #f1f5f9; pt-25px;">
+          <div style="text-align: center; margin-top: 35px; margin-bottom: 15px; border-top: 1px solid #f1f5f9; padding-top: 25px;">
             <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; font-weight: bold;">Escolha onde deseja processar a Auditoria:</p>
             
-            <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; width: 80%; max-width: 250px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); font-size: 14px; text-align: center; line-height: 1.5;">
-  <img src="https://wikimedia.org" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 8px; display: inline-block; border: 0;">
-  <span style="vertical-align: middle;">Abrir no Chrome</span>
-</a>
-            
-            <br />
-            
-            <a href="${kiwiIntentUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 13px; width: 80%; max-width: 250px; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2); text-align: center; line-height: 1.5;">
-  <img src="https://r2.dev" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 8px; display: inline-block; border: 0;">
-  <span style="vertical-align: middle;">Abrir no Kiwi Browser</span>
-</a>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 500px;">
+              <tr>
+                <td align="center" width="50%" style="padding: 0 5px;">
+                  <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/256px-Google_Chrome_icon_%28February_2022%29.svg.png" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0;">
+                    <span style="vertical-align: middle;">Abrir Chrome</span>
+                  </a>
+                </td>
+                <td align="center" width="50%" style="padding: 0 5px;">
+                  <a href="${kiwiRedirectUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2);">
+                    <img src="https://play-lh.googleusercontent.com/hI2H1Bf02y9nJz0vV48V20hK_X0Ym6XvP3Yv_Yh2qZ3U_r_c9L6Z_V8B4J_X_T_I" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0; border-radius: 4px;">
+                    <span style="vertical-align: middle;">Abrir Kiwi</span>
+                  </a>
+                </td>
+              </tr>
+            </table>
           </div>
         </div>
-        
         
         <div style="background-color: #0f141a; text-align: center; padding: 25px 15px; font-size: 11px; color: #94a3b8; border-top: 1px solid #1e293b;">
           <img src="${baseUrl}/brand/logo-gestor.png" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    // 5. Instanciar Transmissor SMTP (Gmail Oficial)
+    // 5. Instanciar Transmissor SMTP
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       }
     });
 
-    // 6. Despachar Mensagem para Destinos Configurados
+    // 6. Despachar Mensagem
     await transporter.sendMail({
       from: `"UniGestor Informa" <${process.env.EMAIL_USER}>`,
       to: ["insqueixa@gmail.com", "marcio.martins@gmx.com"],
