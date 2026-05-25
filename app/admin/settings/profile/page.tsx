@@ -91,6 +91,45 @@ function applyPhoneNormalization(rawInput: string) {
 }
 
 // ============================================================================
+// TIPOS: LISTA BRANCA WHATSAPP
+// ============================================================================
+type AllowedNumberRow = {
+  id: string;
+  name: string;
+  raw: string;
+  e164: string;
+  loading: boolean;
+  exists: boolean | null;
+};
+
+function parseAllowedNumbers(arr: string[]): AllowedNumberRow[] {
+  return arr.map(entry => {
+    const parts = entry.trim().split(" ");
+    const digits = parts[0] || "";
+    const name = parts.slice(1).join(" ");
+    const norm = applyPhoneNormalization(digits);
+    return {
+      id: Math.random().toString(36).slice(2),
+      name,
+      raw: norm.formattedNational || digits,
+      e164: norm.e164 || digits,
+      loading: false,
+      exists: true // Presumimos true já que veio do banco
+    };
+  });
+}
+
+function stringifyAllowedNumbers(rows: AllowedNumberRow[]): string[] {
+  return rows
+    .filter(r => r.raw.trim() !== "")
+    .map(r => {
+       const norm = applyPhoneNormalization(r.raw);
+       const num = norm.e164 ? onlyDigits(norm.e164) : onlyDigits(r.raw);
+       return `${num} ${r.name}`.trim();
+    });
+}
+
+// ============================================================================
 // COMPONENTES UI
 // ============================================================================
 
@@ -107,9 +146,6 @@ function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInput
   );
 }
 
-// ============================================================================
-// TIPOS E LÓGICA DE SAÚDE
-// ============================================================================
 type HealthRecord = {
   id: string;
   date: string;
@@ -159,7 +195,9 @@ export default function ProfileSettingsPage() {
   const [showWa1Settings, setShowWa1Settings] = useState(false);
   const [waRejectCalls, setWaRejectCalls] = useState<boolean>(true);
   const [waRejectMessage, setWaRejectMessage] = useState<string>("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem e aguarde retorno.");
-  const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
+  
+  // Nova Tabela de Lista Branca (Sessão 1)
+  const [waAllowedList, setWaAllowedList] = useState<AllowedNumberRow[]>([]);
   const [waSavingConfig, setWaSavingConfig] = useState(false);
 
   const [waPushName, setWaPushName] = useState<string | null>(null);
@@ -331,7 +369,6 @@ export default function ProfileSettingsPage() {
     setSaving(true);
     try {
       const norm = applyPhoneNormalization(phoneRaw);
-      // Nota: Certifique-se de que as colunas 'birth_date', 'gender' e 'health_history' existam no Supabase ou use metadata
       const { error: profileError } = await supabaseBrowser
         .from("profiles")
         .upsert({
@@ -379,9 +416,9 @@ export default function ProfileSettingsPage() {
       const updated = [...prev, newRecord].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       return updated;
     });
-    setNewHealthEntry(prev => ({ ...prev, weight: "" })); // Mantém a altura para não precisar redigitar
+    setNewHealthEntry(prev => ({ ...prev, weight: "" })); 
     setShowHealthForm(false);
-    if(!isEditing) setIsEditing(true); // Marca que tem edições para salvar
+    if(!isEditing) setIsEditing(true); 
   }
 
   function handleDeleteHealthRecord(id: string) {
@@ -389,11 +426,10 @@ export default function ProfileSettingsPage() {
     if(!isEditing) setIsEditing(true);
   }
 
-  const sortedHistory = [...healthHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Mais recentes no topo
+  const sortedHistory = [...healthHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
 
   const chartData = useMemo(() => {
     if (healthHistory.length === 0) return [];
-    // Pega as 10 mais importantes: A mais velha + as 9 mais recentes
     const chronologic = [...healthHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     if (chronologic.length <= 10) return chronologic;
     const oldest = chronologic[0];
@@ -442,7 +478,7 @@ export default function ProfileSettingsPage() {
       if (res.ok) {
         setWaRejectCalls(json.rejectCalls ?? true);
         setWaRejectMessage(json.rejectMessage ?? "");
-        setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
+        setWaAllowedList(parseAllowedNumbers(json.allowedNumbers ?? []));
       }
     } catch {}
   }
@@ -450,7 +486,7 @@ export default function ProfileSettingsPage() {
   async function saveWaConfig() {
     setWaSavingConfig(true);
     try {
-      const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.trim()).filter(Boolean);
+      const allowedNumbers = stringifyAllowedNumbers(waAllowedList);
       const res = await fetch("/api/whatsapp/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -464,6 +500,31 @@ export default function ProfileSettingsPage() {
       addToast("error", "Erro ao salvar", e.message);
     } finally {
       setWaSavingConfig(false);
+    }
+  }
+
+  // Validação dinâmica por linha da lista
+  async function validateWaRow(id: string, currentRaw: string) {
+    const digits = onlyDigits(currentRaw);
+    if (digits.length < 8) {
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: false } : r));
+      return;
+    }
+    setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: true, exists: null } : r));
+    try {
+      const res = await fetch("/api/whatsapp/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: digits }) });
+      const json = await res.json().catch(() => ({}));
+      let updatedRaw = currentRaw;
+      let updatedE164 = "";
+      if (json.exists && json.jid) {
+        const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        const norm = applyPhoneNormalization(jidDigits);
+        updatedRaw = norm.formattedNational || currentRaw;
+        updatedE164 = norm.e164;
+      }
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: !!json.exists, raw: updatedRaw, e164: updatedE164 } : r));
+    } catch {
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: false } : r));
     }
   }
 
@@ -539,8 +600,7 @@ export default function ProfileSettingsPage() {
     } catch {} finally { setWaReconnecting(false); }
   }
 
-  // --- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO (MANTIDAS INTACTAS) ---
-  // ... Todas as funções de export e import mantidas como você enviou
+  // --- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO ---
   async function handleExportApps() { if (!tenantId) return; setExporting(true); try { const res = await fetch(`/api/import_export/aplicativo/export?tenant_id=${encodeURIComponent(tenantId)}`); const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `aplicativos_export.xlsx`; a.click(); } catch {} finally { setExporting(false); } }
   function handleDownloadTemplateApps() { window.location.href = "/api/import_export/aplicativo/template"; }
   async function handleImportAppsFile(file: File) { if (!tenantId) return; setImportingApps(true); setActionModal(null); try { const fd = new FormData(); fd.append("file", file); const { data: sess } = await supabaseBrowser.auth.getSession(); await fetch(`/api/import_export/aplicativo/import?tenant_id=${encodeURIComponent(tenantId)}`, { method: "POST", body: fd, headers: { ...(sess?.session?.access_token ? { Authorization: `Bearer ${sess.session.access_token}` } : {}) } }); addToast("success", "Importado com sucesso"); } catch {} finally { setImportingApps(false); } }
@@ -658,7 +718,6 @@ export default function ProfileSettingsPage() {
               </div>
             </div>
 
-            {/* LINHA 1: NOME / EMAIL */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Nome Completo</Label>
@@ -670,7 +729,6 @@ export default function ProfileSettingsPage() {
               </div>
             </div>
 
-            {/* LINHA 2: CELULAR / WHATSAPP */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div>
                 <Label>País</Label>
@@ -696,18 +754,16 @@ export default function ProfileSettingsPage() {
                     </a>
                   )}
                 </div>
-                {/* Validação WhatsApp */}
                 {waValidation && (
                   <div className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
                     {waValidation.loading ? (
                       <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Checando...</>
-                    ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado no WhatsApp</>}
+                    ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado</>}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* LINHA 3: NASCIMENTO / SEXO */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Data de Nascimento</Label>
@@ -742,7 +798,6 @@ export default function ProfileSettingsPage() {
                 </button>
               </div>
 
-              {/* FORMULÁRIO DE NOVA AVALIAÇÃO */}
               {showHealthForm && (
                 <div className="p-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -765,7 +820,6 @@ export default function ProfileSettingsPage() {
                 </div>
               )}
 
-              {/* LISTAGEM DOS REGISTROS RECENTES */}
               <div className="space-y-3">
                 <Label>Histórico de Medições</Label>
                 {sortedHistory.length === 0 ? (
@@ -791,7 +845,6 @@ export default function ProfileSettingsPage() {
                 )}
               </div>
 
-              {/* GRÁFICO DE EVOLUÇÃO (SVG Puro) */}
               {chartData.length > 1 && (
                 <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3">
                   <Label>Quadro de Evolução (Peso x Tempo)</Label>
@@ -802,7 +855,7 @@ export default function ProfileSettingsPage() {
                       const range = maxW - minW;
                       
                       const points = chartData.map((d, i) => {
-                        const x = (i / (chartData.length - 1)) * 100; // Porcentagem
+                        const x = (i / (chartData.length - 1)) * 100;
                         const y = 100 - (((d.weight - minW) / range) * 100);
                         return { x, y, data: d };
                       });
@@ -812,40 +865,18 @@ export default function ProfileSettingsPage() {
                       return (
                         <div className="w-full h-full relative">
                           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                            {/* Linha do Gráfico */}
-                            <polyline 
-                              points={polylinePoints} 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              className="text-emerald-500/50"
-                              vectorEffect="non-scaling-stroke"
-                            />
-                            {/* Pontos de dados */}
+                            <polyline points={polylinePoints} fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500/50" vectorEffect="non-scaling-stroke" />
                             {points.map((p, i) => (
                               <g key={i}>
-                                <circle 
-                                  cx={`${p.x}%`} 
-                                  cy={`${p.y}%`} 
-                                  r="4" 
-                                  className={`fill-white dark:fill-[#161b22] stroke-2 ${getImcColor(p.data.imc).replace('text-', 'stroke-')}`} 
-                                />
-                                {/* Tooltip permanente pros extremos ou hover pros outros */}
+                                <circle cx={`${p.x}%`} cy={`${p.y}%`} r="4" className={`fill-white dark:fill-[#161b22] stroke-2 ${getImcColor(p.data.imc).replace('text-', 'stroke-')}`} />
                                 {(i === 0 || i === points.length - 1) && (
-                                  <text 
-                                    x={`${p.x}%`} 
-                                    y={`${p.y}%`} 
-                                    dy="-10" 
-                                    textAnchor={i === 0 ? "start" : "end"} 
-                                    className="text-[9px] font-bold fill-slate-600 dark:fill-white/70"
-                                  >
+                                  <text x={`${p.x}%`} y={`${p.y}%`} dy="-10" textAnchor={i === 0 ? "start" : "end"} className="text-[9px] font-bold fill-slate-600 dark:fill-white/70">
                                     {p.data.weight}kg
                                   </text>
                                 )}
                               </g>
                             ))}
                           </svg>
-                          {/* Legendas de Data eixo X */}
                           <div className="absolute -bottom-5 left-0 text-[9px] text-slate-400 font-mono">{new Date(chartData[0].date).toLocaleDateString('pt-BR', {month:'short'})}</div>
                           <div className="absolute -bottom-5 right-0 text-[9px] text-slate-400 font-mono">{new Date(chartData[chartData.length-1].date).toLocaleDateString('pt-BR', {month:'short'})}</div>
                         </div>
@@ -869,7 +900,7 @@ export default function ProfileSettingsPage() {
                   📄 Baixar Templates
                 </button>
                 <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  ⬆️ Importar Cargas Novas
+                  ⬆️ Importar Cargas
                 </button>
               </div>
 
@@ -912,7 +943,6 @@ export default function ProfileSettingsPage() {
                 ) : (
                   <>
                     <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
-                      {/* Botoões Topo Direito no Card */}
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
                         <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
                           {waLoading ? (
@@ -928,7 +958,6 @@ export default function ProfileSettingsPage() {
                         )}
                       </div>
 
-                      {/* Foto Gigante */}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
                         {waProfilePicUrl ? (
                            <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -939,7 +968,6 @@ export default function ProfileSettingsPage() {
                         )}
                       </div>
 
-                      {/* Info Detalhada */}
                       <div className="flex-1 min-w-0 flex flex-col gap-1.5 justify-center">
                         <div className="text-[11px] text-slate-500 dark:text-white/50">
                           <span className="font-bold text-slate-800 dark:text-white">Nome:</span> {waPushName || "Aguardando"}
@@ -979,7 +1007,7 @@ export default function ProfileSettingsPage() {
       </div>
 
       {/* ============================================================================
-          MODALS DE IMPORT/EXPORT (MANTIDOS INTACTOS)
+          MODALS DE IMPORT/EXPORT
          ============================================================================ */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
@@ -1032,14 +1060,12 @@ export default function ProfileSettingsPage() {
       })()}
 
       {/* ============================================================================
-          MODAL EXCLUSIVO DE CONFIGURAÇÕES DE CHAMADA (SESSÃO 1)
+          MODAL DE CONFIGURAÇÕES DE CHAMADA (SESSÃO 1) - TOTALMENTE REFEITO
          ============================================================================ */}
       {showWa1Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Configurações (Instância 1)</h3>
-            <p className="text-xs text-slate-500 dark:text-white/50 mb-5">Configure o bloqueio automático de ligações para este número.</p>
-
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+            
             <div className="space-y-5">
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
@@ -1049,10 +1075,10 @@ export default function ProfileSettingsPage() {
               </div>
 
               {waRejectCalls && (
-                <>
+                <div className="space-y-4">
+                  {/* MENSAGEM */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
-                    {/* Botões de Variáveis */}
                     <div className="flex flex-wrap gap-1 mb-2">
                       {["{saudacao}", "{hora}", "{data}"].map(tag => (
                         <button key={tag} type="button" onClick={() => setWaRejectMessage(v => v + tag)} className="text-[10px] px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-white font-mono transition-colors">
@@ -1060,22 +1086,59 @@ export default function ProfileSettingsPage() {
                         </button>
                       ))}
                     </div>
-                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                   </div>
+
+                  {/* LISTA BRANCA */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Números Liberados</label>
-                    <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3} placeholder="5521999998888 João" className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
-                    <p className="text-[10px] text-slate-400 mt-1">Coloque um número por linha (com DDI). Pode adicionar o nome ao lado para organizar.</p>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase">Lista Branca (Exceções)</label>
+                      <button type="button" onClick={() => setWaAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", e164: "", loading: false, exists: null }, ...waAllowedList])} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                        + Adicionar
+                      </button>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {waAllowedList.length === 0 ? (
+                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Nenhum número liberado.</div>
+                      ) : (
+                        waAllowedList.map(row => (
+                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                            <div className="flex gap-2 items-center">
+                              <input 
+                                value={row.name} 
+                                onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, name: e.target.value } : r))} 
+                                placeholder="Nome" 
+                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                              />
+                              <input 
+                                value={row.raw} 
+                                onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, raw: e.target.value, exists: null } : r))} 
+                                onBlur={() => validateWaRow(row.id, row.raw)}
+                                placeholder="Número com DDI" 
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                              />
+                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              </button>
+                            </div>
+                            <div className="text-[9px] font-bold px-1">
+                              {row.loading ? <span className="text-slate-400">Validando...</span> : row.exists === true ? <span className="text-emerald-500">✅ WhatsApp OK</span> : row.exists === false ? <span className="text-rose-500">❌ Não tem WhatsApp</span> : <span className="text-slate-400">Termine para validar</span>}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowWa1Settings(false)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-white/5 mt-4">
+                <button type="button" onClick={() => setShowWa1Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   Cancelar
                 </button>
-                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-transform active:scale-95 disabled:opacity-60">
-                  {waSavingConfig ? "Salvando..." : "Salvar"}
+                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-transform active:scale-95 disabled:opacity-60">
+                  {waSavingConfig ? "Salvando..." : "Salvar Configuração"}
                 </button>
               </div>
             </div>
@@ -1087,7 +1150,7 @@ export default function ProfileSettingsPage() {
 }
 
 // ============================================================================
-// SESSÃO WHATSAPP 2
+// SESSÃO WHATSAPP 2 (COM O MESMO MODAL REFEITO)
 // ============================================================================
 function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { canPair: boolean; tenantId: string | null; addToast: any, onDisable: () => void }) {
   const { confirm } = useConfirm();
@@ -1103,7 +1166,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
   const [showWa2Settings, setShowWa2Settings] = useState(false);
   const [waRejectCalls, setWaRejectCalls] = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem.");
-  const [waAllowedNumbers, setWaAllowedNumbers] = useState("");
+  const [waAllowedList, setWaAllowedList] = useState<AllowedNumberRow[]>([]);
   const [waSavingConfig, setWaSavingConfig] = useState(false);
 
   async function fetchWaConfig() {
@@ -1113,7 +1176,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
       if (res.ok) {
         setWaRejectCalls(json.rejectCalls ?? true);
         setWaRejectMessage(json.rejectMessage ?? "");
-        setWaAllowedNumbers((json.allowedNumbers ?? []).join("\n"));
+        setWaAllowedList(parseAllowedNumbers(json.allowedNumbers ?? []));
       }
     } catch {}
   }
@@ -1121,7 +1184,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
   async function saveWaConfig() {
     setWaSavingConfig(true);
     try {
-      const allowedNumbers = waAllowedNumbers.split("\n").map(n => n.trim()).filter(Boolean);
+      const allowedNumbers = stringifyAllowedNumbers(waAllowedList);
       const res = await fetch("/api/whatsapp/config2", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rejectCalls: waRejectCalls, rejectMessage: waRejectMessage, allowedNumbers }),
@@ -1131,6 +1194,30 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
         setShowWa2Settings(false);
       }
     } catch (e: any) { addToast("error", "Erro", e.message); } finally { setWaSavingConfig(false); }
+  }
+
+  async function validateWaRow(id: string, currentRaw: string) {
+    const digits = onlyDigits(currentRaw);
+    if (digits.length < 8) {
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: false } : r));
+      return;
+    }
+    setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: true, exists: null } : r));
+    try {
+      const res = await fetch("/api/whatsapp/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: digits }) });
+      const json = await res.json().catch(() => ({}));
+      let updatedRaw = currentRaw;
+      let updatedE164 = "";
+      if (json.exists && json.jid) {
+        const jidDigits = String(json.jid).split("@")[0].split(":")[0].replace(/\D/g, "");
+        const norm = applyPhoneNormalization(jidDigits);
+        updatedRaw = norm.formattedNational || currentRaw;
+        updatedE164 = norm.e164;
+      }
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: !!json.exists, raw: updatedRaw, e164: updatedE164 } : r));
+    } catch {
+      setWaAllowedList(prev => prev.map(r => r.id === id ? { ...r, loading: false, exists: false } : r));
+    }
   }
 
   async function fetchWaStatus() {
@@ -1200,7 +1287,6 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
         ) : (
           <>
             <div className="relative p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 flex gap-5 items-center">
-              {/* Botões Topo Direito */}
               <div className="absolute top-3 right-3 flex items-center gap-1.5">
                 <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="w-8 h-8 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors shadow-sm disabled:opacity-50" title="Sincronizar">
                   {waLoading ? (
@@ -1253,10 +1339,8 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
       {/* Modal Settings Wa 2 */}
       {showWa2Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Configurações (Instância 2)</h3>
-            <p className="text-xs text-slate-500 dark:text-white/50 mb-5">Configure o bloqueio de ligações para a 2ª sessão.</p>
-
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+            
             <div className="space-y-5">
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
@@ -1266,7 +1350,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
               </div>
 
               {waRejectCalls && (
-                <>
+                <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Mensagem de Resposta</label>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -1276,21 +1360,58 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
                         </button>
                       ))}
                     </div>
-                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3} placeholder="Escreva a mensagem..." className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
+                    <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={2} placeholder="Ex: {saudacao}! Não atendo ligações..." className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                   </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase mb-1.5">Números Liberados</label>
-                    <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3} placeholder="5521999998888 Nome" className="w-full px-3 py-2 text-sm bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase">Lista Branca (Exceções)</label>
+                      <button type="button" onClick={() => setWaAllowedList([{ id: Math.random().toString(36).slice(2), name: "", raw: "", e164: "", loading: false, exists: null }, ...waAllowedList])} className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
+                        + Adicionar
+                      </button>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {waAllowedList.length === 0 ? (
+                        <div className="text-xs text-center text-slate-400 py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Nenhum número liberado.</div>
+                      ) : (
+                        waAllowedList.map(row => (
+                          <div key={row.id} className="flex flex-col gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                            <div className="flex gap-2 items-center">
+                              <input 
+                                value={row.name} 
+                                onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, name: e.target.value } : r))} 
+                                placeholder="Nome" 
+                                className="w-1/3 h-8 px-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                              />
+                              <input 
+                                value={row.raw} 
+                                onChange={e => setWaAllowedList(prev => prev.map(r => r.id === row.id ? { ...r, raw: e.target.value, exists: null } : r))} 
+                                onBlur={() => validateWaRow(row.id, row.raw)}
+                                placeholder="Número com DDI" 
+                                className="flex-1 h-8 px-2 text-xs font-mono bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-emerald-500/50 text-slate-800 dark:text-white placeholder-slate-400" 
+                              />
+                              <button type="button" onClick={() => setWaAllowedList(prev => prev.filter(r => r.id !== row.id))} className="w-8 h-8 flex items-center justify-center text-rose-500 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              </button>
+                            </div>
+                            <div className="text-[9px] font-bold px-1">
+                              {row.loading ? <span className="text-slate-400">Validando...</span> : row.exists === true ? <span className="text-emerald-500">✅ WhatsApp OK</span> : row.exists === false ? <span className="text-rose-500">❌ Não tem WhatsApp</span> : <span className="text-slate-400">Termine para validar</span>}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowWa2Settings(false)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+              <div className="flex gap-3 pt-2 border-t border-slate-100 dark:border-white/5 mt-4">
+                <button type="button" onClick={() => setShowWa2Settings(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   Cancelar
                 </button>
-                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-transform active:scale-95 disabled:opacity-60">
-                  {waSavingConfig ? "Salvando..." : "Salvar"}
+                <button type="button" onClick={() => void saveWaConfig()} disabled={waSavingConfig} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-transform active:scale-95 disabled:opacity-60">
+                  {waSavingConfig ? "Salvando..." : "Salvar Configuração"}
                 </button>
               </div>
             </div>
