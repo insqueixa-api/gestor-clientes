@@ -90,8 +90,16 @@ export async function POST(req: Request) {
 
     // 5. Formata e salva no Supabase
     const recordsToInsert = connections.map((person: any) => {
-      // CORREÇÃO: Os índices de array foram restaurados abaixo
-      const rawPhone = person.phoneNumbers?.[0]?.value || null;
+      // Mapeia TODOS os telefones e e-mails para os novos arrays JSON
+      const phonesList = (person.phoneNumbers || []).map((p: any) => ({
+        label: p.formattedType || "Celular",
+        value: p.value
+      }));
+
+      const emailsList = (person.emailAddresses || []).map((e: any) => ({
+        label: e.formattedType || "Pessoal",
+        value: e.value
+      }));
       
       const labels: string[] = [];
       if (person.memberships) {
@@ -113,9 +121,14 @@ export async function POST(req: Request) {
         tenant_id: tenantId,
         google_resource_name: person.resourceName,
         display_name: person.names?.[0]?.displayName || "Sem Nome",
-        email: person.emailAddresses?.[0]?.value || null,
-        phone_raw: rawPhone,
-        phone_e164: normalizePhone(rawPhone),
+        // Novos campos JSON
+        phones: phonesList,
+        emails: emailsList,
+        // Mantém apenas para não quebrar tabelas velhas (opcional)
+        phone_raw: phonesList?.[0]?.value || null,
+        phone_e164: normalizePhone(phonesList?.[0]?.value),
+        email: emailsList?.[0]?.value || null,
+        
         avatar_url: person.photos?.[0]?.url || null,
         birthday: birthdayText,
         labels: labels,

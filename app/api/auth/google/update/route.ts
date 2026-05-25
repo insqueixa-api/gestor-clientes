@@ -18,9 +18,9 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    // 1. Coleta os dados enviados pelo modal
+    // 1. Coleta os dados enviados pelo modal (agora com arrays JSON)
     const body = await req.json();
-    const { id, google_resource_name, display_name, email, phone_e164, secondary_phone, labels } = body;
+    const { id, google_resource_name, display_name, phones, emails, labels, photo_base64 } = body;
 
     // 2. Busca o Tenant ID
     const { data: tenantData } = await supabase
@@ -69,20 +69,13 @@ export async function POST(req: Request) {
     if (!getPersonRes.ok) throw new Error("Contato não localizado na agenda do Google.");
     const etag = personCurrentData.etag;
 
-    // 6. Monta o pacote de dados seguindo o padrão rígido do Google People API
+    // 6. Monta o pacote de dados seguindo o padrão rígido do Google People API (agora dinâmico)
     const googlePayload: any = {
       etag: etag,
       names: [{ givenName: display_name || "Sem Nome" }],
-      emailAddresses: email ? [{ value: email, type: "home" }] : [],
-      phoneNumbers: []
+      emailAddresses: (emails || []).map((e: any) => ({ value: e.value, type: e.label || "home" })),
+      phoneNumbers: (phones || []).map((p: any) => ({ value: normalizePhone(p.value), type: p.label || "mobile" }))
     };
-
-    if (phone_e164) {
-      googlePayload.phoneNumbers.push({ value: normalizePhone(phone_e164), type: "mobile" });
-    }
-    if (secondary_phone) {
-      googlePayload.phoneNumbers.push({ value: normalizePhone(secondary_phone), type: "home" });
-    }
 
     // 7. Envia a atualização para os servidores do Google
     const updateRes = await fetch(
@@ -107,11 +100,11 @@ export async function POST(req: Request) {
       .from("google_contacts")
       .update({
         display_name,
-        email,
-        phone_raw: phone_e164,
-        phone_e164: normalizePhone(phone_e164),
-        secondary_phone: normalizePhone(secondary_phone),
+        phones, // Array JSON novo
+        emails, // Array JSON novo
         labels,
+        // Atualiza o principal caso o sistema use para envios de WPP antigos
+        phone_e164: phones && phones.length > 0 ? normalizePhone(phones.value) : null,
         synced_at: new Date().toISOString()
       })
       .eq("id", id)
