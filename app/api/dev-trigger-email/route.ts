@@ -1,4 +1,4 @@
-/*
+/* Remover
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -33,4 +33,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-*/
+  
+*/ // Remover
+
+export {}; // Nunca remover - Necessário para evitar conflitos de declarações com a rota real de envio de e-mails
