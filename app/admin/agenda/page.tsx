@@ -67,12 +67,45 @@ function AgendaPageContent() {
 
   // Filtros & Paginação
   const [search, setSearch] = useState("");
+  const [labelFilter, setLabelFilter] = useState("Todos");
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  // ✅ Extrair labels únicos e estado de servidores
+  const uniqueLabels = useMemo(() => Array.from(new Set(rows.flatMap(r => r.labels || []))).sort(), [rows]);
+  const [servers, setServers] = useState<{id: string, name: string}[]>([]);
+
+  // ✅ Funções de Seleção (Checkboxes)
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  // ✅ Função para Salvar a Edição em Massa no Supabase
+  async function handleMassAction(serverId: string) {
+    if (!serverId || selectedIds.size === 0) return;
+    try {
+      const { error } = await supabaseBrowser
+        .from("google_contacts")
+        .update({ linked_server_id: serverId })
+        .in("id", Array.from(selectedIds));
+
+      if (error) throw error;
+      addToast("success", "Vínculo atualizado", `${selectedIds.size} contatos vinculados ao servidor com sucesso.`);
+      setSelectedIds(new Set()); // Limpa a seleção após salvar
+      loadData(); // Atualiza a tela
+    } catch (err: any) {
+      addToast("error", "Erro ao vincular", err.message);
+    }
+  }
 
   // Modais e Ações
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -121,13 +154,24 @@ function AgendaPageContent() {
       setTenantId(tid);
       if (!tid) return;
 
-      const { data, error } = await supabaseBrowser
+      // 1. Busca os contatos da agenda
+      const { data: contactsData, error: contactsErr } = await supabaseBrowser
         .from("google_contacts")
         .select("*")
         .eq("tenant_id", tid);
 
-      if (error) throw error;
-      setRows(data || []);
+      if (contactsErr) throw contactsErr;
+      setRows(contactsData || []);
+
+      // 2. Busca os servidores para edição em massa
+      const { data: serversData } = await supabaseBrowser
+        .from("servers")
+        .select("id, name")
+        .eq("tenant_id", tid)
+        .order("name");
+        
+      if (serversData) setServers(serversData);
+
     } catch (e: any) {
       addToast("error", "Erro ao carregar", e.message);
     } finally {
@@ -182,6 +226,26 @@ function AgendaPageContent() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  // ✅ Funções Mestre (Agora sim, na ordem certa, depois do visible original)
+  function setAllVisible(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of visible) {
+        if (checked) next.add(r.id);
+        else next.delete(r.id);
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    const el = selectAllRef.current;
+    if (!el) return;
+    const total = visible.length;
+    const sel = visible.filter((r) => selectedIds.has(r.id)).length;
+    el.indeterminate = sel > 0 && sel < total;
+  }, [selectedIds, visible]);
 
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -242,16 +306,47 @@ function AgendaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm flex gap-2 mb-6 z-20">
-        <div className="flex-1 relative">
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm flex flex-col md:flex-row gap-2 mb-6 z-20">
+        <div className="flex-1 relative w-full md:w-auto">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar por nome, telefone ou operadora..."
-            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-emerald-500/50 text-slate-700 dark:text-white"
+            placeholder="Pesquisar por nome ou telefone..."
+            className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none"
           />
         </div>
+        <select 
+          value={labelFilter}
+          onChange={(e) => setLabelFilter(e.target.value)}
+          className="h-10 px-3 w-full md:w-auto bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        >
+          <option value="Todos">Grupo (Todos)</option>
+          {uniqueLabels.map((lbl) => (
+            <option key={lbl} value={lbl}>{lbl}</option>
+          ))}
+        </select>
       </div>
+
+      {/* ✅ BARRA DE AÇÃO EM MASSA (Só aparece se selecionar alguém) */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0">
+          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+            {selectedIds.size} contato(s) selecionado(s):
+          </span>
+          <select 
+            className="text-xs p-2 rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-black/40 outline-none focus:border-indigo-500 font-bold"
+            onChange={(e) => {
+              handleMassAction(e.target.value);
+              e.target.value = ""; // Reseta o select após clicar
+            }}
+          >
+            <option value="">Vincular ao Servidor...</option>
+            {servers.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* TABELA */}
       {!loading && (
@@ -270,6 +365,15 @@ function AgendaPageContent() {
             <table className="w-full text-left border-collapse min-w-[250px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
+                  <Th width={40}>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={visible.length > 0 && visible.every((r) => selectedIds.has(r.id))}
+                      onChange={(e) => setAllVisible(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                    />
+                  </Th>
                   <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
                   <ThSort label="Telefone Principal" active={sortKey === "phone"} dir={sortDir} onClick={() => toggleSort("phone")} />
                   <Th align="center">Secundário</Th>
@@ -280,7 +384,22 @@ function AgendaPageContent() {
               </thead>
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
                 {visible.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                  <tr 
+                    key={r.id} 
+                    className={`transition-colors group cursor-pointer ${
+                      selectedIds.has(r.id) ? "bg-indigo-50/50 dark:bg-indigo-500/10" : "hover:bg-slate-50 dark:hover:bg-white/5"
+                    }`}
+                    onClick={() => toggleSelected(r.id, !selectedIds.has(r.id))}
+                  >
+                    <Td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={(e) => toggleSelected(r.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5"
+                      />
+                    </Td>
                     <Td>
                       <div className="flex items-center gap-3 whitespace-nowrap">
                         {r.avatar_url ? (

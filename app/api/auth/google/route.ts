@@ -16,9 +16,9 @@ export async function GET(req: Request) {
   const { origin } = new URL(req.url);
   const redirectUri = `${origin}/api/auth/google/callback`;
 
-  // Escopo necessário para ler os contatos, fotos, e-mails e aniversários da agenda
+  // Escopo total: permite LER, CRIAR e EDITAR contatos e labels direto no seu celular
   const scopes = [
-    "https://www.googleapis.com/auth/contacts.readonly"
+    "https://www.googleapis.com/auth/contacts"
   ].join(" ");
 
   // Monta a URL oficial de login do Google
