@@ -647,7 +647,6 @@ export default function ProfileSettingsPage() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Configurações da Conta
           </h1>
-          <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">Gerencie seu perfil exclusivo, conexões do WhatsApp e planilhas.</p>
         </div>
         
         {/* SISTEMA DE ABAS E BOTÃO TEMA */}
@@ -695,7 +694,7 @@ export default function ProfileSettingsPage() {
               </h3>
               <div className="flex items-center gap-2">
                 <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
-                  🔒 Senha
+                  🔒 Alterar Senha
                 </button>
                 {!isEditing ? (
                   <button onClick={() => setIsEditing(true)} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
@@ -703,7 +702,7 @@ export default function ProfileSettingsPage() {
                   </button>
                 ) : (
                   <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
-                    {saving ? "Salvando..." : "💾 Salvar Tudo"}
+                    {saving ? "Salvando..." : "💾 Salvar Dados"}
                   </button>
                 )}
               </div>
@@ -751,10 +750,8 @@ export default function ProfileSettingsPage() {
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           {activeTab === "profile" ? (
-            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4 animate-in fade-in duration-300">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
-                Minhas Métricas (Privado)
-              </h3>
+            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Minhas métricas</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div>
                   <Label>Peso Atual (kg)</Label>
@@ -776,8 +773,8 @@ export default function ProfileSettingsPage() {
           ) : (
             <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Ferramentas Estruturais de Dados</h3>
-                <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Realize a ingestão ou backup completo das planilhas integradas do ecossistema.</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Carregamento em massa</h3>
+                
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -873,7 +870,7 @@ export default function ProfileSettingsPage() {
 
                     <div className="flex gap-2">
                       <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
-                      {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desligar</button>}
+                      {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desconectar</button>}
                     </div>
                   </>
                 )}
