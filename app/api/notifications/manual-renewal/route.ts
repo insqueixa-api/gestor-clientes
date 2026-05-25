@@ -23,9 +23,11 @@ export async function POST(req: Request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.UNIGESTOR_APP_URL || "https://unigestor.net.br";
     const auditUrl = `${baseUrl}/admin/auditoria`;
     
-    // ✅ O Segredo do Kiwi: Um link composto via Android Intent que intercepta o SO
-    // e força a abertura direta dentro do ecossistema do Kiwi Browser (package: com.kiwibrowser.browser)
-    const kiwiIntentUrl = `intent://unigestor.net.br/admin/auditoria#Intent;scheme=https;package=com.kiwibrowser.browser;end;`;
+        // ✅ Engenharia de Redirecionamento Mobile: Passa por um esquema HTTP aceito pelos apps de e-mail
+    // mas força o seletor do Android a jogar o tráfego exclusivamente para o pacote do Kiwi Browser.
+    const cleanAuditUrl = auditUrl.replace(/^https?:\/\//, ""); // Remove o https:// para não duplicar na string
+    const kiwiIntentUrl = `intent://${cleanAuditUrl}#Intent;scheme=https;package=com.kiwibrowser.browser;action=android.intent.action.VIEW;end;`;
+
 
     // 4. Montar Estrutura Dinâmica do E-mail (HTML)
     const emailHtml = `
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
         
         <div style="padding: 20px;">
           <p style="margin-top: 0;">Olá!</p>
-          <p>O cliente <strong>${clientName}</strong> (${serverUsername}) efetuou um pagamento via Portal, mas a automação não pôde concluir a recarga automática no servidor.</p>
+          <p>O cliente <strong>${clientName}</strong> (${serverUsername} - ${serverName}) efetuou um pagamento via Portal, mas a automação não pôde concluir a recarga automática no servidor.</p>
           
           <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; border-radius: 4px; font-size: 14px;">
             <strong style="color: #b45309;">Motivo / Erro:</strong> ${reason}
@@ -45,31 +47,33 @@ export async function POST(req: Request) {
 
           <h3 style="border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 15px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 25px;">Detalhes da Assinatura</h3>
           <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-            <li style="margin-bottom: 10px; flex items-center;"><span style="margin-right: 8px;">👤</span> <strong>Login:</strong> <span style="font-family: monospace; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${serverUsername}</span></li>
-            <li style="margin-bottom: 10px;"><span style="margin-right: 8px;">🖥️</span> <strong>Servidor:</strong> ${serverName}</li>
-            <li style="margin-bottom: 10px;"><span style="margin-right: 8px;">📦  </span> <strong>Plano:</strong> ${planLabel}</li>
-            <li style="margin-bottom: 10px;"><span style="margin-right: 8px;">💰</span> <strong>Valor Pago:</strong> <strong style="color: #10b981;">${formattedMoney}</strong></li>
-            <li style="margin-bottom: 10px;"><span style="margin-right: 8px;">🧾</span> <strong>Ref. Pagamento:</strong> <span style="font-family: monospace; color: #64748b;">${mpPaymentId || "Não identificada"}</span></li>
+            <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">👤</span> <strong>Login:</strong> ${serverUsername}</li>
+            <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">🖥️</span> <strong>Servidor:</strong> ${serverName}</li>
+            <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">📦</span> <strong>Plano:</strong> ${planLabel}</li>
+            <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">💰</span> <strong>Valor Pago:</strong> <strong style="color: #10b981;">${formattedMoney}</strong></li>
+            <li style="margin-bottom: 8px;"><span style="margin-right: 8px;">🧾</span> <strong>Ref. Pagamento:</strong> <span style="font-family: monospace; color: #64748b;">${mpPaymentId || "Não identificada"}</span></li>
           </ul>
 
           <div style="text-align: center; margin-top: 35px; margin-bottom: 15px; border-top: 1px solid #f1f5f9; pt-25px;">
             <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; font-weight: bold;">Escolha onde deseja processar a Auditoria:</p>
             
-            <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; width: 80%; max-width: 250px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); font-size: 14px; text-align: center;">
-              💻 Abrir no Computador
-            </a>
+            <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; width: 80%; max-width: 250px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); font-size: 14px; text-align: center; line-height: 1.5;">
+  <img src="https://wikimedia.org" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 8px; display: inline-block; border: 0;">
+  <span style="vertical-align: middle;">Abrir no Chrome</span>
+</a>
             
             <br />
             
-            <a href="${kiwiIntentUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 13px; width: 80%; max-width: 250px; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2); text-align: center;">
-              🥝 Abrir no Kiwi (Telemóvel)
-            </a>
+            <a href="${kiwiIntentUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 13px; width: 80%; max-width: 250px; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2); text-align: center; line-height: 1.5;">
+  <img src="https://r2.dev" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 8px; display: inline-block; border: 0;">
+  <span style="vertical-align: middle;">Abrir no Kiwi Browser</span>
+</a>
           </div>
         </div>
         
-        {/* ✅ Rodapé escuro integrado com a logo-full-light da pasta public */}
+        
         <div style="background-color: #0f141a; text-align: center; padding: 25px 15px; font-size: 11px; color: #94a3b8; border-top: 1px solid #1e293b;">
-          <img src="${baseUrl}/brand/logo-full-light.png" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
+          <img src="${baseUrl}/brand/logo-gestor.png" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
           Este é um e-mail automático emitido pelo core do sistema UniGestor.<br/>
           Por favor, não responda diretamente a esta mensagem.
         </div>
@@ -87,9 +91,9 @@ export async function POST(req: Request) {
 
     // 6. Despachar Mensagem para Destinos Configurados
     await transporter.sendMail({
-      from: `"UniGestor" <${process.env.EMAIL_USER}>`,
+      from: `"UniGestor Informa" <${process.env.EMAIL_USER}>`,
       to: ["insqueixa@gmail.com", "marcio.martins@gmx.com"],
-      subject: `🚨 Ação Requerida: Renovação manual pendente no servidor`,
+      subject: `🚨 Ação Requerida: Renovação Pendente`,
       html: emailHtml,
     });
 
