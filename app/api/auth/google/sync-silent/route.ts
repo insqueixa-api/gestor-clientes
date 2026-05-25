@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { url } from "inspector/promises";
 
 export const dynamic = "force-dynamic";
 
