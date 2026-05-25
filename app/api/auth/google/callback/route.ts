@@ -141,6 +141,7 @@ if (refreshToken) {
 
   } catch (err: any) {
     console.error("Erro no Callback do Google:", err);
-    return NextResponse.redirect(`${origin}/admin/agenda?error=sync_failed`);
+    // HACK DE PRODUÇÃO: Manda a mensagem de erro real direto para a URL
+    return NextResponse.redirect(`${origin}/admin/agenda?error=${encodeURIComponent(err.message)}`);
   }
 }
