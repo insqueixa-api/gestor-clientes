@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
         <div style="background-color: #10b981; color: white; padding: 20px; text-align: center;">
-          <h2 style="margin: 0; font-size: 20px; letter-spacing: -0.5px;">Ação Manual Requerida ⚠️</h2>
+          <h2 style="margin: 0; font-size: 20px; letter-spacing: -0.5px;">⚠️ Ação Manual Necessária ⚠️</h2>
           <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Um pagamento foi aprovado, mas a renovação precisa de suporte manual.</p>
         </div>
         
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
           </div>
         </div>
         
-        <div style="background-color: #0f141a; text-align: center; padding: 25px 15px; font-size: 11px; color: #94a3b8; border-top: 1px solid #1e293b;">
+        <div style="background-color: #0f141a; text-align: center; padding: 25px 15px; font-size: 11px; color: #eaeaea; border-top: 1px solid #1e293b;">
           <img src="${baseUrl}/brand/logo-gestor.png" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
           Este é um e-mail automático emitido pelo core do sistema UniGestor.<br/>
           Por favor, não responda diretamente a esta mensagem.
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     await transporter.sendMail({
       from: `"UniGestor Informa" <${process.env.EMAIL_USER}>`,
       to: ["insqueixa@gmail.com", "marcio.martins@gmx.com"],
-      subject: `🚨 Renovação Pendente`,
+      subject: `🚨 Atenção: Renovação pendente no UniGestor`,
       html: emailHtml,
     });
 
