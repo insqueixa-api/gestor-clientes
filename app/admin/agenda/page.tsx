@@ -470,9 +470,9 @@ function AgendaPageContent() {
                     <Td>
                       <div className="flex items-center gap-4 py-2">
                         {r.avatar_url ? (
-                          <img src={r.avatar_url} alt="Foto" className="w-[72px] h-[72px] rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm shrink-0" />
+                          <img src={r.avatar_url} alt="Foto" className="w-[56px] h-[56px] rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm shrink-0" />
                         ) : (
-                          <div className="w-[72px] h-[72px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 text-2xl shrink-0">
+                          <div className="w-[56px] h-[56px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 text-xl shrink-0">
                             {r.display_name?.charAt(0) || "?"}
                           </div>
                         )}
