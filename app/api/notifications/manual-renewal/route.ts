@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
         <div style="background-color: #10b981; color: white; padding: 20px; text-align: center;">
-          <h2 style="margin: 0; font-size: 20px; letter-spacing: -0.5px;">⚠️ Ação Manual Requerida ⚠️</h2>
+          <h2 style="margin: 0; font-size: 20px; letter-spacing: -0.5px;">Ação Manual Requerida ⚠️</h2>
           <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Um pagamento foi aprovado, mas a renovação precisa de suporte manual.</p>
         </div>
         
@@ -51,24 +51,24 @@ export async function POST(req: Request) {
           </ul>
 
           <div style="text-align: center; margin-top: 35px; margin-bottom: 15px; border-top: 1px solid #f1f5f9; padding-top: 25px;">
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; font-weight: bold;">Escolha onde deseja processar a Auditoria:</p>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; font-weight: bold;">Escolha o navegador:</p>
             
             <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; max-width: 500px;">
-              <tr>
-                <td align="center" width="50%" style="padding: 0 5px;">
-                  <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
-                    <img src="${baseUrl}/icon-chrome.png" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0;">
-                    <span style="vertical-align: middle;">Abrir Chrome</span>
-                  </a>
-                </td>
-                <td align="center" width="50%" style="padding: 0 5px;">
-                  <a href="${kiwiRedirectUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2);">
-                    <img src="${baseUrl}/icon-kiwi.png" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0; border-radius: 4px;">
-                    <span style="vertical-align: middle;">Abrir Kiwi</span>
-                  </a>
-                </td>
-              </tr>
-            </table>
+            <tr>
+              <td align="center" width="50%" style="padding: 0 5px;">
+                <a href="${auditUrl}" style="background-color: #10b981; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);">
+                  <img src="${baseUrl}/brand/icon-chrome.png" alt="Chrome" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0;">
+                  <span style="vertical-align: middle;">Abrir Chrome</span>
+                </a>
+              </td>
+              <td align="center" width="50%" style="padding: 0 5px;">
+                <a href="${kiwiRedirectUrl}" style="background-color: #1e293b; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2);">
+                  <img src="${baseUrl}/brand/icon-kiwi.png" alt="Kiwi" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px; border: 0; border-radius: 4px;">
+                  <span style="vertical-align: middle;">Abrir Kiwi</span>
+                </a>
+              </td>
+            </tr>
+          </table>
           </div>
         </div>
         
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     await transporter.sendMail({
       from: `"UniGestor Informa" <${process.env.EMAIL_USER}>`,
       to: ["insqueixa@gmail.com", "marcio.martins@gmx.com"],
-      subject: `🚨 Ação Requerida: Renovação Pendente`,
+      subject: `🚨 Renovação Pendente`,
       html: emailHtml,
     });
 
