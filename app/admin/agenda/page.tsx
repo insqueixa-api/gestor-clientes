@@ -283,6 +283,28 @@ function AgendaPageContent() {
     }
   };
 
+// ✅ COLE ESTA FUNÇÃO NOVA AQUI:
+  async function handleSilentSync() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/google/sync-silent", { method: "POST" });
+      const data = await res.json();
+      
+      if (res.ok) {
+        addToast("success", "Sincronização concluída", `${data.count} contatos importados.`);
+        loadData(); // Recarrega a tabela na tela
+      } else {
+        // Se der erro (ex: não tem token), redireciona para a tela do Google
+        addToast("warning", "Acesso necessário", "Redirecionando para o Google...");
+        window.location.href = "/api/auth/google";
+      }
+    } catch (err: any) {
+      addToast("error", "Erro ao sincronizar", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors" onClick={() => setMsgMenuForId(null)}>
       
@@ -296,12 +318,13 @@ function AgendaPageContent() {
         </div>
         
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <a
-            href="/api/auth/google"
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all"
+          <button
+            onClick={handleSilentSync}
+            disabled={loading}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50"
           >
-            <IconSync /> Sincronizar Google
-          </a>
+            <IconSync /> {loading ? "Sincronizando..." : "Sincronizar Google"}
+          </button>
         </div>
       </div>
 
