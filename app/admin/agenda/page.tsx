@@ -287,7 +287,7 @@ function AgendaPageContent() {
   async function handleSilentSync() {
     setLoading(true);
     try {
-      const res = await fetch("/api/google/sync-silent", { method: "POST" });
+      const res = await fetch("/api/auth/google/sync-silent", { method: "POST" });
       const data = await res.json();
       
       if (res.ok) {
