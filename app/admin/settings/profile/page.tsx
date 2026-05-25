@@ -98,18 +98,18 @@ function applyPhoneNormalization(rawInput: string) {
 }
 
 // ============================================================================
-// COMPONENTES UI AUXILIARES (COMPATÍVEIS COM O THEME.CSS)
+// COMPONENTES UI AUXILIARES (TAILWIND PURO)
 // ============================================================================
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-[10px] font-bold text-muted mb-1 uppercase tracking-wider">{children}</label>;
+  return <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 mb-1 uppercase tracking-wider">{children}</label>;
 }
 
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-app-2 border-app border rounded-lg text-sm text-app outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
+      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed read-only:opacity-70 read-only:cursor-pointer ${className}`}
     />
   );
 }
@@ -119,7 +119,7 @@ function PhoneRow({ label, prettyPrefix, rawValue, onRawChange, onDone, ...input
     <div>
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <div className="h-10 w-[130px] shrink-0 px-2 bg-card-2 border-app border rounded-lg flex items-center text-[11px] font-bold text-app truncate justify-center">
+        <div className="h-10 w-[130px] shrink-0 px-2 bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg flex items-center text-[11px] font-bold text-slate-700 dark:text-white truncate justify-center">
           {prettyPrefix || "—"}
         </div>
         <div className="relative flex-1">
@@ -230,19 +230,19 @@ export default function ProfileSettingsPage() {
 
   const canPairWhatsApp = !!userId && !!tenantId;
 
-  // --- IMC Dinâmico com Tones do theme.css ---
+  // --- IMC Dinâmico com Tailwind nativo ---
   const metricsIMC = useMemo(() => {
     const w = parseFloat(weight);
     const h = parseFloat(height);
-    if (!w || !h || h <= 0) return { val: null, label: "Aguardando dados", color: "bg-card-2 border-app text-muted" };
+    if (!w || !h || h <= 0) return { val: null, label: "Aguardando dados", color: "text-slate-400 border-slate-200 bg-slate-50 dark:bg-white/5 dark:border-white/10" };
     
     const imc = w / (h * h);
     const formatted = imc.toFixed(1);
 
-    if (imc < 18.5) return { val: formatted, label: "Abaixo do peso", color: "tone-amber" };
-    if (imc >= 18.5 && imc < 25) return { val: formatted, label: "Peso Ideal", color: "tone-green" };
-    if (imc >= 25 && imc < 30) return { val: formatted, label: "Sobrepeso", color: "tone-amber" };
-    return { val: formatted, label: "Obesidade", color: "tone-red" };
+    if (imc < 18.5) return { val: formatted, label: "Abaixo do peso", color: "text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/20" };
+    if (imc >= 18.5 && imc < 25) return { val: formatted, label: "Peso Ideal", color: "text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/20" };
+    if (imc >= 25 && imc < 30) return { val: formatted, label: "Sobrepeso", color: "text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/20" };
+    return { val: formatted, label: "Obesidade", color: "text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-500/10 dark:border-rose-500/20" };
   }, [weight, height]);
 
   const addToast = (type: "success" | "error", title: string, message?: string) => {
@@ -546,7 +546,7 @@ export default function ProfileSettingsPage() {
     } catch {} finally { setWaReconnecting(false); }
   }
 
-  // --- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO (Mantidas perfeitamente iguais) ---
+  // --- FUNÇÕES DE IMPORTAÇÃO/EXPORTAÇÃO ---
   async function handleExportApps() {
     if (!tenantId) return; setExporting(true);
     try {
@@ -693,7 +693,7 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-10 text-center text-muted animate-pulse bg-card rounded-xl border border-app shadow-soft m-6">
+      <div className="p-10 text-center text-slate-400 dark:text-white/40 animate-pulse bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 rounded-xl border m-6">
         Carregando painel do proprietário...
       </div>
     );
@@ -704,26 +704,26 @@ export default function ProfileSettingsPage() {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-app pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
         <div className="text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-app tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
             Configurações da Conta
           </h1>
-          <p className="text-xs text-app-2 mt-0.5">Gerencie seu perfil exclusivo, saúde e conexões automatizadas.</p>
+          <p className="text-xs text-slate-500 dark:text-white/60 mt-0.5">Gerencie seu perfil exclusivo, saúde e conexões automatizadas.</p>
         </div>
         
         {/* SISTEMA DE ABAS E BOTÃO TEMA */}
         <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-          <div className="flex bg-app-2 p-1 rounded-xl border border-app">
+          <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
             <button
               onClick={() => setActiveTab("profile")}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "profile" ? "bg-card text-emerald-600 shadow-soft" : "text-app-2 hover:text-app"}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "profile" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
               👤 Perfil & Saúde
             </button>
             <button
               onClick={() => setActiveTab("data")}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "data" ? "bg-card text-emerald-600 shadow-soft" : "text-app-2 hover:text-app"}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "data" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
               ⚙️ Planilhas e Dados
             </button>
@@ -731,7 +731,7 @@ export default function ProfileSettingsPage() {
 
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-card border-app text-app-2 hover:text-app transition-all shadow-soft"
+            className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-amber-400 transition-all shadow-sm"
             title="Alternar tema"
           >
             {theme === "dark" ? (
@@ -751,15 +751,15 @@ export default function ProfileSettingsPage() {
           <div className="space-y-6 xl:col-span-2">
             
             {/* CARD 1: DADOS PESSOAIS */}
-            <div className={`bg-card border-app border rounded-2xl p-6 shadow-soft space-y-5 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
-              <div className="flex items-center justify-between border-b border-app pb-3">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-widest">
+            <div className={`bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-5 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Informações de Cadastro
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleResetPassword}
-                    className="h-8 px-3 rounded-xl bg-app-2 border border-app text-app-2 font-bold text-[11px] hover:bg-card transition-all flex items-center gap-1.5 shadow-soft"
+                    className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm"
                   >
                     🔒 Redefinir Senha
                   </button>
@@ -789,7 +789,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 <div>
                   <Label>Nível de Acesso</Label>
-                  <div className="h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border tone-blue">
+                  <div className="h-10 px-2 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold tracking-widest border bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200 dark:border-purple-500/20">
                     👑 {role}
                   </div>
                 </div>
@@ -808,7 +808,7 @@ export default function ProfileSettingsPage() {
               <div>
                 <Label>WhatsApp Username</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm font-bold">@</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 text-sm font-bold">@</span>
                   <Input className="pl-8 pr-10" value={whatsappUsername} onChange={handleWhatsChange} placeholder="Ex: 5521999999999" readOnly={!isEditing} onFocus={() => setIsEditing(true)} />
                   {whatsappUsername && (
                     <a href={`https://wa.me/${whatsappUsername}`} target="_blank" rel="noopener noreferrer" className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600" title="Abrir conversa">
@@ -817,7 +817,7 @@ export default function ProfileSettingsPage() {
                   )}
                 </div>
                 {waValidation && (
-                  <div className={`mt-1.5 flex items-center gap-1 text-xs font-bold ${waValidation.loading ? "text-app-2" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
+                  <div className={`mt-1.5 flex items-center gap-1 text-xs font-bold ${waValidation.loading ? "text-slate-400 dark:text-white/40" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
                     {waValidation.loading ? "Validando número..." : waValidation.exists ? "✓ Conta ativa no WhatsApp" : "✗ Número sem WhatsApp ativo"}
                   </div>
                 )}
@@ -825,8 +825,8 @@ export default function ProfileSettingsPage() {
             </div>
 
             {/* CARD 2: PAINEL DE MÉTRICAS CORPORAIS PRIVADAS */}
-            <div className="bg-card border-app border rounded-2xl p-6 shadow-soft space-y-4">
-              <h3 className="text-xs font-bold text-muted uppercase tracking-widest border-b border-app pb-2">
+            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
                 Minhas Métricas (Privado)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
@@ -840,7 +840,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 <div>
                   <Label>Índice de Massa Corporal (IMC)</Label>
-                  <div className={`h-10 px-3 rounded-lg flex items-center justify-between text-xs font-bold transition-all ${metricsIMC.color}`}>
+                  <div className={`h-10 px-3 rounded-lg flex items-center justify-between text-xs font-bold transition-all border ${metricsIMC.color}`}>
                     <span>{metricsIMC.val ? `IMC: ${metricsIMC.val}` : "—"}</span>
                     <span className="text-[10px] uppercase tracking-wider">{metricsIMC.label}</span>
                   </div>
@@ -853,23 +853,23 @@ export default function ProfileSettingsPage() {
           <div className="space-y-6">
             
             {/* SELETOR DE QUANTIDADE DE SESSÕES */}
-            <div className="bg-card border-app border rounded-2xl p-5 shadow-soft space-y-3">
+            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-5 shadow-sm space-y-3">
               <div>
-                <h4 className="text-xs font-bold text-app">Estrutura de Instâncias</h4>
-                <p className="text-[10px] text-app-2 mt-0.5">Defina quantas sessões paralelas o painel principal operará.</p>
+                <h4 className="text-xs font-bold text-slate-800 dark:text-white">Estrutura de Instâncias</h4>
+                <p className="text-[10px] text-slate-500 dark:text-white/50 mt-0.5">Defina quantas sessões paralelas o painel principal operará.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 bg-app-2 p-1 rounded-xl border border-app">
+              <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => { setOriginalSessionsCount(1); if(!isEditing) setIsEditing(true); }}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 1 ? "bg-card text-emerald-600 shadow-soft" : "text-app-2"}`}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 1 ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-white/50"}`}
                 >
                   1 Instância
                 </button>
                 <button
                   type="button"
                   onClick={() => { setOriginalSessionsCount(2); if(!isEditing) setIsEditing(true); }}
-                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 2 ? "bg-card text-emerald-600 shadow-soft" : "text-app-2"}`}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${whatsappSessions === 2 ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 dark:text-white/50"}`}
                 >
                   2 Instâncias (Duplo)
                 </button>
@@ -877,56 +877,56 @@ export default function ProfileSettingsPage() {
             </div>
 
             {/* PAINEL SESSÃO 1 */}
-            <div className="bg-card border-app border rounded-2xl p-6 shadow-soft space-y-4">
-              <div className="flex items-center justify-between border-b border-app pb-2">
-                <h3 className="text-xs font-bold text-muted uppercase tracking-widest">
+            <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   WhatsApp — Instância 1
                 </h3>
               </div>
 
               {!canPairWhatsApp ? (
-                <div className="p-3 rounded-lg tone-amber text-xs text-center font-bold">Aguardando login estrutural.</div>
+                <div className="p-3 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 text-xs text-center font-bold">Aguardando login estrutural.</div>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${waConnected ? "tone-green" : "tone-red"}`}>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
                       {waConnected ? "Online" : "Desconectado"}
                     </span>
-                    <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-app bg-card hover:bg-app-2 transition-colors text-app">
+                    <button type="button" onClick={() => void refreshWhatsAppPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-white">
                       {waLoading ? "..." : "Sincronizar"}
                     </button>
                   </div>
 
                   {waIsDormant && !waConnected ? (
-                    <button type="button" onClick={() => { setWaIsDormant(false); void refreshWhatsAppPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-emerald transition-all">
+                    <button type="button" onClick={() => { setWaIsDormant(false); void refreshWhatsAppPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all">
                       📲 Inicializar QR Code
                     </button>
                   ) : (
                     <>
                       {waConnected ? (
-                        <div className="flex items-center gap-3 bg-app-2 border border-app p-3 rounded-xl">
-                          <div className="w-10 h-10 rounded-full bg-card border border-app overflow-hidden flex items-center justify-center">
-                            {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-muted">WA</span>}
+                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-3 rounded-xl">
+                          <div className="w-10 h-10 rounded-full bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                            {waProfilePicUrl ? <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-400 dark:text-white/40">WA</span>}
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <div className="text-xs font-bold text-app truncate">{waSessionLabel}</div>
-                            <div className="text-[10px] text-app-2 truncate">{waPushName ? `Dono: ${waPushName}` : 'Conexão Estabelecida ✅'}</div>
+                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate">{waSessionLabel}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-white/50 truncate">{waPushName ? `Dono: ${waPushName}` : 'Conexão Estabelecida ✅'}</div>
                           </div>
                         </div>
                       ) : waQrDataUrl ? (
-                        <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-app">
+                        <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                           <img src={waQrDataUrl} alt="QR Code" className="w-full max-w-[180px]" />
                         </div>
                       ) : null}
 
-                      {/* RESTAURAÇÃO: BLOQUEIO DE CHAMADAS SESSÃO 1 */}
+                      {/* BLOQUEIO DE CHAMADAS SESSÃO 1 */}
                       {waConnected && (
-                        <div className="rounded-xl border border-app bg-card-2 p-3 mt-3 space-y-3">
+                        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 mt-3 space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-app">📵 Rejeitar chamadas</span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-white">📵 Rejeitar chamadas</span>
                             <div className="flex items-center gap-2">
                               <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
-                                className="w-6 h-6 rounded border border-app bg-card hover:bg-app-2 flex items-center justify-center text-muted transition-colors">
+                                className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                   {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
                                 </svg>
@@ -939,16 +939,16 @@ export default function ProfileSettingsPage() {
                           </div>
                           {waRejectCalls && waConfigExpanded && (
                             <div className="space-y-2">
-                              <label className="block text-[10px] font-bold text-muted uppercase tracking-wider">Mensagem de resposta automática</label>
+                              <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Mensagem automática</label>
                               <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
-                                className="w-full px-3 py-2 text-xs bg-card border border-app rounded-lg text-app outline-none focus:border-emerald-500/50 resize-none" />
+                                className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                               <div className="pt-1">
-                                <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">Números permitidos (livre):</label>
+                                <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">Números permitidos:</label>
                                 <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
                                   placeholder={"5521999998888 Nome\n5511999999999 Nome"}
-                                  className="w-full px-3 py-2 text-xs bg-card border border-app rounded-lg text-app outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                                  className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
                               </div>
-                              <p className="text-[10px] text-muted mt-1">Um número por linha com DDI. Você pode colocar nomes ao lado para organizar.</p>
+                              <p className="text-[10px] text-slate-500 dark:text-white/50 mt-1">Um número por linha com DDI.</p>
                             </div>
                           )}
                           {waConfigExpanded && (
@@ -960,7 +960,7 @@ export default function ProfileSettingsPage() {
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-3">
                         <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-xs hover:bg-amber-400 transition-colors">🔄 Reiniciar</button>
                         {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors">🔌 Desligar</button>}
                       </div>
@@ -980,10 +980,10 @@ export default function ProfileSettingsPage() {
 
       {/* ABA 2: GERENCIADOR DE PLANILHAS E BANCO */}
       {activeTab === "data" && (
-        <div className="max-w-4xl mx-auto bg-card border-app border rounded-2xl p-6 shadow-soft space-y-6">
+        <div className="max-w-4xl mx-auto bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-app">Ferramentas Estruturais de Dados</h3>
-            <p className="text-xs text-app-2 mt-1">Realize a ingestão ou backup completo das planilhas integradas do ecossistema.</p>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white">Ferramentas Estruturais de Dados</h3>
+            <p className="text-xs text-slate-500 dark:text-white/60 mt-1">Realize a ingestão ou backup completo das planilhas integradas do ecossistema.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -991,7 +991,7 @@ export default function ProfileSettingsPage() {
               type="button"
               onClick={() => setActionModal("export")}
               disabled={!tenantId || exporting}
-              className="h-12 px-4 rounded-xl border border-app bg-card-2 font-bold text-xs text-app hover:bg-app-2 transition-all flex items-center justify-center gap-2"
+              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
               ⬇️ Exportar Registros
             </button>
@@ -999,7 +999,7 @@ export default function ProfileSettingsPage() {
               type="button"
               onClick={() => setActionModal("template")}
               disabled={!tenantId}
-              className="h-12 px-4 rounded-xl border border-app bg-card-2 font-bold text-xs text-app hover:bg-app-2 transition-all flex items-center justify-center gap-2"
+              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
               📄 Baixar Planilhas Modelos
             </button>
@@ -1007,7 +1007,7 @@ export default function ProfileSettingsPage() {
               type="button"
               onClick={() => setActionModal("import")}
               disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer}
-              className="h-12 px-4 rounded-xl border border-app bg-card-2 font-bold text-xs text-app hover:bg-app-2 transition-all flex items-center justify-center gap-2"
+              className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
               ⬆️ Importar Cargas Novas
             </button>
@@ -1025,12 +1025,12 @@ export default function ProfileSettingsPage() {
       )}
 
       {/* ============================================================================
-          MODALS DE SUB-AÇÕES DAS PLANILHAS (MANTIDOS INTACTOS)
+          MODALS DE SUB-AÇÕES DAS PLANILHAS
          ============================================================================ */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card w-full max-w-sm rounded-xl border-app border shadow-strong p-6 space-y-4 text-left">
-            <h3 className="text-sm font-bold text-app">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 shadow-xl p-6 space-y-4 text-left">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white">
               {actionModal === "export" && "⬇️ Exportar Dados"}
               {actionModal === "template" && "📄 Baixar Templates"}
               {actionModal === "import" && "⬆️ Importar Dados"}
@@ -1045,12 +1045,12 @@ export default function ProfileSettingsPage() {
                 { n: "Revendedores", icon: "🤝", act: () => { if(actionModal==="export") void handleExportResellers(); else if(actionModal==="template") handleDownloadTemplateResellers(); else importResellerFileRef.current?.click(); } },
                 { n: "Controle Financeiro", icon: "💰", act: () => { if(actionModal==="export") setShowFinanceiroExportModal(true); else if(actionModal==="template") handleDownloadTemplateFinanceiro(); else importFinanceiroFileRef.current?.click(); } }
               ].map((item, idx) => (
-                <button key={idx} type="button" onClick={() => { setActionModal(null); item.act(); }} className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-app bg-card-2 hover:bg-app-2 text-app transition-colors flex items-center gap-2">
+                <button key={idx} type="button" onClick={() => { setActionModal(null); item.act(); }} className="w-full text-left text-xs p-3 font-semibold rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors flex items-center gap-2">
                   <span>{item.icon}</span> {item.n}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setActionModal(null)} className="w-full text-center text-xs font-bold text-muted mt-2">Fechar</button>
+            <button type="button" onClick={() => setActionModal(null)} className="w-full text-center text-xs font-bold text-slate-400 mt-2 hover:text-slate-600 dark:hover:text-white/80">Fechar</button>
           </div>
         </div>
       )}
@@ -1060,18 +1060,18 @@ export default function ProfileSettingsPage() {
         const availableYears = [currentYear - 1, currentYear, currentYear + 1];
         return (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-card w-full max-w-sm rounded-xl border-app border p-6 space-y-4 text-left shadow-strong">
-              <h3 className="text-sm font-bold text-app">Filtros de Exportação Financeira</h3>
+            <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 p-6 space-y-4 text-left shadow-xl">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Filtros de Exportação Financeira</h3>
               <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Anos disponíveis</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Anos disponíveis</span>
                 <div className="flex gap-2">
                   {availableYears.map(y => (
-                    <button key={y} type="button" onClick={() => setFinExportYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])} className={`px-3 py-1.5 text-xs font-bold rounded border transition-colors ${finExportYears.includes(y) ? "tone-green" : "border-app text-app-2"}`}>{y}</button>
+                    <button key={y} type="button" onClick={() => setFinExportYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])} className={`px-3 py-1.5 text-xs font-bold rounded border transition-colors ${finExportYears.includes(y) ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"}`}>{y}</button>
                   ))}
                 </div>
               </div>
-              <button type="button" onClick={() => void handleExportFinanceiro(finExportYears, finExportStatus)} className="w-full py-2 bg-emerald-600 font-bold rounded-lg text-white text-xs">Confirmar e Baixar</button>
-              <button type="button" onClick={() => setShowFinanceiroExportModal(false)} className="w-full text-center text-xs text-muted">Cancelar</button>
+              <button type="button" onClick={() => void handleExportFinanceiro(finExportYears, finExportStatus)} className="w-full py-2 bg-emerald-600 font-bold rounded-lg text-white text-xs hover:bg-emerald-500 transition-colors">Confirmar e Baixar</button>
+              <button type="button" onClick={() => setShowFinanceiroExportModal(false)} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white/80">Cancelar</button>
             </div>
           </div>
         );
@@ -1079,14 +1079,13 @@ export default function ProfileSettingsPage() {
     </div>
   );
 
-  // Helper local interno para acionar o estado de alteração de sessões
   function setOriginalSessionsCount(count: number) {
     setWhatsappSessions(count);
   }
 }
 
 // ============================================================================
-// SESSÃO WHATSAPP 2 — MANTIDA COM ISOLAMENTO TOTAL DA SESSÃO 1 + RESTAURAÇÃO
+// SESSÃO WHATSAPP 2 — MANTIDA COM ISOLAMENTO TOTAL
 // ============================================================================
 function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boolean; tenantId: string | null; addToast: any }) {
   const { confirm } = useConfirm();
@@ -1099,7 +1098,6 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
   const [waStatusText, setWaStatusText] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  // Estados restaurados para a Sessão 2
   const [waConfigExpanded, setWaConfigExpanded] = useState(false);
   const [waRejectCalls, setWaRejectCalls] = useState(true);
   const [waRejectMessage, setWaRejectMessage] = useState("{saudacao}! 😊\nNo momento não estou recebendo ligações. Por favor, envie mensagem.");
@@ -1151,7 +1149,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
       if (connected) { 
         setIsDormant(false); 
         setWaQrDataUrl(null); 
-        await fetchWaConfig(); // Busca as configs ao plugar
+        await fetchWaConfig();
         return; 
       }
       if (forceQr || status === "qr" || status === "connecting") {
@@ -1183,42 +1181,42 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
   }
 
   return (
-    <div className="bg-card border-app border rounded-2xl p-6 shadow-soft space-y-4">
-      <h3 className="text-xs font-bold text-muted uppercase tracking-widest border-b border-app pb-2">
+    <div className="bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 border rounded-2xl p-6 shadow-sm space-y-4">
+      <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-2">
         WhatsApp — Instância 2
       </h3>
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${waConnected ? "tone-green" : "tone-red"}`}>
+          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}>
             {waConnected ? "Online" : "Desconectado"}
           </span>
-          <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-app bg-card hover:bg-app-2 text-app transition-colors">
+          <button type="button" onClick={() => void refreshPanel()} disabled={waLoading} className="text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors">
             Sincronizar
           </button>
         </div>
 
         {isDormant && !waConnected ? (
-          <button type="button" onClick={() => { setIsDormant(false); void refreshPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-emerald transition-all">
+          <button type="button" onClick={() => { setIsDormant(false); void refreshPanel(true); }} className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all">
             📲 Inicializar QR Code 2
           </button>
         ) : (
           <>
             {waConnected ? (
-              <div className="text-xs p-3 text-center rounded-xl bg-app-2 border border-app text-app-2 font-bold">Sessão secundária ativa e operando em paralelo.</div>
+              <div className="text-xs p-3 text-center rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50 font-bold">Sessão secundária ativa e operando em paralelo.</div>
             ) : waQrDataUrl ? (
-              <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-app">
+              <div className="flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                 <img src={waQrDataUrl} alt="QR Code 2" className="w-full max-w-[180px]" />
               </div>
             ) : null}
 
-            {/* RESTAURAÇÃO: BLOQUEIO DE CHAMADAS SESSÃO 2 */}
+            {/* BLOQUEIO DE CHAMADAS SESSÃO 2 */}
             {waConnected && (
-              <div className="rounded-xl border border-app bg-card-2 p-3 mt-3 space-y-3">
+              <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3 mt-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-app">📵 Rejeitar chamadas</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white">📵 Rejeitar chamadas</span>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => setWaConfigExpanded(v => !v)}
-                      className="w-6 h-6 rounded border border-app bg-card hover:bg-app-2 flex items-center justify-center text-muted transition-colors">
+                      className="w-6 h-6 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-400 transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         {waConfigExpanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
                       </svg>
@@ -1231,14 +1229,14 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
                 </div>
                 {waRejectCalls && waConfigExpanded && (
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-bold text-muted uppercase tracking-wider">Mensagem de resposta automática</label>
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">Mensagem automática</label>
                     <textarea value={waRejectMessage} onChange={e => setWaRejectMessage(e.target.value)} rows={3}
-                      className="w-full px-3 py-2 text-xs bg-card border border-app rounded-lg text-app outline-none focus:border-emerald-500/50 resize-none" />
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none" />
                     <div className="pt-1">
-                      <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1">Números permitidos (livre):</label>
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider mb-1">Números permitidos:</label>
                       <textarea value={waAllowedNumbers} onChange={e => setWaAllowedNumbers(e.target.value)} rows={3}
                         placeholder={"5521999998888 Nome\n5511999999999 Nome"}
-                        className="w-full px-3 py-2 text-xs bg-card border border-app rounded-lg text-app outline-none focus:border-emerald-500/50 resize-none font-mono" />
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 resize-none font-mono" />
                     </div>
                   </div>
                 )}
@@ -1251,9 +1249,9 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast }: { canPair: boole
               </div>
             )}
 
-            <div className="flex gap-2">
-              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-xs hover:bg-amber-400">🔄 Reiniciar</button>
-              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500">🔌 Desligar</button>}
+            <div className="flex gap-2 mt-3">
+              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white font-bold text-xs hover:bg-amber-400 transition-colors">🔄 Reiniciar</button>
+              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors">🔌 Desligar</button>}
             </div>
           </>
         )}
