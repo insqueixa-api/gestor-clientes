@@ -1,3 +1,4 @@
+/*
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -32,3 +33,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+*/

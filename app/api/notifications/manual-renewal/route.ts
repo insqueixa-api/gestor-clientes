@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     await transporter.sendMail({
       from: `"UniGestor Informa" <${process.env.EMAIL_USER}>`,
       to: ["insqueixa@gmail.com", "marcio.martins@gmx.com"],
-      subject: `🚨 Atenção: Renovação pendente no UniGestor`,
+      subject: `🚨 Atenção: Renovação pendente!`,
       html: emailHtml,
     });
 
@@ -104,3 +104,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+//para disparar o email teste, desbloqueie o codigo no seguinte diretório: app/api/dev-trigger-email/route.ts
+// Remova os comentários de bloqueio no início e no final "/* */" do arquivo, e então acesse a seguinte URL no navegador: https://unigestor.net.br/api/dev-trigger-email
+
