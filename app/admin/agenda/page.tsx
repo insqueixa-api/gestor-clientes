@@ -600,16 +600,13 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">Agenda</h1>
           </div>
         <div className="flex items-center gap-1.5 justify-end shrink-0">
-            <button onClick={openCreateModal} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap">
-                + <span className="hidden md:inline">Novo </span>Contato
-            </button>
-            <button onClick={handleSilentSync} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
-                <IconSync /> <span className="hidden md:inline">Sync </span>Agenda
-            </button>
-            <button onClick={handleSyncLabels} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-violet-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
-                🔗 <span className="hidden md:inline">Sync </span>Servidor
-            </button>
-            </div>
+  <button onClick={openCreateModal} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap">
+    + Novo Contato
+  </button>
+  <button onClick={handleSilentSync} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
+    <IconSync /> Sync Agenda
+  </button>
+</div>
       </div>
 
       {/* FILTROS */}
@@ -708,11 +705,16 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
       {/* SELEÇÃO EM MASSA */}
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0">
-          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
-          <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
-            Sincronizar Operadora
-          </button>
-        </div>
+  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
+  <div className="flex items-center gap-2">
+    <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
+      Sincronizar Operadora
+    </button>
+    <button onClick={handleSyncLabels} disabled={loading} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1">
+      🔗 Vincular Servidor
+    </button>
+  </div>
+</div>
       )}
 
       {/* TABELA */}
@@ -726,18 +728,18 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[600px]">
+            <table className="w-full text-left border-collapse min-w-[700px] table-fixed">
+
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
-                  <Th width={40}>
+                  <Th width={36}>
                     <input ref={selectAllRef} type="checkbox" checked={visible.length > 0 && visible.every(r => selectedIds.has(r.id))} onChange={e => setAllVisible(e.target.checked)} className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
                   </Th>
-                  <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} width={220} />
-
-                  <Th>Telefones</Th>
-                  <Th>E-mails</Th>
-                  <Th align="center"><SortClick label="Grupo" active={sortKey === "labels"} dir={sortDir} onClick={() => toggleSort("labels")} /></Th>
-                  <Th align="center">Ações</Th>
+                  <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} width={200} />
+                    <Th width={220}>Telefones</Th>
+                    <Th width={220}>E-mails</Th>
+                    <Th width={120} align="center"><SortClick label="Grupo" active={sortKey === "labels"} dir={sortDir} onClick={() => toggleSort("labels")} /></Th>
+                  <Th width={110} align="center">Ações</Th>
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
