@@ -918,10 +918,10 @@ export default function ProfileSettingsPage() {
 
               {chartData.length > 1 && (() => {
                 const PAD_L = 56;
-                const PAD_TOP = 22;
+                const PAD_TOP = 32;
                 const COL_W = 78;
-                const ROW_H = 100;
-                const DATE_H = 44;
+                const ROW_H = 115;
+                const DATE_H = 52;
                 const W = PAD_L + COL_W * chartData.length;
                 const H = ROW_H * 2 + DATE_H;
 
@@ -964,7 +964,7 @@ export default function ProfileSettingsPage() {
                       <Label>Histórico de Composição</Label>
                       {hasRef && idealWMin && (
                         <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
-                          🎯 Meta: {idealWMin}–{idealWMax} kg
+                          🎯 Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
                       )}
                     </div>
@@ -1055,7 +1055,7 @@ export default function ProfileSettingsPage() {
                         ))}
 
                         {/* Legend */}
-                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + DATE_H - 16})`}>
+                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + DATE_H - 10})`}>
                           <circle cx="5" cy="5" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
                           <text x="14" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Caiu</text>
                           <circle cx="44" cy="5" r="4" fill="white" stroke="#f43f5e" strokeWidth="2" />

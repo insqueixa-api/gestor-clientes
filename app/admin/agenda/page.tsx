@@ -726,7 +726,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
                   <Th width={40}>
                     <input ref={selectAllRef} type="checkbox" checked={visible.length > 0 && visible.every(r => selectedIds.has(r.id))} onChange={e => setAllVisible(e.target.checked)} className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
                   </Th>
-                  <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
+                  <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} width={220} />
+
                   <Th>Telefones</Th>
                   <Th>E-mails</Th>
                   <Th align="center"><SortClick label="Aniversário" active={sortKey === "birthday"} dir={sortDir} onClick={() => toggleSort("birthday")} /></Th>
@@ -758,7 +759,9 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
-                          <div className="font-bold text-base text-slate-800 dark:text-white">{r.display_name || "Sem Nome"}</div>
+                          <div className="font-bold text-base text-slate-800 dark:text-white whitespace-nowrap">
+  {r.display_name || "Sem Nome"}
+</div>
                         </div>
                       </Td>
 
@@ -1090,7 +1093,7 @@ export default function AgendaPage() {
 // ─── COMPONENTES VISUAIS ─────────────────────────────────────────────────────
 const ALIGN_CLASS: Record<"left" | "right" | "center", string> = { left: "text-left", right: "text-right", center: "text-center" };
 function Th({ children, width, align = "left" }: { children: React.ReactNode; width?: number; align?: "left" | "right" | "center" }) { return <th className={`px-3 py-2 ${ALIGN_CLASS[align]}`} style={{ width }}>{children}</th>; }
-function ThSort({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) { return <th onClick={onClick} className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"><div className="flex items-center gap-1">{label} <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600" : "opacity-40 group-hover:opacity-70"}`}>{dir === "asc" ? <IconSortUp /> : <IconSortDown />}</span></div></th>; }
+function ThSort({ label, active, dir, onClick, width }: { label: string; active: boolean; dir: SortDir; onClick: () => void; width?: number }) {return <th onClick={onClick} style={{ width }} className="px-3 py-2 cursor-pointer select-none group hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors text-left"><div className="flex items-center gap-1">{label} <span className={`transition-opacity ${active ? "opacity-100 text-emerald-600" : "opacity-40 group-hover:opacity-70"}`}>{dir === "asc" ? <IconSortUp /> : <IconSortDown />}</span></div></th>; }
 function SortClick({ label, onClick, active, dir }: { label: string; onClick: () => void; active: boolean; dir: SortDir }) { return <div onClick={onClick} className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 transition-colors"><span className="font-bold uppercase text-xs tracking-wide">{label}</span><span className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-600" : "opacity-30"}`}>{dir === "asc" ? <IconSortUp /> : <IconSortDown />}</span></div>; }
 function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" | "center" }) { const a = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"; return <td className={`px-3 py-2 ${a} align-middle`}>{children}</td>; }
 
