@@ -211,7 +211,6 @@ function AgendaPageContent() {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("Todos");
   const [emailLabelFilter, setEmailLabelFilter] = useState("Todos");
-  const [birthdayMonthFilter, setBirthdayMonthFilter] = useState<number | null>(null);
   const [pageSize] = useState(50);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -229,7 +228,8 @@ function AgendaPageContent() {
   );
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || birthdayMonthFilter !== null;
+const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos";
+
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -353,7 +353,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         const eLbls = getEmailsArray(r).map(e => e.label);
         if (!eLbls.includes(emailLabelFilter)) return false;
       }
-      if (birthdayMonthFilter !== null && getBirthdayMonth(r.birthday) !== birthdayMonthFilter) return false;
+      
       if (q) {
         const hay = [r.display_name, getPhonesArray(r).map(p => p.value).join(" "), getEmailsArray(r).map(e => e.value).join(" "), ...(r.labels || [])]
           .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -361,7 +361,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
       }
       return true;
     });
-  }, [rows, search, labelFilter, emailLabelFilter, birthdayMonthFilter]);
+  }, [rows, search, labelFilter, emailLabelFilter]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -599,17 +599,17 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         <div className="min-w-0 text-left">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">Agenda</h1>
           </div>
-        <div className="flex items-center gap-2 justify-end shrink-0">
-          <button onClick={openCreateModal} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
-            + Novo Contato
-          </button>
-          <button onClick={handleSilentSync} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 ...">
-        <IconSync /> {loading ? "Sincronizando..." : "Sincronizar"}
-        </button>
-        <button onClick={handleSyncLabels} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-violet-900/20 transition-all disabled:opacity-50">
-        🔗 {loading ? "Vinculando..." : "Vincular Clientes"}
-        </button>
-        </div>
+        <div className="flex items-center gap-1.5 justify-end shrink-0">
+            <button onClick={openCreateModal} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-900/20 transition-all whitespace-nowrap">
+                + <span className="hidden md:inline">Novo </span>Contato
+            </button>
+            <button onClick={handleSilentSync} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
+                <IconSync /> <span className="hidden md:inline">Sync </span>Agenda
+            </button>
+            <button onClick={handleSyncLabels} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-violet-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
+                🔗 <span className="hidden md:inline">Sync </span>Servidor
+            </button>
+            </div>
       </div>
 
       {/* FILTROS */}
@@ -645,18 +645,11 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
       </select>
 
-      <select
-        value={birthdayMonthFilter ?? ""}
-        onChange={e => { setBirthdayMonthFilter(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
-      >
-        <option value="">🎂 Aniversário (Todos)</option>
-        {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-      </select>
-
+      
       {hasActiveFilters && (
         <button
-          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setBirthdayMonthFilter(null); setPage(1); }}
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPage(1); }}
+
           className="h-10 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
         >
           ✕ Limpar
@@ -698,19 +691,11 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         <option value="Todos">📧 E-mail (Todos)</option>
         {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
       </select>
-
-      <select
-        value={birthdayMonthFilter ?? ""}
-        onChange={e => { setBirthdayMonthFilter(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
-      >
-        <option value="">🎂 Aniversário (Todos)</option>
-        {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-      </select>
+      
 
       {hasActiveFilters && (
         <button
-          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setBirthdayMonthFilter(null); setPage(1); }}
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPage(1); }}
           className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
         >
           ✕ Limpar filtros
@@ -751,7 +736,6 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
 
                   <Th>Telefones</Th>
                   <Th>E-mails</Th>
-                  <Th align="center"><SortClick label="Aniversário" active={sortKey === "birthday"} dir={sortDir} onClick={() => toggleSort("birthday")} /></Th>
                   <Th align="center"><SortClick label="Grupo" active={sortKey === "labels"} dir={sortDir} onClick={() => toggleSort("labels")} /></Th>
                   <Th align="center">Ações</Th>
                 </tr>
@@ -772,15 +756,15 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
 
                       {/* FOTO + NOME */}
                       <Td>
-                        <div className="flex items-center gap-4 py-2">
+                        <div className="flex items-center gap-2 py-1">
                           {r.avatar_url ? (
-                            <img src={r.avatar_url} alt="Foto" className="w-[56px] h-[56px] rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm shrink-0" />
+                            <img src={r.avatar_url} alt="Foto" className="w-[40px] h-[40px] rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm shrink-0" />
                           ) : (
-                            <div className="w-[56px] h-[56px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-white/50 text-xl shrink-0">
+                            <div className="w-[40px] h-[40px] rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center font-bold text-slate-500 dark:text-white/50 text-xl shrink-0">
                               {r.display_name?.charAt(0) || "?"}
                             </div>
                           )}
-                          <div className="font-bold text-base text-slate-800 dark:text-white whitespace-nowrap">
+                          <div className="font-bold text-sm text-slate-800 dark:text-white leading-tight max-w-[160px]">
   {r.display_name || "Sem Nome"}
 </div>
                         </div>
@@ -788,7 +772,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
 
                       {/* TELEFONES */}
                       <Td>
-                        <div className="flex flex-col gap-1.5 py-2">
+                        <div className="flex flex-col gap-1 py-1">
+
                           {rPhones.length > 0 ? rPhones.map(p => (
                             <div key={p.id} className="text-[13px] whitespace-nowrap">
   <span className="font-bold text-slate-500 dark:text-white/50">{p.label}: </span>
@@ -800,18 +785,15 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
 
                       {/* EMAILS */}
                       <Td>
-                        <div className="flex flex-col gap-1.5 py-2">
+                        <div className="flex flex-col gap-1 py-1">
                           {rEmails.length > 0 ? rEmails.map(e => (
-                            <div key={e.id} className="text-[13px] truncate max-w-[200px]">
+                              <div key={e.id} className="text-[13px] truncate max-w-[240px]">
+
                               <span className="font-bold text-slate-500 dark:text-white/50">{e.label}: </span>
                               <span className="text-sky-600 dark:text-sky-400">{e.value}</span>
                             </div>
                           )) : <span className="italic text-slate-400 text-xs">—</span>}
                         </div>
-                      </Td>
-
-                      <Td align="center">
-                        <span className="text-slate-600 dark:text-white/80">{formatBirthday(r.birthday)}</span>
                       </Td>
 
                       <Td align="center">

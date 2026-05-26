@@ -494,7 +494,7 @@ export default function AdminShell({
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
             <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda de Contatos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
@@ -508,7 +508,7 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
             <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda de Contatos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
 
             <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />

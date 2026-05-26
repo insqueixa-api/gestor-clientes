@@ -14,7 +14,8 @@ function onlyDigits(raw: string | null | undefined): string {
 function normalizeToNational(raw: string | null | undefined): string {
   const d = onlyDigits(raw);
   if (!d) return "";
-  if (d.startsWith("55") && d.length >= 12) return d.slice(2);
+  if (d.startsWith("55") && d.length >= 12) return d.slice(2); // +5521... → 21...
+  if (d.startsWith("0") && d.length >= 10) return d.slice(1);  // 021... → 21...
   return d;
 }
 
@@ -175,26 +176,19 @@ export async function POST(req: Request) {
           }
         }
 
-        // ── Chama Google API para atualizar o contato ──────────────────────
         const updatePayload: any = {
-          etag,
-          names: personData.names || [{ givenName: contact.display_name || "Sem Nome" }],
-          emailAddresses: personData.emailAddresses || [],
-          phoneNumbers: phones.map((p: any) => ({
-            value: p.value,
-            ...getGoogleLabel(p.label, "mobile"),
-          })),
-          memberships: finalMemberships,
-        };
+  etag,
+  memberships: finalMemberships,
+};
 
-        const updateRes = await fetch(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=names,emailAddresses,phoneNumbers,memberships`,
-          {
-            method: "PATCH",
-            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify(updatePayload),
-          }
-        );
+const updateRes = await fetch(
+  `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=memberships`,
+  {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(updatePayload),
+  }
+);
 
         if (!updateRes.ok) {
           const errData = await updateRes.json();
