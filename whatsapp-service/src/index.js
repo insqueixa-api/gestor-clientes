@@ -3,17 +3,9 @@ import express from "express";
 import QRCode from "qrcode";
 
 import {
-  createSession,
-  disconnectSession,
-  reconnectSession,
-  sendMessage,
-  validateNumber,
-  getSession,
-  getAllSessions,
-  restoreExistingSessions,
-  qrCallbacks,
-  getSessionConfig,
-  updateSessionConfig,
+  createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
+  getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
+  getSessionConfig, updateSessionConfig, getContactProfilePicture,
 } from "./sessionManager.js";
 
 const app = express();
@@ -74,6 +66,28 @@ app.get("/health", (req, res) => {
 // Lista todas as sessões ativas
 app.get("/sessions", authMiddleware, (req, res) => {
   res.json({ sessions: getAllSessions() });
+});
+
+// Adiciona antes do "── 404 ───":
+// ── GET /profile-picture ─────────────────────────────────────
+app.get("/profile-picture", authMiddleware, async (req, res) => {
+  const sessionKey = getSessionKey(req);
+  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
+
+  const jid = (req.query.jid || "").trim();
+  if (!jid) return res.status(400).json({ error: "jid é obrigatório" });
+
+  const sess = getSession(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    return res.status(503).json({ error: "Sessão não conectada" });
+  }
+
+  try {
+    const result = await getContactProfilePicture(sessionKey, jid);
+    return res.json(result); // { url: "https://..." } ou { url: null }
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || "Erro ao buscar foto" });
+  }
 });
 
 // ── ANY /status (Suporta GET e POST para evitar 404) ──────────
