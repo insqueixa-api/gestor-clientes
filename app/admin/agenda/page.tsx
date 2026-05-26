@@ -211,8 +211,8 @@ function AgendaPageContent() {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("Todos");
   const [emailLabelFilter, setEmailLabelFilter] = useState("Todos");
-  const [pageSize] = useState(50);
-  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -871,7 +871,46 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
                 })}
               </tbody>
             </table>
-            <div className="h-24 md:h-20" />
+            {/* PAGINAÇÃO */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 dark:text-white/40">
+                    {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, sorted.length)} de {sorted.length}
+                  </span>
+                  <select
+                    value={pageSize}
+                    onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                    className="h-7 px-2 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded text-xs text-slate-600 dark:text-white"
+                  >
+                    <option value={50}>50 por página</option>
+                    <option value={100}>100 por página</option>
+                    <option value={200}>200 por página</option>
+                    <option value={500}>500 por página</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(1)} disabled={safePage === 1} className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold">«</button>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold">‹</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                    .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                      if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) => p === "..." ? (
+                      <span key={`ellipsis-${i}`} className="h-7 w-7 flex items-center justify-center text-slate-400 text-xs">…</span>
+                    ) : (
+                      <button key={p} onClick={() => setPage(p as number)} className={`h-7 w-7 rounded flex items-center justify-center text-xs font-bold transition-colors ${safePage === p ? "bg-emerald-600 text-white" : "text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10"}`}>{p}</button>
+                    ))
+                  }
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold">›</button>
+                  <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="h-7 w-7 rounded flex items-center justify-center text-slate-500 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors text-xs font-bold">»</button>
+                </div>
+              </div>
+            )}
+            <div className="h-8 md:h-6" />
           </div>
         </div>
       )}
