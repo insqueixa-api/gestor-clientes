@@ -277,7 +277,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const [waValidations, setWaValidations] = useState<Record<string, WaValidation>>({});
   const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  async function validateWaForPhone(phoneId: string, e164: string) {
+  async function validateWaForPhone(phoneId: string, e164: string, autoSyncContactId?: string) {
+
     const digits = onlyDigits(e164);
     if (digits.length < 8) {
       setWaValidations(prev => { const n = { ...prev }; delete n[phoneId]; return n; });
@@ -291,8 +292,12 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
-      setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: !!json.exists, jid: json.jid } }));
-    } catch {
+  setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: !!json.exists, jid: json.jid } }));
+  // Auto-sync foto se WA ativo e contactId fornecido
+  if (json.exists && json.jid && autoSyncContactId) {
+    setTimeout(() => handleSyncWaPhotoSilent(autoSyncContactId, json.jid), 300);
+  }
+} catch {
       setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: false } }));
     }
   }
@@ -504,6 +509,41 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
   }
 }
 
+const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
+
+async function handleMassSyncPhotos() {
+  if (selectedIds.size === 0) return;
+  setIsSyncingPhotos(true);
+  let synced = 0, failed = 0;
+  const selectedContacts = rows.filter(r => selectedIds.has(r.id));
+
+  for (const contact of selectedContacts) {
+    const phones = getPhonesArray(contact);
+    if (!phones.length) continue;
+    try {
+      const digits = onlyDigits(phones[0].value);
+      if (digits.length < 8) continue;
+      const vRes = await fetch("/api/whatsapp/validate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const vData = await vRes.json().catch(() => ({}));
+      if (!vData.exists || !vData.jid) continue;
+
+      const pRes = await fetch("/api/whatsapp/contact-photo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, jid: vData.jid }),
+      });
+      if (pRes.ok) synced++; else failed++;
+      await new Promise(r => setTimeout(r, 250)); // evita rate limit
+    } catch { failed++; }
+  }
+
+  addToast("success", "Fotos sincronizadas", `${synced} atualizada(s)${failed > 0 ? `, ${failed} falharam` : ""}.`);
+  setIsSyncingPhotos(false);
+  loadData();
+}
+
   // ─── MODAL EDIT ────────────────────────────────────────────────────────────
   function openEditModal(contact: GoogleContact) {
     const phones = getPhonesArray(contact).map(p => parsePhoneToEditPhone(p.value, p.label, p.id));
@@ -552,8 +592,9 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
 
       // Dispara validação WA com debounce
       const e164 = `+${ddi}${onlyDigits(formatted || national)}`;
-      if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
-      waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164), 400);
+if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
+const autoSyncId = editModal.contact?.id;
+waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyncId), 400);
 
       return { ...prev, phones };
     });
@@ -581,6 +622,24 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
       addToast("error", "Erro", "Rota /api/whatsapp/contact-photo ainda não implementada na VM.");
     }
   }
+
+  async function handleSyncWaPhotoSilent(contactId: string, jid: string) {
+  try {
+    const res = await fetch("/api/whatsapp/contact-photo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact_id: contactId, jid }),
+    });
+    const data = await res.json();
+    if (res.ok && data.avatar_url) {
+      setEditModal(prev => ({ ...prev, contact: prev.contact ? { ...prev.contact, avatar_url: data.avatar_url } : null }));
+      addToast("success", "Foto sincronizada", "Foto do WhatsApp aplicada automaticamente.");
+      loadData();
+    }
+  } catch {
+    // Falha silenciosa — botão manual ainda disponível
+  }
+}
 
   async function handleSaveContact() {
     setIsSaving(true);
@@ -758,8 +817,13 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
   <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
   <div className="flex items-center gap-2">
   <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
-    Sincronizar Operadora
-  </button>
+  Sincronizar Operadora
+</button>
+<button onClick={handleMassSyncPhotos} disabled={isSyncingPhotos} className="text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+  {isSyncingPhotos ? (
+    <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando fotos...</>
+  ) : <>📸 Sync Fotos WA ({selectedIds.size})</>}
+</button>
   <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
     {isSyncingLabels ? (<><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Vinculando...</>) : (<>🔗 Vincular Servidor ({selectedIds.size})</>)}
   </button>

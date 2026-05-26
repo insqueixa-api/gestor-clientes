@@ -32,10 +32,13 @@ export async function POST(req: Request) {
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
 
     // 1. Busca foto na VM WhatsApp
-    const VM_BASE = process.env.WHATSAPP_VM_URL ?? "http://45.55.205.34:3000"; // ajuste se necessário
-    const picRes = await fetch(`${VM_BASE}/whatsapp/profile-picture?jid=${encodeURIComponent(jid)}`, {
-      headers: { "x-api-key": process.env.WHATSAPP_API_KEY ?? "" },
-    });
+    const VM_BASE = process.env.WHATSAPP_VM_URL ?? "http://34.69.145.29:3000";
+const picRes = await fetch(`${VM_BASE}/profile-picture?jid=${encodeURIComponent(jid)}`, {
+  headers: {
+    "Authorization": `Bearer ${process.env.WHATSAPP_API_TOKEN ?? ""}`,
+    "x-session-key": process.env.WHATSAPP_SESSION_KEY ?? "default",
+  },
+});
 
     if (!picRes.ok) {
       return NextResponse.json({ error: "Foto não disponível ou protegida." }, { status: 404 });
