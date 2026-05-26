@@ -14,9 +14,23 @@ function onlyDigits(raw: string | null | undefined): string {
 function normalizePhone(raw: string | null | undefined): string {
   const d = onlyDigits(raw);
   if (!d) return "";
-  if (d.startsWith("55") && d.length >= 12) return d.slice(2); // BR com DDI
-  if (d.startsWith("0") && d.length >= 10) return d.slice(1);  // BR com zero inicial
+  if (d.startsWith("55") && d.length >= 12) return d.slice(2);
+  if (d.startsWith("0") && d.length >= 10) return d.slice(1);
   return d;
+}
+
+// E no índice, indexa também a versão sem o 9 para BR:
+function phoneVariants(normalized: string): string[] {
+  const variants = [normalized];
+  // BR celular com 9: DDD(2) + 9 + número(8) = 11 dígitos → adiciona sem o 9
+  if (normalized.length === 11 && normalized[2] === "9") {
+    variants.push(normalized.slice(0, 2) + normalized.slice(3)); // sem o 9
+  }
+  // BR celular sem 9: DDD(2) + número(8) = 10 dígitos → adiciona com o 9
+  if (normalized.length === 10) {
+    variants.push(normalized.slice(0, 2) + "9" + normalized.slice(2)); // com o 9
+  }
+  return variants;
 }
 
 export async function POST(req: Request) {
@@ -94,8 +108,8 @@ export async function POST(req: Request) {
       if (!serverName) continue;
       const p = normalizePhone(client.phone_e164);
       const s = normalizePhone(client.secondary_phone_e164);
-      if (p) phoneIndex.set(p, serverName);
-      if (s) phoneIndex.set(s, serverName);
+      phoneVariants(p).forEach(v => phoneIndex.set(v, serverName));
+phoneVariants(s).forEach(v => phoneIndex.set(v, serverName));
     }
 
     // ── Grupos existentes no Google ──────────────────────────────────────────
