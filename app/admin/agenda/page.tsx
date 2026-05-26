@@ -323,6 +323,19 @@ function AgendaPageContent() {
     setEditModal({ open: true, contact });
   }
 
+  // CRIAR NOVO: Montar Formulário Vazio
+  function openCreateModal() {
+    setEditForm({
+      display_name: "",
+      phones: [{ id: Date.now().toString(), label: "Celular", value: "" }],
+      emails: [],
+      labels: [],
+      new_photo_base64: undefined
+    });
+    // contact: null indica para o sistema que é uma criação, e não uma edição
+    setEditModal({ open: true, contact: null });
+  }
+
   // EDIÇÃO: Troca de Foto
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -336,13 +349,16 @@ function AgendaPageContent() {
   };
 
   // SALVAR EDIÇÃO NO GOOGLE
+  // SALVAR NO GOOGLE (CRIAÇÃO OU EDIÇÃO)
   async function handleSaveContact() {
-    if (!editModal.contact) return;
     setIsSaving(true);
     try {
+      const isNew = !editModal.contact;
+      const endpoint = isNew ? "/api/auth/google/create" : "/api/auth/google/update";
+
       const payload = {
-        id: editModal.contact.id,
-        google_resource_name: editModal.contact.google_resource_name,
+        id: editModal.contact?.id,
+        google_resource_name: editModal.contact?.google_resource_name,
         display_name: editForm.display_name,
         phones: editForm.phones.map(p => ({ label: p.label, value: p.value })),
         emails: editForm.emails.map(e => ({ label: e.label, value: e.value })),
@@ -350,15 +366,18 @@ function AgendaPageContent() {
         photo_base64: editForm.new_photo_base64
       };
 
-      const res = await fetch("/api/auth/google/update", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       
-      if (!res.ok) throw new Error("Erro ao atualizar no Google.");
+      if (!res.ok) {
+         const errData = await res.json();
+         throw new Error(errData.error || "Erro ao atualizar no Google.");
+      }
       
-      addToast("success", "Salvo", "Contato atualizado no sistema e no celular.");
+      addToast("success", "Salvo", `Contato ${isNew ? "criado" : "atualizado"} no sistema e no celular.`);
       setEditModal({ open: false, contact: null });
       loadData();
     } catch (err: any) {
@@ -406,8 +425,11 @@ function AgendaPageContent() {
           <p className="text-xs text-slate-500 dark:text-white/50 mt-1">Gerencie os contatos sincronizados com o Google.</p>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
+          <button onClick={openCreateModal} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
+            + Novo Contato
+          </button>
           <button onClick={handleSilentSync} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50">
-            <IconSync /> {loading ? "Sincronizando..." : "Sincronizar Google"}
+            <IconSync /> {loading ? "Sincronizando..." : "Sincronizar"}
           </button>
         </div>
       </div>
@@ -587,16 +609,16 @@ function AgendaPageContent() {
          </Modal>
        )}
 
-      {/* ✅ MODAL DE EDIÇÃO DINÂMICO */}
-      {editModal.open && editModal.contact && (
-        <Modal title="Editar Contato" onClose={() => setEditModal({ open: false, contact: null })}>
+      {/* ✅ MODAL DE CRIAÇÃO E EDIÇÃO DINÂMICO */}
+      {editModal.open && (
+        <Modal title={editModal.contact ? "Editar Contato" : "Novo Contato"} onClose={() => setEditModal({ open: false, contact: null })}>
           <div className="space-y-4 max-h-[80vh] overflow-y-auto px-1 pb-4">
             
             {/* Foto Clicável */}
             <div className="flex justify-center mb-2 relative group w-24 h-24 mx-auto cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-               {editForm.new_photo_base64 || editModal.contact.avatar_url ? (
-                  <img src={editForm.new_photo_base64 || editModal.contact.avatar_url!} alt="Foto" className="w-24 h-24 rounded-full object-cover border-2 border-slate-200 group-hover:opacity-50 transition-opacity" />
+               {editForm.new_photo_base64 || editModal.contact?.avatar_url ? (
+                  <img src={editForm.new_photo_base64 || editModal.contact?.avatar_url} alt="Foto" className="w-24 h-24 rounded-full object-cover border-2 border-slate-200 group-hover:opacity-50 transition-opacity" />
                ) : (
                   <div className="w-24 h-24 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500 text-2xl group-hover:opacity-50 transition-opacity">
                     {editForm.display_name?.charAt(0) || "?"}
