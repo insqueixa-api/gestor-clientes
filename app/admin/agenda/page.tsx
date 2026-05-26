@@ -437,6 +437,25 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
     }
   }
 
+  async function handleSyncLabels() {
+  setLoading(true);
+  try {
+    const res = await fetch("/api/auth/google/sync-labels-from-clients", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      addToast("success", "Vinculação concluída", data.message);
+      if (data.errors?.length) addToast("warning", "Alguns erros", data.errors.slice(0, 3).join(" | "));
+      loadData();
+    } else {
+      addToast("error", "Erro ao vincular", data.error);
+    }
+  } catch (err: any) {
+    addToast("error", "Erro", err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
   // ─── MODAL EDIT ────────────────────────────────────────────────────────────
   function openEditModal(contact: GoogleContact) {
     const phones = getPhonesArray(contact).map(p => parsePhoneToEditPhone(p.value, p.label, p.id));
@@ -584,9 +603,12 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
           <button onClick={openCreateModal} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all">
             + Novo Contato
           </button>
-          <button onClick={handleSilentSync} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50">
-            <IconSync /> {loading ? "Sincronizando..." : "Sincronizar"}
-          </button>
+          <button onClick={handleSilentSync} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-blue-600 ...">
+        <IconSync /> {loading ? "Sincronizando..." : "Sincronizar"}
+        </button>
+        <button onClick={handleSyncLabels} disabled={loading} className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-violet-900/20 transition-all disabled:opacity-50">
+        🔗 {loading ? "Vinculando..." : "Vincular Clientes"}
+        </button>
         </div>
       </div>
 
