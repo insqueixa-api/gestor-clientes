@@ -231,6 +231,7 @@ function AgendaPageContent() {
 const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos";
 
 
+
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -349,7 +350,11 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return rows.filter(r => {
-      if (labelFilter !== "Todos" && (!r.labels || !r.labels.includes(labelFilter))) return false;
+      if (labelFilter === "__SEM_GRUPO__") {
+  if (r.labels && r.labels.length > 0) return false;
+} else if (labelFilter !== "Todos") {
+  if (!r.labels || !r.labels.includes(labelFilter)) return false;
+}if (labelFilter !== "Todos" && (!r.labels || !r.labels.includes(labelFilter))) return false;
       if (emailLabelFilter !== "Todos") {
         const eLbls = getEmailsArray(r).map(e => e.label);
         if (!eLbls.includes(emailLabelFilter)) return false;
@@ -633,13 +638,14 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
     {/* Filtros inline — visíveis só no desktop */}
     <div className="hidden md:flex items-center gap-2">
       <select
-        value={labelFilter}
-        onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+  value={labelFilter}
+  onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
+  className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">Grupo (Todos)</option>
-        {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-      </select>
+  <option value="__SEM_GRUPO__">Sem grupo</option>
+  {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+</select>
 
       <select
         value={emailLabelFilter}
