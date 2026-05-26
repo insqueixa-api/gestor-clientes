@@ -661,27 +661,25 @@ export default function ProfileSettingsPage() {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4 px-4 sm:px-0">
-        <div className="text-left">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Perfil
-          </h1>
-        </div>
+      <div className="flex flex-row items-center justify-between gap-2 border-b border-slate-100 dark:border-white/5 pb-3 px-4 sm:px-0">
+        <h1 className="text-base sm:text-2xl font-bold tracking-tight shrink-0">
+          Perfil do Usuário
+        </h1>
         
         {/* SISTEMA DE ABAS E BOTÃO TEMA */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+        <div className="flex items-center justify-end gap-2">
           <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
             <button
               onClick={() => setActiveTab("profile")}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "profile" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "profile" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
-              👤 Perfil & Saúde
+              👤 <span className="hidden sm:inline">Saúde</span><span className="sm:hidden">Perfil</span>
             </button>
             <button
               onClick={() => setActiveTab("data")}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === "data" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "data" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
-              ⚙️ Planilhas e Dados
+              ⚙️ <span className="hidden sm:inline">Imports</span><span className="sm:hidden">Dados</span>
             </button>
           </div>
 
@@ -709,7 +707,7 @@ export default function ProfileSettingsPage() {
           <div className={`bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                Cadstro
+                Dados Cadastrais
               </h3>
               <div className="flex items-center gap-2">
                 <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
@@ -808,7 +806,7 @@ export default function ProfileSettingsPage() {
             <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Saúde
+                  Saúde & Avaliações
                 </h3>
                 <button type="button"
                   onClick={() => {
