@@ -97,7 +97,9 @@ function inferDDI(digits: string): string {
 
 // Formata o número nacional por DDI
 function formatNational(ddi: string, nat: string): string {
-  const d = onlyDigits(nat);
+  let d = onlyDigits(nat);
+  // Usuário digitou "021..." em vez de "21..." — strip o zero inicial
+  if (ddi === "55" && d.startsWith("0")) d = d.slice(1);
   if (ddi === "55") {
     const area = d.slice(0, 2);
     const rest = d.slice(2);
@@ -131,6 +133,7 @@ function displayPhone(raw: string | null | undefined): string {
   }
 
   if (ddi === "55") {
+    if (national.startsWith("0")) national = national.slice(1);
     const ddd = national.slice(0, 2);
     const rest = national.slice(2);
     if (rest.length === 9) return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
@@ -462,8 +465,10 @@ function AgendaPageContent() {
     setEditForm(prev => {
       const phones = [...prev.phones];
       const p = phones[idx];
-      const digits = onlyDigits(p.national);
-      if (digits.length < 8) {
+      let digits = onlyDigits(p.national);
+    // Strip zero inicial para Brasil (ex: "021..." → "21...")
+    if (p.ddi === "55" && digits.startsWith("0")) digits = digits.slice(1);
+    if (digits.length < 8) {
         phones[idx] = { ...p, confirmed: false };
         return { ...prev, phones };
       }
