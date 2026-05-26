@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         if (tokenRes.ok) {
           const accessToken = tokenData.access_token;
           
-          // Manda o comando de exclusão para a API do Google
+          // Manda o comando de exclusão para a API do Google.
           await fetch(`https://people.googleapis.com/v1/${resourceName}:deleteContact`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${accessToken}` }
