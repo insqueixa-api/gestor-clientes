@@ -753,7 +753,8 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
 
       {/* SELEÇÃO EM MASSA */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0">
+        <div onClick={e => e.stopPropagation()} className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0">
+
   <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
   <div className="flex items-center gap-2">
   <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
@@ -765,8 +766,8 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
   {/* NOVO: Atribuir Grupo */}
   <div className="relative">
     <button
-      onClick={() => setShowGroupPopover(v => !v)}
-      disabled={isAssigningGroup}
+  onClick={e => { e.stopPropagation(); setShowGroupPopover(v => !v); }}
+  disabled={isAssigningGroup}
       className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
     >
       {isAssigningGroup ? (
