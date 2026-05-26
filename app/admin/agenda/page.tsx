@@ -347,8 +347,12 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
   }
 
   // ─── FILTROS & ORDENAÇÃO ───────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  useEffect(() => {
+  setSelectedIds(new Set());
+}, [search, labelFilter, emailLabelFilter]);
+
+const filtered = useMemo(() => {
+  const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return rows.filter(r => {
       if (labelFilter === "__SEM_GRUPO__") {
   const realLabels = (r.labels || []).filter(l => l && l.trim().length > 0);
@@ -387,18 +391,14 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   function setAllVisible(checked: boolean) {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      for (const r of visible) { if (checked) next.add(r.id); else next.delete(r.id); }
-      return next;
-    });
-  }
+  setSelectedIds(checked ? new Set(filtered.map(r => r.id)) : new Set());
+}
 
   useEffect(() => {
     const el = selectAllRef.current;
     if (!el) return;
-    const total = visible.length;
-    const sel = visible.filter(r => selectedIds.has(r.id)).length;
+    const total = filtered.length;
+const sel = filtered.filter(r => selectedIds.has(r.id)).length;
     el.indeterminate = sel > 0 && sel < total;
   }, [selectedIds, visible]);
 
@@ -758,7 +758,7 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={36}>
-                    <input ref={selectAllRef} type="checkbox" checked={visible.length > 0 && visible.every(r => selectedIds.has(r.id))} onChange={e => setAllVisible(e.target.checked)} className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+                    <input ref={selectAllRef} type="checkbox" checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))} onChange={e => setAllVisible(e.target.checked)} className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
                   </Th>
                   <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} width={200} />
                     <Th width={220}>Telefones</Th>
