@@ -720,7 +720,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1900px]">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={40}>
@@ -766,10 +766,10 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
                       <Td>
                         <div className="flex flex-col gap-1.5 py-2">
                           {rPhones.length > 0 ? rPhones.map(p => (
-                            <div key={p.id} className="text-[13px]">
-                              <span className="font-bold text-slate-500 dark:text-white/50">{p.label}: </span>
-                              <span className="font-mono font-bold text-slate-800 dark:text-white/90">{displayPhone(p.value)}</span>
-                            </div>
+                            <div key={p.id} className="text-[13px] whitespace-nowrap">
+  <span className="font-bold text-slate-500 dark:text-white/50">{p.label}: </span>
+  <span className="font-mono font-bold text-slate-800 dark:text-white/90">{displayPhone(p.value)}</span>
+</div>
                           )) : <span className="italic text-slate-400 text-xs">Sem telefone</span>}
                         </div>
                       </Td>
