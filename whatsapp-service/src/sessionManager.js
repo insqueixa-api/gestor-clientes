@@ -9,6 +9,20 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import pino from "pino";
 
+// Adiciona no topo do arquivo, após os imports:
+const processedCalls = new Map(); // callId -> timestamp
+
+function isCallAlreadyProcessed(callId) {
+  const now = Date.now();
+  // Limpa entradas antigas (> 2 minutos)
+  for (const [id, ts] of processedCalls.entries()) {
+    if (now - ts > 120_000) processedCalls.delete(id);
+  }
+  if (processedCalls.has(callId)) return true;
+  processedCalls.set(callId, now);
+  return false;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR = path.resolve(__dirname, "../auth");
 
@@ -408,42 +422,53 @@ if (connection === "open") {
   sock.ev.on("call", async (calls) => {
     for (const call of calls) {
       if (call.status !== "offer") continue;
+
+      // ✅ Deduplicação — ignora chamada já processada (evita replay na reconexão)
+      if (isCallAlreadyProcessed(call.id)) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Chamada ${call.id} já processada, ignorando`);
+        continue;
+      }
+
       const config = getSessionConfig(sessionKey);
       if (!config.rejectCalls) continue;
 
-// Verifica whitelist
+      // ✅ Resolve o JID real ANTES de qualquer operação
+      let callerJid = call.from;
       let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
-      const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
 
-      // Se for @lid, traduz para o número real usando nosso mapa (alimentado no saveConfig)
       if (call.from.includes("@lid")) {
         const map = lidPhoneMap.get(sessionKey);
         const resolvedPhone = map?.get(callerNumber);
-        
         if (resolvedPhone) {
-          console.log(`[WA][CALL_DEBUG] Identidade fantasma ${callerNumber} decodificada para telefone ${resolvedPhone}`);
           callerNumber = resolvedPhone;
+          callerJid = `${resolvedPhone}@s.whatsapp.net`;
+          console.log(`[WA][CALL_DEBUG] LID ${call.from} → ${callerJid}`);
+        } else {
+          console.log(`[WA][CALL_DEBUG] LID ${call.from} não resolvido — usando JID original`);
         }
       }
 
+      const allowed = (config.allowedNumbers || []).map(n => String(n).replace(/\D/g, ""));
       console.log(`[WA][CALL_DEBUG] from_raw=${call.from} callerNumber=${callerNumber} allowed=${JSON.stringify(allowed)}`);
-      
-      const isAllowed = allowed.includes(callerNumber);
-      
-      if (isAllowed) {
-  console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
-  continue;
-}
 
-try {
-  await sock.rejectCall(call.id, call.from);
-  console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+      if (allowed.includes(callerNumber)) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Chamada permitida de ${callerNumber}`);
+        continue;
+      }
 
-  const renderedMessage = renderRejectMessage(config.rejectMessage, call.from);
-  await sock.sendMessage(call.from, { text: renderedMessage });
-        console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${call.from}`);
+      try {
+        // Rejeita usando o JID original (rejectCall precisa do JID exato que chegou)
+        await sock.rejectCall(call.id, call.from);
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 📵 Chamada rejeitada de ${call.from}`);
+
+        // ✅ Envia mensagem para o JID resolvido (número real, não LID)
+        const renderedMessage = renderRejectMessage(config.rejectMessage, callerJid);
+        await sock.sendMessage(callerJid, { text: renderedMessage });
+        console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${callerJid}`);
       } catch (e) {
         console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao rejeitar chamada:`, e?.message);
+        // ✅ Remove do cache se falhou — permite tentar novamente se reemitido
+        processedCalls.delete(call.id);
       }
     }
   });
@@ -586,8 +611,23 @@ async function restoreExistingSessions() {
   }
 }
 
+// Adiciona função nova antes dos exports:
+async function getContactProfilePicture(sessionKey, jid) {
+  const sess = sessions.get(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    throw new Error("Sessão não conectada");
+  }
+  try {
+    const url = await sess.socket.profilePictureUrl(jid, "image");
+    return { url };
+  } catch (e) {
+    // Foto privada ou não existe
+    return { url: null };
+  }
+}
+
 export {
   createSession, disconnectSession, reconnectSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
-  getSessionConfig, updateSessionConfig, renderRejectMessage,
+  getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
 };
