@@ -351,7 +351,8 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
     const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return rows.filter(r => {
       if (labelFilter === "__SEM_GRUPO__") {
-  if (r.labels && r.labels.length > 0) return false;
+  const realLabels = (r.labels || []).filter(l => l && l.trim().length > 0);
+  if (realLabels.length > 0) return false;
 } else if (labelFilter !== "Todos") {
   if (!r.labels || !r.labels.includes(labelFilter)) return false;
 }if (labelFilter !== "Todos" && (!r.labels || !r.labels.includes(labelFilter))) return false;
@@ -824,11 +825,16 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
 
                       <Td align="center">
                         <div className="flex flex-wrap gap-1 justify-center max-w-[200px] mx-auto">
-                          {r.labels && r.labels.length > 0 ? r.labels.map(l => (
-                            <span key={l} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-white/75 border border-slate-200 dark:border-white/15">{l}</span>
-                          )) : <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>}
+                            {(r.labels || []).filter(l => l && l.trim()).length > 0
+                            ? (r.labels || []).filter(l => l && l.trim()).map(l => (
+                                <span key={l} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-white/75 border border-slate-200 dark:border-white/15">
+                                    {l}
+                                </span>
+                                ))
+                            : <span className="text-slate-300 dark:text-white/20 text-xs italic">—</span>
+                            }
                         </div>
-                      </Td>
+                        </Td>
 
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
