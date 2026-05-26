@@ -1195,13 +1195,12 @@ export default function ProfileSettingsPage() {
                         )}
                       </div>
 
+                      {/* ✅ Círculo — só foto de perfil, QR foi movido para baixo */}
                       <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-full bg-white dark:bg-[#161b22] border-4 border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center shadow-sm">
                         {waProfilePicUrl ? (
-                           <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : waQrDataUrl ? (
-                           <img src={waQrDataUrl} alt="QR Code" className="w-full h-full object-cover p-1" />
+                          <img src={waProfilePicUrl} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
-                           <span className="text-xl font-bold text-slate-300 dark:text-white/20">WA</span>
+                          <span className="text-xl font-bold text-slate-300 dark:text-white/20">WA</span>
                         )}
                       </div>
 
@@ -1220,6 +1219,14 @@ export default function ProfileSettingsPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* ✅ QR Code grande — aparece abaixo do card quando offline */}
+                    {waQrDataUrl && !waConnected && (
+                      <div className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/5">
+                        <img src={waQrDataUrl} alt="QR Code WhatsApp" className="w-52 h-52 rounded-xl object-contain" />
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold text-center">📱 Escaneie com o WhatsApp</p>
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
                       <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
@@ -1274,28 +1281,7 @@ export default function ProfileSettingsPage() {
         </div>
       )}
 
-      {showFinanceiroExportModal && (() => {
-        const currentYear = new Date().getFullYear();
-        const availableYears = [currentYear - 1, currentYear, currentYear + 1];
-        return (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-[#161b22] w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/10 p-6 space-y-4 text-left shadow-xl">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Filtros de Exportação Financeira</h3>
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/40">Anos disponíveis</span>
-                <div className="flex gap-2">
-                  {availableYears.map(y => (
-                    <button key={y} type="button" onClick={() => setFinExportYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])} className={`px-3 py-1.5 text-xs font-bold rounded border transition-colors ${finExportYears.includes(y) ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/50"}`}>{y}</button>
-                  ))}
-                </div>
-              </div>
-              <button type="button" onClick={() => void handleExportFinanceiro(finExportYears, finExportStatus)} className="w-full py-2 bg-emerald-600 font-bold rounded-lg text-white text-xs hover:bg-emerald-500 transition-colors">Confirmar e Baixar</button>
-              <button type="button" onClick={() => setShowFinanceiroExportModal(false)} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white/80">Cancelar</button>
-            </div>
-          </div>
-        );
-      })()}
-
+      
       {/* ============================================================================
           MODAL DE CONFIGURAÇÕES DE CHAMADA (SESSÃO 1) - TOTALMENTE REFEITO
          ============================================================================ */}
