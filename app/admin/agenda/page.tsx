@@ -273,7 +273,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // WA validation por phoneId
-  type WaValidation = { loading: boolean; exists: boolean; jid?: string } | null;
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null } | null;
+
   const [waValidations, setWaValidations] = useState<Record<string, WaValidation>>({});
   const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -295,8 +296,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: !!json.exists, jid: json.jid } }));
   // Auto-sync foto se WA ativo e contactId fornecido
   if (json.exists && json.jid && autoSyncContactId) {
-    setTimeout(() => handleSyncWaPhotoSilent(autoSyncContactId, json.jid), 300);
-  }
+  setTimeout(() => handleSyncWaPhotoSilent(autoSyncContactId, json.jid, phoneId), 300);
+}
 } catch {
       setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: false } }));
     }
@@ -515,6 +516,7 @@ async function handleMassSyncPhotos() {
   if (selectedIds.size === 0) return;
   setIsSyncingPhotos(true);
   let synced = 0, failed = 0;
+const failReasons: string[] = [];
   const selectedContacts = rows.filter(r => selectedIds.has(r.id));
 
   for (const contact of selectedContacts) {
@@ -534,12 +536,20 @@ async function handleMassSyncPhotos() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contact_id: contact.id, jid: vData.jid }),
       });
-      if (pRes.ok) synced++; else failed++;
+      if (pRes.ok) {
+  synced++;
+} else {
+  const errData = await pRes.json().catch(() => ({}));
+  failed++;
+  failReasons.push(errData.error || "erro desconhecido");
+}
       await new Promise(r => setTimeout(r, 250)); // evita rate limit
     } catch { failed++; }
   }
 
-  addToast("success", "Fotos sincronizadas", `${synced} atualizada(s)${failed > 0 ? `, ${failed} falharam` : ""}.`);
+  addToast("success", "Fotos sincronizadas",
+  `${synced} atualizada(s)${failed > 0 ? `, ${failed} falharam${failReasons[0] ? ` (${failReasons[0]})` : ""}` : ""}.`
+);
   setIsSyncingPhotos(false);
   loadData();
 }
@@ -623,7 +633,8 @@ waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyn
     }
   }
 
-  async function handleSyncWaPhotoSilent(contactId: string, jid: string) {
+  async function handleSyncWaPhotoSilent(contactId: string, jid: string, phoneId?: string) {
+  if (phoneId) setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, photoStatus: "loading" } }));
   try {
     const res = await fetch("/api/whatsapp/contact-photo", {
       method: "POST",
@@ -632,12 +643,14 @@ waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyn
     });
     const data = await res.json();
     if (res.ok && data.avatar_url) {
+      if (phoneId) setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, photoStatus: "synced" } }));
       setEditModal(prev => ({ ...prev, contact: prev.contact ? { ...prev.contact, avatar_url: data.avatar_url } : null }));
-      addToast("success", "Foto sincronizada", "Foto do WhatsApp aplicada automaticamente.");
       loadData();
+    } else {
+      if (phoneId) setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, photoStatus: "protected" } }));
     }
   } catch {
-    // Falha silenciosa — botão manual ainda disponível
+    if (phoneId) setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, photoStatus: "protected" } }));
   }
 }
 
@@ -1186,19 +1199,28 @@ waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyn
                                 Validando WA...
                               </>
                             ) : wa.exists ? (
-                              <>
-                                ✅ WhatsApp ativo
-                                {editModal.contact && (
-                                  <button
-                                    onClick={() => handleSyncWaPhoto(p.id, editModal.contact!.id)}
-                                    title="Buscar foto do WhatsApp"
-                                    className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-200 dark:hover:bg-emerald-500/25 transition-colors font-bold"
-                                  >
-                                    📸 Foto WA
-                                  </button>
-                                )}
-                              </>
-                            ) : (
+  <>
+    ✅ WhatsApp ativo
+    {wa.photoStatus === "loading" && (
+      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+        <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Buscando foto...
+      </span>
+    )}
+    {wa.photoStatus === "synced" && (
+      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">📸 Foto atualizada</span>
+    )}
+    {wa.photoStatus === "protected" && (
+      <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400">🔒 Foto protegida</span>
+    )}
+    {!wa.photoStatus && editModal.contact && (
+      <button onClick={() => handleSyncWaPhoto(p.id, editModal.contact!.id)} title="Buscar foto manualmente"
+        className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-200 dark:hover:bg-emerald-500/25 transition-colors font-bold">
+        📸 Foto WA
+      </button>
+    )}
+  </>
+) : (
                               <>❌ Não encontrado no WA</>
                             )}
                           </span>
