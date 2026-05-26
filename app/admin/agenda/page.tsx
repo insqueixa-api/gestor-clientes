@@ -218,6 +218,11 @@ const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
+  // Adiciona junto aos outros states:
+const [showGroupPopover, setShowGroupPopover] = useState(false);
+const [newGroupInput, setNewGroupInput] = useState("");
+const [isAssigningGroup, setIsAssigningGroup] = useState(false);
+
   const uniqueLabels = useMemo(
     () => Array.from(new Set(rows.flatMap(r => r.labels || []))).sort(),
     [rows]
@@ -308,6 +313,35 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
     addToast("warning", "Em desenvolvimento", `Sincronizando operadora para ${selectedIds.size} contatos.`);
     setSelectedIds(new Set());
   }
+
+  async function handleMassAssignGroup(label: string) {
+  if (!label.trim() || selectedIds.size === 0) return;
+  setIsAssigningGroup(true);
+  setShowGroupPopover(false);
+  setNewGroupInput("");
+  try {
+    const res = await fetch("/api/auth/google/bulk-add-label", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contact_ids: Array.from(selectedIds),
+        label: label.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      addToast("success", "Grupo atribuído", data.message);
+      if (data.errors?.length) addToast("warning", "Alguns erros", data.errors.slice(0, 3).join(" | "));
+      loadData();
+    } else {
+      addToast("error", "Erro ao atribuir grupo", data.error);
+    }
+  } catch (err: any) {
+    addToast("error", "Erro", err.message);
+  } finally {
+    setIsAssigningGroup(false);
+  }
+}
 
   // ─── EFEITOS ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -605,7 +639,7 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
   return (
     <div
       className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-[#0f141a] transition-colors"
-      onClick={() => setMsgMenuForId(null)}
+      onClick={() => { setMsgMenuForId(null); setShowGroupPopover(false); }}
     >
 
       {/* HEADER */}
@@ -722,23 +756,66 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
         <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 rounded-xl mb-4 animate-in slide-in-from-top-2 mx-3 sm:mx-0">
   <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
   <div className="flex items-center gap-2">
-    <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
-      Sincronizar Operadora
+  <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
+    Sincronizar Operadora
+  </button>
+  <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+    {isSyncingLabels ? (<><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Vinculando...</>) : (<>🔗 Vincular Servidor ({selectedIds.size})</>)}
+  </button>
+  {/* NOVO: Atribuir Grupo */}
+  <div className="relative">
+    <button
+      onClick={() => setShowGroupPopover(v => !v)}
+      disabled={isAssigningGroup}
+      className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+    >
+      {isAssigningGroup ? (
+        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Atribuindo...</>
+      ) : <>🏷️ Atribuir Grupo</>}
     </button>
-    <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
-  {isSyncingLabels ? (
-    <>
-      <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-      </svg>
-      Vinculando {selectedIds.size} contato(s)...
-    </>
-  ) : (
-    <>🔗 Vincular Servidor ({selectedIds.size})</>
-  )}
-</button>
+
+    {showGroupPopover && (
+      <div
+        onClick={e => e.stopPropagation()}
+        className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-50 p-3 space-y-2"
+      >
+        <p className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-wide">Grupos existentes</p>
+        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+          {uniqueLabels.filter(l => l && l.trim()).map(lbl => (
+            <button
+              key={lbl}
+              onClick={() => handleMassAssignGroup(lbl)}
+              className="text-[11px] px-2 py-0.5 rounded font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/70 border border-slate-200 dark:border-white/10 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <div className="border-t border-slate-200 dark:border-white/10 pt-2">
+          <p className="text-[11px] font-bold text-slate-500 dark:text-white/40 uppercase tracking-wide mb-1.5">Novo grupo</p>
+          <div className="flex gap-1.5">
+            <input
+              value={newGroupInput}
+              onChange={e => setNewGroupInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && newGroupInput.trim()) handleMassAssignGroup(newGroupInput); }}
+              placeholder="Nome do grupo..."
+              className="flex-1 h-8 px-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-black/20 text-slate-800 dark:text-white outline-none focus:border-amber-500"
+              autoFocus
+            />
+            <button
+              onClick={() => { if (newGroupInput.trim()) handleMassAssignGroup(newGroupInput); }}
+              disabled={!newGroupInput.trim()}
+              className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold disabled:opacity-40 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
+</div>
+
 </div>
       )}
 
