@@ -355,7 +355,7 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
   if (realLabels.length > 0) return false;
 } else if (labelFilter !== "Todos") {
   if (!r.labels || !r.labels.includes(labelFilter)) return false;
-}if (labelFilter !== "Todos" && (!r.labels || !r.labels.includes(labelFilter))) return false;
+}
       if (emailLabelFilter !== "Todos") {
         const eLbls = getEmailsArray(r).map(e => e.label);
         if (!eLbls.includes(emailLabelFilter)) return false;
