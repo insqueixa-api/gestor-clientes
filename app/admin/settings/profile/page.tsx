@@ -916,90 +916,133 @@ export default function ProfileSettingsPage() {
                 )}
               </div>
 
-              {chartData.length > 1 && (
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3">
-                  <Label>Quadro de Evolução (Peso x Tempo)</Label>
-                  <div className="w-full h-40 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl relative p-4 flex flex-col justify-end">
-                    {(() => {
-                      const maxW = Math.max(...chartData.map(d => d.weight)) + 2;
-                      const minW = Math.min(...chartData.map(d => d.weight)) - 2;
-                      const range = maxW - minW;
-                      
-                      const points = chartData.map((d, i) => {
-                        const x = (i / (chartData.length - 1)) * 100;
-                        const y = 100 - (((d.weight - minW) / range) * 100);
-                        return { x, y, data: d };
-                      });
+              {chartData.length > 1 && (() => {
+                const PAD_L = 48;
+                const COL_W = 64;
+                const ROW_H = 72;
+                const DATE_H = 26;
+                const W = PAD_L + COL_W * chartData.length;
+                const H = ROW_H * 2 + DATE_H;
 
-                      const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+                const xs = chartData.map((_, i) => PAD_L + COL_W * i + COL_W / 2);
 
-                      // IMC scale separada (eixo Y secundário normalizado)
-                      const validImcs = chartData.filter(d => d.imc > 0).map(d => d.imc);
-                      const imcMin = validImcs.length ? Math.min(...validImcs) - 1 : 0;
-                      const imcMax = validImcs.length ? Math.max(...validImcs) + 1 : 30;
-                      const imcRange = imcMax - imcMin || 1;
-                      const imcPoints = validImcs.length >= 2
-                        ? chartData
-                            .filter(d => d.imc > 0)
-                            .map((d, i) => ({
-                              x: (chartData.indexOf(d) / (chartData.length - 1)) * 100,
-                              y: 100 - (((d.imc - imcMin) / imcRange) * 100),
-                            }))
-                        : [];
-                      const imcPolyline = imcPoints.map(p => `${p.x},${p.y}`).join(" ");
+                const normalizeRow = (vals: number[], top: number) => {
+                  const min = Math.min(...vals);
+                  const max = Math.max(...vals);
+                  const range = max - min || 1;
+                  return vals.map(v => top + ROW_H * 0.18 + (1 - (v - min) / range) * ROW_H * 0.62);
+                };
 
-                      return (
-                        <div className="w-full h-full relative">
-                          <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                            {/* Linha de peso */}
-                            <polyline points={polylinePoints} fill="none" stroke="#10b981" strokeWidth="2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                            {/* Linha de IMC tracejada */}
-                            {imcPoints.length >= 2 && (
-                              <polyline points={imcPolyline} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.65" vectorEffect="non-scaling-stroke" />
-                            )}
-                            {points.map((p, i) => (
-                              <g key={i}>
-                                <circle
-                                  cx={`${p.x}%`} cy={`${p.y}%`} r="4"
-                                  fill="white"
-                                  stroke={getImcStrokeColor(p.data.imc)}
-                                  strokeWidth="2"
-                                />
-                                {(i === 0 || i === points.length - 1) && (
-                                  <text x={`${p.x}%`} y={`${p.y}%`} dy="-10"
-                                    textAnchor={i === 0 ? "start" : "end"}
-                                    fontSize="9" fill="currentColor" fillOpacity="0.65">
-                                    {p.data.weight}kg
-                                  </text>
-                                )}
-                              </g>
-                            ))}
-                          </svg>
-                          {/* Rodapé do gráfico */}
-                          <div className="flex items-center justify-between mt-1 pt-1">
-                            <span className="text-[9px] text-slate-400 font-mono">
-                              {new Date(chartData[0].date + "T12:00:00").toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })}
-                            </span>
-                            <div className="flex items-center gap-3 text-[9px] text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <span className="w-3 h-0.5 bg-emerald-500 rounded inline-block" /> Peso
-                              </span>
-                              {imcPoints.length >= 2 && (
-                                <span className="flex items-center gap-1">
-                                  <span className="w-3 h-0.5 bg-amber-500 rounded inline-block" /> IMC
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-mono">
-                              {new Date(chartData[chartData.length - 1].date + "T12:00:00").toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                const weights = chartData.map(d => d.weight);
+                const hasImc = chartData.every(d => d.imc > 0);
+                const imcs = chartData.map(d => d.imc);
+
+                const wYs = normalizeRow(weights, 0);
+                const iYs = hasImc ? normalizeRow(imcs, ROW_H) : [];
+
+                const segColor = (a: number, b: number) =>
+                  Math.abs(a - b) < 0.05 ? "#94a3b8" : b < a ? "#10b981" : "#f43f5e";
+
+                const dotColor = (vals: number[], i: number) =>
+                  i === 0 ? "#94a3b8" : segColor(vals[i - 1], vals[i]);
+
+                const fmtDate = (d: string) => {
+                  const [y, m, day] = d.split("-");
+                  return `${day}/${m}`;
+                };
+
+                return (
+                  <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+                    <Label>Histórico de Composição</Label>
+                    <div className="mt-2 w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20">
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ minWidth: `${W}px`, height: `${H}px`, display: "block" }}>
+
+                        {/* Fundo alternado das linhas */}
+                        <rect x={0} y={0} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.03" />
+                        <rect x={0} y={ROW_H} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.015" />
+
+                        {/* Separadores horizontais */}
+                        <line x1={PAD_L} y1={ROW_H} x2={W} y2={ROW_H} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+                        <line x1={PAD_L} y1={ROW_H * 2} x2={W} y2={ROW_H * 2} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+
+                        {/* Separadores verticais tracejados */}
+                        {chartData.map((_, i) => i > 0 && (
+                          <line key={i}
+                            x1={PAD_L + COL_W * i} y1={0}
+                            x2={PAD_L + COL_W * i} y2={ROW_H * 2 + DATE_H}
+                            stroke="currentColor" strokeOpacity="0.07" strokeWidth="1" strokeDasharray="3,3" />
+                        ))}
+
+                        {/* Labels das linhas */}
+                        <text x={PAD_L - 5} y={ROW_H / 2 - 5} textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.55" fontWeight="bold">Peso</text>
+                        <text x={PAD_L - 5} y={ROW_H / 2 + 7} textAnchor="end" fontSize="8" fill="currentColor" fillOpacity="0.35">(kg)</text>
+                        {hasImc && <>
+                          <text x={PAD_L - 5} y={ROW_H + ROW_H / 2 - 5} textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.55" fontWeight="bold">IMC</text>
+                        </>}
+
+                        {/* Linhas de Peso */}
+                        {chartData.slice(1).map((_, i) => (
+                          <line key={i}
+                            x1={xs[i]} y1={wYs[i]} x2={xs[i + 1]} y2={wYs[i + 1]}
+                            stroke={segColor(weights[i], weights[i + 1])}
+                            strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+                        ))}
+
+                        {/* Linhas de IMC */}
+                        {hasImc && chartData.slice(1).map((_, i) => (
+                          <line key={i}
+                            x1={xs[i]} y1={iYs[i]} x2={xs[i + 1]} y2={iYs[i + 1]}
+                            stroke={segColor(imcs[i], imcs[i + 1])}
+                            strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                        ))}
+
+                        {/* Pontos + Valores de Peso */}
+                        {chartData.map((d, i) => (
+                          <g key={i}>
+                            <circle cx={xs[i]} cy={wYs[i]} r="4.5"
+                              fill="white" stroke={dotColor(weights, i)} strokeWidth="2" />
+                            <text x={xs[i]} y={wYs[i] - 9} textAnchor="middle"
+                              fontSize="9.5" fill="currentColor" fillOpacity="0.85" fontWeight="bold">
+                              {d.weight}
+                            </text>
+                          </g>
+                        ))}
+
+                        {/* Pontos + Valores de IMC */}
+                        {hasImc && chartData.map((d, i) => (
+                          <g key={i}>
+                            <circle cx={xs[i]} cy={iYs[i]} r="3.5"
+                              fill="white" stroke={dotColor(imcs, i)} strokeWidth="1.5" />
+                            <text x={xs[i]} y={iYs[i] - 7} textAnchor="middle"
+                              fontSize="8.5" fill="currentColor" fillOpacity="0.75">
+                              {d.imc}
+                            </text>
+                          </g>
+                        ))}
+
+                        {/* Datas */}
+                        {chartData.map((d, i) => (
+                          <text key={i} x={xs[i]} y={ROW_H * 2 + DATE_H - 7}
+                            textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.4">
+                            {fmtDate(d.date)}
+                          </text>
+                        ))}
+
+                        {/* Legenda */}
+                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + 6})`}>
+                          <circle cx="5" cy="4" r="3" fill="white" stroke="#10b981" strokeWidth="1.5" />
+                          <text x="12" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Caiu</text>
+                          <circle cx="38" cy="4" r="3" fill="white" stroke="#f43f5e" strokeWidth="1.5" />
+                          <text x="45" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Subiu</text>
+                          <circle cx="70" cy="4" r="3" fill="white" stroke="#94a3b8" strokeWidth="1.5" />
+                          <text x="77" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Estável</text>
+                        </g>
+
+                      </svg>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           ) : (
             <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
