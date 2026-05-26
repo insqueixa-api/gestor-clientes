@@ -18,14 +18,10 @@ export function DashboardFilter({
 
   function toggle(key: string) {
     const isActive = currentViews.includes(key);
-    let next: string[];
-    if (isActive) {
-      next = currentViews.filter(v => v !== key);
-    } else {
-      next = [...currentViews, key];
-    }
+    const next = isActive
+      ? currentViews.filter(v => v !== key)
+      : [...currentViews, key];
 
-    // Não permite desabilitar tudo (pelo menos 1 ativo)
     if (next.length === 0) return;
 
     if (next.length === availableModules.length) {
@@ -36,7 +32,7 @@ export function DashboardFilter({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/5">
       {availableModules.map(key => {
         const active = currentViews.includes(key);
         const meta = MODULES_META[key] ?? { label: key, icon: "❓" };
@@ -44,20 +40,14 @@ export function DashboardFilter({
           <button
             key={key}
             onClick={() => toggle(key)}
-            className={`flex items-center gap-2 h-9 px-3 rounded-lg border text-sm font-bold transition-all shadow-sm ${
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               active
-                ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600"
-                : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/10"
+                ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm"
+                : "text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80"
             }`}
-            title={active ? `Ocultar ${meta.label}` : `Mostrar ${meta.label}`}
           >
             <span>{meta.icon}</span>
             <span>{meta.label}</span>
-            {active && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            )}
           </button>
         );
       })}
