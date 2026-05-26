@@ -673,13 +673,13 @@ export default function ProfileSettingsPage() {
               onClick={() => setActiveTab("profile")}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "profile" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
-              👤 <span className="hidden sm:inline">Saúde</span><span className="sm:hidden">Perfil</span>
+              👤 <span className="hidden sm:inline">Perfil &amp; Saúde</span><span className="sm:hidden">Saúde</span>
             </button>
             <button
               onClick={() => setActiveTab("data")}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${activeTab === "data" ? "bg-white dark:bg-[#161b22] text-emerald-600 dark:text-white shadow-sm" : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white/80"}`}
             >
-              ⚙️ <span className="hidden sm:inline">Imports</span><span className="sm:hidden">Dados</span>
+              ⚙️ <span className="hidden sm:inline">Importação &amp; Exportação</span><span className="sm:hidden">Imports</span>
             </button>
           </div>
 
@@ -707,7 +707,7 @@ export default function ProfileSettingsPage() {
           <div className={`bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                Dados Cadastrais
+                Dados Cadastrais 
               </h3>
               <div className="flex items-center gap-2">
                 <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
@@ -806,7 +806,7 @@ export default function ProfileSettingsPage() {
             <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Saúde & Avaliações
+                  Saúde &amp; Avaliações
                 </h3>
                 <button type="button"
                   onClick={() => {
@@ -1004,7 +1004,9 @@ export default function ProfileSettingsPage() {
           ) : (
             <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Carregamento em massa</h3>
+                <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                  Importação &amp; Exportação de Dados
+                </h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1015,7 +1017,7 @@ export default function ProfileSettingsPage() {
                   📄 Baixar Templates
                 </button>
                 <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  ⬆️ Importar Cargas
+                  ⬆️ Importar Registros
                 </button>
               </div>
 
