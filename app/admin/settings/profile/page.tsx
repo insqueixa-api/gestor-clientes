@@ -664,7 +664,7 @@ export default function ProfileSettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
         <div className="text-left">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Configurações da Conta
+            Perfil
           </h1>
         </div>
         

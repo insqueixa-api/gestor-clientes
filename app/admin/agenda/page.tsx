@@ -228,7 +228,8 @@ function AgendaPageContent() {
     [rows]
   );
 
-  const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || birthdayMonthFilter !== null;
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || birthdayMonthFilter !== null;
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -591,57 +592,112 @@ function AgendaPageContent() {
       </div>
 
       {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm flex flex-col gap-2 mb-4 z-20">
-        {/* Linha 1: busca + grupo */}
-        <div className="flex flex-col md:flex-row gap-2">
-          <div className="flex-1">
-            <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Pesquisar por nome, telefone ou email..."
-              className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20"
-            />
-          </div>
-          <select
-            value={labelFilter}
-            onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-            className="h-10 px-3 w-full md:w-auto bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
-          >
-            <option value="Todos">Grupo (Todos)</option>
-            {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-          </select>
-        </div>
+      <div className="px-3 md:p-4 bg-transparent md:bg-white md:dark:bg-[#161b22] border-0 md:border md:border-slate-200 md:dark:border-white/10 rounded-none md:rounded-xl shadow-none md:shadow-sm mb-4 z-20">
+  {/* UMA linha no desktop, busca + botão filtros no mobile */}
+  <div className="flex gap-2 items-center">
+    <div className="flex-1">
+      <input
+        value={search}
+        onChange={e => { setSearch(e.target.value); setPage(1); }}
+        placeholder="Pesquisar por nome, telefone ou email..."
+        className="w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20"
+      />
+    </div>
 
-        {/* Linha 2: filtros secundários */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <select
-            value={emailLabelFilter}
-            onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-600 dark:text-white"
-          >
-            <option value="Todos">📧 E-mail (Todos)</option>
-            {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-          </select>
+    {/* Filtros inline — visíveis só no desktop */}
+    <div className="hidden md:flex items-center gap-2">
+      <select
+        value={labelFilter}
+        onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">Grupo (Todos)</option>
+        {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
 
-          <select
-            value={birthdayMonthFilter ?? ""}
-            onChange={e => { setBirthdayMonthFilter(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
-            className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-xs text-slate-600 dark:text-white"
-          >
-            <option value="">🎂 Aniversário (Todos)</option>
-            {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-          </select>
+      <select
+        value={emailLabelFilter}
+        onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">📧 E-mail (Todos)</option>
+        {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
 
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setBirthdayMonthFilter(null); setPage(1); }}
-              className="h-9 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
-            >
-              ✕ Limpar filtros
-            </button>
-          )}
-        </div>
-      </div>
+      <select
+        value={birthdayMonthFilter ?? ""}
+        onChange={e => { setBirthdayMonthFilter(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="">🎂 Aniversário (Todos)</option>
+        {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+      </select>
+
+      {hasActiveFilters && (
+        <button
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setBirthdayMonthFilter(null); setPage(1); }}
+          className="h-10 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
+        >
+          ✕ Limpar
+        </button>
+      )}
+    </div>
+
+    {/* Botão filtros — só no mobile */}
+    <button
+      onClick={() => setShowMobileFilters(v => !v)}
+      className={`md:hidden h-10 px-3 rounded-lg border text-sm font-bold transition-colors flex items-center gap-1.5 ${
+        hasActiveFilters
+          ? "bg-amber-500 text-white border-amber-500"
+          : "bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/10 text-slate-600 dark:text-white"
+      }`}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+      {hasActiveFilters ? "Filtros ●" : "Filtros"}
+    </button>
+  </div>
+
+  {/* Painel expandido no mobile */}
+  {showMobileFilters && (
+    <div className="md:hidden flex flex-col gap-2 mt-2 animate-in slide-in-from-top-2">
+      <select
+        value={labelFilter}
+        onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">Grupo (Todos)</option>
+        {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
+
+      <select
+        value={emailLabelFilter}
+        onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">📧 E-mail (Todos)</option>
+        {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
+
+      <select
+        value={birthdayMonthFilter ?? ""}
+        onChange={e => { setBirthdayMonthFilter(e.target.value ? parseInt(e.target.value) : null); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="">🎂 Aniversário (Todos)</option>
+        {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+      </select>
+
+      {hasActiveFilters && (
+        <button
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setBirthdayMonthFilter(null); setPage(1); }}
+          className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
+        >
+          ✕ Limpar filtros
+        </button>
+      )}
+    </div>
+  )}
+</div>
 
       {/* SELEÇÃO EM MASSA */}
       {selectedIds.size > 0 && (
