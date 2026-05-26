@@ -3,15 +3,32 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-function normalizePhone(raw: string | null | undefined) {
+// 🚀 O NOVO FORMATADOR INTELIGENTE (0XX XXXXX-XXXX)
+function formatPhone(raw: string | null | undefined) {
   if (!raw) return null;
-  let digits = raw.replace(/\D+/g, "");
-  if (!digits) return null;
-  if (raw.trim().startsWith("+")) return "+" + digits;
-  if (digits.startsWith("55") && digits.length >= 12) return "+" + digits;
-  // 🔥 MÁGICA 1: Arranca o ZERO do DDD se a pessoa digitar (ex: 021 vira 21)
-  if (digits.startsWith("0")) digits = digits.substring(1);
-  return "+55" + digits;
+  let clean = raw.replace(/\D+/g, "");
+  if (!clean) return raw;
+
+  const hasPlus = raw.trim().startsWith("+");
+  if (hasPlus) {
+    if (clean.startsWith("55") && clean.length >= 12) {
+      clean = clean.substring(2); // Arranca o 55 para formatar padrão Brasil
+    } else {
+      return "+" + clean; // Se for outro país (+1, +351), mantém intocável
+    }
+  }
+
+  // Tira o zero da frente se a pessoa digitou 021
+  if (clean.startsWith("0")) clean = clean.substring(1);
+
+  // Formata Celular (11 dígitos) ou Fixo (10 dígitos)
+  if (clean.length === 11) {
+    return `0${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`;
+  } else if (clean.length === 10) {
+    return `0${clean.substring(0, 2)} ${clean.substring(2, 6)}-${clean.substring(6)}`;
+  }
+  
+  return raw; // Fallback: Salva como digitou se for estranho
 }
 
 function getGoogleLabel(label: string, defaultType: string) {
@@ -21,7 +38,7 @@ function getGoogleLabel(label: string, defaultType: string) {
   if (["trabalho", "work", "empresa"].includes(low)) return { type: "work" };
   if (["celular", "mobile"].includes(low)) return { type: "mobile" };
   if (["pessoal", "other", "outro"].includes(low)) return { type: "other" };
-  // 🔥 MÁGICA 2: O Google aceita o rótulo direto no 'type'
+  // 🚀 O SEGREDO DO GOOGLE: Aceita a operadora direto no type
   return { type: label };
 }
 
@@ -66,7 +83,7 @@ export async function POST(req: Request) {
 
       for (const lbl of labels) {
         const cleanLbl = lbl.trim();
-        if (cleanLbl.toLowerCase() === "mycontacts") continue; // Ignora o myContacts limpo
+        if (cleanLbl.toLowerCase() === "mycontacts") continue;
 
         let found = existingGroups.find((g: any) => g.name === cleanLbl || g.formattedName === cleanLbl);
         if (!found) {
@@ -84,7 +101,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Mantém o myContacts invisível para o Google não arquivar o contato
     if (personCurrentData.memberships) {
       const hasMyContacts = personCurrentData.memberships.some((m: any) => m.contactGroupMembership?.contactGroupResourceName === "contactGroups/myContacts");
       if (hasMyContacts) {
@@ -93,11 +109,14 @@ export async function POST(req: Request) {
       }
     }
 
+    // Formata TODOS os telefones antes de enviar pro Google
+    const formattedPhones = (phones || []).map((p: any) => ({ label: p.label, value: formatPhone(p.value) }));
+
     const googlePayload: any = {
       etag: etag,
       names: [{ givenName: display_name || "Sem Nome" }],
       emailAddresses: (emails || []).map((e: any) => ({ value: e.value, ...getGoogleLabel(e.label, "other") })),
-      phoneNumbers: (phones || []).map((p: any) => ({ value: normalizePhone(p.value), ...getGoogleLabel(p.label, "mobile") })),
+      phoneNumbers: formattedPhones.map((p: any) => ({ value: p.value, ...getGoogleLabel(p.label, "mobile") })),
       memberships: finalMemberships
     };
 
@@ -112,30 +131,40 @@ export async function POST(req: Request) {
       throw new Error(`Google API: ${errData.error?.message}`);
     }
 
-    // 🔥 MÁGICA 3: Pega o link da foto nova que o Google gerou e salva
+    // 🚀 BUSCA FORÇADA DA FOTO NOVA
     let finalAvatarUrl = null;
     if (photo_base64 && photo_base64.includes("base64,")) {
-      const base64Data = photo_base64.split(",");
+      const base64Data = photo_base64.split(",")[1];
       const photoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ photoBytes: base64Data })
+
       });
+      
       if (photoRes.ok) {
-        const photoData = await photoRes.json();
-        if (photoData.person?.photos?.[0]?.url) {
-          finalAvatarUrl = photoData.person.photos[0].url;
-        }
+         const getPhotoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=photos`, {
+           headers: { Authorization: `Bearer ${accessToken}` }
+         });
+         if (getPhotoRes.ok) {
+            const freshData = await getPhotoRes.json();
+            if (freshData.photos?.[ 0 ]?.url) finalAvatarUrl = freshData.photos[ 0 ].url;
+            }
+         }
       }
-    }
+    
 
     // Salva no banco local
     const updateData: any = {
-      display_name, phones, emails, labels,
-      phone_e164: phones && phones.length > 0 ? normalizePhone(phones.value) : null,
+      display_name, 
+      phones: formattedPhones, 
+      emails, 
+      labels,
+      phone_e164: formattedPhones.length > 0 ? formattedPhones[0].value.replace(/\D/g, "") : null,
+
       synced_at: new Date().toISOString()
     };
-    if (finalAvatarUrl) updateData.avatar_url = finalAvatarUrl; // Aplica a foto nova no Supabase
+    if (finalAvatarUrl) updateData.avatar_url = finalAvatarUrl;
 
     await supabase.from("google_contacts").update(updateData).eq("id", id).eq("tenant_id", tenantId);
 

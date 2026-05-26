@@ -573,13 +573,13 @@ export default function AppManagerPage() {
             let familyIcon = "⚡";
 
             if (family === "GERENCIAAPP") {
-              familyName = "GerenciaApp (IBO Revenda, etc)";
+              familyName = "GerenciaApp";
             } else if (family === "IBOSOL") {
               familyName = "IBO Sol";
             } else if (family === "OUTRAS_INTEGRACOES") {
-              familyName = "Outras Integrações (Individuais)";
+              familyName = "Outras Integrações";
             } else if (family === "SEM_INTEGRACAO") {
-              familyName = "Outros (Sem Integração Automática)";
+              familyName = "Sem Integração";
               familyIcon = "📁";
             } else {
               familyName = family;

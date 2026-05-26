@@ -3,14 +3,28 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-function normalizePhone(raw: string | null | undefined) {
+function formatPhone(raw: string | null | undefined) {
   if (!raw) return null;
-  let digits = raw.replace(/\D+/g, "");
-  if (!digits) return null;
-  if (raw.trim().startsWith("+")) return "+" + digits;
-  if (digits.startsWith("55") && digits.length >= 12) return "+" + digits;
-  if (digits.startsWith("0")) digits = digits.substring(1);
-  return "+55" + digits;
+  let clean = raw.replace(/\D+/g, "");
+  if (!clean) return raw;
+
+  const hasPlus = raw.trim().startsWith("+");
+  if (hasPlus) {
+    if (clean.startsWith("55") && clean.length >= 12) {
+      clean = clean.substring(2);
+    } else {
+      return "+" + clean; 
+    }
+  }
+
+  if (clean.startsWith("0")) clean = clean.substring(1);
+
+  if (clean.length === 11) {
+    return `0${clean.substring(0, 2)} ${clean.substring(2, 7)}-${clean.substring(7)}`;
+  } else if (clean.length === 10) {
+    return `0${clean.substring(0, 2)} ${clean.substring(2, 6)}-${clean.substring(6)}`;
+  }
+  return raw;
 }
 
 function getGoogleLabel(label: string, defaultType: string) {
@@ -74,10 +88,12 @@ export async function POST(req: Request) {
       }
     }
 
+    const formattedPhones = (phones || []).map((p: any) => ({ label: p.label, value: formatPhone(p.value) }));
+
     const googlePayload: any = {
       names: [{ givenName: display_name || "Sem Nome" }],
       emailAddresses: (emails || []).map((e: any) => ({ value: e.value, ...getGoogleLabel(e.label, "other") })),
-      phoneNumbers: (phones || []).map((p: any) => ({ value: normalizePhone(p.value), ...getGoogleLabel(p.label, "mobile") })),
+      phoneNumbers: formattedPhones.map((p: any) => ({ value: p.value, ...getGoogleLabel(p.label, "mobile") })),
       memberships: finalMemberships
     };
 
@@ -86,7 +102,6 @@ export async function POST(req: Request) {
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(googlePayload),
     });
-    
     if (!createRes.ok) throw new Error(`Erro ao criar contato no Google`);
 
     const newContact = await createRes.json();
@@ -94,25 +109,29 @@ export async function POST(req: Request) {
 
     let finalAvatarUrl = null;
     if (photo_base64 && photo_base64.includes("base64,")) {
-      const base64Data = photo_base64.split(",");
+      const base64Data = photo_base64.split(",")[ 1 ];
       const photoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ photoBytes: base64Data })
       });
       if (photoRes.ok) {
-        const photoData = await photoRes.json();
-        if (photoData.person?.photos?.[0]?.url) {
-          finalAvatarUrl = photoData.person.photos[0].url;
-        }
+         const getPhotoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=photos`, { headers: { Authorization: `Bearer ${accessToken}` } });
+         if (getPhotoRes.ok) {
+            const freshData = await getPhotoRes.json();
+            if (freshData.photos?.[0]?.url) finalAvatarUrl = freshData.photos[ 0 ].url;
+         }
       }
     }
 
     await supabase.from("google_contacts").insert({
       tenant_id: tenantId,
       google_resource_name: google_resource_name,
-      display_name, phones, emails, labels,
-      phone_e164: phones && phones.length > 0 ? normalizePhone(phones.value) : null,
+      display_name, 
+      phones: formattedPhones, 
+      emails, 
+      labels,
+      phone_e164: formattedPhones.length > 0 ? formattedPhones[ 0 ].value.replace(/\D/g, "") : null,
       avatar_url: finalAvatarUrl,
       synced_at: new Date().toISOString()
     });

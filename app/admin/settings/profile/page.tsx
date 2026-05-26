@@ -150,8 +150,7 @@ type HealthRecord = {
   id: string;
   date: string;
   weight: number;
-  height: number;
-  imc: number;
+  imc: number; // calculado com profileHeight
 };
 
 // ============================================================================
@@ -176,11 +175,13 @@ export default function ProfileSettingsPage() {
   const [waUserTouched, setWaUserTouched] = useState(false);
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
+  const [profileHeight, setProfileHeight] = useState(""); // ex: "1.75"
+  const [editingHealthId, setEditingHealthId] = useState<string | null>(null);
 
   // Métricas de Saúde (Histórico)
   const [healthHistory, setHealthHistory] = useState<HealthRecord[]>([]);
   const [showHealthForm, setShowHealthForm] = useState(false);
-  const [newHealthEntry, setNewHealthEntry] = useState({ date: new Date().toISOString().split("T")[0], weight: "", height: "" });
+  const [newHealthEntry, setNewHealthEntry] = useState({ date: new Date().toISOString().split("T")[0], weight: "" });
 
   const [whatsappSessions, setWhatsappSessions] = useState(1);
 
@@ -270,13 +271,10 @@ export default function ProfileSettingsPage() {
           setWhatsappSessions(profile.whatsapp_sessions || 1);
           setBirthDate(profile.birth_date || "");
           setGender(profile.gender || "");
+          setProfileHeight(profile.height ? String(profile.height) : "");
           
           if (profile.health_history) {
             setHealthHistory(profile.health_history);
-            if (profile.health_history.length > 0) {
-              const lastHeight = profile.health_history[profile.health_history.length - 1].height;
-              setNewHealthEntry(prev => ({ ...prev, height: String(lastHeight) }));
-            }
           }
           
           if (profile.phone) {
@@ -379,6 +377,7 @@ export default function ProfileSettingsPage() {
           whatsapp_sessions: whatsappSessions,
           birth_date: birthDate,
           gender: gender,
+          height: profileHeight ? parseFloat(profileHeight) : null,
           health_history: healthHistory,
           updated_at: new Date().toISOString()
         });
@@ -398,32 +397,35 @@ export default function ProfileSettingsPage() {
   // --- LÓGICA DE SAÚDE ---
   function handleAddHealthEntry() {
     const w = parseFloat(newHealthEntry.weight);
-    const h = parseFloat(newHealthEntry.height);
-    if (!w || !h || !newHealthEntry.date) {
-      addToast("error", "Erro", "Preencha data, peso e altura válidos.");
+    if (!w || !newHealthEntry.date) {
+      addToast("error", "Erro", "Preencha a data e o peso.");
       return;
     }
-    const imc = parseFloat((w / (h * h)).toFixed(1));
-    const newRecord: HealthRecord = {
-      id: Date.now().toString(),
-      date: newHealthEntry.date,
-      weight: w,
-      height: h,
-      imc
-    };
-    
-    setHealthHistory(prev => {
-      const updated = [...prev, newRecord].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      return updated;
-    });
-    setNewHealthEntry(prev => ({ ...prev, weight: "" })); 
+    const h = parseFloat(profileHeight);
+    const imc = h > 0 ? parseFloat((w / (h * h)).toFixed(1)) : 0;
+
+    if (editingHealthId) {
+      setHealthHistory(prev =>
+        prev.map(r => r.id === editingHealthId ? { ...r, date: newHealthEntry.date, weight: w, imc } : r)
+      );
+      setEditingHealthId(null);
+    } else {
+      const newRecord: HealthRecord = { id: Date.now().toString(), date: newHealthEntry.date, weight: w, imc };
+      setHealthHistory(prev =>
+        [...prev, newRecord].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      );
+    }
+    setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" });
     setShowHealthForm(false);
-    if(!isEditing) setIsEditing(true); 
+    if (!isEditing) setIsEditing(true);
   }
 
-  function handleDeleteHealthRecord(id: string) {
+  async function handleDeleteHealthRecord(id: string) {
+    const ok = await confirm({ title: "Excluir avaliação?", subtitle: "Este registro será removido permanentemente.", tone: "rose", confirmText: "Excluir", cancelText: "Cancelar" });
+    if (!ok) return;
     setHealthHistory(prev => prev.filter(r => r.id !== id));
-    if(!isEditing) setIsEditing(true);
+    if (!isEditing) setIsEditing(true);
+    addToast("success", "Registro removido");
   }
 
   const sortedHistory = [...healthHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
@@ -450,6 +452,13 @@ export default function ProfileSettingsPage() {
     return "text-rose-500";
   };
 
+  const getImcStrokeColor = (imc: number) => {
+    if (imc <= 0) return "#94a3b8";
+    if (imc < 18.5) return "#f59e0b";
+    if (imc < 25) return "#10b981";
+    if (imc < 30) return "#f59e0b";
+    return "#f43f5e";
+  };
 
   // --- WHATSAPP CONFIGS VM SESSÃO 1 ---
   async function fetchWaStatus() {
@@ -567,6 +576,7 @@ export default function ProfileSettingsPage() {
       } else {
         setWaQrDataUrl(null);
       }
+      if (showVisualLoading) addToast("success", "Sincronizado", "Instância 1 offline.");
     } finally {
       if (showVisualLoading) setWaLoading(false);
     }
@@ -764,21 +774,28 @@ export default function ProfileSettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               <div>
-                <Label>Data de Nascimento</Label>
-                <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} readOnly={!isEditing} onFocus={() => setIsEditing(true)} />
+                <Label>Nascimento</Label>
+                <Input type="date" value={birthDate}
+                  onChange={(e) => { setBirthDate(e.target.value); if (!isEditing) setIsEditing(true); }}
+                  readOnly={!isEditing} />
               </div>
               <div>
-                <Label>Sexo Biológico</Label>
-                <select 
-                  value={gender} 
-                  onChange={(e) => setGender(e.target.value)} 
-                  disabled={!isEditing} 
-                  onFocus={() => setIsEditing(true)}
-                  className="w-full h-11 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                <Label>Altura (m)</Label>
+                <Input type="number" step="0.01" min="1" max="2.5" value={profileHeight}
+                  onChange={(e) => { setProfileHeight(e.target.value); if (!isEditing) setIsEditing(true); }}
+                  placeholder="1.75" readOnly={!isEditing} />
+              </div>
+              <div>
+                <Label>Sexo</Label>
+                <select
+                  value={gender}
+                  onChange={(e) => { setGender(e.target.value); if (!isEditing) setIsEditing(true); }}
+                  disabled={!isEditing}
+                  className="w-full h-11 px-2 sm:px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Não informado</option>
+                  <option value="">Não informar</option>
                   <option value="M">Masculino</option>
                   <option value="F">Feminino</option>
                 </select>
@@ -793,50 +810,106 @@ export default function ProfileSettingsPage() {
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                   Avaliações Físicas e Métricas
                 </h3>
-                <button type="button" onClick={() => setShowHealthForm(v => !v)} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
-                  {showHealthForm ? "Cancelar" : "➕ Nova Avaliação"}
+                <button type="button"
+                  onClick={() => {
+                    if (showHealthForm) {
+                      setShowHealthForm(false);
+                      setEditingHealthId(null);
+                      setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" });
+                    } else {
+                      setShowHealthForm(true);
+                    }
+                  }}
+                  className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm">
+                  {showHealthForm ? "← Cancelar" : "➕ Nova Avaliação"}
                 </button>
               </div>
 
               {showHealthForm && (
                 <div className="p-4 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {!profileHeight && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                      ⚠️ Informe sua altura nos Dados Pessoais para calcular o IMC.
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Data da Medição</Label>
-                      <Input type="date" value={newHealthEntry.date} onChange={e => setNewHealthEntry({...newHealthEntry, date: e.target.value})} />
+                      <Input type="date" max={new Date().toISOString().slice(0, 10)}
+                        value={newHealthEntry.date}
+                        onChange={e => setNewHealthEntry({ ...newHealthEntry, date: e.target.value })} />
                     </div>
                     <div>
                       <Label>Peso (kg)</Label>
-                      <Input type="number" step="0.1" placeholder="Ex: 75.5" value={newHealthEntry.weight} onChange={e => setNewHealthEntry({...newHealthEntry, weight: e.target.value})} />
-                    </div>
-                    <div>
-                      <Label>Altura (m)</Label>
-                      <Input type="number" step="0.01" placeholder="Ex: 1.75" value={newHealthEntry.height} onChange={e => setNewHealthEntry({...newHealthEntry, height: e.target.value})} />
+                      <Input type="number" step="0.1" placeholder="Ex: 75.5"
+                        value={newHealthEntry.weight}
+                        onChange={e => setNewHealthEntry({ ...newHealthEntry, weight: e.target.value })} />
                     </div>
                   </div>
-                  <button type="button" onClick={handleAddHealthEntry} className="w-full h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors">
-                    Adicionar Registro
-                  </button>
+                  <div className="flex gap-3">
+                    <button type="button"
+                      onClick={() => { setShowHealthForm(false); setEditingHealthId(null); setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" }); }}
+                      className="flex-1 h-10 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/60 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                      Cancelar
+                    </button>
+                    <button type="button" onClick={handleAddHealthEntry}
+                      className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors">
+                      {editingHealthId ? "Atualizar" : "Registrar"}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <Label>Histórico de Medições</Label>
+              <div className="space-y-2">
                 {sortedHistory.length === 0 ? (
-                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 dark:bg-white/5 rounded-lg border border-dashed border-slate-200 dark:border-white/10">Nenhuma avaliação registrada ainda.</div>
+                  <div className="text-xs text-slate-400 text-center py-6 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+                    Nenhuma avaliação registrada ainda.
+                  </div>
                 ) : (
-                  <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                    {sortedHistory.map(record => (
-                      <div key={record.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl gap-2 font-mono text-xs">
-                        <div className="flex gap-4 items-center">
-                          <span className="text-slate-500 dark:text-white/50">{new Date(record.date).toLocaleDateString('pt-BR')}</span>
-                          <span className="font-bold text-slate-800 dark:text-white">{record.weight} kg</span>
-                          <span className="text-slate-500 dark:text-white/50">({record.height}m)</span>
+                  <div className="space-y-2">
+                    {sortedHistory.map((record, idx) => (
+                      <div key={record.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors group ${idx === 0 ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"}`}>
+                        {/* Data em bloco */}
+                        <div className="shrink-0 text-center w-10">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
+                            {new Date(record.date + "T12:00:00").toLocaleDateString('pt-BR', { month: 'short' })}
+                          </p>
+                          <p className="text-lg font-black text-slate-700 dark:text-white leading-tight">
+                            {new Date(record.date + "T12:00:00").getDate().toString().padStart(2, "0")}
+                          </p>
+                          <p className="text-[9px] text-slate-400 dark:text-white/30 leading-none">
+                            {new Date(record.date + "T12:00:00").getFullYear()}
+                          </p>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                          <span className={`font-bold ${getImcColor(record.imc)}`}>IMC: {record.imc} <span className="text-[10px] uppercase font-sans">({getImcLabel(record.imc)})</span></span>
-                          <button type="button" onClick={() => handleDeleteHealthRecord(record.id)} className="text-rose-500 hover:text-rose-600" title="Excluir">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <div className="w-px h-9 bg-slate-200 dark:bg-white/10 shrink-0" />
+                        {/* Métricas */}
+                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold text-slate-800 dark:text-white">{record.weight} kg</span>
+                          {record.imc > 0 && (
+                            <span className={`text-[11px] font-bold ${getImcColor(record.imc)}`}>
+                              IMC {record.imc} · {getImcLabel(record.imc)}
+                            </span>
+                          )}
+                          {idx === 0 && (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                              Mais recente
+                            </span>
+                          )}
+                        </div>
+                        {/* Ações */}
+                        <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button"
+                            onClick={() => {
+                              setEditingHealthId(record.id);
+                              setNewHealthEntry({ date: record.date, weight: String(record.weight) });
+                              setShowHealthForm(true);
+                            }}
+                            className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <button type="button" onClick={() => void handleDeleteHealthRecord(record.id)}
+                            className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                           </button>
                         </div>
                       </div>
@@ -862,23 +935,67 @@ export default function ProfileSettingsPage() {
 
                       const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
 
+                      // IMC scale separada (eixo Y secundário normalizado)
+                      const validImcs = chartData.filter(d => d.imc > 0).map(d => d.imc);
+                      const imcMin = validImcs.length ? Math.min(...validImcs) - 1 : 0;
+                      const imcMax = validImcs.length ? Math.max(...validImcs) + 1 : 30;
+                      const imcRange = imcMax - imcMin || 1;
+                      const imcPoints = validImcs.length >= 2
+                        ? chartData
+                            .filter(d => d.imc > 0)
+                            .map((d, i) => ({
+                              x: (chartData.indexOf(d) / (chartData.length - 1)) * 100,
+                              y: 100 - (((d.imc - imcMin) / imcRange) * 100),
+                            }))
+                        : [];
+                      const imcPolyline = imcPoints.map(p => `${p.x},${p.y}`).join(" ");
+
                       return (
                         <div className="w-full h-full relative">
                           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                            <polyline points={polylinePoints} fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500/50" vectorEffect="non-scaling-stroke" />
+                            {/* Linha de peso */}
+                            <polyline points={polylinePoints} fill="none" stroke="#10b981" strokeWidth="2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                            {/* Linha de IMC tracejada */}
+                            {imcPoints.length >= 2 && (
+                              <polyline points={imcPolyline} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.65" vectorEffect="non-scaling-stroke" />
+                            )}
                             {points.map((p, i) => (
                               <g key={i}>
-                                <circle cx={`${p.x}%`} cy={`${p.y}%`} r="4" className={`fill-white dark:fill-[#161b22] stroke-2 ${getImcColor(p.data.imc).replace('text-', 'stroke-')}`} />
+                                <circle
+                                  cx={`${p.x}%`} cy={`${p.y}%`} r="4"
+                                  fill="white"
+                                  stroke={getImcStrokeColor(p.data.imc)}
+                                  strokeWidth="2"
+                                />
                                 {(i === 0 || i === points.length - 1) && (
-                                  <text x={`${p.x}%`} y={`${p.y}%`} dy="-10" textAnchor={i === 0 ? "start" : "end"} className="text-[9px] font-bold fill-slate-600 dark:fill-white/70">
+                                  <text x={`${p.x}%`} y={`${p.y}%`} dy="-10"
+                                    textAnchor={i === 0 ? "start" : "end"}
+                                    fontSize="9" fill="currentColor" fillOpacity="0.65">
                                     {p.data.weight}kg
                                   </text>
                                 )}
                               </g>
                             ))}
                           </svg>
-                          <div className="absolute -bottom-5 left-0 text-[9px] text-slate-400 font-mono">{new Date(chartData[0].date).toLocaleDateString('pt-BR', {month:'short'})}</div>
-                          <div className="absolute -bottom-5 right-0 text-[9px] text-slate-400 font-mono">{new Date(chartData[chartData.length-1].date).toLocaleDateString('pt-BR', {month:'short'})}</div>
+                          {/* Rodapé do gráfico */}
+                          <div className="flex items-center justify-between mt-1 pt-1">
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              {new Date(chartData[0].date + "T12:00:00").toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                            </span>
+                            <div className="flex items-center gap-3 text-[9px] text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <span className="w-3 h-0.5 bg-emerald-500 rounded inline-block" /> Peso
+                              </span>
+                              {imcPoints.length >= 2 && (
+                                <span className="flex items-center gap-1">
+                                  <span className="w-3 h-0.5 bg-amber-500 rounded inline-block" /> IMC
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              {new Date(chartData[chartData.length - 1].date + "T12:00:00").toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                            </span>
+                          </div>
                         </div>
                       );
                     })()}
@@ -1062,16 +1179,28 @@ export default function ProfileSettingsPage() {
       {/* ============================================================================
           MODAL DE CONFIGURAÇÕES DE CHAMADA (SESSÃO 1) - TOTALMENTE REFEITO
          ============================================================================ */}
-      {showWa1Settings && (
+{showWa1Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             
             <div className="space-y-5">
+              {/* Cabeçalho */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white">⚙️ Instância 1 — Configurações</h3>
+                  <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Controle de chamadas recebidas.</p>
+                </div>
+                <button type="button" onClick={() => setShowWa1Settings(false)}
+                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors">
+                  ×
+                </button>
+              </div>
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
-                <button type="button" onClick={() => setWaRejectCalls(v => !v)} className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
-                  <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
+                <button type="button" onClick={() => setWaRejectCalls(v => !v)}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 overflow-hidden ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
+                <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${waRejectCalls ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
               </div>
 
               {waRejectCalls && (
@@ -1339,9 +1468,19 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
       {/* Modal Settings Wa 2 */}
       {showWa2Settings && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95">
+          <div className="bg-white dark:bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             
             <div className="space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white">⚙️ Instância 2 — Configurações</h3>
+                  <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Controle de chamadas recebidas.</p>
+                </div>
+                <button type="button" onClick={() => setShowWa2Settings(false)}
+                  className="shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white text-lg leading-none transition-colors">
+                  ×
+                </button>
+              </div>
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
                 <span className="text-sm font-bold text-slate-700 dark:text-white">📵 Rejeitar Chamadas</span>
                 <button type="button" onClick={() => setWaRejectCalls(v => !v)} className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${waRejectCalls ? "bg-emerald-500" : "bg-slate-300 dark:bg-white/20"}`}>
