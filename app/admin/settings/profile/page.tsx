@@ -657,11 +657,11 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 pt-4 pb-6 px-4 sm:px-6 text-slate-800 dark:text-white">
+    <div className="space-y-4 pt-3 pb-6 px-0 sm:px-6 text-slate-800 dark:text-white">
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4 px-4 sm:px-0">
         <div className="text-left">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             Perfil
@@ -706,10 +706,10 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6 xl:col-span-2">
           
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
-          <div className={`bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
+          <div className={`bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? 'ring-1 ring-emerald-500/20' : ''}`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                Informações de Cadastro
+                Cadstro
               </h3>
               <div className="flex items-center gap-2">
                 <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
@@ -805,10 +805,10 @@ export default function ProfileSettingsPage() {
 
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           {activeTab === "profile" ? (
-            <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                  Avaliações Físicas e Métricas
+                  Saúde
                 </h3>
                 <button type="button"
                   onClick={() => {
@@ -1037,7 +1037,7 @@ export default function ProfileSettingsPage() {
         <div className="space-y-6">
           
           {/* PAINEL SESSÃO 1 */}
-          <div className="bg-white dark:bg-[#161b22] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm space-y-4">
+          <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
               <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
                 WhatsApp — Instância 1
