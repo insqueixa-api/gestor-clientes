@@ -5,10 +5,11 @@ export const dynamic = "force-dynamic";
 
 function normalizePhone(raw: string | null | undefined) {
   if (!raw) return null;
-  const digits = raw.replace(/\D+/g, "");
+  let digits = raw.replace(/\D+/g, "");
   if (!digits) return null;
   if (raw.trim().startsWith("+")) return "+" + digits;
-  if (digits.startsWith("55")) return "+" + digits;
+  if (digits.startsWith("55") && digits.length >= 12) return "+" + digits;
+  if (digits.startsWith("0")) digits = digits.substring(1);
   return "+55" + digits;
 }
 
@@ -19,7 +20,7 @@ function getGoogleLabel(label: string, defaultType: string) {
   if (["trabalho", "work", "empresa"].includes(low)) return { type: "work" };
   if (["celular", "mobile"].includes(low)) return { type: "mobile" };
   if (["pessoal", "other", "outro"].includes(low)) return { type: "other" };
-  return { type: "custom", formattedType: label };
+  return { type: label };
 }
 
 export async function POST(req: Request) {
@@ -32,8 +33,7 @@ export async function POST(req: Request) {
     const { display_name, phones, emails, labels, photo_base64 } = body;
 
     const { data: tenantData } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).limit(1).single();
-    if (!tenantData?.tenant_id) throw new Error("Tenant não encontrado");
-    const tenantId = tenantData.tenant_id;
+    const tenantId = tenantData?.tenant_id;
 
     const { data: tenantConfig } = await supabase.from("tenants").select("google_refresh_token").eq("id", tenantId).single();
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
@@ -52,7 +52,6 @@ export async function POST(req: Request) {
     if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais.");
     const accessToken = tokenData.access_token;
 
-    // Lógica de Grupos
     let finalMemberships: any[] = [{ contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" } }];
     if (labels && labels.length > 0) {
       const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups", { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -69,10 +68,7 @@ export async function POST(req: Request) {
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({ contactGroup: { name: cleanLbl } })
           });
-          if (createGrpRes.ok) {
-             const newGroup = await createGrpRes.json();
-             found = newGroup;
-          }
+          if (createGrpRes.ok) found = await createGrpRes.json();
         }
         if (found) finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: found.resourceName } });
       }
@@ -91,22 +87,25 @@ export async function POST(req: Request) {
       body: JSON.stringify(googlePayload),
     });
     
-    if (!createRes.ok) {
-      const errData = await createRes.json();
-      throw new Error(`Google API: ${errData.error?.message || "Erro ao criar contato"}`);
-    }
+    if (!createRes.ok) throw new Error(`Erro ao criar contato no Google`);
 
     const newContact = await createRes.json();
     const google_resource_name = newContact.resourceName;
 
-    // Foto
+    let finalAvatarUrl = null;
     if (photo_base64 && photo_base64.includes("base64,")) {
       const base64Data = photo_base64.split(",");
-      await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
+      const photoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ photoBytes: base64Data })
       });
+      if (photoRes.ok) {
+        const photoData = await photoRes.json();
+        if (photoData.person?.photos?.[0]?.url) {
+          finalAvatarUrl = photoData.person.photos[0].url;
+        }
+      }
     }
 
     await supabase.from("google_contacts").insert({
@@ -114,6 +113,7 @@ export async function POST(req: Request) {
       google_resource_name: google_resource_name,
       display_name, phones, emails, labels,
       phone_e164: phones && phones.length > 0 ? normalizePhone(phones.value) : null,
+      avatar_url: finalAvatarUrl,
       synced_at: new Date().toISOString()
     });
 
