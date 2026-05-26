@@ -917,125 +917,157 @@ export default function ProfileSettingsPage() {
               </div>
 
               {chartData.length > 1 && (() => {
-                const PAD_L = 48;
-                const COL_W = 64;
-                const ROW_H = 72;
-                const DATE_H = 26;
+                const PAD_L = 56;
+                const PAD_TOP = 22;
+                const COL_W = 78;
+                const ROW_H = 100;
+                const DATE_H = 44;
                 const W = PAD_L + COL_W * chartData.length;
                 const H = ROW_H * 2 + DATE_H;
 
+                const hFloat = parseFloat(profileHeight);
+                const hasRef = hFloat > 0;
+                const idealImcMin = 18.5, idealImcMax = 24.9;
+                const idealWMin = hasRef ? parseFloat((idealImcMin * hFloat * hFloat).toFixed(1)) : null;
+                const idealWMax = hasRef ? parseFloat((idealImcMax * hFloat * hFloat).toFixed(1)) : null;
+
                 const xs = chartData.map((_, i) => PAD_L + COL_W * i + COL_W / 2);
 
-                const normalizeRow = (vals: number[], top: number) => {
+                const scaleY = (val: number, vals: number[], rowTop: number) => {
                   const min = Math.min(...vals);
                   const max = Math.max(...vals);
                   const range = max - min || 1;
-                  return vals.map(v => top + ROW_H * 0.18 + (1 - (v - min) / range) * ROW_H * 0.62);
+                  const clamped = Math.max(min, Math.min(max, val));
+                  return rowTop + PAD_TOP + (1 - (clamped - min) / range) * (ROW_H - PAD_TOP * 2);
                 };
 
                 const weights = chartData.map(d => d.weight);
                 const hasImc = chartData.every(d => d.imc > 0);
                 const imcs = chartData.map(d => d.imc);
+                const wYs = weights.map(v => scaleY(v, weights, 0));
+                const iYs = hasImc ? imcs.map(v => scaleY(v, imcs, ROW_H)) : [];
 
-                const wYs = normalizeRow(weights, 0);
-                const iYs = hasImc ? normalizeRow(imcs, ROW_H) : [];
-
-                const segColor = (a: number, b: number) =>
+                const seg = (a: number, b: number) =>
                   Math.abs(a - b) < 0.05 ? "#94a3b8" : b < a ? "#10b981" : "#f43f5e";
+                const dot = (vals: number[], i: number) =>
+                  i === 0 ? "#94a3b8" : seg(vals[i - 1], vals[i]);
+                const fmtD = (d: string) => { const [,m,day] = d.split("-"); return `${day}/${m}`; };
 
-                const dotColor = (vals: number[], i: number) =>
-                  i === 0 ? "#94a3b8" : segColor(vals[i - 1], vals[i]);
-
-                const fmtDate = (d: string) => {
-                  const [y, m, day] = d.split("-");
-                  return `${day}/${m}`;
-                };
+                const wBandT = idealWMax != null ? scaleY(idealWMax, weights, 0) : null;
+                const wBandB = idealWMin != null ? scaleY(idealWMin, weights, 0) : null;
+                const iBandT = hasImc && hasRef ? scaleY(idealImcMax, imcs, ROW_H) : null;
+                const iBandB = hasImc && hasRef ? scaleY(idealImcMin, imcs, ROW_H) : null;
 
                 return (
                   <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-                    <Label>Histórico de Composição</Label>
-                    <div className="mt-2 w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label>Histórico de Composição</Label>
+                      {hasRef && idealWMin && (
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                          🎯 Meta: {idealWMin}–{idealWMax} kg
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20">
                       <svg viewBox={`0 0 ${W} ${H}`} style={{ minWidth: `${W}px`, height: `${H}px`, display: "block" }}>
 
-                        {/* Fundo alternado das linhas */}
-                        <rect x={0} y={0} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.03" />
-                        <rect x={0} y={ROW_H} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.015" />
+                        {/* Row backgrounds */}
+                        <rect x={0} y={0} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.025" />
+                        <rect x={0} y={ROW_H} width={W} height={ROW_H} fill="currentColor" fillOpacity="0.012" />
 
-                        {/* Separadores horizontais */}
-                        <line x1={PAD_L} y1={ROW_H} x2={W} y2={ROW_H} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
-                        <line x1={PAD_L} y1={ROW_H * 2} x2={W} y2={ROW_H * 2} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+                        {/* Reference bands (ideal range) */}
+                        {wBandT != null && wBandB != null && (
+                          <rect x={PAD_L} y={wBandT} width={W - PAD_L}
+                            height={Math.max(3, wBandB - wBandT)}
+                            fill="#10b981" fillOpacity="0.09" />
+                        )}
+                        {iBandT != null && iBandB != null && (
+                          <rect x={PAD_L} y={iBandT} width={W - PAD_L}
+                            height={Math.max(3, iBandB - iBandT)}
+                            fill="#10b981" fillOpacity="0.09" />
+                        )}
 
-                        {/* Separadores verticais tracejados */}
+                        {/* Dividers */}
+                        <line x1={0} y1={ROW_H} x2={W} y2={ROW_H} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+                        <line x1={0} y1={ROW_H * 2} x2={W} y2={ROW_H * 2} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />
+
+                        {/* Vertical dashes */}
                         {chartData.map((_, i) => i > 0 && (
                           <line key={i}
                             x1={PAD_L + COL_W * i} y1={0}
                             x2={PAD_L + COL_W * i} y2={ROW_H * 2 + DATE_H}
-                            stroke="currentColor" strokeOpacity="0.07" strokeWidth="1" strokeDasharray="3,3" />
+                            stroke="currentColor" strokeOpacity="0.06" strokeWidth="1" strokeDasharray="3,4" />
                         ))}
 
-                        {/* Labels das linhas */}
-                        <text x={PAD_L - 5} y={ROW_H / 2 - 5} textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.55" fontWeight="bold">Peso</text>
-                        <text x={PAD_L - 5} y={ROW_H / 2 + 7} textAnchor="end" fontSize="8" fill="currentColor" fillOpacity="0.35">(kg)</text>
+                        {/* Row labels */}
+                        <text x={PAD_L - 6} y={ROW_H / 2 - 7} textAnchor="end" fontSize="9.5" fontWeight="bold" fill="currentColor" fillOpacity="0.6">Peso</text>
+                        <text x={PAD_L - 6} y={ROW_H / 2 + 6} textAnchor="end" fontSize="8" fill="currentColor" fillOpacity="0.35">(kg)</text>
                         {hasImc && <>
-                          <text x={PAD_L - 5} y={ROW_H + ROW_H / 2 - 5} textAnchor="end" fontSize="9" fill="currentColor" fillOpacity="0.55" fontWeight="bold">IMC</text>
+                          <text x={PAD_L - 6} y={ROW_H + ROW_H / 2 - 4} textAnchor="end" fontSize="9.5" fontWeight="bold" fill="currentColor" fillOpacity="0.6">IMC</text>
                         </>}
 
-                        {/* Linhas de Peso */}
+                        {/* Weight line segments */}
                         {chartData.slice(1).map((_, i) => (
                           <line key={i}
-                            x1={xs[i]} y1={wYs[i]} x2={xs[i + 1]} y2={wYs[i + 1]}
-                            stroke={segColor(weights[i], weights[i + 1])}
+                            x1={xs[i]} y1={wYs[i]} x2={xs[i+1]} y2={wYs[i+1]}
+                            stroke={seg(weights[i], weights[i+1])}
+                            strokeWidth="2.5" strokeLinecap="round" opacity="0.9" />
+                        ))}
+
+                        {/* IMC line segments */}
+                        {hasImc && chartData.slice(1).map((_, i) => (
+                          <line key={i}
+                            x1={xs[i]} y1={iYs[i]} x2={xs[i+1]} y2={iYs[i+1]}
+                            stroke={seg(imcs[i], imcs[i+1])}
                             strokeWidth="2" strokeLinecap="round" opacity="0.85" />
                         ))}
 
-                        {/* Linhas de IMC */}
-                        {hasImc && chartData.slice(1).map((_, i) => (
-                          <line key={i}
-                            x1={xs[i]} y1={iYs[i]} x2={xs[i + 1]} y2={iYs[i + 1]}
-                            stroke={segColor(imcs[i], imcs[i + 1])}
-                            strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-                        ))}
-
-                        {/* Pontos + Valores de Peso */}
+                        {/* Weight: value above + dot */}
                         {chartData.map((d, i) => (
                           <g key={i}>
-                            <circle cx={xs[i]} cy={wYs[i]} r="4.5"
-                              fill="white" stroke={dotColor(weights, i)} strokeWidth="2" />
-                            <text x={xs[i]} y={wYs[i] - 9} textAnchor="middle"
-                              fontSize="9.5" fill="currentColor" fillOpacity="0.85" fontWeight="bold">
+                            <text x={xs[i]} y={wYs[i] - 14} textAnchor="middle"
+                              fontSize="10.5" fontWeight="bold" fill="currentColor" fillOpacity="0.85">
                               {d.weight}
                             </text>
+                            <circle cx={xs[i]} cy={wYs[i]} r="5.5"
+                              fill="white" stroke={dot(weights, i)} strokeWidth="2.5" />
                           </g>
                         ))}
 
-                        {/* Pontos + Valores de IMC */}
+                        {/* IMC: value above + dot */}
                         {hasImc && chartData.map((d, i) => (
                           <g key={i}>
-                            <circle cx={xs[i]} cy={iYs[i]} r="3.5"
-                              fill="white" stroke={dotColor(imcs, i)} strokeWidth="1.5" />
-                            <text x={xs[i]} y={iYs[i] - 7} textAnchor="middle"
-                              fontSize="8.5" fill="currentColor" fillOpacity="0.75">
+                            <text x={xs[i]} y={iYs[i] - 12} textAnchor="middle"
+                              fontSize="10" fill="currentColor" fillOpacity="0.75">
                               {d.imc}
                             </text>
+                            <circle cx={xs[i]} cy={iYs[i]} r="4.5"
+                              fill="white" stroke={dot(imcs, i)} strokeWidth="2" />
                           </g>
                         ))}
 
-                        {/* Datas */}
+                        {/* Dates */}
                         {chartData.map((d, i) => (
-                          <text key={i} x={xs[i]} y={ROW_H * 2 + DATE_H - 7}
-                            textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity="0.4">
-                            {fmtDate(d.date)}
+                          <text key={i} x={xs[i]} y={ROW_H * 2 + 18}
+                            textAnchor="middle" fontSize="9.5" fill="currentColor" fillOpacity="0.45">
+                            {fmtD(d.date)}
                           </text>
                         ))}
 
-                        {/* Legenda */}
-                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + 6})`}>
-                          <circle cx="5" cy="4" r="3" fill="white" stroke="#10b981" strokeWidth="1.5" />
-                          <text x="12" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Caiu</text>
-                          <circle cx="38" cy="4" r="3" fill="white" stroke="#f43f5e" strokeWidth="1.5" />
-                          <text x="45" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Subiu</text>
-                          <circle cx="70" cy="4" r="3" fill="white" stroke="#94a3b8" strokeWidth="1.5" />
-                          <text x="77" y="8" fontSize="8" fill="currentColor" fillOpacity="0.4">Estável</text>
+                        {/* Legend */}
+                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + DATE_H - 16})`}>
+                          <circle cx="5" cy="5" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
+                          <text x="14" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Caiu</text>
+                          <circle cx="44" cy="5" r="4" fill="white" stroke="#f43f5e" strokeWidth="2" />
+                          <text x="53" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Subiu</text>
+                          <circle cx="85" cy="5" r="4" fill="white" stroke="#94a3b8" strokeWidth="2" />
+                          <text x="94" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Estável</text>
+                          {hasRef && (
+                            <g transform="translate(128, 0)">
+                              <rect x="0" y="1" width="12" height="8" fill="#10b981" fillOpacity="0.2" rx="2" />
+                              <text x="16" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Ideal</text>
+                            </g>
+                          )}
                         </g>
 
                       </svg>

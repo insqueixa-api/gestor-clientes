@@ -720,7 +720,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+            <table className="w-full text-left border-collapse min-w-[1900px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={40}>
