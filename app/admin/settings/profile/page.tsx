@@ -177,6 +177,7 @@ export default function ProfileSettingsPage() {
   const [gender, setGender] = useState("");
   const [profileHeight, setProfileHeight] = useState(""); // ex: "1.75"
   const [editingHealthId, setEditingHealthId] = useState<string | null>(null);
+  const [hoveredPt, setHoveredPt] = useState<{ i: number; x: number; y: number } | null>(null);
 
   // Métricas de Saúde (Histórico)
   const [healthHistory, setHealthHistory] = useState<HealthRecord[]>([]);
@@ -969,6 +970,45 @@ export default function ProfileSettingsPage() {
                       )}
                     </div>
                     <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/20">
+                      <div className="relative" style={{ minWidth: `${W}px` }}>
+                      {hoveredPt !== null && (() => {
+                        const d = chartData[hoveredPt.i];
+                        const first = chartData[0];
+                        const prev = hoveredPt.i > 0 ? chartData[hoveredPt.i - 1] : null;
+                        const diffFirst = hoveredPt.i > 0 ? +(d.weight - first.weight).toFixed(1) : null;
+                        const diffPrev  = prev ? +(d.weight - prev.weight).toFixed(1) : null;
+                        const fmtFull = (s: string) => { const [y,m,day] = s.split("-"); return `${day}/${m}/${y.slice(2)}`; };
+                        const arrow = (v: number) => v < 0 ? "📉" : v > 0 ? "📈" : "➡️";
+                        const pxX = (hoveredPt.x / W) * 100;
+                        const flipLeft = pxX > 60;
+                        return (
+                          <div
+                            className="absolute z-20 pointer-events-none"
+                            style={{ left: hoveredPt.x, top: hoveredPt.y - 10, transform: flipLeft ? "translate(-100%, -100%)" : "translate(8px, -100%)" }}
+                          >
+                            <div className="bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/15 rounded-xl shadow-xl px-3 py-2.5 space-y-1.5 min-w-[180px]">
+                              <p className="text-[11px] font-black text-slate-800 dark:text-white">{fmtFull(d.date)} — {d.weight} kg{d.imc > 0 ? ` · IMC ${d.imc}` : ""}</p>
+                              {diffFirst !== null && (
+                                <p className="text-[10px] text-slate-500 dark:text-white/60">
+                                  {arrow(diffFirst)} <b className={diffFirst < 0 ? "text-emerald-600 dark:text-emerald-400" : diffFirst > 0 ? "text-rose-500" : "text-slate-400"}>
+                                    {diffFirst > 0 ? "+" : ""}{diffFirst} kg
+                                  </b> desde {fmtFull(first.date)}
+                                </p>
+                              )}
+                              {diffPrev !== null && (
+                                <p className="text-[10px] text-slate-500 dark:text-white/60">
+                                  {arrow(diffPrev)} <b className={diffPrev < 0 ? "text-emerald-600 dark:text-emerald-400" : diffPrev > 0 ? "text-rose-500" : "text-slate-400"}>
+                                    {diffPrev > 0 ? "+" : ""}{diffPrev} kg
+                                  </b> vs anterior ({fmtFull(prev!.date)})
+                                </p>
+                              )}
+                              {hoveredPt.i === 0 && (
+                                <p className="text-[10px] text-slate-400 dark:text-white/40 italic">Primeiro registro</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <svg viewBox={`0 0 ${W} ${H}`} style={{ minWidth: `${W}px`, height: `${H}px`, display: "block" }}>
 
                         {/* Row backgrounds */}
@@ -1024,13 +1064,18 @@ export default function ProfileSettingsPage() {
 
                         {/* Weight: value above + dot */}
                         {chartData.map((d, i) => (
-                          <g key={i}>
+                          <g key={i}
+                            style={{ cursor: "pointer" }}
+                            onMouseEnter={e => setHoveredPt({ i, x: xs[i], y: wYs[i] })}
+                            onMouseLeave={() => setHoveredPt(null)}>
                             <text x={xs[i]} y={wYs[i] - 14} textAnchor="middle"
                               fontSize="10.5" fontWeight="bold" fill="currentColor" fillOpacity="0.85">
                               {d.weight}
                             </text>
                             <circle cx={xs[i]} cy={wYs[i]} r="5.5"
                               fill="white" stroke={dot(weights, i)} strokeWidth="2.5" />
+                            {/* Hit area invisível maior */}
+                            <circle cx={xs[i]} cy={wYs[i]} r="14" fill="transparent" />
                           </g>
                         ))}
 
@@ -1069,8 +1114,8 @@ export default function ProfileSettingsPage() {
                             </g>
                           )}
                         </g>
-
-                      </svg>
+                    </svg>
+                      </div>
                     </div>
                   </div>
                 );
