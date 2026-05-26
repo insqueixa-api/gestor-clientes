@@ -4,29 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 function onlyDigits(raw: string | null | undefined): string {
-  if (!raw) return "";
-  return raw.replace(/\D+/g, "");
+  return (raw || "").replace(/\D+/g, "");
 }
 
-// Normaliza para 11 dígitos nacionais brasileiros (sem DDI 55)
-// Ex: "+5521999998888" → "21999998888"
-//     "21999998888"   → "21999998888"
-function normalizeToNational(raw: string | null | undefined): string {
+// Normaliza para dígitos nacionais brasileiros (sem DDI 55) ou mantém internacional
+// "+5521999998888" → "21999998888"
+// "021 99999-8888" → "21999998888"
+// "+353830852053"  → "353830852053"
+function normalizePhone(raw: string | null | undefined): string {
   const d = onlyDigits(raw);
   if (!d) return "";
-  if (d.startsWith("55") && d.length >= 12) return d.slice(2); // +5521... → 21...
-  if (d.startsWith("0") && d.length >= 10) return d.slice(1);  // 021... → 21...
+  if (d.startsWith("55") && d.length >= 12) return d.slice(2); // BR com DDI
+  if (d.startsWith("0") && d.length >= 10) return d.slice(1);  // BR com zero inicial
   return d;
-}
-
-function getGoogleLabel(label: string, defaultType: string) {
-  if (!label) return { type: defaultType };
-  const low = label.toLowerCase();
-  if (["casa", "home"].includes(low)) return { type: "home" };
-  if (["trabalho", "work", "empresa"].includes(low)) return { type: "work" };
-  if (["celular", "mobile"].includes(low)) return { type: "mobile" };
-  if (["pessoal", "other", "outro"].includes(low)) return { type: "other" };
-  return { type: label };
 }
 
 export async function POST(req: Request) {
@@ -35,7 +25,10 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    // ── Tenant ────────────────────────────────────────────────────────────
+    const body = await req.json().catch(() => ({}));
+    const contactIds: string[] | null = body.contact_ids ?? null;
+
+    // ── Tenant ──────────────────────────────────────────────────────────────
     const { data: tenantData } = await supabase
       .from("tenant_members")
       .select("tenant_id")
@@ -45,7 +38,7 @@ export async function POST(req: Request) {
     const tenantId = tenantData?.tenant_id;
     if (!tenantId) throw new Error("Tenant não encontrado.");
 
-    // ── Google refresh token ───────────────────────────────────────────────
+    // ── Google access token ──────────────────────────────────────────────────
     const { data: tenantConfig } = await supabase
       .from("tenants")
       .select("google_refresh_token")
@@ -53,7 +46,6 @@ export async function POST(req: Request) {
       .single();
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
 
-    // ── Renova access token ────────────────────────────────────────────────
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -68,38 +60,45 @@ export async function POST(req: Request) {
     if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais Google.");
     const accessToken = tokenData.access_token;
 
-    // ── Carrega contatos Google do banco local ─────────────────────────────
-    const { data: googleContacts, error: gcErr } = await supabase
+    // ── Carrega apenas os contatos selecionados (ou todos se nenhum selecionado) ──
+    let gcQuery = supabase
       .from("google_contacts")
-      .select("id, google_resource_name, phones, labels, display_name, emails")
+      .select("id, google_resource_name, phones, labels, display_name")
       .eq("tenant_id", tenantId);
-    if (gcErr) throw new Error(gcErr.message);
-    if (!googleContacts?.length) return NextResponse.json({ success: true, updated: 0, message: "Nenhum contato Google encontrado." });
 
-    // ── Carrega clientes com server_name ───────────────────────────────────
+    if (contactIds && contactIds.length > 0) {
+      gcQuery = gcQuery.in("id", contactIds);
+    }
+
+    const { data: googleContacts, error: gcErr } = await gcQuery;
+    if (gcErr) throw new Error(gcErr.message);
+    if (!googleContacts?.length) {
+      return NextResponse.json({ success: true, updated: 0, message: "Nenhum contato para processar." });
+    }
+
+    // ── Carrega clientes com server name ─────────────────────────────────────
     const { data: clients, error: clErr } = await supabase
       .from("clients")
-      .select("id, display_name, phone_e164, secondary_phone_e164, server_id, servers!inner(name)")
+      .select("phone_e164, secondary_phone_e164, servers!inner(name)")
       .eq("tenant_id", tenantId)
       .eq("is_archived", false);
     if (clErr) throw new Error(clErr.message);
-    if (!clients?.length) return NextResponse.json({ success: true, updated: 0, message: "Nenhum cliente encontrado." });
+    if (!clients?.length) {
+      return NextResponse.json({ success: true, updated: 0, message: "Nenhum cliente cadastrado." });
+    }
 
-    // ── Monta índice: dígitos_nacionais → server_name ──────────────────────
-    // Usa os dois telefones (primário e secundário)
-    const phoneIndex = new Map<string, string>(); // national_digits → server_name
+    // ── Índice: dígitos normalizados → server name ───────────────────────────
+    const phoneIndex = new Map<string, string>();
     for (const client of clients as any[]) {
       const serverName: string = client.servers?.name ?? "";
       if (!serverName) continue;
-
-      const primary = normalizeToNational(client.phone_e164);
-      const secondary = normalizeToNational(client.secondary_phone_e164);
-
-      if (primary)   phoneIndex.set(primary,   serverName);
-      if (secondary) phoneIndex.set(secondary, serverName);
+      const p = normalizePhone(client.phone_e164);
+      const s = normalizePhone(client.secondary_phone_e164);
+      if (p) phoneIndex.set(p, serverName);
+      if (s) phoneIndex.set(s, serverName);
     }
 
-    // ── Carrega grupos existentes no Google para resolver resourceNames ─────
+    // ── Grupos existentes no Google ──────────────────────────────────────────
     const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups?pageSize=200", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -109,31 +108,29 @@ export async function POST(req: Request) {
     async function getOrCreateGroup(name: string): Promise<string | null> {
       const found = existingGroups.find((g: any) => g.name === name || g.formattedName === name);
       if (found) return found.resourceName;
-
-      const createRes = await fetch("https://people.googleapis.com/v1/contactGroups", {
+      const res = await fetch("https://people.googleapis.com/v1/contactGroups", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ contactGroup: { name } }),
       });
-      if (!createRes.ok) return null;
-      const created = await createRes.json();
+      if (!res.ok) return null;
+      const created = await res.json();
       existingGroups.push(created);
       return created.resourceName ?? null;
     }
 
-    // ── Processa cada contato Google ───────────────────────────────────────
+    // ── Processa cada contato ────────────────────────────────────────────────
     let updatedCount = 0;
     const errors: string[] = [];
 
     for (const contact of googleContacts) {
-      // Extrai todos os telefones do contato Google
       const phones: { label: string; value: string }[] = Array.isArray(contact.phones) ? contact.phones : [];
       if (!phones.length) continue;
 
-      // Verifica se algum telefone bate com um cliente
+      // Cruza telefones com o índice de clientes
       let matchedServer: string | null = null;
       for (const p of phones) {
-        const nat = normalizeToNational(p.value);
+        const nat = normalizePhone(p.value);
         if (nat && phoneIndex.has(nat)) {
           matchedServer = phoneIndex.get(nat)!;
           break;
@@ -141,62 +138,62 @@ export async function POST(req: Request) {
       }
       if (!matchedServer) continue;
 
-      // Verifica se o label do servidor já está no contato (evita chamada desnecessária)
+      // Já tem o label? Pula
       const currentLabels: string[] = Array.isArray(contact.labels) ? contact.labels : [];
       if (currentLabels.includes(matchedServer)) continue;
 
-      const newLabels = [...currentLabels, matchedServer];
-
-      // ── Monta memberships para o Google ─────────────────────────────────
       try {
-        // Busca etag atual do contato
+        // GET no Google apenas para pegar o etag (necessário para o PATCH)
         const personRes = await fetch(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata,memberships,names,emailAddresses,phoneNumbers`,
+          `https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata,memberships`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
-        if (!personRes.ok) continue;
+        if (!personRes.ok) {
+          errors.push(`${contact.display_name}: falha ao buscar etag`);
+          continue;
+        }
         const personData = await personRes.json();
         const etag = personData.etag;
 
-        // Mantém memberships existentes
-        let finalMemberships: any[] = personData.memberships
-          ? personData.memberships.map((m: any) => ({
-              contactGroupMembership: { contactGroupResourceName: m.contactGroupMembership?.contactGroupResourceName },
-            })).filter((m: any) => m.contactGroupMembership?.contactGroupResourceName)
-          : [];
+        // Mantém memberships existentes + adiciona o novo grupo
+        const existingMemberships: any[] = (personData.memberships || [])
+          .map((m: any) => ({
+            contactGroupMembership: {
+              contactGroupResourceName: m.contactGroupMembership?.contactGroupResourceName,
+            },
+          }))
+          .filter((m: any) => m.contactGroupMembership?.contactGroupResourceName);
 
-        // Adiciona o grupo do servidor se não existir
         const serverGroupResourceName = await getOrCreateGroup(matchedServer);
         if (serverGroupResourceName) {
-          const alreadyIn = finalMemberships.some(
+          const alreadyIn = existingMemberships.some(
             m => m.contactGroupMembership?.contactGroupResourceName === serverGroupResourceName
           );
           if (!alreadyIn) {
-            finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: serverGroupResourceName } });
+            existingMemberships.push({
+              contactGroupMembership: { contactGroupResourceName: serverGroupResourceName },
+            });
           }
         }
 
-        const updatePayload: any = {
-  etag,
-  memberships: finalMemberships,
-};
+        // PATCH — SÓ memberships, nada mais
+        const patchRes = await fetch(
+          `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=memberships`,
+          {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ etag, memberships: existingMemberships }),
+          }
+        );
 
-const updateRes = await fetch(
-  `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=memberships`,
-  {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify(updatePayload),
-  }
-);
-
-        if (!updateRes.ok) {
-          const errData = await updateRes.json();
+        if (!patchRes.ok) {
+          const errData = await patchRes.json();
           errors.push(`${contact.display_name}: ${errData.error?.message}`);
           continue;
         }
 
-        // ── Atualiza banco local ─────────────────────────────────────────
+        // Atualiza só o labels no banco local
+        const newLabels = [...currentLabels, matchedServer];
         await supabase
           .from("google_contacts")
           .update({ labels: newLabels, synced_at: new Date().toISOString() })
@@ -204,9 +201,6 @@ const updateRes = await fetch(
           .eq("tenant_id", tenantId);
 
         updatedCount++;
-
-        // Pequena pausa para não estourar rate limit da Google API (10 req/s)
-        await new Promise(r => setTimeout(r, 120));
 
       } catch (err: any) {
         errors.push(`${contact.display_name}: ${err.message}`);
@@ -216,8 +210,11 @@ const updateRes = await fetch(
     return NextResponse.json({
       success: true,
       updated: updatedCount,
+      total: googleContacts.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: `${updatedCount} contato(s) vinculado(s) ao servidor.`,
+      message: updatedCount > 0
+        ? `${updatedCount} de ${googleContacts.length} contato(s) vinculado(s) ao servidor.`
+        : `Nenhum contato novo para vincular (${googleContacts.length} verificado(s)).`,
     });
 
   } catch (error: any) {

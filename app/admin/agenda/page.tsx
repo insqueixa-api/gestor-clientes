@@ -295,6 +295,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; contact: GoogleContact | null }>({ open: false, contact: null });
   const [deleteFromGoogle, setDeleteFromGoogle] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+const [isSyncingLabels, setIsSyncingLabels] = useState(false);
 
   // ─── UTILS ─────────────────────────────────────────────────────────────────
   function toggleSelected(id: string, checked: boolean) {
@@ -438,9 +439,15 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   }
 
   async function handleSyncLabels() {
-  setLoading(true);
+  setIsSyncingLabels(true);
   try {
-    const res = await fetch("/api/auth/google/sync-labels-from-clients", { method: "POST" });
+    const res = await fetch("/api/auth/google/sync-labels-from-clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contact_ids: selectedIds.size > 0 ? Array.from(selectedIds) : null
+      }),
+    });
     const data = await res.json();
     if (res.ok) {
       addToast("success", "Vinculação concluída", data.message);
@@ -452,7 +459,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   } catch (err: any) {
     addToast("error", "Erro", err.message);
   } finally {
-    setLoading(false);
+        setIsSyncingLabels(false);
+
   }
 }
 
@@ -710,9 +718,19 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
     <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
       Sincronizar Operadora
     </button>
-    <button onClick={handleSyncLabels} disabled={loading} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1">
-      🔗 Vincular Servidor
-    </button>
+    <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+  {isSyncingLabels ? (
+    <>
+      <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+      Vinculando {selectedIds.size} contato(s)...
+    </>
+  ) : (
+    <>🔗 Vincular Servidor ({selectedIds.size})</>
+  )}
+</button>
   </div>
 </div>
       )}
