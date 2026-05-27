@@ -273,7 +273,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // WA validation por phoneId
-  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null; opLoading?: boolean; opName?: string } | null;
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null; opLoading?: boolean; opName?: string; opError?: boolean; } | null;
 
   const [waValidations, setWaValidations] = useState<Record<string, WaValidation>>({});
   const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -537,35 +537,42 @@ const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
     if (ddi !== "55" || digits.length < 10) return; // Só consulta se for Brasil
     
     // 1. Ativa o loading visual da operadora
-    setWaValidations(prev => ({ ...prev, [phoneId]: { ...(prev[phoneId] || { loading: false, exists: false }), opLoading: true } }));
+    setWaValidations(prev => ({ 
+    ...prev, 
+    [phoneId]: { ...(prev[phoneId] || { loading: false, exists: false }), opLoading: true, opError: false } 
+  }));
 
-    try {
-      const res = await fetch("/api/auth/google/lookup-operadora", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: `55${digits}` }),
+  try {
+    const res = await fetch("/api/auth/google/lookup-operadora", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: `${ddi}${digits}` }),
+    });
+    
+    if (!res.ok) throw new Error("Erro na API");
+    const data = await res.json();
+    
+    if (data.operadora) {
+      // Atualiza o label no formulário
+      setEditForm(prev => {
+        const phones = [...prev.phones];
+        const index = phones.findIndex(x => x.id === phoneId);
+        if (index > -1) phones[index] = { ...phones[index], label: data.operadora };
+        return { ...prev, phones };
       });
-      const data = await res.json();
-      
-      if (data.operadora) {
-        setEditForm(prev => {
-          const phones = [...prev.phones];
-          const index = phones.findIndex(x => x.id === phoneId);
-          if (index > -1) {
-            phones[index] = { ...phones[index], label: data.operadora };
-          }
-          return { ...prev, phones };
-        });
-        // 2. Salva o resultado visual
-        setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false, opName: data.operadora } }));
-      } else {
-        setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false } }));
-      }
-    } catch (e) {
-      console.error("Falha ao buscar operadora", e);
-      setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false } }));
+      // Sucesso
+      setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false, opName: data.operadora, opError: false } }));
+    } else {
+      // Falha (não encontrou operadora)
+      setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true } }));
     }
+  } catch (e) {
+    // Falha (erro na requisição)
+    setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true } }));
   }
+}
+
+
 async function handleMassSyncPhotos() {
   if (selectedIds.size === 0) return;
   setIsSyncingPhotos(true);
@@ -1251,13 +1258,9 @@ const failReasons: string[] = [];
                         ><IconTrash /></button>
                       </div>
 
-                      {/* Linha 2: preview formatado + status WhatsApp */}
+                      {/* Linha 2: status */}
                       <div className="flex flex-wrap items-center gap-3 px-1">
-                        {e164Preview && (
-                          <span className="text-[11px] font-mono text-slate-400 dark:text-white/30">
-                            {displayPhone(e164Preview)}
-                          </span>
-                        )}
+                        
                         {wa && (
                           <>
                             <span className={`text-[11px] font-bold flex items-center gap-1.5 ${wa.loading ? "text-slate-400" : wa.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
@@ -1294,17 +1297,24 @@ const failReasons: string[] = [];
                             </span>
 
                             {/* FEEDBACK DA OPERADORA */}
-                            {wa.opLoading && (
-                              <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 ml-1">
-                                <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                Buscando operadora...
-                              </span>
-                            )}
-                            {wa.opName && (
-                              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 ml-1">
-                                📡 {wa.opName}
-                              </span>
-                            )}
+                              {wa.opLoading && (
+                                <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 ml-1">
+                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  Buscando operadora...
+                                </span>
+                              )}
+
+                              {wa.opName && (
+                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 ml-1">
+                                  📡 {wa.opName}
+                                </span>
+                              )}
+
+                              {wa.opError && (
+                                <span className="text-[11px] font-bold text-rose-500 dark:text-rose-400 flex items-center gap-1 ml-1">
+                                  ⚠️ Falha ao buscar operadora
+                                </span>
+                              )}
                           </>
                         )}
                       </div>
