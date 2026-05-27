@@ -1279,10 +1279,19 @@ const failReasons: string[] = [];
   {/* Botão 2: Sincronizar Foto */}
   <button
     onClick={() => {
-      if (wa?.exists && editModal.contact?.id) {
-        handleSyncWaPhotoSilent(editModal.contact.id, wa.jid!, p.id);
-      } else {
-        addToast("warning", "Atenção", "O contato precisa estar salvo e o WhatsApp validado primeiro.");
+      const clean = onlyDigits(p.national);
+      if (!editModal.contact?.id) {
+        addToast("warning", "Atenção", "Salve o contato antes de sincronizar a foto.");
+        return;
+      }
+      
+      if (wa?.exists && wa?.jid) {
+        // Já possui o JID validado, busca a foto direto
+        handleSyncWaPhotoSilent(editModal.contact.id, wa.jid, p.id);
+      } else if (clean.length >= 8) {
+        // Não validou o WA ainda: ativa o loading visual da foto, valida o WA e passa o ID para o auto-sync da foto rodar em seguida
+        setWaValidations(prev => ({ ...prev, [p.id]: { ...prev[p.id], photoStatus: "loading" } }));
+        validateWaForPhone(p.id, `+${p.ddi}${clean}`, editModal.contact.id);
       }
     }}
     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
