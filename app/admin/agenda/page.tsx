@@ -1032,9 +1032,11 @@ const failReasons: string[] = [];
 
                           {rPhones.length > 0 ? rPhones.map(p => (
                             <div key={p.id} className="text-[13px] whitespace-nowrap">
-  <span className="font-bold text-slate-500 dark:text-white/50">{p.label}: </span>
-  <span className="font-mono font-bold text-slate-800 dark:text-white/90">{displayPhone(p.value)}</span>
-</div>
+                              <span className="font-bold text-slate-500 dark:text-white/50">
+                                {p.label?.endsWith(":") ? p.label : `${p.label}:`}{" "}
+                              </span>
+                              <span className="font-mono font-bold text-slate-800 dark:text-white/90">{displayPhone(p.value)}</span>
+                            </div>
                           )) : <span className="italic text-slate-400 text-xs">Sem telefone</span>}
                         </div>
                       </Td>

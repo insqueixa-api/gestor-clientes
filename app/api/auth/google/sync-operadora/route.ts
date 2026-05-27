@@ -104,6 +104,15 @@ function inferCountryLabel(digits: string): string {
   return "Internacional";
 }
 
+function inferDDI(digits: string): string {
+  if (!digits) return "55";
+  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
+  for (const opt of sorted) {
+    if (digits.startsWith(opt.code)) return opt.code;
+  }
+  return "55";
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -165,19 +174,33 @@ export async function POST(req: Request) {
           const phone = updatedPhones[i];
           const digits = onlyDigits(phone.value);
 
-          // Validação separada: Brasil (55) vs Internacional
-          if (digits.startsWith("55")) {
-            // Número do Brasil: validação de tamanho antes de bater na API
-            if (digits.length >= 12 && digits.length <= 13) {
-              const operadoraName = await consultarOperadoraExterna(digits);
+          // 🧠 Lógica robusta de inferência (idêntica ao frontend)
+          const rawValue = phone.value || "";
+          let ddi = "55";
+          let national = digits;
+
+          // Se tiver um "+" na frente ou for muito longo, inferimos o DDI real
+          if (rawValue.trim().startsWith("+") || digits.length > 11) {
+            ddi = inferDDI(digits);
+            national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
+          }
+
+          if (ddi === "55") {
+            // Limpa o zero inicial caso o contato esteja salvo como (021)
+            if (national.startsWith("0")) national = national.slice(1);
+
+            // Verifica se tem o tamanho correto (DDD + 8 ou 9 dígitos)
+            if (national.length >= 10 && national.length <= 11) {
+              const fullDigits = `55${national}`;
+              const operadoraName = await consultarOperadoraExterna(fullDigits);
               if (operadoraName && phone.label !== `${operadoraName}:`) {
                 updatedPhones[i].label = `${operadoraName}:`;
                 hasChanges = true;
               }
             }
-          } else if (digits.length > 7) {
-            // Número Internacional: define o país como label
-            const countryLabel = inferCountryLabel(digits);
+          } else {
+            // Internacional
+            const countryLabel = DDI_OPTIONS.find(o => o.code === ddi)?.label || "Internacional";
             if (phone.label !== `${countryLabel}:`) {
               updatedPhones[i].label = `${countryLabel}:`;
               hasChanges = true;
