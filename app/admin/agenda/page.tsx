@@ -273,7 +273,7 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // WA validation por phoneId
-  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null } | null;
+  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null; opLoading?: boolean; opName?: string } | null;
 
   const [waValidations, setWaValidations] = useState<Record<string, WaValidation>>({});
   const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -536,8 +536,11 @@ const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   async function lookupOperadoraForPhone(phoneId: string, ddi: string, digits: string) {
     if (ddi !== "55" || digits.length < 10) return; // Só consulta se for Brasil
     
+    // 1. Ativa o loading visual da operadora
+    setWaValidations(prev => ({ ...prev, [phoneId]: { ...(prev[phoneId] || { loading: false, exists: false }), opLoading: true } }));
+
     try {
-      const res = await fetch("/api/auth/google/lookup-operadora", { // <--- BARRA ADICIONADA
+      const res = await fetch("/api/auth/google/lookup-operadora", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: `55${digits}` }),
@@ -553,12 +556,16 @@ const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
           }
           return { ...prev, phones };
         });
+        // 2. Salva o resultado visual
+        setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false, opName: data.operadora } }));
+      } else {
+        setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false } }));
       }
     } catch (e) {
       console.error("Falha ao buscar operadora", e);
+      setWaValidations(prev => ({ ...prev, [phoneId]: { ...prev[phoneId]!, opLoading: false } }));
     }
   }
-
 async function handleMassSyncPhotos() {
   if (selectedIds.size === 0) return;
   setIsSyncingPhotos(true);
@@ -1252,38 +1259,53 @@ const failReasons: string[] = [];
                           </span>
                         )}
                         {wa && (
-                          <span className={`text-[11px] font-bold flex items-center gap-1.5 ${wa.loading ? "text-slate-400" : wa.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-                            {wa.loading ? (
-                              <>
-                                <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                Validando WA...
-                              </>
-                            ) : wa.exists ? (
-  <>
-    ✅ WhatsApp ativo
-    {wa.photoStatus === "loading" && (
-      <span className="text-[11px] text-slate-400 flex items-center gap-1">
-        <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-        Buscando foto...
-      </span>
-    )}
-    {wa.photoStatus === "synced" && (
-      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">📸 Foto atualizada</span>
-    )}
-    {wa.photoStatus === "protected" && (
-      <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400">🔒 Foto protegida</span>
-    )}
-    {!wa.photoStatus && editModal.contact && (
-      <button onClick={() => handleSyncWaPhoto(p.id, editModal.contact!.id)} title="Buscar foto manualmente"
-        className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-200 dark:hover:bg-emerald-500/25 transition-colors font-bold">
-        📸 Foto WA
-      </button>
-    )}
-  </>
-) : (
-                              <>❌ Não encontrado no WA</>
+                          <>
+                            <span className={`text-[11px] font-bold flex items-center gap-1.5 ${wa.loading ? "text-slate-400" : wa.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+                              {wa.loading ? (
+                                <>
+                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                  Validando WA...
+                                </>
+                              ) : wa.exists ? (
+                                <>
+                                  ✅ WhatsApp ativo
+                                  {wa.photoStatus === "loading" && (
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                                      <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                      Buscando foto...
+                                    </span>
+                                  )}
+                                  {wa.photoStatus === "synced" && (
+                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">📸 Foto atualizada</span>
+                                  )}
+                                  {wa.photoStatus === "protected" && (
+                                    <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400">🔒 Foto protegida</span>
+                                  )}
+                                  {!wa.photoStatus && editModal.contact && (
+                                    <button onClick={() => handleSyncWaPhoto(p.id, editModal.contact!.id)} title="Buscar foto manualmente"
+                                      className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-200 dark:hover:bg-emerald-500/25 transition-colors font-bold">
+                                      📸 Foto WA
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <>❌ Não encontrado no WA</>
+                              )}
+                            </span>
+
+                            {/* FEEDBACK DA OPERADORA */}
+                            {wa.opLoading && (
+                              <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 ml-1">
+                                <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                Buscando operadora...
+                              </span>
                             )}
-                          </span>
+                            {wa.opName && (
+                              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 ml-1">
+                                📡 {wa.opName}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
