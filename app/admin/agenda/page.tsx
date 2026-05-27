@@ -604,7 +604,7 @@ const failReasons: string[] = [];
   failed++;
   failReasons.push(errData.error || "erro desconhecido");
 }
-      await new Promise(r => setTimeout(r, 250)); // evita rate limit
+      await new Promise(r => setTimeout(r, 500)); // mais seguro para massa
     } catch { failed++; }
   }
 
@@ -1245,12 +1245,7 @@ const failReasons: string[] = [];
                           onBlur={() => confirmPhone(idx)}
                           className="flex-1 p-2 border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-black/20 text-slate-800 dark:text-white text-sm font-mono min-w-0"
                         />
-                        {/* Botão confirmar */}
-                        <button
-                          onClick={() => confirmPhone(idx)}
-                          title="Confirmar e validar número"
-                          className={`px-2.5 py-2 rounded-lg border text-xs font-bold transition-colors ${p.confirmed ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"}`}
-                        >✓</button>
+                        
                         {/* Remover */}
                         <button
                           onClick={() => { setEditForm(prev => ({ ...prev, phones: prev.phones.filter(x => x.id !== p.id) })); setWaValidations(prev => { const n = { ...prev }; delete n[p.id]; return n; }); }}
@@ -1258,66 +1253,74 @@ const failReasons: string[] = [];
                         ><IconTrash /></button>
                       </div>
 
-                      {/* Linha 2: status */}
-                      <div className="flex flex-wrap items-center gap-3 px-1">
-                        
-                        {wa && (
-                          <>
-                            <span className={`text-[11px] font-bold flex items-center gap-1.5 ${wa.loading ? "text-slate-400" : wa.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-                              {wa.loading ? (
-                                <>
-                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                  Validando WA...
-                                </>
-                              ) : wa.exists ? (
-                                <>
-                                  ✅ WhatsApp ativo
-                                  {wa.photoStatus === "loading" && (
-                                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                                      <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                      Buscando foto...
-                                    </span>
-                                  )}
-                                  {wa.photoStatus === "synced" && (
-                                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">📸 Foto atualizada</span>
-                                  )}
-                                  {wa.photoStatus === "protected" && (
-                                    <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400">🔒 Foto protegida</span>
-                                  )}
-                                  {!wa.photoStatus && editModal.contact && (
-                                    <button onClick={() => handleSyncWaPhoto(p.id, editModal.contact!.id)} title="Buscar foto manualmente"
-                                      className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-200 dark:hover:bg-emerald-500/25 transition-colors font-bold">
-                                      📸 Foto WA
-                                    </button>
-                                  )}
-                                </>
-                              ) : (
-                                <>❌ Não encontrado no WA</>
-                              )}
-                            </span>
+                      {/* Linha 2: Botões de Ação e Status */}
+<div className="flex flex-wrap items-center gap-2 px-1">
+  {/* Botão 1: WhatsApp Status */}
+  <button
+    onClick={() => {
+      const clean = onlyDigits(p.national);
+      if (clean.length >= 8) validateWaForPhone(p.id, `+${p.ddi}${clean}`);
+    }}
+    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+      wa?.loading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+      wa?.exists ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
+      wa?.exists === false ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" :
+      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+    }`}
+  >
+    {wa?.loading ? "⏳ Validando..." :
+     wa?.exists ? "✅ WhatsApp Ativo" :
+     wa?.exists === false && p.confirmed ? "❌ Não Encontrado" :
+     "Status WhatsApp"}
+  </button>
 
-                            {/* FEEDBACK DA OPERADORA */}
-                              {wa.opLoading && (
-                                <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 ml-1">
-                                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                  Buscando operadora...
-                                </span>
-                              )}
+  {/* Botão 2: Sincronizar Foto */}
+  <button
+    onClick={() => {
+      if (wa?.exists && editModal.contact?.id) {
+        handleSyncWaPhotoSilent(editModal.contact.id, wa.jid!, p.id);
+      } else {
+        addToast("warning", "Atenção", "O contato precisa estar salvo e o WhatsApp validado primeiro.");
+      }
+    }}
+    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+      wa?.photoStatus === "loading" ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+      wa?.photoStatus === "synced" ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
+      wa?.photoStatus === "protected" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30" :
+      "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+    }`}
+  >
+    {wa?.photoStatus === "loading" ? "⏳ Buscando Foto..." :
+     wa?.photoStatus === "synced" ? "📸 Foto Sincronizada" :
+     wa?.photoStatus === "protected" ? "🔒 Foto Protegida" :
+     "Sincronizar Foto"}
+  </button>
 
-                              {wa.opName && (
-                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 ml-1">
-                                  📡 {wa.opName}
-                                </span>
-                              )}
-
-                              {wa.opError && (
-                                <span className="text-[11px] font-bold text-rose-500 dark:text-rose-400 flex items-center gap-1 ml-1">
-                                  ⚠️ Falha ao buscar operadora
-                                </span>
-                              )}
-                          </>
-                        )}
-                      </div>
+  {/* Botão 3: Sincronizar Operadora / Info do País */}
+  {p.ddi === "55" ? (
+    <button
+      onClick={() => {
+        const clean = onlyDigits(p.national);
+        if (clean.length >= 10) lookupOperadoraForPhone(p.id, p.ddi, clean);
+      }}
+      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+        wa?.opLoading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
+        wa?.opName ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30" :
+        wa?.opError ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" :
+        "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
+      }`}
+    >
+      {wa?.opLoading ? "⏳ Buscando..." :
+       wa?.opName ? `📡 ${wa.opName}` :
+       wa?.opError ? "⚠️ Falha ao buscar" :
+       "Sincronizar Operadora"}
+    </button>
+  ) : (
+    <div className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 flex items-center gap-1 cursor-default">
+      🌍 {DDI_OPTIONS.find(o => o.code === p.ddi)?.label || "Internacional"}
+    </div>
+  )}
+</div>
                     </div>
                   );
                 })}

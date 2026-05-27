@@ -49,6 +49,61 @@ async function consultarOperadoraExterna(phoneDigits: string): Promise<string | 
   }
 }
 
+// 🌍 MAPA DE DDI PARA IDENTIFICAÇÃO INTERNACIONAL
+const DDI_OPTIONS = [
+  { code: "1",   label: "EUA/Canadá" },
+  { code: "351", label: "Portugal" },
+  { code: "353", label: "Irlanda" },
+  { code: "507", label: "Panamá" },
+  { code: "506", label: "Costa Rica" },
+  { code: "595", label: "Paraguai" },
+  { code: "591", label: "Bolívia" },
+  { code: "234", label: "Nigéria" },
+  { code: "254", label: "Quênia" },
+  { code: "212", label: "Marrocos" },
+  { code: "971", label: "Emirados Árabes" },
+  { code: "966", label: "Arábia Saudita" },
+  { code: "44",  label: "Reino Unido" },
+  { code: "34",  label: "Espanha" },
+  { code: "49",  label: "Alemanha" },
+  { code: "33",  label: "França" },
+  { code: "39",  label: "Itália" },
+  { code: "52",  label: "México" },
+  { code: "54",  label: "Argentina" },
+  { code: "56",  label: "Chile" },
+  { code: "57",  label: "Colômbia" },
+  { code: "58",  label: "Venezuela" },
+  { code: "32",  label: "Bélgica" },
+  { code: "46",  label: "Suécia" },
+  { code: "31",  label: "Holanda" },
+  { code: "41",  label: "Suíça" },
+  { code: "45",  label: "Dinamarca" },
+  { code: "48",  label: "Polônia" },
+  { code: "30",  label: "Grécia" },
+  { code: "27",  label: "África do Sul" },
+  { code: "20",  label: "Egito" },
+  { code: "86",  label: "China" },
+  { code: "91",  label: "Índia" },
+  { code: "81",  label: "Japão" },
+  { code: "82",  label: "Coreia do Sul" },
+  { code: "66",  label: "Tailândia" },
+  { code: "62",  label: "Indonésia" },
+  { code: "60",  label: "Malásia" },
+  { code: "98",  label: "Irã" },
+  { code: "90",  label: "Turquia" },
+  { code: "61",  label: "Austrália" },
+  { code: "64",  label: "Nova Zelândia" }
+];
+
+function inferCountryLabel(digits: string): string {
+  if (!digits) return "Internacional";
+  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
+  for (const opt of sorted) {
+    if (digits.startsWith(opt.code)) return opt.label;
+  }
+  return "Internacional";
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -110,15 +165,21 @@ export async function POST(req: Request) {
           const phone = updatedPhones[i];
           const digits = onlyDigits(phone.value);
 
-          // Verifica se é um número do Brasil válido para consulta (DDI 55 + DDD + Numero)
-          if (digits.startsWith("55") && digits.length >= 12 && digits.length <= 13) {
-            
-            // Faz a consulta na API da Operadora
-            const operadoraName = await consultarOperadoraExterna(digits);
-
-            // Se achou uma operadora e ela for diferente do label atual, atualiza!
-            if (operadoraName && phone.label !== operadoraName) {
-              updatedPhones[i].label = operadoraName;
+          // Validação separada: Brasil (55) vs Internacional
+          if (digits.startsWith("55")) {
+            // Número do Brasil: validação de tamanho antes de bater na API
+            if (digits.length >= 12 && digits.length <= 13) {
+              const operadoraName = await consultarOperadoraExterna(digits);
+              if (operadoraName && phone.label !== operadoraName) {
+                updatedPhones[i].label = operadoraName;
+                hasChanges = true;
+              }
+            }
+          } else if (digits.length > 7) {
+            // Número Internacional: define o país como label
+            const countryLabel = inferCountryLabel(digits);
+            if (phone.label !== countryLabel) {
+              updatedPhones[i].label = countryLabel;
               hasChanges = true;
             }
           }
