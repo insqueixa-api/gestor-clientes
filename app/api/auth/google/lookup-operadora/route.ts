@@ -81,9 +81,9 @@ export async function POST(req: Request) {
 
     if (phone.startsWith("55")) {
       const operadora = await consultarOperadoraExterna(phone);
-      if (operadora) label = operadora;
+      if (operadora) label = `${operadora}:`;
     } else {
-      label = inferCountryLabel(phone);
+      label = `${inferCountryLabel(phone)}:`;
     }
     
     return NextResponse.json({ operadora: label });

@@ -170,16 +170,16 @@ export async function POST(req: Request) {
             // Número do Brasil: validação de tamanho antes de bater na API
             if (digits.length >= 12 && digits.length <= 13) {
               const operadoraName = await consultarOperadoraExterna(digits);
-              if (operadoraName && phone.label !== operadoraName) {
-                updatedPhones[i].label = operadoraName;
+              if (operadoraName && phone.label !== `${operadoraName}:`) {
+                updatedPhones[i].label = `${operadoraName}:`;
                 hasChanges = true;
               }
             }
           } else if (digits.length > 7) {
             // Número Internacional: define o país como label
             const countryLabel = inferCountryLabel(digits);
-            if (phone.label !== countryLabel) {
-              updatedPhones[i].label = countryLabel;
+            if (phone.label !== `${countryLabel}:`) {
+              updatedPhones[i].label = `${countryLabel}:`;
               hasChanges = true;
             }
           }
