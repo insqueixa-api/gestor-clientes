@@ -1305,18 +1305,18 @@ const failReasons: string[] = [];
       }}
       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
         wa?.opLoading ? "bg-slate-100 dark:bg-white/5 text-slate-500 border-slate-200 dark:border-white/10" :
-        wa?.opName ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30" :
+        wa?.opName ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" :
         wa?.opError ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" :
         "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10"
       }`}
     >
       {wa?.opLoading ? "⏳ Buscando..." :
-       wa?.opName ? `📡 ${wa.opName}` :
+       wa?.opName ? "📡 Operadora Atualizada" :
        wa?.opError ? "⚠️ Falha ao buscar" :
        "Sincronizar Operadora"}
     </button>
   ) : (
-    <div className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 flex items-center gap-1 cursor-default">
+    <div className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center gap-1 cursor-default">
       🌍 {DDI_OPTIONS.find(o => o.code === p.ddi)?.label || "Internacional"}
     </div>
   )}
