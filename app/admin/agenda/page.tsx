@@ -307,7 +307,8 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; contact: GoogleContact | null }>({ open: false, contact: null });
   const [deleteFromGoogle, setDeleteFromGoogle] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-const [isSyncingLabels, setIsSyncingLabels] = useState(false);
+  const [isSyncingLabels, setIsSyncingLabels] = useState(false);
+  const [isSyncingOperadora, setIsSyncingOperadora] = useState(false); // <--- ADICIONADO
 
   // ─── UTILS ─────────────────────────────────────────────────────────────────
   function toggleSelected(id: string, checked: boolean) {
@@ -316,8 +317,28 @@ const [isSyncingLabels, setIsSyncingLabels] = useState(false);
 
   async function handleMassSyncOperadora() {
     if (selectedIds.size === 0) return;
-    addToast("warning", "Em desenvolvimento", `Sincronizando operadora para ${selectedIds.size} contatos.`);
-    setSelectedIds(new Set());
+    setIsSyncingOperadora(true);
+    try {
+      const res = await fetch("/api/auth/google/sync-operadora", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_ids: Array.from(selectedIds) }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        addToast("success", "Operadoras Atualizadas", data.message);
+        if (data.errors?.length) addToast("warning", "Alguns erros", data.errors.slice(0, 3).join(" | "));
+        loadData();
+        setSelectedIds(new Set());
+      } else {
+        throw new Error(data.error || "Erro ao consultar.");
+      }
+    } catch (err: any) {
+      addToast("error", "Erro", err.message);
+    } finally {
+      setIsSyncingOperadora(false);
+    }
   }
 
   async function handleMassAssignGroup(label: string) {
@@ -511,6 +532,32 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
 }
 
 const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
+// Busca a operadora on the fly para o modal de edição
+  async function lookupOperadoraForPhone(phoneId: string, ddi: string, digits: string) {
+    if (ddi !== "55" || digits.length < 10) return; // Só consulta se for Brasil
+    
+    try {
+      const res = await fetch("/api/auth/google/lookup-operadora", { // <--- BARRA ADICIONADA
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `55${digits}` }),
+      });
+      const data = await res.json();
+      
+      if (data.operadora) {
+        setEditForm(prev => {
+          const phones = [...prev.phones];
+          const index = phones.findIndex(x => x.id === phoneId);
+          if (index > -1) {
+            phones[index] = { ...phones[index], label: data.operadora };
+          }
+          return { ...prev, phones };
+        });
+      }
+    } catch (e) {
+      console.error("Falha ao buscar operadora", e);
+    }
+  }
 
 async function handleMassSyncPhotos() {
   if (selectedIds.size === 0) return;
@@ -579,18 +626,20 @@ const failReasons: string[] = [];
   };
 
   // Confirma e normaliza um telefone do modal, dispara validação WA
+  // Confirma e normaliza um telefone do modal, dispara validação WA e Operadora
   function confirmPhone(idx: number) {
     setEditForm(prev => {
       const phones = [...prev.phones];
       const p = phones[idx];
       let digits = onlyDigits(p.national);
-    // Strip zero inicial para Brasil (ex: "021..." → "21...")
-    if (p.ddi === "55" && digits.startsWith("0")) digits = digits.slice(1);
-    if (digits.length < 8) {
+      
+      // Strip zero inicial para Brasil (ex: "021..." → "21...")
+      if (p.ddi === "55" && digits.startsWith("0")) digits = digits.slice(1);
+      if (digits.length < 8) {
         phones[idx] = { ...p, confirmed: false };
         return { ...prev, phones };
       }
-      // Se o usuário colou o número inteiro com DDI, detecta automaticamente
+      
       let ddi = p.ddi;
       let national = digits;
       if (digits.length > 11) {
@@ -600,11 +649,16 @@ const failReasons: string[] = [];
       const formatted = formatNational(ddi, national);
       phones[idx] = { ...p, ddi, national: formatted || national, confirmed: true };
 
-      // Dispara validação WA com debounce
-      const e164 = `+${ddi}${onlyDigits(formatted || national)}`;
-if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
-const autoSyncId = editModal.contact?.id;
-waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyncId), 400);
+      // Dispara validação WA e Operadora com debounce
+      const cleanNational = onlyDigits(formatted || national);
+      const e164 = `+${ddi}${cleanNational}`;
+      if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
+      const autoSyncId = editModal.contact?.id;
+      
+      waTimers.current[p.id] = setTimeout(() => {
+        validateWaForPhone(p.id, e164, autoSyncId);
+        lookupOperadoraForPhone(p.id, ddi, cleanNational); // 🚀 CHAMA A OPERADORA AQUI
+      }, 400);
 
       return { ...prev, phones };
     });
@@ -829,16 +883,22 @@ waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyn
 
   <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{selectedIds.size} contato(s) selecionado(s)</span>
   <div className="flex items-center gap-2">
-  <button onClick={handleMassSyncOperadora} className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
-  Sincronizar Operadora
+  <button 
+  onClick={handleMassSyncOperadora} 
+  disabled={isSyncingOperadora} 
+  className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+>
+  {isSyncingOperadora ? (
+    <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando operadora...</>
+  ) : <>🔄 Operadora ({selectedIds.size})</>}
 </button>
 <button onClick={handleMassSyncPhotos} disabled={isSyncingPhotos} className="text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
   {isSyncingPhotos ? (
     <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando fotos...</>
-  ) : <>📸 Sync Fotos WA ({selectedIds.size})</>}
+  ) : <>🔄 Fotos ({selectedIds.size})</>}
 </button>
   <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
-    {isSyncingLabels ? (<><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Vinculando...</>) : (<>🔗 Vincular Servidor ({selectedIds.size})</>)}
+    {isSyncingLabels ? (<><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando servidor...</>) : (<>🔄 Servidor ({selectedIds.size})</>)}
   </button>
   {/* NOVO: Atribuir Grupo */}
   <div className="relative">
@@ -848,8 +908,8 @@ waTimers.current[p.id] = setTimeout(() => validateWaForPhone(p.id, e164, autoSyn
       className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
     >
       {isAssigningGroup ? (
-        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Atribuindo...</>
-      ) : <>🏷️ Atribuir Grupo</>}
+        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando grupos...</>
+      ) : <>🔄 Grupo</>}
     </button>
 
     {showGroupPopover && (
