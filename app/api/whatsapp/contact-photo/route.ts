@@ -32,11 +32,12 @@ export async function POST(req: Request) {
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
 
     // 1. Busca foto na VM WhatsApp
-    const VM_BASE = process.env.WHATSAPP_VM_URL ?? "http://34.69.145.29:3000";
+    const VM_BASE = process.env.UNIGESTOR_WA_BASE_URL ?? "";
 const picRes = await fetch(`${VM_BASE}/profile-picture?jid=${encodeURIComponent(jid)}`, {
   headers: {
-    "Authorization": `Bearer ${process.env.WHATSAPP_API_TOKEN ?? ""}`,
-    "x-session-key": process.env.WHATSAPP_SESSION_KEY ?? "default",
+    "Authorization": `Bearer ${process.env.UNIGESTOR_WA_TOKEN ?? ""}`,
+    "x-session-key": process.env.UNIGESTOR_WA_SESSION_KEY ?? "75d06e80",
+
   },
 });
 
