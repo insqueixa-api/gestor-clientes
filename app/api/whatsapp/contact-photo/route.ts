@@ -41,13 +41,16 @@ const picRes = await fetch(`${VM_BASE}/profile-picture?jid=${encodeURIComponent(
   },
 });
 
-    if (!picRes.ok) {
-      return NextResponse.json({ error: "Foto não disponível ou protegida." }, { status: 404 });
-    }
+    const picText = await picRes.text();
+console.log("[contact-photo] VM status:", picRes.status, "body:", picText);
 
-    const picData = await picRes.json();
-    const photoUrl: string | null = picData?.url ?? null;
-    if (!photoUrl) return NextResponse.json({ error: "Foto protegida." }, { status: 404 });
+if (!picRes.ok) {
+  return NextResponse.json({ error: "Foto não disponível ou protegida.", vm_status: picRes.status, vm_body: picText }, { status: 404 });
+}
+
+const picData = JSON.parse(picText);
+const photoUrl: string | null = picData?.url ?? null;
+if (!photoUrl) return NextResponse.json({ error: "Foto protegida.", vm_response: picData }, { status: 404 });
 
     // 2. Baixa a imagem e converte para base64
     const imgRes = await fetch(photoUrl);
