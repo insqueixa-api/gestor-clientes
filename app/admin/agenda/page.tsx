@@ -273,19 +273,19 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // WA validation por phoneId
-  type WaValidation = { loading: boolean; exists: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null; opLoading?: boolean; opName?: string; opError?: boolean; } | null;
-
+  type WaValidation = { loading?: boolean; exists?: boolean; jid?: string; photoStatus?: "loading" | "synced" | "protected" | null; opLoading?: boolean; opName?: string; opError?: boolean; } | null;
   const [waValidations, setWaValidations] = useState<Record<string, WaValidation>>({});
   const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   async function validateWaForPhone(phoneId: string, e164: string, autoSyncContactId?: string) {
-
     const digits = onlyDigits(e164);
     if (digits.length < 8) {
       setWaValidations(prev => { const n = { ...prev }; delete n[phoneId]; return n; });
       return;
     }
-    setWaValidations(prev => ({ ...prev, [phoneId]: { loading: true, exists: false } }));
+    // Preserva o estado anterior e ativa SÓ o loading do WA
+    setWaValidations(prev => ({ ...prev, [phoneId]: { ...(prev[phoneId] || {}), loading: true } }));
+    
     try {
       const res = await fetch("/api/whatsapp/validate", {
         method: "POST",
@@ -293,13 +293,16 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
-  setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: !!json.exists, jid: json.jid } }));
-  // Auto-sync foto se WA ativo e contactId fornecido
-  if (json.exists && json.jid && autoSyncContactId) {
-  setTimeout(() => handleSyncWaPhotoSilent(autoSyncContactId, json.jid, phoneId), 300);
-}
-} catch {
-      setWaValidations(prev => ({ ...prev, [phoneId]: { loading: false, exists: false } }));
+      
+      // Preserva o estado anterior e atualiza SÓ o status do WA
+      setWaValidations(prev => ({ ...prev, [phoneId]: { ...(prev[phoneId] || {}), loading: false, exists: !!json.exists, jid: json.jid } }));
+      
+      // Auto-sync foto se WA ativo e contactId fornecido
+      if (json.exists && json.jid && autoSyncContactId) {
+        setTimeout(() => handleSyncWaPhotoSilent(autoSyncContactId, json.jid, phoneId), 300);
+      }
+    } catch {
+      setWaValidations(prev => ({ ...prev, [phoneId]: { ...(prev[phoneId] || {}), loading: false, exists: false } }));
     }
   }
 
@@ -534,14 +537,13 @@ const sel = filtered.filter(r => selectedIds.has(r.id)).length;
 const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
 // Busca a operadora on the fly para o modal de edição
   async function lookupOperadoraForPhone(phoneId: string, ddi: string, digits: string) {
-    if (ddi !== "55" || digits.length < 10) return; // Só consulta se for Brasil
+    if (digits.length < 5) return; 
     
-    // 1. Ativa o loading visual da operadora
+    // 1. Ativa o loading visual da operadora SEM sobrescrever o WA com false
     setWaValidations(prev => ({ 
-    ...prev, 
-    [phoneId]: { ...(prev[phoneId] || { loading: false, exists: false }), opLoading: true, opError: false } 
-  }));
-
+      ...prev, 
+      [phoneId]: { ...(prev[phoneId] || {}), opLoading: true, opError: false } 
+    }));
   try {
     const res = await fetch("/api/auth/google/lookup-operadora", {
       method: "POST",
