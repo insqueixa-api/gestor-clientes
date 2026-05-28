@@ -117,16 +117,18 @@ export async function POST(req: Request) {
     const { phone } = await req.json();
     if (!phone) return NextResponse.json({ error: "Telefone não fornecido" }, { status: 400 });
 
-    let label = "Celular";
-
     if (phone.startsWith("55")) {
       const operadora = await consultarOperadoraExterna(phone);
-      if (operadora) label = `${operadora}:`;
+      if (operadora) {
+        return NextResponse.json({ operadora: `${operadora}:` });
+      } else {
+        // AGORA ELE AVISA O FRONT QUE DEU ERRO! (Botão vai ficar vermelho)
+        return NextResponse.json({ error: "Falha ao consultar operadora na Telein (Verifique a chave ou limite)." }, { status: 400 });
+      }
     } else {
-      label = `${inferCountryLabel(phone)}:`;
+      return NextResponse.json({ operadora: `${inferCountryLabel(phone)}:` });
     }
     
-    return NextResponse.json({ operadora: label });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

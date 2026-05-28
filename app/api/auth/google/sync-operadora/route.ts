@@ -219,9 +219,15 @@ export async function POST(req: Request) {
             if (national.length >= 10 && national.length <= 11) {
               const fullDigits = `55${national}`;
               const operadoraName = await consultarOperadoraExterna(fullDigits);
-              if (operadoraName && phone.label !== `${operadoraName}:`) {
-                updatedPhones[i].label = `${operadoraName}:`;
-                hasChanges = true;
+              
+              if (operadoraName) {
+                if (phone.label !== `${operadoraName}:`) {
+                  updatedPhones[i].label = `${operadoraName}:`;
+                  hasChanges = true;
+                }
+              } else {
+                // AVISA O TOAST QUE DEU ERRO NESSE NÚMERO
+                throw new Error(`Falha na Telein (Número: ${fullDigits})`);
               }
             }
           } else {
