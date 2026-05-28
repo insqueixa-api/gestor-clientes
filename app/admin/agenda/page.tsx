@@ -639,8 +639,7 @@ const failReasons: string[] = [];
     }
   };
 
-  // Confirma e normaliza um telefone do modal, dispara validação WA
-  // Confirma e normaliza um telefone do modal, dispara validação WA e Operadora
+  // Confirma e normaliza um telefone do modal, e dispara APENAS a validação de Operadora
   function confirmPhone(idx: number) {
     setEditForm(prev => {
       const phones = [...prev.phones];
@@ -663,15 +662,12 @@ const failReasons: string[] = [];
       const formatted = formatNational(ddi, national);
       phones[idx] = { ...p, ddi, national: formatted || national, confirmed: true };
 
-      // Dispara validação WA e Operadora com debounce
+      // Dispara APENAS a validação de Operadora/País com debounce
       const cleanNational = onlyDigits(formatted || national);
-      const e164 = `+${ddi}${cleanNational}`;
       if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
-      const autoSyncId = editModal.contact?.id;
       
       waTimers.current[p.id] = setTimeout(() => {
-        validateWaForPhone(p.id, e164, autoSyncId);
-        lookupOperadoraForPhone(p.id, ddi, cleanNational); // 🚀 CHAMA A OPERADORA AQUI
+        lookupOperadoraForPhone(p.id, ddi, cleanNational); // 🚀 CHAMA A OPERADORA
       }, 400);
 
       return { ...prev, phones };
