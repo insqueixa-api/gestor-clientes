@@ -60,7 +60,7 @@ function inferCountryLabel(digits: string): string {
 // 📡 INTEGRAÇÃO COM A TELEIN DE PORTABILIDADE/OPERADORA
 async function consultarOperadoraExterna(phoneDigits: string): Promise<string | null> {
   try {
-    const chave = process.env.TELEIN_API_KEY ?? "";
+    const chave = process.env.TELEIN_API_KEY || "senhasite";
     if (!chave) return null;
 
     // Remove o '55' inicial se houver, pois a Telein trabalha com DDD + Número (ex: 21999999999)
