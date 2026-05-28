@@ -9,7 +9,7 @@ function onlyDigits(raw: string | null | undefined) {
   return raw.replace(/\D+/g, "");
 }
 
-// 🪄 TRADUTOR DE LABELS PARA O GOOGLE (Mesmo das outras rotas)
+// 🪄 TRADUTOR DE LABELS PARA O GOOGLE
 function getGoogleLabel(label: string, defaultType: string) {
   if (!label) return { type: defaultType };
   const low = label.toLowerCase();
@@ -18,35 +18,6 @@ function getGoogleLabel(label: string, defaultType: string) {
   if (["celular", "mobile"].includes(low)) return { type: "mobile" };
   if (["pessoal", "other", "outro"].includes(low)) return { type: "other" };
   return { type: label }; // Aceita o nome da operadora direto
-}
-
-// 📡 INTEGRAÇÃO COM A API DE PORTABILIDADE/OPERADORA
-async function consultarOperadoraExterna(phoneDigits: string): Promise<string | null> {
-  try {
-    // ⚠️ ATENÇÃO: Substitua este bloco pela chamada real da sua API de operadora (Telein, etc.)
-    // Exemplo genérico:
-    /*
-    const res = await fetch(`https://api.sua-consulta.com.br/v1/numero/${phoneDigits}`, {
-      headers: { "Authorization": "Bearer SEU_TOKEN_AQUI" }
-    });
-    const data = await res.json();
-    if (data && data.operadora) {
-      return data.operadora; // Ex: "Vivo", "Claro", "Tim"
-    }
-    */
-
-    // MOCK TEMPORÁRIO PARA TESTES (Simula uma resposta baseada no final do número)
-    // Remova isso quando plugar sua API real!
-    const lastDigit = phoneDigits.slice(-1);
-    if (["1", "2", "3"].includes(lastDigit)) return "Vivo";
-    if (["4", "5", "6"].includes(lastDigit)) return "Claro";
-    if (["7", "8", "9"].includes(lastDigit)) return "Tim";
-    return "Oi";
-
-  } catch (error) {
-    console.error("Erro ao consultar operadora:", error);
-    return null;
-  }
 }
 
 // 🌍 MAPA DE DDI PARA IDENTIFICAÇÃO INTERNACIONAL
@@ -113,6 +84,61 @@ function inferDDI(digits: string): string {
   return "55";
 }
 
+// 📡 INTEGRAÇÃO COM A TELEIN DE PORTABILIDADE/OPERADORA
+async function consultarOperadoraExterna(phoneDigits: string): Promise<string | null> {
+  try {
+    const chave = process.env.TELEIN_API_KEY ?? "";
+    if (!chave) return null;
+
+    // Remove o '55' inicial se houver, pois a Telein trabalha melhor com DDD + Número (ex: 21999999999)
+    const numeroTratado = phoneDigits.startsWith("55") ? phoneDigits.substring(2) : phoneDigits;
+
+    // Utilizando o servidor 1 da Telein com a resposta resumida
+    const res = await fetch(
+      `http://consultanumero1.telein.com.br/sistema/consulta_numero.php?chave=${chave}&numero=${numeroTratado}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    
+    if (!res.ok) return null;
+
+    // Lê a resposta em texto puro (ex: "21#21992347771")
+    const textoRetorno = await res.text();
+    const partes = textoRetorno.split("#");
+    
+    if (partes.length === 0) return null;
+    
+    const codigoDaOperadora = partes[0].trim();
+
+    // Tratamento de erros da Telein (códigos 99, 990 a 999)
+    if (codigoDaOperadora.startsWith("99")) {
+      console.error("Aviso/Erro da Telein:", textoRetorno);
+      return null;
+    }
+
+    // Mapeamento oficial dos códigos da Telein para o nome da operadora
+    const mapOperadoras: Record<string, string> = {
+      "20": "Vivo",
+      "21": "Claro",
+      "31": "Oi",
+      "41": "TIM",
+      "12": "Algar",
+      "14": "Oi",       // Antiga Brasil Telecom
+      "77": "Claro",    // Antiga Nextel
+      "34": "Vivo",     // Telefônica Fixo
+      "35": "Claro",    // Embratel Fixo
+      "36": "Oi",       // Telemar Fixo
+      "38": "Vivo",     // GVT Fixo
+      "40": "TIM",      // TIM Fixo
+    };
+
+    return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
+
+  } catch (error) {
+    console.error("Erro na consulta Telein:", error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -174,7 +200,7 @@ export async function POST(req: Request) {
           const phone = updatedPhones[i];
           const digits = onlyDigits(phone.value);
 
-          // 🧠 Lógica robusta de inferência (idêntica ao frontend)
+          // 🧠 Lógica robusta de inferência
           const rawValue = phone.value || "";
           let ddi = "55";
           let national = digits;
