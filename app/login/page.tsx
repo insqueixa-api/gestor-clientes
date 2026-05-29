@@ -216,12 +216,12 @@ if (error) throw error;
                 {/* === VALIDADOR HUMANO CLOUDFLARE === */}
                 <div className="flex justify-center pt-2">
                   <Turnstile 
-                  ref={turnstileRef}
-                  siteKey="0x4AAAAAACgrYURZlknhmi-J" 
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onError={() => setTurnstileToken(null)}
-                  onExpire={() => setTurnstileToken(null)}
-                />
+  ref={turnstileRef}
+  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "0x4AAAAAACgrYURZlknhmi-J"} 
+  onSuccess={(token) => setTurnstileToken(token)}
+  onError={() => setTurnstileToken(null)}
+  onExpire={() => setTurnstileToken(null)}
+/>
                   {/* O input oculto envia o token para a Server Action capturar com formData.get('cf-turnstile-response') */}
                   <input type="hidden" name="cf-turnstile-response" value={turnstileToken || ""} />
                 </div>
@@ -264,12 +264,12 @@ if (error) throw error;
                 {/* === VALIDADOR HUMANO CLOUDFLARE === */}
                 <div className="flex justify-center pt-2">
                   <Turnstile 
-                    ref={turnstileRef}
-                    siteKey="0x4AAAAAACgrYURZlknhmi-J" 
-                    onSuccess={(token) => setTurnstileToken(token)}
-                    onError={() => setTurnstileToken(null)}
-                    onExpire={() => setTurnstileToken(null)}
-                  />
+  ref={turnstileRef}
+  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "0x4AAAAAACgrYURZlknhmi-J"} 
+  onSuccess={(token) => setTurnstileToken(token)}
+  onError={() => setTurnstileToken(null)}
+  onExpire={() => setTurnstileToken(null)}
+/>
                 </div>
 
                 <button
