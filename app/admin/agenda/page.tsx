@@ -211,8 +211,9 @@ function AgendaPageContent() {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("Todos");
   const [emailLabelFilter, setEmailLabelFilter] = useState("Todos");
+  const [phoneLabelFilter, setPhoneLabelFilter] = useState("Todos"); // <--- ADICIONADO
   const [pageSize, setPageSize] = useState(100);
-const [page, setPage] = useState(1);
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -231,11 +232,15 @@ const [isAssigningGroup, setIsAssigningGroup] = useState(false);
     () => Array.from(new Set(rows.flatMap(r => getEmailsArray(r).map(e => e.label)))).sort(),
     [rows]
   );
+  
+  // <--- ADICIONADO: Extrai os nomes únicos das operadoras/labels de telefone
+  const uniquePhoneLabels = useMemo(
+    () => Array.from(new Set(rows.flatMap(r => getPhonesArray(r).map(p => p.label)))).sort(),
+    [rows]
+  );
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos";
-
-
+  const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || phoneLabelFilter !== "Todos"; // <--- ATUALIZADO
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -413,20 +418,27 @@ const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos"
   // ─── FILTROS & ORDENAÇÃO ───────────────────────────────────────────────────
   useEffect(() => {
   setSelectedIds(new Set());
-}, [search, labelFilter, emailLabelFilter]);
+}, [search, labelFilter, emailLabelFilter, phoneLabelFilter]); // <--- ATUALIZADO
 
 const filtered = useMemo(() => {
   const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return rows.filter(r => {
       if (labelFilter === "__SEM_GRUPO__") {
-  const realLabels = (r.labels || []).filter(l => l && l.trim().length > 0);
-  if (realLabels.length > 0) return false;
-} else if (labelFilter !== "Todos") {
-  if (!r.labels || !r.labels.includes(labelFilter)) return false;
-}
+        const realLabels = (r.labels || []).filter(l => l && l.trim().length > 0);
+        if (realLabels.length > 0) return false;
+      } else if (labelFilter !== "Todos") {
+        if (!r.labels || !r.labels.includes(labelFilter)) return false;
+      }
+      
       if (emailLabelFilter !== "Todos") {
         const eLbls = getEmailsArray(r).map(e => e.label);
         if (!eLbls.includes(emailLabelFilter)) return false;
+      }
+
+      // <--- ADICIONADO: Regra de filtro para a operadora
+      if (phoneLabelFilter !== "Todos") {
+        const pLbls = getPhonesArray(r).map(p => p.label);
+        if (!pLbls.includes(phoneLabelFilter)) return false;
       }
       
       if (q) {
@@ -811,14 +823,14 @@ const failReasons: string[] = [];
     {/* Filtros inline — visíveis só no desktop */}
     <div className="hidden md:flex items-center gap-2">
       <select
-  value={labelFilter}
-  onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-  className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+        value={labelFilter}
+        onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
       >
         <option value="Todos">Grupo (Todos)</option>
-  <option value="__SEM_GRUPO__">Sem grupo</option>
-  {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-</select>
+        <option value="__SEM_GRUPO__">Sem grupo</option>
+        {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
 
       <select
         value={emailLabelFilter}
@@ -829,11 +841,19 @@ const failReasons: string[] = [];
         {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
       </select>
 
+      {/* <--- ADICIONADO: Filtro Operadora (Desktop) */}
+      <select
+        value={phoneLabelFilter}
+        onChange={e => { setPhoneLabelFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">📱 Operadora (Todas)</option>
+        {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+      </select>
       
       {hasActiveFilters && (
         <button
-          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPage(1); }}
-
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
           className="h-10 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
         >
           ✕ Limpar
