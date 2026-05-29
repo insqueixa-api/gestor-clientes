@@ -467,14 +467,22 @@ const filtered = useMemo(() => {
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   function setAllVisible(checked: boolean) {
-  setSelectedIds(checked ? new Set(filtered.map(r => r.id)) : new Set());
-}
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        visible.forEach(r => next.add(r.id));
+      } else {
+        visible.forEach(r => next.delete(r.id));
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     const el = selectAllRef.current;
     if (!el) return;
-    const total = filtered.length;
-const sel = filtered.filter(r => selectedIds.has(r.id)).length;
+    const total = visible.length;
+    const sel = visible.filter(r => selectedIds.has(r.id)).length;
     el.indeterminate = sel > 0 && sel < total;
   }, [selectedIds, visible]);
 
@@ -1015,7 +1023,13 @@ const failReasons: string[] = [];
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-xs font-bold uppercase text-slate-500 dark:text-white/55">
                   <Th width={36}>
-                    <input ref={selectAllRef} type="checkbox" checked={filtered.length > 0 && filtered.every(r => selectedIds.has(r.id))} onChange={e => setAllVisible(e.target.checked)} className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5" />
+                    <input 
+                      ref={selectAllRef} 
+                      type="checkbox" 
+                      checked={visible.length > 0 && visible.every(r => selectedIds.has(r.id))} 
+                      onChange={e => setAllVisible(e.target.checked)} 
+                      className="rounded border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5 cursor-pointer" 
+                    />
                   </Th>
                   <ThSort label="Contato" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} width={200} />
                     <Th width={220}>Telefones</Th>
