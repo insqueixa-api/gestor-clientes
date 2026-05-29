@@ -448,7 +448,7 @@ const filtered = useMemo(() => {
       }
       return true;
     });
-  }, [rows, search, labelFilter, emailLabelFilter]);
+  }, [rows, search, labelFilter, emailLabelFilter, phoneLabelFilter]); // <--- DEPENDÊNCIA ADICIONADA
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -876,37 +876,47 @@ const failReasons: string[] = [];
   </div>
 
   {/* Painel expandido no mobile */}
-  {showMobileFilters && (
-    <div className="md:hidden flex flex-col gap-2 mt-2 animate-in slide-in-from-top-2">
-      <select
-        value={labelFilter}
-        onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
-      >
-        <option value="Todos">Grupo (Todos)</option>
-        {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-      </select>
+      {showMobileFilters && (
+        <div className="md:hidden flex flex-col gap-2 mt-2 animate-in slide-in-from-top-2">
+          <select
+            value={labelFilter}
+            onChange={e => { setLabelFilter(e.target.value); setPage(1); }}
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+          >
+            <option value="Todos">Grupo (Todos)</option>
+            <option value="__SEM_GRUPO__">Sem grupo</option>
+            {uniqueLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+          </select>
 
-      <select
-        value={emailLabelFilter}
-        onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
-        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
-      >
-        <option value="Todos">📧 E-mail (Todos)</option>
-        {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
-      </select>
-      
+          <select
+            value={emailLabelFilter}
+            onChange={e => { setEmailLabelFilter(e.target.value); setPage(1); }}
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+          >
+            <option value="Todos">📧 E-mail (Todos)</option>
+            {uniqueEmailLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+          </select>
 
-      {hasActiveFilters && (
-        <button
-          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPage(1); }}
-          className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
-        >
-          ✕ Limpar filtros
-        </button>
+          {/* <--- ADICIONADO: Filtro Operadora no Mobile */}
+          <select
+            value={phoneLabelFilter}
+            onChange={e => { setPhoneLabelFilter(e.target.value); setPage(1); }}
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+          >
+            <option value="Todos">📱 Operadora (Todas)</option>
+            {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
+              className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
+            >
+              ✕ Limpar filtros
+            </button>
+          )}
+        </div>
       )}
-    </div>
-  )}
 </div>
 
       {/* SELEÇÃO EM MASSA */}
