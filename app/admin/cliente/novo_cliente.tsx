@@ -3413,12 +3413,12 @@ function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string
     }
     const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
 
-    await confirm({
+    const isFechar = await confirm({
       title: `DNS: ${selectedServerName}`,
       subtitle: "Lista de DNS configuradas para este servidor.",
       tone: "sky",
       confirmText: "Fechar",
-      cancelText: "",
+      cancelText: "Editar Servidor", // ✅ Nome do botão
       details: serverDomains.map((dns, idx) => (
         <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
           <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
@@ -3442,6 +3442,11 @@ function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string
         </div>
       ))
     });
+    // ✅ Se clicou em "Editar" (botão secundário retorna false)
+    if (!isFechar) {
+      // Como não estamos na tela de Servidores, redireciona em nova aba
+      window.open("/admin/gerenciador/servidor", "_blank");
+    }
   }
 
 // ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor

@@ -383,12 +383,12 @@ async function handleSyncIntegration(server: ServerRow) {
       return;
     }
 
-    await confirm({
+    const isFechar = await confirm({
       title: `DNS: ${server.name}`,
       subtitle: "Lista de DNS configuradas para este servidor.",
-      tone: "sky", // ✅ Corrigido: Usando a cor "sky" que existe no seu hook
+      tone: "sky",
       confirmText: "Fechar",
-      cancelText: "Voltar",
+      cancelText: "Editar", // ✅ Nome do botão
       details: validDns.map((dns, idx) => (
         <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
           <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
@@ -412,6 +412,10 @@ async function handleSyncIntegration(server: ServerRow) {
         </div>
       )) // ✅ Sem o 'as any'!
     });
+    // ✅ Se clicou em "Editar" (botão secundário retorna false)
+    if (!isFechar) {
+      handleOpenEdit(server); // Abre o modal do servidor direto!
+    }
   }
   async function handleHardDelete(server: ServerRow) {
     if (!server.is_archived) {

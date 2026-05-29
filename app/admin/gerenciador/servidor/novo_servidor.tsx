@@ -118,6 +118,15 @@ const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
   const [panelValue, setPanelValue] = useState("");
   const [integration, setIntegration] = useState("");
   const [dnsList, setDnsList] = useState<string[]>(["", "", "", "", "", ""]);
+  
+  // ✅ NOVO: Estado e função para o feedback visual de cópia da DNS
+  const [copiedDnsIndex, setCopiedDnsIndex] = useState<number | null>(null);
+
+  const handleCopyDns = (dns: string, idx: number) => {
+    navigator.clipboard.writeText(dns);
+    setCopiedDnsIndex(idx);
+    setTimeout(() => setCopiedDnsIndex(null), 2000); // Volta ao ícone original após 2s
+  };
 
   // ✅ NOVO: Controle de Sessão
   const [selectedSession, setSelectedSession] = useState("default");
@@ -760,14 +769,20 @@ const payload = {
                   {dns && (
                     <button
                       type="button"
-                      onClick={() => navigator.clipboard.writeText(dns)}
+                      onClick={() => handleCopyDns(dns, idx)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
                       title="Copiar DNS"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                      </svg>
+                      {copiedDnsIndex === idx ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 scale-110 transition-transform">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      )}
                     </button>
                   )}
                 </div>

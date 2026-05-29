@@ -145,13 +145,15 @@ export default function ConfirmDialog({
         )}
 
         <div className="flex gap-3 pt-2">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
-          >
-            {cancelText}
-          </button>
+          {cancelText && cancelText.trim() !== "" && (
+            <button
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             onClick={onConfirm}
             disabled={loading}
