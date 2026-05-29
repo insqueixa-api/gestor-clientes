@@ -374,6 +374,45 @@ async function handleSyncIntegration(server: ServerRow) {
       setSyncingServerId(null);
     }
   }
+
+  async function handleViewDns(server: ServerRow) {
+    const validDns = (server.dns || []).filter((d) => d.trim() !== "");
+
+    if (validDns.length === 0) {
+      addToast("error", "Sem DNS", "Nenhuma DNS válida configurada neste servidor.");
+      return;
+    }
+
+    await confirm({
+      title: `DNS: ${server.name}`,
+      subtitle: "Lista de DNS configuradas para este servidor.",
+      tone: "sky", // ✅ Corrigido: Usando a cor "sky" que existe no seu hook
+      confirmText: "Fechar",
+      cancelText: "Voltar",
+      details: validDns.map((dns, idx) => (
+        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
+          <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
+            {dns}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(dns);
+              addToast("success", "Copiado", "DNS copiada com sucesso!");
+            }}
+            className="p-1.5 text-slate-400 dark:text-white/40 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            title="Copiar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+      )) // ✅ Sem o 'as any'!
+    });
+  }
   async function handleHardDelete(server: ServerRow) {
     if (!server.is_archived) {
       addToast("error", "Ação bloqueada", "Só é possível excluir definitivamente um servidor arquivado.");
@@ -746,7 +785,25 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
 
                     <div className="flex justify-between items-center">
                       <span className="flex items-center gap-2 text-slate-500 dark:text-white/50"><IconCardDns /> DNS config.</span>
-                      <span className="font-bold text-slate-700 dark:text-white">{server.dns?.length || 0}</span>
+                      {(server.dns?.filter(d => d.trim()).length || 0) > 0 ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDns(server);
+                          }}
+                          className="font-bold px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          title="Ver DNS configuradas"
+                        >
+                          {server.dns.filter(d => d.trim()).length}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                        </button>
+                      ) : (
+                        <span className="font-bold text-slate-700 dark:text-white">0</span>
+                      )}
                     </div>
                   </div>
                 </div>

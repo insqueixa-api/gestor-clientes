@@ -865,8 +865,8 @@ async function loadWhatsAppSessions() {
   // ✅ NOVO: Controle do Popup de Confirmação Bonito
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; details: string[] } | null>(null);
   
-  // ✅ Instanciando o hook para a remoção do App
-  const { confirm: confirmDeleteApp, ConfirmUI } = useConfirm();
+  // ✅ Instanciando o hook (agora genérico para qualquer confirmação/lista)
+  const { confirm, ConfirmUI } = useConfirm();
 
   // --- TIPOS PARA APPS DINÂMICOS ---
   type AppCatalog = { id: string; name: string; fields_config: any[]; info_url: string | null; integration_type?: string | null; };
@@ -3392,7 +3392,7 @@ if (sendPaymentMsg && whatsappOptIn && messageContent && messageContent.trim()) 
 
 
 
-// ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
+
 
 // ✅ Gera M3U URL sem side effects (usado internamente no executeSave)
 function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string {
@@ -3403,6 +3403,46 @@ function buildM3uUrlSilent(overrideUser?: string, overridePass?: string): string
   const cleanDomain = randomDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
   return `http://${cleanDomain}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
 }
+
+
+// ✅ NOVO: Abre a lista de DNS do servidor selecionado
+  async function handleViewDns() {
+    if (serverDomains.length === 0) {
+      addToast("warning", "Sem DNS", "Este servidor não possui DNS configurada.");
+      return;
+    }
+    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Servidor";
+
+    await confirm({
+      title: `DNS: ${selectedServerName}`,
+      subtitle: "Lista de DNS configuradas para este servidor.",
+      tone: "sky",
+      confirmText: "Fechar",
+      cancelText: "",
+      details: serverDomains.map((dns, idx) => (
+        <div key={idx} className="flex items-center justify-between bg-white dark:bg-black/20 p-2.5 rounded-lg border border-slate-200 dark:border-white/10 mb-1.5 shadow-sm">
+          <span className="font-mono text-xs text-slate-600 dark:text-white/70 truncate mr-2 select-all">
+            {dns}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(dns);
+              addToast("success", "Copiado", "DNS copiada com sucesso!");
+            }}
+            className="p-1.5 text-slate-400 dark:text-white/40 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded transition-colors shrink-0"
+            title="Copiar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+      ))
+    });
+  }
 
 // ✅ NOVO: Gera M3U URL baseado nas DNSs do servidor
 function generateM3uUrl() {
@@ -4125,39 +4165,73 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
 
                    {/* Inputs Acesso */}
-
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
                       <div className="sm:col-span-2">
-
-                        <Label>Servidor *</Label>
-
-                        <Select value={serverId} onChange={(e) => setServerId(e.target.value)}>
-
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-wider">
+                            Servidor *
+                          </label>
+                          {serverDomains.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleViewDns}
+                              className="text-[10px] px-2 py-0.5 rounded text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 font-bold border border-sky-100 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors flex items-center gap-1 shadow-sm"
+                            >
+                              DNS <span className="bg-sky-100 dark:bg-sky-500/20 px-1 rounded-sm">{serverDomains.length}</span>
+                            </button>
+                          )}
+                        </div>
+                        <Select value={serverId} onChange={(e) => setServerId(e.target.value)} className="mt-0">
                             <option value="">Selecione...</option>
-
                             {servers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-
                         </Select>
-
                       </div>
-
+                      
                       <div>
-
                         <Label>Usuário*</Label>
-
-                        <Input value={username} onChange={(e) => setUsername(e.target.value)} />
-
+                        <div className="relative">
+                          <Input value={username} onChange={(e) => setUsername(e.target.value)} className="pr-10" />
+                          {username && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(username);
+                                addToast("success", "Copiado!", "Usuário copiado para a área de transferência.");
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                              title="Copiar usuário"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div>
-
                         <Label>Senha</Label>
-
-                        <Input value={password} onChange={(e) => setPassword(e.target.value)} />
-
+                        <div className="relative">
+                          <Input value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
+                          {password && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(password);
+                                addToast("success", "Copiado!", "Senha copiada para a área de transferência.");
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-white/40 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
+                              title="Copiar senha"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
-
                       {/* ✅ M3U URL (linha toda) */}
 
 <div className="sm:col-span-2">
@@ -5054,7 +5128,7 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                                       <button
                                           type="button"
                                           onClick={async () => {
-                                              const ok = await confirmDeleteApp({
+                                              const ok = await confirm({
                                                   title: `Remover do ${appLabel}?`,
                                                   subtitle: `Isso apagará o MAC do painel oficial.`,
                                                   tone: "rose",

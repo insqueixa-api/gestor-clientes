@@ -49,7 +49,7 @@ export type ConfirmDialogProps = {
   open: boolean;
   title: string;
   subtitle?: string;
-  details?: string[];
+  details?: (string | React.ReactNode)[]; // ✅ Agora aceita JSX
   tone?: Tone;
   icon?: React.ReactNode;
   confirmText?: string;
@@ -114,7 +114,7 @@ export default function ConfirmDialog({
           <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 border border-slate-100 dark:border-white/5">
             <ul className="space-y-2">
               {details.map((line, i) => {
-                // ✅ NOVO: Se o texto for "---", desenha um divider nativo sem bolinha
+                // Divisor
                 if (line === "---") {
                   return (
                     <li key={i} className="py-1">
@@ -123,7 +123,16 @@ export default function ConfirmDialog({
                   );
                 }
 
-                // Renderização normal para os restantes itens
+                // ✅ SE FOR JSX (Objeto customizado), RENDERIZA DIRETO (Sem a bolinha)
+                if (typeof line !== "string") {
+                  return (
+                    <li key={i} className="mt-1">
+                      {line}
+                    </li>
+                  );
+                }
+
+                // Padrão antigo para textos normais (Com a bolinha)
                 return (
                   <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
                     <span className={`${t.dot} font-bold`}>•</span>
