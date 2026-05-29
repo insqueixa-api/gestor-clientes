@@ -2242,6 +2242,107 @@ useEffect(() => {
   return () => window.visualViewport?.removeEventListener("resize", handleViewportResize);
 }, []);
 
+
+// ✅ NOVO: Função OUSADA para salvar contato na Agenda Google
+  async function syncToGoogleAgenda(clientId: string, finalE164: string, displayName: string, serverUsername: string) {
+    if (!finalE164) return;
+    
+    try {
+      const tid = await getCurrentTenantId();
+      const phoneDigits = onlyDigits(finalE164); // O banco salva sem o '+'
+      
+      // 1. Verifica se esse telefone já existe na agenda local do banco
+      const { data: existingContact } = await supabaseBrowser
+        .from("google_contacts")
+        .select("id")
+        .eq("tenant_id", tid)
+        .eq("phone_e164", phoneDigits)
+        .maybeSingle();
+
+      if (existingContact) {
+        console.log("Contato já existe na agenda. Pulando sync.");
+        return;
+      }
+
+      // 2. Monta o nome formatado: "Marcio NaTV3215"
+      const cleanName = displayName.split(" ")[0]; // Pega só o primeiro nome
+      const formattedName = serverUsername ? `${cleanName} ${serverUsername}` : displayName;
+
+      // 3. Monta o Payload no formato que sua API de agenda aceita
+      const selectedServerName = servers.find((s) => s.id === serverId)?.name || "Cliente";
+
+      const payload = {
+        display_name: formattedName,
+        phones: [{ label: selectedServerName, value: finalE164 }],
+        emails: [],
+        labels: ["Clientes IPTV"],
+        photo_base64: undefined
+      };
+
+      // 4. Dispara para a sua API existente
+      const res = await fetch("/api/auth/google/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        queueListToast(isTrialMode ? "trial" : "client", { 
+          type: "success", 
+          title: "Agenda Atualizada", 
+          message: `Contato ${formattedName} salvo no Google.` 
+        });
+
+        // 5. Pós-Processamento: Buscar o ID recém-criado para rodar os syncs secundários
+        if (phoneDigits.length >= 8) {
+          // Pequeno delay para garantir que a trigger/banco finalizou a inserção da API create
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          const { data: newContactData } = await supabaseBrowser
+            .from("google_contacts")
+            .select("id")
+            .eq("tenant_id", tid)
+            .eq("phone_e164", phoneDigits)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (newContactData) {
+            
+            // 🚀 5.1 Sincroniza a Operadora silenciosamente
+            try {
+              await fetch("/api/auth/google/sync-operadora", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contact_ids: [newContactData.id] })
+              });
+            } catch (err) {
+              console.error("Falha silenciosa ao sincronizar operadora:", err);
+            }
+
+            // 📸 5.2 Sincroniza a Foto do WhatsApp
+            const vRes = await fetch("/api/whatsapp/validate", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ phone: phoneDigits })
+            });
+            const vData = await vRes.json().catch(() => ({}));
+            
+            if (vData.exists && vData.jid) {
+              await fetch("/api/whatsapp/contact-photo", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contact_id: newContactData.id, jid: vData.jid })
+              });
+            }
+            
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Falha ao salvar na agenda:", error);
+    }
+  }
+
+
   // 1. EXECUTA A GRAVAÇÃO REAL (Chamada direta ou pelo botão do Popup)
 async function executeSave() {
 
@@ -3196,32 +3297,25 @@ if (isTrialMode && sendTrialWhats && whatsappOptIn && messageContent && messageC
     });
 
   } catch (e) {
-
-    console.error("Falha envio Whats (teste):", e);
-
-
-
-    queueListToast("trial", {
-
-      type: "error",
-
-      title: "Erro no envio",
-
-      message: "Teste criado, mas o WhatsApp falhou.",
-
-    });
-
-  }
-
-}
-
-
-
+          console.error("Falha envio Whats (teste):", e);
+          queueListToast("trial", {
+            type: "error",
+            title: "Erro no envio",
+            message: "Teste criado, mas o WhatsApp falhou.",
+          });
+        }
       }
 
+      // 🌟 NOVO: SALVAR NA AGENDA GOOGLE 🌟
+      // Como estamos DENTRO do bloco de criação, a variável apiUsername existe!
+      if (finalPrimaryE164 && clientId) {
+         // Sem await para rodar solto no background
+         syncToGoogleAgenda(clientId, finalPrimaryE164, displayName, apiUsername);
+      }
 
+    }
 
-      // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)
+    // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)
 
 if (!isEditing && !isTrialMode && registerRenewal && clientId) {
 
@@ -3366,11 +3460,7 @@ if (sendPaymentMsg && whatsappOptIn && messageContent && messageContent.trim()) 
 
 }
 
-
-
       setTimeout(() => { onSuccess(); onClose(); }, 900);
-
-
 
     } catch (err: unknown) {
 
