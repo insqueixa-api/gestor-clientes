@@ -247,6 +247,34 @@ export default function AdminShell({
         }
       }
 
+      // ✅ NOVO: Notificação de Saldo Baixo nos Servidores (<= 15)
+      if (tenantId) {
+        try {
+          const { data: serversBaixo, error: srvErr } = await supabaseBrowser
+            .from("servers")
+            .select("id, name, credits_available")
+            .eq("tenant_id", tenantId)
+            .eq("is_archived", false)
+            .lte("credits_available", 15); // Menor ou igual a 15
+
+          if (!srvErr && serversBaixo) {
+            serversBaixo.forEach(s => {
+              list.push({
+                id: `srv_low_credits_${s.id}`,
+                title: '🪫 Saldo Baixo',
+                message: `O servidor "${s.name}" está com apenas ${s.credits_available} créditos. Recarregue imediatamente para evitar interrupções!`,
+                link: '/admin/gerenciador/servidor', // Direciona para a gestão de servidores
+                type: 'error', // Tipo error para aparecer vermelho e chamar atenção
+                is_read: false,
+                created_at: nowIso,
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Erro ao buscar servidores com saldo baixo:", e);
+        }
+      }
+
       const dismissed = JSON.parse(localStorage.getItem("dismissed_notifs") || "[]");
       const readNotifs = JSON.parse(localStorage.getItem("read_notifs") || "[]");
 
