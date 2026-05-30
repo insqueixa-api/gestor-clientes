@@ -388,26 +388,56 @@ credits_used: months * qtyScreens,
     safeServerLog("fulfillment: failed to insert client_renewals", (e as any)?.message);
   }
 
-// 6) Sync
-  try {
-    let syncPath = "";
-    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
-    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
-    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync";
+// 6) Sync e Alerta de Saldo Baixo (Gmail via API Interna)
+  try {
+    let syncPath = "";
+    if (provider === "FAST") syncPath = "/api/integrations/fast/sync";
+    else if (provider === "NATV") syncPath = "/api/integrations/natv/sync";
+    else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync";
 
-    if (syncPath) {
-      await fetch(`${origin}${syncPath}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ 
+    if (syncPath) {
+      await fetch(`${origin}${syncPath}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ 
           tenant_id: tenantId, 
           integration_id: integrationId 
         }),
-      });
-    }
-  } catch (e) {
-    safeServerLog("fulfillment: failed sync", (e as any)?.message);
-  }
+      });
+    }
+
+    // ✅ Verifica se o saldo atualizado pós-recarga caiu para 10 ou menos
+    const { data: srvUpdated } = await supabaseAdmin
+      .from("servers")
+      .select("name, credits_available")
+      .eq("id", client.server_id)
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (srvUpdated && srvUpdated.credits_available <= 10) {
+      prodLog("fulfillment.low_credits", {
+        tenant: tenantId.slice(-6),
+        server: srvUpdated.name,
+        credits: srvUpdated.credits_available
+      });
+
+      // ✅ Dispara o e-mail usando exatamente a mesma estrutura e segurança do notifyManual
+      // Deixamos sem o 'await' para rodar solto em background e não atrasar o fluxo principal
+      fetch(`${origin}/api/notifications/low-credits`, {
+        method: "POST",
+        headers, // Reutiliza os headers que já possuem o "x-internal-secret" configurado acima
+        body: JSON.stringify({
+          serverName: srvUpdated.name,
+          credits: srvUpdated.credits_available,
+          tenantId: tenantId,
+          reason: "Saldo de créditos atingiu o limite crítico de 10 ou menos."
+        })
+      }).catch(e => safeServerLog("Erro ao enviar e-mail de saldo baixo via Gmail API", e));
+    }
+
+  } catch (e) {
+    safeServerLog("fulfillment: failed sync or low credits check", (e as any)?.message);
+  }
 
   // 7) WhatsApp
   let messageToSend = "";
