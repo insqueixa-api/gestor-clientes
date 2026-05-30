@@ -387,23 +387,11 @@ export default async function AdminDashboardPage({
   const catExpPrevMap = new Map<string, { label: string; value: number }>();
   const catExpExecMap = new Map<string, { label: string; value: number }>();
 
-  // Data de hoje isolada para a lógica do Previsto
-  const todayStr = isoDateFromYMD(_finToday.getFullYear(), _finToday.getMonth() + 1, _finToday.getDate());
-
   for (const t of finTrxRows) {
-    // Isola apenas os 10 primeiros caracteres (YYYY-MM-DD) para evitar erros com timezone
-    const dtVencimento = t.data_vencimento ? t.data_vencimento.slice(0, 10) : null;
-    const dtPagamento = t.data_pagamento ? t.data_pagamento.slice(0, 10) : null;
-
-    // 1. EXECUTADO = Está PAGO e a data de referência (pagamento ou vencimento) está no mês atual
-    const dataRef = dtPagamento || dtVencimento;
-    const inExec = t.status === "PAGO" && dataRef >= _finMonthStart && dataRef <= _finMonthEnd;
-
-    // 2. PENDENTE VÁLIDO = Não pago, mas vence de HOJE até o fim do mês
-    const isPendenteValido = t.status !== "PAGO" && dtVencimento >= todayStr && dtVencimento <= _finMonthEnd;
-
-    // 3. PREVISTO = O que já está garantido no bolso (Executado) + O que ainda vai vencer (Pendente Válido)
-    const inPrev = inExec || isPendenteValido;
+    // Previsto: Data de Vencimento dentro do mês atual
+    const inPrev = t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+    // Executado: Pago E Data de Pagamento dentro do mês atual
+    const inExec = t.status === "PAGO" && !!t.data_pagamento && t.data_pagamento >= _finMonthStart && t.data_pagamento <= _finMonthEnd;
 
     if (!inPrev && !inExec) continue;
 
