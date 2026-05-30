@@ -1,12 +1,6 @@
 "use client";
 
-/**
- * RankingCard — substitui o BarCard genérico
- * Uso:
- *   <RankingCard title="Top Servidores" items={topServersItems} accentColor="sky" />
- */
-
-import React from "react";
+import React, { useState } from "react";
 
 type BarItem = {
   label: string;
@@ -18,12 +12,13 @@ type AccentColor = "sky" | "emerald" | "violet" | "rose" | "amber" | "indigo";
 interface RankingCardProps {
   title: string;
   subtitle?: string;
-  items: BarItem[];
+  items?: BarItem[]; // ✅ Agora opcional
+  itemsPrevisto?: BarItem[]; // ✅ Novo
+  itemsExecutado?: BarItem[]; // ✅ Novo
   accentColor?: AccentColor;
   valueLabel?: string;
   formatValue?: (v: number) => string;
   mode?: "count" | "currency";
-  topN?: number;
 }
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 const fmtBRL = (v: number) =>
@@ -104,12 +99,25 @@ const accents: Record<AccentColor, {
 const medals = ["🥇", "🥈", "🥉"];
 
 export function RankingCard({
-  title, subtitle, items, accentColor = "sky", valueLabel, formatValue, mode = "count", topN = 5,
+  title, subtitle, items = [], itemsPrevisto, itemsExecutado, accentColor = "sky", valueLabel, formatValue, mode = "count",
 }: RankingCardProps) {
+  // ✅ Controle da visão ativa
+  const [view, setView] = useState<"previsto" | "executado">("executado");
+
   const defaultFormat = mode === "currency" ? fmtBRL : fmtInt;
   const fmt = formatValue ?? defaultFormat;
   const c = accents[accentColor];
-  const max = Math.max(...items.map((i) => i.value), 1);
+
+  // ✅ Se o componente receber as duas props do financeiro, ativa o toggle
+  const hasToggle = !!itemsPrevisto && !!itemsExecutado;
+  
+  // ✅ Define qual array de dados usar (O selecionado ou o padrão)
+  const currentItems = hasToggle 
+    ? (view === "previsto" ? itemsPrevisto : itemsExecutado) 
+    : items;
+
+  // Usa o currentItems para calcular o tamanho da barra
+  const max = Math.max(...currentItems.map((i) => i.value), 1);
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
@@ -123,18 +131,42 @@ export function RankingCard({
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">{subtitle}</p>
           )}
         </div>
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${c.rankBg} ${c.rank}`}>
-          Top {topN}
-        </span>
+        
+        {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
+        {hasToggle && (
+          <div className="flex bg-zinc-100 dark:bg-zinc-950/50 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shrink-0">
+            <button
+              onClick={() => setView("previsto")}
+              className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                view === "previsto"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
+                  : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              Previsto
+            </button>
+            <button
+              onClick={() => setView("executado")}
+              className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                view === "executado"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-800 dark:text-white shadow-sm"
+                  : "text-zinc-500 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              Executado
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Items */}
       <div className="px-5 py-4 space-y-3">
-        {items.length === 0 && (
-          <p className="text-zinc-400 dark:text-zinc-600 text-sm py-2">Sem dados disponíveis.</p>
+        {currentItems.length === 0 && (
+          <p className="text-zinc-400 dark:text-zinc-600 text-sm py-2">Sem dados {view === "previsto" ? "previstos" : "executados"}.</p>
         )}
 
-        {items.map((item, idx) => {
+        {/* ✅ LER DE currentItems em vez de items direto */}
+        {currentItems.map((item, idx) => {
           const pct = (item.value / max) * 100;
           const isTop = idx === 0;
           const barGrad = isTop ? c.topBar : c.bar;

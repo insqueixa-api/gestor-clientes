@@ -381,23 +381,44 @@ export default async function AdminDashboardPage({
     .filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd)
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // Rankings por categoria
-  const catRevMap = new Map<string, { label: string; value: number }>();
-  const catExpMap = new Map<string, { label: string; value: number }>();
+  // Rankings por categoria (Separando Previsto e Executado)
+  const catRevPrevMap = new Map<string, { label: string; value: number }>();
+  const catRevExecMap = new Map<string, { label: string; value: number }>();
+  const catExpPrevMap = new Map<string, { label: string; value: number }>();
+  const catExpExecMap = new Map<string, { label: string; value: number }>();
+
   for (const t of finTrxRows) {
-    if (t.status !== "PAGO") continue;
-    if (t.data_vencimento < _finMonthStart || t.data_vencimento > _finMonthEnd) continue;
+    // Previsto: Data de Vencimento dentro do mês atual
+    const inPrev = t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+    // Executado: Pago E Data de Pagamento dentro do mês atual
+    const inExec = t.status === "PAGO" && !!t.data_pagamento && t.data_pagamento >= _finMonthStart && t.data_pagamento <= _finMonthEnd;
+
+    if (!inPrev && !inExec) continue;
+
     const cat = t.categoria_id ? finCatById.get(t.categoria_id) : null;
     const label = cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
     const key = t.categoria_id ?? "__none__";
-    const map = t.tipo === "RECEITA" ? catRevMap : catExpMap;
-    const prev = map.get(key) ?? { label, value: 0 };
-    map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+    const val = toNumber(t.valor);
+
+    if (inPrev) {
+      const map = t.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
+      const prev = map.get(key) ?? { label, value: 0 };
+      map.set(key, { ...prev, value: prev.value + val });
+    }
+    if (inExec) {
+      const map = t.tipo === "RECEITA" ? catRevExecMap : catExpExecMap;
+      const prev = map.get(key) ?? { label, value: 0 };
+      map.set(key, { ...prev, value: prev.value + val });
+    }
   }
-  const finCatRevenueItems: BarItem[] = Array.from(catRevMap.values())
-    .sort((a, b) => b.value - a.value).slice(0, 5);
-  const finCatExpenseItems: BarItem[] = Array.from(catExpMap.values())
-    .sort((a, b) => b.value - a.value).slice(0, 5);
+
+  const getTop5 = (map: Map<string, { label: string; value: number }>) =>
+    Array.from(map.values()).sort((a, b) => b.value - a.value).slice(0, 5);
+
+  const finCatRevPrevItems = getTop5(catRevPrevMap);
+  const finCatRevExecItems = getTop5(catRevExecMap);
+  const finCatExpPrevItems = getTop5(catExpPrevMap);
+  const finCatExpExecItems = getTop5(catExpExecMap);
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -746,22 +767,34 @@ export default async function AdminDashboardPage({
             />
           </div>
 
-          {(finCatRevenueItems.length > 0 || finCatExpenseItems.length > 0) ? (
+          {(finCatRevPrevItems.length > 0 || finCatRevExecItems.length > 0 || finCatExpPrevItems.length > 0 || finCatExpExecItems.length > 0) ? (
             <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-              {finCatRevenueItems.length > 0 && (
+              {(finCatRevPrevItems.length > 0 || finCatRevExecItems.length > 0) && (
                 <div className="sv">
-                  <RankingCard title="Receitas por Categoria" items={finCatRevenueItems} accentColor="emerald" mode="currency" />
+                  <RankingCard 
+                    title="Receitas por Categoria" 
+                    itemsPrevisto={finCatRevPrevItems} 
+                    itemsExecutado={finCatRevExecItems} 
+                    accentColor="emerald" 
+                    mode="currency" 
+                  />
                 </div>
               )}
-              {finCatExpenseItems.length > 0 && (
+              {(finCatExpPrevItems.length > 0 || finCatExpExecItems.length > 0) && (
                 <div className="sv">
-                  <RankingCard title="Despesas por Categoria" items={finCatExpenseItems} accentColor="rose" mode="currency" />
+                  <RankingCard 
+                    title="Despesas por Categoria" 
+                    itemsPrevisto={finCatExpPrevItems} 
+                    itemsExecutado={finCatExpExecItems} 
+                    accentColor="rose" 
+                    mode="currency" 
+                  />
                 </div>
               )}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/10 p-10 text-center text-slate-400 dark:text-white/30 text-sm">
-              Nenhuma transação paga registrada no mês. <Link href="/admin/settings/financeiro_pessoal" className="underline hover:text-slate-600 dark:hover:text-white/60">Adicionar transações →</Link>
+              Nenhuma transação registrada no mês. <Link href="/admin/settings/financeiro_pessoal" className="underline hover:text-slate-600 dark:hover:text-white/60">Adicionar transações →</Link>
             </div>
           )}
         </>
