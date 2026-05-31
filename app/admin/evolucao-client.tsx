@@ -23,8 +23,6 @@ function fmtAxis(v: number): string {
 
 function fmtCell(v: number): string {
   if (v === 0) return "—";
-  if (v >= 1_000_000) return `R$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000)    return `R$${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}k`;
   return new Intl.NumberFormat("pt-BR", {
     style: "currency", currency: "BRL", maximumFractionDigits: 0,
   }).format(v);
@@ -43,22 +41,43 @@ type RowDef = {
 export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const [isMobile, setIsMobile] = useState(false);
   const isDark = useIsDark();
+  
+  // Ref e estado para medir a largura real da janela/container
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
     check();
     window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+
+    // Observa o tamanho do container para ajustar no desktop
+    if (!containerRef.current) return;
+    const ob = new ResizeObserver(entries => {
+      setContainerWidth(entries[0].contentRect.width);
+    });
+    ob.observe(containerRef.current);
+
+    return () => {
+      window.removeEventListener("resize", check);
+      ob.disconnect();
+    };
   }, []);
 
   const sliced = isMobile ? data.slice(-6) : data;
   const n = sliced.length;
 
   // ── Layout: shared between SVG chart and table ───────────────────
-  // LABEL_W = chart paddingLeft = table first-column width → they align perfectly
   const LABEL_W = 148;
-  const COL_W   = 84;   // chart stepX = table cell width → columns align perfectly
   const PAD_R   = 8;
+  const MIN_COL_W = 84; 
+
+  // Calcula a largura da coluna dinamicamente para esticar no PC
+  const availableWidth = containerWidth > 0 ? containerWidth : 1000;
+  const stretchedColW = Math.max(MIN_COL_W, (availableWidth - LABEL_W - PAD_R) / n);
+  
+  // No celular mantemos o mínimo (fazendo rolar), no PC usamos o espaço todo
+  const COL_W = isMobile ? MIN_COL_W : stretchedColW;
   const CHART_H = 232;
   const PAD_T   = 14;
   const PAD_B   = 28;
@@ -108,7 +127,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Receita Executada", key: "line1",
       dot: "#16a34a", lightColor: "#166534", darkColor: "#34d399",
-      bold: true,
+      bold: false, // <-- alterado para false
     },
     "divider",
     {
@@ -120,7 +139,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Despesa Executada", key: "line2",
       dot: "#dc2626", lightColor: "#7f1d1d", darkColor: "#fb7185",
-      bold: true,
+      bold: false, // <-- alterado para false
     },
   ];
 
@@ -128,7 +147,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const DIVIDER = isDark ? "rgba(255,255,255,0.1)"   : "rgba(0,0,0,0.1)";
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+    <div ref={containerRef} className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
 
       {/* Header */}
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
