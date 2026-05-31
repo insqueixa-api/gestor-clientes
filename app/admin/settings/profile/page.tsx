@@ -989,10 +989,10 @@ export default function ProfileSettingsPage() {
 
               {chartData.length > 1 && (() => {
                 const PAD_L = 56;
-                const PAD_TOP = 42; // Aumentado para o valor não colar no teto do gráfico
-                const COL_W = 86; // Um pouco mais largo para melhor leitura no mobile
-                const ROW_H = 135; // Altura maior para o gráfico ter respiro
-                const DATE_H = 52;
+                const PAD_TOP = 42; 
+                const COL_W = 86; 
+                const ROW_H = 135; 
+                const DATE_H = 32; // Reduzido, pois a legenda foi removida do rodapé
                 const W = PAD_L + COL_W * chartData.length;
                 const H = ROW_H * 2 + DATE_H;
 
@@ -1031,10 +1031,32 @@ export default function ProfileSettingsPage() {
 
                 return (
                   <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-                    <div className="flex items-center justify-between mb-3">
-                      <Label>Histórico de Composição</Label>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+                      <div>
+                        <Label>Histórico de Composição</Label>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-white/50 mt-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#10b981]" />
+                            Caiu
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#f43f5e]" />
+                            Subiu
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#161b22] border-2 border-[#94a3b8]" />
+                            Estável
+                          </span>
+                          {hasRef && (
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-3 h-2 rounded bg-[#10b981] opacity-20" />
+                              Ideal
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       {hasRef && idealWMin && (
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                           🎯 Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
                       )}
@@ -1168,23 +1190,7 @@ export default function ProfileSettingsPage() {
                             {fmtD(d.date)}
                           </text>
                         ))}
-
-                        {/* Legend */}
-                        <g transform={`translate(${PAD_L}, ${ROW_H * 2 + DATE_H - 10})`}>
-                          <circle cx="5" cy="5" r="4" fill="white" stroke="#10b981" strokeWidth="2" />
-                          <text x="14" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Caiu</text>
-                          <circle cx="44" cy="5" r="4" fill="white" stroke="#f43f5e" strokeWidth="2" />
-                          <text x="53" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Subiu</text>
-                          <circle cx="85" cy="5" r="4" fill="white" stroke="#94a3b8" strokeWidth="2" />
-                          <text x="94" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Estável</text>
-                          {hasRef && (
-                            <g transform="translate(128, 0)">
-                              <rect x="0" y="1" width="12" height="8" fill="#10b981" fillOpacity="0.2" rx="2" />
-                              <text x="16" y="9" fontSize="8.5" fill="currentColor" fillOpacity="0.4">Ideal</text>
-                            </g>
-                          )}
-                        </g>
-                    </svg>
+                      </svg>
                       </div>
                     </div>
                   </div>
