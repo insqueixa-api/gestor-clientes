@@ -182,6 +182,8 @@ export default function ProfileSettingsPage() {
   // Métricas de Saúde (Histórico)
   const [healthHistory, setHealthHistory] = useState<HealthRecord[]>([]);
   const [showHealthForm, setShowHealthForm] = useState(false);
+  const [showAllHealthRecords, setShowAllHealthRecords] = useState(false); // NOVO: Controla a lista
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false); // NOVO: Controla a engrenagem
   const [newHealthEntry, setNewHealthEntry] = useState({ date: new Date().toISOString().split("T")[0], weight: "" });
 
   const [whatsappSessions, setWhatsappSessions] = useState(1);
@@ -684,17 +686,33 @@ export default function ProfileSettingsPage() {
             </button>
           </div>
 
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-amber-400 transition-all shadow-sm"
-            title="Alternar tema"
-          >
-            {theme === "dark" ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <div className="relative">
+            <button
+              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+              className="h-9 w-9 shrink-0 rounded-xl border font-bold text-xs flex items-center justify-center bg-white dark:bg-[#161b22] border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 hover:bg-slate-50 dark:hover:bg-white/5 transition-all shadow-sm"
+              title="Configurações e Tema"
+            >
+              ⚙️
+            </button>
+            
+            {showSettingsDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSettingsDropdown(false)} />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tema do Sistema</p>
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-white/5"}`}>Claro</button>
+                      <button onClick={() => { setTheme("dark"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Escuro</button>
+                    </div>
+                  </div>
+                  <button onClick={() => { setShowSettingsDropdown(false); handleResetPassword(); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
+                    🔒 Alterar Senha
+                  </button>
+                </div>
+              </>
             )}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -711,13 +729,10 @@ export default function ProfileSettingsPage() {
                 Dados Cadastrais 
               </h3>
               <div className="flex items-center gap-2">
-                <button onClick={handleResetPassword} className="h-8 px-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-white/70 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-1.5 shadow-sm">
-                  <span className="hidden sm:inline">🔒 Alterar Senha</span>
-                  <span className="sm:hidden">🔒 Senha</span>
-                </button>
+                {/* O botão de senha foi movido para a engrenagem no header */}
                 {!isEditing ? (
                   <button onClick={() => setIsEditing(true)} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
-                    ✏️ Editar
+                    ✏️ Editar Perfil
                   </button>
                 ) : (
                   <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-all shadow-sm flex items-center gap-1.5">
@@ -866,7 +881,8 @@ export default function ProfileSettingsPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {sortedHistory.map((record, idx) => (
+                    {/* Controla a exibição usando a variável showAllHealthRecords */}
+                    {(showAllHealthRecords ? sortedHistory : sortedHistory.slice(0, 1)).map((record, idx) => (
                       <div key={record.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors group ${idx === 0 ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"}`}>
                         {/* Data em bloco */}
                         <div className="shrink-0 text-center w-10">
@@ -911,17 +927,71 @@ export default function ProfileSettingsPage() {
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                           </button>
                         </div>
+                      {/* Data em bloco */}
+                        <div className="shrink-0 text-center w-10">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
+                            {new Date(record.date + "T12:00:00").toLocaleDateString('pt-BR', { month: 'short' })}
+                          </p>
+                          <p className="text-lg font-black text-slate-700 dark:text-white leading-tight">
+                            {new Date(record.date + "T12:00:00").getDate().toString().padStart(2, "0")}
+                          </p>
+                          <p className="text-[9px] text-slate-400 dark:text-white/30 leading-none">
+                            {new Date(record.date + "T12:00:00").getFullYear()}
+                          </p>
+                        </div>
+                        <div className="w-px h-9 bg-slate-200 dark:bg-white/10 shrink-0" />
+                        {/* Métricas */}
+                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold text-slate-800 dark:text-white">{record.weight} kg</span>
+                          {record.imc > 0 && (
+                            <span className={`text-[11px] font-bold ${getImcColor(record.imc)}`}>
+                              IMC {record.imc} · {getImcLabel(record.imc)}
+                            </span>
+                          )}
+                          {idx === 0 && (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                              Mais recente
+                            </span>
+                          )}
+                        </div>
+                        {/* Ações */}
+                        <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button"
+                            onClick={() => {
+                              setEditingHealthId(record.id);
+                              setNewHealthEntry({ date: record.date, weight: String(record.weight) });
+                              setShowHealthForm(true);
+                            }}
+                            className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-amber-500 transition-colors">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <button type="button" onClick={() => void handleDeleteHealthRecord(record.id)}
+                            className="w-7 h-7 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          </button>
+                        </div>
                       </div>
                     ))}
+                    
+                    {/* Botão de Expandir/Contrair */}
+                    {sortedHistory.length > 1 && (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowAllHealthRecords(!showAllHealthRecords)}
+                        className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
+                      >
+                        {showAllHealthRecords ? "↑ Ocultar avaliações anteriores" : `↓ Ver mais avaliações (${sortedHistory.length - 1})`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
               {chartData.length > 1 && (() => {
                 const PAD_L = 56;
-                const PAD_TOP = 32;
-                const COL_W = 78;
-                const ROW_H = 115;
+                const PAD_TOP = 42; // Aumentado para o valor não colar no teto do gráfico
+                const COL_W = 86; // Um pouco mais largo para melhor leitura no mobile
+                const ROW_H = 135; // Altura maior para o gráfico ter respiro
                 const DATE_H = 52;
                 const W = PAD_L + COL_W * chartData.length;
                 const H = ROW_H * 2 + DATE_H;
@@ -1079,11 +1149,11 @@ export default function ProfileSettingsPage() {
                           </g>
                         ))}
 
-                        {/* IMC: value above + dot */}
+                        {/* IMC: value below + dot (Evita encostar no gráfico de peso) */}
                         {hasImc && chartData.map((d, i) => (
                           <g key={i}>
-                            <text x={xs[i]} y={iYs[i] - 12} textAnchor="middle"
-                              fontSize="10" fill="currentColor" fillOpacity="0.75">
+                            <text x={xs[i]} y={iYs[i] + 18} textAnchor="middle"
+                              fontSize="10.5" fontWeight="600" fill="currentColor" fillOpacity="0.75">
                               {d.imc}
                             </text>
                             <circle cx={xs[i]} cy={iYs[i]} r="4.5"
