@@ -550,62 +550,6 @@ let valorIptv = 0;
     ? transacoes.filter(t => t.conta_id === contaFilter) 
     : transacoes;
 
-  // 👇 NOVO: Controle de Ordenação
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: "asc" | "desc" } | null>(null);
-
-  const requestSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedTransacoes = useMemo(() => {
-    let sortableItems = [...filteredTransacoes];
-    
-    sortableItems.sort((a: any, b: any) => {
-      // 1. Ordem Principal (se o usuário clicou em alguma coluna)
-      if (sortConfig !== null) {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        if (sortConfig.key === "status_computed") {
-          aValue = getComputedStatus(a.status, a.data_vencimento);
-          bValue = getComputedStatus(b.status, b.data_vencimento);
-        } else if (sortConfig.key === "recorrencia_formatada") {
-          aValue = formatRecorrencia(a);
-          bValue = formatRecorrencia(b);
-        } else if (sortConfig.key === "descricao") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      }
-
-      // 2. Cascata 1 (Ou Ordem Inicial): Data de Vencimento
-      if (a.data_vencimento < b.data_vencimento) return -1;
-      if (a.data_vencimento > b.data_vencimento) return 1;
-
-      // 3. Cascata 2: Tipo (Receita sempre em cima de Despesa no mesmo dia)
-      if (a.tipo === "RECEITA" && b.tipo === "DESPESA") return -1;
-      if (a.tipo === "DESPESA" && b.tipo === "RECEITA") return 1;
-
-      // 4. Cascata 3: Descrição (Ordem Alfabética A-Z)
-      const descA = (a.descricao || "").toLowerCase();
-      const descB = (b.descricao || "").toLowerCase();
-      if (descA < descB) return -1;
-      if (descA > descB) return 1;
-
-      return 0; // Se for literalmente o mesmo item
-    });
-
-    return sortableItems;
-  }, [filteredTransacoes, sortConfig]);
-  // 👆 FIM DA ORDENAÇÃO
-
   // 1. Criamos as referências do mês atual da tela baseadas no currentDate
   const refYear = currentDate.getFullYear();
   const refMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
@@ -618,6 +562,78 @@ let valorIptv = 0;
     const isoDate = dateString.split('T')[0]; // Pega apenas YYYY-MM-DD
     return isoDate >= viewStartOfMonth && isoDate <= viewEndOfMonth;
   };
+
+  // 👇 NOVO: Controle de Ordenação e Separação de Listas
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: "asc" | "desc" } | null>(null);
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Divide a lista em "Normais" do mês e "Antecipadas" (futuras já pagas no mês)
+  const { normais, antecipadas } = useMemo(() => {
+    let n: typeof filteredTransacoes = [];
+    let a: typeof filteredTransacoes = [];
+    
+    filteredTransacoes.forEach(t => {
+      // Se vence DEPOIS do mês atual exibido, obrigatoriamente é um pagamento antecipado
+      if (t.data_vencimento > viewEndOfMonth) {
+        a.push(t);
+      } else {
+        n.push(t);
+      }
+    });
+
+    // Ordenação das Normais (obedece cliques do usuário na tabela ou ordem padrão)
+    n.sort((tA: any, tB: any) => {
+      if (sortConfig !== null) {
+        let aValue = tA[sortConfig.key];
+        let bValue = tB[sortConfig.key];
+
+        if (sortConfig.key === "status_computed") {
+          aValue = getComputedStatus(tA.status, tA.data_vencimento);
+          bValue = getComputedStatus(tB.status, tB.data_vencimento);
+        } else if (sortConfig.key === "recorrencia_formatada") {
+          aValue = formatRecorrencia(tA);
+          bValue = formatRecorrencia(tB);
+        } else if (sortConfig.key === "descricao") {
+          aValue = (aValue || "").toLowerCase();
+          bValue = (bValue || "").toLowerCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      }
+
+      if (tA.data_vencimento < tB.data_vencimento) return -1;
+      if (tA.data_vencimento > tB.data_vencimento) return 1;
+      if (tA.tipo === "RECEITA" && tB.tipo === "DESPESA") return -1;
+      if (tA.tipo === "DESPESA" && tB.tipo === "RECEITA") return 1;
+      const descA = (tA.descricao || "").toLowerCase();
+      const descB = (tB.descricao || "").toLowerCase();
+      if (descA < descB) return -1;
+      if (descA > descB) return 1;
+      return 0;
+    });
+
+    // Ordenação das Antecipadas (Alfabética A-Z -> Data de vencimento em sequência)
+    a.sort((tA: any, tB: any) => {
+      const descA = (tA.descricao || "").toLowerCase();
+      const descB = (tB.descricao || "").toLowerCase();
+      if (descA < descB) return -1;
+      if (descA > descB) return 1;
+      if (tA.data_vencimento < tB.data_vencimento) return -1;
+      if (tA.data_vencimento > tB.data_vencimento) return 1;
+      return 0;
+    });
+
+    return { normais: n, antecipadas: a };
+  }, [filteredTransacoes, sortConfig, viewEndOfMonth]);
+  // 👆 FIM DA ORDENAÇÃO
 
   // 3. CAIXA (Efetivado): Soma apenas o que foi PAGO no mês visualizado
   const receitasPagas = transacoesCards
@@ -865,178 +881,202 @@ let valorIptv = 0;
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-slate-200 dark:divide-white/5">
-            {sortedTransacoes.length === 0 && !loading && (
+            {normais.length === 0 && antecipadas.length === 0 && !loading && (
               <tr><td colSpan={9} className="p-8 text-center text-slate-400 italic">Nenhum lançamento encontrado.</td></tr>
             )}
             {loading && (
               <tr><td colSpan={9} className="p-8 text-center text-emerald-500 animate-pulse font-bold">Carregando dados...</td></tr>
             )}
-            {sortedTransacoes.map((t, index) => {
-              const cStatus = getComputedStatus(t.status, t.data_vencimento);
-              const recText = formatRecorrencia(t);
-              
-              // Verifica se deve mostrar o divisor de data
-              const isSortedByDate = !sortConfig || sortConfig.key === "data_vencimento";
-              const showDateDivider = isSortedByDate && (index === 0 || sortedTransacoes[index - 1].data_vencimento !== t.data_vencimento);
-              
-              let dateLabel = "";
-              if (showDateDivider) {
-                const [y, m, d] = t.data_vencimento.split('-');
-                const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-                const diaSemana = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
-                dateLabel = `${d}/${m}/${y} - ${diaSemana}`;
-              }
-
-              // Verifica se a linha deve ficar esmaecida
-              const isPago = cStatus === "PAGO";
-              const rowOpacity = isPago ? "opacity-60 hover:opacity-100" : "";
-
-              // Retornamos um array com o divisor (se existir) e a linha da transação
-              return [
-                showDateDivider && (
-                  <tr key={`div-${t.id}`} className="bg-slate-100/80 dark:bg-white/5 border-y border-slate-200 dark:border-white/10">
-                    <td colSpan={9} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-white/60 uppercase tracking-wider">
-                      🗓️ {dateLabel}
-                    </td>
-                  </tr>
-                ),
-                <tr key={t.id} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer ${rowOpacity}`} onClick={() => setModalData({ open: true, transacao: t })}>
+            
+            {(() => {
+              // Função auxiliar para renderizar a linha (evita duplicar todo o HTML enorme)
+              const renderTableRow = (t: Transacao, index: number | null, isAntecipada: boolean) => {
+                const cStatus = getComputedStatus(t.status, t.data_vencimento);
+                const recText = formatRecorrencia(t);
+                
+                let showDateDivider = false;
+                let dateLabel = "";
+                
+                // Divisão de datas apenas para as normais
+                if (!isAntecipada && index !== null) {
+                  const isSortedByDate = !sortConfig || sortConfig.key === "data_vencimento";
+                  showDateDivider = isSortedByDate && (index === 0 || normais[index - 1].data_vencimento !== t.data_vencimento);
                   
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
-                  </td>
+                  if (showDateDivider) {
+                    const [y, m, d] = t.data_vencimento.split('-');
+                    const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                    const diaSemana = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                    dateLabel = `${d}/${m}/${y} - ${diaSemana}`;
+                  }
+                }
 
-                  <td className="px-4 py-3 text-center">
-                    {t.tipo === "RECEITA" ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
-                        <IconTrendingUp /> Receita
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
-                        <IconTrendingDown /> Despesa
-                      </span>
-                    )}
-                  </td>
+                // Verifica se a linha deve ficar esmaecida
+                const isPago = cStatus === "PAGO";
+                const rowOpacity = isPago ? "opacity-60 hover:opacity-100" : "";
 
-                  <td className="px-4 py-3 text-center">
-                    <span className="font-mono text-slate-600 dark:text-white/80">{t.data_vencimento.split('-').reverse().join('/')}</span>
-                  </td>
+                return [
+                  showDateDivider && (
+                    <tr key={`div-${t.id}`} className="bg-slate-100/80 dark:bg-white/5 border-y border-slate-200 dark:border-white/10">
+                      <td colSpan={9} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-white/60 uppercase tracking-wider">
+                        🗓️ {dateLabel}
+                      </td>
+                    </tr>
+                  ),
+                  <tr key={t.id} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group cursor-pointer ${rowOpacity}`} onClick={() => setModalData({ open: true, transacao: t })}>
+                    
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-700 dark:text-white truncate max-w-[220px] group-hover:text-emerald-600 transition-colors">{t.descricao}</div>
+                    </td>
 
-                  <td className="px-4 py-3 text-center">
-                    {(() => {
-                      let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
-                      let label = cStatus;
-
-                      // Lógica inteligente para o rótulo de pagamento/recebimento
-                      if (cStatus === "PAGO") {
-                        cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
-                        label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
-                      } else if (cStatus === "VENCIDO") {
-                        cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
-                      }
-
-                      return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{label}</span>;
-                    })()}
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    <div className="text-xs text-slate-600 dark:text-white/80 font-medium">{t.categoria_nome || "—"}</div>
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10">
-                      {t.conta_nome || "—"}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    {(() => {
-                      // Se for parcelado, aplicamos a lógica nova de cor e linha única
-                      if (t.parcela_total && t.recorrencia_id && pendentesMap[t.recorrencia_id] !== undefined) {
-                        const pendentes = pendentesMap[t.recorrencia_id];
-                        const isQuitado = pendentes === 0;
-                        
-                        let corTexto = "";
-                        // Quitado OU Receita ficam verdes. Despesa pendente fica vermelha.
-                        if (isQuitado || t.tipo === "RECEITA") {
-                          corTexto = "text-emerald-600 dark:text-emerald-400";
-                        } else {
-                          corTexto = "text-rose-600 dark:text-rose-400";
-                        }
-
-                        return (
-                          <div className={`flex items-center justify-center gap-1 text-[11px] font-bold whitespace-nowrap ${corTexto}`}>
-                            <span>{recText}</span>
-                            <span>{isQuitado ? " (Quitado)" : `(${pendentes} Pendente)`}</span>
-                          </div>
-                        );
-                      }
-
-                      // Se NÃO for parcelado (Única, Mensal, etc), fica com o padrão cinza limpo
-                      return (
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 whitespace-nowrap">
-                          {recText}
+                    <td className="px-4 py-3 text-center">
+                      {t.tipo === "RECEITA" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30">
+                          <IconTrendingUp /> Receita
                         </span>
-                      );
-                    })()}
-                  </td>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">
+                          <IconTrendingDown /> Despesa
+                        </span>
+                      )}
+                    </td>
 
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <span className={`font-bold transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
-                    </span>
-                  </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="font-mono text-slate-600 dark:text-white/80">{t.data_vencimento.split('-').reverse().join('/')}</span>
+                    </td>
 
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                    <td className="px-4 py-3 text-center">
                       {(() => {
-                        let btnTone: "green" | "amber" | "red" | "blue" = "blue";
-                        let isUp = false;
+                        let cor = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30";
+                        let label = cStatus;
 
                         if (cStatus === "PAGO") {
-                          btnTone = "green";
-                          isUp = true; // Verde
-                        } else {
-                          btnTone = "blue"; // Azul (Sky) amigável para tudo que ainda precisa ser pago
-                          isUp = false; 
+                          cor = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:border-emerald-400/30";
+                          label = t.tipo === "RECEITA" ? "RECEBIDO" : "PAGO";
+                        } else if (cStatus === "VENCIDO") {
+                          cor = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30";
+                        }
+
+                        return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${cor}`}>{label}</span>;
+                      })()}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      <div className="text-xs text-slate-600 dark:text-white/80 font-medium">{t.categoria_nome || "—"}</div>
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-white/10">
+                        {t.conta_nome || "—"}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      {(() => {
+                        if (t.parcela_total && t.recorrencia_id && pendentesMap[t.recorrencia_id] !== undefined) {
+                          const pendentes = pendentesMap[t.recorrencia_id];
+                          const isQuitado = pendentes === 0;
+                          
+                          let corTexto = "";
+                          if (isQuitado || t.tipo === "RECEITA") {
+                            corTexto = "text-emerald-600 dark:text-emerald-400";
+                          } else {
+                            corTexto = "text-rose-600 dark:text-rose-400";
+                          }
+
+                          return (
+                            <div className={`flex items-center justify-center gap-1 text-[11px] font-bold whitespace-nowrap ${corTexto}`}>
+                              <span>{recText}</span>
+                              <span>{isQuitado ? " (Quitado)" : `(${pendentes} Pendente)`}</span>
+                            </div>
+                          );
                         }
 
                         return (
-                          <ActionBtn 
-                            tone={btnTone} 
-                            title={t.status === "PAGO" 
-                                    ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
-                                    : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
-                            onClick={() => {
-                              // Se está pagando agora, injeta a data. Se está desfazendo, limpa a data.
-                              const isPagaNow = t.status !== "PAGO";
-                              setModalData({ 
-                                open: true, 
-                                transacao: { 
-                                  ...t, 
-                                  status: isPagaNow ? "PAGO" : "PENDENTE",
-                                  data_pagamento: isPagaNow ? new Date().toISOString() : null
-                                } 
-                              });
-                            }}>
-                            {/* O -scale-y-100 faz o espelhamento perfeito virando de cabeça para baixo sem inverter os lados */}
-                            <IconThumb className={!isUp ? "-scale-y-100" : "scale-y-100"} />
-                          </ActionBtn>
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-white/50 whitespace-nowrap">
+                            {recText}
+                          </span>
                         );
                       })()}
-                      
-                      <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
-                        <IconEdit />
-                      </ActionBtn>
-                      
-                      <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
-                        <IconTrash />
-                      </ActionBtn>
-                    </div>
-                  </td>
-                </tr>
-              ];
-            })}
+                    </td>
+
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <span className={`font-bold transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                        {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                        {(() => {
+                          let btnTone: "green" | "amber" | "red" | "blue" = "blue";
+                          let isUp = false;
+
+                          if (cStatus === "PAGO") {
+                            btnTone = "green";
+                            isUp = true;
+                          } else {
+                            btnTone = "blue";
+                            isUp = false; 
+                          }
+
+                          return (
+                            <ActionBtn 
+                              tone={btnTone} 
+                              title={t.status === "PAGO" 
+                                      ? (t.tipo === "RECEITA" ? "Desfazer Recebimento" : "Desfazer Pagamento") 
+                                      : (t.tipo === "RECEITA" ? "Confirmar Recebimento" : "Confirmar Pagamento")} 
+                              onClick={() => {
+                                const isPagaNow = t.status !== "PAGO";
+                                setModalData({ 
+                                  open: true, 
+                                  transacao: { 
+                                    ...t, 
+                                    status: isPagaNow ? "PAGO" : "PENDENTE",
+                                    data_pagamento: isPagaNow ? new Date().toISOString() : null
+                                  } 
+                                });
+                              }}>
+                              <IconThumb className={!isUp ? "-scale-y-100" : "scale-y-100"} />
+                            </ActionBtn>
+                          );
+                        })()}
+                        
+                        <ActionBtn tone="amber" title="Editar" onClick={() => setModalData({ open: true, transacao: t })}>
+                          <IconEdit />
+                        </ActionBtn>
+                        
+                        <ActionBtn tone="red" title="Excluir" onClick={() => handleDeleteClick(t)}>
+                          <IconTrash />
+                        </ActionBtn>
+                      </div>
+                    </td>
+                  </tr>
+                ];
+              };
+
+              const components: any[] = [];
+              
+              // 1. Renderiza as Normais (com divisores de data)
+              normais.forEach((t, i) => {
+                components.push(renderTableRow(t, i, false));
+              });
+
+              // 2. Renderiza as Antecipadas (sem divisores, no bloco separado no final)
+              if (antecipadas.length > 0) {
+                components.push(
+                  <tr key="div-antecipadas" className="bg-sky-50 dark:bg-sky-900/20 border-y border-sky-200 dark:border-sky-500/20">
+                    <td colSpan={9} className="px-4 py-3 text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
+                      ⭐ Pagamentos Antecipados
+                    </td>
+                  </tr>
+                );
+                antecipadas.forEach((t) => {
+                  components.push(renderTableRow(t, null, true));
+                });
+              }
+
+              return components;
+            })()}
           </tbody>
         </table>
         <div className="h-10" />
