@@ -392,15 +392,11 @@ export default async function AdminDashboardPage({
   for (const t of finTrxRows) {
     const dpDate = t.data_pagamento ? t.data_pagamento.split("T")[0] : null;
 
-    // Executado: pago com data_pagamento no mês
+    // Executado: PAGO com data_pagamento no mês (normalizado para evitar bug do último dia)
     const inExec = t.status === "PAGO" && !!dpDate && dpDate >= _finMonthStart && dpDate <= _finMonthEnd;
 
-    // Previsto: executado + pendentes com vencimento >= hoje (exclui vencidos)
-    const inPrev = inExec || (
-      t.status !== "PAGO" &&
-      t.data_vencimento >= _finTodayIso &&
-      t.data_vencimento <= _finMonthEnd
-    );
+    // Previsto: vencimento no mês (independente de status ou data de pagamento)
+    const inPrev = t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
 
     if (!inPrev && !inExec) continue;
 
