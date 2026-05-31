@@ -444,15 +444,18 @@ const filtered = useMemo(() => {
         if (!pLbls.includes(phoneLabelFilter)) return false;
       }
       
-      // 4. Filtro de Foto (Aprimorado para ignorar iniciais coloridas geradas pelo Google)
-      const hasRealPhoto = r.avatar_url && 
-                           !r.avatar_url.includes("AAAAAAAAAAA") && 
-                           !r.avatar_url.includes("default-user") && 
-                           !r.avatar_url.includes("silhouette") &&
-                           !r.avatar_url.includes("color/profile");
+      // 4. Filtro de Foto (Aprimorado)
+      const avatar = r.avatar_url || "";
+      
+      // Identifica as bolinhas coloridas (geradas sob o caminho /cm/) e outros padrões vazios do Google
+      const isFakePhoto = avatar === "" || 
+                          avatar.includes("/cm/") || 
+                          avatar.includes("default-user") || 
+                          avatar.includes("AAAAAAAAAAA") || 
+                          avatar.includes("silhouette");
 
-      if (photoFilter === "ComFoto" && !hasRealPhoto) return false;
-      if (photoFilter === "SemFoto" && hasRealPhoto) return false;
+      if (photoFilter === "ComFoto" && isFakePhoto) return false;
+      if (photoFilter === "SemFoto" && !isFakePhoto) return false;
       
       // 5. Filtro de Busca por texto
       if (q) {
