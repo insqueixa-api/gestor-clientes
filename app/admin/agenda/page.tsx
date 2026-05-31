@@ -211,7 +211,8 @@ function AgendaPageContent() {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState("Todos");
   const [emailLabelFilter, setEmailLabelFilter] = useState("Todos");
-  const [phoneLabelFilter, setPhoneLabelFilter] = useState("Todos"); // <--- ADICIONADO
+  const [phoneLabelFilter, setPhoneLabelFilter] = useState("Todos");
+  const [photoFilter, setPhotoFilter] = useState("Todos"); // <--- NOVO: Filtro de foto
   const [pageSize, setPageSize] = useState(100);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -240,7 +241,7 @@ const [isAssigningGroup, setIsAssigningGroup] = useState(false);
   );
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || phoneLabelFilter !== "Todos"; // <--- ATUALIZADO
+  const hasActiveFilters = labelFilter !== "Todos" || emailLabelFilter !== "Todos" || phoneLabelFilter !== "Todos" || photoFilter !== "Todos"; // <--- ATUALIZADO
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -418,7 +419,7 @@ const [isAssigningGroup, setIsAssigningGroup] = useState(false);
   // ─── FILTROS & ORDENAÇÃO ───────────────────────────────────────────────────
   useEffect(() => {
   setSelectedIds(new Set());
-}, [search, labelFilter, emailLabelFilter, phoneLabelFilter]); // <--- ATUALIZADO
+}, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]); // <--- ATUALIZADO
 
 const filtered = useMemo(() => {
   const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -440,6 +441,10 @@ const filtered = useMemo(() => {
         const pLbls = getPhonesArray(r).map(p => p.label);
         if (!pLbls.includes(phoneLabelFilter)) return false;
       }
+
+      // <--- NOVO: Regra de filtro de Foto
+      if (photoFilter === "ComFoto" && !r.avatar_url) return false;
+      if (photoFilter === "SemFoto" && !!r.avatar_url) return false;
       
       if (q) {
         const hay = [r.display_name, getPhonesArray(r).map(p => p.value).join(" "), getEmailsArray(r).map(e => e.value).join(" "), ...(r.labels || [])]
@@ -858,10 +863,21 @@ const failReasons: string[] = [];
         <option value="Todos">📱 Operadora (Todas)</option>
         {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
       </select>
+
+      {/* <--- NOVO: Filtro de Foto (Desktop) */}
+      <select
+        value={photoFilter}
+        onChange={e => { setPhotoFilter(e.target.value); setPage(1); }}
+        className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+      >
+        <option value="Todos">📷 Foto (Todas)</option>
+        <option value="ComFoto">Com foto</option>
+        <option value="SemFoto">Sem foto</option>
+      </select>
       
       {hasActiveFilters && (
         <button
-          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
+          onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPhotoFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
           className="h-10 px-3 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors whitespace-nowrap"
         >
           ✕ Limpar
@@ -915,9 +931,20 @@ const failReasons: string[] = [];
             {uniquePhoneLabels.map(lbl => <option key={lbl} value={lbl}>{lbl}</option>)}
           </select>
 
+          {/* <--- NOVO: Filtro de Foto no Mobile */}
+          <select
+            value={photoFilter}
+            onChange={e => { setPhotoFilter(e.target.value); setPage(1); }}
+            className="h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm text-slate-600 dark:text-white"
+          >
+            <option value="Todos">📷 Foto (Todas)</option>
+            <option value="ComFoto">Com foto</option>
+            <option value="SemFoto">Sem foto</option>
+          </select>
+
           {hasActiveFilters && (
             <button
-              onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
+              onClick={() => { setLabelFilter("Todos"); setEmailLabelFilter("Todos"); setPhoneLabelFilter("Todos"); setPhotoFilter("Todos"); setPage(1); }} // <--- ATUALIZADO
               className="h-10 px-3 rounded-lg text-sm font-bold text-rose-500 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10"
             >
               ✕ Limpar filtros
