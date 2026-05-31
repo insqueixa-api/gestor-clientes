@@ -36,6 +36,7 @@ type RowDef = {
   darkColor: string;
   bold: boolean;
   rowBg?: string;
+  colorValues?: boolean; // Propriedade nova adicionada
 };
 
 export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
@@ -121,25 +122,27 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     {
       label: "Receita Prevista", key: "bar1",
       dot: "#86efac", lightColor: "#15803d", darkColor: "#4ade80",
-      bold: false,
+      bold: false, colorValues: false,
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)",
     },
     {
       label: "Receita Executada", key: "line1",
       dot: "#16a34a", lightColor: "#166534", darkColor: "#34d399",
-      bold: false, // <-- alterado para false
+      bold: false, colorValues: true,
+      rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)", // Fundo aplicado
     },
     "divider",
     {
       label: "Despesa Prevista", key: "bar2",
       dot: "#fca5a5", lightColor: "#dc2626", darkColor: "#f87171",
-      bold: false,
+      bold: false, colorValues: false,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)",
     },
     {
       label: "Despesa Executada", key: "line2",
       dot: "#dc2626", lightColor: "#7f1d1d", darkColor: "#fb7185",
-      bold: false, // <-- alterado para false
+      bold: false, colorValues: true,
+      rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)", // Fundo aplicado
     },
   ];
 
@@ -260,7 +263,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
               const valColor = (val: number) =>
                 val === 0
                   ? isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"
-                  : row.bold
+                  : row.colorValues
                     ? (isDark ? row.darkColor : row.lightColor)
                     : TICK;
 
