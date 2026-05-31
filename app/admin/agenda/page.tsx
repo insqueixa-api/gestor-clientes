@@ -6,6 +6,7 @@ import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
 import ToastNotifications, { ToastMessage } from "../ToastNotifications";
+import { useConfirm } from "@/app/admin/HookuseConfirm";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 type ContactItem = { label: string; value: string };
@@ -202,6 +203,9 @@ const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Se
 function AgendaPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // 👇 Ativando o nosso confirm customizado
+  const { confirm, ConfirmUI } = useConfirm();
 
   const [rows, setRows] = useState<GoogleContact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -534,14 +538,25 @@ const filtered = useMemo(() => {
   }
 
   async function handleSilentSync() {
+    const ok = await confirm({
+      title: "Importar do Google?",
+      subtitle: "Isso apagará a lista atual do sistema. Sua agenda ficará idêntica ao seu Google Contacts.",
+      tone: "amber",
+      confirmText: "Sim, importar",
+      cancelText: "Cancelar"
+    });
+    
+    if (!ok) return;
+
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/google/sync-silent", { method: "POST" });
+      // Passamos um parâmetro ?mode=replace para a API saber que é uma importação destrutiva
+      const res = await fetch("/api/auth/google/sync-silent?mode=replace", { method: "POST" });
       const data = await res.json();
-      if (res.ok) { addToast("success", "Sincronização concluída", `${data.count} contatos importados.`); loadData(); }
+      if (res.ok) { addToast("success", "Importação concluída", `${data.count} contatos importados do Google.`); loadData(); }
       else { addToast("warning", "Acesso necessário", "Redirecionando para o Google..."); window.location.href = "/api/auth/google"; }
     } catch (err: any) {
-      addToast("error", "Erro ao sincronizar", err.message);
+      addToast("error", "Erro ao importar", err.message);
     } finally {
       setLoading(false);
     }
@@ -829,7 +844,7 @@ const failReasons: string[] = [];
     + Novo Contato
   </button>
   <button onClick={handleSilentSync} disabled={loading} className="h-8 md:h-10 px-2.5 md:px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] md:text-sm flex items-center gap-1.5 shadow-lg shadow-blue-900/20 transition-all disabled:opacity-50 whitespace-nowrap">
-    <IconSync /> Sync Agenda
+    <IconSync /> Importar Google
   </button>
 </div>
       </div>
@@ -1501,6 +1516,9 @@ const failReasons: string[] = [];
           </div>
         </Modal>
       )}
+
+      {/* 👇 Renderiza o modal na tela quando acionado */}
+      {ConfirmUI}
 
       <div className="relative z-[999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />

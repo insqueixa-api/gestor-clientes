@@ -29,6 +29,9 @@ function formatPhone(raw: string | null | undefined) {
 
 export async function POST(req: Request) {
   try {
+    const url = new URL(req.url);
+    const mode = url.searchParams.get("mode");
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -105,9 +108,22 @@ export async function POST(req: Request) {
       };
     });
 
-    if (recordsToInsert.length > 0) {
-      const { error: dbErr } = await supabase.from("google_contacts").upsert(recordsToInsert, { onConflict: "tenant_id, google_resource_name" });
-      if (dbErr) throw new Error(dbErr.message);
+    if (mode === "replace") {
+      // 1. Limpa o terreno: deleta TODOS os contatos antigos deste tenant
+      const { error: delErr } = await supabase.from("google_contacts").delete().eq("tenant_id", tenantId);
+      if (delErr) throw new Error(delErr.message);
+
+      // 2. Insere a lista fresquinha que acabou de vir do Google
+      if (recordsToInsert.length > 0) {
+        const { error: insErr } = await supabase.from("google_contacts").insert(recordsToInsert);
+        if (insErr) throw new Error(insErr.message);
+      }
+    } else {
+      // Comportamento padrão de Sync (Upsert) caso você precise no futuro
+      if (recordsToInsert.length > 0) {
+        const { error: dbErr } = await supabase.from("google_contacts").upsert(recordsToInsert, { onConflict: "tenant_id, google_resource_name" });
+        if (dbErr) throw new Error(dbErr.message);
+      }
     }
 
     return NextResponse.json({ success: true, count: recordsToInsert.length });

@@ -260,6 +260,7 @@ function FinanceiroPageContent() {
   const [modalData, setModalData] = useState<{ open: boolean, transacao: Transacao | null }>({ open: false, transacao: null });
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({}); // ✅ NOVO: Conta parcelas pendentes
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
+  const [showAntecipadas, setShowAntecipadas] = useState(false); // ✅ NOVO: Controle de recolher/expandir antecipadas
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -1064,15 +1065,28 @@ let valorIptv = 0;
               // 2. Renderiza as Antecipadas (sem divisores, no bloco separado no final)
               if (antecipadas.length > 0) {
                 components.push(
-                  <tr key="div-antecipadas" className="bg-sky-50 dark:bg-sky-900/20 border-y border-sky-200 dark:border-sky-500/20">
-                    <td colSpan={9} className="px-4 py-3 text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider">
-                      ⭐ Pagamentos Antecipados
+                  <tr 
+                    key="div-antecipadas" 
+                    onClick={() => setShowAntecipadas(!showAntecipadas)}
+                    className="bg-sky-50 dark:bg-sky-900/20 border-y border-sky-200 dark:border-sky-500/20 cursor-pointer hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors"
+                  >
+                    <td colSpan={9} className="px-4 py-3">
+                      <div className="flex items-center justify-between text-xs font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider select-none">
+                        <span>⭐ Pagamentos Antecipados ({antecipadas.length})</span>
+                        <span className="text-sky-500 dark:text-sky-400 transition-transform duration-200">
+                          {showAntecipadas ? <IconChevronDown /> : <IconChevronRight />}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 );
-                antecipadas.forEach((t) => {
-                  components.push(renderTableRow(t, null, true));
-                });
+                
+                // Só renderiza as linhas se a sanfona estiver aberta
+                if (showAntecipadas) {
+                  antecipadas.forEach((t) => {
+                    components.push(renderTableRow(t, null, true));
+                  });
+                }
               }
 
               return components;
