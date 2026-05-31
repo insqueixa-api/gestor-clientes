@@ -422,8 +422,9 @@ const [isAssigningGroup, setIsAssigningGroup] = useState(false);
 }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]); // <--- ATUALIZADO
 
 const filtered = useMemo(() => {
-  const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return rows.filter(r => {
+      // 1. Filtro de Grupo
       if (labelFilter === "__SEM_GRUPO__") {
         const realLabels = (r.labels || []).filter(l => l && l.trim().length > 0);
         if (realLabels.length > 0) return false;
@@ -431,29 +432,33 @@ const filtered = useMemo(() => {
         if (!r.labels || !r.labels.includes(labelFilter)) return false;
       }
       
+      // 2. Filtro de E-mail
       if (emailLabelFilter !== "Todos") {
         const eLbls = getEmailsArray(r).map(e => e.label);
         if (!eLbls.includes(emailLabelFilter)) return false;
       }
 
-      // <--- ADICIONADO: Regra de filtro para a operadora
+      // 3. Filtro de Operadora
       if (phoneLabelFilter !== "Todos") {
         const pLbls = getPhonesArray(r).map(p => p.label);
         if (!pLbls.includes(phoneLabelFilter)) return false;
       }
-
-      // <--- NOVO: Regra de filtro de Foto
+      
+      // 4. Filtro de Foto
       if (photoFilter === "ComFoto" && !r.avatar_url) return false;
       if (photoFilter === "SemFoto" && !!r.avatar_url) return false;
       
+      // 5. Filtro de Busca por texto
       if (q) {
         const hay = [r.display_name, getPhonesArray(r).map(p => p.value).join(" "), getEmailsArray(r).map(e => e.value).join(" "), ...(r.labels || [])]
           .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (!hay.includes(q)) return false;
       }
+      
       return true;
     });
-  }, [rows, search, labelFilter, emailLabelFilter, phoneLabelFilter]); // <--- DEPENDÊNCIA ADICIONADA
+  // 👇 AQUI ESTÁ O SEGREDO: O "photoFilter" precisa estar nesta lista final!
+  }, [rows, search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
