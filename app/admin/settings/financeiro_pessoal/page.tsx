@@ -628,22 +628,20 @@ let valorIptv = 0;
     .filter(t => t.tipo === "DESPESA" && t.status === "PAGO" && isDateInViewMonth(t.data_pagamento))
     .reduce((acc, t) => acc + t.valor, 0);
 
-  // 4. COMPETÊNCIA (Previsão): Soma tudo que tem VENCIMENTO no mês visualizado
-  const receitasTotal = transacoesCards
-    .filter(t => t.tipo === "RECEITA" && isDateInViewMonth(t.data_vencimento))
-    .reduce((acc, t) => acc + t.valor, 0);
-
-  const despesasTotal = transacoesCards
-    .filter(t => t.tipo === "DESPESA" && isDateInViewMonth(t.data_vencimento))
-    .reduce((acc, t) => acc + t.valor, 0);
+  // Previsão = executado + pendentes com vencimento >= hoje (exclui vencidos)
+  const todayIso = new Date().toISOString().split('T')[0];
 
   const receitasPendentes = transacoesCards
-    .filter(t => t.tipo === "RECEITA" && isDateInViewMonth(t.data_vencimento) && t.status !== "PAGO")
+    .filter(t => t.tipo === "RECEITA" && t.status !== "PAGO" && isDateInViewMonth(t.data_vencimento) && t.data_vencimento >= todayIso)
     .reduce((acc, t) => acc + t.valor, 0);
 
   const despesasPendentes = transacoesCards
-    .filter(t => t.tipo === "DESPESA" && isDateInViewMonth(t.data_vencimento) && t.status !== "PAGO")
+    .filter(t => t.tipo === "DESPESA" && t.status !== "PAGO" && isDateInViewMonth(t.data_vencimento) && t.data_vencimento >= todayIso)
     .reduce((acc, t) => acc + t.valor, 0);
+
+  // Previsão total = pago no mês + ainda a pagar/receber (sem vencidos)
+  const receitasTotal = receitasPagas + receitasPendentes;
+  const despesasTotal = despesasPagas + despesasPendentes;
   
   let saldoAtualReal = 0;
   if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;

@@ -387,11 +387,20 @@ export default async function AdminDashboardPage({
   const catExpPrevMap = new Map<string, { label: string; value: number }>();
   const catExpExecMap = new Map<string, { label: string; value: number }>();
 
+  const _finTodayIso = isoDateFromYMD(_finYear, _finMonth, _finToday.getDate());
+
   for (const t of finTrxRows) {
-    // Previsto: Data de Vencimento dentro do mês atual
-    const inPrev = t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
-    // Executado: Pago E Data de Pagamento dentro do mês atual
-    const inExec = t.status === "PAGO" && !!t.data_pagamento && t.data_pagamento >= _finMonthStart && t.data_pagamento <= _finMonthEnd;
+    const dpDate = t.data_pagamento ? t.data_pagamento.split("T")[0] : null;
+
+    // Executado: pago com data_pagamento no mês
+    const inExec = t.status === "PAGO" && !!dpDate && dpDate >= _finMonthStart && dpDate <= _finMonthEnd;
+
+    // Previsto: executado + pendentes com vencimento >= hoje (exclui vencidos)
+    const inPrev = inExec || (
+      t.status !== "PAGO" &&
+      t.data_vencimento >= _finTodayIso &&
+      t.data_vencimento <= _finMonthEnd
+    );
 
     if (!inPrev && !inExec) continue;
 
