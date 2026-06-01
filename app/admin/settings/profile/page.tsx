@@ -882,9 +882,11 @@ export default function ProfileSettingsPage() {
                 ) : (
                   <div className="space-y-3">
                     {/* Grid com 2 colunas */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                       {(() => {
                         const visibleRecords = showAllHealthRecords ? sortedHistory : sortedHistory.slice(0, 2);
+
+
                         const displayRecords = [];
                         
                         // Lógica para parear e inverter, colocando o mais novo na direita
@@ -897,9 +899,11 @@ export default function ProfileSettingsPage() {
                         }
 
                         return displayRecords.map((record) => {
-                          const isNewest = record.id === sortedHistory[0]?.id;
-                          return (
-                            <div key={record.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"}`}>
+  const isNewest = record.id === sortedHistory[0]?.id;
+  // No mobile sem expansão: só o mais recente aparece
+  const isSecondOnMobile = !showAllHealthRecords && !isNewest && sortedHistory.indexOf(record) !== -1;
+  return (
+    <div key={record.id} className={`items-center gap-3 p-3 rounded-xl border transition-colors group ${isNewest ? "border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-500/5" : "border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/10"} ${isSecondOnMobile ? "hidden xl:flex" : "flex"}`}>
                               {/* Data em bloco */}
                               <div className="shrink-0 text-center w-10">
                                 <p className="text-[9px] font-bold text-slate-400 dark:text-white/30 uppercase leading-none">
@@ -958,7 +962,10 @@ export default function ProfileSettingsPage() {
                         onClick={() => setShowAllHealthRecords(!showAllHealthRecords)}
                         className="w-full py-2.5 mt-2 text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white transition-colors bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10"
                       >
-                        {showAllHealthRecords ? "↑ Ocultar avaliações anteriores" : `↓ Ver mais avaliações (${sortedHistory.length - 2})`}
+                        {showAllHealthRecords
+  ? "↑ Ocultar avaliações anteriores"
+  : <><span className="xl:hidden">↓ Ver mais avaliações ({sortedHistory.length - 1})</span><span className="hidden xl:inline">↓ Ver mais avaliações ({sortedHistory.length - 2})</span></>
+}
                       </button>
                     )}
                   </div>
