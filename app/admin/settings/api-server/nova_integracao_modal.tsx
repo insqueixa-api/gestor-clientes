@@ -15,7 +15,7 @@ export type IntegrationEditPayload = {
   is_active: boolean | null;
 };
 
-// ✅ Helper para limpar e normalizar a URL antes de salvar
+// ✅ Helper para limpar e normalizar a URL antes de salvar.
 function normalizeApiUrl(url: string) {
   if (!url) return "";
   let s = url.trim().replace(/\/+$/, ""); // Remove barras duplas e barras no final
