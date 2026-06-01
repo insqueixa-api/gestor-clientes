@@ -500,6 +500,19 @@ export default async function AdminDashboardPage({
     }
   }
 
+const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
+  if (_toReceiveVal > 0) {
+    const iptvCat = Array.from(finCatById.entries()).find(([, v]) =>
+      v.nome.toLowerCase().includes("iptv"),
+    );
+    if (iptvCat) {
+      const [iptvKey, iptvMeta] = iptvCat;
+      const label = `${iptvMeta.icone} ${iptvMeta.nome}`;
+      const prev = catRevPrevMap.get(iptvKey) ?? { label, value: 0 };
+      catRevPrevMap.set(iptvKey, { ...prev, value: prev.value + _toReceiveVal });
+    }
+  }
+
   const getTop5 = (map: Map<string, { label: string; value: number }>) =>
     Array.from(map.values())
       .sort((a, b) => b.value - a.value)
