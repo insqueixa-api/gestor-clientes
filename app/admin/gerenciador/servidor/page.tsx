@@ -816,14 +816,14 @@ export default function AdminServersPage() {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-                      <span className="font-medium text-slate-700 dark:text-white/80">
-                        {formatNumber(server.stats?.total)}
-                      </span>
+                      <span className="font-normal text-slate-700 dark:text-white/80">
+  {formatNumber(server.stats?.total)}
+</span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-                      <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                        <svg
+<div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-normal">           
+               <svg
                           width="16"
                           height="16"
                           viewBox="0 0 24 24"
@@ -838,16 +838,16 @@ export default function AdminServersPage() {
                         <span>Clientes ativos</span>
                       </div>
                       <Link
-                        href={`/admin/cliente?server_id=${server.id}&status=active`}
-                        className="font-medium text-slate-600 dark:text-white/60 hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
-                      >
+  href={`/admin/cliente?server_id=${server.id}&status=active`}
+  className="font-normal text-slate-600 dark:text-white/60 hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
+>
                         {formatNumber(server.stats?.active)}
                       </Link>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-                      <div className="flex items-center gap-2.5 text-rose-500 dark:text-rose-400 font-medium">
-                        <svg
+<div className="flex items-center gap-2.5 text-rose-500 dark:text-rose-400 font-normal">              
+            <svg
                           className="w-4 h-4"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -863,9 +863,9 @@ export default function AdminServersPage() {
                         <span>Clientes inativos</span>
                       </div>
                       <Link
-                        href={`/admin/cliente?server_id=${server.id}&status=inactive`}
-                        className="font-medium text-slate-600 dark:text-white/60 hover:text-rose-500 hover:underline cursor-pointer transition-colors"
-                      >
+  href={`/admin/cliente?server_id=${server.id}&status=inactive`}
+  className="font-normal text-slate-600 dark:text-white/60 hover:text-rose-500 hover:underline cursor-pointer transition-colors"
+>
                         {formatNumber(server.stats?.inactive)}
                       </Link>
                     </div>
@@ -873,8 +873,8 @@ export default function AdminServersPage() {
                     <div className="border-t border-slate-100 dark:border-border my-1" />
 
                     <div className="flex justify-between items-center text-xs">
-                      <div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-medium">
-                        <svg
+<div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400 font-normal">                    
+      <svg
                           width="16"
                           height="16"
                           viewBox="0 0 24 24"
@@ -891,22 +891,22 @@ export default function AdminServersPage() {
                         <span>Testes ativos</span>
                       </div>
                       <Link
-                        href={`/admin/cliente?server_id=${server.id}&status=trial`}
-                        className="font-medium text-slate-600 dark:text-white/60 hover:text-sky-500 hover:underline cursor-pointer transition-colors"
-                      >
+  href={`/admin/cliente?server_id=${server.id}&status=trial`}
+  className="font-normal text-slate-600 dark:text-white/60 hover:text-sky-500 hover:underline cursor-pointer transition-colors"
+>
                         {formatNumber(server.stats?.trial)}
                       </Link>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">
-                      <div className="flex items-center gap-2.5 text-violet-500 dark:text-violet-400 font-medium">
-                        <Network className="w-4 h-4 text-violet-500 dark:text-violet-400" />
+<div className="flex items-center gap-2.5 text-violet-500 dark:text-violet-400 font-normal">
+                          <Network className="w-4 h-4 text-violet-500 dark:text-violet-400" />
                         <span>Revendas</span>
                       </div>
                       <Link
-                        href={`/admin/revendedor?server_id=${server.id}`}
-                        className="font-medium text-slate-600 dark:text-white/60 hover:text-amber-500 hover:underline cursor-pointer transition-colors"
-                      >
+  href={`/admin/revendedor?server_id=${server.id}`}
+  className="font-normal text-slate-600 dark:text-white/60 hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+>
                         {formatNumber(server.stats?.resellers)}
                       </Link>
                     </div>
@@ -917,7 +917,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                         <IconCardCusto /> Custo crédito
                       </span>
-                      <span className="font-medium text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
+<span className="font-normal text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-xs">
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -931,8 +931,8 @@ export default function AdminServersPage() {
                         <IconCardSaldo /> Saldo atual
                       </span>
                       <span
-                        className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
-                          server.credits_available > 10
+                        className={`font-normal px-2 py-0.5 rounded-lg text-xs ${
+    server.credits_available > 10
                             ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
                             : "text-rose-500 bg-rose-500/10"
                         }`}
@@ -961,7 +961,7 @@ export default function AdminServersPage() {
                         Integração
                       </span>
 
-                      <span className="font-medium text-slate-700 dark:text-white truncate max-w-[210px] text-right">
+                      <span className="font-normal text-slate-700 dark:text-white truncate max-w-[210px] text-right">
                         {server.panel_integration
                           ? `${server.panel_integration_name || "Sem nome"} — ${providerLabel(server.panel_integration_provider)}`
                           : "--"}
@@ -988,7 +988,7 @@ export default function AdminServersPage() {
                       <span className="flex items-center gap-2 text-slate-500 dark:text-white/50">
                         <IconCardPainel /> Painel
                       </span>
-                      <span className="font-medium text-slate-700 dark:text-white">
+                      <span className="font-normal text-slate-700 dark:text-white">
                         {server.panel_type === "WEB"
                           ? "Web"
                           : server.panel_type === "TELEGRAM"
@@ -1003,13 +1003,13 @@ export default function AdminServersPage() {
                       </span>
                       {(server.dns?.filter((d) => d.trim()).length || 0) > 0 ? (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewDns(server);
-                          }}
-                          className="font-medium px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          title="Ver DNS configuradas"
-                        >
+  onClick={(e) => {
+    e.stopPropagation();
+    handleViewDns(server);
+  }}
+  className="font-normal px-2 py-0.5 rounded-lg text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 dark:hover:bg-sky-500/20 border border-sky-100 dark:border-sky-500/20 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+  title="Ver DNS configuradas"
+>
                           {server.dns.filter((d) => d.trim()).length}
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
