@@ -1,4 +1,6 @@
 "use client";
+import { Loader2 } from "lucide-react";
+
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -620,7 +622,7 @@ export default function ResellerFormModal({ resellerToEdit, onClose, onSuccess, 
       {waValidation && (
         <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
           {waValidation.loading ? (
-            <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
           ) : waValidation.exists ? <>✅ WhatsApp ativo</> : <>❌ Não encontrado no WhatsApp</>}
         </div>
       )}

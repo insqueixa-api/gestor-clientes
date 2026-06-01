@@ -1,4 +1,6 @@
 "use client";
+import { Loader2, CreditCard } from "lucide-react";
+
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
@@ -490,7 +492,7 @@ setClientStats({
   className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
 >
 
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+             <CreditCard className="w-4 h-4" />
              Nova Recarga
           </button>
         </div>
@@ -642,7 +644,7 @@ setClientStats({
                           title="Apagar registro"
                         >
                           {deletingId === m.id ? (
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                           )}

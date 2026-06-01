@@ -1,4 +1,6 @@
 "use client";
+import { MessageCircle } from "lucide-react";
+
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -1144,7 +1146,7 @@ const getRuleText = () => {
                     <span className="font-medium">{getRuleText()}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-muted-foreground">
-                    <span className="text-base">💬</span>
+                    <span className="text-base"><MessageCircle className="w-4 h-4" /></span>
                     <span className="truncate max-w-[200px]" title={data.message_template?.name}>{data.message_template?.name || "Sem mensagem"}</span>
                 </div>
                 {data.is_automatic && (

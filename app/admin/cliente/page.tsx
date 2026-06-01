@@ -1,4 +1,6 @@
 "use client";
+import { EyeOff, Eye, Loader2, X, ChevronUp, ChevronDown, MessageCircle, Send, Clock, CreditCard, Pencil, Bell, RefreshCcw, Timer } from "lucide-react";
+
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
@@ -1552,16 +1554,9 @@ body: JSON.stringify({
       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-white/5 text-slate-400 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white hover:border-slate-400 dark:hover:border-white/30 transition-all text-xs font-medium shadow-sm select-none"
     >
       {valuesHidden ? (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17.94 17.94A10.1 10.1 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94" />
-          <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19" />
-          <line x1="2" y1="2" x2="22" y2="22" />
-        </svg>
+        <EyeOff className="w-4 h-4" />
       ) : (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 12S5.5 5 12 5s10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-          <circle cx="12" cy="12" r="2.8" fill="currentColor" stroke="none" />
-        </svg>
+        <Eye className="w-4 h-4" />
       )}
       <span className="hidden sm:inline text-[11px] tracking-wide">
         {valuesHidden ? "Exibir" : "Ocultar"}
@@ -2227,10 +2222,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
           className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 animate-pulse"
           title={appDiffDays! < 0 ? "Vencido no painel" : `App vence em ${appDiffDays} dias`}
         >
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
+          <Clock className="w-4 h-4" />
         </span>
       )}
     </button>
@@ -2534,7 +2526,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
 >
           <div className="space-y-4">
             <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 p-3 rounded-lg flex items-center gap-3">
-               <span className="text-xl">💬</span>
+               <span className="text-xl"><MessageCircle className="w-4 h-4" /></span>
                <div className="text-sm text-sky-900 dark:text-sky-200">
                  Esta mensagem será enviada <strong>imediatamente</strong> via WhatsApp.
                </div>
@@ -3000,7 +2992,7 @@ function ScheduledMessagesModal({
                     title="Excluir agendamento"
                   >
                     {deletingId === it.id ? (
-                      <span className="animate-spin">⏳</span>
+                      <span className="animate-spin"><Timer className="w-4 h-4" /></span>
                     ) : (
                       <IconTrash />
                     )}
@@ -3078,9 +3070,7 @@ function IconActionBtn({
       className={`p-1.5 rounded-lg border transition-all ${colors[tone]} ${loading ? 'opacity-70 cursor-wait' : ''}`}
     >
       {loading ? (
-        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
+        <Loader2 className="w-4 h-4 animate-spin" />
       ) : children}
     </button>
   );
@@ -3123,21 +3113,18 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 }
 
 // --- ICONES ---
-function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
-function IconSortUp() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6" /></svg>; }
-function IconSortDown() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>; }
-function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
-function IconSend() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></svg>; }
-function IconClock() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
-function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>; }
-function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
-function IconBell() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" /><path d="M10 21a2 2 0 0 0 4 0" /></svg>; }
+function IconX() { return <X className="w-4 h-4" />; }
+function IconSortUp() { return <ChevronUp className="w-3 h-3" />; }
+function IconSortDown() { return <ChevronDown className="w-3 h-3" />; }
+function IconChat() { return <MessageCircle className="w-4 h-4" />; }
+function IconSend() { return <Send className="w-4 h-4" />; }
+function IconClock() { return <Clock className="w-4 h-4" />; }
+function IconMoney() { return <CreditCard className="w-4 h-4" />; }
+function IconEdit() { return <Pencil className="w-4 h-4" />; }
+function IconBell() { return <Bell className="w-4 h-4" />; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }
 function IconRestore() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 1 1-3-6.7" />
-      <polyline points="21 3 21 9 15 9" />
-    </svg>
+    <RefreshCcw className="w-4 h-4" />
   );
 }

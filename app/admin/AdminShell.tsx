@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { usePathname } from "next/navigation";
 import React from "react";
+import { LayoutDashboard, Users, Activity, Network, Settings2, UserCircle, Server, Layers, MessageSquare, Receipt, CreditCard, Smartphone, User, Wallet, Code, Bell, BookOpen, ScrollText, RefreshCcw, RotateCcw, X } from "lucide-react";
 
 function getHojeSP(): Date {
   const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -410,7 +411,7 @@ export default function AdminShell({
                 ].join(" ")}
                 title="Notificações"
               >
-                <IconSininho className="w-5 h-5" />
+                <Bell className="w-5 h-5" />
               </button>
               {unreadCount > 0 && (
                 <div className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 border-2 border-[#050505] text-[9px] font-bold text-white shadow-sm">
@@ -424,7 +425,7 @@ export default function AdminShell({
 
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
             <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
+              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-sky-400" /> Clientes</span>} />
 
               <div ref={mobileRef} className="relative">
                 <button
@@ -441,11 +442,11 @@ export default function AdminShell({
             </div>
 
             <div className="hidden sm:flex items-center gap-1">
-              <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><IconDashboard /> Dashboard</span>} />
-              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} />
-              <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><IconLog /> Log Portal</span>} />
-              <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} />
-              <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><IconFastTimer /> Testes</span>} />
+              <NavLink href="/admin" label={<span className="flex items-center gap-1.5"><LayoutDashboard className="w-4 h-4 text-emerald-400" /> Dashboard</span>} />
+              <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-sky-400" /> Clientes</span>} />
+              <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><ScrollText className="w-4 h-4 text-emerald-400" /> Log Portal</span>} />
+              <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><Network className="w-4 h-4 text-violet-400" /> Revendas</span>} />
+              <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-amber-400" /> Testes</span>} />
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
@@ -457,7 +458,7 @@ export default function AdminShell({
                     managerActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span className="flex items-center gap-1.5"><IconGerenciador /> Gerenciador</span>{" "}
+                  <span className="flex items-center gap-1.5"><Settings2 className="w-4 h-4 text-slate-400" /> Gerenciador</span>{" "}
                   <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "manager" ? "rotate-180" : ""].join(" ")}>▼</span>
                 </button>
               </div>
@@ -470,7 +471,7 @@ export default function AdminShell({
                     settingsActive ? "bg-white/15 text-emerald-400" : "text-white/70 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span className="flex items-center gap-1.5"><IconConta /> <span className="hidden sm:inline">Conta</span></span>{" "}
+                  <span className="flex items-center gap-1.5"><UserCircle className="w-4 h-4 text-pink-400" /> <span className="hidden sm:inline">Conta</span></span>{" "}
                   <span className={["transition-transform duration-200 text-[8px] opacity-40", openMenu === "settings" ? "rotate-180" : ""].join(" ")}>▼</span>
                 </button>
               </div>
@@ -483,13 +484,13 @@ export default function AdminShell({
         createPortal(
           <DropdownPortal right={managerPos.right} top={managerPos.top} onClose={() => setOpenMenu(null)}>
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gestão</div>
-            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><Server className="w-4 h-4 text-sky-400" /> Servidores</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><Layers className="w-4 h-4 text-emerald-400" /> Planos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-green-400" /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
-            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><Receipt className="w-4 h-4 text-amber-400" /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-violet-400" /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-pink-400" /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
           </DropdownPortal>,
           document.body
         )
@@ -500,27 +501,27 @@ export default function AdminShell({
           <DropdownPortal right={mobilePos.right} top={mobilePos.top} onClose={() => setOpenMenu(null)}>
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Navegação</div>
 
-            <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><IconLog /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin" label={<span className="flex items-center gap-2"><IconDashboard /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><IconClientes /> Clientes</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><IconRevendas /> Revendas</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><IconFastTimer /> Testes</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/auditoria" label={<span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400"><ScrollText className="w-4 h-4 text-emerald-400" /> Log Portal</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin" label={<span className="flex items-center gap-2"><LayoutDashboard className="w-4 h-4 text-emerald-400" /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-sky-400" /> Clientes</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><Network className="w-4 h-4 text-violet-400" /> Revendas</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><Activity className="w-4 h-4 text-amber-400" /> Testes</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gerenciador</div>
-            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><IconMenuServidor /> Servidores</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><IconMenuPlano /> Planos</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><IconMenuMensagens /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><IconMenuCobranca /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><IconMenuPagamento /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><IconMenuAplicativo /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/servidor" label={<span className="flex items-center gap-2"><Server className="w-4 h-4 text-sky-400" /> Servidores</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/plano" label={<span className="flex items-center gap-2"><Layers className="w-4 h-4 text-emerald-400" /> Planos</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/mensagem" label={<span className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-green-400" /> Mensagens</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/cobranca" label={<span className="flex items-center gap-2"><Receipt className="w-4 h-4 text-amber-400" /> Automação de Cobrança</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/pagamento" label={<span className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-violet-400" /> Formas de pagamento</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/gerenciador/aplicativo" label={<span className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-pink-400" /> Aplicativos</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Conta</div>
-            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><User className="w-4 h-4 text-pink-400" /> Perfil</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-indigo-400" /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-400" /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><Code className="w-4 h-4 text-sky-400" /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -531,11 +532,11 @@ export default function AdminShell({
       {canUseDom && openMenu === "settings" && settingsPos &&
         createPortal(
           <DropdownPortal right={settingsPos.right} top={settingsPos.top} onClose={() => setOpenMenu(null)}>
-            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><IconMenuPerfil /> Perfil</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><IconAgenda /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><IconMenuFinanceiro /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/profile" label={<span className="flex items-center gap-2"><User className="w-4 h-4 text-pink-400" /> Perfil</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/agenda" label={<span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-indigo-400" /> Agenda Telefônica</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/financeiro_pessoal" label={<span className="flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-400" /> Controle Financeiro</span>} onClick={() => setOpenMenu(null)} />
 
-            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><IconMenuApi /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/settings/api-server" label={<span className="flex items-center gap-2"><Code className="w-4 h-4 text-sky-400" /> API de Integrações</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -552,7 +553,7 @@ export default function AdminShell({
           <div className="space-y-4">
             <div className="flex justify-end gap-2">
               <button onClick={handleSync} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs uppercase flex items-center gap-1.5" title="Recupera as notificações apagadas do navegador">
-                <IconSync className="w-3.5 h-3.5" /> Sincronizar
+                <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
               </button>
               {notifications.length > 0 && (
                 <button onClick={clearAllNotifications} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-border text-slate-700 dark:text-white font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-colors text-xs uppercase">
@@ -600,7 +601,7 @@ export default function AdminShell({
                           className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-white/10 rounded-md transition-colors"
                           title="Ocultar notificação"
                         >
-                          <IconX />
+                          <X className="w-4 h-4" />
                         </button>
                         {n.is_read && (
                           <button
@@ -608,7 +609,7 @@ export default function AdminShell({
                             className="p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-white/10 rounded-md transition-colors"
                             title="Marcar como não lido"
                           >
-                            <IconUndo />
+                            <RotateCcw className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -686,7 +687,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="font-bold text-slate-800 dark:text-white">{title}</div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white">
-            <IconX />
+            <X className="w-4 h-4" />
           </button>
         </div>
         <div className="p-4">{children}</div>

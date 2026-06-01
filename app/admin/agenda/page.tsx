@@ -1,4 +1,6 @@
 "use client";
+import { Loader2, X, ChevronUp, ChevronDown, MessageCircle, Send, Pencil } from "lucide-react";
+
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
@@ -995,16 +997,16 @@ const failReasons: string[] = [];
   className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
 >
   {isSyncingOperadora ? (
-    <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando operadora...</>
+    <><Loader2 className="w-4 h-4 animate-spin" />Sincronizando operadora...</>
   ) : <>🔄 Operadora ({selectedIds.size})</>}
 </button>
 <button onClick={handleMassSyncPhotos} disabled={isSyncingPhotos} className="text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
   {isSyncingPhotos ? (
-    <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando fotos...</>
+    <><Loader2 className="w-4 h-4 animate-spin" />Sincronizando fotos...</>
   ) : <>🔄 Fotos ({selectedIds.size})</>}
 </button>
   <button onClick={handleSyncLabels} disabled={isSyncingLabels} className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
-    {isSyncingLabels ? (<><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando servidor...</>) : (<>🔄 Servidor ({selectedIds.size})</>)}
+    {isSyncingLabels ? (<><Loader2 className="w-4 h-4 animate-spin" />Sincronizando servidor...</>) : (<>🔄 Servidor ({selectedIds.size})</>)}
   </button>
   {/* NOVO: Atribuir Grupo */}
   <div className="relative">
@@ -1014,7 +1016,7 @@ const failReasons: string[] = [];
       className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
     >
       {isAssigningGroup ? (
-        <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sincronizando grupos...</>
+        <><Loader2 className="w-4 h-4 animate-spin" />Sincronizando grupos...</>
       ) : <>🔄 Grupo</>}
     </button>
 
@@ -1249,7 +1251,7 @@ const failReasons: string[] = [];
         <Modal title="Enviar Mensagem Rápida" onClose={() => setShowSendNow({ open: false, contactId: null, phone: null })}>
           <div className="space-y-4">
             <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
-              <span className="text-xl">💬</span>
+              <span className="text-xl"><MessageCircle className="w-4 h-4" /></span>
               <div className="text-sm text-emerald-900 dark:text-emerald-200">
                 Enviando para <strong className="font-mono">{displayPhone(showSendNow.phone!)}</strong>
               </div>
@@ -1572,11 +1574,11 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 }
 
 // ─── ÍCONES ──────────────────────────────────────────────────────────────────
-function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
-function IconSortUp() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6" /></svg>; }
-function IconSortDown() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>; }
-function IconChat() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>; }
-function IconSend() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></svg>; }
-function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
+function IconX() { return <X className="w-4 h-4" />; }
+function IconSortUp() { return <ChevronUp className="w-3 h-3" />; }
+function IconSortDown() { return <ChevronDown className="w-3 h-3" />; }
+function IconChat() { return <MessageCircle className="w-4 h-4" />; }
+function IconSend() { return <Send className="w-4 h-4" />; }
+function IconEdit() { return <Pencil className="w-4 h-4" />; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" /></svg>; }
 function IconSync() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21v-5h5" /></svg>; }

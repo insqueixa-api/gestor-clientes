@@ -1,4 +1,6 @@
 "use client";
+import { Loader2, X, ChevronUp, ChevronDown, MessageCircle, Send, Clock, Pencil, RefreshCcw } from "lucide-react";
+
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -2024,9 +2026,7 @@ function IconActionBtn({
       }`}
     >
       {loading ? (
-        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
+        <Loader2 className="w-4 h-4 animate-spin" />
       ) : children}
     </button>
   );
@@ -2305,10 +2305,7 @@ const filtered = useMemo(() => {
                         title="Excluir registro"
                       >
                         {deletingId === r.id ? (
-                          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                          </svg>
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <IconTrash />
                         )}
@@ -2339,56 +2336,39 @@ const filtered = useMemo(() => {
 // --- ÍCONES ---
 function IconX() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
+    <X className="w-4 h-4" />
   );
 }
 
 function IconChat() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-    </svg>
+    <MessageCircle className="w-4 h-4" />
   );
 }
 
 function IconSortUp() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M18 15l-6-6-6 6" />
-    </svg>
+    <ChevronUp className="w-3 h-3" />
   );
 }
 function IconSortDown() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M6 9l6 6 6-6" />
-    </svg>
+    <ChevronDown className="w-3 h-3" />
   );
 }
 function IconEdit() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
+    <Pencil className="w-4 h-4" />
   );
 }
 function IconSend() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2 11 13" />
-      <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
-    </svg>
+    <Send className="w-4 h-4" />
   );
 }
 function IconClock() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
+    <Clock className="w-4 h-4" />
   );
 }
 function IconTrash() {
@@ -2413,9 +2393,6 @@ function IconUserPlus() {
 
 function IconRestore() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 1 1-3-6.7" />
-      <polyline points="21 3 21 9 15 9" />
-    </svg>
+    <RefreshCcw className="w-4 h-4" />
   );
 }
