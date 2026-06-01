@@ -492,7 +492,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-border sticky top-0 z-10">
-            <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-base sm:text-lg font-normal text-slate-800 dark:text-white tracking-tight">
               {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
             </h2>
 
@@ -506,7 +506,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
               <button
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-normal shadow-lg shadow-emerald-900/20 transition-all"
               >
                 {saving ? "Salvando..." : "Salvar"}
               </button>
@@ -612,7 +612,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                                     e.target.value,
                                   )
                                 }
-                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-bold text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
+                                className="w-full bg-transparent border-none p-0 pl-6 sm:pl-7 text-sm sm:text-base font-normal text-slate-800 dark:text-white focus:ring-0 outline-none placeholder-slate-300 dark:placeholder-white/5 transition-colors disabled:opacity-50"
                                 placeholder="0,00"
                               />
                             </div>

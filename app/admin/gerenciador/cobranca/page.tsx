@@ -393,7 +393,7 @@ function GlobalQueueMonitor({
           </div>
           <div>
             <h3
-              className={`font-bold text-xs uppercase tracking-wide ${isGlobalPaused ? "text-amber-800" : "text-emerald-800"}`}
+              className={`font-normal text-xs uppercase tracking-wide ${isGlobalPaused ? "text-amber-800" : "text-emerald-800"}`}
             >
               {isGlobalPaused ? "⏸️ PAUSADA" : "🚀 ENVIANDO"}
             </h3>
@@ -404,7 +404,7 @@ function GlobalQueueMonitor({
             </p>
           </div>
         </div>
-        <button className="px-3 py-1.5 bg-slate-800 text-white border border-slate-700 rounded-lg text-xs font-bold uppercase hover:bg-slate-700 transition-colors">
+        <button className="px-3 py-1.5 bg-slate-800 text-white border border-slate-700 rounded-lg text-xs font-normal uppercase hover:bg-slate-700 transition-colors">
           Abrir
         </button>
       </div>
@@ -415,7 +415,7 @@ function GlobalQueueMonitor({
           <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="w-full max-w-6xl bg-white dark:bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-border flex justify-between items-center bg-gray-50 dark:bg-white/5">
-                <h3 className="font-bold text-lg dark:text-white">
+                <h3 className="font-normal text-lg dark:text-white">
                   Gerenciador de Fila
                 </h3>
                 <button
@@ -428,7 +428,7 @@ function GlobalQueueMonitor({
 
               <div className="flex-1 overflow-y-auto p-0">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-bold text-xs uppercase sticky top-0">
+                  <thead className="bg-gray-50 dark:bg-white/5 text-gray-500 font-normal text-xs uppercase sticky top-0">
                     <tr>
                       <th className="p-4">Quando</th>
                       <th className="p-4">Origem</th>
@@ -452,14 +452,14 @@ function GlobalQueueMonitor({
                         </td>
 
                         {/* ORIGEM */}
-                        <td className="p-4 font-bold text-slate-800 dark:text-white whitespace-nowrap">
+                        <td className="p-4 font-normal text-slate-800 dark:text-white whitespace-nowrap">
                           {job.origem === "AUTOMACAO"
                             ? "Automação"
                             : "Envio Manual"}
                         </td>
 
                         {/* CLIENTE */}
-                        <td className="p-4 font-bold text-slate-800 dark:text-white">
+                        <td className="p-4 font-normal text-slate-800 dark:text-white">
                           {job.client_name || (
                             <span className="text-slate-400 font-normal">
                               (cliente não encontrado)
@@ -476,7 +476,7 @@ function GlobalQueueMonitor({
                         <td className="p-4">
                           {job.template_name ? (
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-800 dark:text-white">
+                              <span className="font-normal text-slate-800 dark:text-white">
                                 {job.template_name}
                               </span>
                               <span className="text-[10px] text-slate-400">
@@ -485,7 +485,7 @@ function GlobalQueueMonitor({
                             </div>
                           ) : (
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-800 dark:text-white">
+                              <span className="font-normal text-slate-800 dark:text-white">
                                 Personalizada
                               </span>
                               <span className="text-[11px] text-slate-500 dark:text-white/60 line-clamp-2">
@@ -519,7 +519,7 @@ function GlobalQueueMonitor({
                   <button
                     onClick={handleGlobalPause}
                     disabled={loading}
-                    className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-xs hover:bg-amber-600"
+                    className="px-4 py-2 bg-amber-500 text-white rounded-lg font-normal text-xs hover:bg-amber-600"
                   >
                     ⏸️ PAUSAR TUDO
                   </button>
@@ -527,7 +527,7 @@ function GlobalQueueMonitor({
                   <button
                     onClick={handleGlobalResume}
                     disabled={loading || pausedCount === 0}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-normal text-xs hover:bg-emerald-700 disabled:opacity-50"
                   >
                     ▶️ RETOMAR
                   </button>
@@ -535,7 +535,7 @@ function GlobalQueueMonitor({
                 <button
                   onClick={handleNukeQueue}
                   disabled={loading}
-                  className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-700"
+                  className="px-4 py-2 bg-rose-600 text-white rounded-lg font-normal text-xs hover:bg-rose-700"
                 >
                   🚨 CANCELAR TUDO
                 </button>
@@ -1104,7 +1104,7 @@ export default function BillingPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-normal tracking-tight truncate text-slate-800 dark:text-white">
               Automação de Cobranças
             </h1>
           </div>
@@ -1113,7 +1113,7 @@ export default function BillingPage() {
         <div className="flex items-center gap-2 justify-end shrink-0">
           <button
             onClick={() => setWizardState({ show: true, editingRule: null })}
-            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-normal text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span className="text-base md:text-lg leading-none mb-0.5">+</span>
             Nova Regra
@@ -1123,7 +1123,7 @@ export default function BillingPage() {
       {/* Barra de busca (padrão admin: sticky no desktop) */}
       <div className="p-0 px-3 sm:px-0 md:px-4">
         <div className="p-0 md:p-4 bg-transparent md:bg-white md:dark:bg-card border-0 md:border md:border-slate-200 md:dark:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm md:sticky md:top-4 z-20">
-          <div className="hidden md:block text-xs font-bold uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-3">
+          <div className="hidden md:block text-xs font-normal uppercase text-slate-400 dark:text-muted-foreground tracking-wider mb-3">
             Busca
           </div>
 
@@ -1143,7 +1143,7 @@ export default function BillingPage() {
             {search.trim() && (
               <button
                 onClick={() => setSearch("")}
-                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
+                className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-normal hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
               >
                 Limpar
               </button>
@@ -1161,7 +1161,7 @@ export default function BillingPage() {
           <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 text-3xl">
             🤖
           </div>
-          <h3 className="text-lg font-bold text-slate-700 dark:text-white">
+          <h3 className="text-lg font-normal text-slate-700 dark:text-white">
             Nenhuma regra ativa
           </h3>
           <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
@@ -1279,7 +1279,7 @@ function AutomationCard({
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1 pr-2">
           <h3
-            className="font-bold text-slate-800 dark:text-white text-base line-clamp-1"
+            className="font-normal text-slate-800 dark:text-white text-base line-clamp-1"
             title={data.name}
           >
             {data.name}
@@ -1289,19 +1289,19 @@ function AutomationCard({
               {data.type}
             </span>
             <span
-              className={`text-[10px] font-bold ${data.is_automatic ? "text-purple-500" : "text-amber-500"}`}
+              className={`text-[10px] font-normal ${data.is_automatic ? "text-purple-500" : "text-amber-500"}`}
             >
               {data.is_automatic ? "AUTO" : "MANUAL"}
             </span>
             {/* ✅ VISUAL DO STATUS (Se estiver rodando, mostra aqui) */}
             {status === "RUNNING" && (
-              <span className="text-[10px] font-bold text-white bg-emerald-500 px-1.5 py-0.5 rounded animate-pulse">
+              <span className="text-[10px] font-normal text-white bg-emerald-500 px-1.5 py-0.5 rounded animate-pulse">
                 EXECUTANDO {data.is_automatic ? "AUTO" : "MANUAL"}
               </span>
             )}
 
             {status === "PAUSED" && (
-              <span className="text-[10px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-normal text-white bg-amber-500 px-1.5 py-0.5 rounded">
                 PAUSADO {data.is_automatic ? "AUTO" : "MANUAL"}
               </span>
             )}
@@ -1363,10 +1363,10 @@ function AutomationCard({
             className="cursor-pointer group/impact"
             title="Clique para ver os clientes"
           >
-            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">
+            <div className="text-[10px] text-slate-400 uppercase font-normal tracking-wider mb-0.5">
               Afetados Hoje
             </div>
-            <div className="text-xl font-bold text-slate-800 dark:text-white group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
+            <div className="text-xl font-normal text-slate-800 dark:text-white group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
               {impactCount}
               <span className="text-xs text-slate-400 font-normal group-hover/impact:text-emerald-400">
                 clientes
@@ -1375,7 +1375,7 @@ function AutomationCard({
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">
+            <div className="text-[10px] text-slate-400 uppercase font-normal tracking-wider mb-1">
               Ações
             </div>
 
@@ -1389,7 +1389,7 @@ function AutomationCard({
                     <button
                       onClick={() => onControl("PLAY")}
                       disabled={!data.is_active}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors
+                      className={`px-3 py-1.5 rounded-lg text-xs font-normal transition-colors
                                 ${
                                   data.is_active
                                     ? "bg-emerald-600 text-white hover:bg-emerald-500"
@@ -1403,7 +1403,7 @@ function AutomationCard({
                     <button
                       onClick={() => onControl("STOP")}
                       disabled={!data.is_active}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors
+                      className={`px-3 py-1.5 rounded-lg text-xs font-normal transition-colors
                                 ${
                                   data.is_active
                                     ? "bg-rose-600 text-white hover:bg-rose-500"
@@ -1424,7 +1424,7 @@ function AutomationCard({
               <button
                 onClick={onRun}
                 disabled={!data.is_active}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors
+                className={`px-3 py-1.5 rounded-lg text-xs font-normal transition-colors
                         ${
                           data.is_active
                             ? "bg-sky-600 text-white hover:bg-sky-500"
@@ -1442,7 +1442,7 @@ function AutomationCard({
                 <>
                   <button
                     onClick={() => onControl("PAUSE")}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold hover:brightness-110 transition"
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-normal hover:brightness-110 transition"
                     title="Pausar envios imediatamente"
                   >
                     Pausar
@@ -1450,7 +1450,7 @@ function AutomationCard({
 
                   <button
                     onClick={() => onControl("STOP")}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-500 transition"
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-normal hover:bg-rose-500 transition"
                     title="Parar agora e cancelar fila pendente"
                   >
                     Parar agora
@@ -1463,7 +1463,7 @@ function AutomationCard({
                   <button
                     onClick={() => onControl("PLAY")}
                     disabled={!data.is_active}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors
+                    className={`px-3 py-1.5 rounded-lg text-xs font-normal transition-colors
                             ${
                               data.is_active
                                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
@@ -1476,7 +1476,7 @@ function AutomationCard({
 
                   <button
                     onClick={() => onControl("STOP")}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-500 transition"
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-normal hover:bg-rose-500 transition"
                     title="Cancelar pendências e parar"
                   >
                     Parar agora
@@ -1487,7 +1487,7 @@ function AutomationCard({
               {/* Secundários */}
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-normal hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 transition"
                 title="Editar"
               >
                 Editar
@@ -1495,7 +1495,7 @@ function AutomationCard({
 
               <button
                 onClick={onShowLogs}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 dark:bg-white/10 dark:text-muted-foreground transition"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-normal hover:bg-slate-200 dark:bg-white/10 dark:text-muted-foreground transition"
                 title="Logs"
               >
                 Logs
@@ -1503,7 +1503,7 @@ function AutomationCard({
 
               <button
                 onClick={onDelete}
-                className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 transition"
+                className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-normal hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 transition"
                 title="Excluir"
               >
                 Excluir
@@ -1542,7 +1542,7 @@ function ImpactListModal({
       <div className="w-full max-w-4xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+            <h3 className="text-lg font-normal text-slate-800 dark:text-white">
               Clientes Afetados Hoje
             </h3>
             <p className="text-xs text-slate-500">
@@ -1565,7 +1565,7 @@ function ImpactListModal({
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-muted-foreground font-bold">
+              <thead className="bg-slate-50 dark:bg-white/5 sticky top-0 z-10 text-xs uppercase text-slate-500 dark:text-muted-foreground font-normal">
                 <tr>
                   <th className="p-3">Cliente / Contato</th>
                   <th className="p-3">Acesso / Servidor</th>
@@ -1585,7 +1585,7 @@ function ImpactListModal({
                     <td className="p-3">
                       {/* Principal */}
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                        <span className="font-normal text-slate-800 dark:text-white flex items-center gap-1.5">
                           {c.display_name}
                           <span className="text-[10px] bg-slate-100 dark:bg-white/10 text-slate-500 px-1.5 py-0.5 rounded font-normal uppercase">
                             Titular
@@ -1599,7 +1599,7 @@ function ImpactListModal({
                       {/* Secundário (só aparece se tiver) */}
                       {c.secondary_display_name && (
                         <div className="flex flex-col mt-2.5 pt-2 border-t border-slate-100 dark:border-border">
-                          <span className="font-bold text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1.5">
+                          <span className="font-normal text-slate-700 dark:text-slate-300 text-xs flex items-center gap-1.5">
                             {c.secondary_display_name}
                             <span className="text-[9px] bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-normal uppercase">
                               Secundário
@@ -1615,7 +1615,7 @@ function ImpactListModal({
                     {/* COLUNA 2: SERVIDOR E LOGIN */}
                     <td className="p-3">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 dark:text-white text-sm">
+                        <span className="font-normal text-slate-800 dark:text-white text-sm">
                           {c.username || (
                             <span className="text-slate-400 italic font-normal">
                               Sem usuário
@@ -1661,7 +1661,7 @@ function ImpactListModal({
                           {c.plan_label || "Sem plano"}
                         </span>
                         {c.price_amount > 0 && (
-                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 pl-1">
+                          <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400 pl-1">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: "BRL",
@@ -1680,7 +1680,7 @@ function ImpactListModal({
         <div className="px-6 py-4 border-t border-slate-100 dark:border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase hover:bg-slate-700 transition-colors shadow-md"
+            className="px-5 py-2.5 rounded-lg bg-slate-800 text-white font-normal text-xs uppercase hover:bg-slate-700 transition-colors shadow-md"
           >
             Fechar
           </button>
@@ -1858,7 +1858,7 @@ function AutomationWizard({
       <div className="w-full max-w-2xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-6 py-5 border-b border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+            <h2 className="text-xl font-normal text-slate-800 dark:text-white">
               {editingRule
                 ? `Editar: ${editingRule.name}`
                 : step === 1
@@ -1986,13 +1986,13 @@ function AutomationWizard({
                           rule_days_diff: -Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-l border text-xs font-bold ${form.rule_days_diff < 0 ? "bg-rose-500 text-white border-rose-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 rounded-l border text-xs font-normal ${form.rule_days_diff < 0 ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 border-rose-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
                     >
                       Antes
                     </button>
                     <button
                       onClick={() => setForm({ ...form, rule_days_diff: 0 })}
-                      className={`px-2 py-1 border-t border-b text-xs font-bold ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 border-t border-b text-xs font-normal ${form.rule_days_diff === 0 ? "bg-sky-500 text-white border-sky-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
                     >
                       No Dia
                     </button>
@@ -2003,7 +2003,7 @@ function AutomationWizard({
                           rule_days_diff: Math.abs(form.rule_days_diff || 1),
                         })
                       }
-                      className={`px-2 py-1 rounded-r border text-xs font-bold ${form.rule_days_diff > 0 ? "bg-emerald-500 text-white border-emerald-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
+                      className={`px-2 py-1 rounded-r border text-xs font-normal ${form.rule_days_diff > 0 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-500" : "bg-white dark:bg-black/20 border-slate-200 dark:border-border text-slate-500"}`}
                     >
                       Depois
                     </button>
@@ -2011,7 +2011,7 @@ function AutomationWizard({
                   {form.rule_days_diff !== 0 && (
                     <input
                       type="number"
-                      className="w-14 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm font-bold"
+                      className="w-14 h-8 text-center rounded border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-sm font-normal"
                       value={Math.abs(form.rule_days_diff)}
                       onChange={(e) =>
                         setForm({
@@ -2082,19 +2082,19 @@ function AutomationWizard({
           {step === 3 && (
             <div className="space-y-8 py-4">
               <div className="flex flex-col items-center gap-4">
-                <span className="text-sm font-bold text-slate-500 dark:text-white/60 uppercase tracking-widest">
+                <span className="text-sm font-normal text-slate-500 dark:text-white/60 uppercase tracking-widest">
                   Modo de Operação
                 </span>
                 <div className="flex items-center gap-4 bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
                   <button
                     onClick={() => setForm({ ...form, is_automatic: false })}
-                    className={`px-6 py-3 rounded-lg text-sm font-bold transition-all ${!form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-slate-800 dark:text-white" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-normal transition-all ${!form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-slate-800 dark:text-white" : "text-slate-400 hover:text-slate-600"}`}
                   >
                     Manual
                   </button>
                   <button
                     onClick={() => setForm({ ...form, is_automatic: true })}
-                    className={`px-6 py-3 rounded-lg text-sm font-bold transition-all ${form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-emerald-600 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600"}`}
+                    className={`px-6 py-3 rounded-lg text-sm font-normal transition-all ${form.is_automatic ? "bg-white dark:bg-slate-700 shadow-md text-emerald-600 dark:text-emerald-400" : "text-slate-400 hover:text-slate-600"}`}
                   >
                     Automático
                   </button>
@@ -2111,7 +2111,7 @@ function AutomationWizard({
                         onChange={(e) =>
                           setForm({ ...form, schedule_time: e.target.value })
                         }
-                        className="text-3xl font-bold bg-transparent border-b-2 border-emerald-500 text-center w-32 outline-none text-slate-800 dark:text-white"
+                        className="text-3xl font-normal bg-transparent border-b-2 border-emerald-500 text-center w-32 outline-none text-slate-800 dark:text-white"
                       />
                     </div>
                   </div>
@@ -2132,7 +2132,7 @@ function AutomationWizard({
                                   : [...current, d.id],
                               });
                             }}
-                            className={`w-10 h-10 rounded-full font-bold text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-400"}`}
+                            className={`w-10 h-10 rounded-full font-normal text-xs transition-all border ${selected ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30" : "bg-white dark:bg-white/5 border-slate-200 dark:border-border text-slate-400"}`}
                           >
                             {d.label}
                           </button>
@@ -2151,13 +2151,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={onClose}
-                className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-slate-500 font-normal text-xs uppercase hover:text-slate-800 dark:hover:text-white"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setStep(2)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-normal rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Filtros →
               </button>
@@ -2167,13 +2167,13 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(1)}
-                className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-slate-500 font-normal text-xs uppercase hover:text-slate-800 dark:hover:text-white"
               >
                 ← Voltar
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-bold rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
+                className="px-6 py-2.5 bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-normal rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase"
               >
                 Próximo: Automação →
               </button>
@@ -2183,14 +2183,14 @@ function AutomationWizard({
             <>
               <button
                 onClick={() => setStep(2)}
-                className="text-slate-500 font-bold text-xs uppercase hover:text-slate-800 dark:hover:text-white"
+                className="text-slate-500 font-normal text-xs uppercase hover:text-slate-800 dark:hover:text-white"
               >
                 ← Voltar
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all text-xs uppercase disabled:opacity-50"
+                className="px-8 py-2.5 bg-emerald-600 text-white font-normal rounded-xl shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all text-xs uppercase disabled:opacity-50"
               >
                 {saving ? "Salvando..." : "Confirmar e Criar"}
               </button>
@@ -2205,7 +2205,7 @@ function AutomationWizard({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
+    <label className="block text-[10px] font-normal text-slate-400 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -2314,7 +2314,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
           <div className="p-2 border-t border-slate-100 dark:border-border bg-slate-50 dark:bg-white/5">
             <button
               onClick={() => setOpen(false)}
-              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase transition-colors"
+              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 font-normal text-xs uppercase transition-colors"
             >
               Concluir
             </button>
@@ -2329,7 +2329,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
             return (
               <span
                 key={id}
-                className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-600 dark:text-white border border-slate-200 dark:border-border"
+                className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-white/10 text-xs font-normal text-slate-600 dark:text-white border border-slate-200 dark:border-border"
               >
                 {label}
                 <button
@@ -2401,7 +2401,7 @@ function LogsModal({
       <div className="w-full max-w-3xl bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+            <h3 className="text-lg font-normal text-slate-800 dark:text-white">
               Logs de Envio
             </h3>
             <p className="text-xs text-slate-500">
@@ -2444,7 +2444,7 @@ function LogsModal({
                       {formatDateTimeSP(log.sent_at)}
                     </td>
 
-                    <td className="p-2 font-bold text-slate-700 dark:text-white">
+                    <td className="p-2 font-normal text-slate-700 dark:text-white">
                       {log.client_name}
                     </td>
                     <td className="p-2 text-slate-500">
@@ -2471,7 +2471,7 @@ function LogsModal({
         <div className="px-6 py-4 border-t border-slate-100 dark:border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 text-white font-bold text-xs uppercase"
+            className="px-5 py-2 rounded-lg bg-slate-800 text-white font-normal text-xs uppercase"
           >
             Fechar
           </button>

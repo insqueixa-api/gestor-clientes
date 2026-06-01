@@ -559,12 +559,12 @@ export default function ServerDetailsPage() {
                 📡
               </div>
             )}
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-normal text-slate-800 dark:text-white tracking-tight">
               {server.name}
             </h1>
 
             <span
-              className={`px-2 py-0.5 rounded-lg text-xs font-bold border shadow-sm ${
+              className={`px-2 py-0.5 rounded-lg text-xs font-normal border shadow-sm ${
                 server.credits_available > 10
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                   : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
@@ -609,7 +609,7 @@ export default function ServerDetailsPage() {
               />
             </svg>
           </button>
-          <span className="px-6 text-sm font-bold text-slate-700 dark:text-white min-w-[160px] text-center capitalize tracking-tight">
+          <span className="px-6 text-sm font-normal text-slate-700 dark:text-white min-w-[160px] text-center capitalize tracking-tight">
             {formatMonth(selectedDate)}
           </span>
           <button
@@ -635,14 +635,14 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
-            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-bold transition-all shadow-sm inline-flex items-center justify-center"
+            className="h-10 px-4 rounded-lg border border-slate-200 dark:border-border text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/10 text-sm font-normal transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar
           </Link>
 
           <button
             onClick={() => setIsRecargaOpen(true)}
-            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+            className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-normal text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
           >
             <CreditCard className="w-4 h-4" />
             Nova Recarga
@@ -654,7 +654,7 @@ export default function ServerDetailsPage() {
         {/* BLOCO 1: RESUMO FINANCEIRO */}
         <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
           <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
-            <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">
+            <span className="text-sm font-normal text-slate-800 dark:text-white tracking-tight">
               Resumo financeiro ({formatMonth(selectedDate)})
             </span>
           </div>
@@ -687,7 +687,7 @@ export default function ServerDetailsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Clientes */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
+            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-normal text-sm text-slate-800 dark:text-white tracking-tight">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Métricas de clientes
             </div>
@@ -728,7 +728,7 @@ export default function ServerDetailsPage() {
 
           {/* Revendas */}
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm flex flex-col transition-colors">
-            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-bold text-sm text-slate-800 dark:text-white tracking-tight">
+            <div className="px-5 py-3 border-b border-slate-200 dark:border-border flex items-center gap-2 bg-slate-50 dark:bg-white/5 font-normal text-sm text-slate-800 dark:text-white tracking-tight">
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               Métricas de revendas
             </div>
@@ -767,7 +767,7 @@ export default function ServerDetailsPage() {
         <div className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl overflow-hidden shadow-sm transition-colors">
           {/* HEADER DA TABELA COM FILTROS */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-white/5">
-            <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight shrink-0">
+            <span className="text-sm font-normal text-slate-800 dark:text-white tracking-tight shrink-0">
               Movimentações de {formatMonth(selectedDate)}
             </span>
 
@@ -788,7 +788,7 @@ export default function ServerDetailsPage() {
               <select
                 value={filterKind}
                 onChange={(e) => setFilterKind(e.target.value)}
-                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-xs font-bold text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                className="h-9 px-2 bg-white dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-xs font-normal text-slate-700 dark:text-white outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
                 <optgroup label="Clientes">
@@ -809,19 +809,19 @@ export default function ServerDetailsPage() {
             <table className="w-full text-sm text-left relative border-collapse">
               <thead className="bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-muted-foreground border-b border-slate-200 dark:border-border sticky top-0 z-10 backdrop-blur-md">
                 <tr>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">
+                  <th className="px-5 py-3 font-normal text-[11px] uppercase tracking-wider">
                     Data
                   </th>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">
+                  <th className="px-5 py-3 font-normal text-[11px] uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider text-center">
+                  <th className="px-5 py-3 font-normal text-[11px] uppercase tracking-wider text-center">
                     Qtd.
                   </th>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">
+                  <th className="px-5 py-3 font-normal text-[11px] uppercase tracking-wider">
                     Valor (brl)
                   </th>
-                  <th className="px-5 py-3 font-bold text-[11px] uppercase tracking-wider">
+                  <th className="px-5 py-3 font-normal text-[11px] uppercase tracking-wider">
                     Descrição / Cliente
                   </th>
                   <th className="px-5 py-3 w-10" />
@@ -863,10 +863,10 @@ export default function ServerDetailsPage() {
                               : "Cliente"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-bold text-center group-hover:text-emerald-500 transition-colors">
+                      <td className="px-5 py-3 font-normal text-center group-hover:text-emerald-500 transition-colors">
                         {m.qty_credits}
                       </td>
-                      <td className="px-5 py-3 font-mono font-bold">
+                      <td className="px-5 py-3 font-mono font-normal">
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}
@@ -953,11 +953,11 @@ function StatCard({
 }) {
   return (
     <div className="bg-slate-100/50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border flex flex-col justify-between h-24 transition-all hover:border-emerald-500/30">
-      <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-white/20 tracking-widest">
+      <div className="text-[10px] uppercase font-normal text-slate-400 dark:text-white/20 tracking-widest">
         {title}
       </div>
       <div
-        className={`text-xl font-bold text-slate-800 dark:text-white tracking-tight ${className}`}
+        className={`text-xl font-normal text-slate-800 dark:text-white tracking-tight ${className}`}
       >
         {value}
       </div>
@@ -978,11 +978,11 @@ function DetailStat({
 }) {
   return (
     <div className="group">
-      <div className="text-[11px] font-bold text-slate-400 dark:text-white/30 mb-1 tracking-tight">
+      <div className="text-[11px] font-normal text-slate-400 dark:text-white/30 mb-1 tracking-tight">
         {label}
       </div>
       <div
-        className={`text-lg font-bold tracking-tight group-hover:scale-105 transition-transform origin-left ${valueColor}`}
+        className={`text-lg font-normal tracking-tight group-hover:scale-105 transition-transform origin-left ${valueColor}`}
       >
         {value}
       </div>

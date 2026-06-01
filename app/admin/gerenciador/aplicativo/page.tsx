@@ -72,7 +72,7 @@ type AppData = {
 // --- COMPONENTES UI ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
+    <label className="block text-[10px] font-normal text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
       {children}
     </label>
   );
@@ -529,14 +529,14 @@ export default function AppManagerPage() {
             </div>
             <div className="flex flex-wrap gap-1 pt-0.5">
               {app.tenant_id !== myTenantId && (
-                <span className="inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-muted-foreground border border-slate-200 dark:border-border px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center text-[10px] font-normal bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-muted-foreground border border-slate-200 dark:border-border px-2 py-0.5 rounded-full">
                   🔒
                 </span>
               )}
 
               {app.integration_type && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}
                 >
                   ⚡{" "}
                   {needsConfiguration
@@ -582,7 +582,7 @@ export default function AppManagerPage() {
         )}
 
         <div className="pt-3 border-t border-slate-100 dark:border-border space-y-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <p className="text-[10px] font-normal text-slate-400 uppercase tracking-wider">
             Campos exigidos:
           </p>
 
@@ -650,7 +650,7 @@ export default function AppManagerPage() {
             {search.trim() ? (
               <button
                 onClick={() => setSearch("")}
-                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-xs font-bold text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                className="h-10 px-3 rounded-lg border border-slate-200 dark:border-border bg-white dark:bg-black/20 text-xs font-normal text-slate-600 dark:text-muted-foreground hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 title="Limpar busca"
               >
                 Limpar
@@ -706,7 +706,7 @@ export default function AppManagerPage() {
                     <h2 className="text-sm font-bold text-slate-700 dark:text-white uppercase tracking-wider">
                       Família: {familyName}
                     </h2>
-                    <span className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
+                    <span className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm">
                       {appsInFamily.length}{" "}
                       {appsInFamily.length > 1 ? "Apps" : "App"}
                     </span>
@@ -790,7 +790,7 @@ export default function AppManagerPage() {
                     }
                   />
                   {isUrlLocked && (
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-normal">
                       URL gerenciada automaticamente pela integração.
                     </p>
                   )}
@@ -828,7 +828,7 @@ export default function AppManagerPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
+                    <p className="text-xs font-normal text-slate-600 dark:text-muted-foreground">
                       {uploadingIcon
                         ? "Enviando..."
                         : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
@@ -838,7 +838,7 @@ export default function AppManagerPage() {
                     </p>
                   </div>
                   <label className="cursor-pointer shrink-0">
-                    <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center hover:bg-emerald-500/20 transition-colors">
+                    <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-normal flex items-center hover:bg-emerald-500/20 transition-colors">
                       {uploadingIcon ? "..." : "Selecionar"}
                     </span>
                     <input
@@ -900,7 +900,7 @@ export default function AppManagerPage() {
               {/* CONSTRUTOR DE CAMPOS */}
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-border rounded-xl p-4 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-white/60 uppercase tracking-wider">
+                  <h3 className="text-xs font-normal text-slate-500 dark:text-white/60 uppercase tracking-wider">
                     Campos Personalizados
                   </h3>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -913,7 +913,7 @@ export default function AppManagerPage() {
                           key={type}
                           onClick={() => addField(type)}
                           disabled={alreadyAdded}
-                          className={`text-xs px-2 py-1 border rounded font-bold transition-colors flex items-center gap-1
+                          className={`text-xs px-2 py-1 border rounded font-normal transition-colors flex items-center gap-1
                             ${
                               alreadyAdded
                                 ? "opacity-30 cursor-not-allowed bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-border text-slate-400"

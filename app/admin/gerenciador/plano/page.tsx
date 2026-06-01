@@ -262,7 +262,7 @@ export default function PlanosPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-white tracking-tight truncate">
               Tabelas de Preço
             </h1>
           </div>
@@ -311,7 +311,7 @@ export default function PlanosPage() {
 
           <button
             onClick={() => setSearch("")}
-            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
+            className="hidden md:inline-flex h-10 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-normal hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors items-center justify-center gap-2"
           >
             <IconX /> Limpar
           </button>
@@ -359,7 +359,7 @@ export default function PlanosPage() {
                   {/* Cabeçalho do grupo */}
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                     <span className={`${group.color}`}>{group.icon}</span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
+                    <span className="text-sm font-normal text-slate-700 dark:text-white whitespace-nowrap">
                       {group.label}
                     </span>
                     <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
@@ -380,7 +380,7 @@ export default function PlanosPage() {
                             {/* CABEÇALHO DO CARD */}
                             <div className="px-5 py-3 flex justify-between items-center border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
                               <div className="flex items-center gap-3">
-                                <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+                                <h2 className="text-lg font-normal text-slate-800 dark:text-white tracking-tight">
                                   {plan.is_system_default &&
                                   plan.name.startsWith("Padrão")
                                     ? "Padrão"
@@ -543,7 +543,7 @@ export default function PlanosPage() {
                                               </span>
                                             </div>
 
-                                            <div className="text-sm font-bold text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                            <div className="text-sm font-normal text-slate-800 dark:text-white tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                                               {formatMoney(
                                                 price,
                                                 plan.currency,

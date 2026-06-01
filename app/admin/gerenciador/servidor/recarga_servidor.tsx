@@ -9,7 +9,7 @@ import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-normal text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
       {children}
     </label>
   );
@@ -381,10 +381,10 @@ export default function RecargaServidorModal({
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+            <h2 className="text-lg font-normal text-slate-800 dark:text-white tracking-tight">
               Nova Recarga
             </h2>
-            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+            <div className="text-xs text-emerald-600 dark:text-emerald-400 font-normal mt-0.5">
               {server.name}
             </div>
           </div>
@@ -432,7 +432,7 @@ export default function RecargaServidorModal({
                   onChange={(e) => setQty(e.target.value)}
                   placeholder="0"
                   autoFocus
-                  className="font-bold text-emerald-600"
+                  className="font-normal text-emerald-600"
                 />
               </div>
               <div className="col-span-4 space-y-1">
@@ -475,10 +475,10 @@ export default function RecargaServidorModal({
           {/* TOTALIZADORES */}
           <div className="flex justify-between items-end bg-slate-100 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-border">
             <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">
+              <div className="text-[10px] uppercase font-normal text-slate-400">
                 Total Original
               </div>
-              <div className="font-mono text-sm font-bold text-slate-600 dark:text-slate-300">
+              <div className="font-mono text-sm font-normal text-slate-600 dark:text-slate-300">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: currency,
@@ -486,10 +486,10 @@ export default function RecargaServidorModal({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] uppercase font-bold text-slate-400">
+              <div className="text-[10px] uppercase font-normal text-slate-400">
                 Total em BRL (Custo Real)
               </div>
-              <div className="font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="font-mono text-xl font-normal text-emerald-600 dark:text-emerald-400">
                 {new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -533,7 +533,7 @@ export default function RecargaServidorModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all"
+              className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-normal shadow-lg shadow-emerald-900/20 transition-all"
             >
               {saving
                 ? "Processando..."
