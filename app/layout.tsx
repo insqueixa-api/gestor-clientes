@@ -1,20 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
 // 1. IMPORTANTE: Importe o Provider que você criou
 // (Confirme se o caminho está certo, baseado no código que você me mandou antes)
 import { ThemeProvider } from "@/components/theme/ThemeProvider"; 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
+
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
 export const viewport: Viewport = {
   themeColor: "#050505", // Cor exata da sua Topbar
 };
+
 export const metadata: Metadata = {
   title: "UniGestor",
   description: "Sistema de Gestão",
@@ -31,6 +36,7 @@ export const metadata: Metadata = {
     title: "UniGestor",
   },
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -1,9 +1,11 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
+
 function normalizeApiUrl(url: string) {
   if (!url) return "";
   let s = url.trim().replace(/\/+$/, "");
@@ -12,6 +14,7 @@ function normalizeApiUrl(url: string) {
   }
   return s;
 }
+
 type AppIntegration = {
   id: string;
   tenant_id: string;
@@ -24,6 +27,7 @@ type AppIntegration = {
   is_active: boolean;
   created_at: string;
 };
+
 export default function AppIntegracaoModal({
   integration,
   onCloseAction,
@@ -36,6 +40,7 @@ export default function AppIntegracaoModal({
   onErrorAction: (msg: string) => void;
 }) {
   const isEdit = !!integration?.id;
+
   const [appName, setAppName]         = useState(integration?.app_name ?? "GERENCIAAPP");
   const [label, setLabel]             = useState(integration?.label ?? "");
   const [loginEmail, setLoginEmail]   = useState(integration?.login_email ?? "");
@@ -43,9 +48,12 @@ export default function AppIntegracaoModal({
   const [apiUrl, setApiUrl]           = useState(integration?.api_url ?? "");
   const [pin, setPin]                 = useState(integration?.pin ?? ""); // ✅ Estado do PIN
   const [isActive, setIsActive]       = useState(integration?.is_active ?? true);
+  
   const [saving, setSaving]           = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
   const { confirm, ConfirmUI } = useConfirm(); 
+
   // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast   = appName === "DUPLECAST";
   const isIboSol      = appName === "IBOSOL";
@@ -55,6 +63,7 @@ export default function AppIntegracaoModal({
   const isLazerPlay   = appName === "LAZERPLAY" || appName === "FUNPLAY" || appName === "FOCOXPLAY";
   const needsPin      = isDuplecast || isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay;
   const noCredentials = isIboSol || isIboPro || isQuickPlayer || isDuplexPlay || isLazerPlay; // Apps que não usam email/senha
+
   useEffect(() => {
     if (integration) {
       setAppName(integration.app_name ?? "GERENCIAAPP");
@@ -66,30 +75,36 @@ export default function AppIntegracaoModal({
       setIsActive(integration.is_active ?? true);
     }
   }, [integration]);
+
   // ✅ Validação dinâmica ocultando e-mail e senha para IBO Sol
   const canSave = noCredentials
     ? label.trim() && apiUrl.trim() && pin.trim()
     : needsPin 
       ? label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim() && pin.trim()
       : label.trim() && loginEmail.trim() && loginPassword.trim() && apiUrl.trim();
+
   async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const ok = await confirm({
       title: "Atualizar Extensão?",
       subtitle: `Deseja fazer o upload de "${file.name}"? Isso atualizará a versão atual para todos.`,
       confirmText: "Sim, Atualizar",
       cancelText: "Cancelar"
     });
+
     if (!ok) {
       e.target.value = ""; 
       return;
     }
+
     try {
       setIsUploading(true);
       const { error } = await supabaseBrowser.storage
         .from("extensions")
         .upload("unigestor-extensao.zip", file, { upsert: true, cacheControl: "3600" });
+
       if (error) throw error;
       onSuccessAction(); 
     } catch (err: any) {
@@ -99,12 +114,14 @@ export default function AppIntegracaoModal({
       e.target.value = ""; 
     }
   }
+
   async function handleSave() {
     if (!canSave) return;
     try {
       setSaving(true);
       const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
+
       const payload = {
         tenant_id:      tenantId,
         app_name:       appName,
@@ -115,6 +132,7 @@ export default function AppIntegracaoModal({
         pin:            needsPin ? pin.trim() : null, // ✅ Salva o PIN para os apps que precisam
         is_active:      isActive,
       };
+
       if (isEdit) {
         const { error } = await supabaseBrowser
           .from("app_integrations")
@@ -128,6 +146,7 @@ export default function AppIntegracaoModal({
           .insert(payload);
         if (error) throw error;
       }
+
       onSuccessAction();
     } catch (e: any) {
       onErrorAction(e?.message ?? "Falha ao salvar.");
@@ -135,10 +154,12 @@ export default function AppIntegracaoModal({
       setSaving(false);
     }
   }
+
   const modal = (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={onCloseAction} />
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh]">
+
         {/* Header Elegante */}
         <div className="px-6 py-5 border-b border-slate-200 dark:border-border flex items-center justify-between shrink-0">
           <div>
@@ -157,8 +178,10 @@ export default function AppIntegracaoModal({
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
+
         {/* Body com Grid */}
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
+          
           {/* Upload Master Simplificado - Agora sempre visível */}
           <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl">
             <div>
@@ -170,7 +193,9 @@ export default function AppIntegracaoModal({
               <input type="file" accept=".zip" className="hidden" onChange={handleUploadExtension} disabled={isUploading} />
             </label>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
             {/* Aplicativo */}
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Aplicativo</label>
@@ -193,6 +218,7 @@ export default function AppIntegracaoModal({
                 <option value="FOCOXPLAY">FocoX Play</option>
               </select>
             </div>
+
             {/* Nome da Integração */}
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Nome de identificação</label>
@@ -213,6 +239,7 @@ export default function AppIntegracaoModal({
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors"
               />
             </div>
+
             {/* URL da API */}
             <div className="sm:col-span-2">
               <label className="block text-[10px] font-bold text-slate-500 dark:text-muted-foreground mb-1.5 uppercase tracking-wider">Link do Painel</label>
@@ -224,6 +251,7 @@ export default function AppIntegracaoModal({
                 className="w-full h-11 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20 px-3 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500/50 focus:bg-white dark:focus:bg-black/40 transition-colors font-mono text-xs"
               />
             </div>
+
             {/* Email de Login */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
@@ -238,6 +266,7 @@ export default function AppIntegracaoModal({
                 />
               </div>
             )}
+
             {/* Senha */}
             {!noCredentials && (
               <div className={needsPin ? "sm:col-span-1" : "sm:col-span-2"}>
@@ -251,6 +280,7 @@ export default function AppIntegracaoModal({
                 />
               </div>
             )}
+
             {/* PIN (Exclusivo para Apps que Exigem) animado */}
             {needsPin && (
               <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -269,6 +299,7 @@ export default function AppIntegracaoModal({
                 <p className="text-[10px] text-slate-500 dark:text-muted-foreground mt-1.5 ml-1">Usado automaticamente na geração das playlists.</p>
               </div>
             )}
+
             {/* Status */}
             <div className="sm:col-span-2 mt-2">
               <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-border bg-slate-50 dark:bg-black/20">
@@ -287,8 +318,10 @@ export default function AppIntegracaoModal({
                 </button>
               </div>
             </div>
+
           </div>
         </div>
+
         {/* Footer Elegante */}
         <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex items-center justify-end gap-3 shrink-0">
           <button
@@ -318,9 +351,11 @@ export default function AppIntegracaoModal({
             {saving ? "Salvando..." : "Salvar Integração"}
           </button>
         </div>
+
       </div>
       {ConfirmUI}
     </div>
   );
+
   return createPortal(modal, document.body);
 }
