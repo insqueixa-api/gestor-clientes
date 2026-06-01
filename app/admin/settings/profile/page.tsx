@@ -887,16 +887,7 @@ export default function ProfileSettingsPage() {
                         const visibleRecords = showAllHealthRecords ? sortedHistory : sortedHistory.slice(0, 2);
 
 
-                        const displayRecords = [];
-                        
-                        // Lógica para parear e inverter, colocando o mais novo na direita
-                        for (let i = 0; i < visibleRecords.length; i += 2) {
-                          if (i + 1 < visibleRecords.length) {
-                            displayRecords.push(visibleRecords[i + 1], visibleRecords[i]);
-                          } else {
-                            displayRecords.push(visibleRecords[i]);
-                          }
-                        }
+                        const displayRecords = [...visibleRecords];
 
                         return displayRecords.map((record) => {
   const isNewest = record.id === sortedHistory[0]?.id;
