@@ -1599,7 +1599,7 @@ export default function TrialsPage() {
 
                           return (
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${colors[tone]}`}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase whitespace-nowrap ${colors[tone]}`}
                             >
                               {label}
                             </span>
@@ -1609,7 +1609,7 @@ export default function TrialsPage() {
 
                       <Td>
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                             r.converted
                               ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200 dark:border-emerald-500/20"
                               : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/50 border-slate-200 dark:border-border"
@@ -1631,7 +1631,7 @@ export default function TrialsPage() {
                       </Td>
 
                       <Td>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
                           {r.technology || "—"}
                         </span>
                       </Td>
@@ -1650,7 +1650,7 @@ export default function TrialsPage() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all"
                                   title="Configurar aplicativo"
                                 >
                                   {name || "App"}
@@ -2356,7 +2356,7 @@ function StatusBadge({ status }: { status: TrialStatus }) {
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${tone.bg} ${tone.text} ${tone.border}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${tone.bg} ${tone.text} ${tone.border}`}
     >
       {status}
     </span>
@@ -2619,7 +2619,7 @@ function PapaTestesModal({
           <div>
             <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
               🕵️ Papa Testes
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
+              <span className="gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
                 {records.length} registro{records.length !== 1 ? "s" : ""}
               </span>
             </h2>
@@ -2704,7 +2704,7 @@ function PapaTestesModal({
                       </span>
                     )}
                     {recs.length > 1 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+                      <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
                         {recs.length}x
                       </span>
                     )}
@@ -2724,7 +2724,7 @@ function PapaTestesModal({
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                          className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border shrink-0 ${
                             r.is_trial
                               ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30"
                               : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"

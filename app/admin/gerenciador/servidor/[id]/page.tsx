@@ -848,7 +848,7 @@ export default function ServerDetailsPage() {
                       </td>
                       <td className="px-5 py-3">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm whitespace-nowrap ${
+                          className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm whitespace-nowrap ${
                             m.kind === "PURCHASE"
                               ? "bg-sky-500/20 text-sky-700 dark:text-sky-200 border-sky-400/30"
                               : m.kind === "RESELLER_SALE"

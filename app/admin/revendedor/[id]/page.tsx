@@ -491,7 +491,7 @@ export default function ResellerDetailPage() {
               {reseller.name}
             </h1>
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${
                 reseller.is_archived
                   ? "bg-slate-500/10 text-slate-500 dark:text-muted-foreground border-slate-500/20"
                   : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"

@@ -536,7 +536,7 @@ export default function AppManagerPage() {
 
               {app.integration_type && (
                 <span
-                  className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"}`}
                 >
                   ⚡{" "}
                   {needsConfiguration
@@ -706,7 +706,7 @@ export default function AppManagerPage() {
                     <h2 className="text-sm font-bold text-slate-700 dark:text-white uppercase tracking-wider">
                       Família: {familyName}
                     </h2>
-                    <span className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <span className="bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
                       {appsInFamily.length}{" "}
                       {appsInFamily.length > 1 ? "Apps" : "App"}
                     </span>

@@ -849,7 +849,7 @@ export default function ClientDetailsPage() {
                 <span className="text-slate-500 dark:text-muted-foreground font-medium">
                   Tecnologia
                 </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-white/60 border border-slate-200 dark:border-border uppercase">
                   {client.technology || "—"}
                 </span>
               </div>

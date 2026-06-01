@@ -458,24 +458,24 @@ function AuditoriaPageContent() {
   function getPaymentBadge(status: string) {
     if (status === "approved" || status === "PAGO")
       return (
-        <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
           Aprovado
         </span>
       );
     if (status === "pending")
       return (
-        <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-medium uppercase border border-amber-200 dark:border-amber-500/30">
           Pendente
         </span>
       );
     if (status === "rejected" || status === "cancelled")
       return (
-        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
           Recusado
         </span>
       );
     return (
-      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
         {status}
       </span>
     );
@@ -485,7 +485,7 @@ function AuditoriaPageContent() {
     // 1. Prioridade Máxima: Status de cancelamento manual (Padronizado)
     if (status === "manual_cancelled" || status === "cancelled") {
       return (
-        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
           {status === "manual_cancelled"
             ? "Cancelada Manualmente"
             : "Cancelada"}
@@ -496,7 +496,7 @@ function AuditoriaPageContent() {
     // 2. Se o pagamento foi recusado/cancelado no gateway
     if (paymentStatus === "rejected" || paymentStatus === "cancelled") {
       return (
-        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-muted-foreground text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
           Cancelada
         </span>
       );
@@ -512,31 +512,31 @@ function AuditoriaPageContent() {
     // 4. Fluxo normal pós-pagamento aprovado
     if (status === "done")
       return (
-        <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold uppercase border border-blue-200 dark:border-blue-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-medium uppercase border border-blue-200 dark:border-blue-500/30">
           Concluído
         </span>
       );
     if (status === "manual_done")
       return (
-        <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold uppercase border border-indigo-200 dark:border-indigo-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-[10px] font-medium uppercase border border-indigo-200 dark:border-indigo-500/30">
           Concluído Manualmente
         </span>
       );
     if (status === "manual_pending")
       return (
-        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-bold uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[10px] font-medium uppercase border border-purple-200 dark:border-purple-500/30 animate-pulse">
           Ação Manual
         </span>
       );
     if (status === "error")
       return (
-        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
           Erro API
         </span>
       );
 
     return (
-      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase border border-slate-200 dark:border-white/20">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-medium uppercase border border-slate-200 dark:border-white/20">
         Processando
       </span>
     );
@@ -574,18 +574,18 @@ function AuditoriaPageContent() {
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
     if (status === "sent")
       return (
-        <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase border border-emerald-200 dark:border-emerald-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium uppercase border border-emerald-200 dark:border-emerald-500/30">
           Enviado
         </span>
       );
     if (status === "error")
       return (
-        <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-bold uppercase border border-rose-200 dark:border-rose-500/30">
+        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[10px] font-medium uppercase border border-rose-200 dark:border-rose-500/30">
           Erro
         </span>
       );
     return (
-      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-bold uppercase border border-slate-200 dark:border-border">
+      <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-slate-100 dark:bg-white/10 text-slate-400 text-[10px] font-medium uppercase border border-slate-200 dark:border-border">
         Aguardando
       </span>
     );
@@ -768,7 +768,7 @@ function AuditoriaPageContent() {
 
                         {/* Banco */}
                         <td className="px-4 py-3 text-center">
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-muted-foreground uppercase tracking-wider">
                             {r.gateway_name || r.payment_method}
                           </span>
                         </td>
@@ -867,7 +867,7 @@ function AuditoriaPageContent() {
                                       clientName: r.client_name,
                                     })
                                   }
-                                  className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
+                                  className="gap-1 px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-300 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-200 dark:border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
                                   title="Abrir painel de renovação"
                                 >
                                   <IconCheckCircle /> Concluir
@@ -876,7 +876,7 @@ function AuditoriaPageContent() {
                                 {/* ✅ Botão Cancelar (Vermelho suave) */}
                                 <button
                                   onClick={() => handleCancelarAcao(r)}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-bold uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                  className="gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-200 dark:border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
                                   title="Encerrar esta pendência sem renovar"
                                 >
                                   <IconX />
@@ -888,7 +888,7 @@ function AuditoriaPageContent() {
                             {isWhatsappError && (
                               <button
                                 onClick={() => handleReenviarWhatsapp(r)}
-                                className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-700 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 text-[10px] font-bold uppercase rounded-lg transition-colors border border-sky-200 dark:border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                className="gap-1 px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-700 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 dark:text-sky-300 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-200 dark:border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
                                 title="Reenviar comprovante via WhatsApp"
                               >
                                 💬 Reenviar Zap

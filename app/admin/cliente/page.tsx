@@ -2456,7 +2456,7 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-white/75 border border-slate-200 dark:border-white/15 uppercase">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 dark:bg-slate-500/10 text-slate-700 dark:text-slate-400 text-[10px] font-medium tracking-tight shadow-sm uppercase">
                           {r.technology}
                         </span>
                       </Td>
@@ -2517,7 +2517,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium tracking-tight shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-500/20 active:scale-95 transition-all max-w-[170px] truncate"
                                   title={`Configurar aplicativo: ${app}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
@@ -3571,7 +3571,7 @@ function StatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-${color}-100 dark:bg-${color}-500/20 text-${color}-700 dark:text-${color}-200 border-${color}-200 dark:border-${color}-400/30 whitespace-nowrap`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium uppercase tracking-tight shadow-sm bg-${color}-50 dark:bg-${color}-500/10 text-${color}-700 dark:text-${color}-400 border-${color}-200 dark:border-${color}-500/20 whitespace-nowrap`}
     >
       {customLabel || status}
     </span>

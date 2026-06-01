@@ -2451,7 +2451,7 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
   // Alterado: rounded-lg -> rounded-full (Padrão Pílula)
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase shadow-sm ${tone.bg} ${tone.text} ${tone.border}`}
     >
       {status}
     </span>

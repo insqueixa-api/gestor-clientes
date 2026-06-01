@@ -228,7 +228,7 @@ export default function AppIntegracaoModal({
                 Substitua o arquivo .zip na nuvem.
               </p>
             </div>
-            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg transition-colors shadow-sm whitespace-nowrap">
+            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg transition-colors shadow-sm whitespace-nowrap">
               {isUploading ? "A enviar..." : "Selecionar .zip"}
               <input
                 type="file"

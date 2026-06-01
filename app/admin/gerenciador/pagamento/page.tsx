@@ -703,13 +703,13 @@ function GatewayModal({
                               {m.currencies.map((c) => (
                                 <span
                                   key={c}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
+                                  className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
                                 >
                                   {c}
                                 </span>
                               ))}
                               <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                                   m.is_online
                                     ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
                                     : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
@@ -762,7 +762,7 @@ function GatewayModal({
 
                   <div className="ml-auto flex gap-1.5">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                      className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                         meta.is_online
                           ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
                           : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
@@ -998,12 +998,12 @@ function GatewayCard({
             </h3>
 
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
+              <span className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-black/20 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
                 {priorityLabel}
               </span>
 
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${
                   gateway.is_online
                     ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20"
                     : "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20"
@@ -1040,7 +1040,7 @@ function GatewayCard({
           {gateway.currency.map((c) => (
             <span
               key={c}
-              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
+              className="gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-500/20 bg-slate-50 text-[10px] font-medium tracking-tight shadow-sm dark:bg-white/5 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border"
             >
               {c}
             </span>
@@ -1311,7 +1311,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">
                       Gateways BRL
                     </h2>
-                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {brlGateways.length}
                     </span>
                   </div>
@@ -1348,7 +1348,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-bold text-slate-800 dark:text-white">
                       Gateways Internacionais
                     </h2>
-                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded">
+                    <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {intlGateways.length}
                     </span>
                   </div>

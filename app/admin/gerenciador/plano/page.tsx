@@ -394,12 +394,12 @@ export default function PlanosPage() {
 
                                   {plan.is_system_default ||
                                   plan.name.startsWith("Padrão") ? (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
+                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-sm">
                                       Padrão do Sistema
                                     </span>
                                   ) : (
                                     <span
-                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border shadow-sm
+                                      className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm-lg border shadow-sm
                                     ${
                                       plan.is_active
                                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"

@@ -2314,7 +2314,7 @@ export default function ProfileSettingsPage() {
                             Status:
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                            className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                           >
                             {waConnected ? "On-line" : "Off-line"}
                           </span>
@@ -3181,7 +3181,7 @@ function WhatsAppSession2Panel({
                     Status:
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
+                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm border ${waConnected ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"}`}
                   >
                     {waConnected ? "On-line" : "Off-line"}
                   </span>
