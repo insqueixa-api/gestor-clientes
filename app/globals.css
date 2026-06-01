@@ -4,13 +4,13 @@
 
 /* === MODO CLARO === */
 :root {
-  --background: #f8fafc;   /* slate-50 */
-  --foreground: #09090b;
-  --card: #ffffff;
+  --background: #fafafa;   /* zinc-50 */
+  --foreground: #09090b;   /* zinc-950 */
+  --card: #ffffff;         /* white */
   --card-foreground: #09090b;
-  --border: #e2e8f0;       /* slate-200 */
-  --muted: #f1f5f9;        /* slate-100 */
-  --muted-foreground: #64748b; /* slate-500 */
+  --border: #e4e4e7;       /* zinc-200 */
+  --muted: #f4f4f5;        /* zinc-100 */
+  --muted-foreground: #71717a; /* zinc-500 */
   
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -18,13 +18,13 @@
 
 /* === MODO ESCURO === */
 :root.dark {
-  --background: #0f141a;   /* zinc-azulado */
-  --foreground: #fafafa;
-  --card: #161b22;         /* Painéis e modais */
+  --background: #09090b;   /* zinc-950 puro */
+  --foreground: #fafafa;   /* zinc-50 */
+  --card: #121214;         /* Fundo de cards hiper escuro */
   --card-foreground: #fafafa;
-  --border: rgba(255, 255, 255, 0.10); /* white/10 */
-  --muted: #1c2331;        /* Cabeçalhos de tabelas, áreas de destaque secundárias */
-  --muted-foreground: rgba(255, 255, 255, 0.40); /* white/40 */
+  --border: #27272a;       /* zinc-800 - borda suave */
+  --muted: #18181b;        /* zinc-900 */
+  --muted-foreground: #a1a1aa; /* zinc-400 */
 }
 
 /* Conecta ao Tailwind */

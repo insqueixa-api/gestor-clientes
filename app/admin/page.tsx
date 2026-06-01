@@ -936,18 +936,12 @@ function MetricCardView({
   href?: string;
 }) {
   const colors: Record<Accent, string> = {
-    green:
-      "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100",
-    red:
-      "border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 text-rose-900 dark:text-rose-100",
-    amber:
-      "border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 text-amber-900 dark:text-amber-100",
-    yellow:
-      "border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 text-yellow-900 dark:text-yellow-100",
-    blue:
-      "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-blue-900 dark:text-blue-100",
-    gray:
-      "border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100",
+    green: "border-l-emerald-500",
+    red: "border-l-rose-500",
+    amber: "border-l-amber-500",
+    yellow: "border-l-yellow-500",
+    blue: "border-l-blue-500",
+    gray: "border-l-zinc-500",
   };
 
   const content = (
@@ -986,7 +980,7 @@ function MetricCardView({
     </>
   );
 
-  const baseClass = `rounded-xl border shadow-sm overflow-hidden flex flex-col ${colors[accent]}`;
+  const baseClass = `rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[accent]}`;
 
   if (href) {
     return (
