@@ -56,6 +56,42 @@ export default function RecargaServidorModal({ server, onClose, onSuccess, onErr
   const totalOriginal = (Number(qty) || 0) * (Number(unitCost) || 0);
   const totalBrl = currency === "BRL" ? totalOriginal : totalOriginal * (Number(fxRate) || 1);
 
+// ✅ Pré-preenche com a última recarga realizada
+  useEffect(() => {
+    async function fetchLastPurchase() {
+      try {
+        const tenantId = await getCurrentTenantId();
+        const { data } = await supabaseBrowser
+          .from("server_credit_purchases")
+          .select("credits_qty, unit_price_brl, purchase_currency, fx_rate_to_brl")
+          .eq("tenant_id", tenantId)
+          .eq("server_id", server.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          if (data.credits_qty) setQty(String(data.credits_qty));
+          if (data.purchase_currency) setCurrency(data.purchase_currency);
+          if (data.unit_price_brl != null && data.purchase_currency) {
+            // unit_price_brl está em BRL — se moeda não era BRL, converte de volta
+            const fx = Number(data.fx_rate_to_brl || 1);
+            const unitOriginal = data.purchase_currency !== "BRL" && fx > 0
+              ? data.unit_price_brl / fx
+              : data.unit_price_brl;
+            setUnitCost(Number(unitOriginal).toFixed(4).replace(/\.?0+$/, ""));
+          }
+          if (data.fx_rate_to_brl && data.purchase_currency !== "BRL") {
+            setFxRate(String(data.fx_rate_to_brl));
+          }
+        }
+      } catch (e) {
+        // silencioso — se falhar, mantém os defaults
+      }
+    }
+    fetchLastPurchase();
+  }, [server.id]);
+
   // ✅ Busca cotação automaticamente se não for BRL
   useEffect(() => {
     async function fetchFx() {
