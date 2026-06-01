@@ -682,38 +682,48 @@ export default function ProfileSettingsPage() {
     {showSettingsDropdown && (
       <>
         <div className="fixed inset-0 z-40" onClick={() => setShowSettingsDropdown(false)} />
-        <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
-          
-          {/* Tema */}
-          <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tema do Sistema</p>
-            <div className="flex items-center gap-1 mt-1.5">
-              <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 hover:bg-white/5"}`}>Claro</button>
-              <button onClick={() => { setTheme("dark"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}>Escuro</button>
-            </div>
-          </div>
+        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1e2530] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
 
-          {/* Editar Perfil */}
-          <button onClick={() => { setShowSettingsDropdown(false); setIsEditing(true); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
-            ✏️ Editar Perfil
-          </button>
+  {/* Tema */}
+  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-white/5">
+    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tema do Sistema</p>
+    <div className="flex items-center gap-1">
+      <button onClick={() => { setTheme("light"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme !== "dark" ? "bg-slate-100 text-slate-800" : "text-slate-500 dark:text-white/40 hover:bg-white/5"}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        Claro
+      </button>
+      <button onClick={() => { setTheme("dark"); setShowSettingsDropdown(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${theme === "dark" ? "bg-white/10 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        Escuro
+      </button>
+    </div>
+  </div>
 
-          {/* 2ª Sessão WhatsApp */}
-          {whatsappSessions === 1 ? (
-            <button onClick={() => { setWhatsappSessions(2); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
-              📲 Habilitar 2ª Sessão WA
-            </button>
-          ) : (
-            <button onClick={() => { setWhatsappSessions(1); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-b border-slate-100 dark:border-white/5">
-              📵 Remover 2ª Sessão WA
-            </button>
-          )}
+  {/* Editar Perfil */}
+  <button onClick={() => { setShowSettingsDropdown(false); setIsEditing(true); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-slate-400"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Editar Perfil
+  </button>
 
-          {/* Alterar Senha */}
-          <button onClick={() => { setShowSettingsDropdown(false); handleResetPassword(); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2 transition-colors">
-            🔒 Alterar Senha
-          </button>
-        </div>
+  {/* 2ª Sessão WhatsApp */}
+  {whatsappSessions === 1 ? (
+    <button onClick={() => { setWhatsappSessions(2); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-emerald-500"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+      Habilitar 2ª Sessão WA
+    </button>
+  ) : (
+    <button onClick={() => { setWhatsappSessions(1); setIsEditing(true); setShowSettingsDropdown(false); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors border-b border-slate-100 dark:border-white/5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+      Remover 2ª Sessão WA
+    </button>
+  )}
+
+  {/* Alterar Senha */}
+  <button onClick={() => { setShowSettingsDropdown(false); handleResetPassword(); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-600 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2.5 transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-slate-400"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    Alterar Senha
+  </button>
+</div>
       </>
     )}
   </div>
@@ -1265,18 +1275,25 @@ export default function ProfileSettingsPage() {
         
         {/* CARD IMPORT / EXPORT */}
 <div className="bg-white dark:bg-[#161b22] border-y sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-  <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-100 dark:border-white/5 pb-3">
-    Dados &amp; Planilhas
-  </h3>
-  <div className="flex flex-col gap-2">
-    <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
-      ⬇️ Exportar Registros
+  <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+    <h3 className="text-xs font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+      Dados &amp; Planilhas
+    </h3>
+    <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="flex items-center gap-1.5 h-8 px-2 sm:px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 transition-all" title="Baixar Templates">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span className="hidden sm:inline text-xs font-bold">Templates</span>
     </button>
-    <button type="button" onClick={() => setActionModal("template")} disabled={!tenantId} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
-      📄 Baixar Templates
+  </div>
+  <div className="flex gap-2">
+    <button type="button" onClick={() => setActionModal("export")} disabled={!tenantId || exporting} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span className="hidden sm:inline">Exportar Registros</span>
+      <span className="sm:hidden">Exportar</span>
     </button>
-    <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center gap-2">
-      ⬆️ Importar Registros
+    <button type="button" onClick={() => setActionModal("import")} disabled={!tenantId || importing || importingApps || importingAuto || importingReseller || importingMessage || importingServer} className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 font-bold text-xs text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span className="hidden sm:inline">Importar Registros</span>
+      <span className="sm:hidden">Importar</span>
     </button>
   </div>
 
