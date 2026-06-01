@@ -55,8 +55,8 @@ useEffect(() => {
       }
 
       const { error } = await supabaseBrowser.auth.resetPasswordForEmail(safeEmail, {
-        redirectTo: `${location.origin}/reset-password`,
-      });
+        redirectTo: `${location.origin}/reset-password`,
+      });
 
 if (error) throw error;
 
