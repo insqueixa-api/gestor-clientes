@@ -1,5 +1,5 @@
 "use client";
-import { CreditCard, Pencil, RefreshCcw } from "lucide-react";
+import { CreditCard, Pencil, RefreshCcw, Clock, Network, Globe } from "lucide-react";
 
 
 import { useEffect, useState } from "react";
@@ -18,6 +18,7 @@ export type ServerRow = {
   tenant_id: string;
   name: string;
   slug: string;
+  logo_url?: string | null;
   notes: string | null;
   default_currency: "BRL" | "USD" | "EUR";
   default_credit_unit_price: number | null;
@@ -558,6 +559,13 @@ const { error } = await supabaseBrowser.rpc("delete_archived_server", {
           className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
         >
           {/* ✅ TÍTULO: Ajustado para text-slate-700 (era 800) para igualar ao título da lista de clientes */}
+          {server.logo_url && (
+            <img 
+              src={server.logo_url} 
+              alt={server.name} 
+              className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-border shrink-0" 
+            />
+          )}
 <h2
   className="text-base font-bold truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
   title={server.name}

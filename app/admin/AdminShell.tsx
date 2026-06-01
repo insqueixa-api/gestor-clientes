@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { LayoutDashboard, Users, Activity, Network, Settings2, UserCircle, Server, Layers, MessageSquare, Receipt, CreditCard, Smartphone, User, Wallet, Code, Bell, BookOpen, ScrollText, RefreshCcw, RotateCcw, X } from "lucide-react";
+import { LayoutDashboard, Users, Activity, Clock, Network, Settings2, UserCircle, Server, Layers, MessageSquare, Receipt, CreditCard, Smartphone, User, Wallet, Code, Bell, BookOpen, ScrollText, RefreshCcw, RotateCcw, X } from "lucide-react";
 
 function getHojeSP(): Date {
   const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -446,7 +446,7 @@ export default function AdminShell({
               <NavLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-sky-400" /> Clientes</span>} />
               <NavLink href="/admin/auditoria" label={<span className="flex items-center gap-1.5"><ScrollText className="w-4 h-4 text-emerald-400" /> Log Portal</span>} />
               <NavLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><Network className="w-4 h-4 text-violet-400" /> Revendas</span>} />
-              <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-amber-400" /> Testes</span>} />
+              <NavLink href="/admin/teste" label={<span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-amber-400" /> Testes</span>} />
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
@@ -505,7 +505,7 @@ export default function AdminShell({
             <MenuLink href="/admin" label={<span className="flex items-center gap-2"><LayoutDashboard className="w-4 h-4 text-emerald-400" /> Dashboard</span>} onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/cliente" label={<span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-sky-400" /> Clientes</span>} onClick={() => setOpenMenu(null)} />
             <MenuLink href="/admin/revendedor" label={<span className="flex items-center gap-1.5"><Network className="w-4 h-4 text-violet-400" /> Revendas</span>} onClick={() => setOpenMenu(null)} />
-            <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><Activity className="w-4 h-4 text-amber-400" /> Testes</span>} onClick={() => setOpenMenu(null)} />
+            <MenuLink href="/admin/teste" label={<span className="flex items-center gap-2"><Clock className="w-4 h-4 text-amber-400" /> Testes</span>} onClick={() => setOpenMenu(null)} />
             <Divider />
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">Gerenciador</div>

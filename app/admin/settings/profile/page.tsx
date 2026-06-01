@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, Pencil, Settings } from "lucide-react";
+import { Loader2, Pencil, Settings, RefreshCcw, Plug, Target, TrendingUp, TrendingDown, ArrowRight, Ban, CheckCircle2 } from "lucide-react";
 
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1040,7 +1040,7 @@ export default function ProfileSettingsPage() {
                       </div>
                       {hasRef && idealWMin && (
                         <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                          🎯 Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
+                          <Target className="w-4 h-4 inline-block mr-1.5 text-emerald-500" /> Peso ideal: {idealWMin}–{idealWMax} kg · IMC 18,5–24,9
                         </span>
                       )}
                     </div>
@@ -1053,7 +1053,7 @@ export default function ProfileSettingsPage() {
                         const diffFirst = hoveredPt.i > 0 ? +(d.weight - first.weight).toFixed(1) : null;
                         const diffPrev  = prev ? +(d.weight - prev.weight).toFixed(1) : null;
                         const fmtFull = (s: string) => { const [y,m,day] = s.split("-"); return `${day}/${m}/${y.slice(2)}`; };
-                        const arrow = (v: number) => v < 0 ? "📉" : v > 0 ? "📈" : "➡️";
+                        const arrow = (v: number) => v < 0 ? <TrendingDown className="w-4 h-4 inline-block text-emerald-500"/> : v > 0 ? <TrendingUp className="w-4 h-4 inline-block text-rose-500"/> : <ArrowRight className="w-4 h-4 inline-block text-slate-400"/>;
                         const pxX = (hoveredPt.x / W) * 100;
                         const flipLeft = pxX > 60;
                         return (
@@ -1234,7 +1234,7 @@ export default function ProfileSettingsPage() {
                           <span className="font-bold text-slate-800 dark:text-white">Nome:</span> {waPushName || "Aguardando"}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-white/50">
-                          <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? "Rejeitadas 🚫" : "Permitidas ✅"}
+                          <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? <span>Rejeitadas <Ban className="w-3 h-3 inline-block text-rose-500 ml-1"/></span> : <span>Permitidas <CheckCircle2 className="w-3 h-3 inline-block text-emerald-500 ml-1"/></span>}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
                           <span className="font-bold text-slate-800 dark:text-white">Status:</span>
@@ -1254,8 +1254,8 @@ export default function ProfileSettingsPage() {
                     )}
 
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
-                      {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desconectar</button>}
+                      <button type="button" onClick={() => void handleReconnectWhatsApp()} disabled={waReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm"><RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar</button>
+                      {waConnected && <button type="button" onClick={() => void handleDisconnectWhatsApp()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm"><Plug className="w-4 h-4 mr-1.5 inline-block" /> Desconectar</button>}
                     </div>
                   </>
                 )}
@@ -1611,7 +1611,7 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
                   <span className="font-bold text-slate-800 dark:text-white">Nome:</span> {waPushName || "Aguardando"}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-white/50">
-                  <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? "Rejeitadas 🚫" : "Permitidas ✅"}
+                  <span className="font-bold text-slate-800 dark:text-white">Chamadas:</span> {waRejectCalls ? <span>Rejeitadas <Ban className="w-3 h-3 inline-block text-rose-500 ml-1"/></span> : <span>Permitidas <CheckCircle2 className="w-3 h-3 inline-block text-emerald-500 ml-1"/></span>}
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-white/50 flex items-center gap-1 mt-1">
                   <span className="font-bold text-slate-800 dark:text-white">Status:</span>
@@ -1623,8 +1623,8 @@ function WhatsAppSession2Panel({ canPair, tenantId, addToast, onDisable }: { can
             </div>
 
             <div className="flex gap-2 mt-3">
-              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm">🔄 Reiniciar</button>
-              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm">🔌 Desligar</button>}
+              <button type="button" onClick={() => void handleReconnect()} disabled={isReconnecting} className="flex-1 py-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 transition-colors shadow-sm"><RefreshCcw className="w-4 h-4 mr-1.5 inline-block" /> Reiniciar</button>
+              {waConnected && <button type="button" onClick={() => void handleDisconnect()} className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400 font-bold text-xs hover:bg-rose-100 transition-colors shadow-sm"><Plug className="w-4 h-4 mr-1.5 inline-block" /> Desligar</button>}
             </div>
           </>
         )}

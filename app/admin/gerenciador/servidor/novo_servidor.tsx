@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
@@ -109,6 +110,8 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
 
   // States do Form
   const [name, setName] = useState("");
+  const [formIconUrl, setFormIconUrl] = useState("");
+  const [uploadingIcon, setUploadingIcon] = useState(false);
   const [slug, setSlug] = useState("");
   const [notes, setNotes] = useState("");
   const [currency, setCurrency] = useState<Currency>("BRL");
@@ -152,11 +155,34 @@ const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
     return u || "--";
   }
 
+  async function handleIconUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      alert("Arquivo inválido. Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingIcon(true);
+      const res = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type, folder: "servers" }),
+      });
+      const { presignedUrl, publicUrl } = await res.json();
+      await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setFormIconUrl(publicUrl);
+    } catch (e: any) {
+      alert("Erro no upload: " + e?.message);
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
+
   // Carregar dados na Edição
   useEffect(() => {
     if (server) {
       setName(server.name);
       setSlug(server.slug);
+      setFormIconUrl((server as any).logo_url || "");
       setNotes(server.notes || "");
       setCurrency(server.default_currency as Currency);
 
@@ -310,6 +336,7 @@ const payload = {
         tenant_id: tenantId,
         name: name.trim(),
         slug: finalSlug,
+        logo_url: formIconUrl || null,
         notes: notes?.trim() ? notes.trim() : null,
         default_currency: currency,
         panel_type: panelType || null,
