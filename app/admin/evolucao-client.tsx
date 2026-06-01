@@ -206,7 +206,7 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
     >
       {/* Header */}
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-        <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
+        <h3 className="text-sm sm:text-base font-bold dark:font-medium text-zinc-900 dark:text-zinc-100">
           Evolução Consolidada{" "}
           <span className="font-normal text-zinc-400 dark:text-zinc-500 text-xs">
             ({n} meses)

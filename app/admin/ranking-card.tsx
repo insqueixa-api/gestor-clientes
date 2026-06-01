@@ -140,7 +140,7 @@ export function RankingCard({
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
         <div>
-          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h3 className="text-sm font-bold dark:font-medium text-zinc-900 dark:text-zinc-100 tracking-tight">
             {title}
           </h3>
           {subtitle && (
@@ -231,11 +231,11 @@ export function RankingCard({
 
                 {/* Value */}
                 <span
-                  className={`text-[13px] font-bold tabular-nums flex-shrink-0 ${c.value}`}
+                  className={`text-[13px] font-bold dark:font-medium tabular-nums flex-shrink-0 ${c.value}`}
                 >
                   {fmt(item.value)}
                   {valueLabel && (
-                    <span className="text-[10px] font-normal ml-1 opacity-60">
+                    <span className="text-[10px] font-medium ml-1 opacity-60">
                       {valueLabel}
                     </span>
                   )}
