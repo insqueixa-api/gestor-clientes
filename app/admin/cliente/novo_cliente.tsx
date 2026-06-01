@@ -732,6 +732,34 @@ const [secondaryWaValidation, setSecondaryWaValidation] = useState<WaValidation>
 const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 const secondaryValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+type PapaTesteInfo = { count: number; records: any[] } | null;
+const [papaTesteInfo, setPapaTesteInfo] = useState<PapaTesteInfo>(null);
+const [papaTesteLoading, setPapaTesteLoading] = useState(false);
+
+async function checkPapaTeste(username: string) {
+  const digits = username.replace(/\D/g, "");
+  if (digits.length < 8) { setPapaTesteInfo(null); return; }
+  setPapaTesteLoading(true);
+  try {
+    const tid = await getCurrentTenantId();
+    const { data } = await supabaseBrowser
+      .from("papa_testes")
+      .select("*")
+      .eq("tenant_id", tid)
+      .eq("whatsapp_username", digits)
+      .order("created_at", { ascending: false });
+    if (data && data.length > 0) {
+      setPapaTesteInfo({ count: data.length, records: data });
+    } else {
+      setPapaTesteInfo(null);
+    }
+  } catch {
+    setPapaTesteInfo(null);
+  } finally {
+    setPapaTesteLoading(false);
+  }
+}
+
 async function validateWa(username: string, setter: (v: WaValidation) => void, countryLabelSetter?: (v: string) => void) {
   const digits = username.replace(/\D/g, "");
   if (digits.length < 8) { setter(null); return; }
@@ -929,6 +957,7 @@ function handleDonePrimary() {
   if (!whatsUserTouched) setWhatsappUsername(finalUser);
 
   void validateWa(finalUser, setWaValidation, setPrimaryCountryLabel);
+  void checkPapaTeste(finalUser);
 }
 
 function handleDoneSecondary() {
@@ -3235,6 +3264,28 @@ if (clientId) {
             }
         }
 
+// ✅ PAPA TESTES: salva histórico sempre que cria cliente ou teste
+if (clientId) {
+  try {
+    const tid2 = await getCurrentTenantId();
+    const selectedServerName2 = servers.find((s) => s.id === serverId)?.name || null;
+    await supabaseBrowser.from("papa_testes").insert({
+      tenant_id: tid2,
+      whatsapp_username: onlyDigits(whatsappUsername),
+      client_name: displayName,
+      phone_e164: finalPrimaryE164 || null,
+      server_name: selectedServerName2,
+      username: apiUsername || username,
+      plan_price: rpcPriceAmount || null,
+      plan_currency: rpcCurrency || "BRL",
+      is_trial: isTrialMode,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn("Papa testes: falha silenciosa", e);
+  }
+}
+
 // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
 // 🔒 TRAVA: Só dispara se whatsappOptIn for true
 if (isTrialMode && sendTrialWhats && whatsappOptIn && messageContent && messageContent.trim() && clientId) {
@@ -3875,9 +3926,11 @@ if (!isEditing && registerRenewal && !isTrialMode) {
                         setWhatsappUsername(val);
                         setWhatsUserTouched(true);
                         setWaValidation(null);
+                        setPapaTesteInfo(null);
                         if (waValidateTimer.current) clearTimeout(waValidateTimer.current);
                         waValidateTimer.current = setTimeout(() => {
                           void validateWa(val, setWaValidation, setPrimaryCountryLabel);
+                          void checkPapaTeste(val);
                         }, 800);
                       }}
 
@@ -3911,16 +3964,54 @@ if (!isEditing && registerRenewal && !isTrialMode) {
 
                     </div>
                     {waValidation && (
-                      <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
-                        {waValidation.loading ? (
-                          <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
-                        ) : waValidation.exists ? (
-                          <>✅ WhatsApp ativo</>
-                        ) : (
-                          <>❌ Não encontrado no WhatsApp</>
-                        )}
-                      </div>
-                    )}
+  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-bold ${waValidation.loading ? "text-slate-400" : waValidation.exists ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+    {waValidation.loading ? (
+      <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Validando...</>
+    ) : waValidation.exists ? (
+      <>✅ WhatsApp ativo</>
+    ) : (
+      <>❌ Não encontrado no WhatsApp</>
+    )}
+  </div>
+)}
+
+{(papaTesteLoading || papaTesteInfo) && (
+  <div className="mt-1 flex items-center gap-1.5">
+    {papaTesteLoading ? (
+      <span className="text-[10px] text-slate-400 flex items-center gap-1">
+        <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        Verificando histórico...
+      </span>
+    ) : papaTesteInfo ? (
+      <button
+        type="button"
+        onClick={async () => {
+          const lines = papaTesteInfo.records.map((r) => {
+            const dt = new Date(r.created_at).toLocaleDateString("pt-BR");
+            const tipo = r.is_trial ? "Teste" : "Cliente";
+            const val = r.plan_price ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}` : "—";
+            return `${tipo} · ${dt} · ${r.server_name || "—"} · ${r.username || "—"} · ${val}`;
+          });
+          await confirm({
+            title: `📋 Histórico — ${papaTesteInfo.records[0]?.client_name || whatsappUsername}`,
+            subtitle: `${papaTesteInfo.count} registro(s) encontrado(s) para este WhatsApp.`,
+            tone: "sky",
+            confirmText: "Fechar",
+            cancelText: "",
+            details: lines.map((line, i) => (
+              <div key={i} className="text-xs text-slate-700 dark:text-white/80 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                {line}
+              </div>
+            )),
+          });
+        }}
+        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+      >
+        ⚠️ {papaTesteInfo.count} registro{papaTesteInfo.count > 1 ? "s" : ""} anteriore{papaTesteInfo.count > 1 ? "s" : ""}
+      </button>
+    ) : null}
+  </div>
+)}
                   </div>
                 </div>
 
