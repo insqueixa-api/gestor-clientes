@@ -303,6 +303,10 @@ export default async function AdminDashboardPage({
   const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
   const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
 
+  console.log("[DASHBOARD] finance:", JSON.stringify(finance, null, 2));
+  console.log("[DASHBOARD] to_receive_brl_estimated:", finance?.to_receive_brl_estimated);
+  console.log("[DASHBOARD] finReceitasTotal será:", finance?.to_receive_brl_estimated);
+
   // Despesas (server_credit_purchases) para cálculo de Lucro
   const purchasesRows = (purchasesRes?.data ?? []) as {
     created_at: string;
