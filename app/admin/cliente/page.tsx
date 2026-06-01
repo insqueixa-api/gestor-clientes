@@ -392,7 +392,6 @@ type AppsIndex = {
   byName: Record<string, any>; // chave normalizada
 };
 
-const [showPapaTestes, setShowPapaTestes] = useState(false);
 const [appsIndex, setAppsIndex] = useState<AppsIndex>({ byId: {}, byName: {} });
 const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps da extensão
 
@@ -1585,28 +1584,18 @@ body: JSON.stringify({
 
     {/* ✅ no mobile, o botão de lixeira sai daqui (vai pro filtro) */}
     <button
-  onClick={(e) => {
-    e.stopPropagation();
-    setShowPapaTestes(true);
-  }}
-  className="hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 hover:border-violet-200 dark:hover:border-violet-500/30 gap-1.5"
->
-  🕵️ Papa Testes
-</button>
-
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
-  }}
-  className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
-    archivedFilter === "Sim"
-      ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-      : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
-  }`}
->
-  {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
-</button>
+      onClick={(e) => {
+        e.stopPropagation();
+        setArchivedFilter(archivedFilter === "Não" ? "Sim" : "Não");
+      }}
+      className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-bold border transition-colors items-center justify-center ${
+        archivedFilter === "Sim"
+          ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+          : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-white/60"
+      }`}
+    >
+      {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+    </button>
 
 <button
   onClick={(e) => {
@@ -2807,14 +2796,7 @@ const appIsExpiring = appDiffDays !== null && appDiffDays <= 30;
           </div>
         </Modal>
       )}
-{showPapaTestes && tenantId && (
-  <PapaTestesModal
-    tenantId={tenantId}
-    onClose={() => setShowPapaTestes(false)}
-    addToast={addToast}
-    confirm={confirm}
-  />
-)}
+
 
 {ConfirmUI}
       <div className="relative z-[999999]">
@@ -3150,242 +3132,6 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
   );
 }
 
-function PapaTestesModal({
-  tenantId,
-  onClose,
-  addToast,
-  confirm,
-}: {
-  tenantId: string;
-  onClose: () => void;
-  addToast: (type: "success" | "error" | "warning", title: string, message?: string) => void;
-  confirm: any;
-}) {
-  const [records, setRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"todos" | "trial" | "client">("todos");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const { data, error } = await supabaseBrowser
-        .from("papa_testes")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setRecords(data || []);
-    } catch (e: any) {
-      addToast("error", "Erro ao carregar", e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDelete(id: string, name: string) {
-    const ok = await confirm({
-      title: "Remover do Papa Testes?",
-      subtitle: "Este registro será excluído permanentemente.",
-      tone: "rose",
-      confirmText: "Excluir",
-      cancelText: "Cancelar",
-      details: [`Cliente: ${name}`],
-    });
-    if (!ok) return;
-    setDeletingId(id);
-    try {
-      const { error } = await supabaseBrowser
-        .from("papa_testes")
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId);
-      if (error) throw error;
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      addToast("success", "Removido", "Registro excluído do Papa Testes.");
-    } catch (e: any) {
-      addToast("error", "Erro ao excluir", e.message);
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return records.filter((r) => {
-      if (filterType === "trial" && !r.is_trial) return false;
-      if (filterType === "client" && r.is_trial) return false;
-      if (!q) return true;
-      const hay = [r.client_name, r.whatsapp_username, r.username, r.server_name, r.phone_e164]
-        .join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return hay.includes(q);
-    });
-  }, [records, search, filterType]);
-
-  // Agrupa por whatsapp_username para mostrar contagem
-  const grouped = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    for (const r of filtered) {
-      const key = r.whatsapp_username || r.phone_e164 || r.id;
-      if (!map[key]) map[key] = [];
-      map[key].push(r);
-    }
-    return map;
-  }, [filtered]);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "grid", placeItems: "center", zIndex: 99999, padding: 16 }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl bg-white dark:bg-[#0f141a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ maxHeight: "90dvh" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 shrink-0">
-          <div>
-            <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
-              🕵️ Papa Testes
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
-                {records.length} registro{records.length !== 1 ? "s" : ""}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">Histórico de todos os clientes e testes cadastrados.</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60">
-            <IconX />
-          </button>
-        </div>
-
-        {/* Filtros */}
-        <div className="px-5 py-3 border-b border-slate-200 dark:border-white/10 shrink-0 flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[180px] relative">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome, WhatsApp, usuário..."
-              className="w-full h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none focus:border-violet-500/50 text-slate-700 dark:text-white"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
-                <IconX />
-              </button>
-            )}
-          </div>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
-            className="h-9 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg text-sm outline-none text-slate-700 dark:text-white"
-          >
-            <option value="todos">Todos</option>
-            <option value="trial">Só Testes</option>
-            <option value="client">Só Clientes</option>
-          </select>
-        </div>
-
-        {/* Lista */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
-          {loading ? (
-            <div className="text-center text-slate-400 dark:text-white/40 animate-pulse py-8">Carregando...</div>
-          ) : Object.keys(grouped).length === 0 ? (
-            <div className="text-center text-slate-400 dark:text-white/40 py-8 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl">
-              Nenhum registro encontrado.
-            </div>
-          ) : (
-            Object.entries(grouped).map(([key, recs]) => (
-              <div key={key} className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
-                {/* Cabeçalho do grupo */}
-                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-700 dark:text-white">
-                      {recs[0]?.client_name || "—"}
-                    </span>
-                    {recs[0]?.whatsapp_username && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
-                        @{recs[0].whatsapp_username}
-                      </span>
-                    )}
-                    {recs.length > 1 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
-                        {recs.length}x
-                      </span>
-                    )}
-                  </div>
-                  {recs[0]?.phone_e164 && (
-                    <span className="text-xs text-slate-400 dark:text-white/40 font-mono">{recs[0].phone_e164}</span>
-                  )}
-                </div>
-
-                {/* Registros do grupo */}
-                <div className="divide-y divide-slate-100 dark:divide-white/5">
-                  {recs.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
-                          r.is_trial
-                            ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30"
-                            : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
-                        }`}>
-                          {r.is_trial ? "Teste" : "Cliente"}
-                        </span>
-                        <span className="text-xs text-slate-500 dark:text-white/50 shrink-0">
-                          {new Date(r.created_at).toLocaleDateString("pt-BR")}
-                        </span>
-                        {r.server_name && (
-                          <span className="text-xs text-slate-600 dark:text-white/70 truncate">{r.server_name}</span>
-                        )}
-                        {r.username && (
-                          <span className="text-xs font-mono text-slate-500 dark:text-white/50 truncate">{r.username}</span>
-                        )}
-                        {r.plan_price && (
-                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: r.plan_currency || "BRL" }).format(r.plan_price)}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleDelete(r.id, r.client_name || "—")}
-                        disabled={deletingId === r.id}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 ml-2"
-                        title="Excluir registro"
-                      >
-                        {deletingId === r.id ? (
-                          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        ) : (
-                          <IconTrash />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 shrink-0 flex justify-between items-center">
-          <span className="text-xs text-slate-400 dark:text-white/40">
-            {filtered.length} de {records.length} registro{records.length !== 1 ? "s" : ""}
-          </span>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white font-bold text-xs hover:bg-slate-200 dark:hover:bg-white/20 transition-colors">
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
 // --- ICONES ---
 function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
 function IconSortUp() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6" /></svg>; }
