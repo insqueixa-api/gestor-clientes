@@ -5,6 +5,7 @@ import React, { useState } from "react";
 type BarItem = {
   label: string;
   value: number;
+  logo_url?: string | null;
 };
 
 type AccentColor = "sky" | "emerald" | "violet" | "rose" | "amber" | "indigo";
@@ -184,13 +185,18 @@ export function RankingCard({
                   )}
                 </div>
 
-                {/* Label */}
-                <span
-                  className={`flex-1 text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
-                  title={item.label}
-                >
-                  {item.label}
-                </span>
+                {/* Label & Logo */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  {item.logo_url && (
+                    <img src={item.logo_url} alt="" className="w-5 h-5 rounded-md object-cover border border-zinc-200 dark:border-zinc-800 shrink-0" />
+                  )}
+                  <span
+                    className={`text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
+                    title={item.label}
+                  >
+                    {item.label}
+                  </span>
+                </div>
 
                 {/* Value */}
                 <span className={`text-[13px] font-bold tabular-nums flex-shrink-0 ${c.value}`}>

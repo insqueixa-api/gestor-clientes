@@ -2073,7 +2073,7 @@ className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-5
   {r.username}
 </span>
 {r.whatsapp_username && (
-  <span className={`text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+  <span className={`text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
     @{r.whatsapp_username}
   </span>
 )}
@@ -3058,7 +3058,7 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
-    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+    green: "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
     red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",

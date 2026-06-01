@@ -1239,7 +1239,7 @@ onClick={(e) => {
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
         <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
           Lista de Testes{" "}
-          <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
+          <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">
             {filtered.length}
           </span>
         </div>
@@ -1320,7 +1320,7 @@ onClick={(e) => {
       {r.username}
     </span>
     {r.whatsapp_username && (
-      <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate">
+      <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 truncate">
         @{r.whatsapp_username}
       </span>
     )}
@@ -2006,7 +2006,7 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20 hover:bg-sky-100 dark:hover:bg-sky-500/20",
-    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+    green: "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20",
     purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20 hover:bg-purple-100 dark:hover:bg-purple-500/20",
     red: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20",
@@ -2257,7 +2257,7 @@ const filtered = useMemo(() => {
                       {recs[0]?.client_name || "—"}
                     </span>
                     {recs[0]?.whatsapp_username && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                      <span className="text-xs text-emerald-600/70 dark:text-emerald-500/70 font-mono">
                         @{recs[0].whatsapp_username}
                       </span>
                     )}
@@ -2293,7 +2293,7 @@ const filtered = useMemo(() => {
                           <span className="text-xs font-mono text-slate-500 dark:text-white/50 truncate">{r.username}</span>
                         )}
                         {r.plan_price && (
-                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                          <span className="text-xs font-bold text-emerald-600/70 dark:text-emerald-500/70 shrink-0">
                             {new Intl.NumberFormat("pt-BR", { style: "currency", currency: r.plan_currency || "BRL" }).format(r.plan_price)}
                           </span>
                         )}

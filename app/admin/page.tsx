@@ -528,7 +528,7 @@ export default async function AdminDashboardPage({
   }));
 
   return (
-    <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-900 dark:text-zinc-100">
+    <div id="dashboard-values" className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-800 dark:text-zinc-200">
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 px-3 sm:px-0">
@@ -809,7 +809,7 @@ export default async function AdminDashboardPage({
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-base sm:text-lg font-bold text-zinc-800 dark:text-zinc-200">
                   Novos clientes
                 </h3>
               </div>
@@ -830,7 +830,7 @@ export default async function AdminDashboardPage({
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-base sm:text-lg font-bold text-zinc-800 dark:text-zinc-200">
                   Pagamentos Recebidos
                 </h3>
               </div>
@@ -877,7 +877,7 @@ function SectionTitle({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-4 py-2 opacity-50">
       <div className="h-px flex-1 bg-current" />
-      <span className="text-xs font-bold tracking-widest uppercase">{title}</span>
+      <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 tracking-widest uppercase">{title}</span>
       <div className="h-px flex-1 bg-current" />
     </div>
   );
@@ -946,7 +946,7 @@ function MetricCardView({
 
   const content = (
     <>
-      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-bold text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-black/5 dark:border-border font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] sm:text-sm flex justify-between items-center">
         {title}
         {href && <span className="opacity-40 text-xs">↗</span>}
       </div>
@@ -955,7 +955,7 @@ function MetricCardView({
           <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
             {leftLabel}
           </div>
-          <div className="sv text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+          <div className="sv text-[15px] sm:text-xl font-bold text-zinc-800 dark:text-zinc-200 leading-tight whitespace-nowrap tabular-nums">
             {leftValue}
           </div>
         </div>
@@ -965,7 +965,7 @@ function MetricCardView({
             <div className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70 mb-1">
               {rightLabel}
             </div>
-            <div className="sv text-[15px] sm:text-xl font-bold leading-tight whitespace-nowrap tabular-nums">
+            <div className="sv text-[15px] sm:text-xl font-bold text-zinc-800 dark:text-zinc-200 leading-tight whitespace-nowrap tabular-nums">
               {rightValue}
             </div>
           </div>

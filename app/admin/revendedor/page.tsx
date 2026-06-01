@@ -1206,7 +1206,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5">
             <div className="text-sm font-bold text-slate-700 dark:text-white whitespace-nowrap">
               Lista de Revendas{" "}
-              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">{filtered.length}</span>
+              <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600/70 dark:text-emerald-500/70 text-xs">{filtered.length}</span>
             </div>
 
             <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-white/50 shrink-0">
@@ -1293,7 +1293,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
                           </div>
                         </div>
 
-                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 truncate">
+                        <span className="text-xs font-medium text-emerald-600/70 dark:text-emerald-500/70 truncate">
   {r.whatsapp_username ? `@${r.whatsapp_username}` : r.primary_phone}
 </span>
                       </div>
@@ -1321,7 +1321,7 @@ if (!res.ok) throw new Error(json?.error || raw || "Falha ao agendar");
 
                     <Td><span className="font-mono font-bold text-slate-700 dark:text-white/80">{r.revenueLabel}</span></Td>
                     <Td><span className="font-mono font-bold text-slate-500 dark:text-muted-foreground">{r.costLabel}</span></Td>
-                    <Td><span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{r.profitLabel}</span></Td>
+                    <Td><span className="font-mono font-bold text-emerald-600/70 dark:text-emerald-500/70">{r.profitLabel}</span></Td>
 
                     <Td><StatusBadge status={r.status} /></Td>
 
@@ -1938,7 +1938,7 @@ function formatPhoneE164BR(raw?: string | null) {
 }
 
 function StatusBadge({ status }: { status: ResellerStatus }) {
-  const tone = status === "Ativo" ? { bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/20" }
+  const tone = status === "Ativo" ? { bg: "bg-emerald-500/10", text: "text-emerald-600/70 dark:text-emerald-500/70", border: "border-emerald-500/20" }
     : status === "Arquivado" ? { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", border: "border-rose-500/20" }
       : { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20" };
   
@@ -1949,7 +1949,7 @@ function StatusBadge({ status }: { status: ResellerStatus }) {
 function IconActionBtn({ children, title, tone, onClick }: { children: React.ReactNode, title: string, tone: "blue" | "green" | "amber" | "purple" | "red", onClick: (e: React.MouseEvent) => void }) {
   const colors = {
     blue: "text-sky-500 dark:text-sky-400 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
-    green: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    green: "text-emerald-600/70 dark:text-emerald-500/70 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
     purple: "text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
     red: "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
