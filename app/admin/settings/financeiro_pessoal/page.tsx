@@ -3614,7 +3614,7 @@ function ModalTransacao({
             </div>
           </div>
 
-          {/* A linha de Data de Pagamento agora é SEMPRE renderizada */}
+          {status === "PAGO" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
               <label className="block text-[10px] font-bold text-slate-400 dark:text-muted-foreground mb-1 uppercase tracking-wider">
@@ -3675,6 +3675,7 @@ function ModalTransacao({
               )}
             </div>
           </div>
+          )}
 
           {!isEdit && (
             <div className="p-3 rounded-lg border border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 space-y-3">
