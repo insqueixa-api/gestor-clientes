@@ -548,6 +548,17 @@ export default function ServerDetailsPage() {
       <div className="flex flex-col md:flex-row justify-between items-start gap-3 pb-1 mb-6 border-b border-slate-200 dark:border-border">
         <div className="w-full md:w-auto text-left">
           <div className="flex items-center justify-start gap-3">
+            {server.logo_url ? (
+              <img
+                src={server.logo_url}
+                alt={server.name}
+                className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-border shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-xl">
+                📡
+              </div>
+            )}
             <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
               {server.name}
             </h1>

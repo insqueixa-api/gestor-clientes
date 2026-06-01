@@ -829,6 +829,75 @@ export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
             )}
           </div>
 
+          {/* LOGO DO SERVIDOR */}
+          <div className="space-y-1 animate-in slide-in-from-bottom-2 duration-300">
+            <Label>Logo do servidor</Label>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files?.[0];
+                if (file) handleIconUpload(file);
+              }}
+              onPaste={(e) => {
+                const file = Array.from(e.clipboardData.files).find((f) =>
+                  f.type.startsWith("image/"),
+                );
+                if (file) handleIconUpload(file);
+              }}
+              className="flex items-center gap-4 p-3 border-2 border-dashed border-slate-200 dark:border-border rounded-xl hover:border-emerald-500/50 transition-colors"
+              tabIndex={0}
+            >
+              {formIconUrl ? (
+                <img
+                  src={formIconUrl}
+                  alt="Logo"
+                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-border shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-2xl">
+                  📡
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-600 dark:text-muted-foreground">
+                  {uploadingIcon
+                    ? "Enviando..."
+                    : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  PNG, JPG, WebP
+                </p>
+              </div>
+              <label className="cursor-pointer shrink-0">
+                <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center hover:bg-emerald-500/20 transition-colors">
+                  {uploadingIcon ? "..." : "Selecionar"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingIcon}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleIconUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {formIconUrl && (
+                <button
+                  type="button"
+                  onClick={() => setFormIconUrl("")}
+                  className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  title="Remover logo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
             <div className="space-y-1">
               <Label>Moeda padrão</Label>

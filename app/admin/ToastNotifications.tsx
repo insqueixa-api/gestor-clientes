@@ -61,10 +61,10 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
             key={t.id}
             className={`pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 rounded-xl shadow-2xl border transition-all animate-in fade-in slide-in-from-top-5 duration-300 ${
               t.type === "success"
-                ? "bg-background/95 border-emerald-500/50 text-emerald-100 shadow-emerald-900/20"
+                ? "bg-white dark:bg-zinc-900 border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-100 shadow-emerald-500/10"
                 : t.type === "warning"
-                  ? "bg-background/95 border-amber-500/50 text-amber-100 shadow-amber-900/20"
-                  : "bg-background/95 border-rose-500/50 text-rose-100 shadow-rose-900/20"
+                  ? "bg-white dark:bg-zinc-900 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-100 shadow-amber-500/10"
+                  : "bg-white dark:bg-zinc-900 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-100 shadow-rose-500/10"
             }`}
           >
             {/* Ícone */}
@@ -141,7 +141,7 @@ export default function ToastNotifications({ toasts, removeToast }: Props) {
                 }
                 removeToast(t.id);
               }}
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
               aria-label="Fechar toast"
             >
               <svg

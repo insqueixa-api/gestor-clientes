@@ -246,25 +246,95 @@ export default function RecargaServidorModal({
         const { data: sess } = await supabaseBrowser.auth.getSession();
         const token = sess?.session?.access_token;
 
-        const syncRes = await fetch(syncUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}), // 🔒 Envia o crachá de acesso
-          },
-          body: JSON.stringify({
-            integration_id: server.panel_integration,
-            tenant_id: tenantId, // ✅ Passando o tenant_id, assim como na lista de servidores
-          }),
-        });
-        // 👆 FIM DO AJUSTE 👆
+        if (provider === "ELITE") {
+          const credRes = await fetch(syncUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              action: "get_credentials",
+              integration_id: server.panel_integration,
+            }),
+          });
+          const credJson = await credRes.json().catch(() => ({}));
+          if (!credRes.ok || !credJson?.ok)
+            throw new Error(
+              credJson?.error || "Falha ao buscar credenciais do Elite.",
+            );
 
-        const syncJson = await syncRes.json().catch(() => ({}));
-        if (!syncRes.ok || !syncJson?.ok) {
-          throw new Error(
-            "Log salvo, mas falhou ao sincronizar saldo: " +
-              (syncJson?.error || ""),
-          );
+          await new Promise((resolve, reject) => {
+            const evtHandler = async (e: any) => {
+              window.removeEventListener(
+                "UNIGESTOR_INTEGRATION_RESPONSE",
+                evtHandler,
+              );
+              if (e.detail?.ok) {
+                const saveRes = await fetch(syncUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  body: JSON.stringify({
+                    action: "save_sync",
+                    integration_id: server.panel_integration,
+                    saldo: e.detail.saldo,
+                    loggedUser: e.detail.loggedUser,
+                  }),
+                });
+                const saveJson = await saveRes.json().catch(() => ({}));
+                if (!saveRes.ok || !saveJson?.ok)
+                  reject(
+                    new Error(
+                      saveJson?.error || "Falha ao salvar saldo do Elite.",
+                    ),
+                  );
+                else resolve(true);
+              } else {
+                reject(
+                  new Error(
+                    e.detail?.error ||
+                      "A Extensão falhou ao ler o painel Elite.",
+                  ),
+                );
+              }
+            };
+            window.addEventListener(
+              "UNIGESTOR_INTEGRATION_RESPONSE",
+              evtHandler,
+            );
+            window.dispatchEvent(
+              new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
+                detail: {
+                  action: "ELITE_SYNC",
+                  baseUrl: credJson.credentials.baseUrl,
+                  username: credJson.credentials.username,
+                  password: credJson.credentials.password,
+                },
+              }),
+            );
+          });
+        } else {
+          const syncRes = await fetch(syncUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              integration_id: server.panel_integration,
+              tenant_id: tenantId,
+            }),
+          });
+          const syncJson = await syncRes.json().catch(() => ({}));
+          if (!syncRes.ok || !syncJson?.ok) {
+            throw new Error(
+              "Log salvo, mas falhou ao sincronizar saldo: " +
+                (syncJson?.error || ""),
+            );
+          }
         }
 
         // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");

@@ -677,12 +677,16 @@ export default function AdminServersPage() {
                     className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
                   >
                     {/* ✅ TÍTULO: Ajustado para text-slate-700 (era 800) para igualar ao título da lista de clientes */}
-                    {server.logo_url && (
+                    {server.logo_url ? (
                       <img
                         src={server.logo_url}
                         alt={server.name}
                         className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-border shrink-0"
                       />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0 text-base">
+                        📡
+                      </div>
                     )}
                     <h2
                       className="text-base font-bold truncate text-slate-700 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight flex items-center gap-2"
@@ -810,7 +814,7 @@ export default function AdminServersPage() {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-                      <span className="font-bold text-slate-700 dark:text-white">
+                      <span className="font-medium text-slate-700 dark:text-white/80">
                         {formatNumber(server.stats?.total)}
                       </span>
                     </div>
@@ -833,7 +837,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=active`}
-                        className="font-bold text-slate-600 dark:text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
+                        className="font-medium text-slate-600 dark:text-white/60 hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
                       >
                         {formatNumber(server.stats?.active)}
                       </Link>
@@ -858,7 +862,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=inactive`}
-                        className="font-bold text-slate-600 dark:text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-colors"
+                        className="font-medium text-slate-600 dark:text-white/60 hover:text-rose-500 hover:underline cursor-pointer transition-colors"
                       >
                         {formatNumber(server.stats?.inactive)}
                       </Link>
@@ -886,7 +890,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=trial`}
-                        className="font-bold text-slate-600 dark:text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-colors"
+                        className="font-medium text-slate-600 dark:text-white/60 hover:text-sky-500 hover:underline cursor-pointer transition-colors"
                       >
                         {formatNumber(server.stats?.trial)}
                       </Link>
@@ -894,23 +898,12 @@ export default function AdminServersPage() {
 
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2.5 text-violet-500 dark:text-violet-400 font-medium">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#a78bfa"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z" />
-                        </svg>
+                        <Network className="w-4 h-4 text-violet-500 dark:text-violet-400" />
                         <span>Revendas</span>
                       </div>
                       <Link
                         href={`/admin/revendedor?server_id=${server.id}`}
-                        className="font-bold text-slate-600 dark:text-muted-foreground hover:text-amber-500 hover:underline cursor-pointer transition-colors"
+                        className="font-medium text-slate-600 dark:text-white/60 hover:text-amber-500 hover:underline cursor-pointer transition-colors"
                       >
                         {formatNumber(server.stats?.resellers)}
                       </Link>
