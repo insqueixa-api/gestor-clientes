@@ -1,14 +1,10 @@
 "use client";
-
 import React, { useState } from "react";
-
 type BarItem = {
   label: string;
   value: number;
 };
-
 type AccentColor = "sky" | "emerald" | "violet" | "rose" | "amber" | "indigo";
-
 interface RankingCardProps {
   title: string;
   subtitle?: string;
@@ -23,7 +19,6 @@ interface RankingCardProps {
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
 const accents: Record<AccentColor, {
   bar: string;        // gradient para a barra
   barBg: string;      // fundo da barra (track)
@@ -95,30 +90,23 @@ const accents: Record<AccentColor, {
     topBar: "linear-gradient(to right,#1e1b4b,#4338ca,#a5b4fc)",
   },
 };
-
 const medals = ["🥇", "🥈", "🥉"];
-
 export function RankingCard({
   title, subtitle, items = [], itemsPrevisto, itemsExecutado, accentColor = "sky", valueLabel, formatValue, mode = "count",
 }: RankingCardProps) {
   // ✅ Controle da visão ativa
   const [view, setView] = useState<"previsto" | "executado">("executado");
-
   const defaultFormat = mode === "currency" ? fmtBRL : fmtInt;
   const fmt = formatValue ?? defaultFormat;
   const c = accents[accentColor];
-
   // ✅ Se o componente receber as duas props do financeiro, ativa o toggle
   const hasToggle = !!itemsPrevisto && !!itemsExecutado;
-  
   // ✅ Define qual array de dados usar (O selecionado ou o padrão)
   const currentItems = hasToggle 
     ? (view === "previsto" ? itemsPrevisto : itemsExecutado) 
     : items;
-
   // Usa o currentItems para calcular o tamanho da barra
   const max = Math.max(...currentItems.map((i) => i.value), 1);
-
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
       {/* Header */}
@@ -131,7 +119,6 @@ export function RankingCard({
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">{subtitle}</p>
           )}
         </div>
-        
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
           <div className="flex bg-zinc-100 dark:bg-zinc-950/50 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shrink-0">
@@ -158,19 +145,16 @@ export function RankingCard({
           </div>
         )}
       </div>
-
       {/* Items */}
       <div className="px-5 py-4 space-y-3">
         {currentItems.length === 0 && (
           <p className="text-zinc-400 dark:text-zinc-600 text-sm py-2">Sem dados {view === "previsto" ? "previstos" : "executados"}.</p>
         )}
-
         {/* ✅ LER DE currentItems em vez de items direto */}
         {currentItems.map((item, idx) => {
           const pct = (item.value / max) * 100;
           const isTop = idx === 0;
           const barGrad = isTop ? c.topBar : c.bar;
-
           return (
             <div key={item.label} className="group">
               {/* Row */}
@@ -183,7 +167,6 @@ export function RankingCard({
                     <span className={`text-[10px] font-bold tabular-nums ${c.rank}`}>{idx + 1}</span>
                   )}
                 </div>
-
                 {/* Label */}
                 <span
                   className={`flex-1 text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
@@ -191,7 +174,6 @@ export function RankingCard({
                 >
                   {item.label}
                 </span>
-
                 {/* Value */}
                 <span className={`text-[13px] font-bold tabular-nums flex-shrink-0 ${c.value}`}>
                   {fmt(item.value)}
@@ -200,7 +182,6 @@ export function RankingCard({
                   )}
                 </span>
               </div>
-
               {/* Progress bar */}
               <div className={`relative h-1.5 rounded-full overflow-hidden ml-9 ${c.barBg}`}>
                 <div

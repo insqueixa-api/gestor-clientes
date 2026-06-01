@@ -1,824 +1,1 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
-import { supabaseBrowser } from "@/lib/supabase/browser";
-import type { ServerRow } from "./page";
-
-// Helper de Slug
-function slugify(text: string) {
-  return text
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^\w-]+/g, "")
-    .replace(/__+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function getSyncUrlByProvider(providerRaw: unknown) {
-  const provider = String(providerRaw || "").toUpperCase().trim();
-
-  if (provider === "FAST") return "/api/integrations/fast/sync";
-  if (provider === "NATV") return "/api/integrations/natv/sync";
-  if (provider === "ELITE") return "/api/integrations/elite/sync";
-
-  throw new Error(`Provider não suportado para sync: ${provider || "(vazio)"}`);
-}
-
-type Currency = "BRL" | "USD" | "EUR";
-
-type Props = {
-  server?: ServerRow | null;
-  onClose: () => void;
-  onSuccess: () => void;
-};
-
-// --- HELPERS WHATSAPP ---
-function extractWaNumberFromJid(jid?: unknown): string {
-  if (typeof jid !== "string") return "";
-  const raw = jid.split("@")[0]?.split(":")[0] ?? "";
-  return raw.replace(/\D/g, "");
-}
-
-function formatBRPhoneFromDigits(digits: string): string {
-  if (!digits) return "";
-  if (digits.startsWith("55") && digits.length >= 12) {
-    const country = digits.slice(0, 2);
-    const ddd = digits.slice(2, 4);
-    const rest = digits.slice(4);
-    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `+${country} (${ddd}) ${rest}`;
-  }
-  return `+${digits}`;
-}
-
-function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {
-  if (!profile?.connected) return `${sessionName} (não conectado)`;
-  const digits = extractWaNumberFromJid(profile?.jid);
-  const pretty = formatBRPhoneFromDigits(digits);
-  return `${sessionName} • ${pretty || "Conectado"}`;
-}
-
-// --- COMPONENTES VISUAIS INTERNOS ---
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">
-      {children}
-    </label>
-  );
-}
-
-function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
-    />
-  );
-}
-
-function Select({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}
-    >
-      {children}
-    </select>
-  );
-}
-
-// ✅ Helper para limpar e normalizar a URL antes de salvar na Integração
-function normalizeApiUrl(url: string) {
-  if (!url) return "";
-  let s = url.trim().replace(/\/+$/, ""); // Remove barras duplicadas ou no final
-  if (s && !s.startsWith("http")) {
-    s = "https://" + s; // Força ter o protocolo
-  }
-  return s;
-}
-
-export default function ServerFormModal({ server, onClose, onSuccess }: Props) {
-  const isEditing = !!server;
-  const [saving, setSaving] = useState(false);
-
-  // States do Form
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [notes, setNotes] = useState("");
-  const [currency, setCurrency] = useState<Currency>("BRL");
-  const [unitPrice, setUnitPrice] = useState<string>("");
-  const [credits, setCredits] = useState<string>("");
-const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");
-  const [panelValue, setPanelValue] = useState("");
-  const [integration, setIntegration] = useState("");
-  const [dnsList, setDnsList] = useState<string[]>(["", "", "", "", "", ""]);
-  
-  // ✅ NOVO: Estado e função para o feedback visual de cópia da DNS
-  const [copiedDnsIndex, setCopiedDnsIndex] = useState<number | null>(null);
-
-  const handleCopyDns = (dns: string, idx: number) => {
-    navigator.clipboard.writeText(dns);
-    setCopiedDnsIndex(idx);
-    setTimeout(() => setCopiedDnsIndex(null), 2000); // Volta ao ícone original após 2s
-  };
-
-  // ✅ NOVO: Controle de Sessão
-  const [selectedSession, setSelectedSession] = useState("default");
-  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([
-    { id: "default", label: "Carregando..." }
-  ]);
-
-  // ✅ integrações disponíveis (para o Select)
-  type IntegrationOption = {
-    id: string;
-    integration_name: string | null;
-    provider: string | null;
-    is_active: boolean | null;
-  };
-
-  const [integrationOptions, setIntegrationOptions] = useState<IntegrationOption[]>([]);
-  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
-
-  function providerLabel(p: string | null | undefined) {
-    const u = String(p || "").toUpperCase();
-    if (u === "NATV") return "NaTV";
-    if (u === "FAST") return "Fast";
-    return u || "--";
-  }
-
-  // Carregar dados na Edição
-  useEffect(() => {
-    if (server) {
-      setName(server.name);
-      setSlug(server.slug);
-      setNotes(server.notes || "");
-      setCurrency(server.default_currency as Currency);
-
-      // ✅ custo exibido vem do que a view entrega (alias/custo médio)
-      const price = (server.credit_unit_cost_brl ?? server.avg_credit_cost_brl ?? server.default_credit_unit_price) as any;
-      setUnitPrice(price != null ? String(price) : "");
-
-      setCredits(server.credits_available?.toString() || "0");
-      setPanelType((server.panel_type as any) || "");
-
-      if (server.panel_type === "WEB") setPanelValue(server.panel_web_url || "");
-      else if (server.panel_type === "TELEGRAM") setPanelValue(server.panel_telegram_group || "");
-      else setPanelValue("");
-
-      setIntegration(server.panel_integration || "");
-      setSelectedSession((server as any).whatsapp_session || "default"); // ✅ Busca do banco se existir
-
-      const loadedDns = [...(server.dns || [])];
-      while (loadedDns.length < 6) loadedDns.push("");
-      setDnsList(loadedDns.slice(0, 6));
-    }
-  }, [server]);
-
-    // ✅ carregar integrações para o Select e Sessões do Whatsapp
-  useEffect(() => {
-    let alive = true;
-
-    async function loadAuxData() {
-      try {
-        setLoadingIntegrations(true);
-        const tenantId = await getCurrentTenantId();
-        if (!tenantId) return;
-
-        // 1. Carrega as sessões
-        try {
-          const [res1, res2] = await Promise.all([
-            fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),
-            fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)
-          ]);
-          const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};
-          const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};
-          const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";
-          const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";
-          
-          if (alive) {
-            const options = [
-              { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }
-            ];
-
-            // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-            if (prof2 && prof2.connected) {
-              options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });
-            }
-
-            setSessionOptions(options);
-          }
-        } catch (e) {}
-
-        // 2. Carrega as integrações
-// ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
-        const { data, error } = await supabaseBrowser
-          .from("vw_server_integrations")
-          .select("id,integration_name,provider,is_active")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        if (!alive) return;
-
-        setIntegrationOptions((data as any) || []);
-      } catch (e) {
-        console.error(e);
-        if (alive) setIntegrationOptions([]);
-      } finally {
-        if (alive) setLoadingIntegrations(false);
-      }
-    }
-
-    loadAuxData();
-
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server?.id]);
-
-  const handleDnsChange = (idx: number, val: string) => {
-    const newDns = [...dnsList];
-    newDns[idx] = val;
-    setDnsList(newDns);
-  };
-
-  async function handleSave() {
-    if (!name.trim()) return alert("Nome é obrigatório");
-    
-    // ✅ BLINDAGEM DE VALORES: Impede números negativos injetados por DevTools
-    const initialCredits = Number(credits) || 0;
-    const initialUnitPrice = Number(unitPrice) || 0;
-    if (initialCredits < 0 || initialUnitPrice < 0) {
-      return alert("A quantidade de créditos e o custo unitário não podem ser negativos.");
-    }
-
-    setSaving(true);
-
-    try {
-      const tenantId = await getCurrentTenantId();
-      const supabase = supabaseBrowser;
-
-      const cleanDns = dnsList.map((d) => d.trim()).filter((d) => d !== "");
-      
-      // ✅ PROTEÇÃO DE URL: Aplica o helper que você criou (e estava órfão) para limpar injeções XSS no Painel Web
-      let safePanelValue = panelValue.trim();
-      if (panelType === "WEB") {
-        safePanelValue = normalizeApiUrl(safePanelValue);
-      }
-
-      const baseSlug = (isEditing && slug) ? slug : slugify(name);
-      const safeBaseSlug = baseSlug || slugify(`server_${Date.now()}`);
-
-      // ✅ garante slug único (evita servers_slug_unique)
-      async function ensureUniqueSlug(desired: string) {
-        if (isEditing && server) return desired;
-
-        let candidate = desired;
-        let i = 2;
-
-        while (true) {
-          const { data, error } = await supabase
-            .from("servers")
-            .select("id")
-            .eq("tenant_id", tenantId)
-            .eq("slug", candidate)
-            .limit(1);
-
-          if (error) throw error;
-
-          if (!data || data.length === 0) return candidate;
-
-          candidate = `${desired}_${i}`;
-          i++;
-        }
-      }
-
-      const finalSlug = await ensureUniqueSlug(safeBaseSlug);
-
-      // ✅ Payload REAL da tabela public.servers
-      // NÃO enviamos credits_available aqui no update normal para evitar conflito com gatilhos
-      const parsedUnitPrice = parseFloat(unitPrice);
-      const safeUnitPrice = Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0 ? parsedUnitPrice : null;
-
-const payload = {
-        tenant_id: tenantId,
-        name: name.trim(),
-        slug: finalSlug,
-        notes: notes?.trim() ? notes.trim() : null,
-        default_currency: currency,
-        panel_type: panelType || null,
-        panel_web_url: panelType === "WEB" ? safePanelValue : null,
-        panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null,
-        panel_integration: integration || null,
-        whatsapp_session: selectedSession, // ✅ Envia pro banco
-        dns: cleanDns,
-        ...(safeUnitPrice !== null ? { avg_credit_cost_brl: safeUnitPrice } : {}),
-      };
-
-      let serverId: string | null = server?.id ?? null;
-
-      if (isEditing && server) {
-        
-        // --- ⚡️ LÓGICA DE AJUSTE DE SALDO ---
-        // Se houver integração selecionada, ela manda no saldo (sobrescreve o manual).
-        const hasIntegration = Boolean(integration && integration.trim());
-
-        let newCredits = Number(credits || 0);
-
-        if (hasIntegration) {
-          // 1) Descobre o provider da integração selecionada
-          const { data: integ, error: integErr } = await supabase
-            .from("server_integrations")
-            .select("id, provider")
-            .eq("id", integration)
-            .eq("tenant_id", tenantId)
-            .single();
-
-          if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
-
-          const provider = String(integ?.provider || "").toUpperCase();
-
-          // 2) Força um sync antes de aplicar saldo (Agora via Extensão para Elite!)
-          const syncUrl = getSyncUrlByProvider(provider);
-
-          const { data: sess } = await supabase.auth.getSession();
-          const token = sess?.session?.access_token;
-
-          // Se for Elite, fazemos o fluxo em 2 passos (Pegar Credenciais -> Extensão -> Salvar)
-          if (provider === "ELITE") {
-             const credRes = await fetch(syncUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                body: JSON.stringify({ action: "get_credentials", integration_id: integration }),
-             });
-             const credJson = await credRes.json().catch(() => ({}));
-             if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais do Elite.");
-             
-             // Dispara para a extensão
-             await new Promise((resolve, reject) => {
-                 const evtHandler = async (e: any) => {
-                     window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                     if (e.detail?.ok) {
-                         // Extensão conseguiu ler o saldo, vamos salvar no backend!
-                         const saveRes = await fetch(syncUrl, {
-                             method: "POST",
-                             headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                             body: JSON.stringify({ action: "save_sync", integration_id: integration, saldo: e.detail.saldo, loggedUser: e.detail.loggedUser }),
-                         });
-                         const saveJson = await saveRes.json().catch(() => ({}));
-                         if (!saveRes.ok || !saveJson?.ok) reject(new Error(saveJson?.error || "Falha ao salvar saldo do Elite."));
-                         else resolve(true);
-                     } else {
-                         reject(new Error(e.detail?.error || "A Extensão falhou ao ler o painel Elite."));
-                     }
-                 };
-                 window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-                 window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                     detail: { action: "ELITE_SYNC", baseUrl: credJson.credentials.baseUrl, username: credJson.credentials.username, password: credJson.credentials.password }
-                 }));
-             });
-          } else {
-             // Fluxo Padrão (FAST/NATV) que ainda usam API/FlareSolverr antigo
-             const syncRes = await fetch(syncUrl, {
-               method: "POST",
-               headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-               body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }), // O antigo não mandava action
-             });
-             const syncJson = await syncRes.json().catch(() => ({}));
-             if (!syncRes.ok || !syncJson?.ok) throw new Error(syncJson?.error || "Falha ao sincronizar integração.");
-          }
-
-          // 3) Lê o saldo atualizado do banco (credits_last_known)
-          const { data: after, error: afterErr } = await supabase
-            .from("server_integrations")
-            .select("credits_last_known")
-            .eq("id", integration)
-            .eq("tenant_id", tenantId)
-            .single();
-
-          if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);
-
-          newCredits = Number(after?.credits_last_known ?? 0);
-        }
-
-        // aplica ajuste (manual ou integrado)
-        const currentCredits = Number(server.credits_available || 0);
-
-        if (currentCredits !== newCredits) {
-          const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {
-            p_server_id: server.id,
-            p_new_credits: newCredits,
-          });
-
-          if (adjErr) throw new Error(`Erro ao ajustar saldo: ${adjErr.message}`);
-        }
-        // -----------------------------------------------------
-
-        // -----------------------------------------------------
-
-        const { error } = await supabase
-          .from("servers")
-          .update(payload)
-          .eq("id", server.id)
-          .eq("tenant_id", tenantId);
-
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from("servers")
-          .insert({ ...payload, is_archived: false })
-          .select("id")
-          .single();
-
-        if (error) throw error;
-
-        serverId = data?.id ?? null;
-      }
-
-      // ✅ Saldo inicial (somente no CREATE)
-      const initialCredits = Number(credits) || 0;
-      const initialUnitPrice = Number(unitPrice) || 0;
-
-      // valida moeda
-      const safeCurrency: Currency = (currency === "USD" || currency === "EUR") ? currency : "BRL";
-
-            // ✅ Se tiver integração selecionada, saldo vem dela (sem topup financeiro)
-      if (!isEditing && serverId && integration && integration.trim()) {
-        // descobre provider
-        const { data: integ, error: integErr } = await supabase
-          .from("server_integrations")
-          .select("id, provider")
-          .eq("id", integration)
-          .eq("tenant_id", tenantId)
-          .single();
-
-        if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);
-
-        const provider = String(integ?.provider || "").toUpperCase();
-        const syncUrl = getSyncUrlByProvider(provider);
-
-        // ✅ INJEÇÃO DO TOKEN
-        const { data: sess } = await supabase.auth.getSession();
-        const token = sess?.session?.access_token;
-
-        const syncRes = await fetch(syncUrl, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒
-          },
-          body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),
-        });
-
-        const syncJson = await syncRes.json().catch(() => ({}));
-        if (!syncRes.ok || !syncJson?.ok) {
-          throw new Error(syncJson?.error || "Falha ao sincronizar integração.");
-        }
-
-        const { data: after, error: afterErr } = await supabase
-          .from("server_integrations")
-          .select("credits_last_known")
-          .eq("id", integration)
-          .eq("tenant_id", tenantId)
-          .single();
-
-        if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);
-
-        const creditsFromIntegration = Number(after?.credits_last_known ?? 0);
-
-        const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {
-          p_server_id: serverId,
-          p_new_credits: creditsFromIntegration,
-        });
-
-        if (adjErr) throw new Error(`Servidor criado, mas falhou ao aplicar saldo da integração: ${adjErr.message}`);
-      }
-
-      // ✅ Se NÃO tiver integração, mantém a lógica de compra inicial (topup)
-      if (!isEditing && serverId && (!integration || !integration.trim())) {
-        const initialCredits = Number(credits) || 0;
-        const initialUnitPrice = Number(unitPrice) || 0;
-
-        const safeCurrency: Currency = currency === "USD" || currency === "EUR" ? currency : "BRL";
-
-        if (initialCredits > 0) {
-          if (initialUnitPrice <= 0) {
-            alert("Servidor criado, mas o saldo inicial não foi aplicado: informe o custo unitário.");
-          } else {
-            let fxRateToBrl = 1;
-
-            if (safeCurrency !== "BRL") {
-              const { data: fx, error: fxErr } = await supabase
-                .from("tenant_fx_rates")
-                .select("usd_to_brl, eur_to_brl, as_of_date")
-                .eq("tenant_id", tenantId)
-                .order("as_of_date", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-              if (fxErr) throw fxErr;
-
-              fxRateToBrl = safeCurrency === "USD"
-                ? Number(fx?.usd_to_brl || 0)
-                : Number(fx?.eur_to_brl || 0);
-
-              if (!fxRateToBrl || fxRateToBrl <= 0) {
-                throw new Error("FX inválido em tenant_fx_rates (usd_to_brl/eur_to_brl).");
-              }
-            }
-
-            const totalAmountBrl = initialCredits * initialUnitPrice * fxRateToBrl;
-            // ✅ Garante que o unitário enviado para o log financeiro do banco também está em BRL
-            const unitPriceBrl = initialUnitPrice * fxRateToBrl; 
-
-            const { error: topupErr } = await supabase.rpc("topup_server_credits_and_log", {
-              p_tenant_id: tenantId,
-              p_server_id: serverId,
-              p_credits_qty: initialCredits,
-              p_unit_price: unitPriceBrl, // ✅ Unitário blindado em Reais
-              p_purchase_currency: safeCurrency,
-              p_total_amount_brl: totalAmountBrl,
-              p_fx_rate_to_brl: fxRateToBrl,
-              p_notes: "Saldo inicial", // ✅ Log limpo sem o "De: xx -> Para: yy"
-            });
-
-            if (topupErr) {
-              throw new Error(`Servidor criado, mas falhou ao aplicar saldo inicial: ${topupErr.message}`);
-            }
-          }
-        }
-      }
-
-
-      setSaving(false);
-      onSuccess();
-} catch (error: any) {
-      // ✅ Agora mostra a mensagem real para conseguirmos debugar!
-      console.error("Falha ao salvar servidor:", error);
-      alert(`Erro ao salvar servidor: ${error?.message || "Verifique os dados e tente novamente."}`);
-      setSaving(false);
-    }
-  }
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
-              {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
-            </h2>
-            <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">
-              Configurações de conexão, custos e saldo.
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* CORPO */}
-        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">
-          <div className="grid grid-cols-12 gap-4">
-            <div
-              className={`${
-                panelType ? "col-span-12 md:col-span-4" : "col-span-12 md:col-span-8"
-              } space-y-1 animate-in slide-in-from-bottom-2 duration-300`}
-            >
-              <Label>Nome do servidor</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: UniTV Principal"
-                autoFocus
-              />
-            </div>
-
-            <div className="col-span-12 md:col-span-4 space-y-1 animate-in slide-in-from-bottom-2 duration-300">
-              <Label>Tipo de painel</Label>
-              <Select value={panelType} onChange={(e) => setPanelType(e.target.value as any)}>
-                <option value="">Nenhum</option>
-                <option value="WEB">Painel Web</option>
-                <option value="TELEGRAM">Telegram</option>
-              </Select>
-            </div>
-
-            {panelType && (
-              <div className="col-span-12 md:col-span-4 space-y-1 animate-in slide-in-from-left-2 duration-300">
-                <Label>{panelType === "WEB" ? "Url do painel" : "Link ou grupo telegram"}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={panelValue}
-                    onChange={(e) => setPanelValue(e.target.value)}
-                    placeholder={panelType === "WEB" ? "https://painel.exemplo.com" : "@meugrupo"}
-                  />
-                  {panelValue && (
-                    <a
-                      href={
-                        panelValue.startsWith("http")
-                          ? panelValue
-                          : panelValue.startsWith("@")
-                          ? `https://t.me/${panelValue.replace("@", "")}`
-                          : `https://${panelValue}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"
-                      title="Acessar link"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                      </svg>
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">
-            <div className="space-y-1">
-              <Label>Moeda padrão</Label>
-              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-slate-200 dark:border-border h-10">
-                {(["BRL", "USD", "EUR"] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCurrency(c)}
-                    className={`flex-1 h-full rounded-md text-xs font-bold transition-all ${
-                      currency === c
-                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"
-                        : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Custo unitário</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Saldo de créditos</Label>
-              <Input
-                type="number"
-                value={credits}
-                onChange={(e) => setCredits(e.target.value)}
-                placeholder="0"
-                // ✅ CAMPO LIBERADO
-                className={isEditing ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}
-              />
-              {isEditing && (
-                <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                  <span className="font-bold shrink-0">⚠️ Atenção:</span>
-                  <span>Ajuste manual de balanço (não gera registro financeiro). Para compras, use "Recarregar".</span>
-                </div>
-              )}
-              {!isEditing && (
-                <p className="text-[10px] text-emerald-600/80 italic px-1">
-                  * Saldo inicial do servidor (registrado como compra).
-                </p>
-              )}
-              {!isEditing && (
-  <p className="text-[10px] text-emerald-600/80 italic px-1">
-    * Saldo inicial do servidor (registrado como compra).
-  </p>
-)}
-
-{integration && integration.trim() && (
-  <div className="mt-1 p-2 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded text-[10px] text-sky-700 dark:text-sky-300">
-    ✅ Integração selecionada: ao salvar, o saldo será sincronizado e sobrescrito pelo painel.
-  </div>
-)}
-
-            </div>
-          </div>
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4 duration-500">
-
-            <div className="space-y-1">
-              <Label>Sessão para o Portal</Label>
-              <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
-                {sessionOptions.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </Select>
-              <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">
-                 Define de qual WhatsApp o portal do cliente enviará as confirmações e PIX.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Api integração</Label>
-<Select value={integration} onChange={(e) => setIntegration(e.target.value)}>
-  <option value="">
-    {loadingIntegrations ? "Carregando integrações..." : "Selecione a integração..."}
-  </option>
-
-  {integrationOptions
-    .filter((i) => i?.is_active !== false) // só ativa
-    .map((i) => (
-      <option key={i.id} value={i.id}>
-        {(i.integration_name || "Sem nome") + " — " + providerLabel(i.provider)}
-      </option>
-    ))}
-</Select>
-
-            </div>
-          </div>
-
-          <div className="space-y-2 animate-in slide-in-from-bottom-5 duration-600">
-            <Label>Dns configurados</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {dnsList.map((dns, idx) => (
-                <div key={idx} className="relative group">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-[10px] font-mono font-bold">
-                    {idx + 1}.
-                  </span>
-                  <Input
-                    value={dns}
-                    onChange={(e) => handleDnsChange(idx, e.target.value)}
-                    className="pl-8 pr-10 font-mono text-xs"
-                    placeholder={`dns${idx + 1}.exemplo.com`}
-                  />
-                  {dns && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopyDns(dns, idx)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"
-                      title="Copiar DNS"
-                    >
-                      {copiedDnsIndex === idx ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 scale-110 transition-transform">
-                          <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                      )}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Notas internas</Label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-white outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"
-              placeholder="Anotações visíveis apenas para admins..."
-            />
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-border flex justify-end gap-3 bg-slate-50 dark:bg-white/5 transition-colors">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold transition-all shadow-lg shadow-emerald-900/20"
-          >
-            {saving ? "Processando..." : isEditing ? "Salvar alterações" : "Criar servidor"}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
+"use client";import { useEffect, useState } from "react";import { createPortal } from "react-dom";import { getCurrentTenantId } from "@/lib/tenant";import { supabaseBrowser } from "@/lib/supabase/browser";import type { ServerRow } from "./page";// Helper de Slugfunction slugify(text: string) {  return text    .toString()    .toLowerCase()    .normalize("NFD")    .replace(/[\u0300-\u036f]/g, "")    .replace(/\s+/g, "_")    .replace(/[^\w-]+/g, "")    .replace(/__+/g, "_")    .replace(/^_+|_+$/g, "");}function getSyncUrlByProvider(providerRaw: unknown) {  const provider = String(providerRaw || "").toUpperCase().trim();  if (provider === "FAST") return "/api/integrations/fast/sync";  if (provider === "NATV") return "/api/integrations/natv/sync";  if (provider === "ELITE") return "/api/integrations/elite/sync";  throw new Error(`Provider não suportado para sync: ${provider || "(vazio)"}`);}type Currency = "BRL" | "USD" | "EUR";type Props = {  server?: ServerRow | null;  onClose: () => void;  onSuccess: () => void;};// --- HELPERS WHATSAPP ---function extractWaNumberFromJid(jid?: unknown): string {  if (typeof jid !== "string") return "";  const raw = jid.split("@")[0]?.split(":")[0] ?? "";  return raw.replace(/\D/g, "");}function formatBRPhoneFromDigits(digits: string): string {  if (!digits) return "";  if (digits.startsWith("55") && digits.length >= 12) {    const country = digits.slice(0, 2);    const ddd = digits.slice(2, 4);    const rest = digits.slice(4);    if (rest.length === 9) return `+${country} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;    if (rest.length === 8) return `+${country} (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;    return `+${country} (${ddd}) ${rest}`;  }  return `+${digits}`;}function buildWhatsAppSessionLabel(profile: any, sessionName: string): string {  if (!profile?.connected) return `${sessionName} (não conectado)`;  const digits = extractWaNumberFromJid(profile?.jid);  const pretty = formatBRPhoneFromDigits(digits);  return `${sessionName} • ${pretty || "Conectado"}`;}// --- COMPONENTES VISUAIS INTERNOS ---function Label({ children }: { children: React.ReactNode }) {  return (    <label className="block text-xs font-bold text-slate-500 dark:text-muted-foreground mb-1.5 tracking-tight">      {children}    </label>  );}function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {  return (    <input      {...props}      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-white/20 outline-none focus:border-emerald-500/50 transition-colors ${className}`}    />  );}function Select({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {  return (    <select      {...props}      className={`w-full h-10 px-3 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-sm text-slate-700 dark:text-white outline-none focus:border-emerald-500/50 transition-colors ${className}`}    >      {children}    </select>  );}// ✅ Helper para limpar e normalizar a URL antes de salvar na Integraçãofunction normalizeApiUrl(url: string) {  if (!url) return "";  let s = url.trim().replace(/\/+$/, ""); // Remove barras duplicadas ou no final  if (s && !s.startsWith("http")) {    s = "https://" + s; // Força ter o protocolo  }  return s;}export default function ServerFormModal({ server, onClose, onSuccess }: Props) {  const isEditing = !!server;  const [saving, setSaving] = useState(false);  // States do Form  const [name, setName] = useState("");  const [slug, setSlug] = useState("");  const [notes, setNotes] = useState("");  const [currency, setCurrency] = useState<Currency>("BRL");  const [unitPrice, setUnitPrice] = useState<string>("");  const [credits, setCredits] = useState<string>("");const [panelType, setPanelType] = useState<"WEB" | "TELEGRAM" | "">("");  const [panelValue, setPanelValue] = useState("");  const [integration, setIntegration] = useState("");  const [dnsList, setDnsList] = useState<string[]>(["", "", "", "", "", ""]);  // ✅ NOVO: Estado e função para o feedback visual de cópia da DNS  const [copiedDnsIndex, setCopiedDnsIndex] = useState<number | null>(null);  const handleCopyDns = (dns: string, idx: number) => {    navigator.clipboard.writeText(dns);    setCopiedDnsIndex(idx);    setTimeout(() => setCopiedDnsIndex(null), 2000); // Volta ao ícone original após 2s  };  // ✅ NOVO: Controle de Sessão  const [selectedSession, setSelectedSession] = useState("default");  const [sessionOptions, setSessionOptions] = useState<{id: string, label: string}[]>([    { id: "default", label: "Carregando..." }  ]);  // ✅ integrações disponíveis (para o Select)  type IntegrationOption = {    id: string;    integration_name: string | null;    provider: string | null;    is_active: boolean | null;  };  const [integrationOptions, setIntegrationOptions] = useState<IntegrationOption[]>([]);  const [loadingIntegrations, setLoadingIntegrations] = useState(false);  function providerLabel(p: string | null | undefined) {    const u = String(p || "").toUpperCase();    if (u === "NATV") return "NaTV";    if (u === "FAST") return "Fast";    return u || "--";  }  // Carregar dados na Edição  useEffect(() => {    if (server) {      setName(server.name);      setSlug(server.slug);      setNotes(server.notes || "");      setCurrency(server.default_currency as Currency);      // ✅ custo exibido vem do que a view entrega (alias/custo médio)      const price = (server.credit_unit_cost_brl ?? server.avg_credit_cost_brl ?? server.default_credit_unit_price) as any;      setUnitPrice(price != null ? String(price) : "");      setCredits(server.credits_available?.toString() || "0");      setPanelType((server.panel_type as any) || "");      if (server.panel_type === "WEB") setPanelValue(server.panel_web_url || "");      else if (server.panel_type === "TELEGRAM") setPanelValue(server.panel_telegram_group || "");      else setPanelValue("");      setIntegration(server.panel_integration || "");      setSelectedSession((server as any).whatsapp_session || "default"); // ✅ Busca do banco se existir      const loadedDns = [...(server.dns || [])];      while (loadedDns.length < 6) loadedDns.push("");      setDnsList(loadedDns.slice(0, 6));    }  }, [server]);    // ✅ carregar integrações para o Select e Sessões do Whatsapp  useEffect(() => {    let alive = true;    async function loadAuxData() {      try {        setLoadingIntegrations(true);        const tenantId = await getCurrentTenantId();        if (!tenantId) return;        // 1. Carrega as sessões        try {          const [res1, res2] = await Promise.all([            fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(() => null),            fetch("/api/whatsapp/profile2", { cache: "no-store" }).catch(() => null)          ]);          const prof1 = res1 && res1.ok ? await res1.json().catch(()=>({})) : {};          const prof2 = res2 && res2.ok ? await res2.json().catch(()=>({})) : {};          const name1 = typeof window !== "undefined" ? localStorage.getItem("wa_label_1") || "Contato Principal" : "Contato Principal";          const name2 = typeof window !== "undefined" ? localStorage.getItem("wa_label_2") || "Contato Secundário" : "Contato Secundário";          if (alive) {            const options = [              { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) }            ];            // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada            if (prof2 && prof2.connected) {              options.push({ id: "session2", label: buildWhatsAppSessionLabel(prof2, name2) });            }            setSessionOptions(options);          }        } catch (e) {}        // 2. Carrega as integrações// ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas        const { data, error } = await supabaseBrowser          .from("vw_server_integrations")          .select("id,integration_name,provider,is_active")          .eq("tenant_id", tenantId)          .order("created_at", { ascending: false });        if (error) throw error;        if (!alive) return;        setIntegrationOptions((data as any) || []);      } catch (e) {        if (alive) setIntegrationOptions([]);      } finally {        if (alive) setLoadingIntegrations(false);      }    }    loadAuxData();    return () => {      alive = false;    };    // eslint-disable-next-line react-hooks/exhaustive-deps  }, [server?.id]);  const handleDnsChange = (idx: number, val: string) => {    const newDns = [...dnsList];    newDns[idx] = val;    setDnsList(newDns);  };  async function handleSave() {    if (!name.trim()) return alert("Nome é obrigatório");    // ✅ BLINDAGEM DE VALORES: Impede números negativos injetados por DevTools    const initialCredits = Number(credits) || 0;    const initialUnitPrice = Number(unitPrice) || 0;    if (initialCredits < 0 || initialUnitPrice < 0) {      return alert("A quantidade de créditos e o custo unitário não podem ser negativos.");    }    setSaving(true);    try {      const tenantId = await getCurrentTenantId();      const supabase = supabaseBrowser;      const cleanDns = dnsList.map((d) => d.trim()).filter((d) => d !== "");      // ✅ PROTEÇÃO DE URL: Aplica o helper que você criou (e estava órfão) para limpar injeções XSS no Painel Web      let safePanelValue = panelValue.trim();      if (panelType === "WEB") {        safePanelValue = normalizeApiUrl(safePanelValue);      }      const baseSlug = (isEditing && slug) ? slug : slugify(name);      const safeBaseSlug = baseSlug || slugify(`server_${Date.now()}`);      // ✅ garante slug único (evita servers_slug_unique)      async function ensureUniqueSlug(desired: string) {        if (isEditing && server) return desired;        let candidate = desired;        let i = 2;        while (true) {          const { data, error } = await supabase            .from("servers")            .select("id")            .eq("tenant_id", tenantId)            .eq("slug", candidate)            .limit(1);          if (error) throw error;          if (!data || data.length === 0) return candidate;          candidate = `${desired}_${i}`;          i++;        }      }      const finalSlug = await ensureUniqueSlug(safeBaseSlug);      // ✅ Payload REAL da tabela public.servers      // NÃO enviamos credits_available aqui no update normal para evitar conflito com gatilhos      const parsedUnitPrice = parseFloat(unitPrice);      const safeUnitPrice = Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0 ? parsedUnitPrice : null;const payload = {        tenant_id: tenantId,        name: name.trim(),        slug: finalSlug,        notes: notes?.trim() ? notes.trim() : null,        default_currency: currency,        panel_type: panelType || null,        panel_web_url: panelType === "WEB" ? safePanelValue : null,        panel_telegram_group: panelType === "TELEGRAM" ? safePanelValue : null,        panel_integration: integration || null,        whatsapp_session: selectedSession, // ✅ Envia pro banco        dns: cleanDns,        ...(safeUnitPrice !== null ? { avg_credit_cost_brl: safeUnitPrice } : {}),      };      let serverId: string | null = server?.id ?? null;      if (isEditing && server) {        // --- ⚡️ LÓGICA DE AJUSTE DE SALDO ---        // Se houver integração selecionada, ela manda no saldo (sobrescreve o manual).        const hasIntegration = Boolean(integration && integration.trim());        let newCredits = Number(credits || 0);        if (hasIntegration) {          // 1) Descobre o provider da integração selecionada          const { data: integ, error: integErr } = await supabase            .from("server_integrations")            .select("id, provider")            .eq("id", integration)            .eq("tenant_id", tenantId)            .single();          if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);          const provider = String(integ?.provider || "").toUpperCase();          // 2) Força um sync antes de aplicar saldo (Agora via Extensão para Elite!)          const syncUrl = getSyncUrlByProvider(provider);          const { data: sess } = await supabase.auth.getSession();          const token = sess?.session?.access_token;          // Se for Elite, fazemos o fluxo em 2 passos (Pegar Credenciais -> Extensão -> Salvar)          if (provider === "ELITE") {             const credRes = await fetch(syncUrl, {                method: "POST",                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },                body: JSON.stringify({ action: "get_credentials", integration_id: integration }),             });             const credJson = await credRes.json().catch(() => ({}));             if (!credRes.ok || !credJson?.ok) throw new Error(credJson?.error || "Falha ao buscar credenciais do Elite.");             // Dispara para a extensão             await new Promise((resolve, reject) => {                 const evtHandler = async (e: any) => {                     window.removeEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);                     if (e.detail?.ok) {                         // Extensão conseguiu ler o saldo, vamos salvar no backend!                         const saveRes = await fetch(syncUrl, {                             method: "POST",                             headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },                             body: JSON.stringify({ action: "save_sync", integration_id: integration, saldo: e.detail.saldo, loggedUser: e.detail.loggedUser }),                         });                         const saveJson = await saveRes.json().catch(() => ({}));                         if (!saveRes.ok || !saveJson?.ok) reject(new Error(saveJson?.error || "Falha ao salvar saldo do Elite."));                         else resolve(true);                     } else {                         reject(new Error(e.detail?.error || "A Extensão falhou ao ler o painel Elite."));                     }                 };                 window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);                 window.dispatchEvent(new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {                     detail: { action: "ELITE_SYNC", baseUrl: credJson.credentials.baseUrl, username: credJson.credentials.username, password: credJson.credentials.password }                 }));             });          } else {             // Fluxo Padrão (FAST/NATV) que ainda usam API/FlareSolverr antigo             const syncRes = await fetch(syncUrl, {               method: "POST",               headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },               body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }), // O antigo não mandava action             });             const syncJson = await syncRes.json().catch(() => ({}));             if (!syncRes.ok || !syncJson?.ok) throw new Error(syncJson?.error || "Falha ao sincronizar integração.");          }          // 3) Lê o saldo atualizado do banco (credits_last_known)          const { data: after, error: afterErr } = await supabase            .from("server_integrations")            .select("credits_last_known")            .eq("id", integration)            .eq("tenant_id", tenantId)            .single();          if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);          newCredits = Number(after?.credits_last_known ?? 0);        }        // aplica ajuste (manual ou integrado)        const currentCredits = Number(server.credits_available || 0);        if (currentCredits !== newCredits) {          const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {            p_server_id: server.id,            p_new_credits: newCredits,          });          if (adjErr) throw new Error(`Erro ao ajustar saldo: ${adjErr.message}`);        }        // -----------------------------------------------------        // -----------------------------------------------------        const { error } = await supabase          .from("servers")          .update(payload)          .eq("id", server.id)          .eq("tenant_id", tenantId);        if (error) throw error;      } else {        const { data, error } = await supabase          .from("servers")          .insert({ ...payload, is_archived: false })          .select("id")          .single();        if (error) throw error;        serverId = data?.id ?? null;      }      // ✅ Saldo inicial (somente no CREATE)      const initialCredits = Number(credits) || 0;      const initialUnitPrice = Number(unitPrice) || 0;      // valida moeda      const safeCurrency: Currency = (currency === "USD" || currency === "EUR") ? currency : "BRL";            // ✅ Se tiver integração selecionada, saldo vem dela (sem topup financeiro)      if (!isEditing && serverId && integration && integration.trim()) {        // descobre provider        const { data: integ, error: integErr } = await supabase          .from("server_integrations")          .select("id, provider")          .eq("id", integration)          .eq("tenant_id", tenantId)          .single();        if (integErr) throw new Error(`Erro ao buscar integração: ${integErr.message}`);        const provider = String(integ?.provider || "").toUpperCase();        const syncUrl = getSyncUrlByProvider(provider);        // ✅ INJEÇÃO DO TOKEN        const { data: sess } = await supabase.auth.getSession();        const token = sess?.session?.access_token;        const syncRes = await fetch(syncUrl, {          method: "POST",          headers: {             "Content-Type": "application/json",            ...(token ? { Authorization: `Bearer ${token}` } : {}) // 🔒          },          body: JSON.stringify({ integration_id: integration, tenant_id: tenantId }),        });        const syncJson = await syncRes.json().catch(() => ({}));        if (!syncRes.ok || !syncJson?.ok) {          throw new Error(syncJson?.error || "Falha ao sincronizar integração.");        }        const { data: after, error: afterErr } = await supabase          .from("server_integrations")          .select("credits_last_known")          .eq("id", integration)          .eq("tenant_id", tenantId)          .single();        if (afterErr) throw new Error(`Erro ao ler saldo da integração: ${afterErr.message}`);        const creditsFromIntegration = Number(after?.credits_last_known ?? 0);        const { error: adjErr } = await supabase.rpc("update_server_credits_manual", {          p_server_id: serverId,          p_new_credits: creditsFromIntegration,        });        if (adjErr) throw new Error(`Servidor criado, mas falhou ao aplicar saldo da integração: ${adjErr.message}`);      }      // ✅ Se NÃO tiver integração, mantém a lógica de compra inicial (topup)      if (!isEditing && serverId && (!integration || !integration.trim())) {        const initialCredits = Number(credits) || 0;        const initialUnitPrice = Number(unitPrice) || 0;        const safeCurrency: Currency = currency === "USD" || currency === "EUR" ? currency : "BRL";        if (initialCredits > 0) {          if (initialUnitPrice <= 0) {            alert("Servidor criado, mas o saldo inicial não foi aplicado: informe o custo unitário.");          } else {            let fxRateToBrl = 1;            if (safeCurrency !== "BRL") {              const { data: fx, error: fxErr } = await supabase                .from("tenant_fx_rates")                .select("usd_to_brl, eur_to_brl, as_of_date")                .eq("tenant_id", tenantId)                .order("as_of_date", { ascending: false })                .limit(1)                .maybeSingle();              if (fxErr) throw fxErr;              fxRateToBrl = safeCurrency === "USD"                ? Number(fx?.usd_to_brl || 0)                : Number(fx?.eur_to_brl || 0);              if (!fxRateToBrl || fxRateToBrl <= 0) {                throw new Error("FX inválido em tenant_fx_rates (usd_to_brl/eur_to_brl).");              }            }            const totalAmountBrl = initialCredits * initialUnitPrice * fxRateToBrl;            // ✅ Garante que o unitário enviado para o log financeiro do banco também está em BRL            const unitPriceBrl = initialUnitPrice * fxRateToBrl;             const { error: topupErr } = await supabase.rpc("topup_server_credits_and_log", {              p_tenant_id: tenantId,              p_server_id: serverId,              p_credits_qty: initialCredits,              p_unit_price: unitPriceBrl, // ✅ Unitário blindado em Reais              p_purchase_currency: safeCurrency,              p_total_amount_brl: totalAmountBrl,              p_fx_rate_to_brl: fxRateToBrl,              p_notes: "Saldo inicial", // ✅ Log limpo sem o "De: xx -> Para: yy"            });            if (topupErr) {              throw new Error(`Servidor criado, mas falhou ao aplicar saldo inicial: ${topupErr.message}`);            }          }        }      }      setSaving(false);      onSuccess();} catch (error: any) {      // ✅ Agora mostra a mensagem real para conseguirmos debugar!      alert(`Erro ao salvar servidor: ${error?.message || "Verifique os dados e tente novamente."}`);      setSaving(false);    }  }  if (typeof document === "undefined") return null;  return createPortal(    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">      <div className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">        {/* HEADER */}        <div className="px-6 py-4 border-b border-slate-200 dark:border-border flex justify-between items-center bg-slate-50 dark:bg-white/5">          <div>            <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">              {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}            </h2>            <div className="text-xs text-slate-500 dark:text-muted-foreground mt-0.5 font-medium">              Configurações de conexão, custos e saldo.            </div>          </div>          <button            onClick={onClose}            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-800 dark:hover:text-white transition-colors"          >            ✕          </button>        </div>        {/* CORPO */}        <div className="p-6 space-y-6 overflow-y-auto bg-white dark:bg-card">          <div className="grid grid-cols-12 gap-4">            <div              className={`${                panelType ? "col-span-12 md:col-span-4" : "col-span-12 md:col-span-8"              } space-y-1 animate-in slide-in-from-bottom-2 duration-300`}            >              <Label>Nome do servidor</Label>              <Input                value={name}                onChange={(e) => setName(e.target.value)}                placeholder="Ex: UniTV Principal"                autoFocus              />            </div>            <div className="col-span-12 md:col-span-4 space-y-1 animate-in slide-in-from-bottom-2 duration-300">              <Label>Tipo de painel</Label>              <Select value={panelType} onChange={(e) => setPanelType(e.target.value as any)}>                <option value="">Nenhum</option>                <option value="WEB">Painel Web</option>                <option value="TELEGRAM">Telegram</option>              </Select>            </div>            {panelType && (              <div className="col-span-12 md:col-span-4 space-y-1 animate-in slide-in-from-left-2 duration-300">                <Label>{panelType === "WEB" ? "Url do painel" : "Link ou grupo telegram"}</Label>                <div className="flex items-center gap-2">                  <Input                    value={panelValue}                    onChange={(e) => setPanelValue(e.target.value)}                    placeholder={panelType === "WEB" ? "https://painel.exemplo.com" : "@meugrupo"}                  />                  {panelValue && (                    <a                      href={                        panelValue.startsWith("http")                          ? panelValue                          : panelValue.startsWith("@")                          ? `https://t.me/${panelValue.replace("@", "")}`                          : `https://${panelValue}`                      }                      target="_blank"                      rel="noopener noreferrer"                      className="flex items-center justify-center h-10 w-10 shrink-0 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg text-slate-500 dark:text-white/60 hover:text-emerald-600 hover:border-emerald-500/50 dark:hover:text-emerald-400 transition-colors"                      title="Acessar link"                    >                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>                        <polyline points="15 3 21 3 21 9"></polyline>                        <line x1="10" y1="14" x2="21" y2="3"></line>                      </svg>                    </a>                  )}                </div>              </div>            )}          </div>          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-border grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom-3 duration-400">            <div className="space-y-1">              <Label>Moeda padrão</Label>              <div className="flex bg-slate-200/50 dark:bg-black/20 rounded-lg p-1 border border-slate-200 dark:border-border h-10">                {(["BRL", "USD", "EUR"] as const).map((c) => (                  <button                    key={c}                    type="button"                    onClick={() => setCurrency(c)}                    className={`flex-1 h-full rounded-md text-xs font-bold transition-all ${                      currency === c                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm"                        : "text-slate-500 dark:text-muted-foreground hover:text-slate-700 dark:hover:text-white"                    }`}                  >                    {c}                  </button>                ))}              </div>            </div>            <div className="space-y-1">              <Label>Custo unitário</Label>              <Input                type="number"                step="0.01"                value={unitPrice}                onChange={(e) => setUnitPrice(e.target.value)}                placeholder="0.00"              />            </div>            <div className="space-y-1">              <Label>Saldo de créditos</Label>              <Input                type="number"                value={credits}                onChange={(e) => setCredits(e.target.value)}                placeholder="0"                // ✅ CAMPO LIBERADO                className={isEditing ? "font-bold text-emerald-600 dark:text-emerald-400" : ""}              />              {isEditing && (                <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-2">                  <span className="font-bold shrink-0">⚠️ Atenção:</span>                  <span>Ajuste manual de balanço (não gera registro financeiro). Para compras, use "Recarregar".</span>                </div>              )}              {!isEditing && (                <p className="text-[10px] text-emerald-600/80 italic px-1">                  * Saldo inicial do servidor (registrado como compra).                </p>              )}              {!isEditing && (  <p className="text-[10px] text-emerald-600/80 italic px-1">    * Saldo inicial do servidor (registrado como compra).  </p>)}{integration && integration.trim() && (  <div className="mt-1 p-2 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded text-[10px] text-sky-700 dark:text-sky-300">    ✅ Integração selecionada: ao salvar, o saldo será sincronizado e sobrescrito pelo painel.  </div>)}            </div>          </div><div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4 duration-500">            <div className="space-y-1">              <Label>Sessão para o Portal</Label>              <Select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>                {sessionOptions.map(s => (                  <option key={s.id} value={s.id}>{s.label}</option>                ))}              </Select>              <p className="text-[9px] text-slate-400 dark:text-white/30 mt-1 italic">                 Define de qual WhatsApp o portal do cliente enviará as confirmações e PIX.              </p>            </div>            <div className="space-y-1">              <Label>Api integração</Label><Select value={integration} onChange={(e) => setIntegration(e.target.value)}>  <option value="">    {loadingIntegrations ? "Carregando integrações..." : "Selecione a integração..."}  </option>  {integrationOptions    .filter((i) => i?.is_active !== false) // só ativa    .map((i) => (      <option key={i.id} value={i.id}>        {(i.integration_name || "Sem nome") + " — " + providerLabel(i.provider)}      </option>    ))}</Select>            </div>          </div>          <div className="space-y-2 animate-in slide-in-from-bottom-5 duration-600">            <Label>Dns configurados</Label>            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">              {dnsList.map((dns, idx) => (                <div key={idx} className="relative group">                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20 text-[10px] font-mono font-bold">                    {idx + 1}.                  </span>                  <Input                    value={dns}                    onChange={(e) => handleDnsChange(idx, e.target.value)}                    className="pl-8 pr-10 font-mono text-xs"                    placeholder={`dns${idx + 1}.exemplo.com`}                  />                  {dns && (                    <button                      type="button"                      onClick={() => handleCopyDns(dns, idx)}                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-200 dark:hover:bg-white/10 rounded transition-colors"                      title="Copiar DNS"                    >                      {copiedDnsIndex === idx ? (                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 scale-110 transition-transform">                          <polyline points="20 6 9 17 4 12"></polyline>                        </svg>                      ) : (                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>                        </svg>                      )}                    </button>                  )}                </div>              ))}            </div>          </div>          <div className="space-y-1">            <Label>Notas internas</Label>            <textarea              value={notes}              onChange={(e) => setNotes(e.target.value)}              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-border rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-white outline-none h-20 resize-none focus:border-emerald-500/50 transition-colors"              placeholder="Anotações visíveis apenas para admins..."            />          </div>        </div>        {/* FOOTER */}        <div className="px-6 py-4 border-t border-slate-200 dark:border-border flex justify-end gap-3 bg-slate-50 dark:bg-white/5 transition-colors">          <button            onClick={onClose}            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-border text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors text-sm font-semibold"          >            Cancelar          </button>          <button            onClick={handleSave}            disabled={saving}            className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold transition-all shadow-lg shadow-emerald-900/20"          >            {saving ? "Processando..." : isEditing ? "Salvar alterações" : "Criar servidor"}          </button>        </div>      </div>    </div>,    document.body  );}

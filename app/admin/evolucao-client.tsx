@@ -1,8 +1,6 @@
 "use client";
-
 import React, { useEffect, useState, useMemo } from "react";
 import type { MonthData } from "./evolucao-chart";
-
 function useIsDark() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -14,20 +12,17 @@ function useIsDark() {
   }, []);
   return dark;
 }
-
 function fmtAxis(v: number): string {
   if (v === 0) return "0";
   if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
   return String(Math.round(v));
 }
-
 function fmtCell(v: number): string {
   if (v === 0) return "—";
   return new Intl.NumberFormat("pt-BR", {
     style: "currency", currency: "BRL", maximumFractionDigits: 0,
   }).format(v);
 }
-
 type RowDef = {
   label: string;
   key: "bar1" | "line1" | "bar2" | "line2";
@@ -38,40 +33,33 @@ type RowDef = {
   rowBg?: string;
   colorValues?: boolean; // Propriedade nova adicionada
 };
-
 export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
   const [isMobile, setIsMobile] = useState(false);
   const isDark = useIsDark();
-  
   // Ref e estado para medir a largura real da janela/container
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
     check();
     window.addEventListener("resize", check);
-
     // Observa o tamanho do container para ajustar no desktop
     if (!containerRef.current) return;
     const ob = new ResizeObserver(entries => {
       setContainerWidth(entries[0].contentRect.width);
     });
     ob.observe(containerRef.current);
-
     return () => {
       window.removeEventListener("resize", check);
       ob.disconnect();
     };
   }, []);
-
   // Filtra meses que ainda não começaram no fuso de São Paulo
 const nowSP = new Date(
   new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
 );
 const currentYearSP  = nowSP.getFullYear();
 const currentMonthSP = nowSP.getMonth() + 1; // 1-12
-
 const dataFiltered = data.filter((d) => {
   // d.label esperado: "MM/YY" ex: "06/25"
   const parts = String(d.label || "").split("/");
@@ -84,19 +72,15 @@ const dataFiltered = data.filter((d) => {
   if (yyyy === currentYearSP && mm > currentMonthSP) return false;
   return true;
 });
-
 const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
   const n = sliced.length;
-
   // ── Layout: shared between SVG chart and table ───────────────────
   const LABEL_W = 148;
   const PAD_R   = 8;
   const MIN_COL_W = 84; 
-
   // Calcula a largura da coluna dinamicamente para esticar no PC
   const availableWidth = containerWidth > 0 ? containerWidth : 1000;
   const stretchedColW = Math.max(MIN_COL_W, (availableWidth - LABEL_W - PAD_R) / n);
-  
   // No celular mantemos o mínimo (fazendo rolar), no PC usamos o espaço todo
   const COL_W = isMobile ? MIN_COL_W : stretchedColW;
   const CHART_H = 232;
@@ -104,7 +88,6 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
   const PAD_B   = 28;
   const INNER_W = LABEL_W + n * COL_W + PAD_R;
   const DRAW_H  = CHART_H - PAD_T - PAD_B;
-
   // ── Y scale ──────────────────────────────────────────────────────
   const maxVal = useMemo(() => {
     let m = 0;
@@ -115,13 +98,10 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
     const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
     return Math.ceil(nice * exp);
   }, [sliced]);
-
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(r => Math.round(maxVal * r));
-
   // X/Y helpers — getX(i) centers on the exact same position as each table cell
   const getX = (i: number) => LABEL_W + i * COL_W + COL_W / 2;
   const getY = (v: number) => CHART_H - PAD_B - (v / maxVal) * DRAW_H;
-
   // ── Colors ───────────────────────────────────────────────────────
   const BG   = isDark ? "#18212f" : "#ffffff";
   const GRID = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -131,12 +111,10 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
   const L1   = isDark ? "#34d399" : "#10b981";
   const L2   = isDark ? "#fb7185" : "#e11d48";
   const BAR_W = Math.min(COL_W * 0.27, 20);
-
   const makePath = (key: "line1" | "line2") =>
     sliced
       .map((d, i) => `${i === 0 ? "M" : "L"} ${getX(i).toFixed(1)} ${getY(d[key]).toFixed(1)}`)
       .join(" ");
-
   // ── Table rows ───────────────────────────────────────────────────
   const rows: (RowDef | "divider")[] = [
     {
@@ -165,13 +143,10 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)", // Fundo aplicado
     },
   ];
-
   const BORDER  = isDark ? "rgba(255,255,255,0.055)" : "rgba(0,0,0,0.055)";
   const DIVIDER = isDark ? "rgba(255,255,255,0.1)"   : "rgba(0,0,0,0.1)";
-
   return (
     <div ref={containerRef} className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-
       {/* Header */}
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
         <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -199,11 +174,9 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
           </span>
         </div>
       </div>
-
       {/* ── Single scrollable container: chart + table scroll together ── */}
       <div className="overflow-x-auto">
         <div style={{ width: INNER_W }}>
-
           {/* SVG Chart */}
           <svg
             width={INNER_W}
@@ -231,7 +204,6 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
                 </g>
               );
             })}
-
             {/* Bars + X-axis labels */}
             {sliced.map((d, i) => {
               const cx = getX(i);
@@ -252,15 +224,12 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
                 </g>
               );
             })}
-
             {/* Glow */}
             <path d={makePath("line1")} fill="none" stroke={L1} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.12" style={{ filter: "blur(3px)" }} />
             <path d={makePath("line2")} fill="none" stroke={L2} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.12" style={{ filter: "blur(3px)" }} />
-
             {/* Lines */}
             <path d={makePath("line1")} fill="none" stroke={L1} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d={makePath("line2")} fill="none" stroke={L2} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
             {/* Dots */}
             {sliced.map((d, i) => (
               <g key={`pts-${i}`}>
@@ -269,14 +238,12 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
               </g>
             ))}
           </svg>
-
           {/* ── Table — widths mirror chart exactly ── */}
           <div style={{ borderTop: `1px solid ${DIVIDER}` }}>
             {rows.map((row, ri) => {
               if (row === "divider") {
                 return <div key={`div-${ri}`} style={{ height: 1, background: DIVIDER }} />;
               }
-
               const labelColor = row.bold
                 ? (isDark ? row.darkColor : row.lightColor)
                 : TICK;
@@ -286,7 +253,6 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
                   : row.colorValues
                     ? (isDark ? row.darkColor : row.lightColor)
                     : TICK;
-
               return (
                 <div
                   key={row.label}
@@ -314,7 +280,6 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
                       {row.label}
                     </span>
                   </div>
-
                   {/* Data cells — width = COL_W (= chart stepX) */}
                   {sliced.map((d, ci) => {
                     const val = d[row.key];
@@ -340,10 +305,8 @@ const sliced = isMobile ? dataFiltered.slice(-6) : dataFiltered;
               );
             })}
           </div>
-
         </div>
       </div>
-
       <div style={{ height: 8 }} />
     </div>
   );

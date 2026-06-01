@@ -1,5 +1,4 @@
 "use client";
-
 import {
   useEffect,
   useState,
@@ -14,13 +13,9 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { getCurrentTenantId } from "@/lib/tenant";
 import ToastNotifications, { ToastMessage } from "@/app/admin/ToastNotifications";
 import { useConfirm } from "@/app/admin/HookuseConfirm";
-
-
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-
 // ✅ Atualizado: Separados os fallbacks internacionais
 type GatewayType = "mercadopago" | "stripe" | "pix_manual" | "transfer_manual_eur" | "transfer_manual_usd";
-
 interface PaymentGateway {
   id: string;
   tenant_id: string;
@@ -35,7 +30,6 @@ interface PaymentGateway {
   created_at: string;
   updated_at: string;
 }
-
 interface GatewayMeta {
   type: GatewayType;
   label: string;
@@ -46,7 +40,6 @@ interface GatewayMeta {
   color: string;
   fields: FieldDef[];
 }
-
 interface FieldDef {
   key: string;
   label: string;
@@ -56,9 +49,7 @@ interface FieldDef {
   hint?: string;
   required?: boolean;
 }
-
 // ─── GATEWAY METADATA ─────────────────────────────────────────────────────────
-
 const GATEWAY_META: GatewayMeta[] = [
   {
     type: "mercadopago",
@@ -86,8 +77,6 @@ const GATEWAY_META: GatewayMeta[] = [
       },
     ],
   },
-  
-  
  {
     type: "stripe",
     label: "Stripe",
@@ -230,7 +219,6 @@ const GATEWAY_META: GatewayMeta[] = [
       }
     ],
   },
-  
 {
     type: "transfer_manual_usd",
     label: "Transferência Internacional (USD)",
@@ -292,14 +280,11 @@ const GATEWAY_META: GatewayMeta[] = [
     ],
   },
 ];
-
 const PRIORITY_LABELS: Record<number, string> = {
   1: "Principal",
   2: "Secundário",
 };
-
 // ─── HELP CONTENT ─────────────────────────────────────────────────────────────
-
 const GATEWAY_HELP: Record<string, {
   title: string;
   link: string;
@@ -329,7 +314,6 @@ const GATEWAY_HELP: Record<string, {
       "⚠️ O Access Token é sensível — nunca compartilhe com ninguém",
     ],
   },
-  
   stripe: {
     title: "Como configurar o Stripe",
     link: "https://stripe.com",
@@ -355,13 +339,11 @@ const GATEWAY_HELP: Record<string, {
     ],
   },
 };
-
 function renderStepWithLinks(text: string) {
   const urlRegex = /https?:\/\/[^\s,)]+/g;
   const parts: (string | React.ReactElement)[] = [];
   let lastIndex = 0;
   let match;
-
   while ((match = urlRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
@@ -381,18 +363,14 @@ function renderStepWithLinks(text: string) {
     );
     lastIndex = match.index + match[0].length;
   }
-
   if (lastIndex < text.length) {
     parts.push(text.slice(lastIndex));
   }
-
   return parts;
 }
-
 function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
   const help = GATEWAY_HELP[type];
   if (!help) return null;
-
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
@@ -422,7 +400,6 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
             <IconX />
           </button>
         </div>
-
         {/* Steps */}
         <div className="p-5 overflow-y-auto space-y-4">
           <ol className="space-y-3">
@@ -437,7 +414,6 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
               </li>
             ))}
           </ol>
-
           {help.warnings && help.warnings.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-border">
               {help.warnings.map((w, i) => (
@@ -448,7 +424,6 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
             </div>
           )}
         </div>
-
         <div className="px-5 py-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 rounded-b-xl">
           <button
             onClick={onClose}
@@ -461,7 +436,6 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
     </div>
   );
 }
-
 // ─── UI (padrão Admin) ────────────────────────────────────────────────────────
 function Label({ children }: { children: ReactNode }) {
   return (
@@ -470,7 +444,6 @@ function Label({ children }: { children: ReactNode }) {
     </label>
   );
 }
-
 function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
@@ -479,7 +452,6 @@ function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElemen
     />
   );
 }
-
 function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
@@ -488,7 +460,6 @@ function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectEle
     />
   );
 }
-
 function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
@@ -498,7 +469,6 @@ function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextA
   );
 }
 // ─── MODAL ────────────────────────────────────────────────────────────────────
-
 function GatewayModal({
   gateway,
   onClose,
@@ -511,7 +481,6 @@ function GatewayModal({
   addToast: (type: "success" | "error", title: string, message?: string) => void;
 }) {
   const isEdit = !!gateway;
-
   const [selectedType, setSelectedType] = useState<GatewayType | null>(gateway?.type ?? null);
   const [form, setForm] = useState<Record<string, string>>(gateway?.config ?? {});
   const [priority, setPriority] = useState(gateway?.priority ?? 1);
@@ -520,34 +489,25 @@ function GatewayModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-
   const meta = GATEWAY_META.find((m) => m.type === selectedType);
   const [helpType, setHelpType] = useState<string | null>(null);
-
   async function handleSave() {
     if (!selectedType || !meta) return;
-
     const missingFields = meta.fields
       .filter((f) => f.required && !String(form[f.key] ?? "").trim())
       .map((f) => f.label);
-
     if (missingFields.length > 0) {
       setError(`Campos obrigatórios: ${missingFields.join(", ")}`);
       return;
     }
-
     setSaving(true);
     setError(null);
-
     try {
       const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Sessão inválida. Atualize a página.");
-
       const supabase = supabaseBrowser;
-
       const isFallbackType = selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd";
 // stripe nunca é fallback — já coberto pois não entra nessa condição
-
       const basePayload = {
         name: meta.label,
         type: selectedType,
@@ -559,14 +519,12 @@ function GatewayModal({
         config: form,
         updated_at: new Date().toISOString(),
       };
-
       if (isEdit && gateway) {
         const { error: err } = await supabase
           .from("payment_gateways")
           .update(basePayload)
           .eq("id", gateway.id)
           .eq("tenant_id", tenantId);
-
         if (err) throw err;
       } else {
         const { error: err } = await supabase
@@ -576,10 +534,8 @@ function GatewayModal({
             ...basePayload,
             created_at: new Date().toISOString(),
           });
-
         if (err) throw err;
       }
-
       onSave();
       addToast("success", isEdit ? "Integração atualizada" : "Integração criada", `${meta.label} configurado com sucesso.`);
       onClose();
@@ -589,7 +545,6 @@ function GatewayModal({
       setSaving(false);
     }
   }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200"
@@ -616,18 +571,15 @@ function GatewayModal({
             <IconX />
           </button>
         </div>
-
         {/* BODY */}
         <div className="p-6 overflow-y-auto space-y-6">
           {/* Seletor de tipo (só na criação) */}
           {!isEdit && (
             <div className="space-y-3">
               <Label>Tipo de Integração</Label>
-
               {helpType && (
                 <HelpModal type={helpType} onClose={() => setHelpType(null)} />
               )}
-
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {GATEWAY_META.map((m) => {
                   const selected = selectedType === m.type;
@@ -680,7 +632,6 @@ function GatewayModal({
                           </div>
                         </div>
                       </button>
-
                       {/* Botão de ajuda */}
                       {hasHelp && (
                         <button
@@ -701,7 +652,6 @@ function GatewayModal({
               </div>
             </div>
           )}
-
           {/* Conteúdo do tipo selecionado */}
           {meta && (
             <>
@@ -714,7 +664,6 @@ function GatewayModal({
                     <div className="font-bold text-slate-800 dark:text-white">{meta.label}</div>
                     <div className="text-xs text-slate-500 dark:text-white/60 truncate">{meta.description}</div>
                   </div>
-
                   <div className="ml-auto flex gap-1.5">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
@@ -728,7 +677,6 @@ function GatewayModal({
                   </div>
                 </div>
               </div>
-
               {/* Fields */}
               <div className="space-y-4">
                 {meta.fields.map((field) => (
@@ -736,7 +684,6 @@ function GatewayModal({
                     <Label>
                       {field.label} {field.required && <span className="text-rose-500">*</span>}
                     </Label>
-
                     {field.type === "select" ? (
                       <Select
                         value={form[field.key] || ""}
@@ -779,14 +726,12 @@ function GatewayModal({
                         )}
                       </div>
                     )}
-
                     {field.hint && (
                       <p className="text-[11px] text-slate-400 dark:text-muted-foreground mt-1">{field.hint}</p>
                     )}
                   </div>
                 ))}
               </div>
-
               {/* Extras */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-border">
                 <div>
@@ -796,7 +741,6 @@ function GatewayModal({
                     <option value={2}>2 — Fallback</option>
                   </Select>
                 </div>
-
                 <div>
                   <Label>Status</Label>
                   <button
@@ -812,7 +756,6 @@ function GatewayModal({
                   </button>
                 </div>
               </div>
-
               {/* Fallback Manual */}
               {(selectedType === "pix_manual" || selectedType === "transfer_manual_eur" || selectedType === "transfer_manual_usd") && (
                 <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
@@ -843,14 +786,12 @@ function GatewayModal({
               )}
             </>
           )}
-
           {error && (
             <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-sm">
               ⚠️ {error}
             </div>
           )}
         </div>
-
         {/* FOOTER MODAL */}
         <div className="px-6 py-4 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-white/5 flex justify-end gap-2 rounded-b-xl">
           <button
@@ -871,9 +812,7 @@ function GatewayModal({
     </div>
   );
 }
-
 // ─── CARD DO GATEWAY ──────────────────────────────────────────────────────────
-
 function GatewayCard({
   gateway,
   onEdit,
@@ -889,9 +828,7 @@ function GatewayCard({
 }) {
   const meta = GATEWAY_META.find((m) => m.type === gateway.type);
   if (!meta) return null;
-
   const priorityLabel = PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
-
   return (
     <div
       className={`bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl shadow-sm overflow-hidden transition-opacity ${
@@ -904,17 +841,14 @@ function GatewayCard({
           <div className="w-10 h-10 rounded-xl bg-white dark:bg-black/20 border border-slate-200 dark:border-border flex items-center justify-center text-xl shrink-0">
             {meta.icon}
           </div>
-
           <div className="min-w-0">
             <h3 className="font-bold text-slate-800 dark:text-white text-sm truncate">
               {gateway.name}
             </h3>
-
             <div className="flex flex-wrap gap-1.5 mt-1">
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-black/20 text-slate-600 dark:text-muted-foreground border border-slate-200 dark:border-border">
                 {priorityLabel}
               </span>
-
               <span
                 className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                   gateway.is_online
@@ -927,7 +861,6 @@ function GatewayCard({
             </div>
           </div>
         </div>
-
         {/* Toggle ativo/inativo */}
         <button
           onClick={onToggle}
@@ -943,7 +876,6 @@ function GatewayCard({
           />
         </button>
       </div>
-
       {/* Body */}
       <div className="p-4 space-y-3">
         {/* Moedas */}
@@ -957,17 +889,14 @@ function GatewayCard({
             </span>
           ))}
         </div>
-
         {/* Campos configurados (mascara secrets) */}
         <div className="space-y-1.5">
           {meta.fields.slice(0, 2).map((field) => {
             const val = gateway.config?.[field.key];
             if (!val) return null;
-
             const raw = String(val);
             const isSecret = field.type === "password";
             const masked = isSecret ? `${raw.slice(0, 6)}${"•".repeat(10)}` : raw;
-
             return (
               <div key={field.key} className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-slate-400 dark:text-muted-foreground font-medium truncate">
@@ -980,7 +909,6 @@ function GatewayCard({
             );
           })}
         </div>
-
         {/* Ações */}
         <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-border">
           <button
@@ -990,7 +918,6 @@ function GatewayCard({
             <IconEdit />
             Editar
           </button>
-
           <button
             onClick={onDelete}
             disabled={isDeleting}
@@ -1004,47 +931,37 @@ function GatewayCard({
     </div>
   );
 }
-
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
-
 export default function PagamentosPage() {
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState<PaymentGateway | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-
     // --- TOAST + CONFIRM (padrão do admin) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastSeq = useRef(1);
-
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
-
   const addToast = (type: "success" | "error", title: string, message?: string) => {
     const id = Date.now() * 1000 + (toastSeq.current++ % 1000);
     const durationMs = 5000;
     setToasts((prev) => [...prev, { id, type, title, message, durationMs }]);
     setTimeout(() => removeToast(id), durationMs);
   };
-
   const { confirm: confirmDialog, ConfirmUI } = useConfirm();
-
   const fetchGateways = useCallback(async () => {
     try {
       const tenantId = await getCurrentTenantId();
-      
       if (!tenantId) {
         setLoading(false);
         return;
       }
-
       const { data, error } = await supabaseBrowser
         .from("payment_gateways")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("priority", { ascending: true })
         .order("created_at", { ascending: true });
-
       if (error) throw error;
       setGateways((data as PaymentGateway[]) || []);
     } catch (err: any) {
@@ -1053,11 +970,9 @@ export default function PagamentosPage() {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => {
     fetchGateways();
   }, [fetchGateways]);
-
   async function handleToggle(gateway: PaymentGateway) {
     try {
       const tenantId = await getCurrentTenantId();
@@ -1065,15 +980,12 @@ export default function PagamentosPage() {
         addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
         return;
       }
-
       const { error } = await supabaseBrowser
         .from("payment_gateways")
         .update({ is_active: !gateway.is_active, updated_at: new Date().toISOString() })
         .eq("id", gateway.id)
         .eq("tenant_id", tenantId);
-
       if (error) throw error;
-
       setGateways((prev) =>
         prev.map((g) => (g.id === gateway.id ? { ...g, is_active: !g.is_active } : g))
       );
@@ -1081,7 +993,6 @@ export default function PagamentosPage() {
       addToast("error", "Erro ao atualizar status", err?.message ?? "Erro inesperado.");
     }
   }
-
   async function handleDelete(gateway: PaymentGateway) {
     const ok = await confirmDialog({
       tone: "rose",
@@ -1091,26 +1002,20 @@ export default function PagamentosPage() {
       confirmText: "Excluir",
       cancelText: "Voltar",
     });
-
     if (!ok) return;
-
     try {
       const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         addToast("error", "Tenant inválido", "Não foi possível identificar o tenant atual.");
         return;
       }
-
       setDeleting(gateway.id);
-
       const { error } = await supabaseBrowser
         .from("payment_gateways")
         .delete()
         .eq("id", gateway.id)
         .eq("tenant_id", tenantId);
-
       if (error) throw error;
-
       setGateways((prev) => prev.filter((g) => g.id !== gateway.id));
       addToast("success", "Removido", "Integração excluída com sucesso.");
     } catch (err: any) {
@@ -1119,16 +1024,13 @@ export default function PagamentosPage() {
       setDeleting(null);
     }
   }
-
   // Agrupar por moeda
   const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
   const intlGateways = gateways.filter(
     (g) => g.currency.includes("USD") || g.currency.includes("EUR") || g.currency.includes("INTL")
   );
-
   return (
   <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
-    
     {/* HEADER (padrão Clientes/Trials) */}
     <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
   <div className="min-w-0">
@@ -1136,7 +1038,6 @@ export default function PagamentosPage() {
       Pagamentos
     </h1>
   </div>
-
   <div className="flex items-center gap-2 justify-end shrink-0">
     <button
       onClick={() => {
@@ -1150,10 +1051,8 @@ export default function PagamentosPage() {
     </button>
   </div>
 </div>
-
     {/* CONTEÚDO */}
     <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
-
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
@@ -1193,7 +1092,6 @@ export default function PagamentosPage() {
                     BRL
                   </span>
                 </div>
-
                 <div className="p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {brlGateways.map((g) => (
@@ -1213,7 +1111,6 @@ export default function PagamentosPage() {
                 </div>
               </div>
             )}
-
             {/* Internacionais */}
             {intlGateways.length > 0 && (
               <div className="bg-white dark:bg-card border-y sm:border border-slate-200 dark:border-border rounded-none sm:rounded-xl shadow-sm overflow-visible -mx-3 sm:mx-0">
@@ -1228,7 +1125,6 @@ export default function PagamentosPage() {
                     USD/EUR
                   </span>
                 </div>
-
                 <div className="p-3 sm:p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {intlGateways.map((g) => (
@@ -1248,13 +1144,11 @@ export default function PagamentosPage() {
                 </div>
               </div>
             )}
-
             {/* espaço fixo pra não cortar popups */}
             <div className="h-24 md:h-20" />
           </div>
         )}
       </div>
-
       {/* Modal */}
       {modalOpen && (
         <GatewayModal
@@ -1267,14 +1161,12 @@ export default function PagamentosPage() {
           addToast={addToast}
         />
       )}
-
       {/* Confirmação e Toasts */}
       {ConfirmUI}
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
-
 function IconX() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>; }
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconTrash() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>; }

@@ -1,11 +1,8 @@
 "use client";
-
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import Image from "next/image";
-
-
 // ========= TYPES =========
 interface ClientAccount {
   id: string;
@@ -24,18 +21,15 @@ interface ClientAccount {
   technology?: string;
   modalidade?: string | null;
 }
-
 interface PlanPrice {
   period: string;
   price_amount: number;
 }
-
 interface SessionData {
   tenant_id: string;
   whatsapp_username: string;
   admin_whatsapp?: string; // ✅ Adicionado
 }
-
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
   BIMONTHLY: "Bimestral",
@@ -43,7 +37,6 @@ const PERIOD_LABELS: Record<string, string> = {
   SEMIANNUAL: "Semestral",
   ANNUAL: "Anual",
 };
-
 const PERIOD_MONTHS: Record<string, number> = {
   MONTHLY: 1,
   BIMONTHLY: 2,
@@ -51,17 +44,14 @@ const PERIOD_MONTHS: Record<string, number> = {
   SEMIANNUAL: 6,
   ANNUAL: 12,
 };
-
 // ========= SECURITY / NO-LEAK HELPERS =========
 const IS_PROD = process.env.NODE_ENV === "production";
-
 function debugLog(...args: any[]) {
-  if (!IS_PROD) console.log(...args);
+  if (!IS_PROD) 
 }
 function debugErr(...args: any[]) {
-  if (!IS_PROD) console.error(...args);
+  if (!IS_PROD) 
 }
-
 function getStoredSession() {
   if (typeof window === "undefined") return "";
   try {
@@ -95,15 +85,12 @@ function removeSessionFromUrl() {
 function safeUserError(msg: unknown) {
   const s = String(msg ?? "");
   const low = s.toLowerCase();
-
   // ✅ mensagens "permitidas" (genéricas) pro cliente final
   if (low.includes("sess") || low.includes("session")) return "Sessão expirada ou inválida";
   if (low.includes("conta") || low.includes("accounts")) return "Não foi possível carregar suas contas";
   if (low.includes("preço") || low.includes("prices") || low.includes("plano")) return "Não foi possível carregar os planos";
-
   return "Não foi possível carregar seus dados";
 }
-
 // ========= HELPERS =========
 function getSPParts(d: Date) {
   const fmt = new Intl.DateTimeFormat("en-GB", {
@@ -114,7 +101,6 @@ function getSPParts(d: Date) {
   const parts = fmt.formatToParts(d);
   return { hour: parts.find((p) => p.type === "hour")?.value || "12" };
 }
-
 function getGreeting() {
   const p = getSPParts(new Date());
   const h = Number(p.hour);
@@ -122,7 +108,6 @@ function getGreeting() {
   if (h >= 12 && h < 18) return "Boa tarde";
   return "Boa noite";
 }
-
 function formatMoney(amount: number, currency: string = "BRL") {
   const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -130,7 +115,6 @@ function formatMoney(amount: number, currency: string = "BRL") {
   }).format(amount);
   return formatted.replace(/^US(\$)/, "$1");
 }
-
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
 // ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
@@ -138,21 +122,17 @@ function getTimeRemaining(vencimento: string) {
 const isoTarget = new Date(vencimento).toLocaleDateString("sv-SE", {
   timeZone: "America/Sao_Paulo",
 });
-
   // Hoje em SP
   const todaySP = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-
   const d1 = new Date(`${todaySP}T12:00:00`);
   const d2 = new Date(`${isoTarget}T12:00:00`);
   const diffDays = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
-
   // Vencido
   if (diffDays < 0) {
     const expiredDays = Math.abs(diffDays);
     if (expiredDays === 1) return { expired: true, text: "Assinatura venceu ontem" };
     return { expired: true, text: `Assinatura vencida há ${expiredDays} dias` };
   }
-
   // Vence hoje
   if (diffDays === 0) {
     const dueFormatted = new Date(vencimento).toLocaleTimeString("pt-BR", {
@@ -162,14 +142,11 @@ const isoTarget = new Date(vencimento).toLocaleDateString("sv-SE", {
     });
     return { expired: false, today: true, text: `Assinatura vence hoje às ${dueFormatted}` };
   }
-
   // Vence amanhã
   if (diffDays === 1) return { expired: false, text: "Assinatura vence amanhã" };
-
   // Vence em X dias
   return { expired: false, text: `Assinatura vence em ${diffDays} dias` };
 }
-
 // ✅ PARA — sem depender de locale do navegador
 function formatDateTime(dateStr: string) {
   const date = new Date(dateStr);
@@ -182,65 +159,49 @@ function formatDateTime(dateStr: string) {
     minute: "2-digit",
     hour12: false,
   }).formatToParts(date);
-
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
-
-
-
 function calculateDiscount(monthlyPrice: number, totalPrice: number, months: number) {
   const monthlyEquivalent = totalPrice / months;
   const discount = ((monthlyPrice - monthlyEquivalent) / monthlyPrice) * 100;
   return Math.round(discount * 10) / 10; // 1 casa decimal
 }
-
 // ========= MAIN COMPONENT =========
 export default function RenewClient() {
   const sp = useSearchParams();
   const router = useRouter(); // ✅ router instanciado para redirecionamento
-
   // ✅ sessão agora vem da URL OU do sessionStorage, e removemos da URL depois (sem quebrar reload)
   const [session, setSession] = useState<string | null>(null);
-
   useEffect(() => {
     const fromUrl = (sp.get("session") ?? "").trim();
     const stored = getStoredSession();
-
     const sess = fromUrl || stored || "";
     if (sess) setStoredSession(sess);
-
     // ✅ remove o token da barra de endereço (sem perder a sessão)
     if (fromUrl) removeSessionFromUrl();
-
     setSession(sess);
   }, [sp]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
 const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
   const [showOtherPlans, setShowOtherPlans] = useState(false);
-
   // -------------------------------------------------------------------------
   // INÍCIO DO ESTADO DE BUSCA (Movido para o topo para respeitar as regras do React)
   // -------------------------------------------------------------------------
   const [searchQuery, setSearchQuery] = useState("");
-
   const filteredAccounts = useMemo(() => {
     if (!searchQuery.trim()) return accounts;
-    
     // ✅ Normaliza a busca: minúsculas e sem acentos
     const normalizedQuery = searchQuery
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-
     return accounts.filter((a) => {
       // ✅ Junta os campos do cliente e normaliza também
       const hay = [a.display_name, a.server_username, a.server_name]
@@ -249,16 +210,12 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
-
       return hay.includes(normalizedQuery);
     });
   }, [accounts, searchQuery]);
   // -------------------------------------------------------------------------
-
   // ✅ O Backend agora é inteligente e já manda a lista certa (com ou sem Anual)
   const availablePrices = prices;
-
-  
 // Estados do pagamento
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -266,12 +223,10 @@ const [prices, setPrices] = useState<PlanPrice[]>([]);
 const [isProcessingPayment, setIsProcessingPayment] = useState(false); // ✅ NOVO
   const [showMethodSelector, setShowMethodSelector] = useState(false);
   const [pendingRenew, setPendingRenew] = useState<{ price: PlanPrice; period: string } | null>(null);
-  
   // ✅ NOVO: Estados para controle visual do botão de copiar
 const [copiedCode, setCopiedCode] = useState(false);
 const [copiedKey, setCopiedKey] = useState(false);
 const [copiedField, setCopiedField] = useState<string | null>(null);
-
 const [stripeReady, setStripeReady] = useState(false);
 const [stripeLoading, setStripeLoading] = useState(false);
 const stripeRef = useRef<any>(null);
@@ -284,37 +239,28 @@ const [cardCvcMountEl, setCardCvcMountEl] = useState<HTMLDivElement | null>(null
 const [stripeStep, setStripeStep] = useState<1 | 2>(1);
 const [paymentRequest, setPaymentRequest] = useState<any>(null);
 const [prButtonMountEl, setPrButtonMountEl] = useState<HTMLDivElement | null>(null);
-
 function copyField(key: string, value: string) {
   navigator.clipboard.writeText(value ?? "");
   setCopiedField(key);
   setTimeout(() => setCopiedField(null), 3000);
 }
-
   // ✅ NOVO: fases do fluxo (UI mais clara)
   const [paymentPhase, setPaymentPhase] = useState<
     "awaiting_payment" | "renewing" | "done" | "error"
   >("awaiting_payment");
-
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [tenantBrand, setTenantBrand] = useState<{ logo_url?: string | null } | null>(null);
-  
-
-
-
   // ========= LOAD SESSION & ACCOUNTS =========
   useEffect(() => {
     async function loadData() {
       // ✅ aguarda a hidratação da sessão (URL/storage)
       if (session === null) return;
-
       if (!session) {
         clearStoredSession();
         setError("Sessão inválida");
         setLoading(false);
         return;
       }
-
       try {
         // 1. Validar sessão via API (seguro, server-side)
         const res = await fetch("/api/client-portal/validate-session", {
@@ -323,29 +269,23 @@ function copyField(key: string, value: string) {
           body: JSON.stringify({ session_token: session }),
           cache: "no-store",
         });
-
         const result = await res.json().catch(() => null);
-
         if (!result?.ok) {
           clearStoredSession();
           throw new Error(result?.error || "Sessão expirada ou inválida");
         }
-
         const sess = result.data;
-
 setSessionData({
           tenant_id: sess.tenant_id,
           whatsapp_username: sess.whatsapp_username,
           admin_whatsapp: sess.admin_whatsapp,
         });
-
         const { data: brand } = await supabaseBrowser
           .from("vw_tenant_branding")
           .select("logo_url")
           .eq("id", sess.tenant_id)
           .maybeSingle();
         if (brand) setTenantBrand(brand);
-
         // 2. Buscar contas via API
         const accRes = await fetch("/api/client-portal/get-accounts", {
           method: "POST",
@@ -353,19 +293,14 @@ setSessionData({
           body: JSON.stringify({ session_token: session }),
           cache: "no-store",
         });
-
         const accResult = await accRes.json().catch(() => null);
-
         if (!accResult?.ok) throw new Error("Não foi possível carregar suas contas");
-
         const mapped: ClientAccount[] = accResult.data;
         setAccounts(mapped);
-
         // Se só tem 1 conta, seleciona automaticamente
         if (mapped.length === 1) {
           setSelectedAccountId(mapped[0].id);
         }
-
         setLoading(false);
       } catch (err: any) {
         debugErr("Erro ao carregar dados (dev):", err?.message || err);
@@ -373,19 +308,15 @@ setSessionData({
         setLoading(false);
       }
     }
-
     loadData();
   }, [session]);
-
   // ========= LOAD PRICES WHEN ACCOUNT SELECTED =========
   useEffect(() => {
     async function loadPrices() {
       if (!selectedAccountId) return;
       if (!session) return;
-
       const account = accounts.find((a) => a.id === selectedAccountId);
       if (!account || !account.plan_table_id) return;
-
       try {
         const res = await fetch("/api/client-portal/get-prices", {
           method: "POST",
@@ -396,12 +327,9 @@ setSessionData({
           }),
           cache: "no-store",
         });
-
         const result = await res.json().catch(() => null);
         if (!result?.ok) throw new Error("Não foi possível carregar os planos");
-
         setPrices(result.data);
-
         // Define período inicial baseado no plano atual
         const currentPeriod = Object.keys(PERIOD_LABELS).find(
           (k) => PERIOD_LABELS[k] === account.plan_label
@@ -411,87 +339,69 @@ setSessionData({
         debugErr("Erro ao carregar preços (dev):", err?.message || err);
       }
     }
-
     loadPrices();
   }, [selectedAccountId, accounts, session]);
-
   // ========= COMPUTED =========
   const selectedAccount = useMemo(
     () => accounts.find((a) => a.id === selectedAccountId),
     [accounts, selectedAccountId]
   );
-
   const selectedPrice = useMemo(
     () => availablePrices.find((p) => p.period === selectedPeriod),
     [availablePrices, selectedPeriod]
   );
-
   const monthlyPrice = useMemo(
     () => availablePrices.find((p) => p.period === "MONTHLY"),
     [availablePrices]
   );
-
   const discount = useMemo(() => {
     if (!monthlyPrice || !selectedPrice || selectedPeriod === "MONTHLY") return 0;
     const months = PERIOD_MONTHS[selectedPeriod];
     return calculateDiscount(monthlyPrice.price_amount, selectedPrice.price_amount, months);
   }, [monthlyPrice, selectedPrice, selectedPeriod]);
-
   const timeRemaining = useMemo(() => {
     if (!selectedAccount) return null;
     return getTimeRemaining(selectedAccount.vencimento);
   }, [selectedAccount]);
-
   // ========= HANDLERS =========
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccountId(accountId);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
   // ✅ NOVO: interceptar botão voltar do celular
   useEffect(() => {
     if (!selectedAccountId) return;
-
     // Adiciona estado no histórico
     window.history.pushState({ page: "account" }, "");
-
     const handlePopState = () => {
       setSelectedAccountId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
-
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [selectedAccountId]);
-
   const handleRenew = async () => {
     // ✅ Bloqueia execução duplicada
     if (isProcessingPayment) return;
-    
     if (!selectedAccount) return;
     if (!session) {
       alert("Sessão expirada. Abra o link novamente.");
       clearStoredSession();
       return;
     }
-
     // Usa plano selecionado nas ofertas, senão usa o plano atual
     const renewPrice =
       selectedPrice && selectedPrice.price_amount > 0
         ? selectedPrice
         : availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
-
     if (!renewPrice || !renewPrice.price_amount) {
       alert("Erro: valor do plano não encontrado");
       return;
     }
-
     const renewPeriod =
       selectedPeriod ||
       Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label);
-
     if (!renewPeriod) return;
-
     // ✅ Sem trava de manual no front: TODOS os BRL pagam via PIX automático.
     // Servidores sem integração (UniGestor) e Elite são detectados pelo fulfillment
     // do backend e marcados como manual_pending APÓS a confirmação do pagamento.
@@ -499,19 +409,15 @@ setSessionData({
       await handleMethodConfirmDirect("card", renewPrice, renewPeriod);
       return;
     }
-
     // Internacional com integração: mostra seletor (Apple Pay / Stripe)
     setPendingRenew({ price: renewPrice, period: renewPeriod });
     setShowMethodSelector(true);
   };
-
   // Polling para verificar status do pagamento
   function startPolling(paymentId: string) {
     if (!session) return;
-
     // Limpar intervalo anterior se existir
     if (pollingInterval) clearInterval(pollingInterval);
-
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -520,23 +426,18 @@ setSessionData({
           body: JSON.stringify({ session_token: session, payment_id: paymentId }),
           cache: "no-store",
         });
-
         if (!res.ok) {
           clearInterval(interval);
           setPollingInterval(null);
           return;
         }
-
         const result = await res.json().catch(() => null);
-
         if (!result?.ok) {
           clearInterval(interval);
           setPollingInterval(null);
           return;
         }
-
                 const phaseRaw = String(result.phase || "").toLowerCase();
-
         // ✅ Preferência: usar "phase" (novo contrato)
         if (phaseRaw) {
           if (phaseRaw === "awaiting_payment") {
@@ -544,20 +445,16 @@ setSessionData({
             // status visual segue pendente
             return;
           }
-
           if (phaseRaw === "renewing") {
             setPaymentPhase("renewing");
             // continua polling
             return;
           }
-
             // ✅ AJUSTE FINO 1: Aceitar manual_pending como sucesso visual
             if (phaseRaw === "done" || phaseRaw === "manual_pending") {
               if ((window as any).__cp_done_scheduled) return;
               (window as any).__cp_done_scheduled = true;
-
               const isManual = phaseRaw === "manual_pending";
-
               setPaymentPhase("done");
               setPaymentStatus("approved");
               setPaymentData((prev: any) => ({
@@ -565,10 +462,8 @@ setSessionData({
                 new_vencimento: result.new_vencimento,
                 is_manual: isManual // 👈 Flag silenciosa para UI
               }));
-
               clearInterval(interval);
               setPollingInterval(null);
-
               // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
               // Para renovação manual, NUNCA recarrega (cliente deve aguardar mensagem WA).
               if (!isManual) {
@@ -576,37 +471,27 @@ setSessionData({
               }
               return;
             }
-
-
           if (phaseRaw === "error") {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
-
             alert("Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.");
-
             clearInterval(interval);
             setPollingInterval(null);
             return;
           }
-
           // Qualquer phase desconhecida -> segue polling sem travar
           return;
         }
-
         // ✅ Fallback (caso seu backend ainda esteja devolvendo status/fulfillment antigo)
         const status = String(result.status || "").toLowerCase();
         const fulfillment = String(result.fulfillment_status || "").toLowerCase();
-
         if (status === "approved") {
           // Pagamento ok, mas fulfillment ainda rodando -> UI deve mostrar renovando
           setPaymentPhase("renewing");
-
 if (fulfillment === "done" || fulfillment === "manual_pending") {
   if ((window as any).__cp_done_scheduled) return;
   (window as any).__cp_done_scheduled = true;
-
   const isManual = fulfillment === "manual_pending";
-
   setPaymentPhase("done");
   setPaymentStatus("approved");
   setPaymentData((prev: any) => ({
@@ -614,10 +499,8 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
     new_vencimento: result.new_vencimento,
     is_manual: isManual // 👈 Flag silenciosa para UI
   }));
-
   clearInterval(interval);
   setPollingInterval(null);
-
   // ✅ MUDANÇA: Só faz refresh automático se for renovação via API (done).
   // Para renovação manual, NUNCA recarrega (cliente deve aguardar mensagem WA).
   if (!isManual) {
@@ -625,22 +508,16 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
   }
   return;
 }
-
-
           if (fulfillment === "error") {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
-
             alert("Pagamento aprovado, mas houve falha ao concluir a renovação.\nProcure o suporte.");
-
             clearInterval(interval);
             setPollingInterval(null);
             return;
           }
-
           return;
         }
-
         if (status === "rejected" || status === "cancelled") {
           setPaymentPhase("error");
           setPaymentStatus("rejected");
@@ -648,27 +525,22 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
           setPollingInterval(null);
           return;
         }
-
         // pending/in_process/etc.
         setPaymentPhase("awaiting_payment");
         return;
-
       } catch (err: any) {
         debugErr("Erro ao verificar status (dev):", err?.message || err);
         // continua tentando (não derruba o polling por erro de rede momentâneo)
       }
     }, 3000); // A cada 3 segundos
-
     setPollingInterval(interval);
   }
-
 // Limpar polling ao desmontar
   useEffect(() => {
     return () => {
       if (pollingInterval) clearInterval(pollingInterval);
     };
   }, [pollingInterval]);
-
   // Carregar Stripe.js uma vez
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -678,17 +550,14 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
     script.onload = () => setStripeReady(true);
     document.head.appendChild(script);
   }, []);
-
   // Montar 3 card elements quando modal Stripe abrir
   useEffect(() => {
     if (!paymentModal || !paymentData || paymentData.payment_method !== "stripe") return;
     if (!stripeReady || !cardNumberMountEl || !cardExpiryMountEl || !cardCvcMountEl) return;
     if (!(window as any).Stripe) return;
-
     const stripe = (window as any).Stripe(paymentData.publishable_key);
     stripeRef.current = stripe;
     const elements = stripe.elements({ disableLink: true });
-
     const style = {
       base: {
         fontSize: "16px",
@@ -697,40 +566,32 @@ if (fulfillment === "done" || fulfillment === "manual_pending") {
         "::placeholder": { color: "#94a3b8" },
       },
     };
-
     const cardNumber = elements.create("cardNumber", { style, showIcon: true });
     const cardExpiry = elements.create("cardExpiry", { style });
     const cardCvc = elements.create("cardCvc", { style });
-
 cardNumber.mount(cardNumberMountEl);
     cardExpiry.mount(cardExpiryMountEl);
     cardCvc.mount(cardCvcMountEl);
-
     cardNumberRef.current = cardNumber;
     cardExpiryRef.current = cardExpiry;
     cardCvcRef.current = cardCvc;
-
     // Auto-avanço de validade → CVC
     cardExpiry.on("change", (e: any) => {
       if (e.complete) cardCvc.focus();
     });
-
     return () => {
       try { cardNumber.unmount(); } catch {}
       try { cardExpiry.unmount(); } catch {}
       try { cardCvc.unmount(); } catch {}
     };
   }, [paymentModal, paymentData, stripeReady, cardNumberMountEl, cardExpiryMountEl, cardCvcMountEl]);
-
 // Montar PaymentRequestButton (Apple Pay / Google Pay)
   useEffect(() => {
     if (!paymentModal || !paymentData || paymentData.payment_method !== "apple_google") return;
     if (!stripeReady || !prButtonMountEl) return;
     if (!(window as any).Stripe) return;
-
     const stripe = (window as any).Stripe(paymentData.publishable_key);
     stripeRef.current = stripe;
-
     const pr = stripe.paymentRequest({
       country: "BR",
       currency: (paymentData.currency || "eur").toLowerCase(),
@@ -741,36 +602,30 @@ cardNumber.mount(cardNumberMountEl);
       requestPayerName: false,
       requestPayerEmail: false,
     });
-
     pr.canMakePayment().then((result: any) => {
       if (!result) {
         // Dispositivo não suporta Apple/Google Pay — cai no cartão normal
         setPaymentData((prev: any) => ({ ...prev, payment_method: "stripe" }));
         return;
       }
-
       const elements = stripe.elements();
       const prButton = elements.create("paymentRequestButton", {
         paymentRequest: pr,
         style: { paymentRequestButton: { height: "52px", borderRadius: "12px" } },
       });
       prButton.mount(prButtonMountEl);
-
       pr.on("paymentmethod", async (ev: any) => {
         const { error, paymentIntent } = await stripe.confirmCardPayment(
           paymentData.client_secret,
           { payment_method: ev.paymentMethod.id },
           { handleActions: false }
         );
-
         if (error) {
           ev.complete("fail");
           alert(error.message || "Erro ao processar pagamento.");
           return;
         }
-
         ev.complete("success");
-
         if (paymentIntent.status === "succeeded") {
           setPaymentPhase("renewing");
           startPolling(String(paymentData.payment_id));
@@ -784,13 +639,10 @@ cardNumber.mount(cardNumberMountEl);
           startPolling(String(paymentData.payment_id));
         }
       });
-
       setPaymentRequest(pr);
     });
-
     return () => { try { prButtonMountEl.innerHTML = ""; } catch {} };
   }, [paymentModal, paymentData, stripeReady, prButtonMountEl]);
-
 // ✅ REGRA DO SUPORTE: Pega estritamente o do admin.
   const supportPhone = sessionData?.admin_whatsapp || "";
 async function handleMethodConfirmDirect(
@@ -801,14 +653,12 @@ async function handleMethodConfirmDirect(
     const resolvedPeriod = overridePeriod ?? pendingRenew?.period;
     if (!resolvedPeriod || !selectedAccount || !session) return;
     setShowMethodSelector(false);
-
     try {
       setIsProcessingPayment(true);
       (window as any).__cp_done_scheduled = false;
       setPaymentStatus("pending");
       setPaymentPhase("awaiting_payment");
       setPaymentData(null);
-
       const res = await fetch("/api/client-portal/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -821,15 +671,12 @@ async function handleMethodConfirmDirect(
         }),
         cache: "no-store",
       });
-
       const result = await res.json().catch(() => null);
-
       if (!result?.ok) {
         debugErr("create-payment error (dev):", result);
         alert("Não foi possível criar o pagamento. Tente novamente.");
         return;
       }
-
       const payment = result.data ?? result;
       // Apple/Google Pay usa o mesmo PaymentIntent do Stripe mas com UI diferente
       if (choice === "apple_google" && payment.payment_method === "stripe") {
@@ -838,7 +685,6 @@ async function handleMethodConfirmDirect(
       setPaymentData(payment);
       setStripeStep(1);
       setPaymentModal(true);
-
       // Stripe: NÃO inicia polling aqui — só após confirmCardPayment ter sucesso
       if (payment?.payment_method === "online" && payment?.payment_id) {
         startPolling(String(payment.payment_id));
@@ -851,7 +697,6 @@ async function handleMethodConfirmDirect(
       setPendingRenew(null);
     }
   }
-
   async function handleStripeConfirm() {
     if (!stripeRef.current || !cardNumberRef.current || !paymentData) return;
     setStripeLoading(true);
@@ -859,28 +704,23 @@ async function handleMethodConfirmDirect(
       const result = await stripeRef.current.confirmCardPayment(paymentData.client_secret, {
         payment_method: { card: cardNumberRef.current },
       });
-
       if (result.error) {
         alert(result.error.message || "Erro ao processar cartão.");
         return;
       }
-
       if (result.paymentIntent?.status === "succeeded") {
         // Pagamento confirmado — mostra "renovando" e inicia polling
         setPaymentPhase("renewing");
         startPolling(String(paymentData.payment_id));
       }
     } catch (e: any) {
-      console.error("STRIPE ERROR:", e);
       alert((e?.message) || "Erro ao processar pagamento. Tente novamente.");
     } finally {
       setStripeLoading(false);
     }
   }
-
   function MethodSelectorModal() {
     if (!showMethodSelector || !pendingRenew || !selectedAccount) return null;
-
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
@@ -890,7 +730,6 @@ async function handleMethodConfirmDirect(
               {formatMoney(pendingRenew.price.price_amount, selectedAccount.price_currency)}
             </p>
           </div>
-
           <div className="p-4 space-y-3">
             <button
               onClick={() => handleMethodConfirmDirect("card")}
@@ -905,7 +744,6 @@ async function handleMethodConfirmDirect(
                 <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Renovação Automática</span>
               </div>
             </button>
-
             <button
               onClick={() => handleMethodConfirmDirect("apple_google")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left"
@@ -917,7 +755,6 @@ async function handleMethodConfirmDirect(
                 <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Renovação Automática</span>
               </div>
             </button>
-
             <button
               onClick={() => handleMethodConfirmDirect("manual")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
@@ -929,7 +766,6 @@ async function handleMethodConfirmDirect(
                 <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">⚠️ Renovação Manual</span>
               </div>
             </button>
-
             <button
               onClick={() => { setShowMethodSelector(false); setPendingRenew(null); }}
               className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors pt-1"
@@ -941,14 +777,11 @@ async function handleMethodConfirmDirect(
       </div>
     );
   }
-
   function PaymentModal() {
     if (!paymentModal || !paymentData) return null;
-
 const isOnline = paymentData.payment_method === "online";
     const isManual = paymentData.payment_method === "manual";
     const isStripe = paymentData.payment_method === "stripe";
-
 const effectiveGatewayType: string =
   paymentData.gateway_type ||
   (paymentData.currency === "EUR"
@@ -958,18 +791,14 @@ const effectiveGatewayType: string =
     : "pix_manual");
     const isApproved = paymentStatus === "approved";
     const isRejected = paymentStatus === "rejected";
-
     // ✅ evita qualquer lixo/char inválido no link externo
     const waNumber = String(sessionData?.admin_whatsapp ?? "").replace(/[^\d]/g, "");
-
-
 return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh]">
           {/* Success */}
           {isApproved && (
             <div className="p-6 sm:p-8 text-center">
-              
               {paymentData?.is_manual ? (
                 <>
                   {/* Icone de Sucesso (Substituindo a ampulheta) */}
@@ -978,12 +807,10 @@ return (
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-
                   {/* Título */}
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-800 mb-5 leading-tight tracking-tight">
                     Pagamento Confirmado!
                   </h2>
-
                   {/* Caixa Verde - Pagamento OK */}
                   <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-3 sm:p-4 mb-3 text-left">
                     <div className="flex items-start gap-3">
@@ -1000,7 +827,6 @@ return (
                       </div>
                     </div>
                   </div>
-
                   {/* Caixa Azul - Suporte notificado */}
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 sm:p-4 mb-3 text-left">
                     <div className="flex items-start gap-3">
@@ -1015,7 +841,6 @@ return (
                       </div>
                     </div>
                   </div>
-
                   {/* Caixa Amarela - Instruções finais */}
                   <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 mb-5 text-left">
                     <div className="flex items-start gap-3">
@@ -1030,13 +855,11 @@ return (
                       </div>
                     </div>
                   </div>
-
                   {/* Botão de Fechar */}
                   <button
                     onClick={() => {
                       // Tenta fechar a aba
                       window.close();
-                      
                       // Fallback: se o navegador bloquear o fechamento da aba, fechamos o modal após um instante
                       setTimeout(() => {
                         setPaymentModal(false);
@@ -1058,15 +881,12 @@ return (
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">
                     Renovação com sucesso ✅
                   </h2>
-                  
                   <p className="text-sm text-slate-600 mb-4 font-medium">
                     Pagamento confirmado e assinatura atualizada.
                   </p>
-
                   {paymentData?.new_vencimento && (
                     <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                       <p className="text-sm text-emerald-700 font-medium">
@@ -1074,13 +894,11 @@ return (
                       </p>
                     </div>
                   )}
-                  
                   <p className="text-xs text-slate-400 mt-4">Atualizando página...</p>
                 </>
               )}
             </div>
           )}
-
           {/* Rejected */}
           {isRejected && (
             <div className="p-8 text-center">
@@ -1103,7 +921,6 @@ return (
               </button>
             </div>
           )}
-
           {/* Online - QR Code PIX */}
           {isOnline && !isApproved && !isRejected && (
             <>
@@ -1111,20 +928,16 @@ return (
       <h2 className="text-xl font-bold mb-1">
         {paymentPhase === "renewing" ? "Pagamento confirmado ✅" : "Pague com PIX"}
       </h2>
-
       <p className="text-sm text-white/80">
         {paymentPhase === "renewing"
           ? "Renovação em andamento…"
           : (paymentData.gateway_name || "Mercado Pago")}
       </p>
-
       {/* ✅ extra: ainda mostra o gateway, mas sem poluir */}
       {paymentPhase === "renewing" && paymentData.gateway_name && (
         <p className="text-[11px] text-white/70 mt-1">{paymentData.gateway_name}</p>
       )}
     </div>
-
-
               <div className="px-5 pt-4 pb-3 space-y-3">
                 {/* QR Code */}
                 {paymentPhase !== "renewing" && (
@@ -1142,7 +955,6 @@ return (
                     )}
                   </div>
                 )}
-
                 {/* Instruções */}
                 {paymentPhase !== "renewing" && (
                   <div className="space-y-2 text-sm">
@@ -1156,7 +968,6 @@ return (
                     </ol>
                   </div>
                 )}
-
                 {/* Código Copia e Cola - Visual Premium */}
                 {paymentPhase !== "renewing" && paymentData.pix_qr_code && (
                   <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200 dark:border-border space-y-2">
@@ -1183,7 +994,6 @@ return (
                     </div>
                   </div>
                 )}
-
 {/* Status */}
                 <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-3">
                   <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -1198,8 +1008,6 @@ return (
                     </p>
                   </div>
                 </div>
-
-
                 {/* Botão Cancelar */}
                 {paymentPhase !== "renewing" && (
                   <button
@@ -1218,7 +1026,6 @@ return (
               </div>
             </>
           )}
-
 {/* Stripe - Cartão Internacional */}
           {isStripe && !isApproved && !isRejected && (
             <>
@@ -1230,9 +1037,7 @@ return (
                   {paymentPhase === "renewing" ? "Renovação em andamento…" : paymentData.gateway_name || "Stripe"}
                 </p>
               </div>
-
               <div className="px-5 pt-5 pb-4 space-y-4">
-
                 {paymentPhase !== "renewing" && (
                   <>
                     {/* Valor */}
@@ -1242,7 +1047,6 @@ return (
                         {formatMoney(paymentData.price_amount ?? 0, paymentData.currency ?? selectedAccount?.price_currency ?? "EUR")}
                       </p>
                     </div>
-
                     {/* Trust signals */}
                     {(paymentData.beneficiary_name || paymentData.institution) && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
@@ -1257,7 +1061,6 @@ return (
                         <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Seguro</span>
                       </div>
                     )}
-
                     {/* 2-step card fields */}
                     <div className="relative">
                       {/* Step 1: Número do cartão */}
@@ -1277,7 +1080,6 @@ return (
                           Continuar →
                         </button>
                       </div>
-
                       {/* Step 2: Validade + CVC */}
                       <div className={stripeStep === 2 ? "space-y-3" : "absolute top-0 left-0 w-full opacity-0 pointer-events-none space-y-3"}>
                         <button
@@ -1321,11 +1123,9 @@ return (
                         </button>
                       </div>
                     </div>
-
                     <p className="text-center text-[10px] text-slate-400">
                       Pagamento processado com segurança via Stripe
                     </p>
-
                     <button
                       onClick={() => {
                         setPaymentModal(false);
@@ -1340,7 +1140,6 @@ return (
                     </button>
                   </>
                 )}
-
                 {/* Renovando */}
                 {paymentPhase === "renewing" && (
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
@@ -1354,7 +1153,6 @@ return (
               </div>
             </>
           )}
-
           {/* Apple Pay / Google Pay */}
           {paymentData.payment_method === "apple_google" && !isApproved && !isRejected && (
             <>
@@ -1366,7 +1164,6 @@ return (
                   {paymentPhase === "renewing" ? "Renovação em andamento…" : paymentData.gateway_name || "Stripe"}
                 </p>
               </div>
-
               <div className="px-5 pt-5 pb-4 space-y-4">
                 {paymentPhase !== "renewing" && (
                   <>
@@ -1376,7 +1173,6 @@ return (
                         {formatMoney(paymentData.price_amount ?? 0, paymentData.currency ?? "EUR")}
                       </p>
                     </div>
-
                     {(paymentData.beneficiary_name || paymentData.institution) && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-lg">🔒</div>
@@ -1390,7 +1186,6 @@ return (
                         <span className="ml-auto shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">✅ Seguro</span>
                       </div>
                     )}
-
                     {/* div sempre renderizado para o ref funcionar */}
                     <div ref={setPrButtonMountEl} className={`min-h-[52px] ${paymentRequest ? "" : "hidden"}`} />
                     {!paymentRequest && (
@@ -1399,11 +1194,9 @@ return (
                         Verificando disponibilidade...
                       </div>
                     )}
-
                     <p className="text-center text-[10px] text-slate-400">
                       Pagamento processado com segurança via Stripe
                     </p>
-
                     <button
                       onClick={() => {
                         setPaymentModal(false);
@@ -1418,7 +1211,6 @@ return (
                     </button>
                   </>
                 )}
-
                 {paymentPhase === "renewing" && (
                   <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 flex items-center gap-3">
                     <div className="w-6 h-6 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -1431,7 +1223,6 @@ return (
               </div>
             </>
           )}
-
           {/* Manual - Fallbacks (PIX ou Internacional) */}
           {isManual && !isApproved && !isRejected && (
             <>
@@ -1448,9 +1239,7 @@ return (
   </h2>
                 <p className="text-sm text-white/80">Pagamento Offline</p>
               </div>
-
               <div className="px-5 pt-4 pb-3 space-y-3">
-  
                 {/* 1. DADOS PARA PIX MANUAL */}
                 {(effectiveGatewayType === "pix_manual") && (
                   <div className="space-y-3">
@@ -1480,7 +1269,6 @@ return (
                         Tipo: {paymentData.pix_key_type?.toUpperCase() || "—"}
                       </p>
                     </div>
-                    
                     <div>
   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular (Favorecido)</p>
   <div className="flex items-center justify-between gap-2">
@@ -1488,7 +1276,6 @@ return (
     <button onClick={() => copyField("pix_name", paymentData.beneficiary_name || paymentData.holder_name)} className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "pix_name" ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-white/60 hover:bg-slate-300"}`}>{copiedField === "pix_name" ? "✅ Copiado" : "📋 Copiar"}</button>
   </div>
 </div>
-
 {paymentData.institution && (
   <div>
     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Instituição Bancária</p>
@@ -1500,7 +1287,6 @@ return (
 )}
                   </div>
                 )}
-
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
 {effectiveGatewayType === "transfer_manual_eur" && (
   <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
@@ -1545,7 +1331,6 @@ return (
     )}
   </div>
 )}
-
                 {/* 3. DADOS PARA TRANSFERÊNCIA USD */}
 {effectiveGatewayType === "transfer_manual_usd" && (
   <div className="space-y-3 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-border">
@@ -1603,14 +1388,12 @@ return (
     )}
   </div>
 )}
-
                 {/* AVISO IMPORTANTE (Piscando) */}
                 <div className="pt-2 animate-pulse">
                   <p className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase text-center bg-rose-50 dark:bg-rose-500/10 p-2 rounded-lg border border-rose-200 dark:border-rose-500/30">
                     ⚠️ Importante: Favor não colocar observações na transferência.
                   </p>
                 </div>
-
                 {/* VALOR A TRANSFERIR (GLOBAL PARA TODOS OS MANUAIS) */}
                 <div className="pt-2">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor a Transferir</p>
@@ -1618,14 +1401,12 @@ return (
                     {formatMoney(paymentData.price_amount, paymentData.currency)}
                   </p>
                 </div>
-
                 {/* Instruções */}
                 {paymentData.instructions && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
                     <p className="text-xs text-blue-700">{paymentData.instructions}</p>
                   </div>
                 )}
-
                 {/* Botão WhatsApp */}
                 {waNumber ? (
                   <a
@@ -1640,7 +1421,6 @@ return (
                     Enviar Comprovante
                   </a>
                 ) : null}
-
                 <button
                   onClick={() => {
                     setPaymentModal(false);
@@ -1657,11 +1437,8 @@ return (
       </div>
     );
   }
-
   // ========= RENDER: LOADING =========
-
   const showTenantLogo = !!tenantBrand?.logo_url;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 py-8">
@@ -1672,7 +1449,6 @@ return (
       </div>
     );
   }
-
   // ========= RENDER: ERROR =========
   if (error) {
     return (
@@ -1695,16 +1471,13 @@ return (
       </div>
     );
   }
-
  // ========= RENDER: ACCOUNT SELECTOR =========
   if (!selectedAccountId && accounts.length > 0) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-background">
-        
         {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
         <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
           <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
-            
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
               {showTenantLogo ? (
@@ -1725,9 +1498,7 @@ return (
                 </div>
               </div>
             </div>
-
             <div className="flex-1" />
-
             {/* Ações (Direita) */}
             <div className="flex items-center gap-3 sm:gap-4 shrink-0">
               {/* ✅ Suporte do Sistema Seguro */}
@@ -1748,7 +1519,6 @@ return (
                 </div>
               </a>
             )}
-              
               <button 
               onClick={() => { clearStoredSession(); router.push("/"); }}
               className="text-white/50 hover:text-rose-500 transition-colors"
@@ -1757,10 +1527,8 @@ return (
               <IconLogout />
             </button>
             </div>
-
           </div>
         </div>
-
         {/* --- CORPO DA PÁGINA --- */}
         <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <div className="mb-4 sm:mb-6">
@@ -1769,7 +1537,6 @@ return (
             </h1>
             <p className="text-slate-500 dark:text-white/60 text-sm mt-1">Qual conta você deseja gerenciar hoje?</p>
           </div>
-
           {/* Busca (Opcional) */}
           {accounts.length > 3 && (
             <div className="mb-4 sm:mb-6 relative">
@@ -1783,7 +1550,6 @@ return (
               />
             </div>
           )}
-
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
           <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
@@ -1813,7 +1579,6 @@ return (
                         {account.server_username}
                       </span>
                     </div>
-
                     {/* Linha 2: Servidor + Telas (Esq) | Plano (Dir) */}
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-medium text-slate-500 dark:text-white/60 truncate">
@@ -1823,7 +1588,6 @@ return (
                         {account.plan_label}
                       </div>
                     </div>
-
                     {/* Linha 3: Vencimento (Centralizado) */}
                     <div className={`w-full text-center py-2 rounded-lg border ${
                       time?.expired 
@@ -1841,7 +1605,6 @@ return (
       </div>
     );
   }
-
   // ========= RENDER: NO ACCOUNTS =========
   if (accounts.length === 0) {
     return (
@@ -1852,17 +1615,13 @@ return (
       </div>
     );
   }
-
   // ========= RENDER: MAIN PAGE =========
   if (!selectedAccount) return null;
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background">
-      
 {/* --- TOPO FIXO IDÊNTICO AO SEU ADMIN --- */}
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
         <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2">
-          
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Botão de Voltar para a Tela 1 */}
             <button
@@ -1872,7 +1631,6 @@ return (
             >
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
-            
             {showTenantLogo ? (
               <img src={tenantBrand!.logo_url!} alt="Logo" className="h-10 w-auto max-w-[140px] object-contain select-none" />
             ) : (
@@ -1890,9 +1648,7 @@ return (
               </div>
             </div>
           </div>
-
           <div className="flex-1" />
-
           {/* Ações */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* ✅ Suporte do Sistema Seguro */}
@@ -1913,7 +1669,6 @@ return (
                 </div>
               </a>
             )}
-            
             <button 
               onClick={() => { clearStoredSession(); router.push("/"); }}
               className="text-white/50 hover:text-rose-500 transition-colors"
@@ -1924,10 +1679,8 @@ return (
           </div>
         </div>
       </div>
-
 {/* --- CORPO DA PÁGINA --- */}
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 px-3 sm:px-4 py-4 sm:py-6">
-        
         {/* Vencimento Centralizado (Substitui Card Azul) */}
         <div className={`w-full text-center py-3 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             timeRemaining?.expired 
@@ -1948,7 +1701,6 @@ return (
                </span>
             </div>
         </div>
-
         {/* Card de Dados de Acesso */}
         <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
           <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
@@ -1991,13 +1743,11 @@ return (
             </div>
           </div>
         </div>
-
 {/* Seção de Planos */}
         <div className="bg-white dark:bg-card rounded-xl shadow-sm border border-slate-200 dark:border-border overflow-hidden">
           <div className="bg-slate-50 dark:bg-white/5 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 dark:border-border">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">💰 Escolha o Plano</h2>
           </div>
-
           <div className="p-3 sm:p-4 space-y-3">
             {/* Plano Atual */}
             {(() => {
@@ -2031,12 +1781,10 @@ return (
                 </button>
               );
             })()}
-
             {/* ✅ PLANO ESCOLHIDO (Se não for o Atual e a sanfona estiver FECHADA) */}
             {(() => {
                 const currentPrice = availablePrices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
                 const isSelectedNotCurrent = selectedPeriod !== currentPrice?.period;
-                
                 if (!showOtherPlans && isSelectedNotCurrent && selectedPrice) {
                     return (
                         <button
@@ -2065,7 +1813,6 @@ return (
                 }
                 return null;
             })()}
-
             {/* Botão para Mostrar/Esconder as Ofertas */}
             {availablePrices.filter((p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label).length > 0 && (
               <button
@@ -2076,7 +1823,6 @@ return (
                 <svg className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
             )}
-
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
@@ -2094,13 +1840,10 @@ return (
                       const currentMonths = PERIOD_MONTHS[Object.keys(PERIOD_LABELS).find((k) => PERIOD_LABELS[k] === selectedAccount.plan_label) || "MONTHLY"] || 1;
                       return currentPrice.price_amount / currentMonths;
                     })();
-
                     const thisMonthlyEquiv = price.price_amount / months;
                     const diffPercent = currentMonthlyEquiv > 0 ? Math.round(((thisMonthlyEquiv - currentMonthlyEquiv) / currentMonthlyEquiv) * 100 * 10) / 10 : 0;
-
                     const isSelected = selectedPeriod === price.period;
                     const isCheaper = diffPercent < 0;
-
                     return (
                       <button
                         key={price.period}
@@ -2139,11 +1882,9 @@ return (
             )}
           </div>
         </div>
-
         {/* Botão Concluir */}
         {(() => {
           const renewPrice = selectedPrice && selectedPrice.price_amount > 0 ? selectedPrice : prices.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label);
-
           return (
             <button
               onClick={handleRenew}
@@ -2166,17 +1907,14 @@ return (
             </button>
           );
         })()}
-
         {/* Seletor de Método */}
         {MethodSelectorModal()}
-
        {/* Modal de Pagamento */}
         {PaymentModal()}
       </div>
     </div>
   );
 }
-
 // --- ÍCONES ---
 function IconEdit() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function IconWhatsapp() {
@@ -2195,4 +1933,3 @@ function IconLogout() {
     </svg>
   );
 }
-

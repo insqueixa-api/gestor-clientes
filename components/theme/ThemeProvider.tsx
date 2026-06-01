@@ -1,18 +1,13 @@
 "use client";
-
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-
 export type AppTheme = "light" | "dark";
-
 type ThemeCtx = {
   theme: AppTheme;
   setTheme: (t: AppTheme) => void;
   toggleTheme: () => void;
   openWhatsApp: (phone: string, message: string) => void;
 };
-
 const ThemeContext = createContext<ThemeCtx | null>(null);
-
 /**
  * Aplica o tema no elemento raiz para que os tokens do theme.css 
  * e as classes dark: do Tailwind funcionem perfeitamente.
@@ -20,7 +15,6 @@ const ThemeContext = createContext<ThemeCtx | null>(null);
 function applyTheme(t: AppTheme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = t;
-  
   // Garante que a classe 'dark' também seja alternada para suporte total ao Tailwind
   if (t === "dark") {
     document.documentElement.classList.add("dark");
@@ -28,7 +22,6 @@ function applyTheme(t: AppTheme) {
     document.documentElement.classList.remove("dark");
   }
 }
-
 export function ThemeProvider({
   children,
   defaultTheme = "light",
@@ -38,7 +31,6 @@ export function ThemeProvider({
 }) {
   const [theme, setThemeState] = useState<AppTheme>(defaultTheme);
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     const stored = localStorage.getItem("app_theme") as AppTheme;
     const initial = stored || defaultTheme;
@@ -46,7 +38,6 @@ export function ThemeProvider({
     applyTheme(initial);
     setMounted(true);
   }, [defaultTheme]);
-
   const api = useMemo<ThemeCtx>(() => {
     return {
       theme,
@@ -67,13 +58,10 @@ export function ThemeProvider({
       }
     };
   }, [theme]);
-
   return <ThemeContext.Provider value={api}>{children}</ThemeContext.Provider>;
 }
-
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  
   // Fallback seguro para evitar que o projeto quebre se o hook for chamado fora do Provider
   // Mantida a correção para o setTheme conforme seu ajuste anterior
   return ctx || { 
