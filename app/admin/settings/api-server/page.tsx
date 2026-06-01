@@ -324,11 +324,13 @@ export default function ApiServerPage() {
   return (
     <div className="space-y-6 pt-3 pb-6 px-3 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* Topo */}
-      <div className="flex items-center justify-between gap-2 pb-0 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-            API de Integrações
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              API de Integrações
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">

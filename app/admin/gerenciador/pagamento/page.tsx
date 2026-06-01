@@ -1254,10 +1254,12 @@ export default function PagamentosPage() {
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* HEADER (padrão Clientes/Trials) */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
-            Pagamentos
-          </h1>
+        <div className="min-w-0 text-left">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate text-slate-800 dark:text-white">
+              Pagamentos
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">

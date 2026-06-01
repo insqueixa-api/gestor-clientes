@@ -1187,12 +1187,14 @@ export default function RevendaPage() {
       onClick={closeAllPopups}
     >
       {/* Topo (Contrato UI: mb-2, pt-0) */}
-      <div className="px-3 sm:px-0 flex items-center justify-between gap-2 pb-0 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         {/* Título */}
         <div className="min-w-0 text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-            Gestão de Revendas
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              Gestão de Revendas
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">

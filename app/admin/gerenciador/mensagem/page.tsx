@@ -322,11 +322,13 @@ export default function MessagesPage() {
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-slate-50 dark:bg-background transition-colors">
       {/* Topo (padrão admin) */}
-      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0 md:px-4">
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
-            Mensagens
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">
+              Mensagens
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">

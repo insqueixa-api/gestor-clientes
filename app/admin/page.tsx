@@ -415,14 +415,16 @@ export default async function AdminDashboardPage({
     .filter((t) => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  const finReceitasTotal = finTrxRows
-    .filter(
-      (t) =>
-        t.tipo === "RECEITA" &&
-        t.data_vencimento >= _finMonthStart &&
-        t.data_vencimento <= _finMonthEnd,
-    )
-    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+  const finReceitasTotal =
+    finTrxRows
+      .filter(
+        (t) =>
+          t.tipo === "RECEITA" &&
+          t.data_vencimento >= _finMonthStart &&
+          t.data_vencimento <= _finMonthEnd,
+      )
+      .reduce((acc, t) => acc + toNumber(t.valor), 0) +
+    toNumber(finance?.to_receive_brl_estimated);
 
   const finDespesasTotal = finTrxRows
     .filter(
@@ -618,10 +620,10 @@ export default async function AdminDashboardPage({
       className="space-y-6 pt-0 pb-6 px-0 sm:px-6 text-zinc-800 dark:text-zinc-200"
     >
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 px-3 sm:px-0">
-        <div>
+      <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
+        <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white tracking-tight truncate">Dashboard</h1>
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
