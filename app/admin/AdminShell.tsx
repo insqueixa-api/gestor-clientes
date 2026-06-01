@@ -395,7 +395,7 @@ export default function AdminShell({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background text-slate-800 dark:text-white transition-colors duration-200">
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 px-2 sm:px-6 lg:px-8 py-2">
+        <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
 
           <div className="flex items-center gap-4">
             <Link
@@ -547,7 +547,7 @@ export default function AdminShell({
         )
       }
 
-      <main className="mx-auto w-full max-w-screen-2xl px-2 sm:px-6 lg:px-8 pt-2 pb-6 animate-in fade-in duration-500">
+      <main className="mx-auto w-full px-0 sm:px-2 pt-2 pb-6 animate-in fade-in duration-500">
         {children}
       </main>
 
