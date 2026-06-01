@@ -62,29 +62,55 @@ export default function RecargaServidorModal({ server, onClose, onSuccess, onErr
       try {
         const tenantId = await getCurrentTenantId();
         const { data } = await supabaseBrowser
-          .from("server_credit_purchases")
-          .select("credits_qty, unit_price_brl, purchase_currency, fx_rate_to_brl")
-          .eq("tenant_id", tenantId)
-          .eq("server_id", server.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+  .from("server_credit_purchases")
+  .select("*")
+  .eq("tenant_id", tenantId)
+  .eq("server_id", server.id)
+  .order("created_at", { ascending: false })
+  .limit(1)
+  .maybeSingle();
 
-        if (data) {
-          if (data.credits_qty) setQty(String(data.credits_qty));
-          if (data.purchase_currency) setCurrency(data.purchase_currency);
-          if (data.unit_price_brl != null && data.purchase_currency) {
-            // unit_price_brl está em BRL — se moeda não era BRL, converte de volta
-            const fx = Number(data.fx_rate_to_brl || 1);
-            const unitOriginal = data.purchase_currency !== "BRL" && fx > 0
-              ? data.unit_price_brl / fx
-              : data.unit_price_brl;
-            setUnitCost(Number(unitOriginal).toFixed(4).replace(/\.?0+$/, ""));
-          }
-          if (data.fx_rate_to_brl && data.purchase_currency !== "BRL") {
-            setFxRate(String(data.fx_rate_to_brl));
-          }
-        }
+if (data) {
+  // qty — tenta os nomes possíveis
+  const qty =
+    data.credits_qty ??
+    data.qty_credits ??
+    data.quantity ??
+    null;
+  if (qty != null && Number(qty) > 0) setQty(String(qty));
+
+  // moeda
+  const cur = data.purchase_currency ?? data.currency ?? null;
+  if (cur) setCurrency(cur);
+
+  // unit price — tenta as colunas possíveis
+  // unit_price_brl é em BRL, precisa reverter se moeda não era BRL
+  const unitBrl =
+    data.unit_price_brl ??
+    data.unit_price ??
+    null;
+
+  if (unitBrl != null) {
+    const fx = Number(data.fx_rate_to_brl ?? data.fx_rate ?? 1);
+    const curFinal = cur ?? "BRL";
+    const unitOriginal =
+      curFinal !== "BRL" && fx > 0
+        ? Number(unitBrl) / fx
+        : Number(unitBrl);
+    setUnitCost(
+      Number(unitOriginal)
+        .toFixed(6)
+        .replace(/\.?0+$/, "")
+    );
+  }
+
+  // câmbio
+  const fx = data.fx_rate_to_brl ?? data.fx_rate ?? null;
+  const curFinal = cur ?? "BRL";
+  if (fx && curFinal !== "BRL") {
+    setFxRate(String(fx));
+  }
+}
       } catch (e) {
         // silencioso — se falhar, mantém os defaults
       }
